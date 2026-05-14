@@ -25,3 +25,4 @@
 - 新增 `PP_REPOSITORY_MODE`、PostgreSQL、Redis 配置骨架与示例环境变量
 - 新增 PostgreSQL 账号/玩家/宠物仓储适配器，以及 Redis `ws_token` 仓储适配器骨架
 - 新增仓储 provider 装配层，默认仍走内存模式，并预留 `postgres_redis` 模式的依赖注入入口
+- 新增 `backend/server/configs/config.env` 实际配置文件，并支持启动时自动加载本地 env 文件

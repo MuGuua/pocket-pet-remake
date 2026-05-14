@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -22,13 +23,22 @@ type App struct {
 	server         *http.Server
 	sessionService *session.Service
 	logger         *log.Logger
+	cleanupClosers []io.Closer
 }
 
 func New(cfg config.Config, logger *log.Logger) (*App, error) {
-	return NewWithDependencies(cfg, logger, provider.Dependencies{})
+	deps, closers, err := provider.OpenDependencies(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newApp(cfg, logger, deps, closers)
 }
 
 func NewWithDependencies(cfg config.Config, logger *log.Logger, deps provider.Dependencies) (*App, error) {
+	return newApp(cfg, logger, deps, nil)
+}
+
+func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, closers []io.Closer) (*App, error) {
 	repos, err := provider.NewConfiguredBundle(cfg, deps)
 	if err != nil {
 		return nil, err
@@ -58,10 +68,12 @@ func NewWithDependencies(cfg config.Config, logger *log.Logger, deps provider.De
 		server:         server,
 		sessionService: sessionService,
 		logger:         logger,
+		cleanupClosers: closers,
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
+	defer a.closeResources()
 	go a.sessionService.StartSweeper(ctx)
 
 	errCh := make(chan error, 1)
@@ -80,5 +92,16 @@ func (a *App) Run(ctx context.Context) error {
 			return nil
 		}
 		return err
+	}
+}
+
+func (a *App) closeResources() {
+	for _, closer := range a.cleanupClosers {
+		if closer == nil {
+			continue
+		}
+		if err := closer.Close(); err != nil {
+			a.logger.Printf("close resource: %v", err)
+		}
 	}
 }

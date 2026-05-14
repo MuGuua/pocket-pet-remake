@@ -45,3 +45,4 @@
 - 新增 Redis 版 `ws_token` 仓储适配器，使用 key 前缀和一次性消费语义预留真实接入点
 - 新增 provider 装配层，统一管理 memory 与 `postgres_redis` 两种仓储模式的依赖绑定
 - 当前 `postgres_redis` 模式只完成骨架与接口约束，真实数据库连接、Redis 客户端初始化和驱动导入仍是下一步工作
+- 新增 `config.env` 自动加载能力，后续只需要改 `backend/server/configs/config.env` 和切换 `PP_REPOSITORY_MODE` 即可接入真实服务

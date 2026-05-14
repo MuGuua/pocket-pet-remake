@@ -14,6 +14,12 @@ import (
 func main() {
 	logger := logx.New()
 
+	if loadedPath, err := config.LoadDefaultEnvFiles(); err != nil {
+		logger.Fatalf("load env file: %v", err)
+	} else if loadedPath != "" {
+		logger.Printf("loaded config env file: %s", loadedPath)
+	}
+
 	cfg, err := config.LoadFromEnv()
 	if err != nil {
 		logger.Fatalf("load config: %v", err)
