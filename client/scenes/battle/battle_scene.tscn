@@ -28,9 +28,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -124.0
-offset_top = -86.0
+offset_top = -98.0
 offset_right = 124.0
-offset_bottom = 86.0
+offset_bottom = 98.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -98,8 +98,20 @@ horizontal_alignment = 1
 text = "操作将提交给服务端处理。"
 theme_override_font_sizes/font_size = 11
 
-[node name="AttackButton" type="Button" parent="CenterCard/VBox"]
+[node name="SkillButtons" type="HBoxContainer" parent="CenterCard/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PrimarySkillButton" type="Button" parent="CenterCard/VBox/SkillButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
 layout_mode = 2
 text = "普通攻击"
+
+[node name="SecondarySkillButton" type="Button" parent="CenterCard/VBox/SkillButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "技能2"

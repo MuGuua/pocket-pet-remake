@@ -82,7 +82,7 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 			level:     leadPet.Level,
 			hp:        leadPet.HP,
 			hpMax:     leadPet.HPMax,
-			skillIDs:  []uint32{DefaultAttackSkillID},
+			skillIDs:  []uint32{DefaultAttackSkillID, 1002},
 		},
 		enemy: actorRuntime{
 			actorID:   enemy.EntityID + 100000,
@@ -93,7 +93,7 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 			level:     1 + profile.Level,
 			hp:        18 + uint32(profile.Level)*4,
 			hpMax:     18 + uint32(profile.Level)*4,
-			skillIDs:  []uint32{DefaultEnemySkillID},
+			skillIDs:  []uint32{DefaultEnemySkillID, 90002},
 		},
 	}
 	s.activeByPlayer[profile.PlayerID] = battle
@@ -149,6 +149,10 @@ func (s *Service) resolveSkillActionLocked(playerID uint64, battle *activeBattle
 	if skillID == 0 {
 		skillID = DefaultAttackSkillID
 	}
+	playerSkill, ok := getSkillDef(skillID)
+	if !ok || !battle.ally.hasSkill(skillID) {
+		return nil, ErrInvalidAction
+	}
 
 	events := []Event{
 		{
@@ -159,7 +163,7 @@ func (s *Service) resolveSkillActionLocked(playerID uint64, battle *activeBattle
 		},
 	}
 
-	playerDamage := int32(6 + maxInt(int(battle.ally.level), 1))
+	playerDamage := playerSkill.damageForLevel(battle.ally.level)
 	actualPlayerDamage := clampDamage(playerDamage, battle.enemy.hp)
 	battle.enemy.hp -= uint32(actualPlayerDamage)
 	events = append(events, Event{
@@ -188,20 +192,26 @@ func (s *Service) resolveSkillActionLocked(playerID uint64, battle *activeBattle
 		}, nil
 	}
 
-	enemyDamage := int32(3 + int32(battle.round))
+	enemySkillID := battle.enemy.nextSkillIDForRound(battle.round)
+	enemySkill, ok := getSkillDef(enemySkillID)
+	if !ok {
+		enemySkillID = DefaultEnemySkillID
+		enemySkill, _ = getSkillDef(enemySkillID)
+	}
+	enemyDamage := enemySkill.damageForLevel(battle.enemy.level)
 	actualEnemyDamage := clampDamage(enemyDamage, battle.ally.hp)
 	events = append(events, Event{
 		EventType: EventTypeUseSkill,
 		SourceID:  battle.enemy.actorID,
 		TargetID:  battle.ally.actorID,
-		SkillID:   DefaultEnemySkillID,
+		SkillID:   enemySkillID,
 	})
 	battle.ally.hp -= uint32(actualEnemyDamage)
 	events = append(events, Event{
 		EventType: EventTypeDamage,
 		SourceID:  battle.enemy.actorID,
 		TargetID:  battle.ally.actorID,
-		SkillID:   DefaultEnemySkillID,
+		SkillID:   enemySkillID,
 		Value:     actualEnemyDamage,
 	})
 
@@ -279,6 +289,31 @@ func (a actorRuntime) toSnapshot() ActorSnapshot {
 		HPMax:     a.hpMax,
 		SkillIDs:  skills,
 	}
+}
+
+func (a actorRuntime) hasSkill(skillID uint32) bool {
+	for _, candidate := range a.skillIDs {
+		if candidate == skillID {
+			return true
+		}
+	}
+	return false
+}
+
+func (a actorRuntime) nextSkillIDForRound(round uint32) uint32 {
+	if len(a.skillIDs) == 0 {
+		return DefaultEnemySkillID
+	}
+	index := int((round - 1) % uint32(len(a.skillIDs)))
+	return a.skillIDs[index]
+}
+
+func (s skillDef) damageForLevel(level uint32) int32 {
+	if s.FixedDamage > 0 {
+		return s.FixedDamage
+	}
+	levelFactor := maxInt(int(level), 1)
+	return s.BaseDamage + int32(levelFactor)*s.LevelBonus
 }
 
 func clampDamage(damage int32, currentHP uint32) int32 {

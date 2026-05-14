@@ -333,6 +333,9 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if len(start.Allies) != 1 || len(start.Enemies) != 1 {
 		t.Fatalf("unexpected actor counts allies=%d enemies=%d", len(start.Allies), len(start.Enemies))
 	}
+	if len(start.Allies[0].SkillIDs) != 2 {
+		t.Fatalf("len(start.Allies[0].SkillIDs) = %d, want 2", len(start.Allies[0].SkillIDs))
+	}
 
 	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
 		OpID:       1,
@@ -340,7 +343,7 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 		Round:      start.Round,
 		ActionType: battle.ActionTypeSkill,
 		ActorID:    start.Allies[0].ActorID,
-		SkillID:    battle.DefaultAttackSkillID,
+		SkillID:    start.Allies[0].SkillIDs[0],
 		TargetID:   start.Enemies[0].ActorID,
 	})
 	if err != nil {
@@ -371,7 +374,7 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 		Round:      state.Round,
 		ActionType: battle.ActionTypeSkill,
 		ActorID:    start.Allies[0].ActorID,
-		SkillID:    battle.DefaultAttackSkillID,
+		SkillID:    start.Allies[0].SkillIDs[1],
 		TargetID:   start.Enemies[0].ActorID,
 	})
 	if err != nil {

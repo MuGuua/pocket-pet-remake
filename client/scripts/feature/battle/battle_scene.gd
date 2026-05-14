@@ -1,5 +1,12 @@
 extends Control
 
+const SKILL_LABELS := {
+    1001: "普通攻击",
+    1002: "火花冲击",
+    90001: "野性撞击",
+    90002: "利爪突袭",
+}
+
 @onready var title_label: Label = %TitleLabel
 @onready var summary_label: Label = %SummaryLabel
 @onready var ally_label: Label = %AllyLabel
@@ -7,19 +14,28 @@ extends Control
 @onready var detail_label: Label = %DetailLabel
 @onready var hint_label: Label = %HintLabel
 @onready var action_status_label: Label = %ActionStatusLabel
-@onready var attack_button: Button = %AttackButton
+@onready var primary_skill_button: Button = %PrimarySkillButton
+@onready var secondary_skill_button: Button = %SecondarySkillButton
+
+var _is_action_pending: bool = false
+var _battle_controller: Node
 
 func _ready() -> void:
+    _battle_controller = get_node_or_null("../../BattleController")
     GameState.battle_changed.connect(_refresh_view)
-    if attack_button != null:
-        attack_button.pressed.connect(_on_attack_button_pressed)
+    if _battle_controller != null and _battle_controller.has_signal("action_responded"):
+        _battle_controller.connect("action_responded", Callable(self, "_on_action_responded"))
+    _bind_skill_buttons()
     _refresh_view()
 
 func _exit_tree() -> void:
     if GameState.battle_changed.is_connected(_refresh_view):
         GameState.battle_changed.disconnect(_refresh_view)
+    if _battle_controller != null and _battle_controller.has_signal("action_responded") and _battle_controller.is_connected("action_responded", Callable(self, "_on_action_responded")):
+        _battle_controller.disconnect("action_responded", Callable(self, "_on_action_responded"))
 
 func _refresh_view() -> void:
+    _is_action_pending = false
     title_label.text = "战斗中" if GameState.is_in_battle else "战斗结算"
 
     var battle_id := str(GameState.battle_state.get("battle_id", "未分配"))
@@ -47,23 +63,33 @@ func _refresh_view() -> void:
     if not GameState.is_in_battle:
         hint_label.text = "收到战斗结果，正在返回世界场景。"
         action_status_label.text = "战斗已结束。"
-    if attack_button != null:
-        attack_button.disabled = not GameState.is_in_battle or _first_actor("allies").is_empty() or _first_actor("enemies").is_empty()
+    _refresh_skill_buttons()
 
-func _on_attack_button_pressed() -> void:
+func _on_skill_button_pressed(skill_id: int) -> void:
     var ally := _first_actor("allies")
     var enemy := _first_actor("enemies")
-    if ally.is_empty() or enemy.is_empty():
+    if ally.is_empty() or enemy.is_empty() or _is_action_pending:
         action_status_label.text = "缺少可用战斗目标。"
         return
 
-    action_status_label.text = "已提交攻击指令，等待服务端结算。"
+    _is_action_pending = true
+    action_status_label.text = "已提交 `%s` 指令，等待服务端结算。" % _skill_label(skill_id)
+    _refresh_skill_buttons()
     App.submit_battle_action(
         int(GameState.battle_state.get("battle_id", 0)),
         int(GameState.battle_state.get("round", 1)),
         int(ally.get("actor_id", 0)),
-        int(enemy.get("actor_id", 0))
+        int(enemy.get("actor_id", 0)),
+        1,
+        skill_id
     )
+
+func _on_action_responded(accepted: bool, reason: String) -> void:
+    if accepted:
+        return
+    _is_action_pending = false
+    action_status_label.text = "服务端拒绝动作: %s" % reason
+    _refresh_skill_buttons()
 
 func _first_actor(group_key: String) -> Dictionary:
     var actors_variant: Variant = GameState.battle_state.get(group_key, [])
@@ -94,10 +120,46 @@ func _build_actor_text(actor: Dictionary, state: Dictionary) -> String:
 func _format_event(event_payload: Dictionary) -> String:
     var event_type := int(event_payload.get("event_type", 0))
     var value := int(event_payload.get("value", 0))
+    var skill_label := _skill_label(int(event_payload.get("skill_id", 0)))
     match event_type:
         1:
-            return "服务端已执行一次技能动作。"
+            return "服务端已执行 `%s`。" % skill_label
         2:
-            return "服务端结算伤害 %d。" % value
+            return "服务端用 `%s` 结算伤害 %d。" % [skill_label, value]
         _:
             return "服务端同步了新的战斗事件。"
+
+func _bind_skill_buttons() -> void:
+    if primary_skill_button != null:
+        primary_skill_button.pressed.connect(func() -> void: _on_skill_button_pressed(int(primary_skill_button.get_meta("skill_id", 0))))
+    if secondary_skill_button != null:
+        secondary_skill_button.pressed.connect(func() -> void: _on_skill_button_pressed(int(secondary_skill_button.get_meta("skill_id", 0))))
+
+func _refresh_skill_buttons() -> void:
+    var ally := _first_actor("allies")
+    var skills_variant: Variant = ally.get("skill_ids", [])
+    var skill_ids: Array[int] = []
+    if skills_variant is Array:
+        for skill_id_variant in skills_variant:
+            skill_ids.append(int(skill_id_variant))
+
+    _apply_skill_button(primary_skill_button, skill_ids, 0)
+    _apply_skill_button(secondary_skill_button, skill_ids, 1)
+
+func _apply_skill_button(button: Button, skill_ids: Array[int], index: int) -> void:
+    if button == null:
+        return
+    if index >= skill_ids.size():
+        button.visible = false
+        button.disabled = true
+        button.set_meta("skill_id", 0)
+        return
+
+    var skill_id := skill_ids[index]
+    button.visible = true
+    button.text = _skill_label(skill_id)
+    button.set_meta("skill_id", skill_id)
+    button.disabled = not GameState.is_in_battle or _first_actor("enemies").is_empty() or _is_action_pending
+
+func _skill_label(skill_id: int) -> String:
+    return str(SKILL_LABELS.get(skill_id, "技能%d" % skill_id))

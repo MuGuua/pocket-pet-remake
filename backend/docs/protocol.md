@@ -343,7 +343,7 @@
       "name": "DemoTrainer 的主战宠",
       "hp": 32,
       "hp_max": 32,
-      "skill_ids": [1001]
+      "skill_ids": [1001, 1002]
     }
   ],
   "enemies": [
@@ -355,12 +355,18 @@
       "name": "GuideNPC",
       "hp": 22,
       "hp_max": 22,
-      "skill_ids": [90001]
+      "skill_ids": [90001, 90002]
     }
   ],
   "round": 1
 }
 ```
+
+说明：
+
+- `skill_ids` 仅表示当前角色可提交的技能意图列表
+- 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
+- 客户端只负责展示按钮和发送 `skill_id`
 
 ### 4012 BATTLE_STATE_PUSH
 
