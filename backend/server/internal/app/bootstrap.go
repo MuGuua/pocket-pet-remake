@@ -19,6 +19,8 @@ import (
 	wstransport "pocket-pet-remake/server/internal/transport/ws"
 )
 
+// App is the main application struct.
+// It holds the HTTP server, session service, logger, and cleanup closers.
 type App struct {
 	server         *http.Server
 	sessionService *session.Service
