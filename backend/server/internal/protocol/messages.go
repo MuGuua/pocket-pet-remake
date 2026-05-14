@@ -86,6 +86,15 @@ type MoveIntentResp struct {
 	Reason       string `json:"reason"`
 }
 
+type InteractReq struct {
+	EntityID uint64 `json:"entity_id"`
+}
+
+type InteractResp struct {
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
+}
+
 type EntityMovePush struct {
 	SceneVersion uint32 `json:"scene_version"`
 	EntityID     uint64 `json:"entity_id"`
@@ -100,4 +109,73 @@ type WorldResyncPush struct {
 	SelfPos        Vec2i         `json:"self_pos"`
 	SceneVersion   uint32        `json:"scene_version"`
 	NearbyEntities []EntityBrief `json:"nearby_entities"`
+}
+
+type BattleActorSnapshot struct {
+	ActorID   uint64   `json:"actor_id"`
+	ActorType uint32   `json:"actor_type"`
+	PetUID    uint64   `json:"pet_uid"`
+	PetID     uint32   `json:"pet_id"`
+	Name      string   `json:"name"`
+	HP        uint32   `json:"hp"`
+	HPMax     uint32   `json:"hp_max"`
+	SkillIDs  []uint32 `json:"skill_ids"`
+}
+
+type BattleStartPush struct {
+	BattleID      uint64                `json:"battle_id"`
+	BattleType    uint32                `json:"battle_type"`
+	BattleVersion uint32                `json:"battle_version"`
+	Allies        []BattleActorSnapshot `json:"allies"`
+	Enemies       []BattleActorSnapshot `json:"enemies"`
+	Round         uint32                `json:"round"`
+}
+
+type BattleActionReq struct {
+	OpID       uint32 `json:"op_id"`
+	BattleID   uint64 `json:"battle_id"`
+	Round      uint32 `json:"round"`
+	ActionType uint32 `json:"action_type"`
+	ActorID    uint64 `json:"actor_id"`
+	SkillID    uint32 `json:"skill_id"`
+	TargetID   uint64 `json:"target_id"`
+	ItemUID    uint64 `json:"item_uid"`
+	SwitchPet  uint64 `json:"switch_pet_uid"`
+}
+
+type BattleActionResp struct {
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
+}
+
+type BattleEvent struct {
+	EventType uint32 `json:"event_type"`
+	SourceID  uint64 `json:"source_id"`
+	TargetID  uint64 `json:"target_id"`
+	SkillID   uint32 `json:"skill_id"`
+	Value     int32  `json:"value"`
+	StateID   uint32 `json:"state_id"`
+}
+
+type BattleActorState struct {
+	ActorID uint64 `json:"actor_id"`
+	HP      uint32 `json:"hp"`
+	HPMax   uint32 `json:"hp_max"`
+	Dead    bool   `json:"dead"`
+}
+
+type BattleStatePush struct {
+	BattleID      uint64             `json:"battle_id"`
+	BattleVersion uint32             `json:"battle_version"`
+	Round         uint32             `json:"round"`
+	Events        []BattleEvent      `json:"events"`
+	Actors        []BattleActorState `json:"actors"`
+}
+
+type BattleResultPush struct {
+	BattleID      uint64 `json:"battle_id"`
+	Win           bool   `json:"win"`
+	ReturnSceneID uint32 `json:"return_scene_id"`
+	ReturnPos     Vec2i  `json:"return_pos"`
+	Reason        string `json:"reason"`
 }

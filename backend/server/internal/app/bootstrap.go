@@ -11,6 +11,7 @@ import (
 	"pocket-pet-remake/server/internal/config"
 	"pocket-pet-remake/server/internal/data/provider"
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/session"
@@ -51,11 +52,13 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	playerService := player.NewService(repos.Players)
 	petService := pet.NewService(repos.Pets)
 	worldService := world.NewService(repos.World)
+	battleService := battle.NewService()
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, worldService)
-	wsRouter := wstransport.NewRouter(authHandler, worldHandler, sessionService)
+	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, battleService)
+	wsRouter := wstransport.NewRouter(authHandler, worldHandler, battleHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
 	httpHandler := buildHTTPHandler(loginHandler, wsHub)

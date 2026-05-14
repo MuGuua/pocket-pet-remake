@@ -3,22 +3,27 @@ extends CharacterBody2D
 
 signal scene_exit_requested(direction: String)
 
+const STATE_IDLE := "idle"
+const STATE_WALK := "walk"
+const STATE_BATTLE := "battle"
+
 @export var move_speed: float = 100.0
 @export var map_half_size: Vector2 = Vector2(224.0, 160.0)
 @export var exit_margin: float = 12.0
 
 var cardinal_direction: Vector2 = Vector2.DOWN
 var direction: Vector2 = Vector2.ZERO
-var state: String = "idle"
+var state: String = STATE_IDLE
 var _scene_transition_locked: bool = false
+var _battle_locked: bool = false
 
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 
 func _process(_delta: float) -> void:
-	if _scene_transition_locked:
+	if _is_movement_locked():
 		direction = Vector2.ZERO
 		velocity = Vector2.ZERO
-		if _set_state():
+		if _update_state():
 			_update_animation()
 		return
 
@@ -32,7 +37,7 @@ func _process(_delta: float) -> void:
 
 	velocity = direction * move_speed
 
-	if _set_state() or _set_direction():
+	if _update_state() or _set_direction():
 		_update_animation()
 
 func _physics_process(_delta: float) -> void:
@@ -44,7 +49,7 @@ func apply_authoritative_position(local_position: Vector2) -> void:
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO
 	_scene_transition_locked = false
-	if _set_state():
+	if _update_state():
 		_update_animation()
 
 func set_scene_transition_locked(locked: bool) -> void:
@@ -52,8 +57,16 @@ func set_scene_transition_locked(locked: bool) -> void:
 	if locked:
 		velocity = Vector2.ZERO
 		direction = Vector2.ZERO
-		if _set_state():
+		if _update_state():
 			_update_animation()
+
+func set_battle_active(active: bool) -> void:
+	_battle_locked = active
+	if active:
+		velocity = Vector2.ZERO
+		direction = Vector2.ZERO
+	if _update_state():
+		_update_animation()
 
 func snap_inside_bounds(exit_direction: String) -> void:
 	match exit_direction:
@@ -66,12 +79,19 @@ func snap_inside_bounds(exit_direction: String) -> void:
 		"down":
 			position.y = map_half_size.y - exit_margin
 
-func _set_state() -> bool:
-	var new_state: String = "idle" if direction == Vector2.ZERO else "walk"
+func _update_state() -> bool:
+	var new_state := _resolve_state()
 	if new_state == state:
 		return false
 	state = new_state
 	return true
+
+func _resolve_state() -> String:
+	if _battle_locked:
+		return STATE_BATTLE
+	if direction == Vector2.ZERO:
+		return STATE_IDLE
+	return STATE_WALK
 
 func _update_animation() -> void:
 	if animation_player == null:
@@ -80,6 +100,12 @@ func _update_animation() -> void:
 	var animation_name := state + "_" + _direction_suffix()
 	if animation_player.has_animation(animation_name):
 		animation_player.play(animation_name)
+	elif state == STATE_BATTLE:
+		var fallback_animation := STATE_IDLE + "_" + _direction_suffix()
+		if animation_player.has_animation(fallback_animation):
+			animation_player.play(fallback_animation)
+		elif animation_player.has_animation(STATE_IDLE):
+			animation_player.play(STATE_IDLE)
 	elif animation_player.has_animation(state):
 		animation_player.play(state)
 
@@ -107,6 +133,9 @@ func _direction_suffix() -> String:
 	if cardinal_direction == Vector2.LEFT:
 		return "left"
 	return "right"
+
+func _is_movement_locked() -> bool:
+	return _scene_transition_locked or _battle_locked
 
 func _check_scene_exit() -> void:
 	if _scene_transition_locked:

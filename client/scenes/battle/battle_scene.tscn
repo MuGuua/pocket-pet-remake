@@ -1,0 +1,105 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/feature/battle/battle_scene.gd" id="1"]
+
+[node name="BattleScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0470588, 0.0627451, 0.101961, 0.92)
+
+[node name="CenterCard" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -124.0
+offset_top = -86.0
+offset_right = 124.0
+offset_bottom = 86.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterCard"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "战斗中"
+theme_override_font_sizes/font_size = 18
+
+[node name="SummaryLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "战斗ID: 未分配 | 回合: 0"
+theme_override_font_sizes/font_size = 11
+
+[node name="AllyLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "我方: 未同步"
+theme_override_font_sizes/font_size = 11
+
+[node name="EnemyLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "敌方: 未同步"
+theme_override_font_sizes/font_size = 11
+
+[node name="DetailLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "等待服务端同步战斗详情。"
+theme_override_font_sizes/font_size = 11
+
+[node name="HintLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "战斗场景已接管显示，等待服务端继续推进。"
+theme_override_font_sizes/font_size = 11
+
+[node name="ActionStatusLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "操作将提交给服务端处理。"
+theme_override_font_sizes/font_size = 11
+
+[node name="AttackButton" type="Button" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "普通攻击"

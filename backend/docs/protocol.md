@@ -282,3 +282,139 @@
   ]
 }
 ```
+
+### 2031 INTERACT_REQ
+
+当前最小战斗入口使用“与附近 NPC 交互”触发：
+
+```json
+{
+  "entity_id": 90001
+}
+```
+
+### 2032 INTERACT_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "battle started"
+}
+```
+
+### 4001 BATTLE_ACTION_REQ
+
+战斗动作只提交意图，伤害、回合推进和胜负均由服务端结算：
+
+```json
+{
+  "op_id": 1,
+  "battle_id": 70001,
+  "round": 1,
+  "action_type": 1,
+  "actor_id": 20001,
+  "skill_id": 1001,
+  "target_id": 190001
+}
+```
+
+### 4002 BATTLE_ACTION_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "action accepted"
+}
+```
+
+### 4011 BATTLE_START_PUSH
+
+```json
+{
+  "battle_id": 70001,
+  "battle_type": 1,
+  "battle_version": 1,
+  "allies": [
+    {
+      "actor_id": 20001,
+      "actor_type": 1,
+      "pet_uid": 20001,
+      "pet_id": 101,
+      "name": "DemoTrainer 的主战宠",
+      "hp": 32,
+      "hp_max": 32,
+      "skill_ids": [1001]
+    }
+  ],
+  "enemies": [
+    {
+      "actor_id": 190001,
+      "actor_type": 2,
+      "pet_uid": 0,
+      "pet_id": 9001,
+      "name": "GuideNPC",
+      "hp": 22,
+      "hp_max": 22,
+      "skill_ids": [90001]
+    }
+  ],
+  "round": 1
+}
+```
+
+### 4012 BATTLE_STATE_PUSH
+
+```json
+{
+  "battle_id": 70001,
+  "battle_version": 2,
+  "round": 2,
+  "events": [
+    {
+      "event_type": 1,
+      "source_id": 20001,
+      "target_id": 190001,
+      "skill_id": 1001,
+      "value": 0,
+      "state_id": 0
+    },
+    {
+      "event_type": 2,
+      "source_id": 20001,
+      "target_id": 190001,
+      "skill_id": 1001,
+      "value": 11,
+      "state_id": 0
+    }
+  ],
+  "actors": [
+    {
+      "actor_id": 20001,
+      "hp": 28,
+      "hp_max": 32,
+      "dead": false
+    },
+    {
+      "actor_id": 190001,
+      "hp": 11,
+      "hp_max": 22,
+      "dead": false
+    }
+  ]
+}
+```
+
+### 4013 BATTLE_RESULT_PUSH
+
+```json
+{
+  "battle_id": 70001,
+  "win": true,
+  "return_scene_id": 1,
+  "return_pos": {
+    "x": 8,
+    "y": 6
+  },
+  "reason": "enemy defeated"
+}
+```

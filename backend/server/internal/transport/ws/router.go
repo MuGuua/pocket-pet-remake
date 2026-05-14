@@ -11,13 +11,15 @@ import (
 type Router struct {
 	authHandler    *AuthHandler
 	worldHandler   *WorldHandler
+	battleHandler  *BattleHandler
 	sessionService *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, battleHandler *BattleHandler, sessionService *session.Service) *Router {
 	return &Router{
 		authHandler:    authHandler,
 		worldHandler:   worldHandler,
+		battleHandler:  battleHandler,
 		sessionService: sessionService,
 	}
 }
@@ -56,6 +58,16 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.worldHandler.HandleMoveIntent(conn, packet)
+	case protocol.CmdInteractReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleInteract(conn, packet)
+	case protocol.CmdBattleActionReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleBattleAction(conn, packet)
 	default:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

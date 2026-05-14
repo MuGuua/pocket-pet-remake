@@ -1,20 +1,24 @@
 extends Node
 
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
+const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 const TRANSITION_DURATION := 0.18
 
 @onready var world_mount: Node2D = %WorldMount
+@onready var battle_mount: Control = %BattleMount
 @onready var pet_controller: Node = %PetController
 @onready var battle_controller: Node = %BattleController
 @onready var bag_controller: Node = %BagController
 @onready var status_label: Label = %StatusLabel
 @onready var scene_label: Label = %SceneLabel
 @onready var player_label: Label = %PlayerLabel
+@onready var challenge_button: Button = %ChallengeButton
 @onready var log_output: RichTextLabel = %LogOutput
 @onready var transition_overlay: ColorRect = %TransitionOverlay
 
 var _world_controller: Node
+var _battle_scene: Control
 var _redirecting_to_login: bool = false
 
 func _ready() -> void:
@@ -29,6 +33,7 @@ func _ready() -> void:
     _connect_signals()
     _append_log("主场景已就绪。")
     _append_log("正在请求进入世界。")
+    _sync_battle_visibility()
     App.enter_world()
     _refresh_view()
 
@@ -58,11 +63,13 @@ func _register_routes() -> void:
     MessageRouter.register_handler(CommandIds.ENTITY_MOVE_PUSH, Callable(_world_controller, "handle_entity_move"))
     MessageRouter.register_handler(CommandIds.WORLD_RESYNC_PUSH, Callable(_world_controller, "handle_world_resync"))
     MessageRouter.register_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
+    MessageRouter.register_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 
     MessageRouter.register_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
     MessageRouter.register_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
     MessageRouter.register_handler(CommandIds.PET_LINEUP_SET_RESP, Callable(pet_controller, "handle_lineup_set_response"))
 
+    MessageRouter.register_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
     MessageRouter.register_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
     MessageRouter.register_handler(CommandIds.BATTLE_STATE_PUSH, Callable(battle_controller, "handle_battle_state"))
     MessageRouter.register_handler(CommandIds.BATTLE_RESULT_PUSH, Callable(battle_controller, "handle_battle_result"))
@@ -80,9 +87,11 @@ func _unregister_routes() -> void:
     MessageRouter.unregister_handler(CommandIds.ENTITY_MOVE_PUSH, Callable(_world_controller, "handle_entity_move"))
     MessageRouter.unregister_handler(CommandIds.WORLD_RESYNC_PUSH, Callable(_world_controller, "handle_world_resync"))
     MessageRouter.unregister_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
+    MessageRouter.unregister_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
     MessageRouter.unregister_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
     MessageRouter.unregister_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
     MessageRouter.unregister_handler(CommandIds.PET_LINEUP_SET_RESP, Callable(pet_controller, "handle_lineup_set_response"))
+    MessageRouter.unregister_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
     MessageRouter.unregister_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
     MessageRouter.unregister_handler(CommandIds.BATTLE_STATE_PUSH, Callable(battle_controller, "handle_battle_state"))
     MessageRouter.unregister_handler(CommandIds.BATTLE_RESULT_PUSH, Callable(battle_controller, "handle_battle_result"))
@@ -92,9 +101,21 @@ func _unregister_routes() -> void:
 func _connect_signals() -> void:
     App.notice_received.connect(_on_notice_received)
     App.kicked.connect(_on_kicked)
+    challenge_button.pressed.connect(_on_challenge_button_pressed)
+
+    if battle_controller.has_signal("interact_responded"):
+        battle_controller.connect("interact_responded", Callable(self, "_on_interact_responded"))
+    if battle_controller.has_signal("action_responded"):
+        battle_controller.connect("action_responded", Callable(self, "_on_action_responded"))
+    if battle_controller.has_signal("battle_started"):
+        battle_controller.connect("battle_started", Callable(self, "_on_battle_started"))
+    if battle_controller.has_signal("battle_finished"):
+        battle_controller.connect("battle_finished", Callable(self, "_on_battle_finished"))
 
     GameState.session_changed.connect(_refresh_view)
     GameState.world_snapshot_changed.connect(_refresh_view)
+    GameState.battle_changed.connect(_sync_battle_visibility)
+    GameState.battle_changed.connect(_refresh_view)
     NetClient.connection_state_changed.connect(_on_connection_state_changed)
     NetClient.websocket_closed.connect(_on_websocket_closed)
 
@@ -128,6 +149,26 @@ func _on_scene_transition_requested(from_scene_id: int, to_scene_id: int) -> voi
 func _on_scene_transition_failed(reason: String) -> void:
     _append_log("地图切换失败: %s" % reason)
 
+func _on_interact_responded(accepted: bool, reason: String) -> void:
+    _append_log("交互结果: %s (%s)" % ["accepted" if accepted else "rejected", reason])
+    _refresh_view()
+
+func _on_action_responded(accepted: bool, reason: String) -> void:
+    _append_log("战斗动作结果: %s (%s)" % ["accepted" if accepted else "rejected", reason])
+
+func _on_battle_started(payload: Dictionary) -> void:
+    _append_log("进入战斗场景。")
+    _mount_battle_scene()
+    _sync_battle_visibility()
+    if payload.has("battle_id"):
+        _append_log("战斗ID: %s" % str(payload.get("battle_id", "")))
+
+func _on_battle_finished(_payload: Dictionary) -> void:
+    _append_log("战斗结束，返回世界场景。")
+    _sync_battle_visibility()
+    _unmount_battle_scene()
+    _refresh_view()
+
 func _on_websocket_closed(code: int, reason: String) -> void:
     if code == -1 and reason.is_empty():
         return
@@ -136,6 +177,13 @@ func _on_websocket_closed(code: int, reason: String) -> void:
         _return_to_login_scene()
 
 func _refresh_view() -> void:
+    if GameState.is_in_battle:
+        status_label.text = "连接状态: %s | 战斗中" % NetClient.get_connection_state()
+        scene_label.text = "场景: Battle"
+        player_label.text = "玩家: %s" % str(GameState.player_snapshot.get("name", "未登录"))
+        challenge_button.disabled = true
+        return
+
     status_label.text = "连接状态: %s | HTTP: %s | WS: %s" % [
         NetClient.get_connection_state(),
         _short_token(GameState.access_jwt),
@@ -155,9 +203,45 @@ func _refresh_view() -> void:
             float(GameState.player_snapshot.get("y", 0.0)),
         ]
     player_label.text = "玩家: %s" % player_text
+    challenge_button.disabled = GameState.nearby_entities.is_empty()
+    challenge_button.text = "挑战附近NPC" if not GameState.nearby_entities.is_empty() else "附近无NPC"
 
 func _append_log(message: String) -> void:
     log_output.append_text(message + "\n")
+
+func _mount_battle_scene() -> void:
+    if _battle_scene != null:
+        return
+    _battle_scene = BATTLE_SCENE.instantiate() as Control
+    if _battle_scene == null:
+        return
+    battle_mount.add_child(_battle_scene)
+
+func _unmount_battle_scene() -> void:
+    if _battle_scene == null:
+        return
+    _battle_scene.queue_free()
+    _battle_scene = null
+
+func _sync_battle_visibility() -> void:
+    var active := GameState.is_in_battle
+    if active:
+        _mount_battle_scene()
+    world_mount.visible = not active
+    battle_mount.visible = active
+
+func _on_challenge_button_pressed() -> void:
+    if GameState.is_in_battle:
+        return
+    var entity_ids := GameState.nearby_entities.keys()
+    if entity_ids.is_empty():
+        _append_log("附近没有可挑战的NPC。")
+        _refresh_view()
+        return
+    entity_ids.sort()
+    var entity_id := int(entity_ids[0])
+    _append_log("向服务端发起挑战，目标实体: %d" % entity_id)
+    App.request_interact(entity_id)
 
 func _return_to_login_scene() -> void:
     if _redirecting_to_login:

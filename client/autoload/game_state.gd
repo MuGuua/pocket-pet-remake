@@ -21,6 +21,7 @@ var pets: Array = []
 var lineup: Array = []
 var bag_items: Array = []
 var battle_state: Dictionary = {}
+var is_in_battle: bool = false
 
 func reset_session_state() -> void:
     access_jwt = ""
@@ -42,6 +43,7 @@ func reset_runtime_state() -> void:
     lineup = []
     bag_items = []
     battle_state = {}
+    is_in_battle = false
     world_snapshot_changed.emit()
     pets_changed.emit()
     bag_changed.emit()
@@ -185,6 +187,16 @@ func upsert_bag_item(item: Dictionary) -> void:
     bag_items.append(item.duplicate(true))
     bag_changed.emit()
 
-func set_battle_state(next_state: Dictionary) -> void:
-    battle_state = next_state.duplicate(true)
+func set_battle_state(next_state: Dictionary, active: bool = true) -> void:
+    var merged_state: Dictionary = battle_state.duplicate(true) if active else {}
+    merged_state.merge(next_state, true)
+    if next_state.has("actors") and not merged_state.has("actors"):
+        merged_state["actors"] = []
+    battle_state = merged_state
+    is_in_battle = active
+    battle_changed.emit()
+
+func clear_battle_state() -> void:
+    battle_state = {}
+    is_in_battle = false
     battle_changed.emit()

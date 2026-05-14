@@ -42,6 +42,8 @@ func _ready() -> void:
 	local_player_anchor.position = PLAYER_ANCHOR_POSITION
 	if local_player != null and local_player.has_signal("scene_exit_requested"):
 		local_player.connect("scene_exit_requested", Callable(self, "_on_local_player_scene_exit_requested"))
+	GameState.battle_changed.connect(_sync_local_player_battle_state)
+	_sync_local_player_battle_state()
 
 func handle_enter_world(payload: Dictionary) -> void:
 	GameState.set_world_snapshot(payload)
@@ -122,6 +124,8 @@ func _apply_authoritative_snapshot() -> void:
 	var local_position := _server_to_local_position(scene_id, self_pos)
 	if local_player != null and local_player.has_method("apply_authoritative_position"):
 		local_player.call("apply_authoritative_position", local_position)
+		if local_player.has_method("set_battle_active"):
+			local_player.call("set_battle_active", GameState.is_in_battle)
 
 	_pending_target_scene_id = 0
 	_unlock_local_player()
@@ -163,6 +167,10 @@ func _server_to_local_position(scene_id: int, server_position: Vector2) -> Vecto
 func _unlock_local_player() -> void:
 	if local_player != null and local_player.has_method("set_scene_transition_locked"):
 		local_player.call("set_scene_transition_locked", false)
+
+func _sync_local_player_battle_state() -> void:
+	if local_player != null and local_player.has_method("set_battle_active"):
+		local_player.call("set_battle_active", GameState.is_in_battle)
 
 func _take_next_op_id() -> int:
 	var next_id := _next_op_id

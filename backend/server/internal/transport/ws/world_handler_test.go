@@ -9,6 +9,7 @@ import (
 
 	"pocket-pet-remake/server/internal/config"
 	"pocket-pet-remake/server/internal/data/memory"
+	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/session"
@@ -86,7 +87,8 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	worldHandler := NewWorldHandler(sessionService, nil, nil, nil)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, sessionService)
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, battle.NewService())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, battleHandler, sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
 	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 12, 0, nil)
@@ -301,6 +303,103 @@ func TestRouterHandleMoveIntentRejectUnknownScene(t *testing.T) {
 	}
 }
 
+func TestRouterHandleInteractAndBattleAction(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+
+	interactPacket, err := protocol.NewJSONPacket(protocol.CmdInteractReq, 16, 0, protocol.InteractReq{
+		EntityID: 90001,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(interact) error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(interactPacket)
+	if err != nil {
+		t.Fatalf("EncodePacket(interact) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(interact) error = %v", err)
+	}
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+
+	var start protocol.BattleStartPush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &start); err != nil {
+		t.Fatalf("UnmarshalBody(start) error = %v", err)
+	}
+	if start.BattleID == 0 {
+		t.Fatalf("start.BattleID = 0, want non-zero")
+	}
+	if len(start.Allies) != 1 || len(start.Enemies) != 1 {
+		t.Fatalf("unexpected actor counts allies=%d enemies=%d", len(start.Allies), len(start.Enemies))
+	}
+
+	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
+		OpID:       1,
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    battle.DefaultAttackSkillID,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(firstAction) error = %v", err)
+	}
+	raw, err = protocol.EncodePacket(firstAction)
+	if err != nil {
+		t.Fatalf("EncodePacket(firstAction) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(firstAction) error = %v", err)
+	}
+	if len(conn.packets) != 4 {
+		t.Fatalf("len(conn.packets) after first action = %d, want 4", len(conn.packets))
+	}
+
+	var state protocol.BattleStatePush
+	if err := protocol.UnmarshalBody(conn.packets[3].Body, &state); err != nil {
+		t.Fatalf("UnmarshalBody(state) error = %v", err)
+	}
+	if state.Round != 2 {
+		t.Fatalf("state.Round = %d, want 2", state.Round)
+	}
+
+	secondAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 18, 0, protocol.BattleActionReq{
+		OpID:       2,
+		BattleID:   start.BattleID,
+		Round:      state.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    battle.DefaultAttackSkillID,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(secondAction) error = %v", err)
+	}
+	raw, err = protocol.EncodePacket(secondAction)
+	if err != nil {
+		t.Fatalf("EncodePacket(secondAction) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(secondAction) error = %v", err)
+	}
+	if len(conn.packets) != 7 {
+		t.Fatalf("len(conn.packets) after second action = %d, want 7", len(conn.packets))
+	}
+	if conn.packets[6].Cmd != protocol.CmdBattleResultPush {
+		t.Fatalf("conn.packets[6].Cmd = %d, want %d", conn.packets[6].Cmd, protocol.CmdBattleResultPush)
+	}
+
+	var result protocol.BattleResultPush
+	if err := protocol.UnmarshalBody(conn.packets[6].Body, &result); err != nil {
+		t.Fatalf("UnmarshalBody(result) error = %v", err)
+	}
+	if !result.Win {
+		t.Fatalf("result.Win = false, want true")
+	}
+}
+
 func buildWorldRouterForTest(t *testing.T) (config.Config, *Router, *player.Service, *fakeConn) {
 	t.Helper()
 
@@ -314,7 +413,8 @@ func buildWorldRouterForTest(t *testing.T) (config.Config, *Router, *player.Serv
 	petService := pet.NewService(memory.NewPetRepository(cfg))
 	worldService := world.NewService(memory.NewWorldRepository())
 	worldHandler := NewWorldHandler(sessionService, playerService, petService, worldService)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, sessionService)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, battle.NewService())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, battleHandler, sessionService)
 
 	conn := &fakeConn{id: "conn-1"}
 	if _, err := sessionService.Bind(cfg.DemoPlayerID, conn); err != nil {

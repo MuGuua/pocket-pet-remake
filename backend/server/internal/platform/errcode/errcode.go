@@ -14,4 +14,8 @@ const (
 	WSCodeWorldEnterFailed        = 20001
 	WSCodePlayerNotFound          = 20002
 	WSCodeWorldMoveFailed         = 20003
+	WSCodeInteractFailed          = 20004
+	WSCodeBattleStartFailed       = 40001
+	WSCodeBattleNotFound          = 40002
+	WSCodeBattleActionInvalid     = 40003
 )

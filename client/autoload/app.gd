@@ -9,8 +9,10 @@ signal kicked(reason: String)
 
 const DEFAULT_ACCOUNT: String = "demo"
 const DEFAULT_PASSWORD: String = "demo123"
+const DEFAULT_BATTLE_SKILL_ID: int = 1001
 
 var _bootstrapped: bool = false
+var _next_battle_op_id: int = 1
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -72,6 +74,35 @@ func request_pet_list() -> void:
 func request_bag_list() -> void:
     NetClient.send_command(CommandIds.BAG_LIST_REQ, {})
 
+func request_interact(entity_id: int) -> void:
+    NetClient.send_command(
+        CommandIds.INTERACT_REQ,
+        {
+            "entity_id": entity_id,
+        }
+    )
+
+func submit_battle_action(
+    battle_id: int,
+    battle_round: int,
+    actor_id: int,
+    target_id: int,
+    action_type: int = 1,
+    skill_id: int = DEFAULT_BATTLE_SKILL_ID
+) -> void:
+    NetClient.send_command(
+        CommandIds.BATTLE_ACTION_REQ,
+        {
+            "op_id": _take_battle_op_id(),
+            "battle_id": battle_id,
+            "round": battle_round,
+            "action_type": action_type,
+            "actor_id": actor_id,
+            "skill_id": skill_id,
+            "target_id": target_id,
+        }
+    )
+
 func _on_dev_message_received(cmd: int, payload: Dictionary) -> void:
     MessageRouter.route_message(cmd, payload)
 
@@ -104,3 +135,10 @@ func _on_notice_push(payload: Dictionary) -> void:
 func _on_kickout_push(payload: Dictionary) -> void:
     var reason := str(payload.get("reason", payload.get("msg", "kicked by server")))
     kicked.emit(reason)
+
+func _take_battle_op_id() -> int:
+    var op_id := _next_battle_op_id
+    _next_battle_op_id += 1
+    if _next_battle_op_id > 0x7FFFFFFF:
+        _next_battle_op_id = 1
+    return op_id
