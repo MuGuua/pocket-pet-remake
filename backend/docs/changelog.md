@@ -17,3 +17,7 @@
 - 新增世界移动测试，已覆盖合法移动、非法越界移动与重同步场景
 - 调整根目录结构，现已拆分为 `backend/` 服务端目录和 `client/` 客户端目录
 - 当前 Go 工程、协议、文档和迁移脚本已全部迁入 `backend/`
+- 新增 Godot 4 客户端骨架，补齐 `client/project.godot`、入口场景和可直接打开的最小工程结构
+- 新增客户端 `autoload` 单例：`App.gd`、`HttpClient.gd`、`NetClient.gd`、`MessageRouter.gd`、`GameState.gd`
+- 新增世界、宠物、战斗、背包控制器占位脚本，先把客户端模块边界与消息路由挂好
+- 新增根目录 `.gitignore`，忽略本地 SkillHub 目录和 Godot 生成的 `.godot/` 目录

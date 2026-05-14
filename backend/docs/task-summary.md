@@ -17,7 +17,7 @@
 - 当前服务端骨架使用内存仓储完成登录与会话验证，后续再切到 MySQL/Redis
 - 进入世界阶段只返回静态快照，不提前混入 AOI 广播和移动状态机
 - 当前移动阶段只向请求方回推 `ENTITY_MOVE_PUSH`，AOI 对其他玩家的广播仍在下一阶段实现
-- 当前 `client/` 仅保留空目录占位，客户端实现尚未开始
+- 此前 `client/` 仅保留空目录占位，当前已补齐可直接打开的 Godot 客户端骨架
 
 建议的下一步实现顺序：
 1. 生成 protobuf 代码，并把当前 auth/session JSON 消息体切换到 protobuf
@@ -25,3 +25,13 @@
 3. 在已完成的移动基础上，继续落 AOI 可见集和对其他玩家的移动广播
 4. 落宠物实例、编队、战斗状态机
 5. 落断线重连、限流与统一错误码映射
+
+## 2026-05-14 客户端骨架补充
+
+本次补充聚焦 Godot 客户端最小可开发骨架，目标是让 `client/` 可以直接被 Godot 4 打开并继续迭代：
+- 初始化 `client/project.godot`、入口场景、图标和基础目录结构
+- 按架构草案落地 `autoload` 层：`App`、`HttpClient`、`NetClient`、`MessageRouter`、`GameState`
+- 预留世界、宠物、战斗、背包四个客户端控制器，并把消息号路由挂接到对应模块
+- 当前 HTTP 登录已接好 `POST /api/v1/auth/login` 的调用封装
+- 当前 WebSocket 只完成连接与开发期 JSON 路由骨架，二进制包头、protobuf 编解码和正式鉴权仍是下一步工作
+- 增加 `.gitignore`，避免本地 SkillHub 目录和 Godot 生成目录进入版本库
