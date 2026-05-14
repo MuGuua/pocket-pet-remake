@@ -19,7 +19,7 @@
 - 客户端：Godot 4 + GDScript
 - 服务端：Go 单体服 + WebSocket + HTTP
 - 通信：`HTTP(S)` 登录，`WSS` 实时消息，消息体使用 `Protobuf`
-- 持久化：MySQL
+- 持久化：PostgreSQL
 - 短时状态：Redis
 
 ## 设计原则

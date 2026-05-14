@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"pocket-pet-remake/server/internal/config"
-	"pocket-pet-remake/server/internal/data/memory"
+	"pocket-pet-remake/server/internal/data/provider"
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
@@ -25,16 +25,20 @@ type App struct {
 }
 
 func New(cfg config.Config, logger *log.Logger) (*App, error) {
-	accountRepo := memory.NewAccountRepository(cfg)
-	playerRepo := memory.NewPlayerRepository(cfg)
-	petRepo := memory.NewPetRepository(cfg)
-	worldRepo := memory.NewWorldRepository()
-	wsTokenRepo := memory.NewWSTokenRepository()
+	return NewWithDependencies(cfg, logger, provider.Dependencies{})
+}
+
+func NewWithDependencies(cfg config.Config, logger *log.Logger, deps provider.Dependencies) (*App, error) {
+	repos, err := provider.NewConfiguredBundle(cfg, deps)
+	if err != nil {
+		return nil, err
+	}
+
 	signer := auth.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
-	authService := auth.NewService(accountRepo, wsTokenRepo, signer, cfg.WSTokenTTL)
-	playerService := player.NewService(playerRepo)
-	petService := pet.NewService(petRepo)
-	worldService := world.NewService(worldRepo)
+	authService := auth.NewService(repos.Accounts, repos.WSTokens, signer, cfg.WSTokenTTL)
+	playerService := player.NewService(repos.Players)
+	petService := pet.NewService(repos.Pets)
+	worldService := world.NewService(repos.World)
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
