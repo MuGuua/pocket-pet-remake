@@ -1,0 +1,428 @@
+{
+  "0.tij": [
+    {
+      "source": "jar_unpacked/d/0.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 8,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "0000000000000000000000000000000000000000",
+      "png": "exported_sprites/d/0.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/0.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 8,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "0000000000000000000000000000000000000000",
+      "png": "exported_sprites/d/0_tij1.png",
+      "variant": "1"
+    },
+    {
+      "source": "jar_unpacked/d/0.tij2",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 8,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "0000000000000000000000000000000000000000",
+      "png": "exported_sprites/d/0_tij2.png",
+      "variant": "2"
+    }
+  ],
+  "00.dat": [
+    {
+      "source": "jar_unpacked/d/00.dat",
+      "kind": "map_palette_sheet",
+      "png": "exported_sprites/d/00.dat.png",
+      "variant": null,
+      "sheet_width": 128,
+      "sheet_height": 128
+    },
+    {
+      "source": "jar_unpacked/d/00.dat1",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_1.png",
+      "variant": "1",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat2",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_2.png",
+      "variant": "2",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat3",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_3.png",
+      "variant": "3",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat4",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_4.png",
+      "variant": "4",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat5",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_5.png",
+      "variant": "5",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat6",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_6.png",
+      "variant": "6",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat7",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_7.png",
+      "variant": "7",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat8",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_8.png",
+      "variant": "8",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    },
+    {
+      "source": "jar_unpacked/d/00.dat9",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/00.dat_9.png",
+      "variant": "9",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/00.dat"
+    }
+  ],
+  "01.dat": [
+    {
+      "source": "jar_unpacked/d/01.dat",
+      "kind": "map_palette_sheet",
+      "png": "exported_sprites/d/01.dat.png",
+      "variant": null,
+      "sheet_width": 128,
+      "sheet_height": 128
+    }
+  ],
+  "02.dat": [
+    {
+      "source": "jar_unpacked/d/02.dat",
+      "kind": "map_palette_sheet",
+      "png": "exported_sprites/d/02.dat.png",
+      "variant": null,
+      "sheet_width": 128,
+      "sheet_height": 128
+    },
+    {
+      "source": "jar_unpacked/d/02.dat1",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_1.png",
+      "variant": "1",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat2",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_2.png",
+      "variant": "2",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat3",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_3.png",
+      "variant": "3",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat4",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_4.png",
+      "variant": "4",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat5",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_5.png",
+      "variant": "5",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat6",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_6.png",
+      "variant": "6",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    },
+    {
+      "source": "jar_unpacked/d/02.dat7",
+      "kind": "map_palette_sheet_variant",
+      "png": "exported_sprites/d/02.dat_7.png",
+      "variant": "7",
+      "sheet_width": 128,
+      "sheet_height": 128,
+      "base": "jar_unpacked/d/02.dat"
+    }
+  ],
+  "1.tij": [
+    {
+      "source": "jar_unpacked/d/1.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 160,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000102030405060708090a0b0c0d0e0f10111213",
+      "png": "exported_sprites/d/1.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/1.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 160,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000102030405060708090a0b0c0d0e0f10111213",
+      "png": "exported_sprites/d/1_tij1.png",
+      "variant": "1"
+    },
+    {
+      "source": "jar_unpacked/d/1.tij2",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 160,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000102030405060708090a0b0c0d0e0f10111213",
+      "png": "exported_sprites/d/1_tij2.png",
+      "variant": "2"
+    }
+  ],
+  "2.tij": [
+    {
+      "source": "jar_unpacked/d/2.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 2,
+      "sheet_width": 192,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 44,
+      "header_flags": 1,
+      "frame_table_hex": "00010201030405060708090a0b0c0d0e0f10111213141516030405060708090a0b170d0e0f101112",
+      "png": "exported_sprites/d/2.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/2.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 2,
+      "sheet_width": 192,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 44,
+      "header_flags": 1,
+      "frame_table_hex": "00010201030405060708090a0b0c0d0e0f10111213141516030405060708090a0b170d0e0f101112",
+      "png": "exported_sprites/d/2_tij1.png",
+      "variant": "1"
+    }
+  ],
+  "3.tij": [
+    {
+      "source": "jar_unpacked/d/3.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 136,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000000000102030405060708090a0b0c0d0e0f10",
+      "png": "exported_sprites/d/3.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/3.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 136,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000000000102030405060708090a0b0c0d0e0f10",
+      "png": "exported_sprites/d/3_tij1.png",
+      "variant": "1"
+    },
+    {
+      "source": "jar_unpacked/d/3.tij2",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 136,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000000000102030405060708090a0b0c0d0e0f10",
+      "png": "exported_sprites/d/3_tij2.png",
+      "variant": "2"
+    }
+  ],
+  "4.tij": [
+    {
+      "source": "jar_unpacked/d/4.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 136,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000000000102030405060708090a0b0c0d0e0f10",
+      "png": "exported_sprites/d/4.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/4.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 136,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "000000000102030405060708090a0b0c0d0e0f10",
+      "png": "exported_sprites/d/4_tij1.png",
+      "variant": "1"
+    }
+  ],
+  "5.tij": [
+    {
+      "source": "jar_unpacked/d/5.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 152,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "00010200030405060708090a0b0c0d0e0f101112",
+      "png": "exported_sprites/d/5.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/5.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 152,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "00010200030405060708090a0b0c0d0e0f101112",
+      "png": "exported_sprites/d/5_tij1.png",
+      "variant": "1"
+    }
+  ],
+  "6.tij": [
+    {
+      "source": "jar_unpacked/d/6.tij",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 16,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "0001000000010000000100000001000000010000",
+      "png": "exported_sprites/d/6.png",
+      "variant": null
+    },
+    {
+      "source": "jar_unpacked/d/6.tij1",
+      "kind": "map_tile_sheet",
+      "frame_count": 1,
+      "sheet_width": 16,
+      "sheet_height": 8,
+      "tile_width": 8,
+      "tile_height": 8,
+      "png_offset": 24,
+      "header_flags": 0,
+      "frame_table_hex": "0001000000010000000100000001000000010000",
+      "png": "exported_sprites/d/6_tij1.png",
+      "variant": "1"
+    }
+  ]
+}

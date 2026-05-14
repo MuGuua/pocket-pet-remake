@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://kyt4t3hxbyyg"]
+
+[ext_resource type="Script" uid="uid://1gwvwu5232nl" path="res://scripts/feature/world/player.gd" id="1_l3o4k"]
+[ext_resource type="Texture2D" uid="uid://bsxl5tj1bdl4v" path="res://asset/口袋所有形象/imgs/679.png" id="2_l3o4k"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_n3lu5"]
+radius = 9.0
+
+[node name="player" type="CharacterBody2D"]
+script = ExtResource("1_l3o4k")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_l3o4k")
+hframes = 15
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(2, 16)
+shape = SubResource("CircleShape2D_n3lu5")
