@@ -1,19 +1,129 @@
+class_name player
 extends CharacterBody2D
 
-@export var speed: float = 300.0
+signal scene_exit_requested(direction: String)
 
-func _ready() -> void:
-	print("Player initialized at ", global_position)
+@export var move_speed: float = 100.0
+@export var map_half_size: Vector2 = Vector2(224.0, 160.0)
+@export var exit_margin: float = 12.0
+
+var cardinal_direction: Vector2 = Vector2.DOWN
+var direction: Vector2 = Vector2.ZERO
+var state: String = "idle"
+var _scene_transition_locked: bool = false
+
+@onready var animation_player: AnimationPlayer = $AnimationPlayer
+
+func _process(_delta: float) -> void:
+	if _scene_transition_locked:
+		direction = Vector2.ZERO
+		velocity = Vector2.ZERO
+		if _set_state():
+			_update_animation()
+		return
+
+	direction.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+	direction.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	if direction.x != 0.0 and direction.y != 0.0:
+		if abs(direction.x) >= abs(direction.y):
+			direction.y = 0.0
+		else:
+			direction.x = 0.0
+
+	velocity = direction * move_speed
+
+	if _set_state() or _set_direction():
+		_update_animation()
 
 func _physics_process(_delta: float) -> void:
-	var direction := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	if direction != Vector2.ZERO:
-		velocity = direction * speed
-		move_and_slide()
-		
-		# 请求服务器同步位置
-		var world_controller = get_tree().root.find_child("WorldScene", true, false)
-		if world_controller and world_controller.has_method("request_move"):
-			world_controller.request_move(global_position)
-	else:
+	move_and_slide()
+	_check_scene_exit()
+
+func apply_authoritative_position(local_position: Vector2) -> void:
+	position = local_position
+	velocity = Vector2.ZERO
+	direction = Vector2.ZERO
+	_scene_transition_locked = false
+	if _set_state():
+		_update_animation()
+
+func set_scene_transition_locked(locked: bool) -> void:
+	_scene_transition_locked = locked
+	if locked:
 		velocity = Vector2.ZERO
+		direction = Vector2.ZERO
+		if _set_state():
+			_update_animation()
+
+func snap_inside_bounds(exit_direction: String) -> void:
+	match exit_direction:
+		"left":
+			position.x = -map_half_size.x + exit_margin
+		"right":
+			position.x = map_half_size.x - exit_margin
+		"up":
+			position.y = -map_half_size.y + exit_margin
+		"down":
+			position.y = map_half_size.y - exit_margin
+
+func _set_state() -> bool:
+	var new_state: String = "idle" if direction == Vector2.ZERO else "walk"
+	if new_state == state:
+		return false
+	state = new_state
+	return true
+
+func _update_animation() -> void:
+	if animation_player == null:
+		return
+
+	var animation_name := state + "_" + _direction_suffix()
+	if animation_player.has_animation(animation_name):
+		animation_player.play(animation_name)
+	elif animation_player.has_animation(state):
+		animation_player.play(state)
+
+func _set_direction() -> bool:
+	var new_dir: Vector2 = cardinal_direction
+	if direction == Vector2.ZERO:
+		return false
+
+	if direction.y == 0:
+		new_dir = Vector2.LEFT if direction.x < 0.0 else Vector2.RIGHT
+	elif direction.x == 0:
+		new_dir = Vector2.UP if direction.y < 0.0 else Vector2.DOWN
+
+	if new_dir == cardinal_direction:
+		return false
+
+	cardinal_direction = new_dir
+	return true
+
+func _direction_suffix() -> String:
+	if cardinal_direction == Vector2.UP:
+		return "up"
+	if cardinal_direction == Vector2.DOWN:
+		return "down"
+	if cardinal_direction == Vector2.LEFT:
+		return "left"
+	return "right"
+
+func _check_scene_exit() -> void:
+	if _scene_transition_locked:
+		return
+
+	if position.x <= -map_half_size.x:
+		_scene_transition_locked = true
+		scene_exit_requested.emit("left")
+		return
+	if position.x >= map_half_size.x:
+		_scene_transition_locked = true
+		scene_exit_requested.emit("right")
+		return
+	if position.y <= -map_half_size.y:
+		_scene_transition_locked = true
+		scene_exit_requested.emit("up")
+		return
+	if position.y >= map_half_size.y:
+		_scene_transition_locked = true
+		scene_exit_requested.emit("down")

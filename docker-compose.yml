@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:latest
     environment:
       POSTGRES_DB: pocket_pet
       POSTGRES_USER: postgres
@@ -17,7 +17,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.0.14
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"

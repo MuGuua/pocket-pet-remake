@@ -26,3 +26,11 @@
 - 新增 PostgreSQL 账号/玩家/宠物仓储适配器，以及 Redis `ws_token` 仓储适配器骨架
 - 新增仓储 provider 装配层，默认仍走内存模式，并预留 `postgres_redis` 模式的依赖注入入口
 - 新增 `backend/server/configs/config.env` 实际配置文件，并支持启动时自动加载本地 env 文件
+- 客户端主场景改为最小登录页，支持账号密码输入、状态展示与日志输出
+- 客户端补齐 WebSocket 二进制包头编码、CRC32 校验、JSON 消息体编解码与基础心跳
+- 客户端打通 `HTTP 登录 -> WS 鉴权 -> 进入世界` 主流程，登录后自动建立实时会话
+- 客户端全局状态新增 `session_id`、`reconnect_token`、`heartbeat_sec` 与 `is_ws_authenticated` 追踪
+- 客户端新增独立 `login_scene` 登录场景，并将项目启动入口切换到登录场景
+- 客户端 `bootstrap/main` 收敛为登录后的世界入口，只负责世界挂载、消息路由与运行态状态展示
+- 客户端登录场景与主场景新增淡入淡出切场景过渡，优化登录成功和掉线返回体验
+- 客户端主场景顶部状态面板与底部日志区进一步压缩，更适配 `320x480` 小窗口

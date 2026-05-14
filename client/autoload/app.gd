@@ -3,6 +3,7 @@ extends Node
 signal bootstrapped
 signal login_succeeded(response: Dictionary)
 signal login_failed(message: String)
+signal session_authenticated(payload: Dictionary)
 signal notice_received(message: String)
 signal kicked(reason: String)
 
@@ -20,6 +21,11 @@ func bootstrap() -> void:
 
     _bootstrapped = true
     NetClient.dev_message_received.connect(_on_dev_message_received)
+    NetClient.websocket_opened.connect(_on_websocket_opened)
+    NetClient.websocket_closed.connect(_on_websocket_closed)
+    MessageRouter.register_handler(CommandIds.WS_AUTH_RESP, Callable(self, "_on_ws_auth_response"))
+    MessageRouter.register_handler(CommandIds.HEARTBEAT_RESP, Callable(self, "_on_heartbeat_response"))
+    MessageRouter.register_handler(CommandIds.FORCE_OFFLINE_PUSH, Callable(self, "_on_force_offline_push"))
     MessageRouter.register_handler(CommandIds.ERROR_PUSH, Callable(self, "_on_error_push"))
     MessageRouter.register_handler(CommandIds.NOTICE_PUSH, Callable(self, "_on_notice_push"))
     MessageRouter.register_handler(CommandIds.KICKOUT_PUSH, Callable(self, "_on_kickout_push"))
@@ -49,7 +55,13 @@ func authenticate_ws() -> void:
         push_warning("Missing ws_token. Login before websocket auth.")
         return
 
-    NetClient.send_command(CommandIds.WS_AUTH_REQ, {"ws_token": GameState.ws_token})
+    NetClient.send_command(
+        CommandIds.WS_AUTH_REQ,
+        {
+            "ws_token": GameState.ws_token,
+            "client_version": "godot-4.5-dev",
+        }
+    )
 
 func enter_world() -> void:
     NetClient.send_command(CommandIds.ENTER_WORLD_REQ, {})
@@ -62,6 +74,26 @@ func request_bag_list() -> void:
 
 func _on_dev_message_received(cmd: int, payload: Dictionary) -> void:
     MessageRouter.route_message(cmd, payload)
+
+func _on_websocket_opened() -> void:
+    authenticate_ws()
+
+func _on_websocket_closed(_code: int, _reason: String) -> void:
+    NetClient.set_authenticated(false)
+    GameState.set_ws_authenticated(false)
+
+func _on_ws_auth_response(payload: Dictionary) -> void:
+    GameState.store_ws_session(payload)
+    NetClient.set_authenticated(true)
+    NetClient.configure_heartbeat(GameState.heartbeat_sec)
+    session_authenticated.emit(payload)
+
+func _on_heartbeat_response(_payload: Dictionary) -> void:
+    pass
+
+func _on_force_offline_push(payload: Dictionary) -> void:
+    var reason := str(payload.get("reason", "account logged in elsewhere"))
+    kicked.emit(reason)
 
 func _on_error_push(payload: Dictionary) -> void:
     notice_received.emit(str(payload.get("msg", "server returned an error push")))

@@ -122,14 +122,69 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	}
 }
 
-func TestRouterHandleMoveIntent(t *testing.T) {
+func TestRouterHandleMoveIntentLocalOnly(t *testing.T) {
 	cfg, router, playerService, conn := buildWorldRouterForTest(t)
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 13, 0, protocol.MoveIntentReq{
-		OpID:      1,
-		MoveSeq:   3,
-		SceneID:   1,
-		TargetPos: protocol.Vec2i{X: 12, Y: 8},
+		OpID:    1,
+		MoveSeq: 3,
+		SceneID: 1,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket() error = %v", err)
+	}
+
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket() error = %v", err)
+	}
+
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	respPacket := conn.packets[0]
+	if respPacket.Cmd != protocol.CmdMoveIntentResp {
+		t.Fatalf("respPacket.Cmd = %d, want %d", respPacket.Cmd, protocol.CmdMoveIntentResp)
+	}
+
+	var resp protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(respPacket.Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted {
+		t.Fatalf("resp.Accepted = false, want true")
+	}
+	if resp.MoveSeq != 3 {
+		t.Fatalf("resp.MoveSeq = %d, want 3", resp.MoveSeq)
+	}
+	if resp.SceneID != 1 {
+		t.Fatalf("resp.SceneID = %d, want 1", resp.SceneID)
+	}
+	if resp.Reason != "local movement handled by client" {
+		t.Fatalf("resp.Reason = %q, want local movement handled by client", resp.Reason)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), cfg.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.PosX != 8 || profile.PosY != 6 {
+		t.Fatalf("profile position = (%d,%d), want (8,6)", profile.PosX, profile.PosY)
+	}
+}
+
+func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 14, 0, protocol.MoveIntentReq{
+		OpID:          2,
+		MoveSeq:       4,
+		SceneID:       1,
+		TargetSceneID: 2,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)
@@ -159,43 +214,46 @@ func TestRouterHandleMoveIntent(t *testing.T) {
 	if !resp.Accepted {
 		t.Fatalf("resp.Accepted = false, want true")
 	}
-	if resp.MoveSeq != 3 {
-		t.Fatalf("resp.MoveSeq = %d, want 3", resp.MoveSeq)
+	if resp.SceneID != 2 {
+		t.Fatalf("resp.SceneID = %d, want 2", resp.SceneID)
 	}
 
-	movePacket := conn.packets[1]
-	if movePacket.Cmd != protocol.CmdEntityMovePush {
-		t.Fatalf("movePacket.Cmd = %d, want %d", movePacket.Cmd, protocol.CmdEntityMovePush)
+	resyncPacket := conn.packets[1]
+	if resyncPacket.Cmd != protocol.CmdWorldResyncPush {
+		t.Fatalf("resyncPacket.Cmd = %d, want %d", resyncPacket.Cmd, protocol.CmdWorldResyncPush)
 	}
 
-	var movePush protocol.EntityMovePush
-	if err := protocol.UnmarshalBody(movePacket.Body, &movePush); err != nil {
-		t.Fatalf("UnmarshalBody(movePush) error = %v", err)
+	var resync protocol.WorldResyncPush
+	if err := protocol.UnmarshalBody(resyncPacket.Body, &resync); err != nil {
+		t.Fatalf("UnmarshalBody(resync) error = %v", err)
 	}
-	if movePush.EntityID != cfg.DemoPlayerID {
-		t.Fatalf("movePush.EntityID = %d, want %d", movePush.EntityID, cfg.DemoPlayerID)
+	if resync.SceneID != 2 {
+		t.Fatalf("resync.SceneID = %d, want 2", resync.SceneID)
 	}
-	if movePush.ToPos.X != 12 || movePush.ToPos.Y != 8 {
-		t.Fatalf("movePush.ToPos = (%d,%d), want (12,8)", movePush.ToPos.X, movePush.ToPos.Y)
+	if resync.SelfPos.X != 2 || resync.SelfPos.Y != 4 {
+		t.Fatalf("resync.SelfPos = (%d,%d), want (2,4)", resync.SelfPos.X, resync.SelfPos.Y)
 	}
 
-	profile, err := playerService.GetProfile(context.Background(), cfg.DemoPlayerID)
+	profile, err := playerService.GetProfile(context.Background(), 10001)
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	if profile.PosX != 12 || profile.PosY != 8 {
-		t.Fatalf("profile position = (%d,%d), want (12,8)", profile.PosX, profile.PosY)
+	if profile.SceneID != 2 {
+		t.Fatalf("profile.SceneID = %d, want 2", profile.SceneID)
+	}
+	if profile.PosX != 2 || profile.PosY != 4 {
+		t.Fatalf("profile position = (%d,%d), want (2,4)", profile.PosX, profile.PosY)
 	}
 }
 
-func TestRouterHandleMoveIntentResync(t *testing.T) {
+func TestRouterHandleMoveIntentRejectUnknownScene(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 
-	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 14, 0, protocol.MoveIntentReq{
-		OpID:      2,
-		MoveSeq:   4,
-		SceneID:   1,
-		TargetPos: protocol.Vec2i{X: 99, Y: 99},
+	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 15, 0, protocol.MoveIntentReq{
+		OpID:          3,
+		MoveSeq:       5,
+		SceneID:       1,
+		TargetSceneID: 99,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)
@@ -214,10 +272,6 @@ func TestRouterHandleMoveIntentResync(t *testing.T) {
 	}
 
 	respPacket := conn.packets[0]
-	if respPacket.Cmd != protocol.CmdMoveIntentResp {
-		t.Fatalf("respPacket.Cmd = %d, want %d", respPacket.Cmd, protocol.CmdMoveIntentResp)
-	}
-
 	var resp protocol.MoveIntentResp
 	if err := protocol.UnmarshalBody(respPacket.Body, &resp); err != nil {
 		t.Fatalf("UnmarshalBody(resp) error = %v", err)
@@ -225,29 +279,25 @@ func TestRouterHandleMoveIntentResync(t *testing.T) {
 	if resp.Accepted {
 		t.Fatalf("resp.Accepted = true, want false")
 	}
-	if resp.Reason != "target out of bounds" {
-		t.Fatalf("resp.Reason = %q, want target out of bounds", resp.Reason)
+	if resp.Reason != "target scene unavailable" {
+		t.Fatalf("resp.Reason = %q, want target scene unavailable", resp.Reason)
 	}
 
 	resyncPacket := conn.packets[1]
-	if resyncPacket.Cmd != protocol.CmdWorldResyncPush {
-		t.Fatalf("resyncPacket.Cmd = %d, want %d", resyncPacket.Cmd, protocol.CmdWorldResyncPush)
-	}
-
 	var resync protocol.WorldResyncPush
 	if err := protocol.UnmarshalBody(resyncPacket.Body, &resync); err != nil {
 		t.Fatalf("UnmarshalBody(resync) error = %v", err)
 	}
-	if resync.SelfPos.X != 8 || resync.SelfPos.Y != 6 {
-		t.Fatalf("resync.SelfPos = (%d,%d), want (8,6)", resync.SelfPos.X, resync.SelfPos.Y)
+	if resync.SceneID != 1 {
+		t.Fatalf("resync.SceneID = %d, want 1", resync.SceneID)
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), 10001)
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	if profile.PosX != 8 || profile.PosY != 6 {
-		t.Fatalf("profile position = (%d,%d), want (8,6)", profile.PosX, profile.PosY)
+	if profile.SceneID != 1 {
+		t.Fatalf("profile.SceneID = %d, want 1", profile.SceneID)
 	}
 }
 

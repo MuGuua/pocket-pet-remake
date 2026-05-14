@@ -1,9 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://c6c2a8hua6yxb"]
 
-[ext_resource type="Script" path="res://scripts/bootstrap/main.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/feature/battle/battle_controller.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
+[ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
+[ext_resource type="Script" uid="uid://dxguvvrut6615" path="res://scripts/feature/battle/battle_controller.gd" id="3"]
+[ext_resource type="Script" uid="uid://bm8lcpfwls80c" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -25,59 +25,74 @@ script = ExtResource("4")
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 
-[node name="DevPanel" type="PanelContainer" parent="UiLayer"]
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 664.0
-offset_bottom = 404.0
+[node name="TopPanel" type="PanelContainer" parent="UiLayer"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 196.0
+offset_bottom = 76.0
 
-[node name="VBox" type="VBoxContainer" parent="UiLayer/DevPanel"]
+[node name="VBox" type="VBoxContainer" parent="UiLayer/TopPanel"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = -16.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 2
 
-[node name="TitleLabel" type="Label" parent="UiLayer/DevPanel/VBox"]
-text = "Pocket Pet Remake Client"
-horizontal_alignment = 1
-
-[node name="StatusLabel" type="Label" parent="UiLayer/DevPanel/VBox"]
+[node name="StatusLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
 unique_name_in_owner = true
-text = "Connection: idle"
+layout_mode = 2
+text = "连接状态: idle"
+theme_override_font_sizes/font_size = 11
 
-[node name="SceneLabel" type="Label" parent="UiLayer/DevPanel/VBox"]
+[node name="SceneLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
 unique_name_in_owner = true
-text = "Scene: not entered"
+layout_mode = 2
+text = "场景: 未进入"
+theme_override_font_sizes/font_size = 11
 
-[node name="PlayerLabel" type="Label" parent="UiLayer/DevPanel/VBox"]
+[node name="PlayerLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
 unique_name_in_owner = true
-text = "Player: not logged in"
+layout_mode = 2
+text = "玩家: 未登录"
+theme_override_font_sizes/font_size = 11
 
-[node name="ButtonRow" type="HBoxContainer" parent="UiLayer/DevPanel/VBox"]
-theme_override_constants/separation = 8
+[node name="BottomPanel" type="PanelContainer" parent="UiLayer"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = -88.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
 
-[node name="DemoLoginButton" type="Button" parent="UiLayer/DevPanel/VBox/ButtonRow"]
+[node name="LogOutput" type="RichTextLabel" parent="UiLayer/BottomPanel"]
 unique_name_in_owner = true
-text = "Demo Login"
-
-[node name="ConnectButton" type="Button" parent="UiLayer/DevPanel/VBox/ButtonRow"]
-unique_name_in_owner = true
-text = "Connect WS"
-
-[node name="EnterWorldButton" type="Button" parent="UiLayer/DevPanel/VBox/ButtonRow"]
-unique_name_in_owner = true
-text = "Enter World"
-
-[node name="HintLabel" type="Label" parent="UiLayer/DevPanel/VBox"]
-text = "HTTP login is wired. The next milestone is binary protobuf packet encoding for WebSocket commands."
-
-[node name="LogOutput" type="RichTextLabel" parent="UiLayer/DevPanel/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 140)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
 scroll_following = true
+theme_override_font_sizes/normal_font_size = 11
+
+[node name="TransitionOverlay" type="ColorRect" parent="UiLayer"]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

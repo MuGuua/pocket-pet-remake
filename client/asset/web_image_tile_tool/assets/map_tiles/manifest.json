@@ -1,0 +1,3145 @@
+{
+  "tileSize": 16,
+  "baseTilesets": [
+    {
+      "id": "00",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/00.png",
+      "source": "work_unpack/d/00.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    },
+    {
+      "id": "01",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/01.png",
+      "source": "work_unpack/d/01.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    },
+    {
+      "id": "02",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/02.png",
+      "source": "work_unpack/d/02.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    }
+  ],
+  "specialTiles": [
+    {
+      "id": "0.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/0.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/0.tij.png",
+      "source": "work_unpack/d/0.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 8,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/0_tij_v000.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/0.tij.json"
+    },
+    {
+      "id": "1.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/1.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/1.tij.png",
+      "source": "work_unpack/d/1.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 160,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/1_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/1_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/1_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/1_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/1_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/1_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/1_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/1_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/1_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/1_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/1_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/1_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/1_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/1_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/1_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/1_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/1_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/1_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/1_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/1_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/1_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/1_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/1_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/1_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/1_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/1_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/1_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/1_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/1_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/1_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/1_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/1_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/1_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/1_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/1_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/1_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/1_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/1_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/1_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/1_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/1_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/1_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/1_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/1_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/1_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/1_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/1_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/1.tij.json"
+    },
+    {
+      "id": "2.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/2.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/2.tij.png",
+      "source": "work_unpack/d/2.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 2,
+      "slowAnim": false,
+      "rawWidth": 192,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        [
+          19,
+          20,
+          21,
+          22,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          23,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/2_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/2_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/2_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/2_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/2_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/2_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/2_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/2_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/2_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/2_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/2_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/2_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/2_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/2_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/2_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/2_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/2_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/2_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/2_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/2_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/2_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/2_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/2_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/2_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/2_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/2_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/2_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/2_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/2_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/2_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/2_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/2_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/2_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/2_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/2_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/2_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/2_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/2_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/2_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/2_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/2_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/2_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/2_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/2_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/2_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/2_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/2_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/2.tij.json"
+    },
+    {
+      "id": "3.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/3.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/3.tij.png",
+      "source": "work_unpack/d/3.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 136,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/3_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/3_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/3_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/3_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/3_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/3_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/3_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/3_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/3_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/3_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/3_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/3_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/3_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/3_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/3_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/3_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/3_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/3_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/3_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/3_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/3_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/3_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/3_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/3_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/3_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/3_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/3_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/3_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/3_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/3_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/3_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/3_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/3_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/3_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/3_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/3_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/3_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/3_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/3_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/3_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/3_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/3_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/3_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/3_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/3_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/3_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/3_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/3.tij.json"
+    },
+    {
+      "id": "4.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/4.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/4.tij.png",
+      "source": "work_unpack/d/4.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 136,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/4_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/4_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/4_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/4_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/4_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/4_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/4_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/4_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/4_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/4_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/4_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/4_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/4_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/4_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/4_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/4_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/4_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/4_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/4_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/4_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/4_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/4_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/4_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/4_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/4_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/4_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/4_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/4_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/4_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/4_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/4_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/4_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/4_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/4_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/4_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/4_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/4_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/4_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/4_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/4_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/4_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/4_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/4_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/4_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/4_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/4_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/4_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/4.tij.json"
+    },
+    {
+      "id": "5.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/5.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/5.tij.png",
+      "source": "work_unpack/d/5.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 152,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          0,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/5_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/5_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/5_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/5_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/5_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/5_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/5_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/5_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/5_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/5_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/5_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/5_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/5_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/5_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/5_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/5_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/5_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/5_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/5_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/5_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/5_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/5_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/5_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/5_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/5_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/5_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/5_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/5_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/5_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/5_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/5_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/5_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/5_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/5_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/5_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/5_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/5_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/5_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/5_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/5_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/5_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/5_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/5_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/5_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/5_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/5_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/5_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/5.tij.json"
+    },
+    {
+      "id": "6.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/6.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/6.tij.png",
+      "source": "work_unpack/d/6.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 16,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/6_tij_v000.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/6.tij.json"
+    }
+  ],
+  "resources": [
+    {
+      "id": "00",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/00.png",
+      "source": "work_unpack/d/00.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    },
+    {
+      "id": "01",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/01.png",
+      "source": "work_unpack/d/01.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    },
+    {
+      "id": "02",
+      "kind": "tileset",
+      "image": "assets/map_tiles/tilesets/02.png",
+      "source": "work_unpack/d/02.dat",
+      "width": 128,
+      "height": 128,
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "columns": 8,
+      "rows": 8,
+      "tileCount": 64
+    },
+    {
+      "id": "0.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/0.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/0.tij.png",
+      "source": "work_unpack/d/0.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 8,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/0_tij_v000.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/0.tij.json"
+    },
+    {
+      "id": "1.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/1.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/1.tij.png",
+      "source": "work_unpack/d/1.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 160,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/1_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/1_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/1_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/1_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/1_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/1_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/1_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/1_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/1_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/1_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/1_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/1_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/1_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/1_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/1_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/1_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/1_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/1_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/1_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/1_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/1_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/1_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/1_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/1_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/1_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/1_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/1_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/1_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/1_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/1_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/1_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/1_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/1_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/1_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/1_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/1_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/1_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/1_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/1_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/1_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/1_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/1_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/1_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/1_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/1_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/1_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/1_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/1.tij.json"
+    },
+    {
+      "id": "2.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/2.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/2.tij.png",
+      "source": "work_unpack/d/2.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 2,
+      "slowAnim": false,
+      "rawWidth": 192,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        [
+          19,
+          20,
+          21,
+          22,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          23,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/2_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/2_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/2_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/2_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/2_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/2_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/2_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/2_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/2_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/2_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/2_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/2_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/2_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/2_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/2_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/2_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/2_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/2_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/2_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/2_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/2_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/2_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/2_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/2_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/2_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/2_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/2_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/2_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/2_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/2_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/2_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/2_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/2_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/2_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/2_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/2_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/2_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/2_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/2_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/2_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/2_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/2_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/2_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/2_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/2_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/2_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/2_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/2.tij.json"
+    },
+    {
+      "id": "3.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/3.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/3.tij.png",
+      "source": "work_unpack/d/3.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 136,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/3_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/3_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/3_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/3_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/3_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/3_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/3_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/3_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/3_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/3_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/3_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/3_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/3_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/3_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/3_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/3_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/3_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/3_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/3_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/3_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/3_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/3_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/3_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/3_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/3_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/3_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/3_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/3_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/3_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/3_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/3_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/3_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/3_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/3_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/3_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/3_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/3_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/3_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/3_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/3_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/3_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/3_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/3_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/3_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/3_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/3_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/3_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/3.tij.json"
+    },
+    {
+      "id": "4.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/4.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/4.tij.png",
+      "source": "work_unpack/d/4.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 136,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/4_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/4_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/4_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/4_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/4_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/4_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/4_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/4_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/4_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/4_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/4_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/4_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/4_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/4_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/4_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/4_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/4_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/4_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/4_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/4_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/4_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/4_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/4_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/4_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/4_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/4_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/4_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/4_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/4_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/4_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/4_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/4_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/4_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/4_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/4_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/4_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/4_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/4_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/4_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/4_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/4_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/4_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/4_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/4_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/4_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/4_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/4_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/4.tij.json"
+    },
+    {
+      "id": "5.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/5.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/5.tij.png",
+      "source": "work_unpack/d/5.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 152,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          2,
+          0,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/5_tij_v000.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 1,
+          "image": "assets/map_tiles/special_variants/5_tij_v001.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 2,
+          "image": "assets/map_tiles/special_variants/5_tij_v002.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 3,
+          "image": "assets/map_tiles/special_variants/5_tij_v003.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 4,
+          "image": "assets/map_tiles/special_variants/5_tij_v004.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 5,
+          "image": "assets/map_tiles/special_variants/5_tij_v005.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 6,
+          "image": "assets/map_tiles/special_variants/5_tij_v006.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 7,
+          "image": "assets/map_tiles/special_variants/5_tij_v007.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 8,
+          "image": "assets/map_tiles/special_variants/5_tij_v008.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 9,
+          "image": "assets/map_tiles/special_variants/5_tij_v009.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 10,
+          "image": "assets/map_tiles/special_variants/5_tij_v010.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 11,
+          "image": "assets/map_tiles/special_variants/5_tij_v011.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 12,
+          "image": "assets/map_tiles/special_variants/5_tij_v012.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 13,
+          "image": "assets/map_tiles/special_variants/5_tij_v013.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 14,
+          "image": "assets/map_tiles/special_variants/5_tij_v014.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 15,
+          "image": "assets/map_tiles/special_variants/5_tij_v015.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 16,
+          "image": "assets/map_tiles/special_variants/5_tij_v016.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 20,
+          "image": "assets/map_tiles/special_variants/5_tij_v020.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 24,
+          "image": "assets/map_tiles/special_variants/5_tij_v024.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 28,
+          "image": "assets/map_tiles/special_variants/5_tij_v028.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 32,
+          "image": "assets/map_tiles/special_variants/5_tij_v032.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 34,
+          "image": "assets/map_tiles/special_variants/5_tij_v034.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 40,
+          "image": "assets/map_tiles/special_variants/5_tij_v040.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 42,
+          "image": "assets/map_tiles/special_variants/5_tij_v042.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 48,
+          "image": "assets/map_tiles/special_variants/5_tij_v048.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 56,
+          "image": "assets/map_tiles/special_variants/5_tij_v056.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 64,
+          "image": "assets/map_tiles/special_variants/5_tij_v064.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 65,
+          "image": "assets/map_tiles/special_variants/5_tij_v065.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 68,
+          "image": "assets/map_tiles/special_variants/5_tij_v068.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 69,
+          "image": "assets/map_tiles/special_variants/5_tij_v069.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 80,
+          "image": "assets/map_tiles/special_variants/5_tij_v080.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 84,
+          "image": "assets/map_tiles/special_variants/5_tij_v084.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 96,
+          "image": "assets/map_tiles/special_variants/5_tij_v096.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 112,
+          "image": "assets/map_tiles/special_variants/5_tij_v112.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 128,
+          "image": "assets/map_tiles/special_variants/5_tij_v128.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 129,
+          "image": "assets/map_tiles/special_variants/5_tij_v129.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 130,
+          "image": "assets/map_tiles/special_variants/5_tij_v130.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 131,
+          "image": "assets/map_tiles/special_variants/5_tij_v131.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 144,
+          "image": "assets/map_tiles/special_variants/5_tij_v144.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 160,
+          "image": "assets/map_tiles/special_variants/5_tij_v160.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 162,
+          "image": "assets/map_tiles/special_variants/5_tij_v162.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 176,
+          "image": "assets/map_tiles/special_variants/5_tij_v176.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 192,
+          "image": "assets/map_tiles/special_variants/5_tij_v192.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 193,
+          "image": "assets/map_tiles/special_variants/5_tij_v193.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 208,
+          "image": "assets/map_tiles/special_variants/5_tij_v208.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 224,
+          "image": "assets/map_tiles/special_variants/5_tij_v224.png",
+          "alphaPixels": 256
+        },
+        {
+          "variant": 240,
+          "image": "assets/map_tiles/special_variants/5_tij_v240.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/5.tij.json"
+    },
+    {
+      "id": "6.tij",
+      "kind": "tij",
+      "image": "assets/map_tiles/special/6.tij.png",
+      "rawImage": "assets/map_tiles/special_raw/6.tij.png",
+      "source": "work_unpack/d/6.tij",
+      "width": 16,
+      "height": 16,
+      "anchorX": 0,
+      "anchorY": 0,
+      "frameCount": 1,
+      "slowAnim": false,
+      "rawWidth": 16,
+      "rawHeight": 8,
+      "subtileWidth": 8,
+      "subtileHeight": 8,
+      "variantBits": 8,
+      "defaultVariant": 0,
+      "subtileIndexFrames": [
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
+      ],
+      "variants": [
+        {
+          "variant": 0,
+          "image": "assets/map_tiles/special_variants/6_tij_v000.png",
+          "alphaPixels": 256
+        }
+      ],
+      "meta": "assets/map_tiles/special_meta/6.tij.json"
+    }
+  ]
+}

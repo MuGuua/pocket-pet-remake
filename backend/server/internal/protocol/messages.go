@@ -72,15 +72,16 @@ type EnterWorldResp struct {
 }
 
 type MoveIntentReq struct {
-	OpID      uint32 `json:"op_id"`
-	MoveSeq   uint32 `json:"move_seq"`
-	SceneID   uint32 `json:"scene_id"`
-	TargetPos Vec2i  `json:"target_pos"`
+	OpID          uint32 `json:"op_id"`
+	MoveSeq       uint32 `json:"move_seq"`
+	SceneID       uint32 `json:"scene_id"`
+	TargetSceneID uint32 `json:"target_scene_id"`
 }
 
 type MoveIntentResp struct {
 	Accepted     bool   `json:"accepted"`
 	MoveSeq      uint32 `json:"move_seq"`
+	SceneID      uint32 `json:"scene_id"`
 	CorrectedPos Vec2i  `json:"corrected_pos"`
 	Reason       string `json:"reason"`
 }

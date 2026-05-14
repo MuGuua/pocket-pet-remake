@@ -102,10 +102,22 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, profile.SceneID, currentPos, "scene mismatch")
 	}
 
-	decision, err := h.worldService.EvaluateMove(ctx, sess.PlayerID, request.SceneID, currentPos, world.Vec2i{
-		X: request.TargetPos.X,
-		Y: request.TargetPos.Y,
-	})
+	// In-scene movement is client-authoritative now; the server only tracks scene/map transfers.
+	if request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID {
+		responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
+			Accepted:     true,
+			MoveSeq:      request.MoveSeq,
+			SceneID:      profile.SceneID,
+			CorrectedPos: protocol.Vec2i{X: currentPos.X, Y: currentPos.Y},
+			Reason:       "local movement handled by client",
+		})
+		if err != nil {
+			return err
+		}
+		return conn.SendPacket(responsePacket)
+	}
+
+	decision, err := h.worldService.EvaluateTransfer(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "evaluate move failed")
 	}
@@ -113,7 +125,8 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 		Accepted:     decision.Accepted,
 		MoveSeq:      request.MoveSeq,
-		CorrectedPos: protocol.Vec2i{X: decision.CorrectedPos.X, Y: decision.CorrectedPos.Y},
+		SceneID:      decision.ToSceneID,
+		CorrectedPos: protocol.Vec2i{X: decision.SpawnPos.X, Y: decision.SpawnPos.Y},
 		Reason:       decision.Reason,
 	})
 	if err != nil {
@@ -127,22 +140,11 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return h.sendWorldResync(conn, profile.SceneID, currentPos)
 	}
 
-	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, profile.SceneID, decision.ToPos.X, decision.ToPos.Y); err != nil {
+	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 	}
 
-	movePushPacket, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
-		SceneVersion: decision.SceneVersion,
-		EntityID:     sess.PlayerID,
-		MoveSeq:      request.MoveSeq,
-		FromPos:      protocol.Vec2i{X: decision.FromPos.X, Y: decision.FromPos.Y},
-		ToPos:        protocol.Vec2i{X: decision.ToPos.X, Y: decision.ToPos.Y},
-		Speed:        decision.Speed,
-	})
-	if err != nil {
-		return err
-	}
-	return conn.SendPacket(movePushPacket)
+	return h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos)
 }
 
 func toProtocolEntities(entities []world.Entity) []protocol.EntityBrief {
@@ -184,6 +186,7 @@ func (h *WorldHandler) sendMoveRejectedWithResync(conn packetSender, seq uint32,
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 		Accepted:     false,
 		MoveSeq:      moveSeq,
+		SceneID:      sceneID,
 		CorrectedPos: protocol.Vec2i{X: currentPos.X, Y: currentPos.Y},
 		Reason:       reason,
 	})

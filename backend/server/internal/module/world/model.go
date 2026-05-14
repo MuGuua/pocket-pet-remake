@@ -28,9 +28,7 @@ type SceneSnapshot struct {
 type MoveDecision struct {
 	Accepted     bool
 	SceneVersion uint32
-	FromPos      Vec2i
-	ToPos        Vec2i
-	CorrectedPos Vec2i
-	Speed        uint32
+	ToSceneID    uint32
+	SpawnPos     Vec2i
 	Reason       string
 }
