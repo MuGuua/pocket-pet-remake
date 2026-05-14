@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package pocketpet.auth;
+
+option go_package = "pocket-pet-remake/proto/auth;authpb";
+
+message WsAuthReq {
+  string ws_token = 1;
+  string client_version = 2;
+  string device_id = 3;
+}
+
+message WsAuthResp {
+  uint64 player_id = 1;
+  string session_id = 2;
+  string reconnect_token = 3;
+  uint32 heartbeat_sec = 4;
+  int64 server_time_ms = 5;
+}
+
+message HeartbeatReq {
+  int64 client_time_ms = 1;
+}
+
+message HeartbeatResp {
+  int64 server_time_ms = 1;
+}
+
+message ReconnectReq {
+  string reconnect_token = 1;
+  uint32 scene_version = 2;
+  uint32 battle_version = 3;
+}
+
+message ReconnectResp {
+  bool ok = 1;
+  bool in_world = 2;
+  bool in_battle = 3;
+}
+
+message ForceOfflinePush {
+  string reason = 1;
+}
+
+message ErrorPush {
+  uint32 code = 1;
+  string msg = 2;
+}

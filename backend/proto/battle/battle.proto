@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package pocketpet.battle;
+
+option go_package = "pocket-pet-remake/proto/battle;battlepb";
+
+import "proto/common/types.proto";
+import "proto/pet/pet.proto";
+
+enum BattleActionType {
+  BATTLE_ACTION_TYPE_UNSPECIFIED = 0;
+  BATTLE_ACTION_TYPE_SKILL = 1;
+  BATTLE_ACTION_TYPE_USE_ITEM = 2;
+  BATTLE_ACTION_TYPE_SWITCH_PET = 3;
+  BATTLE_ACTION_TYPE_ESCAPE = 4;
+}
+
+enum BattleEventType {
+  BATTLE_EVENT_TYPE_UNSPECIFIED = 0;
+  BATTLE_EVENT_TYPE_USE_SKILL = 1;
+  BATTLE_EVENT_TYPE_DAMAGE = 2;
+  BATTLE_EVENT_TYPE_HEAL = 3;
+  BATTLE_EVENT_TYPE_ADD_STATE = 4;
+  BATTLE_EVENT_TYPE_REMOVE_STATE = 5;
+  BATTLE_EVENT_TYPE_DEAD = 6;
+  BATTLE_EVENT_TYPE_CAPTURE = 7;
+}
+
+message BattleStartPush {
+  uint64 battle_id = 1;
+  uint32 battle_type = 2;
+  uint32 battle_version = 3;
+  repeated BattleActorSnapshot allies = 4;
+  repeated BattleActorSnapshot enemies = 5;
+  uint32 round = 6;
+}
+
+message BattleActorSnapshot {
+  uint64 actor_id = 1;
+  uint32 actor_type = 2;
+  uint64 pet_uid = 3;
+  uint32 pet_id = 4;
+  string name = 5;
+  uint32 hp = 6;
+  uint32 hp_max = 7;
+  repeated uint32 skill_ids = 8;
+}
+
+message BattleActionReq {
+  uint32 op_id = 1;
+  uint64 battle_id = 2;
+  uint32 round = 3;
+  BattleActionType action_type = 4;
+  uint64 actor_id = 5;
+  uint32 skill_id = 6;
+  uint64 target_id = 7;
+  uint64 item_uid = 8;
+  uint64 switch_pet_uid = 9;
+}
+
+message BattleActionResp {
+  bool accepted = 1;
+  string reason = 2;
+}
+
+message BattleStatePush {
+  uint64 battle_id = 1;
+  uint32 battle_version = 2;
+  uint32 round = 3;
+  repeated BattleEvent events = 4;
+  repeated BattleActorState actors = 5;
+}
+
+message BattleEvent {
+  BattleEventType event_type = 1;
+  uint64 source_id = 2;
+  uint64 target_id = 3;
+  uint32 skill_id = 4;
+  int32 value = 5;
+  uint32 state_id = 6;
+}
+
+message BattleActorState {
+  uint64 actor_id = 1;
+  uint32 hp = 2;
+  uint32 hp_max = 3;
+  bool dead = 4;
+}
+
+message BattleResultPush {
+  uint64 battle_id = 1;
+  bool win = 2;
+  pocketpet.common.Reward reward = 3;
+  pocketpet.pet.PetDetail captured_pet = 4;
+  uint32 return_scene_id = 5;
+  pocketpet.common.Vec2i return_pos = 6;
+}
+
+message BattleExitReq {
+  uint32 op_id = 1;
+  uint64 battle_id = 2;
+}
+
+message BattleExitResp {
+  bool accepted = 1;
+}

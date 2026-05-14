@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package pocketpet.world;
+
+option go_package = "pocket-pet-remake/proto/world;worldpb";
+
+import "proto/common/types.proto";
+
+enum InteractType {
+  INTERACT_TYPE_UNSPECIFIED = 0;
+  INTERACT_TYPE_NPC = 1;
+  INTERACT_TYPE_PORTAL = 2;
+  INTERACT_TYPE_MONSTER = 3;
+  INTERACT_TYPE_PICKUP = 4;
+}
+
+enum EncounterType {
+  ENCOUNTER_TYPE_UNSPECIFIED = 0;
+  ENCOUNTER_TYPE_WILD = 1;
+  ENCOUNTER_TYPE_SCRIPT = 2;
+}
+
+message EnterWorldReq {}
+
+message EnterWorldResp {
+  pocketpet.common.PlayerBrief self = 1;
+  uint32 scene_id = 2;
+  pocketpet.common.Vec2i self_pos = 3;
+  uint32 scene_version = 4;
+  repeated pocketpet.common.EntityBrief nearby_entities = 5;
+  repeated pocketpet.common.PetBrief lineup = 6;
+  uint32 gold = 7;
+}
+
+message EntityEnterPush {
+  uint32 scene_version = 1;
+  pocketpet.common.EntityBrief entity = 2;
+}
+
+message EntityLeavePush {
+  uint32 scene_version = 1;
+  uint64 entity_id = 2;
+}
+
+message MoveIntentReq {
+  uint32 op_id = 1;
+  uint32 move_seq = 2;
+  uint32 scene_id = 3;
+  pocketpet.common.Vec2i target_pos = 4;
+}
+
+message MoveIntentResp {
+  bool accepted = 1;
+  uint32 move_seq = 2;
+  pocketpet.common.Vec2i corrected_pos = 3;
+  string reason = 4;
+}
+
+message EntityMovePush {
+  uint32 scene_version = 1;
+  uint64 entity_id = 2;
+  uint32 move_seq = 3;
+  pocketpet.common.Vec2i from_pos = 4;
+  pocketpet.common.Vec2i to_pos = 5;
+  uint32 speed = 6;
+}
+
+message WorldResyncPush {
+  uint32 scene_id = 1;
+  pocketpet.common.Vec2i self_pos = 2;
+  uint32 scene_version = 3;
+  repeated pocketpet.common.EntityBrief nearby_entities = 4;
+}
+
+message InteractReq {
+  uint32 op_id = 1;
+  uint64 target_entity_id = 2;
+  InteractType interact_type = 3;
+}
+
+message InteractResp {
+  bool accepted = 1;
+  string reason = 2;
+}
+
+message EncounterPush {
+  uint64 battle_id = 1;
+  EncounterType encounter_type = 2;
+  uint64 monster_group_id = 3;
+}

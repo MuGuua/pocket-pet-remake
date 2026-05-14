@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package pocketpet.common;
+
+option go_package = "pocket-pet-remake/proto/common;commonpb";
+
+message Vec2i {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message PlayerBrief {
+  uint64 player_id = 1;
+  string name = 2;
+  uint32 level = 3;
+}
+
+message EntityBrief {
+  uint64 entity_id = 1;
+  uint32 entity_type = 2;
+  Vec2i pos = 3;
+  uint32 dir = 4;
+  uint32 speed = 5;
+  string name = 6;
+}
+
+message PetBrief {
+  uint64 pet_uid = 1;
+  uint32 pet_id = 2;
+  uint32 level = 3;
+  uint32 hp = 4;
+  uint32 hp_max = 5;
+}
+
+message ItemBrief {
+  uint64 item_uid = 1;
+  uint32 item_id = 2;
+  uint32 count = 3;
+}
+
+message Reward {
+  uint32 gold = 1;
+  uint32 exp = 2;
+  repeated ItemBrief items = 3;
+}

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package pocketpet.pet;
+
+option go_package = "pocket-pet-remake/proto/pet;petpb";
+
+message PetListReq {}
+
+message PetListResp {
+  repeated PetDetail pets = 1;
+}
+
+message PetDetail {
+  uint64 pet_uid = 1;
+  uint32 pet_id = 2;
+  uint32 level = 3;
+  uint32 exp = 4;
+  uint32 quality = 5;
+  uint32 hp = 6;
+  uint32 hp_max = 7;
+  uint32 atk = 8;
+  uint32 def = 9;
+  uint32 spd = 10;
+  repeated uint32 skill_ids = 11;
+  bool in_lineup = 12;
+}
+
+message PetUpdatePush {
+  repeated PetDetail changed_pets = 1;
+}
+
+message PetLineupSetReq {
+  uint32 op_id = 1;
+  repeated uint64 pet_uids = 2;
+}
+
+message PetLineupSetResp {
+  bool accepted = 1;
+  repeated uint64 lineup_pet_uids = 2;
+}

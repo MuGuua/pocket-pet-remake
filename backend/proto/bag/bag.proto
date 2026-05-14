@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pocketpet.bag;
+
+option go_package = "pocket-pet-remake/proto/bag;bagpb";
+
+import "proto/common/types.proto";
+
+message BagListReq {}
+
+message BagListResp {
+  repeated pocketpet.common.ItemBrief items = 1;
+}
+
+message BagUpdatePush {
+  repeated pocketpet.common.ItemBrief changed_items = 1;
+}
+
+message UseItemReq {
+  uint32 op_id = 1;
+  uint64 item_uid = 2;
+  uint64 target_pet_uid = 3;
+}
+
+message UseItemResp {
+  bool accepted = 1;
+  string reason = 2;
+}
