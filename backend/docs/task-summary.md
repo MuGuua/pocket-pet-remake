@@ -116,3 +116,87 @@
 - 客户端战斗场景改为根据 `BATTLE_START_PUSH` 下发的 `skill_ids` 动态展示技能按钮，而不是写死一个攻击按钮
 - 技能按钮点击后仅发送 `BATTLE_ACTION_REQ`，本地不做伤害、命中或回合推进推导，继续保持服务端权威
 - 已补充战斗路由测试以覆盖多技能快照和技能动作联调，`go test ./...` 通过，战斗场景诊断无报错
+
+## 2026-05-16 原版客户端参考逻辑沉淀
+
+本次补充聚焦把逆向出来的原版客户端 `/Users/wangzhiwei/study/kdjl` 中可复用的流程设计沉淀为当前项目文档：
+- 新增 `backend/docs/kdjl-client-reference.md`，只保留与当前 MVP 直接相关的参考逻辑，不扩展公会、交易、活动等边界外能力
+- 文档确认原版最值得吸收的是登录前状态机、登录上下文本地持久化、世界/战斗场景切换关系、地图入口意图上报、战斗意图提交与服务端结算边界
+- 文档明确原版协议和 UI 技术只适合参考思路，不适合直接迁移，包括文本协议、服务端驱动 `<menu>/<input>`、WAP 代理联网和敏感信息缓存
+- 文档补齐了逆向类与当前项目模块的映射，便于后续在 `client` 与 `backend/server/internal/module/*` 中按现有架构落地
+- 本次任务只新增文档与记录，不改动现有双端功能链路
+
+## 2026-05-16 宠物编队与战斗快照模型设计
+
+本次补充聚焦把上一步的原版参考结论进一步收敛成可直接指导实现的模型文档：
+- 新增 `backend/docs/pet-lineup-battle-model.md`，把后续实现必须区分的四层对象固定为 `PetInstance`、`Lineup`、`ActivePet`、`BattleActorSnapshot`
+- 文档结合当前仓库现状，明确 `pet`、`player`、`battle` 三个模块各自负责什么，不允许把宠物持久化状态、编队顺序和战斗运行态混在一起
+- 文档补充客户端 `GameState` 的建议状态结构，明确 `pets`、`lineup`、`battle_state` 的边界，并指出当前 `upsert_pet()` 以 `pet_id` 合并的风险
+- 文档补充了 `PET_LIST_RESP`、`PET_LINEUP_SET_REQ/RESP`、`BATTLE_START_PUSH`、`BATTLE_STATE_PUSH` 的后续补强方向，便于后面按最小代价逐步落实现有骨架
+- 文档给出建议实现顺序：先补完整宠物实例，再补编队闭环，再显式化当前出战宠，最后再做战斗结算回写与换宠
+
+## 2026-05-16 宠物列表与编队设置最小闭环
+
+本次补充聚焦把上一条模型设计落成第一批最小代码改动：
+- 服务端新增 `pet_handler.go`，正式接入 `PET_LIST_REQ` 与 `PET_LINEUP_SET_REQ` 两条 WebSocket 链路，并接入路由与应用启动装配
+- `pet` 模块补齐了宠物实例模型、宠物列表查询、编队设置校验和仓储接口；内存仓储新增演示宠物列表，PostgreSQL 仓储新增宠物列表查询与编队写入能力
+- `PET_LIST_RESP` 现已返回 `pets + lineup`，`PET_LINEUP_SET_RESP` 现已返回 `accepted + lineup + reason`，避免客户端收到编队变更后还要二次查详情
+- 客户端 `GameState.upsert_pet()` 改为按 `pet_uid` 合并，解决同种宠物多只并存时被错误覆盖的问题；`set_pets()` / `set_lineup()` 现在会自动同步 `in_lineup`
+- 客户端 `App.gd` 新增 `set_pet_lineup()` 发送入口，`pet_controller.gd` 仅在服务端确认成功后才更新本地编队，避免失败响应把本地状态误清空
+- 协议文档和 `backend/proto/pet/pet.proto` 已同步更新；已执行 `go test ./server/...`，并完成相关 GDScript 诊断检查，当前无新增报错
+
+## 2026-05-16 地图切换加载方案沉淀
+
+本次补充聚焦把“参考原版客户端如何做地图切换加载”的方案落到当前仓库文档：
+- 新增 `backend/docs/map-scene-loading.md`，明确世界层与战斗层分离、地图资源热切换、服务端权威切图、客户端按 `MOVE_INTENT_REQ -> MOVE_INTENT_RESP -> WORLD_RESYNC_PUSH` 时序装载地图
+- 文档对照当前 `world_controller.gd`、`main.gd` 和服务端 `world_handler.go`，说明现有可复用骨架与当前缺口，避免后续为了切图重写整套世界链路
+- 文档给出推荐场景结构：`WorldRoot -> MapMount / RemoteEntities / LocalPlayerAnchor`，要求 `main.tscn` 和 `world_scene.tscn` 常驻，只替换地图节点
+- 文档给出地图配置、门区切换、加载遮罩和分阶段实施顺序，便于后续按最小代价推进地图绘制与切图接入
+- 本次仅新增设计文档和记录，不改动现有双端运行代码
+
+## 2026-05-16 世界地图资源挂载第一阶段
+
+本次补充聚焦把地图切换加载方案先落成客户端第一阶段的最小实现：
+- `client/scenes/world/world_scene.tscn` 新增 `MapMount` 挂载点和最小 `MapLoadingOverlay`，保证世界根场景常驻，只替换地图资源节点
+- `client/scripts/feature/world/world_controller.gd` 为 `SCENE_CONFIGS` 增加 `scene_path`，并新增地图资源加载、卸载和切图加载态控制逻辑
+- 客户端现在会在收到服务端世界快照时按当前 `scene_id` 装载对应地图资源；地图切换仍然沿用 `MOVE_INTENT_REQ -> MOVE_INTENT_RESP -> WORLD_RESYNC_PUSH`，没有改变服务端权威链路
+- `client/scripts/feature/world/player.gd` 继续只负责角色移动和战斗锁定，不承担地图切换判定
+- 新增 `client/scenes/maps/scene_1.tscn`、`scene_2.tscn`、`scene_3.tscn` 三张最小地图骨架，当前仅提供视觉占位和出入口提示，便于后续逐张替换成正式地图
+- 已对相关 GDScript 和 `.tscn` 文件完成诊断检查，当前无新增报错
+
+## 2026-05-16 地图入口落点修正
+
+本次补充聚焦修正“切图后角色总出现在新地图中心”的问题：
+- 根因是服务端内存版 `world_repo` 在场景切换时统一使用目标地图 `spawnPos` 作为落点，导致无论从哪边进入都落在固定中心参考点附近
+- 当前最小实现已改为“按来源地图决定目标地图入口落点”：例如 `1 -> 2` 会落在 `2` 号地图左入口，`2 -> 1` 会落在 `1` 号地图右入口，`2 -> 3` 会落在 `3` 号地图左入口
+- 这次没有扩协议字段，仍沿用 `target_scene_id`；因为当前每对相邻地图只有一个入口，最小规则足够支撑现阶段地图切换
+- 同步更新 `backend/docs/protocol.md` 与 `backend/docs/map-scene-loading.md`，把 `corrected_pos` / `self_pos` 的口径明确为“权威入口落点”，不再写成统一出生点
+- 已更新 `world_handler_test.go` 的切图断言，并执行 `go test ./server/...`，当前通过
+
+## 2026-05-16 地图门区与 portal_id 闭环
+
+本次补充聚焦把“入口落点”进一步落成真正的门/入口实例：
+- 服务端 `protocol.MoveIntentReq`、`world.Service` 与内存版 `world_repo` 已补充 `portal_id`，当前会优先按门区配置决定目标地图和入口落点；若 `portal_id` 无效则拒绝切图
+- `client/scripts/feature/world/map_portal.gd` 新增为最小门区脚本，地图场景中的 `Area2D` 门区进入后会发出 `portal_id + target_scene_id`，再由 `world_controller.gd` 统一走现有权威切图链路
+- 三张占位地图场景已接入门区节点：`scene_1` 右门通往 `scene_2`，`scene_2` 左右门分别通往 `scene_1/scene_3`，`scene_3` 左门通往 `scene_2`
+- `world_controller.gd` 新增门区绑定与切图冷却，避免玩家刚落在入口附近时立即再次触发反向传送，并彻底移除了边界触发切图逻辑
+- 同步更新 `backend/proto/world/world.proto`、`backend/docs/protocol.md` 与 `backend/docs/map-scene-loading.md`，让协议草案、实现文档和当前代码保持一致
+- 已新增无效 `portal_id` 的服务端测试，执行 `go test ./server/...` 通过；相关 GDScript 与地图场景诊断无新增报错
+
+## 2026-05-16 当前出战宠显式化
+
+本次补充聚焦把宠物战斗模型文档里“显式化当前出战宠”这一步真正落成代码：
+- 服务端 `battle` 模块的运行时快照已补充 `active_actor_id`、`active_pet_uid`，并为 `BattleActorSnapshot` 增加 `lineup_index`，使“当前出战宠”和“战斗单位快照”不再隐含耦合在数组第一位
+- `BATTLE_START_PUSH` 与 `BATTLE_STATE_PUSH` 现在都会下发当前出战宠锚点，客户端不需要再默认用 `allies[0]` 猜测当前己方在场宠物
+- 客户端 `GameState` 新增 `active_battle_actor()` 辅助方法，`battle_scene.gd` 改为按 `active_actor_id` / `active_pet_uid` 组织我方显示和动作提交，为后续换宠留稳定接口
+- 同步更新 `backend/proto/battle/battle.proto` 与 `backend/docs/protocol.md` 的战斗快照结构，确保协议草案、文档说明和当前 JSON 实现一致
+- 已补充战斗链路测试，校验 `BATTLE_START_PUSH` 与 `BATTLE_STATE_PUSH` 中的 `active_actor_id`、`active_pet_uid`、`lineup_index`；执行 `go test ./server/...` 通过
+
+## 2026-05-16 战斗结束主战宠 HP 回写
+
+本次补充聚焦把宠物战斗模型文档里“战斗结束回写主战宠 HP”这一步真正落成最小闭环：
+- 服务端 `pet` 模块新增宠物 HP 更新接口，`memory` 与 `postgres` 两套仓储均已支持按 `player_id + pet_uid` 回写当前 HP
+- 服务端 `battle` 结算结果现已显式带出主战宠 `pet_uid` 与最终 HP，`battle_handler` 会在发送战斗结果时先回写宠物实例，再通过 `3011 PET_UPDATE_PUSH` 推送最新宠物详情
+- 客户端继续复用现有 `pet_controller.gd` 的 `handle_pet_update()`，按 `pet_uid` 合并本地宠物实例，不新增额外路由与 UI 逻辑
+- 协议文档已补充 `PET_UPDATE_PUSH` 消息体，并明确当前 `BATTLE_RESULT_PUSH` 之后可能继续跟随宠物更新推送
+- 已扩展 `world_handler_test.go`，同时校验 `PET_UPDATE_PUSH` 内容与回写后 `PET_LIST_RESP` / `lineup` 的 HP 一致性；执行 `go test ./server/...` 通过

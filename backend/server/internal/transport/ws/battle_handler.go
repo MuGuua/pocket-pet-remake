@@ -69,6 +69,8 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 		Allies:        toProtocolBattleActors(startSnapshot.Allies),
 		Enemies:       toProtocolBattleActors(startSnapshot.Enemies),
 		Round:         startSnapshot.Round,
+		ActiveActorID: startSnapshot.ActiveActorID,
+		ActivePetUID:  startSnapshot.ActivePetUID,
 	}))
 }
 
@@ -111,12 +113,18 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 			Round:         outcome.State.Round,
 			Events:        toProtocolBattleEvents(outcome.State.Events),
 			Actors:        toProtocolBattleActorStates(outcome.State.Actors),
+			ActiveActorID: outcome.State.ActiveActorID,
+			ActivePetUID:  outcome.State.ActivePetUID,
 		})); err != nil {
 			return err
 		}
 	}
 	if outcome.Result != nil {
-		return conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, protocol.BattleResultPush{
+		updatedPet, err := h.petService.UpdatePetHP(context.Background(), sess.PlayerID, outcome.Result.ActivePetUID, outcome.Result.ActivePetHP)
+		if err != nil {
+			return err
+		}
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, protocol.BattleResultPush{
 			BattleID:      outcome.Result.BattleID,
 			Win:           outcome.Result.Win,
 			ReturnSceneID: outcome.Result.ReturnSceneID,
@@ -125,6 +133,11 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 				Y: outcome.Result.ReturnPos.Y,
 			},
 			Reason: outcome.Result.Reason,
+		})); err != nil {
+			return err
+		}
+		return conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+			Pet: toProtocolPetDetail(updatedPet),
 		}))
 	}
 	return nil
@@ -208,14 +221,15 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 		skills := make([]uint32, 0, len(actor.SkillIDs))
 		skills = append(skills, actor.SkillIDs...)
 		result = append(result, protocol.BattleActorSnapshot{
-			ActorID:   actor.ActorID,
-			ActorType: actor.ActorType,
-			PetUID:    actor.PetUID,
-			PetID:     actor.PetID,
-			Name:      actor.Name,
-			HP:        actor.HP,
-			HPMax:     actor.HPMax,
-			SkillIDs:  skills,
+			ActorID:     actor.ActorID,
+			ActorType:   actor.ActorType,
+			PetUID:      actor.PetUID,
+			PetID:       actor.PetID,
+			Name:        actor.Name,
+			HP:          actor.HP,
+			HPMax:       actor.HPMax,
+			SkillIDs:    skills,
+			LineupIndex: actor.LineupIndex,
 		})
 	}
 	return result
@@ -261,4 +275,23 @@ func mustJSONPacket(cmd uint16, seq uint32, payload any) *protocol.Packet {
 		panic(err)
 	}
 	return packet
+}
+
+func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
+	skills := make([]uint32, 0, len(item.SkillIDs))
+	skills = append(skills, item.SkillIDs...)
+	return protocol.PetDetail{
+		PetUID:   item.PetUID,
+		PetID:    item.PetID,
+		Level:    item.Level,
+		Exp:      item.Exp,
+		Quality:  item.Quality,
+		HP:       item.HP,
+		HPMax:    item.HPMax,
+		ATK:      item.ATK,
+		DEF:      item.DEF,
+		SPD:      item.SPD,
+		SkillIDs: skills,
+		InLineup: item.InLineup,
+	}
 }

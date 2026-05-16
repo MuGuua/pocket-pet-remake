@@ -1,15 +1,11 @@
 class_name player
 extends CharacterBody2D
 
-signal scene_exit_requested(direction: String)
-
 const STATE_IDLE := "idle"
 const STATE_WALK := "walk"
 const STATE_BATTLE := "battle"
 
 @export var move_speed: float = 100.0
-@export var map_half_size: Vector2 = Vector2(224.0, 160.0)
-@export var exit_margin: float = 12.0
 
 var cardinal_direction: Vector2 = Vector2.DOWN
 var direction: Vector2 = Vector2.ZERO
@@ -42,7 +38,6 @@ func _process(_delta: float) -> void:
 
 func _physics_process(_delta: float) -> void:
 	move_and_slide()
-	_check_scene_exit()
 
 func apply_authoritative_position(local_position: Vector2) -> void:
 	position = local_position
@@ -67,17 +62,6 @@ func set_battle_active(active: bool) -> void:
 		direction = Vector2.ZERO
 	if _update_state():
 		_update_animation()
-
-func snap_inside_bounds(exit_direction: String) -> void:
-	match exit_direction:
-		"left":
-			position.x = -map_half_size.x + exit_margin
-		"right":
-			position.x = map_half_size.x - exit_margin
-		"up":
-			position.y = -map_half_size.y + exit_margin
-		"down":
-			position.y = map_half_size.y - exit_margin
 
 func _update_state() -> bool:
 	var new_state := _resolve_state()
@@ -136,23 +120,3 @@ func _direction_suffix() -> String:
 
 func _is_movement_locked() -> bool:
 	return _scene_transition_locked or _battle_locked
-
-func _check_scene_exit() -> void:
-	if _scene_transition_locked:
-		return
-
-	if position.x <= -map_half_size.x:
-		_scene_transition_locked = true
-		scene_exit_requested.emit("left")
-		return
-	if position.x >= map_half_size.x:
-		_scene_transition_locked = true
-		scene_exit_requested.emit("right")
-		return
-	if position.y <= -map_half_size.y:
-		_scene_transition_locked = true
-		scene_exit_requested.emit("up")
-		return
-	if position.y >= map_half_size.y:
-		_scene_transition_locked = true
-		scene_exit_requested.emit("down")

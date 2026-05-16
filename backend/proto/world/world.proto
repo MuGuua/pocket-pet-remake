@@ -46,14 +46,16 @@ message MoveIntentReq {
   uint32 op_id = 1;
   uint32 move_seq = 2;
   uint32 scene_id = 3;
-  pocketpet.common.Vec2i target_pos = 4;
+  uint32 target_scene_id = 4;
+  uint32 portal_id = 5;
 }
 
 message MoveIntentResp {
   bool accepted = 1;
   uint32 move_seq = 2;
-  pocketpet.common.Vec2i corrected_pos = 3;
-  string reason = 4;
+  uint32 scene_id = 3;
+  pocketpet.common.Vec2i corrected_pos = 4;
+  string reason = 5;
 }
 
 message EntityMovePush {

@@ -232,9 +232,15 @@
   "op_id": 1,
   "move_seq": 1,
   "scene_id": 1,
-  "target_scene_id": 2
+  "target_scene_id": 2,
+  "portal_id": 1001
 }
 ```
+
+说明：
+
+- `target_scene_id`：目标地图
+- `portal_id`：可选，表示通过哪个门/入口触发切图；当前门区切图优先带上该字段
 
 ### 2022 MOVE_INTENT_RESP
 
@@ -244,7 +250,7 @@
   "move_seq": 1,
   "scene_id": 2,
   "corrected_pos": {
-    "x": 2,
+    "x": -6,
     "y": 4
   },
   "reason": ""
@@ -254,8 +260,9 @@
 说明：
 
 - `scene_id`：服务端确认后的目标地图
-- `corrected_pos`：进入目标地图后的出生点/落点
+- `corrected_pos`：进入目标地图后的权威入口落点；当前最小实现会按“从哪张地图进入”决定，不再统一落在地图中心
 - 如果 `target_scene_id` 为空、为 `0`、或等于当前 `scene_id`，服务端只返回成功确认，表示“地图内移动由客户端处理”
+- 如果带了 `portal_id`，服务端会优先按门/入口配置决定目标地图与入口落点；若 `portal_id` 非法则拒绝本次切图
 
 ### 2014 WORLD_RESYNC_PUSH
 
@@ -263,7 +270,7 @@
 {
   "scene_id": 2,
   "self_pos": {
-    "x": 2,
+    "x": -6,
     "y": 4
   },
   "scene_version": 1,
@@ -299,6 +306,118 @@
 {
   "accepted": true,
   "reason": "battle started"
+}
+```
+
+### 3001 PET_LIST_REQ
+
+```json
+{}
+```
+
+### 3002 PET_LIST_RESP
+
+```json
+{
+  "pets": [
+    {
+      "pet_uid": 20001,
+      "pet_id": 101,
+      "level": 5,
+      "exp": 120,
+      "quality": 1,
+      "hp": 32,
+      "hp_max": 32,
+      "atk": 14,
+      "def": 10,
+      "spd": 12,
+      "skill_ids": [1001, 1002],
+      "in_lineup": true
+    }
+  ],
+  "lineup": [
+    {
+      "pet_uid": 20001,
+      "pet_id": 101,
+      "level": 5,
+      "hp": 32,
+      "hp_max": 32
+    }
+  ]
+}
+```
+
+说明：
+
+- `pets` 返回玩家拥有的完整宠物实例列表
+- `lineup` 返回当前编队摘要和顺序
+- `in_lineup` 仅用于客户端展示，不替代 `lineup` 顺序本身
+
+### 3011 PET_UPDATE_PUSH
+
+当服务端结算会改变宠物实例状态的结果时，可直接推送单只宠物最新详情；当前最小实现用于“战斗结束后回写主战宠 HP”：
+
+```json
+{
+  "pet": {
+    "pet_uid": 20001,
+    "pet_id": 101,
+    "level": 5,
+    "exp": 120,
+    "quality": 1,
+    "hp": 28,
+    "hp_max": 32,
+    "atk": 14,
+    "def": 10,
+    "spd": 12,
+    "skill_ids": [1001, 1002],
+    "in_lineup": true
+  }
+}
+```
+
+说明：
+
+- 当前只推送发生变化的单只宠物详情
+- 客户端按 `pet_uid` 合并本地宠物实例
+- 宠物列表和编队摘要后续再次查询时，也应与该推送保持一致
+
+### 3021 PET_LINEUP_SET_REQ
+
+```json
+{
+  "op_id": 1,
+  "pet_uids": [20003, 20001]
+}
+```
+
+说明：
+
+- 客户端提交的是完整编队顺序
+- 当前同一只宠物不能重复进入编队
+
+### 3022 PET_LINEUP_SET_RESP
+
+```json
+{
+  "accepted": true,
+  "lineup": [
+    {
+      "pet_uid": 20003,
+      "pet_id": 101,
+      "level": 3,
+      "hp": 24,
+      "hp_max": 24
+    },
+    {
+      "pet_uid": 20001,
+      "pet_id": 101,
+      "level": 5,
+      "hp": 32,
+      "hp_max": 32
+    }
+  ],
+  "reason": "lineup updated"
 }
 ```
 
@@ -343,7 +462,8 @@
       "name": "DemoTrainer 的主战宠",
       "hp": 32,
       "hp_max": 32,
-      "skill_ids": [1001, 1002]
+      "skill_ids": [1001, 1002],
+      "lineup_index": 0
     }
   ],
   "enemies": [
@@ -355,16 +475,20 @@
       "name": "GuideNPC",
       "hp": 22,
       "hp_max": 22,
-      "skill_ids": [90001, 90002]
+      "skill_ids": [90001, 90002],
+      "lineup_index": 0
     }
   ],
-  "round": 1
+  "round": 1,
+  "active_actor_id": 20001,
+  "active_pet_uid": 20001
 }
 ```
 
 说明：
 
 - `skill_ids` 仅表示当前角色可提交的技能意图列表
+- `active_actor_id` / `active_pet_uid` 明确当前己方出战宠锚点
 - 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
 - 客户端只负责展示按钮和发送 `skill_id`
 
@@ -375,6 +499,8 @@
   "battle_id": 70001,
   "battle_version": 2,
   "round": 2,
+  "active_actor_id": 20001,
+  "active_pet_uid": 20001,
   "events": [
     {
       "event_type": 1,
@@ -424,3 +550,8 @@
   "reason": "enemy defeated"
 }
 ```
+
+说明：
+
+- 当前 `BATTLE_RESULT_PUSH` 仍只负责表达战斗胜负与返回世界信息
+- 如果该场战斗使主战宠 HP 发生变化，服务端会在结果后继续推送 `3011 PET_UPDATE_PUSH`

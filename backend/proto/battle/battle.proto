@@ -33,6 +33,8 @@ message BattleStartPush {
   repeated BattleActorSnapshot allies = 4;
   repeated BattleActorSnapshot enemies = 5;
   uint32 round = 6;
+  uint64 active_actor_id = 7;
+  uint64 active_pet_uid = 8;
 }
 
 message BattleActorSnapshot {
@@ -44,6 +46,7 @@ message BattleActorSnapshot {
   uint32 hp = 6;
   uint32 hp_max = 7;
   repeated uint32 skill_ids = 8;
+  uint32 lineup_index = 9;
 }
 
 message BattleActionReq {
@@ -69,6 +72,8 @@ message BattleStatePush {
   uint32 round = 3;
   repeated BattleEvent events = 4;
   repeated BattleActorState actors = 5;
+  uint64 active_actor_id = 6;
+  uint64 active_pet_uid = 7;
 }
 
 message BattleEvent {

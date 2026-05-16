@@ -17,6 +17,8 @@ func handle_pet_update(payload: Dictionary) -> void:
     pets_updated.emit(GameState.pets.size())
 
 func handle_lineup_set_response(payload: Dictionary) -> void:
+    if not bool(payload.get("accepted", false)):
+        return
     var lineup_variant: Variant = payload.get("lineup", [])
     var lineup: Array = lineup_variant if lineup_variant is Array else []
     GameState.set_lineup(lineup)

@@ -20,6 +20,9 @@ const (
 	CmdEncounterPush    uint16 = 2041
 	CmdPetListReq       uint16 = 3001
 	CmdPetListResp      uint16 = 3002
+	CmdPetUpdatePush    uint16 = 3011
+	CmdPetLineupSetReq  uint16 = 3021
+	CmdPetLineupSetResp uint16 = 3022
 	CmdBattleActionReq  uint16 = 4001
 	CmdBattleActionResp uint16 = 4002
 	CmdBattleStartPush  uint16 = 4011

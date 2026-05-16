@@ -71,6 +71,15 @@ func enter_world() -> void:
 func request_pet_list() -> void:
     NetClient.send_command(CommandIds.PET_LIST_REQ, {})
 
+func set_pet_lineup(pet_uids: Array[int]) -> void:
+    NetClient.send_command(
+        CommandIds.PET_LINEUP_SET_REQ,
+        {
+            "op_id": _take_battle_op_id(),
+            "pet_uids": pet_uids,
+        }
+    )
+
 func request_bag_list() -> void:
     NetClient.send_command(CommandIds.BAG_LIST_REQ, {})
 

@@ -57,8 +57,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, worldService)
+	petHandler := wstransport.NewPetHandler(sessionService, petService)
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, battleService)
-	wsRouter := wstransport.NewRouter(authHandler, worldHandler, battleHandler, sessionService)
+	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
 	httpHandler := buildHTTPHandler(loginHandler, wsHub)

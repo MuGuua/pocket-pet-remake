@@ -11,14 +11,16 @@ import (
 type Router struct {
 	authHandler    *AuthHandler
 	worldHandler   *WorldHandler
+	petHandler     *PetHandler
 	battleHandler  *BattleHandler
 	sessionService *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, battleHandler *BattleHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, sessionService *session.Service) *Router {
 	return &Router{
 		authHandler:    authHandler,
 		worldHandler:   worldHandler,
+		petHandler:     petHandler,
 		battleHandler:  battleHandler,
 		sessionService: sessionService,
 	}
@@ -63,6 +65,16 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleInteract(conn, packet)
+	case protocol.CmdPetListReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.petHandler.HandlePetList(conn, packet)
+	case protocol.CmdPetLineupSetReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.petHandler.HandleLineupSet(conn, packet)
 	case protocol.CmdBattleActionReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

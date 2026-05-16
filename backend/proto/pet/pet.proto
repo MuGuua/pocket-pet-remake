@@ -4,10 +4,13 @@ package pocketpet.pet;
 
 option go_package = "pocket-pet-remake/proto/pet;petpb";
 
+import "common/types.proto";
+
 message PetListReq {}
 
 message PetListResp {
   repeated PetDetail pets = 1;
+  repeated pocketpet.common.PetBrief lineup = 2;
 }
 
 message PetDetail {
@@ -36,5 +39,6 @@ message PetLineupSetReq {
 
 message PetLineupSetResp {
   bool accepted = 1;
-  repeated uint64 lineup_pet_uids = 2;
+  repeated pocketpet.common.PetBrief lineup = 2;
+  string reason = 3;
 }

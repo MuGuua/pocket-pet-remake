@@ -1,5 +1,29 @@
 # 最新变更记录
 
+## 2026-05-16
+- 新增 `backend/docs/kdjl-client-reference.md`，梳理逆向原版客户端 `/Users/wangzhiwei/study/kdjl` 中对当前 MVP 有参考价值的流程设计
+- 文档聚焦登录前状态机、世界与战斗场景切换、宠物实例/编队/出战宠分层、战斗意图上报与服务端权威结算
+- 文档同时明确原版中不应直接迁移的部分，包括文本 UI 协议、WAP 代理联网细节、旧资源协议与敏感信息处理方式
+- 新增 `backend/docs/pet-lineup-battle-model.md`，把“宠物实例 / 编队 / 当前出战宠 / 战斗快照”四层模型固定为后续实现口径
+- 新文档同步梳理了服务端模块边界、客户端 `GameState` 状态建议、协议补强方向和分步实现顺序
+- 补齐 `PET_LIST_REQ/RESP` 与 `PET_LINEUP_SET_REQ/RESP` 的最小双端闭环，服务端新增 `pet_handler`、内存/PostgreSQL 仓储能力和相关 WebSocket 路由
+- 客户端 `GameState` 的宠物合并主键从 `pet_id` 调整为 `pet_uid`，并在编队变更后自动同步 `in_lineup` 标记
+- 同步更新 `backend/docs/protocol.md` 与 `backend/proto/pet/pet.proto`，使宠物列表和编队设置响应结构与当前实现一致
+- 新增 `backend/docs/map-scene-loading.md`，把参考原版客户端后的地图切换加载方案落成当前项目的实现文档
+- 文档明确了“世界层常驻、地图资源热切换、服务端权威切图、客户端按 `WORLD_RESYNC_PUSH` 装载地图”的实现口径，并给出分阶段实施顺序
+- 客户端 `world_scene.tscn` 新增 `MapMount` 和最小地图加载遮罩，`world_controller.gd` 已接入 `scene_id -> scene_path` 地图挂载/卸载逻辑，并按 `WORLD_RESYNC_PUSH` 切换地图资源
+- 新增 `client/scenes/maps/scene_1.tscn`、`scene_2.tscn`、`scene_3.tscn` 三张最小地图骨架，当前可作为后续正式地图绘制和传送点接入的占位资源
+- 服务端内存版 `world_repo` 新增按来源地图决定入口落点的切图逻辑，不再把目标地图统一 `spawnPos` 当作落点，解决切图后角色总出现在地图中心的问题
+- 同步更新世界切图测试与协议/设计文档，明确当前最小入口模型为“按来源地图选择目标地图入口落点”；`go test ./server/...` 已通过
+- 继续补齐地图门区实例：服务端 `MOVE_INTENT_REQ` 已支持 `portal_id`，客户端地图场景已接入 `Area2D` 门区与 `MapPortal` 脚本，门区触发后会按 `portal_id` 发起权威切图
+- 同步更新 `backend/proto/world/world.proto`、`backend/docs/protocol.md` 与 `backend/docs/map-scene-loading.md`，并新增无效 `portal_id` 的服务端测试；相关 GDScript/场景诊断与 `go test ./server/...` 已通过
+- 客户端已移除边界触发切图链路，`player.gd` 不再检测地图边缘，`world_controller.gd` 只保留门区 `Area2D` 触发的地图切换
+- 继续落地宠物战斗模型：`battle` 模块现已在 `BATTLE_START_PUSH` / `BATTLE_STATE_PUSH` 中显式返回 `active_actor_id`、`active_pet_uid`，并为战斗单位补充 `lineup_index`
+- 客户端 `GameState` 与 `battle_scene.gd` 已按当前出战宠字段组织战斗展示和动作提交；`backend/proto/battle/battle.proto` 与协议文档已同步更新，`go test ./server/...` 通过
+- 继续补齐核心模型闭环：服务端战斗结算后现已把主战宠最终 HP 回写到 `pet` 模块，并通过 `3011 PET_UPDATE_PUSH` 把更新后的宠物实例同步给客户端
+- `pet` 模块新增宠物 HP 更新接口，内存仓储与 PostgreSQL 仓储都已补齐最小实现；客户端继续复用现有 `handle_pet_update()`，无需新增一套路由或 UI
+- 战斗链路测试现已覆盖 `PET_UPDATE_PUSH` 与回写后的 `PET_LIST_RESP` 一致性校验，`go test ./server/...` 通过
+
 ## 2026-05-14
 - 新增联机复刻版架构草案，明确客户端、服务端、同步和持久化边界
 - 新增实时协议文档，固定包头、消息号分段和 HTTP/WS 令牌策略已定稿

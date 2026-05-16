@@ -40,8 +40,10 @@ func _refresh_view() -> void:
 
     var battle_id := str(GameState.battle_state.get("battle_id", "未分配"))
     var round_text := str(GameState.battle_state.get("round", GameState.battle_state.get("turn", 0)))
-    summary_label.text = "战斗ID: %s | 回合: %s" % [battle_id, round_text]
-    ally_label.text = "我方: " + _build_actor_text(_first_actor("allies"), _actor_state(_first_actor("allies")))
+    var active_pet_uid := int(GameState.battle_state.get("active_pet_uid", 0))
+    summary_label.text = "战斗ID: %s | 回合: %s | 出战宠: %s" % [battle_id, round_text, str(active_pet_uid)]
+    var active_ally := GameState.active_battle_actor("allies")
+    ally_label.text = "我方: " + _build_actor_text(active_ally, _actor_state(active_ally))
     enemy_label.text = "敌方: " + _build_actor_text(_first_actor("enemies"), _actor_state(_first_actor("enemies")))
 
     var detail_parts: Array[String] = []
@@ -66,7 +68,7 @@ func _refresh_view() -> void:
     _refresh_skill_buttons()
 
 func _on_skill_button_pressed(skill_id: int) -> void:
-    var ally := _first_actor("allies")
+    var ally := GameState.active_battle_actor("allies")
     var enemy := _first_actor("enemies")
     if ally.is_empty() or enemy.is_empty() or _is_action_pending:
         action_status_label.text = "缺少可用战斗目标。"
@@ -136,7 +138,7 @@ func _bind_skill_buttons() -> void:
         secondary_skill_button.pressed.connect(func() -> void: _on_skill_button_pressed(int(secondary_skill_button.get_meta("skill_id", 0))))
 
 func _refresh_skill_buttons() -> void:
-    var ally := _first_actor("allies")
+    var ally := GameState.active_battle_actor("allies")
     var skills_variant: Variant = ally.get("skill_ids", [])
     var skill_ids: Array[int] = []
     if skills_variant is Array:

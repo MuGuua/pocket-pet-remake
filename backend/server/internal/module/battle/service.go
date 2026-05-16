@@ -28,15 +28,16 @@ type activeBattle struct {
 }
 
 type actorRuntime struct {
-	actorID   uint64
-	actorType uint32
-	petUID    uint64
-	petID     uint32
-	name      string
-	level     uint32
-	hp        uint32
-	hpMax     uint32
-	skillIDs  []uint32
+	actorID     uint64
+	actorType   uint32
+	petUID      uint64
+	petID       uint32
+	lineupIndex uint32
+	name        string
+	level       uint32
+	hp          uint32
+	hpMax       uint32
+	skillIDs    []uint32
 }
 
 func NewService() *Service {
@@ -74,15 +75,16 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 		returnSceneID: profile.SceneID,
 		returnPos:     world.Vec2i{X: profile.PosX, Y: profile.PosY},
 		ally: actorRuntime{
-			actorID:   leadPet.PetUID,
-			actorType: PlayerActorType,
-			petUID:    leadPet.PetUID,
-			petID:     leadPet.PetID,
-			name:      profile.Name + " 的主战宠",
-			level:     leadPet.Level,
-			hp:        leadPet.HP,
-			hpMax:     leadPet.HPMax,
-			skillIDs:  []uint32{DefaultAttackSkillID, 1002},
+			actorID:     leadPet.PetUID,
+			actorType:   PlayerActorType,
+			petUID:      leadPet.PetUID,
+			petID:       leadPet.PetID,
+			lineupIndex: 0,
+			name:        profile.Name + " 的主战宠",
+			level:       leadPet.Level,
+			hp:          leadPet.HP,
+			hpMax:       leadPet.HPMax,
+			skillIDs:    []uint32{DefaultAttackSkillID, 1002},
 		},
 		enemy: actorRuntime{
 			actorID:   enemy.EntityID + 100000,
@@ -121,6 +123,8 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 	case ActionTypeEscape:
 		result := &ResultSnapshot{
 			BattleID:      battle.battleID,
+			ActivePetUID:  battle.ally.petUID,
+			ActivePetHP:   battle.ally.hp,
 			Win:           false,
 			ReturnSceneID: battle.returnSceneID,
 			ReturnPos:     battle.returnPos,
@@ -179,6 +183,8 @@ func (s *Service) resolveSkillActionLocked(playerID uint64, battle *activeBattle
 		state := battle.toStateSnapshot(events)
 		result := &ResultSnapshot{
 			BattleID:      battle.battleID,
+			ActivePetUID:  battle.ally.petUID,
+			ActivePetHP:   battle.ally.hp,
 			Win:           true,
 			ReturnSceneID: battle.returnSceneID,
 			ReturnPos:     battle.returnPos,
@@ -221,6 +227,8 @@ func (s *Service) resolveSkillActionLocked(playerID uint64, battle *activeBattle
 	if battle.ally.hp == 0 {
 		result := &ResultSnapshot{
 			BattleID:      battle.battleID,
+			ActivePetUID:  battle.ally.petUID,
+			ActivePetHP:   battle.ally.hp,
 			Win:           false,
 			ReturnSceneID: battle.returnSceneID,
 			ReturnPos:     battle.returnPos,
@@ -248,6 +256,8 @@ func (b *activeBattle) toStartSnapshot() *StartSnapshot {
 		Allies:        []ActorSnapshot{b.ally.toSnapshot()},
 		Enemies:       []ActorSnapshot{b.enemy.toSnapshot()},
 		Round:         b.round,
+		ActiveActorID: b.ally.actorID,
+		ActivePetUID:  b.ally.petUID,
 	}
 }
 
@@ -273,6 +283,8 @@ func (b *activeBattle) toStateSnapshot(events []Event) *StateSnapshot {
 				Dead:    b.enemy.hp == 0,
 			},
 		},
+		ActiveActorID: b.ally.actorID,
+		ActivePetUID:  b.ally.petUID,
 	}
 }
 
@@ -280,14 +292,15 @@ func (a actorRuntime) toSnapshot() ActorSnapshot {
 	skills := make([]uint32, 0, len(a.skillIDs))
 	skills = append(skills, a.skillIDs...)
 	return ActorSnapshot{
-		ActorID:   a.actorID,
-		ActorType: a.actorType,
-		PetUID:    a.petUID,
-		PetID:     a.petID,
-		Name:      a.name,
-		HP:        a.hp,
-		HPMax:     a.hpMax,
-		SkillIDs:  skills,
+		ActorID:     a.actorID,
+		ActorType:   a.actorType,
+		PetUID:      a.petUID,
+		PetID:       a.petID,
+		Name:        a.name,
+		HP:          a.hp,
+		HPMax:       a.hpMax,
+		SkillIDs:    skills,
+		LineupIndex: a.lineupIndex,
 	}
 }
 

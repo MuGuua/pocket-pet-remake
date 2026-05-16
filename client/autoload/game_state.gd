@@ -147,26 +147,50 @@ func apply_entity_move(payload: Dictionary) -> void:
 func set_pets(next_pets: Array, next_lineup: Array = []) -> void:
     pets = next_pets.duplicate(true)
     lineup = next_lineup.duplicate(true)
+    _sync_pet_lineup_flags()
     pets_changed.emit()
 
 func set_lineup(next_lineup: Array) -> void:
     lineup = next_lineup.duplicate(true)
+    _sync_pet_lineup_flags()
     pets_changed.emit()
 
 func upsert_pet(pet: Dictionary) -> void:
-    var pet_id: int = int(pet.get("pet_id", 0))
-    if pet_id == 0:
+    var pet_uid: int = int(pet.get("pet_uid", 0))
+    if pet_uid == 0:
         return
 
+    var next_pet := pet.duplicate(true)
     for index in pets.size():
         var current: Variant = pets[index]
-        if current is Dictionary and int(current.get("pet_id", 0)) == pet_id:
-            pets[index] = pet.duplicate(true)
+        if current is Dictionary and int(current.get("pet_uid", 0)) == pet_uid:
+            pets[index] = next_pet
+            _sync_pet_lineup_flags()
             pets_changed.emit()
             return
 
-    pets.append(pet.duplicate(true))
+    pets.append(next_pet)
+    _sync_pet_lineup_flags()
     pets_changed.emit()
+
+func _sync_pet_lineup_flags() -> void:
+    if pets.is_empty():
+        return
+
+    var lineup_pet_uids := {}
+    for lineup_item_variant in lineup:
+        if lineup_item_variant is Dictionary:
+            var lineup_pet_uid: int = int(lineup_item_variant.get("pet_uid", 0))
+            if lineup_pet_uid != 0:
+                lineup_pet_uids[lineup_pet_uid] = true
+
+    for index in pets.size():
+        var current: Variant = pets[index]
+        if current is Dictionary:
+            var next_pet: Dictionary = current.duplicate(true)
+            var pet_uid: int = int(next_pet.get("pet_uid", 0))
+            next_pet["in_lineup"] = lineup_pet_uids.has(pet_uid)
+            pets[index] = next_pet
 
 func set_bag_items(next_items: Array) -> void:
     bag_items = next_items.duplicate(true)
@@ -195,6 +219,23 @@ func set_battle_state(next_state: Dictionary, active: bool = true) -> void:
     battle_state = merged_state
     is_in_battle = active
     battle_changed.emit()
+
+func active_battle_actor(group_key: String = "allies") -> Dictionary:
+    var target_actor_id: int = int(battle_state.get("active_actor_id", 0))
+    var target_pet_uid: int = int(battle_state.get("active_pet_uid", 0))
+    var actors_variant: Variant = battle_state.get(group_key, [])
+    if actors_variant is not Array:
+        return {}
+
+    for actor_variant in actors_variant:
+        if actor_variant is Dictionary:
+            if target_actor_id != 0 and int(actor_variant.get("actor_id", 0)) == target_actor_id:
+                return actor_variant
+            if target_pet_uid != 0 and int(actor_variant.get("pet_uid", 0)) == target_pet_uid:
+                return actor_variant
+    if not actors_variant.is_empty() and actors_variant[0] is Dictionary:
+        return actors_variant[0]
+    return {}
 
 func clear_battle_state() -> void:
     battle_state = {}

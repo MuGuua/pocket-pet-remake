@@ -24,8 +24,8 @@ func (s *Service) GetSceneSnapshot(ctx context.Context, playerID uint64, sceneID
 	return snapshot, nil
 }
 
-func (s *Service) EvaluateTransfer(ctx context.Context, playerID uint64, sceneID uint32, currentPos Vec2i, targetSceneID uint32) (*MoveDecision, error) {
-	decision, err := s.repo.EvaluateTransfer(ctx, playerID, sceneID, currentPos, targetSceneID)
+func (s *Service) EvaluateTransfer(ctx context.Context, playerID uint64, sceneID uint32, currentPos Vec2i, targetSceneID uint32, portalID uint32) (*MoveDecision, error) {
+	decision, err := s.repo.EvaluateTransfer(ctx, playerID, sceneID, currentPos, targetSceneID, portalID)
 	if err != nil {
 		return nil, err
 	}

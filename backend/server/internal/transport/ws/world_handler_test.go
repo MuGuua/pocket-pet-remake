@@ -87,8 +87,9 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	worldHandler := NewWorldHandler(sessionService, nil, nil, nil)
+	petHandler := NewPetHandler(sessionService, nil)
 	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, battle.NewService())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, battleHandler, sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
 	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 12, 0, nil)
@@ -187,6 +188,7 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 		MoveSeq:       4,
 		SceneID:       1,
 		TargetSceneID: 2,
+		PortalID:      1001,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)
@@ -232,8 +234,8 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if resync.SceneID != 2 {
 		t.Fatalf("resync.SceneID = %d, want 2", resync.SceneID)
 	}
-	if resync.SelfPos.X != 2 || resync.SelfPos.Y != 4 {
-		t.Fatalf("resync.SelfPos = (%d,%d), want (2,4)", resync.SelfPos.X, resync.SelfPos.Y)
+	if resync.SelfPos.X != -6 || resync.SelfPos.Y != 4 {
+		t.Fatalf("resync.SelfPos = (%d,%d), want (-6,4)", resync.SelfPos.X, resync.SelfPos.Y)
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), 10001)
@@ -243,8 +245,62 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if profile.SceneID != 2 {
 		t.Fatalf("profile.SceneID = %d, want 2", profile.SceneID)
 	}
-	if profile.PosX != 2 || profile.PosY != 4 {
-		t.Fatalf("profile position = (%d,%d), want (2,4)", profile.PosX, profile.PosY)
+	if profile.PosX != -6 || profile.PosY != 4 {
+		t.Fatalf("profile position = (%d,%d), want (-6,4)", profile.PosX, profile.PosY)
+	}
+}
+
+func TestRouterHandleMoveIntentRejectUnknownPortal(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 141, 0, protocol.MoveIntentReq{
+		OpID:          21,
+		MoveSeq:       9,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      9999,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket() error = %v", err)
+	}
+
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket() error = %v", err)
+	}
+
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+
+	var resp protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if resp.Accepted {
+		t.Fatalf("resp.Accepted = true, want false")
+	}
+	if resp.Reason != "portal unavailable" {
+		t.Fatalf("resp.Reason = %q, want portal unavailable", resp.Reason)
+	}
+
+	var resync protocol.WorldResyncPush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &resync); err != nil {
+		t.Fatalf("UnmarshalBody(resync) error = %v", err)
+	}
+	if resync.SceneID != 1 {
+		t.Fatalf("resync.SceneID = %d, want 1", resync.SceneID)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), 10001)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 1 {
+		t.Fatalf("profile.SceneID = %d, want 1", profile.SceneID)
 	}
 }
 
@@ -333,6 +389,15 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if len(start.Allies) != 1 || len(start.Enemies) != 1 {
 		t.Fatalf("unexpected actor counts allies=%d enemies=%d", len(start.Allies), len(start.Enemies))
 	}
+	if start.ActiveActorID != start.Allies[0].ActorID {
+		t.Fatalf("start.ActiveActorID = %d, want %d", start.ActiveActorID, start.Allies[0].ActorID)
+	}
+	if start.ActivePetUID != start.Allies[0].PetUID {
+		t.Fatalf("start.ActivePetUID = %d, want %d", start.ActivePetUID, start.Allies[0].PetUID)
+	}
+	if start.Allies[0].LineupIndex != 0 {
+		t.Fatalf("start.Allies[0].LineupIndex = %d, want 0", start.Allies[0].LineupIndex)
+	}
 	if len(start.Allies[0].SkillIDs) != 2 {
 		t.Fatalf("len(start.Allies[0].SkillIDs) = %d, want 2", len(start.Allies[0].SkillIDs))
 	}
@@ -367,6 +432,22 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if state.Round != 2 {
 		t.Fatalf("state.Round = %d, want 2", state.Round)
 	}
+	if state.ActiveActorID != start.Allies[0].ActorID {
+		t.Fatalf("state.ActiveActorID = %d, want %d", state.ActiveActorID, start.Allies[0].ActorID)
+	}
+	if state.ActivePetUID != start.Allies[0].PetUID {
+		t.Fatalf("state.ActivePetUID = %d, want %d", state.ActivePetUID, start.Allies[0].PetUID)
+	}
+	var allyHPAfterFirstRound uint32
+	for _, actor := range state.Actors {
+		if actor.ActorID == start.Allies[0].ActorID {
+			allyHPAfterFirstRound = actor.HP
+			break
+		}
+	}
+	if allyHPAfterFirstRound == 0 {
+		t.Fatalf("allyHPAfterFirstRound = 0, want non-zero")
+	}
 
 	secondAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 18, 0, protocol.BattleActionReq{
 		OpID:       2,
@@ -387,8 +468,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(secondAction) error = %v", err)
 	}
-	if len(conn.packets) != 7 {
-		t.Fatalf("len(conn.packets) after second action = %d, want 7", len(conn.packets))
+	if len(conn.packets) != 8 {
+		t.Fatalf("len(conn.packets) after second action = %d, want 8", len(conn.packets))
 	}
 	if conn.packets[6].Cmd != protocol.CmdBattleResultPush {
 		t.Fatalf("conn.packets[6].Cmd = %d, want %d", conn.packets[6].Cmd, protocol.CmdBattleResultPush)
@@ -400,6 +481,55 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	}
 	if !result.Win {
 		t.Fatalf("result.Win = false, want true")
+	}
+	if conn.packets[7].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdPetUpdatePush)
+	}
+
+	var petUpdate protocol.PetUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[7].Body, &petUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(petUpdate) error = %v", err)
+	}
+	if petUpdate.Pet.PetUID != start.ActivePetUID {
+		t.Fatalf("petUpdate.Pet.PetUID = %d, want %d", petUpdate.Pet.PetUID, start.ActivePetUID)
+	}
+	if petUpdate.Pet.HP != allyHPAfterFirstRound {
+		t.Fatalf("petUpdate.Pet.HP = %d, want %d", petUpdate.Pet.HP, allyHPAfterFirstRound)
+	}
+
+	petListPacket, err := protocol.NewJSONPacket(protocol.CmdPetListReq, 19, 0, protocol.PetListReq{})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(petList) error = %v", err)
+	}
+	raw, err = protocol.EncodePacket(petListPacket)
+	if err != nil {
+		t.Fatalf("EncodePacket(petList) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(petList) error = %v", err)
+	}
+	if len(conn.packets) != 9 {
+		t.Fatalf("len(conn.packets) after pet list = %d, want 9", len(conn.packets))
+	}
+
+	var petList protocol.PetListResp
+	if err := protocol.UnmarshalBody(conn.packets[8].Body, &petList); err != nil {
+		t.Fatalf("UnmarshalBody(petList) error = %v", err)
+	}
+	if len(petList.Pets) == 0 {
+		t.Fatalf("len(petList.Pets) = 0, want non-zero")
+	}
+	if petList.Pets[0].PetUID != start.ActivePetUID {
+		t.Fatalf("petList.Pets[0].PetUID = %d, want %d", petList.Pets[0].PetUID, start.ActivePetUID)
+	}
+	if petList.Pets[0].HP != allyHPAfterFirstRound {
+		t.Fatalf("petList.Pets[0].HP = %d, want %d", petList.Pets[0].HP, allyHPAfterFirstRound)
+	}
+	if len(petList.Lineup) == 0 {
+		t.Fatalf("len(petList.Lineup) = 0, want non-zero")
+	}
+	if petList.Lineup[0].HP != allyHPAfterFirstRound {
+		t.Fatalf("petList.Lineup[0].HP = %d, want %d", petList.Lineup[0].HP, allyHPAfterFirstRound)
 	}
 }
 
@@ -416,8 +546,9 @@ func buildWorldRouterForTest(t *testing.T) (config.Config, *Router, *player.Serv
 	petService := pet.NewService(memory.NewPetRepository(cfg))
 	worldService := world.NewService(memory.NewWorldRepository())
 	worldHandler := NewWorldHandler(sessionService, playerService, petService, worldService)
+	petHandler := NewPetHandler(sessionService, petService)
 	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, battle.NewService())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, battleHandler, sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, sessionService)
 
 	conn := &fakeConn{id: "conn-1"}
 	if _, err := sessionService.Bind(cfg.DemoPlayerID, conn); err != nil {
