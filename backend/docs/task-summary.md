@@ -1,5 +1,45 @@
 # 任务总结
 
+## 2026-05-17 固定镜头地图出生点居中
+
+本次补充聚焦把登录后角色在固定镜头地图中的出生显示点统一收敛到地图场景中心：
+- `client/scripts/feature/world/world_controller.gd` 不再把 `scene_id = 1` 的出生显示点写死为单独的 `spawn_local_position`
+- 固定镜头地图现在会优先读取显式配置；如果未配置，则自动按当前地图可见内容包围盒中心计算出生显示点
+- 因此登录进入世界、收到权威世界重同步、以及后续切回固定镜头地图时，角色都会默认显示在对应地图场景中心
+- 非固定镜头地图原有“出生逻辑坐标映射到视口中心”的链路保持不变，没有扩散修改现有服务端世界权威坐标规则
+
+## 2026-05-17 主运行态改为 3:1 上下布局
+
+本次补充聚焦把登录后主运行态的游戏区与操作区比例从 `4:1` 调整为 `3:1`：
+- `client/scenes/bootstrap/main.tscn` 中 `GameplayArea.anchor_bottom` 已从 `0.8` 调整为 `0.75`
+- `client/scenes/bootstrap/main.tscn` 中 `HudRoot.anchor_top` 已从 `0.8` 调整为 `0.75`
+- 当前上部游戏区占 `75%` 高度，下部操作区占 `25%` 高度，世界、战斗与底部 HUD 的现有链路保持不变
+- 本次只调整布局比例，不改动世界渲染、战斗挂载、协议、控制器和底部 HUD 交互逻辑
+
+## 2026-05-17 设计分辨率收敛回 360x640
+
+本次补充聚焦把客户端从大设计分辨率切回更适合像素地图编辑的小设计分辨率，并继续依赖运行时自动拉伸：
+- `client/project.godot` 的设计分辨率与窗口覆盖尺寸已从 `1080x1920` 调整为 `360x640`，同时继续保留 `canvas_items + expand + integer` 的移动端适配方式
+- `client/scripts/feature/world/world_controller.gd` 与 `client/scenes/world/world_scene.tscn` 已同步把世界层默认渲染尺寸收敛为 `360x480`，与当前 `3:1` 的主运行态上部游戏区一致
+- `client/scenes/bootstrap/main.tscn`、`client/scripts/bootstrap/runtime_hud.gd`、`client/scenes/battle/battle_scene.tscn` 与 `client/scenes/auth/login_scene.tscn` 已把此前按大屏放大的字号、面板和按钮尺寸同步收回到小设计分辨率口径
+- 当前思路改为“编辑期按小设计分辨率绘制像素地图，运行期由 Godot 按整数倍率自动放大”，不再需要为每张地图单独做统一缩放改造
+
+## 2026-05-17 240x320 方案回退为 360x640
+
+本次补充聚焦修正 `240x320` 设计分辨率导致的运行时发糊问题，并把客户端口径恢复为更适合当前竖屏目标分辨率的 `360x640`：
+- `client/project.godot` 已把设计分辨率与窗口覆盖尺寸从 `240x320` 回退为 `360x640`，继续保留 `canvas_items + expand + integer` 的移动端整数倍率拉伸方式
+- `client/scripts/feature/world/world_controller.gd` 与 `client/scenes/world/world_scene.tscn` 已同步把世界层默认渲染尺寸恢复为 `360x480`，重新匹配当前主运行态 `3:1` 布局下的上部游戏区
+- `client/scenes/bootstrap/main.tscn` 与 `client/scripts/bootstrap/runtime_hud.gd` 已把底部 HUD 的字号、按钮高度、边距和数据面板尺寸恢复到 `360x640` 口径，避免 `240x320` 下过度压缩
+- `client/scenes/auth/login_scene.tscn` 与 `client/scenes/battle/battle_scene.tscn` 也已同步恢复卡片、输入框、按钮与文本尺寸，使登录页和战斗界面在当前清晰度优先的方案下保持可读性
+
+## 2026-05-17 清理早期占位地图文件
+
+本次补充聚焦把客户端早期联调用的占位地图文件和对应引用一起清理掉：
+- 三张早期占位地图场景已从仓库中删除
+- `client/scripts/feature/world/world_controller.gd` 已移除对已删除占位地图的 `SCENE_CONFIGS` 加载路径，只保留当前正式接入的 `roxus_house`
+- `client/scenes/maps/fashtown/roxus_house.tscn` 中通往已删除占位地图的出口门区也已同步移除，避免客户端继续发起无效切图
+- `backend/docs/changelog.md` 与 `backend/docs/map-scene-loading.md` 已同步清理旧文件路径说明，避免文档继续指向已删除资源
+
 本次输出聚焦在线复刻版的基础骨架，完成了三部分设计落地：
 - 协议层：定义固定包头、cmd 编号、关键消息边界
 - 路由层：明确 server/client 双端消息分发与职责归属
@@ -161,7 +201,7 @@
 - `client/scripts/feature/world/world_controller.gd` 为 `SCENE_CONFIGS` 增加 `scene_path`，并新增地图资源加载、卸载和切图加载态控制逻辑
 - 客户端现在会在收到服务端世界快照时按当前 `scene_id` 装载对应地图资源；地图切换仍然沿用 `MOVE_INTENT_REQ -> MOVE_INTENT_RESP -> WORLD_RESYNC_PUSH`，没有改变服务端权威链路
 - `client/scripts/feature/world/player.gd` 继续只负责角色移动和战斗锁定，不承担地图切换判定
-- 新增 `client/scenes/maps/scene_1.tscn`、`scene_2.tscn`、`scene_3.tscn` 三张最小地图骨架，当前仅提供视觉占位和出入口提示，便于后续逐张替换成正式地图
+- 早期曾补三张最小地图占位骨架用于联调地图切换链路；后续正式地图资源接入后，这些占位场景已被清理
 - 已对相关 GDScript 和 `.tscn` 文件完成诊断检查，当前无新增报错
 
 ## 2026-05-16 地图入口落点修正
@@ -200,3 +240,107 @@
 - 客户端继续复用现有 `pet_controller.gd` 的 `handle_pet_update()`，按 `pet_uid` 合并本地宠物实例，不新增额外路由与 UI 逻辑
 - 协议文档已补充 `PET_UPDATE_PUSH` 消息体，并明确当前 `BATTLE_RESULT_PUSH` 之后可能继续跟随宠物更新推送
 - 已扩展 `world_handler_test.go`，同时校验 `PET_UPDATE_PUSH` 内容与回写后 `PET_LIST_RESP` / `lineup` 的 HP 一致性；执行 `go test ./server/...` 通过
+
+## 2026-05-16 scene_1 地图资源替换
+
+本次补充聚焦把客户端 `scene_id = 1` 对应的地图资源替换为新建的 `roxus_house` 场景：
+- `world_controller.gd` 中 `SCENE_CONFIGS[1].scene_path` 已调整为 `res://scenes/maps/fashtown/roxus_house.tscn`
+- 本次只替换客户端地图资源映射，不改服务端 `scene_id`、出生点配置和现有地图切换协议
+- 当前 `roxus_house.tscn` 本身未接入门区 `Area2D`，因此如果需要保留 `1 -> 2` 的切图出口，还需要后续继续补门区节点与 `portal_id`
+
+## 2026-05-16 roxus_house 门区补齐
+
+本次补充聚焦把刚替换进来的 `roxus_house` 地图接回现有门区切图链路：
+- `roxus_house.tscn` 已新增 `ExitPortal` 门区节点，并复用现有 `res://scripts/feature/world/map_portal.gd`
+- 当前门区配置为 `portal_id = 1001`、`target_scene_id = 2`，与之前 `scene_1 -> scene_2` 的最小切图链路保持一致
+- 同时新增了一个半透明 `ExitMarker` 出口标记，便于在只画了瓦片的阶段快速确认门区位置和触发范围
+- 已完成 `roxus_house.tscn` 的 Godot 诊断检查，当前无新增场景错误
+
+## 2026-05-16 roxus_house 固定镜头模式
+
+本次补充聚焦把 `roxus_house` 调整为“相机固定、整图展示、角色在图内移动”的视角模式：
+- `world_controller.gd` 为 `scene_id = 1` 新增 `fixed_view` 与 `spawn_local_position` 配置，当前 `roxus_house` 会按固定镜头模式渲染
+- 固定镜头模式下，相机会固定在当前视口中心；地图会按场景内可见内容计算包围盒，并自动居中到屏幕可视区域
+- 当地图实际尺寸大于当前窗口可视区域时，地图与角色锚点会按同一缩放比例缩小，尽量完整展示当前地图内容
+- 角色位置换算从“相对出生点居中”切换为“出生点对应地图内本地落点 + 服务器坐标偏移”，避免角色和地图相对位置错位
+- 已完成 `world_controller.gd` 的 Godot 诊断检查，当前无新增脚本错误
+
+## 2026-05-16 主场景上下分区布局
+
+本次补充聚焦把登录后的主运行态调整为“上部跑游戏、下部常驻 HUD”：
+- `client/scenes/bootstrap/main.tscn` 已新增 `GameplayArea`，世界地图与战斗场景现在只在上部固定区域内渲染，避免覆盖底部常驻 UI
+- 同一主场景新增底部 `HudRoot` 与 `HudBackground`，会永久显示 `client/asset/场景原图/闪光镇/时光小屋.png`，作为运行态底图
+- 现有连接状态、场景信息、玩家信息、挑战按钮与日志输出已统一挪到底部 HUD 区，登录成功后会持续保留，不再压在地图上方
+- `main.gd` 会把上部游戏区域尺寸同步给 `world_controller.gd`，固定镜头地图改为按游戏显示区大小计算居中与缩放，而不是按整个窗口布局
+- 已完成 `main.tscn`、`main.gd` 与 `world_controller.gd` 的 Godot 诊断检查，当前无新增场景或脚本错误
+
+## 2026-05-16 原客户端主运行态分层参考补充
+
+本次补充聚焦把原客户端里和“登录后常驻主界面”最相关的结构继续沉淀到参考文档：
+- `backend/docs/kdjl-client-reference.md` 已新增“登录后主运行态的分层布局”小节，明确原客户端采用单主画布承载上部游戏内容、下部常驻功能区和全局弹层
+- 文档同时补充了“战斗层与常驻 UI 的共存关系”，说明原客户端世界层切到战斗时会继续复用公共 UI 资源，而不是整棵界面重建
+- 当前项目可以继续吸收这条结构原则：`main.tscn` 作为常驻运行态根容器，上部切换世界/战斗显示层，下部保留固定 HUD 和后续操作区
+- 本次只更新参考文档与记录，不扩展新的玩法范围，也不改变现有协议和主链路
+
+## 2026-05-16 主运行态 UI 结构文档
+
+本次补充聚焦把当前项目登录后的主运行态 UI 结构进一步沉淀为单独设计文档：
+- 新增 `backend/docs/main-runtime-ui-layout.md`，明确主运行态采用“上部游戏显示区 + 下部常驻 HUD 区”的固定分层
+- 文档把 `GameplayArea`、`WorldMount`、`BattleMount`、`HudRoot` 等节点职责单独拆开，约束地图切换、战斗切换只影响上部显示层
+- 文档同时明确当前 MVP 下底部 HUD 只应承接连接状态、世界交互、战斗摘要以及宠物/编队/背包入口挂点，不直接扩展商城、频道、任务等超范围功能
+- 本次没有新增代码逻辑，只补充了后续 UI 实现所需的结构口径与演进顺序
+
+## 2026-05-16 底部正式操作区骨架
+
+本次补充聚焦把主运行态文档中的底部操作区真正落成第一版可运行骨架：
+- 新增 `client/scripts/bootstrap/runtime_hud.gd`，把底部常驻 HUD 的状态刷新、按钮事件和日志输出从 `main.gd` 中独立出来
+- `main.tscn` 的 `HudRoot` 现已接入 `RuntimeHud`，并补充 `ModeLabel`、`SummaryLabel`、`ChallengeButton`、`PetButton`、`LineupButton`、`BagButton` 等操作区节点
+- `main.gd` 现改为通过 `RuntimeHud` 驱动头部状态文本与日志，并接收底部按钮事件后分别复用现有 `App.request_interact()`、`App.request_pet_list()`、`App.request_bag_list()` 链路
+- 首次进入世界后会自动同步一次宠物与背包摘要，使底部按钮的宠物数、编队数、背包数能尽快显示当前状态
+- 已完成 `runtime_hud.gd`、`main.gd` 与 `main.tscn` 的 Godot 诊断检查，当前无新增场景或脚本错误
+
+## 2026-05-16 底部入口最小弹出面板
+
+本次补充聚焦让底部 `宠物`、`编队`、`背包` 入口不再只是占位按钮：
+- `runtime_hud.gd` 已新增统一 `DataPanel` 逻辑，点击 `宠物`、`编队`、`背包` 按钮会打开对应的最小摘要面板，并支持关闭
+- 宠物面板当前展示 `pet_uid`、`pet_id`、等级、HP 与是否在编队中；编队面板展示当前编队顺序和 HP 摘要；背包面板展示物品 ID 与数量
+- 面板内容会跟随 `GameState.pets_changed`、`GameState.bag_changed`、`GameState.battle_changed` 自动刷新；进入战斗时会自动收起，避免与战斗态 HUD 冲突
+- 本次继续复用已有 `App.request_pet_list()` 与 `App.request_bag_list()` 链路，没有新增额外协议或控制器
+- 已完成 `runtime_hud.gd`、`main.tscn` 与 `main.gd` 的 Godot 诊断检查，当前无新增脚本或场景错误
+
+## 2026-05-16 编队最小交互与卡片面板
+
+本次补充聚焦把底部右侧数据面板从文本摘要升级成更正式、可操作的列表样式：
+- `main.tscn` 的 `DataPanel` 已改为“标题栏 + 提示文案 + 滚动列表 + 底部操作栏”结构，为后续继续细化样式保留稳定骨架
+- `runtime_hud.gd` 现已按面板类型动态生成卡片列表：宠物面板显示宠物实例卡片，背包面板显示物品摘要卡片，编队面板显示“当前编队 + 可加入宠物”两段结构
+- 编队面板已补最小可操作闭环：支持加入宠物、移除宠物、上移、下移和重置当前待提交编队
+- 点击“提交编队”后会通过 `RuntimeHud -> main.gd -> App.set_pet_lineup()` 复用既有请求链路，仍然遵循客户端只提交完整编队顺序、服务端最终校验的口径
+- 已完成 `runtime_hud.gd`、`main.gd` 与 `main.tscn` 的 Godot 诊断检查，当前无新增脚本或场景错误
+
+## 2026-05-16 主场景 4:1 上下布局
+
+本次补充聚焦把登录后主场景调整成更接近原版参考图的上下分区：
+- `main.tscn` 现已将上部 `GameplayArea` 调整为约 `384px` 高、下部 `HudRoot` 调整为约 `96px` 高，对应 `320x480` 小窗口下约 `4/5 : 1/5` 的布局比例
+- 当前已取消 `时光小屋.png` 作为下部背景，改为上部天蓝色纯背景、下部淡红色纯背景，并保留轻微遮罩，保证操作区与游戏画布上下分离、互不遮挡
+- 底部状态区、按钮区和数据面板已同步压缩到更适合 `1/5` 高度的尺寸，日志面板改为隐藏，避免继续占用操作区可视空间
+- `main.gd` 与 `world_controller.gd` 继续沿用现有上部游戏区域尺寸同步链路，因此地图和战斗仍只在上部区域渲染
+- 已完成 `main.tscn`、`main.gd` 与 `runtime_hud.gd` 的 Godot 诊断检查，当前无新增脚本或场景错误
+
+## 2026-05-16 上部游戏区独立子视口
+
+本次补充聚焦修复上部游戏区顶部出现根视口黑色清屏区域的问题：
+- `main.tscn` 的上部游戏区已改为 `GameplayArea -> GameplayViewportContainer -> GameplayViewport` 结构，世界层与战斗层挂点均迁入 `SubViewport`
+- `GameplayBackground` 继续作为上部区域的底色，而世界地图与战斗界面改为在透明子视口中绘制，避免根视口默认清屏色继续漏到游戏区
+- `main.gd` 的 `_sync_world_render_frame()` 现会同步更新 `GameplayViewport.size`，并继续把同一份尺寸传给 `world_controller.gd`
+- 本次修复只涉及主场景渲染边界，不改动现有世界、战斗、宠物、编队和背包链路
+- 已完成 `main.tscn`、`main.gd` 与 `world_controller.gd` 的 Godot 诊断检查，当前无新增脚本或场景错误
+
+## 2026-05-16 适配 1080x1920 分辨率
+
+本次补充聚焦把此前基于 `320x480` 小窗口假设的主运行态 UI 和固定视角地图，整体迁移到 `1080x1920` 新设计分辨率：
+- `main.tscn` 现已改为按锚点保持 `4:1` 的上下比例，上部游戏区会自动占据 `80%` 高度，下部操作区会自动占据 `20%` 高度，不再依赖旧的 `384px/96px` 写死尺寸
+- `HudRoot` 内的状态区、操作区、数据面板、按钮和标题字号都已整体放大，使其在 `1080x1920` 下保持可读性和可点击性；`runtime_hud.gd` 动态生成的卡片字体、边距和按钮尺寸也已同步放大
+- `world_controller.gd` 的固定视角布局现已允许在大屏上按可见区域自动放大地图，不再强行把缩放结果限制在 `1.0` 以下；同时移除了先前只针对小屏临时加上的固定偏移，改为通过 `view_offset/view_scale` 配置控制
+- `world_scene.tscn` 的地图加载蒙层提示与 `battle_scene.tscn` 的战斗卡片尺寸、字体和按钮高度已同步扩展，避免在大分辨率下仍然维持旧小窗比例
+- 已完成 `main.tscn`、`runtime_hud.gd`、`world_controller.gd`、`world_scene.tscn`、`battle_scene.tscn` 与 `main.gd` 的 Godot 诊断检查，当前无新增脚本或场景错误
+- 登录页 `login_scene.tscn` 也已同步适配：新增浅色纯背景和居中登录卡片，整体放大标题、输入框、登录按钮、状态信息和日志区，使登录前入口在 `1080x1920` 下不再显得过小

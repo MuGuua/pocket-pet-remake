@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-05-17
+- `world_controller.gd` 已把固定镜头地图的角色出生显示点收敛为“地图可见内容中心”规则：当场景未显式配置 `spawn_local_position` 时，会自动按当前地图内容包围盒中心计算出生显示点
+- `scene_id = 1` 的 `roxus_house` 已移除手写出生显示坐标，登录进入世界或权威重同步后，角色会默认显示在地图场景中心；后续新增固定镜头地图时也可直接复用同一规则
+- `main.tscn` 的登录后主运行态上下分区已从 `4:1` 调整为 `3:1`：上部 `GameplayArea` 现占 `75%` 高度，下部 `HudRoot` 现占 `25%` 高度，继续保持游戏区与操作区互不遮挡
+- 客户端设计分辨率已从 `1080x1920` 收敛回 `360x640`，并继续通过 `window/stretch` 在移动端按整数倍率自动放大适配；`main.tscn`、`world_scene.tscn`、`battle_scene.tscn`、`login_scene.tscn` 与 `runtime_hud.gd` 也已同步回收到小设计分辨率口径
+- 客户端设计分辨率曾短暂收敛为 `240x320`，但由于与当前竖屏目标分辨率比例不一致，运行时整数倍率放大后清晰度下降；现已回退为 `360x640`，并同步恢复主运行态 `SubViewport`、世界层默认渲染尺寸、登录页、战斗卡片和底部 HUD 的对应尺寸口径
+- 客户端早期占位地图文件已清理，只保留 `roxus_house` 作为当前地图资源；`world_controller.gd` 中对已删除占位地图的加载引用，以及 `roxus_house` 中通往已删除地图的出口门区也已同步移除
+
 ## 2026-05-16
 - 新增 `backend/docs/kdjl-client-reference.md`，梳理逆向原版客户端 `/Users/wangzhiwei/study/kdjl` 中对当前 MVP 有参考价值的流程设计
 - 文档聚焦登录前状态机、世界与战斗场景切换、宠物实例/编队/出战宠分层、战斗意图上报与服务端权威结算
@@ -12,7 +20,7 @@
 - 新增 `backend/docs/map-scene-loading.md`，把参考原版客户端后的地图切换加载方案落成当前项目的实现文档
 - 文档明确了“世界层常驻、地图资源热切换、服务端权威切图、客户端按 `WORLD_RESYNC_PUSH` 装载地图”的实现口径，并给出分阶段实施顺序
 - 客户端 `world_scene.tscn` 新增 `MapMount` 和最小地图加载遮罩，`world_controller.gd` 已接入 `scene_id -> scene_path` 地图挂载/卸载逻辑，并按 `WORLD_RESYNC_PUSH` 切换地图资源
-- 新增 `client/scenes/maps/scene_1.tscn`、`scene_2.tscn`、`scene_3.tscn` 三张最小地图骨架，当前可作为后续正式地图绘制和传送点接入的占位资源
+- 新增三张最小地图占位骨架，作为当时地图切换链路与门区接入的早期占位资源
 - 服务端内存版 `world_repo` 新增按来源地图决定入口落点的切图逻辑，不再把目标地图统一 `spawnPos` 当作落点，解决切图后角色总出现在地图中心的问题
 - 同步更新世界切图测试与协议/设计文档，明确当前最小入口模型为“按来源地图选择目标地图入口落点”；`go test ./server/...` 已通过
 - 继续补齐地图门区实例：服务端 `MOVE_INTENT_REQ` 已支持 `portal_id`，客户端地图场景已接入 `Area2D` 门区与 `MapPortal` 脚本，门区触发后会按 `portal_id` 发起权威切图
@@ -23,6 +31,21 @@
 - 继续补齐核心模型闭环：服务端战斗结算后现已把主战宠最终 HP 回写到 `pet` 模块，并通过 `3011 PET_UPDATE_PUSH` 把更新后的宠物实例同步给客户端
 - `pet` 模块新增宠物 HP 更新接口，内存仓储与 PostgreSQL 仓储都已补齐最小实现；客户端继续复用现有 `handle_pet_update()`，无需新增一套路由或 UI
 - 战斗链路测试现已覆盖 `PET_UPDATE_PUSH` 与回写后的 `PET_LIST_RESP` 一致性校验，`go test ./server/...` 通过
+- 客户端世界地图配置已将 `scene_id = 1` 的加载资源切换为 `client/scenes/maps/fashtown/roxus_house.tscn`，从而直接复用新建的 `roxus_house` 地图场景
+- `roxus_house.tscn` 已补接最小门区节点，复用现有 `map_portal.gd` 脚本并配置为 `portal_id = 1001 -> scene_2`，同时增加可见出口标记，便于继续迭代地图细化
+- `world_controller.gd` 已为 `roxus_house` 接入固定镜头模式：相机固定在当前视口中心，地图按实际可见内容自动居中并在必要时缩放到可完整显示，角色按地图内本地坐标移动，不再带动镜头平移
+- 客户端主场景已拆成“上部游戏显示区 + 下部固定 HUD 区”两段布局：世界地图、地图切换、战斗场景都只在上部区域渲染，下部会永久显示 `client/asset/场景原图/闪光镇/时光小屋.png`
+- `main.tscn` 已新增底部固定背景与 HUD 容器，并把现有状态面板、挑战按钮和日志区收敛到底部常驻区域；`main.gd` 与 `world_controller.gd` 已同步支持按上部游戏区域尺寸布局固定镜头地图
+- 继续补充 `backend/docs/kdjl-client-reference.md`，新增“登录后主运行态分层布局”和“战斗层与常驻 UI 共存关系”两节，明确原客户端采用单主画布分层承载世界、战斗与底部常驻功能区的结构
+- 新增 `backend/docs/main-runtime-ui-layout.md`，把当前项目登录后“上部游戏区 + 下部常驻 HUD 区”的主运行态 UI 结构单独沉淀为实现文档，并明确只覆盖当前 MVP 内的世界、战斗、宠物/编队与背包入口挂点
+- 客户端新增 `runtime_hud.gd` 组件并接入 `main.tscn`，底部正式操作区现已补出 MVP 骨架：运行状态区、世界交互按钮、宠物/编队/背包入口按钮与日志区
+- `main.gd` 现已通过 `RuntimeHud` 统一驱动底部 HUD，并在首次进入世界后自动请求宠物列表与背包列表，使底部入口计数能同步当前摘要数据
+- `RuntimeHud` 现已新增最小数据面板：点击 `宠物`、`编队`、`背包` 按钮会打开对应摘要面板，并随 `GameState` 数据更新自动刷新内容；进入战斗时该面板会自动收起
+- `RuntimeHud` 的数据面板已进一步升级为滚动卡片列表样式，并在 `编队` 面板中补上最小交互：支持加入/移除、上移/下移调整顺序，以及通过 `main.gd -> App.set_pet_lineup()` 提交完整编队
+- 主场景布局继续保持明确的上下分区：上部 `GameplayArea` 占约 `4/5`，下部 `HudRoot` 占约 `1/5`；当前已改为上部天蓝色纯背景、下部淡红色纯背景，游戏画布和操作区不再互相遮挡
+- 上部游戏区现已改为 `SubViewportContainer + SubViewport` 独立渲染：世界层与战斗层挂点都迁入子视口，`main.gd` 会同步子视口尺寸，从而修复根视口清屏色在顶部泄露导致的黑条问题
+- 客户端现已按 `1080x1920` 新设计分辨率补齐主运行态适配：`main.tscn` 不再依赖旧的 `320/384/96` 固定尺寸，改为保持 `4:1` 上下比例并放大 HUD 字号与按钮尺寸；`world_controller.gd` 的固定视角地图允许在大屏中自动放大，`battle_scene.tscn` 与 `world_scene.tscn` 的旧加载提示/战斗卡片也已同步扩大
+- 登录页 `login_scene.tscn` 也已按 `1080x1920` 适配：新增纯色底板、居中登录卡片，并整体放大标题、输入框、主按钮、状态文字与日志区，保持与当前大屏主运行态一致的可读性
 
 ## 2026-05-14
 - 新增联机复刻版架构草案，明确客户端、服务端、同步和持久化边界

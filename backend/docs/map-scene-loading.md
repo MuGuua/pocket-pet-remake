@@ -76,11 +76,10 @@ Main
 
 ### 5.2 地图资源形式
 
-每张地图推荐单独一个 Godot 场景：
+每张地图推荐单独一个 Godot 场景，例如：
 
-- `client/scenes/maps/scene_1.tscn`
-- `client/scenes/maps/scene_2.tscn`
-- `client/scenes/maps/scene_3.tscn`
+- `client/scenes/maps/fashtown/roxus_house.tscn`
+- `client/scenes/maps/<map_name>.tscn`
 
 每张地图场景只负责表现：
 
@@ -244,11 +243,11 @@ Main
 ```gdscript
 const SCENE_CONFIGS := {
     1: {
-        "scene_path": "res://scenes/maps/scene_1.tscn",
+        "scene_path": "res://scenes/maps/fashtown/roxus_house.tscn",
         "spawn": Vector2(8, 6)
     },
     2: {
-        "scene_path": "res://scenes/maps/scene_2.tscn",
+        "scene_path": "res://scenes/maps/<map_name>.tscn",
         "spawn": Vector2(2, 4)
     }
 }
@@ -349,7 +348,7 @@ const SCENE_CONFIGS := {
 
 ### 第一阶段：最小切图可用
 
-- 新建 `scene_1.tscn`、`scene_2.tscn`、`scene_3.tscn`
+- 新建最小地图场景资源
 - 为 `SCENE_CONFIGS` 增加 `scene_path`
 - 在 `world_controller.gd` 中实现地图节点挂载/卸载
 - 收到 `WORLD_RESYNC_PUSH` 后真正切换地图资源

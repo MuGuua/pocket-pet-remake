@@ -1,17 +1,54 @@
-[gd_scene load_steps=5 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=6 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
 [ext_resource type="Script" uid="uid://dxguvvrut6615" path="res://scripts/feature/battle/battle_controller.gd" id="3"]
 [ext_resource type="Script" uid="uid://bm8lcpfwls80c" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
 
-[node name="WorldMount" type="Node2D" parent="."]
+[node name="GameplayArea" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.75
+grow_horizontal = 2
+clip_contents = true
+
+[node name="GameplayBackground" type="ColorRect" parent="GameplayArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+z_index = -2
+color = Color(0.670588, 0.85098, 0.960784, 1)
+
+[node name="GameplayViewportContainer" type="SubViewportContainer" parent="GameplayArea"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch = true
+
+[node name="GameplayViewport" type="SubViewport" parent="GameplayArea/GameplayViewportContainer"]
+unique_name_in_owner = true
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(360, 480)
+
+[node name="WorldMount" type="Node2D" parent="GameplayArea/GameplayViewportContainer/GameplayViewport"]
 unique_name_in_owner = true
 
-[node name="BattleMount" type="Control" parent="."]
+[node name="BattleMount" type="Control" parent="GameplayArea/GameplayViewportContainer/GameplayViewport"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 3
@@ -35,62 +72,239 @@ script = ExtResource("4")
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 
-[node name="TopPanel" type="PanelContainer" parent="UiLayer"]
-offset_left = 8.0
-offset_top = 8.0
-offset_right = 196.0
-offset_bottom = 108.0
+[node name="HudRoot" type="Control" parent="UiLayer"]
+unique_name_in_owner = true
+anchors_preset = 12
+anchor_top = 0.75
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+script = ExtResource("6")
 
-[node name="VBox" type="VBoxContainer" parent="UiLayer/TopPanel"]
+[node name="HudBackground" type="ColorRect" parent="UiLayer/HudRoot"]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 4.0
-offset_top = 4.0
-offset_right = -4.0
-offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 2
+mouse_filter = 2
+z_index = -2
+color = Color(0.952941, 0.788235, 0.796078, 1)
 
-[node name="StatusLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
+[node name="HudShade" type="ColorRect" parent="UiLayer/HudRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+z_index = -2
+color = Color(1, 1, 1, 0.08)
+
+[node name="TopPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 60.0
+
+[node name="VBox" type="VBoxContainer" parent="UiLayer/HudRoot/TopPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = -8.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="StatusLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "连接状态: idle"
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 12
 
-[node name="SceneLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
+[node name="SceneLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "场景: 未进入"
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 12
 
-[node name="PlayerLabel" type="Label" parent="UiLayer/TopPanel/VBox"]
+[node name="PlayerLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "玩家: 未登录"
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 12
 
-[node name="ChallengeButton" type="Button" parent="UiLayer/TopPanel/VBox"]
+[node name="ActionPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
+offset_left = 8.0
+offset_top = 68.0
+offset_right = -8.0
+offset_bottom = -8.0
+
+[node name="ActionVBox" type="VBoxContainer" parent="UiLayer/HudRoot/ActionPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="ModeLabel" type="Label" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-text = "挑战附近NPC"
-theme_override_font_sizes/font_size = 11
+text = "世界操作区"
+theme_override_font_sizes/font_size = 14
 
-[node name="BottomPanel" type="PanelContainer" parent="UiLayer"]
+[node name="SummaryLabel" type="Label" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "附近实体: 0 | 宠物: 0 | 编队: 0 | 背包: 0"
+theme_override_font_sizes/font_size = 12
+
+[node name="ActionButtons" type="HBoxContainer" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ChallengeButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "挑战"
+theme_override_font_sizes/font_size = 12
+
+[node name="PetButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "宠物 0"
+theme_override_font_sizes/font_size = 12
+
+[node name="LineupButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "编队 0"
+theme_override_font_sizes/font_size = 12
+
+[node name="BagButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "背包 0"
+theme_override_font_sizes/font_size = 12
+
+[node name="DataPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
+unique_name_in_owner = true
+visible = false
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+
+[node name="DataVBox" type="VBoxContainer" parent="UiLayer/HudRoot/DataPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="DataHeader" type="HBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DataTitleLabel" type="Label" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+layout_mode = 2
+text = "面板"
+theme_override_font_sizes/font_size = 14
+
+[node name="DataRefreshButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "刷新"
+theme_override_font_sizes/font_size = 12
+
+[node name="DataCloseButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "关闭"
+theme_override_font_sizes/font_size = 12
+
+[node name="DataHintLabel" type="Label" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "暂无数据"
+theme_override_font_sizes/font_size = 12
+
+[node name="DataScroll" type="ScrollContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="DataList" type="VBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataScroll"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+size_flags_vertical = 3
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DataFooter" type="HBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DataResetButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataFooter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 28)
+layout_mode = 2
+text = "重置"
+theme_override_font_sizes/font_size = 12
+
+[node name="DataApplyButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataFooter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 28)
+layout_mode = 2
+text = "提交编队"
+theme_override_font_sizes/font_size = 12
+
+[node name="BottomPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
+visible = false
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = -88.0
-offset_right = -8.0
-offset_bottom = -8.0
+offset_left = 4.0
+offset_top = -4.0
+offset_right = -4.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="LogOutput" type="RichTextLabel" parent="UiLayer/BottomPanel"]
+[node name="LogOutput" type="RichTextLabel" parent="UiLayer/HudRoot/BottomPanel"]
 unique_name_in_owner = true
 anchors_preset = 15
 anchor_right = 1.0

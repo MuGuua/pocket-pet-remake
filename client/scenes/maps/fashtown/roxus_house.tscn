@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=4 uid="uid://u3f4wctqih5y"]
+[gd_scene load_steps=36 format=4 uid="uid://u3f4wctqih5y"]
 
 [ext_resource type="Texture2D" uid="uid://ca0b5rji5ytgc" path="res://asset/web_image_tile_tool/assets/map_tiles/special_variants/4_tij_v131.png" id="1_exgbu"]
 [ext_resource type="Texture2D" uid="uid://bplf82sqhm6bw" path="res://asset/web_image_tile_tool/assets/map_tiles/special_variants/4_tij_v069.png" id="2_idmbe"]
