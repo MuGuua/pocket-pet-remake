@@ -5,6 +5,7 @@ import (
 
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
@@ -21,14 +22,16 @@ type WorldHandler struct {
 	sessionService *session.Service
 	playerService  *player.Service
 	petService     *pet.Service
+	questService   *quest.Service
 	worldService   *world.Service
 }
 
-func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service) *WorldHandler {
+func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, worldService *world.Service) *WorldHandler {
 	return &WorldHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
 		petService:     petService,
+		questService:   questService,
 		worldService:   worldService,
 	}
 }
@@ -76,8 +79,23 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	if err != nil {
 		return err
 	}
-
-	return conn.SendPacket(responsePacket)
+	var questBefore []quest.Summary
+	if h.questService != nil {
+		questBefore, _ = listQuestSummaries(ctx, h.questService, sess.PlayerID)
+		_, _ = h.questService.HandleEvent(ctx, quest.Event{
+			PlayerID:  sess.PlayerID,
+			EventType: "ENTER_SCENE",
+			SceneID:   snapshot.SceneID,
+			Count:     1,
+		})
+	}
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	if h.questService != nil {
+		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
+	}
+	return nil
 }
 
 func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Packet) error {
@@ -143,7 +161,20 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 	}
-
+	if h.questService != nil {
+		questBefore, _ := listQuestSummaries(ctx, h.questService, sess.PlayerID)
+		_, _ = h.questService.HandleEvent(ctx, quest.Event{
+			PlayerID:  sess.PlayerID,
+			EventType: "ENTER_SCENE",
+			SceneID:   decision.ToSceneID,
+			Count:     1,
+		})
+		if err := h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos); err != nil {
+			return err
+		}
+		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
+		return nil
+	}
 	return h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos)
 }
 

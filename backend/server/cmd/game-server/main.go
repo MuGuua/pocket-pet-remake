@@ -37,3 +37,5 @@ func main() {
 		logger.Fatalf("run app: %v", err)
 	}
 }
+
+// GOCACHE=/Users/wangzhiwei/study/pocket-pet-remake/.tmp/go-build-cache go run ./server/cmd/game-server

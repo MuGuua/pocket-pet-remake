@@ -1,10 +1,7 @@
-[gd_scene load_steps=14 format=3 uid="uid://kyt4t3hxbyyg"]
+[gd_scene load_steps=15 format=3 uid="uid://bf3ktm4jsxdhu"]
 
-[ext_resource type="Script" uid="uid://1gwvwu5232nl" path="res://scripts/feature/world/player.gd" id="1_l3o4k"]
+[ext_resource type="Script" uid="uid://1gwvwu5232nl" path="res://scripts/feature/world/player.gd" id="1_g2els"]
 [ext_resource type="Texture2D" uid="uid://ces3tym5sslw" path="res://asset/口袋所有形象/imgs/53.png" id="2_l3o4k"]
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_n3lu5"]
-radius = 9.0
 
 [sub_resource type="Animation" id="Animation_n3lu5"]
 length = 0.001
@@ -170,19 +167,44 @@ _data = {
 &"walk_up": SubResource("Animation_kgc2y")
 }
 
-[node name="player" type="CharacterBody2D"]
-script = ExtResource("1_l3o4k")
+[sub_resource type="CircleShape2D" id="CircleShape2D_n3lu5"]
+radius = 7.071068
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_g2els"]
+radius = 7.0
+
+[node name="Player" type="CharacterBody2D"]
+position = Vector2(173, 199)
+collision_layer = 2
+collision_mask = 7
+script = ExtResource("1_g2els")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(13, -20)
 texture = ExtResource("2_l3o4k")
 hframes = 14
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-visible = false
-position = Vector2(2, 16)
-shape = SubResource("CircleShape2D_n3lu5")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries = {
 &"": SubResource("AnimationLibrary_813xy")
 }
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(13, -7)
+shape = SubResource("CircleShape2D_n3lu5")
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+visibility_layer = 2
+position = Vector2(13, -7)
+shape = SubResource("CircleShape2D_g2els")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+physics_interpolation_mode = 1
+position = Vector2(-8, 42)
+limit_left = 0
+limit_top = -75
+limit_right = 325
+limit_bottom = 510
+drag_horizontal_enabled = true

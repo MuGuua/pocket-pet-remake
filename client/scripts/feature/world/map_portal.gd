@@ -12,6 +12,6 @@ func _ready() -> void:
 func _on_body_entered(body: Node) -> void:
 	if portal_id <= 0 or target_scene_id <= 0:
 		return
-	if body == null or body.name != "player":
+	if body == null or body.name != "Player":
 		return
 	activated.emit(portal_id, target_scene_id)

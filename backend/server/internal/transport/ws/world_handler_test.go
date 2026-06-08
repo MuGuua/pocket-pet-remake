@@ -12,6 +12,7 @@ import (
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
@@ -86,10 +87,11 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	worldHandler := NewWorldHandler(sessionService, nil, nil, nil)
+	questService := quest.NewService(memory.NewQuestRepository())
+	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil)
 	petHandler := NewPetHandler(sessionService, nil)
-	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, battle.NewService())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, sessionService)
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, questService, battle.NewService())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
 	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 12, 0, nil)
@@ -202,8 +204,8 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(conn.packets) != 2 {
-		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	if len(conn.packets) != 4 {
+		t.Fatalf("len(conn.packets) = %d, want 4", len(conn.packets))
 	}
 
 	respPacket := conn.packets[0]
@@ -234,8 +236,16 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if resync.SceneID != 2 {
 		t.Fatalf("resync.SceneID = %d, want 2", resync.SceneID)
 	}
-	if resync.SelfPos.X != -6 || resync.SelfPos.Y != 4 {
-		t.Fatalf("resync.SelfPos = (%d,%d), want (-6,4)", resync.SelfPos.X, resync.SelfPos.Y)
+	if resync.SelfPos.X != 4 || resync.SelfPos.Y != 1 {
+		t.Fatalf("resync.SelfPos = (%d,%d), want (4,1)", resync.SelfPos.X, resync.SelfPos.Y)
+	}
+
+	questUpdates := collectQuestUpdatesByID(t, conn.packets[2:])
+	if got := questUpdates[1001].State; got != quest.StateCompleted {
+		t.Fatalf("quest 1001 state = %q, want %q", got, quest.StateCompleted)
+	}
+	if got := questUpdates[1002].State; got != quest.StateAvailable {
+		t.Fatalf("quest 1002 state = %q, want %q", got, quest.StateAvailable)
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), 10001)
@@ -245,8 +255,201 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if profile.SceneID != 2 {
 		t.Fatalf("profile.SceneID = %d, want 2", profile.SceneID)
 	}
-	if profile.PosX != -6 || profile.PosY != 4 {
-		t.Fatalf("profile position = (%d,%d), want (-6,4)", profile.PosX, profile.PosY)
+	if profile.PosX != 4 || profile.PosY != 1 {
+		t.Fatalf("profile position = (%d,%d), want (4,1)", profile.PosX, profile.PosY)
+	}
+}
+
+func TestRouterHandleNPCActionPushesQuestUpdate(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 200, protocol.MoveIntentReq{
+		OpID:          20,
+		MoveSeq:       20,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 201, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	clearPackets(conn)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 202, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
+
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdNPCActionResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdNPCActionResp)
+	}
+
+	questUpdates := collectQuestUpdatesByID(t, conn.packets[1:])
+	if got := questUpdates[1002].State; got != quest.StateReadyToSubmit {
+		t.Fatalf("quest 1002 state = %q, want %q", got, quest.StateReadyToSubmit)
+	}
+}
+
+func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 210, protocol.MoveIntentReq{
+		OpID:          21,
+		MoveSeq:       21,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 211, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	clearPackets(conn)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 212, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 213, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93002})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) after wrong submit = %d, want 1", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdErrorPush {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdErrorPush)
+	}
+	var errPush protocol.ErrorPush
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &errPush); err != nil {
+		t.Fatalf("UnmarshalBody(errPush) error = %v", err)
+	}
+	if errPush.Msg != "quest submit npc mismatch" {
+		t.Fatalf("errPush.Msg = %q, want %q", errPush.Msg, "quest submit npc mismatch")
+	}
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 214, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93001})
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) after correct submit = %d, want 3", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdQuestSubmitResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdQuestSubmitResp)
+	}
+	var submitResp protocol.QuestSubmitResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &submitResp); err != nil {
+		t.Fatalf("UnmarshalBody(submitResp) error = %v", err)
+	}
+	if !submitResp.Accepted {
+		t.Fatalf("submitResp.Accepted = false, want true")
+	}
+	if submitResp.Quest.State != quest.StateCompleted {
+		t.Fatalf("submitResp.Quest.State = %q, want %q", submitResp.Quest.State, quest.StateCompleted)
+	}
+
+	questUpdates := collectQuestUpdatesByID(t, conn.packets[1:])
+	if got := questUpdates[1003].State; got != quest.StateAccepted {
+		t.Fatalf("quest 1003 state = %q, want %q", got, quest.StateAccepted)
+	}
+}
+
+func TestRouterHandleQuestAcceptRequiresConfiguredNPC(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 215, protocol.MoveIntentReq{
+		OpID:          23,
+		MoveSeq:       23,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 216, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93002})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) after wrong accept = %d, want 1", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdErrorPush {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdErrorPush)
+	}
+	var errPush protocol.ErrorPush
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &errPush); err != nil {
+		t.Fatalf("UnmarshalBody(errPush) error = %v", err)
+	}
+	if errPush.Msg != "quest accept npc mismatch" {
+		t.Fatalf("errPush.Msg = %q, want %q", errPush.Msg, "quest accept npc mismatch")
+	}
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 217, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) after correct accept = %d, want 3", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdQuestAcceptResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdQuestAcceptResp)
+	}
+	var acceptResp protocol.QuestAcceptResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &acceptResp); err != nil {
+		t.Fatalf("UnmarshalBody(acceptResp) error = %v", err)
+	}
+	if !acceptResp.Accepted {
+		t.Fatalf("acceptResp.Accepted = false, want true")
+	}
+	if acceptResp.Quest.State != quest.StateAccepted {
+		t.Fatalf("acceptResp.Quest.State = %q, want %q", acceptResp.Quest.State, quest.StateAccepted)
+	}
+	questUpdates := collectQuestUpdatesByID(t, conn.packets[1:])
+	if got := questUpdates[1002].State; got != quest.StateAccepted {
+		t.Fatalf("quest 1002 state = %q, want %q", got, quest.StateAccepted)
+	}
+}
+
+func TestRouterHandleMoveIntentSceneTransferToBeiLu(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 140, 0, protocol.MoveIntentReq{
+		OpID:          20,
+		MoveSeq:       8,
+		SceneID:       3,
+		TargetSceneID: 4,
+		PortalID:      3002,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket() error = %v", err)
+	}
+
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket() error = %v", err)
+	}
+
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+
+	var resp protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted || resp.SceneID != 4 {
+		t.Fatalf("resp = %+v, want accepted scene 4", resp)
+	}
+
+	var resync protocol.WorldResyncPush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &resync); err != nil {
+		t.Fatalf("UnmarshalBody(resync) error = %v", err)
+	}
+	if resync.SceneID != 4 {
+		t.Fatalf("resync.SceneID = %d, want 4", resync.SceneID)
+	}
+	if resync.SelfPos.X != 2 || resync.SelfPos.Y != 8 {
+		t.Fatalf("resync.SelfPos = (%d,%d), want (2,8)", resync.SelfPos.X, resync.SelfPos.Y)
 	}
 }
 
@@ -356,6 +559,127 @@ func TestRouterHandleMoveIntentRejectUnknownScene(t *testing.T) {
 	}
 	if profile.SceneID != 1 {
 		t.Fatalf("profile.SceneID = %d, want 1", profile.SceneID)
+	}
+}
+
+func TestRouterHandleInteractMenu(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdInteractReq, 160, 0, protocol.InteractReq{EntityID: 93001})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(interact) error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket(interact) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(interact) error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var resp protocol.InteractResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted {
+		t.Fatalf("resp.Accepted = false, want true")
+	}
+	if resp.ResponseType != "menu" {
+		t.Fatalf("resp.ResponseType = %q, want menu", resp.ResponseType)
+	}
+	if resp.EntityID != 93001 {
+		t.Fatalf("resp.EntityID = %d, want 93001", resp.EntityID)
+	}
+	if len(resp.MenuEntries) != 1 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 1", len(resp.MenuEntries))
+	}
+	if resp.MenuEntries[0].EntryType != "dialog" {
+		t.Fatalf("resp.MenuEntries[0].EntryType = %q, want dialog", resp.MenuEntries[0].EntryType)
+	}
+}
+
+func TestRouterHandleInteractMenuShowsQuestEntryAfterUnlock(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 162, protocol.MoveIntentReq{
+		OpID:          22,
+		MoveSeq:       22,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	clearPackets(conn)
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdInteractReq, 163, protocol.InteractReq{EntityID: 93001})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var resp protocol.InteractResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if len(resp.MenuEntries) != 2 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 2", len(resp.MenuEntries))
+	}
+	if resp.MenuEntries[0].EntryType != "quest" {
+		t.Fatalf("resp.MenuEntries[0].EntryType = %q, want quest", resp.MenuEntries[0].EntryType)
+	}
+	if resp.MenuEntries[0].QuestID != 1002 {
+		t.Fatalf("resp.MenuEntries[0].QuestID = %d, want 1002", resp.MenuEntries[0].QuestID)
+	}
+	if resp.MenuEntries[0].QuestState != quest.StateAvailable {
+		t.Fatalf("resp.MenuEntries[0].QuestState = %q, want %q", resp.MenuEntries[0].QuestState, quest.StateAvailable)
+	}
+}
+
+func TestRouterHandleNPCAction(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCActionReq, 161, 0, protocol.NPCActionReq{EntityID: 93002, EntryID: "shop_open_market"})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(npc action) error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket(npc action) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(npc action) error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var resp protocol.NPCActionResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted {
+		t.Fatalf("resp.Accepted = false, want true")
+	}
+	if resp.ResultType != "notice" {
+		t.Fatalf("resp.ResultType = %q, want notice", resp.ResultType)
+	}
+	if resp.EntityID != 93002 {
+		t.Fatalf("resp.EntityID = %d, want 93002", resp.EntityID)
+	}
+	if len(resp.MenuEntries) != 2 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 2", len(resp.MenuEntries))
 	}
 }
 
@@ -545,10 +869,11 @@ func buildWorldRouterForTest(t *testing.T) (config.Config, *Router, *player.Serv
 	playerService := player.NewService(memory.NewPlayerRepository(cfg))
 	petService := pet.NewService(memory.NewPetRepository(cfg))
 	worldService := world.NewService(memory.NewWorldRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, worldService)
+	questService := quest.NewService(memory.NewQuestRepository())
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
 	petHandler := NewPetHandler(sessionService, petService)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, battle.NewService())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, sessionService)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, battle.NewService())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
 
 	conn := &fakeConn{id: "conn-1"}
 	if _, err := sessionService.Bind(cfg.DemoPlayerID, conn); err != nil {
@@ -556,4 +881,49 @@ func buildWorldRouterForTest(t *testing.T) (config.Config, *Router, *player.Serv
 	}
 
 	return cfg, router, playerService, conn
+}
+
+func mustHandleJSONPacket(t *testing.T, router *Router, conn *fakeConn, cmd uint16, seq uint32, payload any) {
+	t.Helper()
+
+	packet, err := protocol.NewJSONPacket(cmd, seq, 0, payload)
+	if err != nil {
+		t.Fatalf("NewJSONPacket(%d) error = %v", cmd, err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket(%d) error = %v", cmd, err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(%d) error = %v", cmd, err)
+	}
+}
+
+func clearPackets(conn *fakeConn) {
+	conn.packets = nil
+}
+
+func mustMovePlayerToScene(t *testing.T, playerService *player.Service, sceneID uint32, posX int32, posY int32) {
+	t.Helper()
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, sceneID, posX, posY); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+}
+
+func collectQuestUpdatesByID(t *testing.T, packets []*protocol.Packet) map[uint64]protocol.QuestSummary {
+	t.Helper()
+
+	result := map[uint64]protocol.QuestSummary{}
+	for _, packet := range packets {
+		if packet.Cmd != protocol.CmdQuestUpdatePush {
+			continue
+		}
+		var payload protocol.QuestUpdatePush
+		if err := protocol.UnmarshalBody(packet.Body, &payload); err != nil {
+			t.Fatalf("UnmarshalBody(quest update) error = %v", err)
+		}
+		result[payload.Quest.QuestID] = payload.Quest
+	}
+	return result
 }

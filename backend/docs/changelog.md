@@ -1,5 +1,23 @@
 # 最新变更记录
 
+## 2026-05-20
+- `client/autoload/http_client.gd` 已补上非 JSON、空响应和底层 HTTP 失败结果的容错处理，避免后端未启动或返回异常内容时直接触发 `JSON.parse_string()` 解析报错
+- `client/scripts/common/command_ids.gd` 已为客户端协议消息号常量补齐说明性注释，当前各请求、响应和推送编号的用途更清晰
+- `client/autoload/message_router.gd` 已为消息回调注册表、注册/注销和统一分发逻辑补齐说明性注释
+- `client/autoload/http_client.gd` 已为基础地址、HTTP 请求节点、登录接口和通用 JSON 请求封装逻辑补齐说明性注释
+- `client/scripts/feature/world/player.gd` 已为四方向移动、状态机切换、动画回退和切图/战斗锁定逻辑补齐说明性注释
+- `client/scripts/feature/pet/pet_controller.gd` 已为宠物列表响应、宠物更新推送和编队设置响应的状态写回逻辑补齐说明性注释
+- `client/scripts/feature/bag/bag_controller.gd` 已为背包列表响应和单物品更新推送的状态写回逻辑补齐说明性注释
+- `client/scripts/feature/battle/battle_controller.gd` 已为交互响应、战斗开始/更新/结算推送的状态写回与事件广播逻辑补齐说明性注释
+- `client/scripts/bootstrap/main.gd` 已为主运行态场景挂载、消息路由注册、HUD 刷新、世界/战斗视图切换和返回登录页流程补齐说明性注释
+- `client/autoload/app.gd` 已为应用层启动编排、HTTP 登录、WebSocket 鉴权、推送处理和战斗动作上报入口补齐说明性注释
+- `client/scripts/auth/login_scene.gd` 已为登录按钮链路、演示账号填充、登录页状态刷新和过渡动画流程补齐说明性注释
+- `client/scripts/feature/battle/battle_scene.gd` 已为战斗界面刷新、技能按钮绑定、战斗事件文案生成和单位状态读取逻辑补齐说明性注释
+- `client/scripts/bootstrap/runtime_hud.gd` 已为运行态 HUD 的常量、信号、节点引用、面板状态字段和主要渲染函数补齐说明性注释，当前宠物/编队/背包面板的职责与交互入口更清晰
+- `client/scripts/feature/world/world_controller.gd` 已为场景配置、地图装载、固定镜头布局、门区切图、坐标换算和序列号生成逻辑补齐说明性注释，不改变现有地图切换与权威同步链路
+- `client/autoload/net_client.gd` 已为连接状态、心跳调度、二进制封包解包、CRC32 校验和开发态 JSON 收发逻辑补齐说明性注释，便于后续继续维护网络层
+- `client/autoload/game_state.gd` 已为会话状态、世界快照、宠物/编队、背包和战斗状态写入逻辑补齐说明性注释，保持现有状态合并与事件广播行为不变
+
 ## 2026-05-17
 - `world_controller.gd` 已把固定镜头地图的角色出生显示点收敛为“地图可见内容中心”规则：当场景未显式配置 `spawn_local_position` 时，会自动按当前地图内容包围盒中心计算出生显示点
 - `scene_id = 1` 的 `roxus_house` 已移除手写出生显示坐标，登录进入世界或权威重同步后，角色会默认显示在地图场景中心；后续新增固定镜头地图时也可直接复用同一规则
@@ -7,6 +25,8 @@
 - 客户端设计分辨率已从 `1080x1920` 收敛回 `360x640`，并继续通过 `window/stretch` 在移动端按整数倍率自动放大适配；`main.tscn`、`world_scene.tscn`、`battle_scene.tscn`、`login_scene.tscn` 与 `runtime_hud.gd` 也已同步回收到小设计分辨率口径
 - 客户端设计分辨率曾短暂收敛为 `240x320`，但由于与当前竖屏目标分辨率比例不一致，运行时整数倍率放大后清晰度下降；现已回退为 `360x640`，并同步恢复主运行态 `SubViewport`、世界层默认渲染尺寸、登录页、战斗卡片和底部 HUD 的对应尺寸口径
 - 客户端早期占位地图文件已清理，只保留 `roxus_house` 作为当前地图资源；`world_controller.gd` 中对已删除占位地图的加载引用，以及 `roxus_house` 中通往已删除地图的出口门区也已同步移除
+- 客户端地图切换现已重新接通 `scene_id = 1 <-> 2`：`world_controller.gd` 新增 `scene_id = 2 -> east_road_of_shanguang_town.tscn` 的地图映射，`roxus_house.tscn` 中门区现为 `portal_id = 1001 -> scene_id = 2`，`east_road_of_shanguang_town.tscn` 中回程门现为 `portal_id = 2001 -> scene_id = 1`
+- 为修正正式地图门区无法稳定触发的问题，`scene_id = 2` 的客户端坐标基准现已改为贴合 `east_road_of_shanguang_town.tscn` 当前门区像素位置；服务端内存世界仓储中 `portal_id = 1001` 与 `portal_id = 2001` 的权威入口落点也已同步重标定，`go test ./server/internal/transport/ws` 通过
 
 ## 2026-05-16
 - 新增 `backend/docs/kdjl-client-reference.md`，梳理逆向原版客户端 `/Users/wangzhiwei/study/kdjl` 中对当前 MVP 有参考价值的流程设计

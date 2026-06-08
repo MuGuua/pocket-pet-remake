@@ -1,5 +1,42 @@
 # 任务总结
 
+## 2026-05-20 登录接口异常响应容错修复
+
+本次补充聚焦修正“后端未启动时客户端登录直接刷 JSON 解析错误”的问题：
+- `client/autoload/http_client.gd` 已为底层 HTTP 失败结果、空响应体和非 JSON 响应补上显式容错处理，不再直接对异常内容调用 `JSON.parse_string()`
+- 当前 `HTTPRequest.request_completed` 会先检查底层请求结果，再检查响应体是否为空，最后才尝试解析 JSON 字典
+- 当后端未启动或返回非 JSON 内容时，客户端现在会返回统一错误字典，而不是在控制台刷出 JSON 解析报错
+- 已重新启动 `backend/server/cmd/game-server`，并确认 `POST /api/v1/auth/login` 当前返回 `200` 与标准 JSON 结构
+
+## 2026-05-20 客户端核心脚本注释补齐
+
+本次补充聚焦把客户端核心运行链路中最常看的四个脚本按当前项目规则补上说明性注释：
+- `client/scripts/bootstrap/runtime_hud.gd` 已为运行态 HUD 的常量、信号、节点引用、面板状态字段、数据卡渲染和编队编辑流程补齐注释
+- `client/scripts/feature/world/world_controller.gd` 已为场景配置、权威快照应用、固定镜头布局、门区切图和本地坐标换算补齐注释
+- `client/autoload/net_client.gd` 已为连接状态、心跳调度、正式链路封包解包、CRC32 校验和开发态文本协议分发补齐注释
+- `client/autoload/game_state.gd` 已为会话状态、世界快照、附近实体、宠物/编队、背包和战斗状态合并逻辑补齐注释
+- 本次没有调整任何协议字段、状态结构、消息流转或游戏表现，仅增加注释说明并通过相关 GDScript 诊断检查
+
+本次继续补充第二批核心脚本的说明性注释：
+- `client/scripts/bootstrap/main.gd` 已为主运行态场景挂载、消息路由注册、HUD 刷新、世界/战斗视图切换和返回登录页流程补齐注释
+- `client/autoload/app.gd` 已为应用层启动编排、HTTP 登录、WebSocket 鉴权、提示推送和战斗动作上报入口补齐注释
+- `client/scripts/auth/login_scene.gd` 已为登录链路、登录页状态刷新、演示账号填充和场景切换过渡补齐注释
+- `client/scripts/feature/battle/battle_scene.gd` 已为战斗界面刷新、技能按钮状态、战斗事件文案生成和单位状态读取逻辑补齐注释
+- 第二批脚本同样只增加注释说明，不改动现有协议、状态结构和交互行为，并通过相关 GDScript 诊断检查
+
+本次继续补充第三批运行态薄控制脚本的说明性注释：
+- `client/scripts/feature/world/player.gd` 已为四方向移动、状态机切换、动画回退和切图/战斗锁定逻辑补齐注释
+- `client/scripts/feature/pet/pet_controller.gd` 已为宠物列表响应、宠物更新推送和编队设置响应的状态写回逻辑补齐注释
+- `client/scripts/feature/bag/bag_controller.gd` 已为背包列表响应和单物品更新推送的状态写回逻辑补齐注释
+- `client/scripts/feature/battle/battle_controller.gd` 已为交互响应、战斗开始/更新/结算推送的状态写回与事件广播逻辑补齐注释
+- 第三批脚本继续保持“只补注释、不改行为”的原则，并通过相关 GDScript 诊断检查
+
+本次补充最后一批客户端基础设施脚本的说明性注释：
+- `client/scripts/common/command_ids.gd` 已为客户端协议消息号常量补齐注释，明确各请求、响应和推送编号的用途
+- `client/autoload/message_router.gd` 已为消息回调注册表、注册/注销和统一分发逻辑补齐注释
+- `client/autoload/http_client.gd` 已为基础地址、登录接口和通用 JSON 请求封装逻辑补齐注释
+- 最后一批脚本同样只增加注释说明，不改动现有协议、网络链路和状态结构，并通过相关 GDScript 诊断检查
+
 ## 2026-05-17 固定镜头地图出生点居中
 
 本次补充聚焦把登录后角色在固定镜头地图中的出生显示点统一收敛到地图场景中心：
@@ -39,6 +76,22 @@
 - `client/scripts/feature/world/world_controller.gd` 已移除对已删除占位地图的 `SCENE_CONFIGS` 加载路径，只保留当前正式接入的 `roxus_house`
 - `client/scenes/maps/fashtown/roxus_house.tscn` 中通往已删除占位地图的出口门区也已同步移除，避免客户端继续发起无效切图
 - `backend/docs/changelog.md` 与 `backend/docs/map-scene-loading.md` 已同步清理旧文件路径说明，避免文档继续指向已删除资源
+
+## 2026-05-17 重新接通 roxus_house 与 east_road 双向切图
+
+本次补充聚焦把两张正式地图重新接回当前服务端权威门区切图链路：
+- `client/scripts/feature/world/world_controller.gd` 已重新补上 `scene_id = 2` 的地图映射，当前会加载 `client/scenes/maps/fashtown/east_road_of_shanguang_town.tscn`
+- `client/scenes/maps/fashtown/roxus_house.tscn` 中新增的 `MapPortal` 现已补齐 `portal_id = 1001` 与 `target_scene_id = 2`，踩中后会沿用现有 `MOVE_INTENT_REQ -> MOVE_INTENT_RESP -> WORLD_RESYNC_PUSH` 链路切到 `east_road`
+- `client/scenes/maps/fashtown/east_road_of_shanguang_town.tscn` 中的回程门现已补齐 `portal_id = 2001` 与 `target_scene_id = 1`，踩中后会返回 `roxus_house`
+- 本次没有改动客户端门区脚本和协议结构，只是把现有 `MapPortal` 与服务端内存世界仓储中已经存在的 `portal_id 1001/2001` 重新对接起来
+
+## 2026-05-17 正式地图门区入口坐标重标定
+
+本次补充聚焦修正“人物看起来踩进门区，但没有稳定触发切图”的问题：
+- `client/scripts/feature/world/world_controller.gd` 中 `scene_id = 2` 的 `spawn` 现已从旧占位地图时代的 `(2,4)` 调整为更贴合 `east_road_of_shanguang_town.tscn` 当前门区像素位置的本地坐标基准
+- `backend/server/internal/data/memory/world_repo.go` 中 `portal_id = 1001` 的目标落点已调整到 `east_road` 左侧入口附近，`portal_id = 2001` 的目标落点已调整到 `roxus_house` 底部门区附近
+- 同一文件里 `scene 1 <- 2` 与 `scene 2 <- 1` 的兼容入口落点也已同步修正，避免未携带 `portal_id` 的兼容切图仍然落到旧占位地图坐标
+- `backend/server/internal/transport/ws/world_handler_test.go` 已把相关断言更新为新的权威落点，并执行 `go test ./server/internal/transport/ws`，当前通过
 
 本次输出聚焦在线复刻版的基础骨架，完成了三部分设计落地：
 - 协议层：定义固定包头、cmd 编号、关键消息边界

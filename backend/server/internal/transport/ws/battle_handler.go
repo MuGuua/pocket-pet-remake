@@ -7,6 +7,7 @@ import (
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
@@ -18,15 +19,17 @@ type BattleHandler struct {
 	playerService  *player.Service
 	petService     *pet.Service
 	worldService   *world.Service
+	questService   *quest.Service
 	battleService  *battle.Service
 }
 
-func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, battleService *battle.Service) *BattleHandler {
+func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, battleService *battle.Service) *BattleHandler {
 	return &BattleHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
 		petService:     petService,
 		worldService:   worldService,
+		questService:   questService,
 		battleService:  battleService,
 	}
 }
@@ -41,25 +44,28 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
-	_ = sess
-
 	target, found := findInteractTarget(sceneSnapshot.NearbyEntities, request.EntityID)
 	if !found {
-		return h.sendInteractResponse(conn, packet.Seq, false, "target unavailable")
+		return h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: false, Reason: "target unavailable"})
+	}
+
+	if menuResp, ok := h.buildNPCMenuResponse(context.Background(), sess.PlayerID, target); ok {
+		menuResp.Accepted = true
+		return h.sendInteractResponse(conn, packet.Seq, menuResp)
 	}
 
 	startSnapshot, err := h.battleService.StartPVE(context.Background(), profile, lineup, target)
 	if err != nil {
 		if errors.Is(err, battle.ErrBattleAlreadyActive) {
-			return h.sendInteractResponse(conn, packet.Seq, false, "battle already active")
+			return h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: false, Reason: "battle already active"})
 		}
 		if errors.Is(err, battle.ErrNoLineupAvailable) {
-			return h.sendInteractResponse(conn, packet.Seq, false, "no lineup available")
+			return h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: false, Reason: "no lineup available"})
 		}
 		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "battle start failed")
 	}
 
-	if err := h.sendInteractResponse(conn, packet.Seq, true, "battle started"); err != nil {
+	if err := h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: true, Reason: "battle started", ResponseType: "battle", EntityID: target.EntityID, NPCName: target.Name}); err != nil {
 		return err
 	}
 	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, protocol.BattleStartPush{
@@ -120,6 +126,18 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		}
 	}
 	if outcome.Result != nil {
+		var questBefore []quest.Summary
+		if h.questService != nil && outcome.Result.Win {
+			questBefore, _ = listQuestSummaries(context.Background(), h.questService, sess.PlayerID)
+			_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
+				PlayerID:  sess.PlayerID,
+				EventType: "WIN_BATTLE",
+				Count:     1,
+				Meta: map[string]any{
+					"battle_type": "PVE",
+				},
+			})
+		}
 		updatedPet, err := h.petService.UpdatePetHP(context.Background(), sess.PlayerID, outcome.Result.ActivePetUID, outcome.Result.ActivePetHP)
 		if err != nil {
 			return err
@@ -136,9 +154,15 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		})); err != nil {
 			return err
 		}
-		return conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
 			Pet: toProtocolPetDetail(updatedPet),
-		}))
+		})); err != nil {
+			return err
+		}
+		if h.questService != nil && outcome.Result.Win {
+			_ = pushQuestDiff(context.Background(), conn, h.questService, sess.PlayerID, questBefore)
+		}
+		return nil
 	}
 	return nil
 }
@@ -175,11 +199,8 @@ func (h *BattleHandler) handleContextError(conn packetSender, seq uint32, err er
 	return sendError(conn, seq, errcode.WSCodeInteractFailed, "load interact context failed")
 }
 
-func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, accepted bool, reason string) error {
-	packet, err := protocol.NewJSONPacket(protocol.CmdInteractResp, seq, errcode.WSCodeSuccess, protocol.InteractResp{
-		Accepted: accepted,
-		Reason:   reason,
-	})
+func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, response protocol.InteractResp) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdInteractResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
 	}
@@ -294,4 +315,167 @@ func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
 		SkillIDs: skills,
 		InLineup: item.InLineup,
 	}
+}
+
+func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.NPCActionReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc action body")
+	}
+
+	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	if err != nil {
+		return h.handleContextError(conn, packet.Seq, err)
+	}
+	target, found := findInteractTarget(sceneSnapshot.NearbyEntities, request.EntityID)
+	if !found {
+		return h.sendNPCActionResponse(conn, packet.Seq, protocol.NPCActionResp{Accepted: false, Reason: "target unavailable", EntityID: request.EntityID, EntryID: request.EntryID})
+	}
+	var (
+		playerID    uint64 = sess.PlayerID
+		questBefore []quest.Summary
+	)
+	response, ok := h.buildNPCActionResponse(context.Background(), playerID, target, request.EntryID)
+	if !ok {
+		return h.sendNPCActionResponse(conn, packet.Seq, protocol.NPCActionResp{Accepted: false, Reason: "unsupported npc action", EntityID: request.EntityID, EntryID: request.EntryID})
+	}
+	if h.questService != nil {
+		questBefore, _ = listQuestSummaries(context.Background(), h.questService, playerID)
+		_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
+			PlayerID:  playerID,
+			EventType: "TALK_TO_NPC",
+			NPCID:     target.EntityID,
+			Count:     1,
+		})
+	}
+	if err := h.sendNPCActionResponse(conn, packet.Seq, response); err != nil {
+		return err
+	}
+	if h.questService != nil && playerID != 0 {
+		_ = pushQuestDiff(context.Background(), conn, h.questService, playerID, questBefore)
+	}
+	return nil
+}
+
+func (h *BattleHandler) requirePlayerID(connID string) (uint64, error) {
+	sess, err := h.sessionService.GetByConnID(connID)
+	if err != nil {
+		return 0, err
+	}
+	return sess.PlayerID, nil
+}
+
+func (h *BattleHandler) sendNPCActionResponse(conn packetSender, seq uint32, response protocol.NPCActionResp) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCActionResp, seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
+func (h *BattleHandler) buildNPCMenuResponse(ctx context.Context, playerID uint64, target world.Entity) (protocol.InteractResp, bool) {
+	entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID)
+	if !ok {
+		return protocol.InteractResp{}, false
+	}
+	return protocol.InteractResp{
+		ResponseType: "menu",
+		EntityID:     target.EntityID,
+		NPCName:      target.Name,
+		MenuEntries:  entries,
+	}, true
+}
+
+func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uint64, target world.Entity, entryID string) (protocol.NPCActionResp, bool) {
+	base := protocol.NPCActionResp{
+		Accepted:   true,
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "notice",
+		NPCName:    target.Name,
+	}
+	switch target.EntityID {
+	case 93001:
+		switch entryID {
+		case "dialog_market_news":
+			base.Notice = "理萌说：最近市场新开了几家铺子。"
+		default:
+			return protocol.NPCActionResp{}, false
+		}
+	case 93002:
+		switch entryID {
+		case "shop_open_market":
+			base.Notice = "商店面板待接入，当前先返回占位提示。"
+		case "dialog_trade_tip":
+			base.Notice = "罗格说：买卖讲究货比三家。"
+		default:
+			return protocol.NPCActionResp{}, false
+		}
+	default:
+		return protocol.NPCActionResp{}, false
+	}
+	entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID)
+	if ok {
+		base.MenuEntries = entries
+	}
+	return base, true
+}
+
+func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID uint64, entityID uint64) ([]protocol.NpcMenuEntry, bool) {
+	switch entityID {
+	case 93001:
+		entries := []protocol.NpcMenuEntry{}
+		if h.questService != nil && playerID != 0 {
+			if summaries, err := listQuestSummaries(ctx, h.questService, playerID); err == nil {
+				entries = append(entries, questMenuEntriesForNPC(entityID, summaries)...)
+			}
+		}
+		entries = append(entries, protocol.NpcMenuEntry{
+			EntryID:   "dialog_market_news",
+			EntryType: "dialog",
+			Title:     "打听消息",
+			Subtitle:  "问问市场最近的新鲜事",
+			State:     "available",
+			Priority:  80,
+		})
+		return entries, true
+	case 93002:
+		return []protocol.NpcMenuEntry{
+			{EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100},
+			{EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70},
+		}, true
+	default:
+		return nil, false
+	}
+}
+
+func questMenuEntriesForNPC(npcID uint64, summaries []quest.Summary) []protocol.NpcMenuEntry {
+	result := []protocol.NpcMenuEntry{}
+	for _, summary := range summaries {
+		switch {
+		case summary.State == quest.StateAvailable && summary.StartNPCID == npcID:
+			result = append(result, protocol.NpcMenuEntry{
+				EntryID:    "quest_accept",
+				EntryType:  "quest",
+				QuestID:    summary.QuestID,
+				QuestState: summary.State,
+				Title:      "领取任务",
+				Subtitle:   summary.Title,
+				State:      "available",
+				Priority:   100,
+			})
+		case summary.State == quest.StateReadyToSubmit && summary.SubmitNPCID == npcID:
+			result = append(result, protocol.NpcMenuEntry{
+				EntryID:    "quest_submit",
+				EntryType:  "quest",
+				QuestID:    summary.QuestID,
+				QuestState: summary.State,
+				Title:      "提交任务",
+				Subtitle:   summary.Title,
+				State:      "available",
+				Priority:   100,
+			})
+		}
+	}
+	return result
 }

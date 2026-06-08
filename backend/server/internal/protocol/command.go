@@ -17,6 +17,8 @@ const (
 	CmdMoveIntentResp   uint16 = 2022
 	CmdInteractReq      uint16 = 2031
 	CmdInteractResp     uint16 = 2032
+	CmdNPCActionReq     uint16 = 2033
+	CmdNPCActionResp    uint16 = 2034
 	CmdEncounterPush    uint16 = 2041
 	CmdPetListReq       uint16 = 3001
 	CmdPetListResp      uint16 = 3002
@@ -34,6 +36,16 @@ const (
 	CmdBagListResp      uint16 = 5002
 	CmdUseItemReq       uint16 = 5021
 	CmdUseItemResp      uint16 = 5022
+	CmdQuestListReq     uint16 = 6001
+	CmdQuestListResp    uint16 = 6002
+	CmdQuestUpdatePush  uint16 = 6011
+	CmdQuestRemovePush  uint16 = 6012
+	CmdQuestAcceptReq   uint16 = 6021
+	CmdQuestAcceptResp  uint16 = 6022
+	CmdQuestSubmitReq   uint16 = 6031
+	CmdQuestSubmitResp  uint16 = 6032
+	CmdQuestTrackReq    uint16 = 6041
+	CmdQuestTrackResp   uint16 = 6042
 	CmdNoticePush       uint16 = 9001
 	CmdKickOutPush      uint16 = 9002
 )

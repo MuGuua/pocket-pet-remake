@@ -128,9 +128,40 @@ type InteractReq struct {
 	EntityID uint64 `json:"entity_id"`
 }
 
+type NpcMenuEntry struct {
+	EntryID    string `json:"entry_id"`
+	EntryType  string `json:"entry_type"`
+	QuestID    uint64 `json:"quest_id"`
+	QuestState string `json:"quest_state"`
+	Title      string `json:"title"`
+	Subtitle   string `json:"subtitle"`
+	State      string `json:"state"`
+	Priority   uint32 `json:"priority"`
+}
+
 type InteractResp struct {
-	Accepted bool   `json:"accepted"`
-	Reason   string `json:"reason"`
+	Accepted     bool           `json:"accepted"`
+	Reason       string         `json:"reason"`
+	ResponseType string         `json:"response_type"`
+	EntityID     uint64         `json:"entity_id"`
+	NPCName      string         `json:"npc_name"`
+	MenuEntries  []NpcMenuEntry `json:"menu_entries"`
+}
+
+type NPCActionReq struct {
+	EntityID uint64 `json:"entity_id"`
+	EntryID  string `json:"entry_id"`
+}
+
+type NPCActionResp struct {
+	Accepted    bool           `json:"accepted"`
+	Reason      string         `json:"reason"`
+	EntityID    uint64         `json:"entity_id"`
+	EntryID     string         `json:"entry_id"`
+	ResultType  string         `json:"result_type"`
+	Notice      string         `json:"notice"`
+	NPCName     string         `json:"npc_name"`
+	MenuEntries []NpcMenuEntry `json:"menu_entries"`
 }
 
 type EntityMovePush struct {
@@ -221,4 +252,72 @@ type BattleResultPush struct {
 	ReturnSceneID uint32 `json:"return_scene_id"`
 	ReturnPos     Vec2i  `json:"return_pos"`
 	Reason        string `json:"reason"`
+}
+
+type QuestListReq struct{}
+
+type QuestObjectiveState struct {
+	ObjectiveID uint64 `json:"objective_id"`
+	Description string `json:"description"`
+	Current     uint32 `json:"current"`
+	Target      uint32 `json:"target"`
+	Completed   bool   `json:"completed"`
+}
+
+type QuestSummary struct {
+	QuestID     uint64                `json:"quest_id"`
+	QuestType   string                `json:"quest_type"`
+	State       string                `json:"state"`
+	Tracked     bool                  `json:"tracked"`
+	StartNPCID  uint64                `json:"start_npc_id"`
+	SubmitNPCID uint64                `json:"submit_npc_id"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Objectives  []QuestObjectiveState `json:"objectives"`
+}
+
+type QuestListResp struct {
+	Quests         []QuestSummary `json:"quests"`
+	TrackedQuestID uint64         `json:"tracked_quest_id"`
+	ServerTimeMS   int64          `json:"server_time_ms"`
+}
+
+type QuestUpdatePush struct {
+	Quest QuestSummary `json:"quest"`
+}
+
+type QuestRemovePush struct {
+	QuestID uint64 `json:"quest_id"`
+}
+
+type QuestAcceptReq struct {
+	QuestID uint64 `json:"quest_id"`
+	NPCID   uint64 `json:"npc_id"`
+}
+
+type QuestAcceptResp struct {
+	Accepted bool         `json:"accepted"`
+	Reason   string       `json:"reason"`
+	Quest    QuestSummary `json:"quest"`
+}
+
+type QuestSubmitReq struct {
+	QuestID uint64 `json:"quest_id"`
+	NPCID   uint64 `json:"npc_id"`
+}
+
+type QuestSubmitResp struct {
+	Accepted bool         `json:"accepted"`
+	Reason   string       `json:"reason"`
+	Quest    QuestSummary `json:"quest"`
+}
+
+type QuestTrackReq struct {
+	QuestID uint64 `json:"quest_id"`
+}
+
+type QuestTrackResp struct {
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
+	QuestID  uint64 `json:"quest_id"`
 }

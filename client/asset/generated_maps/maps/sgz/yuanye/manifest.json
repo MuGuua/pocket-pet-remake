@@ -1,0 +1,553 @@
+{
+  "source": "maps/maps/sgz/yuanye.sj.txt",
+  "group": "sgz",
+  "map_name": "yuanye",
+  "sj_file": "yuanye.sj",
+  "width": 13,
+  "height": 16,
+  "tile_set_count": 4,
+  "overlay_descriptor_count": 58,
+  "object_count": 0,
+  "teleport_count": 8,
+  "external_tile_ids": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "tile_sets": [
+    {
+      "index": 0,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 2
+    },
+    {
+      "index": 1,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 0
+    },
+    {
+      "index": 2,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 3
+    },
+    {
+      "index": 3,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 1
+    }
+  ],
+  "resource_dirs": {
+    "raw": "../../../resources/d/raw",
+    "png": "../../../resources/d/png"
+  },
+  "required_raw_files": [
+    "0.tij",
+    "0.tij1",
+    "0.tij2",
+    "00.dat",
+    "00.dat1",
+    "00.dat2",
+    "00.dat3",
+    "00.dat4",
+    "00.dat5",
+    "00.dat6",
+    "00.dat7",
+    "00.dat8",
+    "00.dat9",
+    "01.dat",
+    "02.dat",
+    "02.dat1",
+    "02.dat2",
+    "02.dat3",
+    "02.dat4",
+    "02.dat5",
+    "02.dat6",
+    "02.dat7",
+    "1.tij",
+    "1.tij1",
+    "1.tij2",
+    "2.tij",
+    "2.tij1",
+    "3.tij",
+    "3.tij1",
+    "3.tij2"
+  ],
+  "required_png_files": [
+    "0.png",
+    "00.dat.png",
+    "00.dat_1.png",
+    "00.dat_2.png",
+    "00.dat_3.png",
+    "00.dat_4.png",
+    "00.dat_5.png",
+    "00.dat_6.png",
+    "00.dat_7.png",
+    "00.dat_8.png",
+    "00.dat_9.png",
+    "01.dat.png",
+    "02.dat.png",
+    "02.dat_1.png",
+    "02.dat_2.png",
+    "02.dat_3.png",
+    "02.dat_4.png",
+    "02.dat_5.png",
+    "02.dat_6.png",
+    "02.dat_7.png",
+    "0_tij1.png",
+    "0_tij2.png",
+    "1.png",
+    "1_tij1.png",
+    "1_tij2.png",
+    "2.png",
+    "2_tij1.png",
+    "3.png",
+    "3_tij1.png",
+    "3_tij2.png"
+  ],
+  "animation_steps": 8,
+  "animated_cells_dir": "animated_cells",
+  "animated_cell_count": 60,
+  "animated_cells": [
+    {
+      "x": 0,
+      "y": 0,
+      "sheet": "cell_00_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "sheet": "cell_01_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "sheet": "cell_03_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "sheet": "cell_08_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "sheet": "cell_09_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 10,
+      "y": 0,
+      "sheet": "cell_10_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 11,
+      "y": 0,
+      "sheet": "cell_11_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 12,
+      "y": 0,
+      "sheet": "cell_12_00.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "sheet": "cell_00_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "sheet": "cell_01_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "sheet": "cell_03_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "sheet": "cell_04_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "sheet": "cell_05_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 6,
+      "y": 1,
+      "sheet": "cell_06_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 7,
+      "y": 1,
+      "sheet": "cell_07_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 8,
+      "y": 1,
+      "sheet": "cell_08_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 9,
+      "y": 1,
+      "sheet": "cell_09_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "sheet": "cell_10_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 11,
+      "y": 1,
+      "sheet": "cell_11_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 12,
+      "y": 1,
+      "sheet": "cell_12_01.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "sheet": "cell_00_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "sheet": "cell_01_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "sheet": "cell_02_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "sheet": "cell_03_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "sheet": "cell_04_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "sheet": "cell_05_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 6,
+      "y": 2,
+      "sheet": "cell_06_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 7,
+      "y": 2,
+      "sheet": "cell_07_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 8,
+      "y": 2,
+      "sheet": "cell_08_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 9,
+      "y": 2,
+      "sheet": "cell_09_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 10,
+      "y": 2,
+      "sheet": "cell_10_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 11,
+      "y": 2,
+      "sheet": "cell_11_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 12,
+      "y": 2,
+      "sheet": "cell_12_02.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "sheet": "cell_00_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "sheet": "cell_01_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "sheet": "cell_02_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "sheet": "cell_03_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 10,
+      "y": 3,
+      "sheet": "cell_10_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 11,
+      "y": 3,
+      "sheet": "cell_11_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 12,
+      "y": 3,
+      "sheet": "cell_12_03.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "sheet": "cell_02_04.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "sheet": "cell_03_04.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 12,
+      "y": 4,
+      "sheet": "cell_12_04.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 5,
+      "sheet": "cell_02_05.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 6,
+      "sheet": "cell_02_06.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "sheet": "cell_03_06.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 7,
+      "sheet": "cell_00_07.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 7,
+      "sheet": "cell_01_07.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "sheet": "cell_02_07.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 3,
+      "y": 7,
+      "sheet": "cell_03_07.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "sheet": "cell_00_08.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "sheet": "cell_01_08.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 2,
+      "y": 8,
+      "sheet": "cell_02_08.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 9,
+      "sheet": "cell_00_09.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 10,
+      "sheet": "cell_00_10.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 11,
+      "sheet": "cell_00_11.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 12,
+      "sheet": "cell_00_12.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 13,
+      "sheet": "cell_00_13.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 14,
+      "sheet": "cell_00_14.png",
+      "frame_count": 8,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 15,
+      "sheet": "cell_00_15.png",
+      "frame_count": 8,
+      "fps": 12.5
+    }
+  ],
+  "full_frames_dir": "full_frames",
+  "full_animation_steps": 8,
+  "full_frame_count": 4,
+  "full_frame_files": [
+    "frame_000.png",
+    "frame_001.png",
+    "frame_002.png",
+    "frame_003.png"
+  ],
+  "full_sheet_file": "sheet.png",
+  "full_sheet_frame_width": 208,
+  "full_sheet_frame_height": 256
+}

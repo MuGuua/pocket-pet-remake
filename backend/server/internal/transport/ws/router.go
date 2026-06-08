@@ -13,15 +13,17 @@ type Router struct {
 	worldHandler   *WorldHandler
 	petHandler     *PetHandler
 	battleHandler  *BattleHandler
+	questHandler   *QuestHandler
 	sessionService *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
 	return &Router{
 		authHandler:    authHandler,
 		worldHandler:   worldHandler,
 		petHandler:     petHandler,
 		battleHandler:  battleHandler,
+		questHandler:   questHandler,
 		sessionService: sessionService,
 	}
 }
@@ -65,6 +67,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleInteract(conn, packet)
+	case protocol.CmdNPCActionReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleNPCAction(conn, packet)
 	case protocol.CmdPetListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -80,6 +87,26 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleBattleAction(conn, packet)
+	case protocol.CmdQuestListReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.questHandler.HandleQuestList(conn, packet)
+	case protocol.CmdQuestAcceptReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.questHandler.HandleQuestAccept(conn, packet)
+	case protocol.CmdQuestSubmitReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.questHandler.HandleQuestSubmit(conn, packet)
+	case protocol.CmdQuestTrackReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.questHandler.HandleQuestTrack(conn, packet)
 	default:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
