@@ -10,6 +10,10 @@ const STATE_BATTLE := "battle"
 
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
+# 世界相机统一缩放；小于 1 会放大画面。
+@export var camera_zoom_scale: float = 0.65
+# 世界相机相对玩家的垂直偏移；负值表示画面整体上移。
+@export var camera_vertical_offset: float = 150.0
 
 # 当前角色朝向的四方向单位向量。
 var cardinal_direction: Vector2 = Vector2.DOWN
@@ -21,14 +25,26 @@ var state: String = STATE_IDLE
 var _scene_transition_locked: bool = false
 # 标记战斗期间是否锁定移动。
 var _battle_locked: bool = false
+# 当前自动寻路剩余的本地路径点列表。
+var _auto_move_path: Array[Vector2] = []
+# 自动寻路判定到达路径点时使用的像素容差。
+var _auto_move_stop_tolerance: float = 3.0
 
 # 负责播放角色动画的动画播放器节点。
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 @onready var camera_node: Camera2D = $Camera2D
 
+func _ready() -> void:
+	if camera_node != null:
+		camera_node.make_current()
+	_apply_camera_zoom()
+	_apply_camera_offset()
+
 # 每帧读取输入并更新角色状态与动画。
 func _process(_delta: float) -> void:
 	if _is_movement_locked():
+		# 锁定移动时同时清空自动寻路，避免切图或战斗结束后继续沿旧路径前进。
+		_clear_auto_move_path()
 		direction = Vector2.ZERO
 		velocity = Vector2.ZERO
 		if _update_state():
@@ -39,6 +55,12 @@ func _process(_delta: float) -> void:
 	direction.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 	# 读取垂直输入并计算纵向移动分量。
 	direction.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	if direction != Vector2.ZERO:
+		# 玩家手动输入优先级最高，按下方向键后立即取消点击寻路。
+		_clear_auto_move_path()
+	else:
+		# 没有手动输入时，尝试继续沿自动寻路路径前进。
+		_update_auto_move_direction()
 	if direction.x != 0.0 and direction.y != 0.0:
 		# 斜向输入时只保留绝对值更大的主方向，保持四方向移动口径。
 		if abs(direction.x) >= abs(direction.y):
@@ -58,6 +80,7 @@ func _physics_process(_delta: float) -> void:
 # 把服务端权威坐标直接应用到当前角色显示位置。
 func apply_authoritative_position(local_position: Vector2) -> void:
 	position = local_position
+	_clear_auto_move_path()
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO
 	_scene_transition_locked = false
@@ -70,6 +93,7 @@ func set_facing_direction(facing_direction: Vector2) -> void:
 		return
 
 	cardinal_direction = resolved_direction
+	_clear_auto_move_path()
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO
 	if _update_state():
@@ -84,10 +108,22 @@ func set_camera_limits(left: int, top: int, right: int, bottom: int) -> void:
 		camera_node.limit_right = right
 		camera_node.limit_bottom = bottom
 
+func _apply_camera_zoom() -> void:
+	if camera_node == null:
+		return
+	var zoom_scale: float = maxf(camera_zoom_scale, 0.1)
+	camera_node.zoom = Vector2(zoom_scale, zoom_scale)
+
+func _apply_camera_offset() -> void:
+	if camera_node == null:
+		return
+	camera_node.offset = Vector2(0.0, camera_vertical_offset)
+
 # 设置切图期间的移动锁定状态。
 func set_scene_transition_locked(locked: bool) -> void:
 	_scene_transition_locked = locked
 	if locked:
+		_clear_auto_move_path()
 		velocity = Vector2.ZERO
 		direction = Vector2.ZERO
 		if _update_state():
@@ -97,8 +133,26 @@ func set_scene_transition_locked(locked: bool) -> void:
 func set_battle_active(active: bool) -> void:
 	_battle_locked = active
 	if active:
+		_clear_auto_move_path()
 		velocity = Vector2.ZERO
 		direction = Vector2.ZERO
+	if _update_state():
+		_update_animation()
+
+# 写入一条新的自动寻路路径，路径点使用玩家父节点本地坐标。
+func set_auto_move_path(path_points: Array[Vector2]) -> void:
+	_auto_move_path.clear()
+	for path_point in path_points:
+		# 跳过距离当前点过近的路径点，避免角色在首点原地抖动。
+		if position.distance_to(path_point) <= _auto_move_stop_tolerance:
+			continue
+		_auto_move_path.append(path_point)
+
+# 主动清空当前自动寻路状态，供世界控制器或锁定逻辑调用。
+func clear_auto_move_path() -> void:
+	_clear_auto_move_path()
+	direction = Vector2.ZERO
+	velocity = Vector2.ZERO
 	if _update_state():
 		_update_animation()
 
@@ -170,3 +224,25 @@ func _direction_suffix() -> String:
 # 判断当前角色是否处于不可移动状态。
 func _is_movement_locked() -> bool:
 	return _scene_transition_locked or _battle_locked
+
+# 沿当前自动寻路路径计算本帧移动方向，并在到达节点后切换到下一个节点。
+func _update_auto_move_direction() -> void:
+	while not _auto_move_path.is_empty():
+		var next_path_point: Vector2 = _auto_move_path[0]
+		var to_next_point: Vector2 = next_path_point - position
+		if to_next_point.length() <= _auto_move_stop_tolerance:
+			_auto_move_path.remove_at(0)
+			continue
+
+		# 自动寻路同样保持四方向移动，优先沿距离更大的轴推进。
+		if abs(to_next_point.x) >= abs(to_next_point.y):
+			direction = Vector2.LEFT if to_next_point.x < 0.0 else Vector2.RIGHT
+		else:
+			direction = Vector2.UP if to_next_point.y < 0.0 else Vector2.DOWN
+		return
+
+	direction = Vector2.ZERO
+
+# 内部统一使用的自动寻路清理入口。
+func _clear_auto_move_path() -> void:
+	_auto_move_path.clear()

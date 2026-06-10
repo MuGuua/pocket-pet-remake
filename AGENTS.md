@@ -10,6 +10,10 @@ It applies to the entire repo unless a deeper `AGENTS.md` overrides it for a sub
 - The backend is organized around transport, protocol, data, and domain modules, with WebSocket message flow under `backend/server/internal/transport/ws/`.
 - Current core gameplay domains include auth, world/scene transfer, battle, bag, pet, NPC interaction, and quest progression.
 
+All the code you write needs to have detailed comments, and the default developer is someone who is new to this project.
+
+This game is a mobile game and needs to be developed and adapted according to the characteristics of mobile devices.
+
 ## Default Working Style
 
 - Prefer the smallest change that completes the requested behavior without broad refactors.

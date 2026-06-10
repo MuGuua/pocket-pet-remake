@@ -1,5 +1,23 @@
 # 最新变更记录
 
+## 2026-06-10
+- 服务端配置已收敛为单一 `PostgreSQL + Redis` 运行路径：`backend/server/internal/config/config.go`、`backend/server/internal/data/provider/` 与示例环境变量已删除 `memory` / `PP_REPOSITORY_MODE` 分支，后续不再维护双仓储模式
+- 已新增 `backend/server/migrations/006_seed_postgres_demo_account.sql`，为 `postgres_redis` 模式补齐 `demo / demo123` 演示账号、`DemoTrainer` 玩家、三只起始宠物与默认编队；切到 PostgreSQL 仓储后不再因为数据库缺少演示数据而登录失败
+- 服务端已新增数据库驱动的 NPC 配置能力：新增 `backend/server/migrations/004_npc_config.sql`，引入 `world_entity_definition` 与 `npc_menu_entry` 两张表，并预置当前世界里的引导 NPC、市场 NPC 与仓库 NPC 数据
+- `backend/server/internal/module/npc/` 已补齐最小 NPC 配置服务边界，`battle_handler.go` 不再通过硬编码 `switch entity_id` 组装菜单与对话，而是统一从 NPC 仓储读取静态菜单项与动作结果
+- `backend/server/internal/data/postgres/world_repo.go` 已接管 PostgreSQL 模式下的世界实体查询；后续若要新增一个可交互 NPC，只需在 SQL 迁移或数据库数据中新增实体定义和菜单项，不必再改服务端交互代码
+- 内存模式也已同步补上 `NPCRepository` 和 `91001 罗思` 的基础菜单配置，便于当前默认内存模式下继续本地联调
+
+## 2026-06-09
+- 已把 `/Users/wangzhiwei/game/dialogue_demo` 中可直接复用的对话与运行态 UI 骨架迁入当前客户端：新增 `client/addons/dialogue_manager/`、`client/dialogue/`、`client/scenes/ui/`、`client/scripts/ui/`、`client/scripts/data/` 与 `client/data/`
+- `client/project.godot` 已接入 `DialogueManager` 与 `SomeGlobal` 自动加载，并新增 `open_main_menu`、`open_player_panel`、`open_scene_npc_list` 输入动作；当前可直接呼出 demo 风格主菜单、角色面板、场景 NPC 列表与 NPC 菜单
+- `client/scripts/bootstrap/main.gd` 已把新 UI 接入现有联机主运行态：附近 NPC 现在可通过列表选择并向服务端发起交互，服务端返回的 `menu_entries` 会用 demo 风格 NPC 菜单展示；当菜单项为本地 `talk`/`dialogue` 类型时，会直接走 `DialogueManager` 气泡框
+- 状态面板头部称号与玩家名现已通过 `SomeGlobal`/`GameState` 联动填充；宠物状态页会优先读取当前联机宠物列表中的首只宠物，其余数值项缺省时继续回退到 demo 默认数据
+- `client/scenes/bootstrap/main.tscn` 已移除登录后主运行态底部“世界操作区 / 战斗操作区”面板、按钮组和数据弹层，`GameplayArea` 现恢复为全屏显示世界/战斗内容
+- `client/scripts/bootstrap/runtime_hud.gd` 已收敛为最小顶部状态条，只保留连接、场景、玩家文案和隐藏日志输出，不再承载宠物、编队、任务、背包或 NPC 菜单交互
+- `client/scripts/bootstrap/main.gd` 已同步删除对底部操作区信号、自动摘要拉取和 NPC 菜单面板的依赖；当前收到相关交互负载时仅记录日志，不再弹出界面
+- 本次未改动服务端协议与世界/战斗主链路，只移除客户端运行态中的世界操作区相关界面与脚本耦合
+
 ## 2026-05-20
 - `client/autoload/http_client.gd` 已补上非 JSON、空响应和底层 HTTP 失败结果的容错处理，避免后端未启动或返回异常内容时直接触发 `JSON.parse_string()` 解析报错
 - `client/scripts/common/command_ids.gd` 已为客户端协议消息号常量补齐说明性注释，当前各请求、响应和推送编号的用途更清晰
@@ -89,9 +107,9 @@
 - 新增世界、宠物、战斗、背包控制器占位脚本，先把客户端模块边界与消息路由挂好
 - 新增根目录 `.gitignore`，忽略本地 SkillHub 目录和 Godot 生成的 `.godot/` 目录
 - 持久化方案从 MySQL 调整为 PostgreSQL，并同步改写初始化迁移脚本方言与字段定义
-- 新增 `PP_REPOSITORY_MODE`、PostgreSQL、Redis 配置骨架与示例环境变量
+- 新增 PostgreSQL、Redis 配置骨架与示例环境变量
 - 新增 PostgreSQL 账号/玩家/宠物仓储适配器，以及 Redis `ws_token` 仓储适配器骨架
-- 新增仓储 provider 装配层，默认仍走内存模式，并预留 `postgres_redis` 模式的依赖注入入口
+- 新增仓储 provider 装配层，为后续统一切换到 PostgreSQL/Redis 持久化准备依赖注入入口
 - 新增 `backend/server/configs/config.env` 实际配置文件，并支持启动时自动加载本地 env 文件
 - 客户端主场景改为最小登录页，支持账号密码输入、状态展示与日志输出
 - 客户端补齐 WebSocket 二进制包头编码、CRC32 校验、JSON 消息体编解码与基础心跳

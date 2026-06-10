@@ -22,7 +22,12 @@ SELECT
   pp.pet_id,
   pp.level,
   pp.hp,
-  pp.hp_max
+  pp.hp_max,
+  pp.atk,
+  pp.def,
+  pp.spd,
+  pp.mana,
+  pp.skill_ids
 FROM player_lineup pl
 JOIN player_pet pp ON pp.id = pl.pet_uid
 WHERE pl.player_id = $1
@@ -41,6 +46,7 @@ SELECT
   atk,
   def,
   spd,
+  mana,
   skill_ids
 FROM player_pet
 WHERE player_id = $1
@@ -84,9 +90,10 @@ func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64)
 			atk          int64
 			def          int64
 			spd          int64
+			mana         int64
 			skillIDsJSON []byte
 		)
-		if err := rows.Scan(&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &skillIDsJSON); err != nil {
+		if err := rows.Scan(&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON); err != nil {
 			return nil, err
 		}
 
@@ -100,6 +107,7 @@ func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64)
 		item.ATK = uint32(atk)
 		item.DEF = uint32(def)
 		item.SPD = uint32(spd)
+		item.MANA = uint32(mana)
 		if len(skillIDsJSON) > 0 {
 			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
 				return nil, fmt.Errorf("unmarshal pet skill ids: %w", err)
@@ -124,14 +132,19 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 	lineup := make([]pet.LineupPet, 0)
 	for rows.Next() {
 		var (
-			item   pet.LineupPet
-			petUID int64
-			petID  int64
-			level  int64
-			hp     int64
-			hpMax  int64
+			item         pet.LineupPet
+			petUID       int64
+			petID        int64
+			level        int64
+			hp           int64
+			hpMax        int64
+			atk          int64
+			def          int64
+			spd          int64
+			mana         int64
+			skillIDsJSON []byte
 		)
-		if err := rows.Scan(&petUID, &petID, &level, &hp, &hpMax); err != nil {
+		if err := rows.Scan(&petUID, &petID, &level, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON); err != nil {
 			return nil, err
 		}
 		item.PetUID = uint64(petUID)
@@ -139,6 +152,15 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 		item.Level = uint32(level)
 		item.HP = uint32(hp)
 		item.HPMax = uint32(hpMax)
+		item.ATK = uint32(atk)
+		item.DEF = uint32(def)
+		item.SPD = uint32(spd)
+		item.MANA = uint32(mana)
+		if len(skillIDsJSON) > 0 {
+			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
+				return nil, fmt.Errorf("unmarshal lineup pet skill ids: %w", err)
+			}
+		}
 		lineup = append(lineup, item)
 	}
 

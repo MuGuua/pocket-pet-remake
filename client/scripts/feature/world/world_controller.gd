@@ -10,6 +10,11 @@ const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(360.0, 480.0)
 const PORTAL_ACTIVATION_COOLDOWN_MS: int = 350
 const DEFAULT_GRID_TO_PIXELS: float = 24.0
 const BACKGROUND_OVERSCAN_SCALE: float = 3.0
+const INVALID_NAVIGATION_CELL: Vector2i = Vector2i(-2147483648, -2147483648)
+const CLICK_MARKER_RING_RADIUS: float = 10.0
+const CLICK_MARKER_CROSS_HALF_SIZE: float = 4.0
+const CLICK_MARKER_WIDTH: float = 2.0
+const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
 const SCENE_CONFIGS: Dictionary = {
 	1: {
 		"scene_path": "res://scenes/maps/fashtown/roxus_house.tscn",
@@ -96,6 +101,15 @@ var _last_reported_player_position: Vector2 = Vector2.INF
 var _current_level: Node2D
 var _current_interactable_entity_id: int = 0
 var _current_interactable_npc_name: String = ""
+var _current_interactable_requested: bool = false
+var _runtime_input_locked: bool = false
+var _navigation_grid: AStarGrid2D
+var _navigation_layer: TileMapLayer
+var _navigation_region: Rect2i = Rect2i()
+var _click_destination_marker_root: Node2D
+var _click_destination_marker_ring: Line2D
+var _click_destination_marker_cross: Line2D
+var _click_destination_marker_tween: Tween
 
 func _process(_delta: float) -> void:
 	_report_player_position_if_changed()
@@ -107,7 +121,10 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	if game_viewport_container != null and not game_viewport_container.resized.is_connected(_refresh_game_layout):
 		game_viewport_container.resized.connect(_refresh_game_layout)
+	if game_viewport_container != null and not game_viewport_container.gui_input.is_connected(_on_game_viewport_gui_input):
+		game_viewport_container.gui_input.connect(_on_game_viewport_gui_input)
 	GameState.battle_changed.connect(_sync_local_player_battle_state)
+	_ensure_click_destination_marker()
 	call_deferred("_refresh_game_layout")
 	_sync_local_player_battle_state()
 
@@ -222,6 +239,7 @@ func mount_level(level_scene: PackedScene) -> void:
 	_attach_player_to_current_level()
 	_apply_pending_player_transition()
 	_apply_level_camera_limits()
+	_rebuild_navigation_grid()
 	_keep_player_on_top()
 
 func unmount_current_level() -> void:
@@ -229,6 +247,7 @@ func unmount_current_level() -> void:
 		return
 
 	_clear_current_interactable_npc()
+	_clear_navigation_grid()
 	_detach_player_from_current_level()
 	var level_to_free := _current_level
 	_current_level = null
@@ -238,6 +257,68 @@ func unmount_current_level() -> void:
 
 func _on_viewport_size_changed() -> void:
 	_refresh_game_layout()
+
+func _on_game_viewport_gui_input(event: InputEvent) -> void:
+	if _runtime_input_locked or GameState.is_in_battle or _pending_target_scene_id != 0:
+		return
+	if _current_level == null or player_node == null:
+		return
+
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+			return
+		_request_click_to_move(mouse_event.position)
+		return
+
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if not touch_event.pressed:
+			return
+		_request_click_to_move(touch_event.position)
+
+func _request_click_to_move(container_position: Vector2) -> void:
+	var target_world_position: Vector2 = _container_to_world_position(container_position)
+	if target_world_position == Vector2.INF:
+		return
+	_request_auto_move_to_world(target_world_position)
+
+func _container_to_world_position(container_position: Vector2) -> Vector2:
+	if game_viewport_container == null or game_viewport == null:
+		return Vector2.INF
+	if game_viewport_container.size.x <= 0.0 or game_viewport_container.size.y <= 0.0:
+		return Vector2.INF
+
+	# 把容器坐标按实际显示比例换算回 SubViewport 坐标，再通过画布变换还原到世界坐标。
+	var viewport_scale := Vector2(
+		float(game_viewport.size.x) / game_viewport_container.size.x,
+		float(game_viewport.size.y) / game_viewport_container.size.y
+	)
+	var viewport_position := container_position * viewport_scale
+	return game_viewport.get_canvas_transform().affine_inverse() * viewport_position
+
+func _request_auto_move_to_world(target_world_position: Vector2) -> void:
+	if player_node == null or _navigation_grid == null or _navigation_layer == null:
+		return
+
+	var start_cell: Vector2i = _resolve_walkable_navigation_cell(_world_to_navigation_cell(player_node.global_position))
+	var target_cell: Vector2i = _resolve_walkable_navigation_cell(_world_to_navigation_cell(target_world_position))
+	if not _is_navigation_cell_valid(start_cell) or not _is_navigation_cell_valid(target_cell):
+		return
+
+	var cell_path: Array[Vector2i] = _navigation_grid.get_id_path(start_cell, target_cell)
+	if cell_path.is_empty():
+		if player_node.has_method("clear_auto_move_path"):
+			player_node.call("clear_auto_move_path")
+		return
+
+	var local_path: Array[Vector2] = []
+	for path_cell in cell_path:
+		local_path.append(_navigation_cell_to_player_local_position(path_cell))
+
+	if player_node.has_method("set_auto_move_path"):
+		player_node.call("set_auto_move_path", local_path)
+	_show_click_destination_marker(_navigation_cell_to_world_position(target_cell))
 
 func _refresh_game_layout() -> void:
 	_resize_game_viewport()
@@ -463,8 +544,12 @@ func _bind_interactive_npcs(level: Node) -> void:
 				child.connect("interaction_exited", exited)
 
 func _on_npc_interaction_entered(entity_id: int, npc_name: String) -> void:
+	# 进入新的 NPC 检测区后，先刷新当前锁定目标，
+	# 再自动发起一次服务端交互请求，用统一的 entity_id 拉取菜单或对话。
 	_current_interactable_entity_id = entity_id
 	_current_interactable_npc_name = npc_name
+	_current_interactable_requested = false
+	_request_current_npc_interaction_if_needed()
 
 func _on_npc_interaction_exited(entity_id: int, _npc_name: String) -> void:
 	if _current_interactable_entity_id != entity_id:
@@ -474,15 +559,30 @@ func _on_npc_interaction_exited(entity_id: int, _npc_name: String) -> void:
 func _clear_current_interactable_npc() -> void:
 	_current_interactable_entity_id = 0
 	_current_interactable_npc_name = ""
+	_current_interactable_requested = false
 
-func _process_npc_interaction_input() -> void:
-	if GameState.is_in_battle or _pending_target_scene_id != 0:
+func _request_current_npc_interaction_if_needed() -> void:
+	if _current_interactable_requested:
+		return
+	if GameState.is_in_battle or _pending_target_scene_id != 0 or _runtime_input_locked:
 		return
 	if _current_interactable_entity_id <= 0:
 		return
+
+	# 每次进入检测区只请求一次，避免角色在碰撞区内轻微抖动时重复拉取服务端菜单。
+	_current_interactable_requested = true
+	npc_interaction_requested.emit(_current_interactable_entity_id, _current_interactable_npc_name)
+
+func _process_npc_interaction_input() -> void:
+	if GameState.is_in_battle or _pending_target_scene_id != 0 or _runtime_input_locked:
+		return
+	if _current_interactable_entity_id <= 0:
+		return
+	if _current_interactable_requested:
+		return
 	if not Input.is_action_just_pressed("ui_accept"):
 		return
-	npc_interaction_requested.emit(_current_interactable_entity_id, _current_interactable_npc_name)
+	_request_current_npc_interaction_if_needed()
 
 func _attach_player_to_current_level() -> void:
 	if _current_level == null or player_node == null:
@@ -595,6 +695,190 @@ func _resolve_level_world_rect(level: Node2D) -> Rect2:
 
 	return Rect2(top_left_global, bottom_right_global - top_left_global)
 
+func _ensure_click_destination_marker() -> void:
+	if _click_destination_marker_root != null and is_instance_valid(_click_destination_marker_root):
+		return
+	if game_root == null:
+		return
+
+	# 落点特效由一个圆环和十字组成，避免新增贴图资源，便于后续统一换肤。
+	_click_destination_marker_root = Node2D.new()
+	_click_destination_marker_root.name = "ClickDestinationMarker"
+	_click_destination_marker_root.visible = false
+	_click_destination_marker_root.z_index = 500
+	game_root.add_child(_click_destination_marker_root)
+
+	_click_destination_marker_ring = Line2D.new()
+	_click_destination_marker_ring.name = "Ring"
+	_click_destination_marker_ring.width = CLICK_MARKER_WIDTH
+	_click_destination_marker_ring.default_color = Color(0.98, 0.92, 0.52, 0.95)
+	_click_destination_marker_ring.closed = true
+	_click_destination_marker_ring.antialiased = true
+	_click_destination_marker_ring.points = _build_click_marker_ring_points()
+	_click_destination_marker_root.add_child(_click_destination_marker_ring)
+
+	_click_destination_marker_cross = Line2D.new()
+	_click_destination_marker_cross.name = "Cross"
+	_click_destination_marker_cross.width = CLICK_MARKER_WIDTH
+	_click_destination_marker_cross.default_color = Color(1.0, 0.97, 0.78, 0.95)
+	_click_destination_marker_cross.antialiased = true
+	_click_destination_marker_cross.points = PackedVector2Array([
+		Vector2(-CLICK_MARKER_CROSS_HALF_SIZE, 0.0),
+		Vector2(CLICK_MARKER_CROSS_HALF_SIZE, 0.0),
+		Vector2.ZERO,
+		Vector2(0.0, -CLICK_MARKER_CROSS_HALF_SIZE),
+		Vector2(0.0, CLICK_MARKER_CROSS_HALF_SIZE),
+	])
+	_click_destination_marker_root.add_child(_click_destination_marker_cross)
+
+func _build_click_marker_ring_points() -> PackedVector2Array:
+	var ring_points := PackedVector2Array()
+	var segment_count: int = 20
+	for index in range(segment_count):
+		var angle := TAU * float(index) / float(segment_count)
+		ring_points.append(Vector2(cos(angle), sin(angle)) * CLICK_MARKER_RING_RADIUS)
+	return ring_points
+
+func _show_click_destination_marker(world_position: Vector2) -> void:
+	_ensure_click_destination_marker()
+	if _click_destination_marker_root == null:
+		return
+
+	if _click_destination_marker_tween != null:
+		_click_destination_marker_tween.kill()
+
+	# 每次点击都从更大的尺寸淡入，给移动端玩家一个清晰但不过度抢眼的反馈。
+	_click_destination_marker_root.visible = true
+	_click_destination_marker_root.position = world_position
+	_click_destination_marker_root.scale = Vector2(1.45, 1.45)
+	_click_destination_marker_root.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_click_destination_marker_tween = create_tween()
+	_click_destination_marker_tween.set_parallel(true)
+	_click_destination_marker_tween.tween_property(
+		_click_destination_marker_root,
+		"scale",
+		Vector2.ONE,
+		CLICK_MARKER_ANIMATION_DURATION
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_click_destination_marker_tween.tween_property(
+		_click_destination_marker_root,
+		"modulate",
+		Color(1.0, 1.0, 1.0, 1.0),
+		CLICK_MARKER_ANIMATION_DURATION * 0.45
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_click_destination_marker_tween.chain().tween_property(
+		_click_destination_marker_root,
+		"modulate",
+		Color(1.0, 1.0, 1.0, 0.0),
+		CLICK_MARKER_ANIMATION_DURATION * 0.7
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_click_destination_marker_tween.finished.connect(_hide_click_destination_marker, CONNECT_ONE_SHOT)
+
+func _hide_click_destination_marker() -> void:
+	if _click_destination_marker_root == null:
+		return
+	_click_destination_marker_root.visible = false
+
+func _rebuild_navigation_grid() -> void:
+	_clear_navigation_grid()
+	if _current_level == null or player_node == null:
+		return
+
+	_navigation_layer = _get_camera_limit_layer(_current_level)
+	if _navigation_layer == null:
+		return
+
+	_navigation_region = _navigation_layer.get_used_rect()
+	if not _navigation_region.has_area():
+		return
+
+	_navigation_grid = AStarGrid2D.new()
+	_navigation_grid.region = _navigation_region
+	_navigation_grid.cell_size = Vector2.ONE
+	_navigation_grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	_navigation_grid.update()
+
+	for cell_y in range(_navigation_region.position.y, _navigation_region.end.y):
+		for cell_x in range(_navigation_region.position.x, _navigation_region.end.x):
+			var cell := Vector2i(cell_x, cell_y)
+			if not _can_player_stand_on_navigation_cell(cell):
+				_navigation_grid.set_point_solid(cell, true)
+
+func _clear_navigation_grid() -> void:
+	_navigation_grid = null
+	_navigation_layer = null
+	_navigation_region = Rect2i()
+	_hide_click_destination_marker()
+	if player_node != null and player_node.has_method("clear_auto_move_path"):
+		player_node.call("clear_auto_move_path")
+
+func _can_player_stand_on_navigation_cell(cell: Vector2i) -> bool:
+	if _navigation_layer == null or player_node == null:
+		return false
+
+	var collision_shape := player_node.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null or collision_shape.shape == null:
+		return true
+
+	var space_state := player_node.get_world_2d().direct_space_state
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = collision_shape.shape
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	query.collision_mask = player_node.collision_mask
+	query.exclude = [player_node.get_rid()]
+	query.transform = Transform2D(0.0, _navigation_cell_to_world_position(cell)) * collision_shape.transform
+
+	# 没有碰撞结果时，说明玩家碰撞体可以站在该格中心附近。
+	return space_state.intersect_shape(query, 1).is_empty()
+
+func _world_to_navigation_cell(world_position: Vector2) -> Vector2i:
+	if _navigation_layer == null:
+		return Vector2i.ZERO
+	return _navigation_layer.local_to_map(_navigation_layer.to_local(world_position))
+
+func _navigation_cell_to_world_position(cell: Vector2i) -> Vector2:
+	if _navigation_layer == null:
+		return Vector2.ZERO
+	return _navigation_layer.to_global(_navigation_layer.map_to_local(cell))
+
+func _navigation_cell_to_player_local_position(cell: Vector2i) -> Vector2:
+	var player_parent := player_node.get_parent()
+	if player_parent is Node2D:
+		return (player_parent as Node2D).to_local(_navigation_cell_to_world_position(cell))
+	return _current_level.to_local(_navigation_cell_to_world_position(cell))
+
+func _resolve_walkable_navigation_cell(cell: Vector2i) -> Vector2i:
+	if not _is_navigation_cell_in_bounds(cell):
+		return INVALID_NAVIGATION_CELL
+	if not _navigation_grid.is_point_solid(cell):
+		return cell
+
+	var max_radius: int = maxi(_navigation_region.size.x, _navigation_region.size.y)
+	for radius in range(1, max_radius + 1):
+		for offset_y in range(-radius, radius + 1):
+			for offset_x in range(-radius, radius + 1):
+				if abs(offset_x) + abs(offset_y) != radius:
+					continue
+				var candidate := cell + Vector2i(offset_x, offset_y)
+				if not _is_navigation_cell_in_bounds(candidate):
+					continue
+				if not _navigation_grid.is_point_solid(candidate):
+					return candidate
+
+	return INVALID_NAVIGATION_CELL
+
+func _is_navigation_cell_in_bounds(cell: Vector2i) -> bool:
+	return (
+		cell.x >= _navigation_region.position.x
+		and cell.y >= _navigation_region.position.y
+		and cell.x < _navigation_region.end.x
+		and cell.y < _navigation_region.end.y
+	)
+
+func _is_navigation_cell_valid(cell: Vector2i) -> bool:
+	return cell != INVALID_NAVIGATION_CELL and _is_navigation_cell_in_bounds(cell)
+
 func _sync_local_player_battle_state() -> void:
 	if player_node != null and player_node.has_method("set_battle_active"):
 		player_node.call("set_battle_active", GameState.is_in_battle)
@@ -606,6 +890,13 @@ func _lock_local_player() -> void:
 func _unlock_local_player() -> void:
 	if player_node != null and player_node.has_method("set_scene_transition_locked"):
 		player_node.call("set_scene_transition_locked", false)
+
+func set_runtime_input_locked(locked: bool) -> void:
+	_runtime_input_locked = locked
+	if locked:
+		_lock_local_player()
+	else:
+		_unlock_local_player()
 
 func _set_transition_loading(active: bool) -> void:
 	if map_loading_overlay != null:

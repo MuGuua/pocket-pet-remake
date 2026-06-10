@@ -1,0 +1,142 @@
+[gd_scene load_steps=7 format=3 uid="uid://ceqwdnrygguwl"]
+
+[ext_resource type="PackedScene" uid="uid://bjmjjyt5kmck5" path="res://scenes/ui/bag_panel.tscn" id="1_bag"]
+[ext_resource type="Script" path="res://scripts/ui/player_panel.gd" id="2_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/status_panel.tscn" id="3_status"]
+[ext_resource type="PackedScene" path="res://scenes/ui/team_panel.tscn" id="4_team"]
+[ext_resource type="PackedScene" path="res://scenes/ui/skill_panel.tscn" id="5_skill"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
+shadow_size = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_normal"]
+bg_color = Color(0.5019608, 0.62352943, 0.654902, 1)
+corner_radius_top_left = 6
+corner_radius_bottom_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_pressed"]
+bg_color = Color(0.8352941, 0.91764706, 0.8509804, 1)
+corner_radius_top_left = 6
+corner_radius_bottom_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+
+[node name="PlayerPanel" type="CanvasLayer"]
+script = ExtResource("2_script")
+
+[node name="RootPanel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -203.0
+offset_top = -228.0
+offset_right = 203.0
+offset_bottom = 258.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(203, 243)
+scale = Vector2(0.74, 0.74)
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="ContentRow" type="HBoxContainer" parent="RootPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TabButtons" type="VBoxContainer" parent="RootPanel/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 9
+
+[node name="TopSpacer" type="Control" parent="RootPanel/ContentRow/TabButtons"]
+custom_minimum_size = Vector2(50, 90)
+layout_mode = 2
+
+[node name="StatusTabButton" type="Button" parent="RootPanel/ContentRow/TabButtons"]
+custom_minimum_size = Vector2(50, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+toggle_mode = true
+text = "状态"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_pressed")
+
+[node name="BagTabButton" type="Button" parent="RootPanel/ContentRow/TabButtons"]
+custom_minimum_size = Vector2(50, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+toggle_mode = true
+text = "背包"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_pressed")
+
+[node name="TeamTabButton" type="Button" parent="RootPanel/ContentRow/TabButtons"]
+custom_minimum_size = Vector2(50, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+toggle_mode = true
+text = "队伍"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_pressed")
+
+[node name="SkillTabButton" type="Button" parent="RootPanel/ContentRow/TabButtons"]
+custom_minimum_size = Vector2(50, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+toggle_mode = true
+text = "技能"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_pressed")
+
+[node name="PanelHost" type="Control" parent="RootPanel/ContentRow"]
+custom_minimum_size = Vector2(350, 430)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="StatusPanel" parent="RootPanel/ContentRow/PanelHost" instance=ExtResource("3_status")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BagPanel" parent="RootPanel/ContentRow/PanelHost" instance=ExtResource("1_bag")]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TeamPanel" parent="RootPanel/ContentRow/PanelHost" instance=ExtResource("4_team")]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SkillPanel" parent="RootPanel/ContentRow/PanelHost" instance=ExtResource("5_skill")]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

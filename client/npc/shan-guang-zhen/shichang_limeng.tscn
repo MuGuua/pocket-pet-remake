@@ -1,6 +1,6 @@
-[gd_scene load_steps=6 format=3 uid="uid://cu743ifxrlss3"]
+[gd_scene load_steps=7 format=3 uid="uid://cu743ifxrlss3"]
 
-[ext_resource type="Script" uid="uid://1n61mikm6fxb" path="res://npc/scripts/interactive_npc_base.gd" id="1_41f0x"]
+[ext_resource type="Script" uid="uid://1n61mikm6fxb" path="res://npc/scripts/shichang_limeng.gd" id="1_41f0x"]
 [ext_resource type="Texture2D" uid="uid://dtk5edhy4ploq" path="res://asset/口袋所有形象/imgs/2006.png" id="2_jcxwk"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_rcck7"]
@@ -19,15 +19,17 @@ animations = [{
 }]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_rf8mv"]
-radius = 3.9804688
-height = 15.999307
+radius = 4.9997835
+height = 17.999222
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body_blocker"]
+radius = 2.9998698
+height = 13.999393
 
 [node name="ShichangLimeng" type="Node2D"]
 light_mask = 4
 visibility_layer = 2
 script = ExtResource("1_41f0x")
-entity_id = 93001
-npc_name = "市场理萌"
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(5, -13)
@@ -40,3 +42,12 @@ autoplay = "default"
 position = Vector2(5, 1)
 rotation = 1.5614867
 shape = SubResource("CapsuleShape2D_rf8mv")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(5, 1)
+rotation = 1.5614867
+shape = SubResource("CapsuleShape2D_body_blocker")

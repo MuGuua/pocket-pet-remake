@@ -1,8 +1,10 @@
-[gd_scene load_steps=10 format=4 uid="uid://bmtsiogflkwo5"]
+[gd_scene load_steps=12 format=4 uid="uid://bmtsiogflkwo5"]
 
-[ext_resource type="Script" uid="uid://dsw15lagru4wr" path="res://scripts/feature/world/scene_levels/roxus_house_level.gd" id="1_2dwht"]
+[ext_resource type="Script" uid="uid://cqqey00iokxxb" path="res://scripts/feature/world/scene_levels/roxus_house_level.gd" id="1_2dwht"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_j816w"]
 [ext_resource type="Texture2D" uid="uid://13ul8gddpxfm" path="res://asset/generated_maps/maps/sgz/cunzhangjia/full_frames/sheet.png" id="2_s32ju"]
+[ext_resource type="PackedScene" path="res://npc/cangku/aqing.tscn" id="3_aqing"]
+[ext_resource type="PackedScene" uid="uid://dw5q5nbmn1th3" path="res://npc/cangku/luosi.tscn" id="4_877fa"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_mmkxe"]
 texture = ExtResource("2_s32ju")
@@ -1946,7 +1948,6 @@ size = Vector2(47, 9)
 [node name="roxus_house" type="Node2D"]
 position = Vector2(15, 76)
 script = ExtResource("1_2dwht")
-door_spawn_position = Vector2(71, 18)
 
 [node name="Collision" type="TileMapLayer" parent="."]
 position = Vector2(1, -4)
@@ -1963,3 +1964,12 @@ tile_set = SubResource("TileSet_mmkxe")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Door"]
 position = Vector2(113, 247.5)
 shape = SubResource("RectangleShape2D_qmk12")
+
+[node name="ActorRoot" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Luosi" parent="ActorRoot" instance=ExtResource("4_877fa")]
+position = Vector2(58, 89)
+
+[node name="Aqing" parent="ActorRoot" instance=ExtResource("3_aqing")]
+position = Vector2(82, 92)

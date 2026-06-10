@@ -1,0 +1,42 @@
+~ talk
+生产导师·璃梦: {{SomeGlobal.some_character_name}}, 你可算来了。我这边正忙着整理工坊的材料，你要是没事就陪我说说话。
+{{SomeGlobal.some_character_name}}: 你还是一如既往地精神十足。
+生产导师·璃梦: 那当然，我可是要把你们都武装到牙齿的生产导师。等你准备好任务了，再来找我。
+=> END
+
+~ quest_accepted
+生产导师·璃梦: 正好你来了，帮我收集 3 根桃木吧，我要给你做一把顺手的新手武器。
+{{SomeGlobal.some_character_name}}: 3 根桃木是吧？行，我这就去帮你找。
+生产导师·璃梦: 找到后直接回来交给我，每次带来一根就行，我会帮你记着。
+=> END
+
+~ quest_progress
+生产导师·璃梦: 还差一些桃木呢，我得先把材料备齐，才能开始锻造。
+{{SomeGlobal.some_character_name}}: 明白，我再去附近找找。
+=> END
+
+~ quest_item_1
+生产导师·璃梦: 这根桃木的纹理不错，我先收下了。还差 2 根，继续努力。
+{{SomeGlobal.some_character_name}}: 好，我马上继续去找。
+=> END
+
+~ quest_item_2
+生产导师·璃梦: 第二根也到手了，手感很结实。再来最后 1 根，我们就能开工。
+{{SomeGlobal.some_character_name}}: 就差最后一下了，我很快回来。
+=> END
+
+~ quest_item_3
+生产导师·璃梦: 太好了，3 根桃木都齐了。你去活动活动筋骨，我这边马上开始锻造。
+{{SomeGlobal.some_character_name}}: 那我等你的好消息。
+=> END
+
+~ quest_ready
+生产导师·璃梦: 材料我已经收齐了，武器也打磨得差不多了。准备好了就来领你的奖励。
+{{SomeGlobal.some_character_name}}: 听起来终于要看到成果了。
+=> END
+
+~ quest_completed
+生产导师·璃梦: 来，拿好这把新手武器。以后别再露出那种怀疑我的表情了，知道吗？
+{{SomeGlobal.some_character_name}}: 知道啦知道啦，谢谢你，璃梦。
+生产导师·璃梦: 下次要是还缺什么材料，记得第一时间来帮我。
+=> END

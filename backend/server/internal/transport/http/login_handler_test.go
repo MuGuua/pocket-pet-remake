@@ -8,27 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"pocket-pet-remake/server/internal/config"
-	"pocket-pet-remake/server/internal/data/memory"
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/teststub"
 )
 
 func TestLoginHandler(t *testing.T) {
-	cfg := config.Config{
-		JWTSecret:      "secret",
-		AccessTokenTTL: time.Hour,
-		WSTokenTTL:     time.Minute,
-		DemoAccount:    "demo",
-		DemoPassword:   "demo123",
-		DemoPlayerName: "DemoTrainer",
-		DemoAccountID:  1,
-		DemoPlayerID:   10001,
-	}
-
-	accountRepo := memory.NewAccountRepository(cfg)
-	wsTokenRepo := memory.NewWSTokenRepository()
-	signer := auth.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
-	handler := NewLoginHandler(auth.NewService(accountRepo, wsTokenRepo, signer, cfg.WSTokenTTL))
+	signer := auth.NewHMACSigner("secret", time.Hour)
+	handler := NewLoginHandler(auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), signer, time.Minute))
 
 	body, err := json.Marshal(map[string]string{
 		"account":   "demo",

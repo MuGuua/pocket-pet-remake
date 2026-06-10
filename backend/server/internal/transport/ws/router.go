@@ -51,7 +51,13 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 		if err != nil {
 			return err
 		}
-		return conn.SendPacket(responsePacket)
+		if err := conn.SendPacket(responsePacket); err != nil {
+			return err
+		}
+		if r.battleHandler != nil {
+			return r.battleHandler.HandleBattleHeartbeat(conn)
+		}
+		return nil
 	case protocol.CmdEnterWorldReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

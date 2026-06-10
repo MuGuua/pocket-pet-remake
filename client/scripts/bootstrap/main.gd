@@ -4,6 +4,12 @@ extends Node
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
 # 战斗场景资源的预加载引用。
 const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
+const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
+const PLAYER_PANEL_SCENE := preload("res://scenes/ui/player_panel.tscn")
+const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
+const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
+const LIMENG_DIALOGUE_PATH := "res://dialogue/untitled.dialogue"
+const GENERIC_NPC_DIALOGUE_PATH := "res://dialogue/测试1.dialogue"
 # 返回登录页时使用的场景路径。
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 # 场景切换遮罩淡入淡出的持续时间。
@@ -34,7 +40,11 @@ var _world_controller: Node
 var _battle_scene: Control
 # 标记当前是否正在跳回登录页，避免重复切场景。
 var _redirecting_to_login: bool = false
-# 标记当前是否已经请求过运行态基础摘要数据。
+var _main_menu: CanvasLayer
+var _player_panel: CanvasLayer
+var _npc_menu: CanvasLayer
+var _npc_list_menu: CanvasLayer
+var _opening_npc_menu_from_list: bool = false
 var _runtime_data_requested: bool = false
 
 # 初始化主运行态，挂载世界场景并注册主链路消息与信号。
@@ -48,6 +58,7 @@ func _ready() -> void:
 	_mount_world_scene()
 	_register_routes()
 	_connect_signals()
+	_create_runtime_ui()
 	_sync_world_render_frame()
 	_append_log("主场景已就绪。")
 	_append_log("正在请求进入世界。")
@@ -145,17 +156,6 @@ func _connect_signals() -> void:
 	App.notice_received.connect(_on_notice_received)
 	App.kicked.connect(_on_kicked)
 	gameplay_area.resized.connect(_sync_world_render_frame)
-	hud_root.challenge_requested.connect(_on_challenge_requested)
-	hud_root.pet_requested.connect(_on_pet_requested)
-	hud_root.lineup_requested.connect(_on_lineup_requested)
-	hud_root.bag_requested.connect(_on_bag_requested)
-	hud_root.quest_requested.connect(_on_quest_requested)
-	hud_root.quest_track_requested.connect(_on_quest_track_requested)
-	hud_root.quest_accept_requested.connect(_on_quest_accept_requested)
-	hud_root.quest_submit_requested.connect(_on_quest_submit_requested)
-	hud_root.lineup_submit_requested.connect(_on_lineup_submit_requested)
-	hud_root.npc_menu_refresh_requested.connect(_on_npc_menu_refresh_requested)
-	hud_root.npc_menu_entry_selected.connect(_on_npc_menu_entry_selected)
 
 	if battle_controller.has_signal("interact_responded"):
 		battle_controller.connect("interact_responded", Callable(self, "_on_interact_responded"))
@@ -177,6 +177,50 @@ func _connect_signals() -> void:
 	GameState.quests_changed.connect(_refresh_view)
 	NetClient.connection_state_changed.connect(_on_connection_state_changed)
 	NetClient.websocket_closed.connect(_on_websocket_closed)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("open_main_menu"):
+		if _has_blocking_ui_open("main_menu"):
+			return
+		if _main_menu == null:
+			return
+		if _main_menu.visible:
+			_main_menu.call("close_menu")
+		else:
+			_main_menu.call("open_menu")
+			_set_runtime_menu_locked(true)
+		get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("open_player_panel"):
+		if _has_blocking_ui_open("player_panel"):
+			return
+		if _player_panel == null:
+			return
+		if _player_panel.visible:
+			_player_panel.call("close_menu")
+		else:
+			_player_panel.call("open_menu")
+			_set_runtime_menu_locked(true)
+		get_viewport().set_input_as_handled()
+		return
+
+	if not event.is_action_pressed("open_scene_npc_list"):
+		return
+	if GameState.is_in_battle or _npc_list_menu == null or _has_blocking_ui_open("npc_list"):
+		return
+	if _npc_list_menu.visible:
+		_npc_list_menu.call("close_menu")
+		get_viewport().set_input_as_handled()
+		return
+
+	var nearby_npcs: Array[Dictionary] = _collect_nearby_npc_entries()
+	if nearby_npcs.is_empty():
+		return
+	_npc_list_menu.call("configure", "周围 NPC", nearby_npcs)
+	_npc_list_menu.call("open_menu")
+	_set_runtime_menu_locked(true)
+	get_viewport().set_input_as_handled()
 
 # 处理服务端下发的普通提示信息。
 func _on_notice_received(message: String) -> void:
@@ -202,7 +246,6 @@ func _on_world_scene_loaded(scene_id: String) -> void:
 		App.request_pet_list()
 		App.request_bag_list()
 		App.request_quest_list()
-		_append_log("正在同步宠物、背包与任务摘要。")
 	_refresh_view()
 
 # 处理本地玩家坐标变化，并把最新位置写回 HUD 头部文案。
@@ -232,55 +275,31 @@ func _on_npc_interaction_requested(entity_id: int, npc_name: String) -> void:
 func _on_interact_payload_received(payload: Dictionary) -> void:
 	if str(payload.get("response_type", "")) != "menu":
 		return
-	hud_root.show_npc_menu(payload)
-	_append_log("打开 NPC 菜单: %s" % str(payload.get("npc_name", "未知 NPC")))
-
-func _on_npc_menu_refresh_requested(entity_id: int) -> void:
-	App.request_interact(entity_id)
-
-func _on_npc_menu_entry_selected(entity_id: int, entry_id: String, entry_type: String, quest_id: int, quest_state: String) -> void:
-	if entity_id <= 0 or entry_id.is_empty():
-		return
-	if entry_type == "quest" and quest_id > 0:
-		if quest_state == "AVAILABLE":
-			App.accept_quest(quest_id, entity_id)
-		elif quest_state == "READY_TO_SUBMIT":
-			App.submit_quest(quest_id, entity_id)
-		App.request_interact(entity_id)
-		return
-	App.request_npc_action(entity_id, entry_id)
+	_append_log("收到 NPC 菜单数据: %s" % str(payload.get("npc_name", "未知 NPC")))
+	if _npc_menu != null:
+		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+		_npc_menu.call("open_menu")
+		_set_runtime_menu_locked(true)
 
 func _on_npc_action_payload_received(payload: Dictionary) -> void:
+	var dialogue_binding := _resolve_npc_dialogue_binding({
+		"entity_id": int(payload.get("entity_id", 0)),
+		"id": str(payload.get("entry_id", "")),
+		"entry_type": "dialog",
+		"npc_name": str(payload.get("npc_name", "NPC")),
+	})
+	if not dialogue_binding.is_empty():
+		_show_npc_dialogue(dialogue_binding, str(payload.get("npc_name", "NPC")))
+		return
 	var notice := str(payload.get("notice", payload.get("reason", "")))
 	if not notice.is_empty():
 		_append_log("NPC 操作: %s" % notice)
-	App.request_quest_list()
-	if payload.has("menu_entries"):
-		var menu_entries_value: Variant = payload.get("menu_entries", [])
-		if menu_entries_value is Array and not (menu_entries_value as Array).is_empty():
-			hud_root.show_npc_menu({
-				"entity_id": int(payload.get("entity_id", 0)),
-				"npc_name": str(payload.get("npc_name", "可交互 NPC")),
-				"menu_entries": menu_entries_value,
-			})
-			return
-	hud_root.hide_npc_menu()
-
-func _on_quest_requested() -> void:
-	App.request_quest_list()
-
-func _on_quest_track_requested(quest_id: int) -> void:
-	App.track_quest(quest_id)
-
-func _on_quest_accept_requested(quest_id: int, npc_id: int) -> void:
-	App.accept_quest(quest_id, npc_id)
-	if npc_id > 0:
-		App.request_interact(npc_id)
-
-func _on_quest_submit_requested(quest_id: int, npc_id: int) -> void:
-	App.submit_quest(quest_id, npc_id)
-	if npc_id > 0:
-		App.request_interact(npc_id)
+	if payload.has("menu_entries") and _npc_menu != null:
+		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+		_npc_menu.call("open_menu")
+		_set_runtime_menu_locked(true)
 
 # 处理世界交互回执，并刷新主视图显示。
 func _on_interact_responded(accepted: bool, reason: String) -> void:
@@ -294,6 +313,7 @@ func _on_action_responded(accepted: bool, reason: String) -> void:
 # 处理战斗开始事件，挂载战斗场景并同步显示状态。
 func _on_battle_started(payload: Dictionary) -> void:
 	_append_log("进入战斗场景。")
+	_close_runtime_menus()
 	_mount_battle_scene()
 	_sync_battle_visibility()
 	if payload.has("battle_id"):
@@ -373,44 +393,184 @@ func _sync_battle_visibility() -> void:
 	world_mount.visible = not active
 	battle_mount.visible = active
 
-# 处理 HUD 发起的挑战请求，并默认选择第一个附近实体作为目标。
-func _on_challenge_requested() -> void:
-	if GameState.is_in_battle:
+func _create_runtime_ui() -> void:
+	_create_main_menu()
+	_create_player_panel()
+	_create_npc_menu()
+	_create_npc_list_menu()
+
+func _create_main_menu() -> void:
+	_main_menu = MAIN_MENU_SCENE.instantiate() as CanvasLayer
+	if _main_menu == null:
 		return
-	# 读取当前附近实体的全部标识列表。
-	var entity_ids := GameState.nearby_entities.keys()
-	if entity_ids.is_empty():
-		_append_log("附近没有可挑战的NPC。")
-		_refresh_view()
+	add_child(_main_menu)
+	if _main_menu.has_signal("menu_closed"):
+		_main_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
+func _create_player_panel() -> void:
+	_player_panel = PLAYER_PANEL_SCENE.instantiate() as CanvasLayer
+	if _player_panel == null:
 		return
-	entity_ids.sort()
-	# 选取排序后的首个实体作为默认交互目标。
-	var entity_id := int(entity_ids[0])
-	_append_log("向服务端发起挑战，目标实体: %d" % entity_id)
+	add_child(_player_panel)
+	if _player_panel.has_signal("menu_closed"):
+		_player_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
+func _create_npc_menu() -> void:
+	_npc_menu = NPC_MENU_SCENE.instantiate() as CanvasLayer
+	if _npc_menu == null:
+		return
+	add_child(_npc_menu)
+	if _npc_menu.has_signal("option_selected"):
+		_npc_menu.connect("option_selected", Callable(self, "_on_npc_menu_option_selected"))
+	if _npc_menu.has_signal("menu_closed"):
+		_npc_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
+func _create_npc_list_menu() -> void:
+	_npc_list_menu = NPC_LIST_MENU_SCENE.instantiate() as CanvasLayer
+	if _npc_list_menu == null:
+		return
+	add_child(_npc_list_menu)
+	if _npc_list_menu.has_signal("npc_selected"):
+		_npc_list_menu.connect("npc_selected", Callable(self, "_on_npc_selected"))
+	if _npc_list_menu.has_signal("menu_closed"):
+		_npc_list_menu.connect("menu_closed", Callable(self, "_on_npc_list_closed"))
+
+func _on_runtime_menu_closed() -> void:
+	_set_runtime_menu_locked(false)
+
+func _on_npc_list_closed() -> void:
+	if _opening_npc_menu_from_list:
+		_opening_npc_menu_from_list = false
+		return
+	_set_runtime_menu_locked(false)
+
+func _on_npc_selected(npc_data: Dictionary) -> void:
+	var entity_id: int = int(npc_data.get("entity_id", 0))
+	if entity_id <= 0:
+		return
+	_opening_npc_menu_from_list = true
+	if _npc_list_menu != null:
+		_npc_list_menu.call("close_menu")
+	_append_log("通过列表选择 NPC: %s (%d)" % [str(npc_data.get("npc_name", "未知 NPC")), entity_id])
 	App.request_interact(entity_id)
 
-# 处理 HUD 发起的宠物列表刷新请求。
-func _on_pet_requested() -> void:
-	_append_log("请求宠物列表。")
-	App.request_pet_list()
-
-# 处理 HUD 发起的编队摘要刷新请求。
-func _on_lineup_requested() -> void:
-	_append_log("请求编队摘要。")
-	App.request_pet_list()
-
-# 处理 HUD 发起的背包列表刷新请求。
-func _on_bag_requested() -> void:
-	_append_log("请求背包列表。")
-	App.request_bag_list()
-
-# 处理 HUD 提交的编队保存请求。
-func _on_lineup_submit_requested(pet_uids: Array[int]) -> void:
-	if pet_uids.is_empty():
-		_append_log("编队不能为空。")
+func _on_npc_menu_option_selected(option: Dictionary) -> void:
+	if _npc_menu != null and _npc_menu.has_method("close_menu"):
+		_npc_menu.call("close_menu")
+	var entity_id: int = int(option.get("entity_id", 0))
+	var entry_id: String = str(option.get("id", ""))
+	var entry_type: String = str(option.get("entry_type", ""))
+	var quest_id: int = int(option.get("quest_id", 0))
+	var quest_state: String = str(option.get("quest_state", ""))
+	if entity_id <= 0 or entry_id.is_empty():
 		return
-	_append_log("提交编队: %s" % str(pet_uids))
-	App.set_pet_lineup(pet_uids)
+	if entry_type == "quest" and quest_id > 0:
+		if quest_state == "AVAILABLE":
+			App.accept_quest(quest_id, entity_id)
+			var accept_dialogue := _resolve_quest_dialogue_binding(entity_id, "accept")
+			if not accept_dialogue.is_empty():
+				_show_npc_dialogue(accept_dialogue, str(option.get("npc_name", "NPC")))
+		elif quest_state == "READY_TO_SUBMIT":
+			App.submit_quest(quest_id, entity_id)
+			var submit_dialogue := _resolve_quest_dialogue_binding(entity_id, "submit")
+			if not submit_dialogue.is_empty():
+				_show_npc_dialogue(submit_dialogue, str(option.get("npc_name", "NPC")))
+		App.request_interact(entity_id)
+		return
+	App.request_npc_action(entity_id, entry_id)
+
+func _build_npc_menu_options(payload: Dictionary) -> Array[Dictionary]:
+	var options: Array[Dictionary] = []
+	var entity_id: int = int(payload.get("entity_id", 0))
+	var menu_entries_variant: Variant = payload.get("menu_entries", [])
+	if menu_entries_variant is not Array:
+		return options
+	for entry_variant in menu_entries_variant:
+		if entry_variant is not Dictionary:
+			continue
+		var entry: Dictionary = entry_variant
+		var option := entry.duplicate(true)
+		option["id"] = str(entry.get("entry_id", ""))
+		option["label"] = str(entry.get("title", entry.get("entry_id", "")))
+		if str(entry.get("subtitle", "")).strip_edges() != "":
+			option["label"] += " - %s" % str(entry.get("subtitle", ""))
+		option["entity_id"] = entity_id
+		option["npc_name"] = str(payload.get("npc_name", "NPC"))
+		options.append(option)
+	return options
+
+func _collect_nearby_npc_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for entity_id_variant in GameState.nearby_entities.keys():
+		var entity_variant: Variant = GameState.nearby_entities.get(entity_id_variant, {})
+		if entity_variant is not Dictionary:
+			continue
+		var entity: Dictionary = entity_variant
+		entries.append({
+			"entity_id": int(entity.get("entity_id", entity_id_variant)),
+			"npc_name": str(entity.get("name", entity.get("npc_name", "NPC"))),
+			"portrait_path": "res://asset/口袋所有形象/imgs/51.png",
+		})
+	return entries
+
+func _resolve_npc_dialogue_binding(option: Dictionary) -> Dictionary:
+	var entity_id: int = int(option.get("entity_id", 0))
+	var entry_id: String = str(option.get("id", option.get("entry_id", "")))
+	var entry_type: String = str(option.get("entry_type", ""))
+	if entity_id == 93001:
+		if entry_id == "dialog_market_news" or entry_id == "talk" or entry_type == "dialogue":
+			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "talk"}
+	if entity_id == 93002:
+		if entry_id == "dialog_trade_tip" or entry_id == "talk" or entry_type == "dialog":
+			return {"resource_path": GENERIC_NPC_DIALOGUE_PATH, "title": "start"}
+	return {}
+
+func _resolve_quest_dialogue_binding(entity_id: int, action: String) -> Dictionary:
+	if entity_id != 93001:
+		return {}
+	match action:
+		"accept":
+			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "quest_accepted"}
+		"submit":
+			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "quest_completed"}
+		_:
+			return {}
+
+func _show_npc_dialogue(binding: Dictionary, npc_name: String) -> void:
+	var resource_path: String = str(binding.get("resource_path", ""))
+	var title: String = str(binding.get("title", ""))
+	if resource_path.is_empty():
+		return
+	var resource_variant: Variant = load(resource_path)
+	if resource_variant is not DialogueResource:
+		_append_log("对话资源加载失败: %s" % resource_path)
+		return
+	var balloon_variant: Variant = DialogueManager.show_dialogue_balloon(resource_variant, title)
+	if balloon_variant is Node:
+		var balloon: Node = balloon_variant
+		balloon.set("npc_portrait", load("res://asset/口袋所有形象/imgs/51.png"))
+	_append_log("打开对话: %s" % npc_name)
+
+func _set_runtime_menu_locked(locked: bool) -> void:
+	if _world_controller != null and _world_controller.has_method("set_runtime_input_locked"):
+		_world_controller.call("set_runtime_input_locked", locked)
+
+func _close_runtime_menus() -> void:
+	for layer in [_main_menu, _player_panel, _npc_menu, _npc_list_menu]:
+		if layer != null and layer.has_method("close_menu"):
+			layer.call("close_menu")
+	_set_runtime_menu_locked(false)
+
+func _has_blocking_ui_open(except: String = "") -> bool:
+	if except != "main_menu" and _main_menu != null and _main_menu.visible:
+		return true
+	if except != "player_panel" and _player_panel != null and _player_panel.visible:
+		return true
+	if except != "npc_menu" and _npc_menu != null and _npc_menu.visible:
+		return true
+	if except != "npc_list" and _npc_list_menu != null and _npc_list_menu.visible:
+		return true
+	return false
 
 # 返回登录页，并在切换前清理当前实时连接和全局状态。
 func _return_to_login_scene() -> void:

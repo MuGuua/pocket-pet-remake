@@ -166,6 +166,22 @@ func submit_battle_action(
         }
     )
 
+# 向服务端切换当前战斗是否进入自动托管。
+func set_battle_auto(battle_id: int, battle_round: int, enabled: bool) -> void:
+    NetClient.send_command(
+        CommandIds.BATTLE_ACTION_REQ,
+        {
+            "op_id": _take_battle_op_id(),
+            "battle_id": battle_id,
+            "round": battle_round,
+            "action_type": 5,
+            "actor_id": 0,
+            "skill_id": 0,
+            "target_id": 0,
+            "auto_battle_enabled": enabled,
+        }
+    )
+
 # 统一接收开发态消息并交给消息路由器分发。
 func _on_dev_message_received(cmd: int, payload: Dictionary) -> void:
     MessageRouter.route_message(cmd, payload)

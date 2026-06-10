@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://cy7ymccdw2m71"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_y7ywj"]
+load_path = "res://.godot/imported/pixel items0.png-7a72b218889f7fd84694845e176587f1.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v67e0"]
+atlas = SubResource("CompressedTexture2D_y7ywj")
+region = Rect2(192, 96, 32, 32)
+
+[node name="Slot" type="Control" unique_id=1508593485]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=897707798]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_v67e0")
+expand_mode = 1
+
+[node name="Label" type="Label" parent="." unique_id=1300952533]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 12
+text = "99"
+horizontal_alignment = 2
+vertical_alignment = 2

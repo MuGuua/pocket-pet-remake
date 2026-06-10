@@ -1,0 +1,363 @@
+[gd_scene format=3 uid="uid://wey7yyjsuwmg"]
+
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="1_inner"]
+[ext_resource type="Script" uid="uid://bbpwghpp63fm4" path="res://scripts/ui/character_status_panel.gd" id="2_script"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_inner"]
+texture = ExtResource("1_inner")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[node name="CharacterStatusPanel" type="PanelContainer" unique_id=467230702]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_inner")
+script = ExtResource("2_script")
+
+[node name="BodyMargin" type="MarginContainer" parent="." unique_id=259231422]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="BodyVBox" type="VBoxContainer" parent="BodyMargin" unique_id=1143551729]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HpRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=957169592]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HpIcon" type="Label" parent="BodyMargin/BodyVBox/HpRow" unique_id=1844016314]
+layout_mode = 2
+text = "🏥"
+
+[node name="HpKey" type="Label" parent="BodyMargin/BodyVBox/HpRow" unique_id=955837794]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "生命:"
+
+[node name="HpValue" type="Label" parent="BodyMargin/BodyVBox/HpRow" unique_id=1248991513]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "1500000 / 1500000"
+
+[node name="ElementRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=1073183423]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ElementIcon" type="Label" parent="BodyMargin/BodyVBox/ElementRow" unique_id=931624369]
+layout_mode = 2
+text = "🔱"
+
+[node name="ElementKey" type="Label" parent="BodyMargin/BodyVBox/ElementRow" unique_id=1741143148]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "元素属性:"
+
+[node name="ElementValue" type="Label" parent="BodyMargin/BodyVBox/ElementRow" unique_id=402221692]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9098039, 0.25490198, 0.09411765, 1)
+theme_override_constants/outline_size = 2
+text = "火"
+
+[node name="EnergyRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=1536011311]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="EnergyIcon" type="Label" parent="BodyMargin/BodyVBox/EnergyRow" unique_id=1556981951]
+layout_mode = 2
+text = "🪄"
+
+[node name="EnergyKey" type="Label" parent="BodyMargin/BodyVBox/EnergyRow" unique_id=1111141845]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "精力:"
+
+[node name="EnergyValue" type="Label" parent="BodyMargin/BodyVBox/EnergyRow" unique_id=351987616]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "125 / 125"
+
+[node name="ExpGuardGrid" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=1441547452]
+layout_mode = 2
+columns = 2
+
+[node name="ExpBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/ExpGuardGrid" unique_id=1153421772]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ExpIcon" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/ExpBox" unique_id=55125091]
+layout_mode = 2
+text = "🔮"
+
+[node name="ExpKey" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/ExpBox" unique_id=2080851873]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "经验:"
+
+[node name="ExpValue" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/ExpBox" unique_id=2137475463]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "0 (满级)"
+
+[node name="GuardBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/ExpGuardGrid" unique_id=1200441643]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GuardIcon" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/GuardBox" unique_id=2068587158]
+layout_mode = 2
+text = "🔮"
+
+[node name="GuardKey" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/GuardBox" unique_id=1789377008]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "守护等级:"
+
+[node name="GuardValue" type="Label" parent="BodyMargin/BodyVBox/ExpGuardGrid/GuardBox" unique_id=2012450599]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "443"
+
+[node name="FlyAscendRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=1159670139]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FlyAscendIcon" type="Label" parent="BodyMargin/BodyVBox/FlyAscendRow" unique_id=45604373]
+layout_mode = 2
+text = "🔮"
+
+[node name="FlyAscendKey" type="Label" parent="BodyMargin/BodyVBox/FlyAscendRow" unique_id=2032499989]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.65882355, 1, 1)
+theme_override_constants/outline_size = 2
+text = "飞升:"
+
+[node name="FlyAscendValue" type="Label" parent="BodyMargin/BodyVBox/FlyAscendRow" unique_id=984275166]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "14222812"
+
+[node name="FlyAscendRate" type="Label" parent="BodyMargin/BodyVBox/FlyAscendRow" unique_id=550475156]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9843137, 0.70980394, 0.19215687, 1)
+theme_override_constants/outline_size = 2
+text = "(31.60%)"
+
+[node name="TransferRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=134343367]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TransferIcon" type="Label" parent="BodyMargin/BodyVBox/TransferRow" unique_id=515050096]
+layout_mode = 2
+text = "🔮"
+
+[node name="TransferKey" type="Label" parent="BodyMargin/BodyVBox/TransferRow" unique_id=698566533]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.65882355, 1, 1)
+theme_override_constants/outline_size = 2
+text = "转职:"
+
+[node name="TransferValue" type="Label" parent="BodyMargin/BodyVBox/TransferRow" unique_id=534209714]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "472160"
+
+[node name="TransferRate" type="Label" parent="BodyMargin/BodyVBox/TransferRow" unique_id=404062342]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9843137, 0.70980394, 0.19215687, 1)
+theme_override_constants/outline_size = 2
+text = "(65.57%)"
+
+[node name="CombatGrid1" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=498606546]
+layout_mode = 2
+columns = 2
+
+[node name="AtkBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid1" unique_id=1063225272]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AtkIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/AtkBox" unique_id=1565039651]
+layout_mode = 2
+text = "⚔️"
+
+[node name="AtkKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/AtkBox" unique_id=808513109]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "攻击:"
+
+[node name="AtkValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/AtkBox" unique_id=306773721]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "16767"
+
+[node name="DefBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid1" unique_id=590146594]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DefIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/DefBox" unique_id=532963930]
+layout_mode = 2
+text = "🛡️"
+
+[node name="DefKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/DefBox" unique_id=1598644872]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "防御:"
+
+[node name="DefValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid1/DefBox" unique_id=1268078040]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "250000"
+
+[node name="CombatGrid2" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=766956528]
+layout_mode = 2
+columns = 2
+
+[node name="SpeedBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid2" unique_id=931801869]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SpeedIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/SpeedBox" unique_id=228846876]
+layout_mode = 2
+text = "🥾"
+
+[node name="SpeedKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/SpeedBox" unique_id=697391978]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "速度:"
+
+[node name="SpeedValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/SpeedBox" unique_id=687575483]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "1926"
+
+[node name="ManaBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid2" unique_id=1726183215]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ManaIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/ManaBox" unique_id=738009789]
+layout_mode = 2
+text = "🔥"
+
+[node name="ManaKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/ManaBox" unique_id=720073879]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "法力:"
+
+[node name="ManaValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid2/ManaBox" unique_id=641044298]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "2996"
+
+[node name="CombatGrid3" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=1813726984]
+layout_mode = 2
+columns = 2
+
+[node name="HitBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid3" unique_id=1081155906]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HitIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/HitBox" unique_id=992801287]
+layout_mode = 2
+text = "🌿"
+
+[node name="HitKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/HitBox" unique_id=1844154762]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "命中:"
+
+[node name="HitValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/HitBox" unique_id=104124620]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "250"
+
+[node name="DodgeBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid3" unique_id=1318820156]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DodgeIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/DodgeBox" unique_id=887118929]
+layout_mode = 2
+text = "🌀"
+
+[node name="DodgeKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/DodgeBox" unique_id=1779740830]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "闪避:"
+
+[node name="DodgeValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid3/DodgeBox" unique_id=828865887]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "181"
+
+[node name="CombatGrid4" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=364846835]
+layout_mode = 2
+columns = 2
+
+[node name="CritBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid4" unique_id=1669148488]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CritIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritBox" unique_id=2083533525]
+layout_mode = 2
+text = "🏹"
+
+[node name="CritKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritBox" unique_id=906644301]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "致命:"
+
+[node name="CritValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritBox" unique_id=1103859122]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "12"
+
+[node name="CritDmgBox" type="HBoxContainer" parent="BodyMargin/BodyVBox/CombatGrid4" unique_id=706804830]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CritDmgIcon" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritDmgBox" unique_id=1324401073]
+layout_mode = 2
+text = "💥"
+
+[node name="CritDmgKey" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritDmgBox" unique_id=768519642]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "暴伤:"
+
+[node name="CritDmgValue" type="Label" parent="BodyMargin/BodyVBox/CombatGrid4/CritDmgBox" unique_id=1563814182]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "238%"

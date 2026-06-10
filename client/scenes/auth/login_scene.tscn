@@ -1,133 +1,104 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3 uid="uid://b8af6df25lc6w"]
 
-[ext_resource type="Script" path="res://scripts/auth/login_scene.gd" id="1"]
+[ext_resource type="Script" uid="uid://cl2sa1kluibbo" path="res://scripts/auth/login_scene.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://c784o77teiplw" path="res://asset/login_bg.png" id="2_kgfph"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_s47n8"]
+texture = ExtResource("2_kgfph")
 
 [node name="LoginScene" type="Node"]
 script = ExtResource("1")
 
 [node name="UiLayer" type="CanvasLayer" parent="."]
 
-[node name="Background" type="ColorRect" parent="UiLayer"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.85098, 0.921569, 0.972549, 1)
+[node name="PanelContainer" type="PanelContainer" parent="UiLayer"]
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_styles/panel = SubResource("StyleBoxTexture_s47n8")
 
-[node name="RootMargin" type="MarginContainer" parent="UiLayer"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
-
-[node name="ContentCenter" type="CenterContainer" parent="UiLayer/RootMargin"]
+[node name="LoginCard" type="PanelContainer" parent="UiLayer/PanelContainer"]
+custom_minimum_size = Vector2(360, 640)
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="LoginCard" type="PanelContainer" parent="UiLayer/RootMargin/ContentCenter"]
-layout_mode = 2
-custom_minimum_size = Vector2(236, 0)
 size_flags_horizontal = 4
 
-[node name="VBox" type="VBoxContainer" parent="UiLayer/RootMargin/ContentCenter/LoginCard"]
+[node name="VBox" type="VBoxContainer" parent="UiLayer/PanelContainer/LoginCard"]
 layout_mode = 2
 theme_override_constants/separation = 10
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 0
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 0
 
-[node name="SubtitleLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="TitleLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 layout_mode = 2
-text = "登录后自动建立实时连接并进入世界"
-horizontal_alignment = 1
-autowrap_mode = 2
-theme_override_font_sizes/font_size = 13
-
-[node name="TitleLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
-layout_mode = 2
-text = "Pocket Pet Remake"
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 22
+text = "口袋精灵demo"
+horizontal_alignment = 1
 
-[node name="AccountLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="AccountLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "账号"
-theme_override_font_sizes/font_size = 13
 
-[node name="AccountInput" type="LineEdit" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="AccountInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 placeholder_text = "请输入账号"
-theme_override_font_sizes/font_size = 13
 
-[node name="PasswordLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="PasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 layout_mode = 2
-text = "密码"
 theme_override_font_sizes/font_size = 13
+text = "密码"
 
-[node name="PasswordInput" type="LineEdit" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="PasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 placeholder_text = "请输入密码"
 secret = true
-theme_override_font_sizes/font_size = 13
 
-[node name="LoginButton" type="Button" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="LoginButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
-text = "登录并进入世界"
 theme_override_font_sizes/font_size = 13
+text = "登录并进入世界"
 
-[node name="HintLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="HintLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "演示账号: demo  演示密码: demo123"
 autowrap_mode = 2
-theme_override_font_sizes/font_size = 11
 
-[node name="StatusLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="StatusLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "连接状态: idle"
-theme_override_font_sizes/font_size = 11
 
-[node name="SceneLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="SceneLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "场景: 未进入"
-theme_override_font_sizes/font_size = 11
 
-[node name="PlayerLabel" type="Label" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="PlayerLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "玩家: 未登录"
 theme_override_font_sizes/font_size = 11
+text = "玩家: 未登录"
 
-[node name="LogOutput" type="RichTextLabel" parent="UiLayer/RootMargin/ContentCenter/LoginCard/VBox"]
+[node name="LogOutput" type="RichTextLabel" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 112)
 layout_mode = 2
-scroll_following = true
 theme_override_font_sizes/normal_font_size = 11
+scroll_following = true
 
 [node name="TransitionOverlay" type="ColorRect" parent="UiLayer"]
 unique_name_in_owner = true
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

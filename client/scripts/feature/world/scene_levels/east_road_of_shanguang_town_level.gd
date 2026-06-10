@@ -2,9 +2,8 @@ extends NetworkDoorLevelBase
 
 @export var level_center_position: Vector2 = Vector2.ZERO
 @export var level_scale_factor: float = 2.25
-# 下面两个锚点来自单机 demo，用于和联机版服务端世界坐标做映射。
-@export var inbound_from_roxus_position: Vector2 = Vector2(103.0, 37.0)
-@export var inbound_from_market_position: Vector2 = Vector2(24.0, 85.0)
+@export var inbound_from_roxus_position: Vector2 = Vector2(101.0, 235.0)
+@export var inbound_from_market_position: Vector2 = Vector2(26.0, 85.0)
 @export var login_spawn_position: Vector2 = Vector2(72.0, 55.0)
 
 func _get_door_configs() -> Dictionary:

@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3 uid="uid://ebmldon7qcoa"]
+
+[ext_resource type="Texture2D" uid="uid://c5ivbdkc6o5r1" path="res://asset/口袋所有形象/imgs/2002.png" id="1_texture"]
+[ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="2_script"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_body"]
+atlas = ExtResource("1_texture")
+region = Rect2(0, 0, 18, 38)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_idle"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_body")
+}],
+"loop": false,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_interact"]
+size = Vector2(16, 7)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body_blocker"]
+size = Vector2(13, 5)
+
+[node name="Bolin" type="Node2D"]
+visible = false
+script = ExtResource("2_script")
+entity_id = 91020
+npc_code = "market_shopkeeper_bolin"
+npc_name = "商店老板柏林"
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -18)
+sprite_frames = SubResource("SpriteFrames_idle")
+autoplay = "default"
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+position = Vector2(0, -3.5)
+shape = SubResource("RectangleShape2D_interact")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-0.5, -3.5)
+shape = SubResource("RectangleShape2D_body_blocker")

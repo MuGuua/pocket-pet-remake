@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
@@ -20,16 +21,18 @@ type BattleHandler struct {
 	petService     *pet.Service
 	worldService   *world.Service
 	questService   *quest.Service
+	npcService     *npc.Service
 	battleService  *battle.Service
 }
 
-func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, battleService *battle.Service) *BattleHandler {
+func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service) *BattleHandler {
 	return &BattleHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
 		petService:     petService,
 		worldService:   worldService,
 		questService:   questService,
+		npcService:     npcService,
 		battleService:  battleService,
 	}
 }
@@ -69,14 +72,19 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 		return err
 	}
 	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, protocol.BattleStartPush{
-		BattleID:      startSnapshot.BattleID,
-		BattleType:    startSnapshot.BattleType,
-		BattleVersion: startSnapshot.BattleVersion,
-		Allies:        toProtocolBattleActors(startSnapshot.Allies),
-		Enemies:       toProtocolBattleActors(startSnapshot.Enemies),
-		Round:         startSnapshot.Round,
-		ActiveActorID: startSnapshot.ActiveActorID,
-		ActivePetUID:  startSnapshot.ActivePetUID,
+		BattleID:             startSnapshot.BattleID,
+		BattleType:           startSnapshot.BattleType,
+		BattleVersion:        startSnapshot.BattleVersion,
+		Allies:               toProtocolBattleActors(startSnapshot.Allies),
+		Enemies:              toProtocolBattleActors(startSnapshot.Enemies),
+		Round:                startSnapshot.Round,
+		Phase:                startSnapshot.Phase,
+		ActiveActorID:        startSnapshot.ActiveActorID,
+		ActivePetUID:         startSnapshot.ActivePetUID,
+		CommandDeadlineMS:    startSnapshot.CommandDeadlineMS,
+		AutoBattleEnabled:    startSnapshot.AutoBattleEnabled,
+		PendingActorIDs:      append([]uint64{}, startSnapshot.PendingActorIDs...),
+		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
 	}))
 }
 
@@ -98,6 +106,7 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		ActorID:    request.ActorID,
 		SkillID:    request.SkillID,
 		TargetID:   request.TargetID,
+		AutoBattleEnabled: request.AutoBattleEnabled,
 	})
 	if err != nil {
 		if errors.Is(err, battle.ErrBattleNotFound) {
@@ -112,46 +121,74 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 	if err := h.sendBattleActionResponse(conn, packet.Seq, outcome.Response.Accepted, outcome.Response.Reason); err != nil {
 		return err
 	}
+	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
+}
+
+func (h *BattleHandler) HandleBattleHeartbeat(conn packetSender) error {
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return nil
+	}
+	outcome, err := h.battleService.ProgressAuto(context.Background(), sess.PlayerID)
+	if err != nil || outcome == nil {
+		return err
+	}
+	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
+}
+
+func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender, playerID uint64, outcome *battle.ActionOutcome) error {
+	if outcome == nil {
+		return nil
+	}
 	if outcome.State != nil {
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleStatePush, 0, protocol.BattleStatePush{
-			BattleID:      outcome.State.BattleID,
-			BattleVersion: outcome.State.BattleVersion,
-			Round:         outcome.State.Round,
-			Events:        toProtocolBattleEvents(outcome.State.Events),
-			Actors:        toProtocolBattleActorStates(outcome.State.Actors),
-			ActiveActorID: outcome.State.ActiveActorID,
-			ActivePetUID:  outcome.State.ActivePetUID,
+			BattleID:             outcome.State.BattleID,
+			BattleVersion:        outcome.State.BattleVersion,
+			Round:                outcome.State.Round,
+			Phase:                outcome.State.Phase,
+			Events:               toProtocolBattleEvents(outcome.State.Events),
+			Actors:               toProtocolBattleActorStates(outcome.State.Actors),
+			ActiveActorID:        outcome.State.ActiveActorID,
+			ActivePetUID:         outcome.State.ActivePetUID,
+			CommandDeadlineMS:    outcome.State.CommandDeadlineMS,
+			AutoBattleEnabled:    outcome.State.AutoBattleEnabled,
+			PendingActorIDs:      append([]uint64{}, outcome.State.PendingActorIDs...),
+			ControllableActorIDs: append([]uint64{}, outcome.State.ControllableActorIDs...),
 		})); err != nil {
 			return err
 		}
 	}
-	if outcome.Result != nil {
-		var questBefore []quest.Summary
-		if h.questService != nil && outcome.Result.Win {
-			questBefore, _ = listQuestSummaries(context.Background(), h.questService, sess.PlayerID)
-			_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
-				PlayerID:  sess.PlayerID,
-				EventType: "WIN_BATTLE",
-				Count:     1,
-				Meta: map[string]any{
-					"battle_type": "PVE",
-				},
-			})
-		}
-		updatedPet, err := h.petService.UpdatePetHP(context.Background(), sess.PlayerID, outcome.Result.ActivePetUID, outcome.Result.ActivePetHP)
-		if err != nil {
-			return err
-		}
-		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, protocol.BattleResultPush{
-			BattleID:      outcome.Result.BattleID,
-			Win:           outcome.Result.Win,
-			ReturnSceneID: outcome.Result.ReturnSceneID,
-			ReturnPos: protocol.Vec2i{
-				X: outcome.Result.ReturnPos.X,
-				Y: outcome.Result.ReturnPos.Y,
+	if outcome.Result == nil {
+		return nil
+	}
+
+	var questBefore []quest.Summary
+	if h.questService != nil && outcome.Result.Win {
+		questBefore, _ = listQuestSummaries(ctx, h.questService, playerID)
+		_, _ = h.questService.HandleEvent(ctx, quest.Event{
+			PlayerID:  playerID,
+			EventType: "WIN_BATTLE",
+			Count:     1,
+			Meta: map[string]any{
+				"battle_type": "PVE",
 			},
-			Reason: outcome.Result.Reason,
-		})); err != nil {
+		})
+	}
+	if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, protocol.BattleResultPush{
+		BattleID:      outcome.Result.BattleID,
+		Win:           outcome.Result.Win,
+		ReturnSceneID: outcome.Result.ReturnSceneID,
+		ReturnPos: protocol.Vec2i{
+			X: outcome.Result.ReturnPos.X,
+			Y: outcome.Result.ReturnPos.Y,
+		},
+		Reason: outcome.Result.Reason,
+	})); err != nil {
+		return err
+	}
+	for _, petResult := range outcome.Result.PetResults {
+		updatedPet, err := h.petService.UpdatePetHP(ctx, playerID, petResult.PetUID, petResult.HP)
+		if err != nil {
 			return err
 		}
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
@@ -159,10 +196,9 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		})); err != nil {
 			return err
 		}
-		if h.questService != nil && outcome.Result.Win {
-			_ = pushQuestDiff(context.Background(), conn, h.questService, sess.PlayerID, questBefore)
-		}
-		return nil
+	}
+	if h.questService != nil && outcome.Result.Win {
+		_ = pushQuestDiff(ctx, conn, h.questService, playerID, questBefore)
 	}
 	return nil
 }
@@ -241,6 +277,14 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 	for _, actor := range actors {
 		skills := make([]uint32, 0, len(actor.SkillIDs))
 		skills = append(skills, actor.SkillIDs...)
+		skillSnapshots := make([]protocol.BattleSkillSnapshot, 0, len(actor.Skills))
+		for _, skill := range actor.Skills {
+			skillSnapshots = append(skillSnapshots, protocol.BattleSkillSnapshot{
+				SkillID:    skill.SkillID,
+				Name:       skill.Name,
+				TargetType: skill.TargetType,
+			})
+		}
 		result = append(result, protocol.BattleActorSnapshot{
 			ActorID:     actor.ActorID,
 			ActorType:   actor.ActorType,
@@ -249,7 +293,12 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 			Name:        actor.Name,
 			HP:          actor.HP,
 			HPMax:       actor.HPMax,
+			ATK:         actor.ATK,
+			DEF:         actor.DEF,
+			SPD:         actor.SPD,
+			Skills:      skillSnapshots,
 			SkillIDs:    skills,
+			StatusIDs:   append([]uint32{}, actor.StatusIDs...),
 			LineupIndex: actor.LineupIndex,
 		})
 	}
@@ -269,6 +318,7 @@ func toProtocolBattleEvents(events []battle.Event) []protocol.BattleEvent {
 			SkillID:   event.SkillID,
 			Value:     event.Value,
 			StateID:   event.StateID,
+			Label:     event.Label,
 		})
 	}
 	return result
@@ -281,10 +331,13 @@ func toProtocolBattleActorStates(actors []battle.ActorState) []protocol.BattleAc
 	result := make([]protocol.BattleActorState, 0, len(actors))
 	for _, actor := range actors {
 		result = append(result, protocol.BattleActorState{
-			ActorID: actor.ActorID,
-			HP:      actor.HP,
-			HPMax:   actor.HPMax,
-			Dead:    actor.Dead,
+			ActorID:    actor.ActorID,
+			HP:         actor.HP,
+			HPMax:      actor.HPMax,
+			Dead:       actor.Dead,
+			CanAct:     actor.CanAct,
+			StatusIDs:  append([]uint32{}, actor.StatusIDs...),
+			ChargeDone: actor.ChargeDone,
 		})
 	}
 	return result
@@ -394,26 +447,12 @@ func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uin
 		ResultType: "notice",
 		NPCName:    target.Name,
 	}
-	switch target.EntityID {
-	case 93001:
-		switch entryID {
-		case "dialog_market_news":
-			base.Notice = "理萌说：最近市场新开了几家铺子。"
-		default:
-			return protocol.NPCActionResp{}, false
-		}
-	case 93002:
-		switch entryID {
-		case "shop_open_market":
-			base.Notice = "商店面板待接入，当前先返回占位提示。"
-		case "dialog_trade_tip":
-			base.Notice = "罗格说：买卖讲究货比三家。"
-		default:
-			return protocol.NPCActionResp{}, false
-		}
-	default:
+	actionResult, err := h.npcService.FindActionResult(ctx, target.EntityID, entryID)
+	if err != nil || actionResult == nil {
 		return protocol.NPCActionResp{}, false
 	}
+	base.ResultType = actionResult.ResultType
+	base.Notice = actionResult.Notice
 	entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID)
 	if ok {
 		base.MenuEntries = entries
@@ -422,31 +461,31 @@ func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uin
 }
 
 func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID uint64, entityID uint64) ([]protocol.NpcMenuEntry, bool) {
-	switch entityID {
-	case 93001:
-		entries := []protocol.NpcMenuEntry{}
-		if h.questService != nil && playerID != 0 {
-			if summaries, err := listQuestSummaries(ctx, h.questService, playerID); err == nil {
-				entries = append(entries, questMenuEntriesForNPC(entityID, summaries)...)
-			}
+	result := []protocol.NpcMenuEntry{}
+	if h.questService != nil && playerID != 0 {
+		if summaries, err := listQuestSummaries(ctx, h.questService, playerID); err == nil {
+			result = append(result, questMenuEntriesForNPC(entityID, summaries)...)
 		}
-		entries = append(entries, protocol.NpcMenuEntry{
-			EntryID:   "dialog_market_news",
-			EntryType: "dialog",
-			Title:     "打听消息",
-			Subtitle:  "问问市场最近的新鲜事",
-			State:     "available",
-			Priority:  80,
-		})
-		return entries, true
-	case 93002:
-		return []protocol.NpcMenuEntry{
-			{EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100},
-			{EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70},
-		}, true
-	default:
+	}
+
+	staticEntries, err := h.npcService.ListMenuEntriesByEntityID(ctx, entityID)
+	if err == nil {
+		for _, entry := range staticEntries {
+			result = append(result, protocol.NpcMenuEntry{
+				EntryID:   entry.EntryID,
+				EntryType: entry.EntryType,
+				Title:     entry.Title,
+				Subtitle:  entry.Subtitle,
+				State:     entry.State,
+				Priority:  entry.Priority,
+			})
+		}
+	}
+
+	if len(result) == 0 {
 		return nil, false
 	}
+	return result, true
 }
 
 func questMenuEntriesForNPC(npcID uint64, summaries []quest.Summary) []protocol.NpcMenuEntry {

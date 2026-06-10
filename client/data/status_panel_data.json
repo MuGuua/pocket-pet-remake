@@ -1,0 +1,63 @@
+{
+  "header": {
+    "name": "玩家名",
+    "title": "称号",
+    "level": "100",
+    "fly": "飞 11",
+    "tier": "🔮 9阶4级"
+  },
+  "character": {
+    "hp": "1500000 / 1500000",
+    "element": "火",
+    "energy": "125 / 125",
+    "exp": "0 (满级)",
+    "guard_level": "443",
+    "fly_value": "14222812",
+    "fly_rate": "(31.60%)",
+    "transfer_value": "472160",
+    "transfer_rate": "(65.57%)",
+    "attack": "16767",
+    "defense": "250000",
+    "speed": "1926",
+    "mana": "2996",
+    "hit": "250",
+    "dodge": "181",
+    "crit": "12",
+    "crit_damage": "238%"
+  },
+  "pet": {
+    "name": "炎尾狐",
+    "mood": "忠诚",
+    "level": "Lv.88",
+    "hp": "825000 / 825000",
+    "mp": "121000 / 121000",
+    "element": "火",
+    "hint": "火系爆发型宠物，适合先手压血线。",
+    "attack": "12880",
+    "defense": "9450",
+    "speed": "1180",
+    "affinity": "999",
+    "hit": "214",
+    "dodge": "168"
+  },
+  "points": {
+    "free_points": "12",
+    "hint": "每次分配将永久提升对应基础属性。",
+    "strength": "80  +2",
+    "vitality": "75  +3",
+    "agility": "68  +4",
+    "mind": "54  +3",
+    "advice": "推荐优先补足体质和敏捷，保证生存与出手。",
+    "plan": "建议分配：体质 +2，敏捷 +2，灵力 +1。"
+  },
+  "transfer": {
+    "stage": "圣焰贤者",
+    "progress_value": "472160 / 720000",
+    "progress_rate": "(65.57%)",
+    "need": "完成炎魂试炼 3 / 5",
+    "attack_bonus": "+18%",
+    "hp_bonus": "+25%",
+    "next_stage": "焚天法尊",
+    "desc": "完成当前试炼后，可解锁更高阶技能与属性成长。"
+  }
+}

@@ -28,9 +28,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -144.0
-offset_top = -116.0
+offset_top = -146.0
 offset_right = 144.0
-offset_bottom = 116.0
+offset_bottom = 146.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -60,18 +60,64 @@ horizontal_alignment = 1
 text = "战斗ID: 未分配 | 回合: 0"
 theme_override_font_sizes/font_size = 11
 
-[node name="AllyLabel" type="Label" parent="CenterCard/VBox"]
+[node name="EventBannerLabel" type="Label" parent="CenterCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "等待回合事件。"
+theme_override_font_sizes/font_size = 12
+
+[node name="Boards" type="HBoxContainer" parent="CenterCard/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="AllyBoard" type="PanelContainer" parent="CenterCard/VBox/Boards"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 3
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterCard/VBox/Boards/AllyBoard"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AllyTitleLabel" type="Label" parent="CenterCard/VBox/Boards/AllyBoard/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 horizontal_alignment = 1
-text = "我方: 未同步"
+text = "我方阵营"
+theme_override_font_sizes/font_size = 12
+
+[node name="AllyLabel" type="Label" parent="CenterCard/VBox/Boards/AllyBoard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "未同步"
 theme_override_font_sizes/font_size = 11
 
-[node name="EnemyLabel" type="Label" parent="CenterCard/VBox"]
+[node name="EnemyBoard" type="PanelContainer" parent="CenterCard/VBox/Boards"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 3
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterCard/VBox/Boards/EnemyBoard"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="EnemyTitleLabel" type="Label" parent="CenterCard/VBox/Boards/EnemyBoard/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 horizontal_alignment = 1
-text = "敌方: 未同步"
+text = "敌方阵营"
+theme_override_font_sizes/font_size = 12
+
+[node name="EnemyLabel" type="Label" parent="CenterCard/VBox/Boards/EnemyBoard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "未同步"
 theme_override_font_sizes/font_size = 11
 
 [node name="DetailLabel" type="Label" parent="CenterCard/VBox"]
@@ -116,4 +162,32 @@ custom_minimum_size = Vector2(0, 32)
 size_flags_horizontal = 3
 layout_mode = 2
 text = "技能2"
+theme_override_font_sizes/font_size = 11
+
+[node name="UtilityButtons" type="HBoxContainer" parent="CenterCard/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TargetButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "切换目标"
+theme_override_font_sizes/font_size = 11
+
+[node name="AutoBattleButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "自动战斗"
+theme_override_font_sizes/font_size = 11
+
+[node name="EscapeButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+size_flags_horizontal = 3
+layout_mode = 2
+text = "逃跑"
 theme_override_font_sizes/font_size = 11

@@ -9,10 +9,6 @@ import (
 )
 
 func OpenDependencies(cfg config.Config) (Dependencies, []io.Closer, error) {
-	if cfg.EffectiveRepositoryMode() == config.RepositoryModeMemory {
-		return Dependencies{}, nil, nil
-	}
-
 	postgresDB, err := pgrepo.Open(cfg.Postgres)
 	if err != nil {
 		return Dependencies{}, nil, err

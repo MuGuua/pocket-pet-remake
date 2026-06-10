@@ -5,27 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"pocket-pet-remake/server/internal/config"
-	"pocket-pet-remake/server/internal/data/memory"
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/teststub"
 )
 
 func TestLoginAndConsumeWSToken(t *testing.T) {
-	cfg := config.Config{
-		JWTSecret:      "secret",
-		AccessTokenTTL: time.Hour,
-		WSTokenTTL:     time.Minute,
-		DemoAccount:    "demo",
-		DemoPassword:   "demo123",
-		DemoPlayerName: "DemoTrainer",
-		DemoAccountID:  1,
-		DemoPlayerID:   10001,
-	}
-
-	accountRepo := memory.NewAccountRepository(cfg)
-	wsTokenRepo := memory.NewWSTokenRepository()
-	signer := auth.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
-	service := auth.NewService(accountRepo, wsTokenRepo, signer, cfg.WSTokenTTL)
+	signer := auth.NewHMACSigner("secret", time.Hour)
+	service := auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), signer, time.Minute)
 
 	result, err := service.Login(context.Background(), "demo", "demo123", "device-1")
 	if err != nil {

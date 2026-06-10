@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=8 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
@@ -6,7 +6,6 @@
 [ext_resource type="Script" uid="uid://bm8lcpfwls80c" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/feature/quest/quest_controller.gd" id="5"]
 [ext_resource type="Script" uid="uid://d3hmloxpx6m5l" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
-[ext_resource type="Texture2D" path="res://asset/按键图片.png" id="7"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top_panel"]
 bg_color = Color(0.0627451, 0.0941176, 0.14902, 0.78)
@@ -20,30 +19,6 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_action_panel"]
-bg_color = Color(0.109804, 0.14902, 0.196078, 0.72)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.792157, 0.890196, 1, 0.28)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_data_panel"]
-bg_color = Color(0.0784314, 0.101961, 0.137255, 0.94)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.745098, 0.862745, 1, 0.5)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-
 [node name="Main" type="Node"]
 script = ExtResource("1")
 
@@ -52,7 +27,7 @@ unique_name_in_owner = true
 clip_contents = true
 layout_mode = 3
 anchor_right = 1.0
-anchor_bottom = 0.776068
+anchor_bottom = 1.0
 grow_horizontal = 2
 
 [node name="GameplayBackground" type="ColorRect" parent="GameplayArea"]
@@ -108,38 +83,12 @@ script = ExtResource("5")
 
 [node name="HudRoot" type="Control" parent="UiLayer"]
 unique_name_in_owner = true
-layout_mode = 3
-anchor_top = 0.776068
+layout_mode = 1
+anchors_preset = 10
 anchor_right = 1.0
-anchor_bottom = 1.0
+offset_bottom = 38.0
 grow_horizontal = 2
-grow_vertical = 0
 script = ExtResource("6")
-
-[node name="HudBackground" type="TextureRect" parent="UiLayer/HudRoot"]
-z_index = -2
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("7")
-expand_mode = 1
-stretch_mode = 6
-
-[node name="HudShade" type="ColorRect" parent="UiLayer/HudRoot"]
-visible = false
-z_index = -2
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(1, 1, 1, 0.08)
 
 [node name="TopPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
 layout_mode = 0
@@ -170,160 +119,6 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 10
 text = "玩家: 未登录"
-
-[node name="ActionPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
-layout_mode = 0
-offset_left = 6.0
-offset_top = 40.0
-offset_right = -6.0
-offset_bottom = -6.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_action_panel")
-
-[node name="ActionVBox" type="VBoxContainer" parent="UiLayer/HudRoot/ActionPanel"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="ModeLabel" type="Label" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "世界操作区"
-
-[node name="SummaryLabel" type="Label" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "附近实体: 0 | 宠物: 0 | 编队: 0 | 背包: 0"
-autowrap_mode = 3
-
-[node name="TrackingLabel" type="Label" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "任务追踪: 暂无"
-autowrap_mode = 3
-
-[node name="ActionButtons" type="HBoxContainer" parent="UiLayer/HudRoot/ActionPanel/ActionVBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="ChallengeButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-text = "挑战"
-
-[node name="PetButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-text = "宠物 0"
-
-[node name="LineupButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-text = "编队 0"
-
-[node name="QuestButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-text = "任务 0"
-
-[node name="BagButton" type="Button" parent="UiLayer/HudRoot/ActionPanel/ActionVBox/ActionButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-text = "背包 0"
-
-[node name="DataPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 0
-offset_left = 4.0
-offset_top = -188.0
-offset_right = -4.0
-offset_bottom = -4.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_data_panel")
-
-[node name="DataVBox" type="VBoxContainer" parent="UiLayer/HudRoot/DataPanel"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="DataHeader" type="HBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="DataTitleLabel" type="Label" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 13
-text = "面板"
-
-[node name="DataRefreshButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 26)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "刷新"
-
-[node name="DataCloseButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataHeader"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 26)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "关闭"
-
-[node name="DataHintLabel" type="Label" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "暂无数据"
-autowrap_mode = 3
-
-[node name="DataScroll" type="ScrollContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="DataList" type="VBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 6
-
-[node name="DataFooter" type="HBoxContainer" parent="UiLayer/HudRoot/DataPanel/DataVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="DataResetButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataFooter"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(72, 28)
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "重置"
-
-[node name="DataApplyButton" type="Button" parent="UiLayer/HudRoot/DataPanel/DataVBox/DataFooter"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 28)
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "提交编队"
 
 [node name="BottomPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
 visible = false

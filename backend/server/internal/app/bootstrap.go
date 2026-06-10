@@ -12,6 +12,7 @@ import (
 	"pocket-pet-remake/server/internal/data/provider"
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
@@ -53,6 +54,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	playerService := player.NewService(repos.Players)
 	petService := pet.NewService(repos.Pets)
 	questService := quest.NewService(repos.Quests)
+	npcService := npc.NewService(repos.NPCs)
 	worldService := world.NewService(repos.World)
 	battleService := battle.NewService()
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
@@ -60,7 +62,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, questService, worldService)
 	petHandler := wstransport.NewPetHandler(sessionService, petService)
-	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, questService, battleService)
+	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService)
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)

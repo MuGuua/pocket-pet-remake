@@ -1,6 +1,6 @@
-[gd_scene load_steps=6 format=3 uid="uid://1kd5md1np8ax"]
+[gd_scene load_steps=7 format=3 uid="uid://1kd5md1np8ax"]
 
-[ext_resource type="Script" path="res://npc/scripts/interactive_npc_base.gd" id="1_npcbase"]
+[ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="1_npcbase"]
 [ext_resource type="Texture2D" uid="uid://bfvtgecp61am3" path="res://asset/口袋所有形象/imgs/2005.png" id="1_v8jgd"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_chd1r"]
@@ -22,9 +22,14 @@ animations = [{
 radius = 3.9804688
 height = 15.999307
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body_blocker"]
+radius = 2.9998703
+height = 13.999393
+
 [node name="ShichangLuoge" type="Node2D"]
 script = ExtResource("1_npcbase")
 entity_id = 93002
+npc_code = "radiant_market_luoge"
 npc_name = "市场罗格"
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
@@ -38,3 +43,12 @@ autoplay = "default"
 position = Vector2(5, 2)
 rotation = 1.5614867
 shape = SubResource("CapsuleShape2D_rf8mv")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(5, 2)
+rotation = 1.5614867
+shape = SubResource("CapsuleShape2D_body_blocker")

@@ -1,0 +1,197 @@
+package battle
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"pocket-pet-remake/server/internal/module/pet"
+	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/world"
+)
+
+func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
+	svc := NewService()
+	ctx := context.Background()
+	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
+	lineup := []pet.LineupPet{
+		// Ally one uses a larger HP pool so the stronger post-formula enemy damage
+		// still leaves room for the follow-up heal assertion in round two.
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 90, HPMax: 90, ATK: 10, DEF: 10, SPD: 8, MANA: 10, SkillIDs: []uint32{1001, 1002}},
+		{PetUID: 20002, PetID: 102, Level: 4, HP: 28, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20, SkillIDs: []uint32{1001, 1003}},
+	}
+	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if len(start.Allies) != 2 {
+		t.Fatalf("len(start.Allies) = %d, want 2", len(start.Allies))
+	}
+	if len(start.Allies[1].Skills) != 2 || start.Allies[1].Skills[1].TargetType != "ally_single" {
+		t.Fatalf("second ally skills = %#v, want heal skill with ally_single target", start.Allies[1].Skills)
+	}
+
+	outcomeOne, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(round1 ally1) error = %v", err)
+	}
+	if outcomeOne.State == nil || len(outcomeOne.State.PendingActorIDs) != 1 {
+		t.Fatalf("outcomeOne.State.PendingActorIDs = %#v, want one remaining ally", outcomeOne.State)
+	}
+
+	outcomeTwo, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[1].ActorID,
+		SkillID:    start.Allies[1].SkillIDs[1],
+		TargetID:   start.Allies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(round1 ally2 heal) error = %v", err)
+	}
+	if outcomeTwo.State == nil {
+		t.Fatalf("outcomeTwo.State = nil, want round result state")
+	}
+	if outcomeTwo.State.Round != 2 {
+		t.Fatalf("outcomeTwo.State.Round = %d, want 2", outcomeTwo.State.Round)
+	}
+
+	var allyOneHPAfterEnemy uint32
+	for _, actor := range outcomeTwo.State.Actors {
+		if actor.ActorID == start.Allies[0].ActorID {
+			allyOneHPAfterEnemy = actor.HP
+			break
+		}
+	}
+	if allyOneHPAfterEnemy >= start.Allies[0].HP {
+		t.Fatalf("allyOneHPAfterEnemy = %d, want less than %d after enemy action", allyOneHPAfterEnemy, start.Allies[0].HP)
+	}
+
+	outcomeThree, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      outcomeTwo.State.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(round2 ally1) error = %v", err)
+	}
+	if outcomeThree.State == nil || len(outcomeThree.State.PendingActorIDs) != 1 {
+		t.Fatalf("outcomeThree pending = %#v, want second ally still pending", outcomeThree.State)
+	}
+
+	outcomeFour, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      outcomeTwo.State.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[1].ActorID,
+		SkillID:    start.Allies[1].SkillIDs[1],
+		TargetID:   start.Allies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(round2 ally2 heal) error = %v", err)
+	}
+	if outcomeFour.State == nil {
+		t.Fatalf("outcomeFour.State = nil, want state snapshot")
+	}
+
+	var sawHeal bool
+	for _, event := range outcomeFour.State.Events {
+		if event.EventType == EventTypeHeal && event.SourceID == start.Allies[1].ActorID && event.TargetID == start.Allies[0].ActorID {
+			sawHeal = true
+			if event.Value <= 0 {
+				t.Fatalf("heal event value = %d, want positive", event.Value)
+			}
+		}
+	}
+	if !sawHeal {
+		t.Fatalf("expected heal event in round two, got %#v", outcomeFour.State.Events)
+	}
+}
+
+func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
+	svc := NewService()
+	ctx := context.Background()
+	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
+	lineup := []pet.LineupPet{
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 60, HPMax: 60, ATK: 12, DEF: 10, SPD: 8, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+		{PetUID: 20002, PetID: 102, Level: 4, HP: 30, HPMax: 30, ATK: 11, DEF: 11, SPD: 9, MANA: 18, SkillIDs: []uint32{1001, 1003}},
+	}
+	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if start.CommandDeadlineMS == 0 {
+		t.Fatal("start.CommandDeadlineMS = 0, want non-zero server deadline")
+	}
+
+	autoOutcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:          start.BattleID,
+		Round:             start.Round,
+		ActionType:        ActionTypeSetAuto,
+		AutoBattleEnabled: true,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(set auto) error = %v", err)
+	}
+	if autoOutcome.State == nil {
+		t.Fatal("autoOutcome.State = nil, want resolved state")
+	}
+	if !autoOutcome.State.AutoBattleEnabled {
+		t.Fatal("autoOutcome.State.AutoBattleEnabled = false, want true")
+	}
+	if autoOutcome.State.Round != 2 {
+		t.Fatalf("autoOutcome.State.Round = %d, want 2", autoOutcome.State.Round)
+	}
+
+	svc = NewService()
+	start, err = svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE(timeout case) error = %v", err)
+	}
+	firstOutcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(first action) error = %v", err)
+	}
+	if firstOutcome.State == nil || len(firstOutcome.State.PendingActorIDs) != 1 {
+		t.Fatalf("firstOutcome.State = %#v, want one pending actor", firstOutcome.State)
+	}
+
+	battle := svc.activeByPlayer[profile.PlayerID]
+	if battle == nil {
+		t.Fatal("battle = nil, want active battle")
+	}
+	battle.commandDeadline = time.Now().Add(-time.Second)
+
+	timeoutOutcome, err := svc.ProgressAuto(ctx, profile.PlayerID)
+	if err != nil {
+		t.Fatalf("ProgressAuto() error = %v", err)
+	}
+	if timeoutOutcome == nil || timeoutOutcome.State == nil {
+		t.Fatalf("timeoutOutcome = %#v, want resolved state", timeoutOutcome)
+	}
+	if timeoutOutcome.State.Round != 2 {
+		t.Fatalf("timeoutOutcome.State.Round = %d, want 2", timeoutOutcome.State.Round)
+	}
+}

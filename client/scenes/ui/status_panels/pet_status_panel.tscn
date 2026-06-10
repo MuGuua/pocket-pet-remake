@@ -1,0 +1,271 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="1_inner"]
+[ext_resource type="Script" path="res://scripts/ui/pet_status_panel.gd" id="2_script"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_inner"]
+texture = ExtResource("1_inner")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[node name="PetStatusPanel" type="PanelContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_inner")
+script = ExtResource("2_script")
+
+[node name="PetMargin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="PetVBox" type="VBoxContainer" parent="PetMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetHeaderRow" type="HBoxContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetAvatar" type="Label" parent="PetMargin/PetVBox/PetHeaderRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "🦊"
+
+[node name="PetName" type="Label" parent="PetMargin/PetVBox/PetHeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "炎尾狐"
+
+[node name="PetMood" type="Label" parent="PetMargin/PetVBox/PetHeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0, 1)
+theme_override_constants/outline_size = 2
+text = "忠诚"
+
+[node name="PetLevel" type="Label" parent="PetMargin/PetVBox/PetHeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "Lv.88"
+
+[node name="PetDivider" type="ColorRect" parent="PetMargin/PetVBox"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+size_flags_horizontal = 4
+color = Color(0.3647059, 0.2509804, 0.21568628, 0.9)
+
+[node name="PetHpRow" type="HBoxContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetHpIcon" type="Label" parent="PetMargin/PetVBox/PetHpRow"]
+layout_mode = 2
+text = "🏥"
+
+[node name="PetHpKey" type="Label" parent="PetMargin/PetVBox/PetHpRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "生命:"
+
+[node name="PetHpValue" type="Label" parent="PetMargin/PetVBox/PetHpRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "825000 / 825000"
+
+[node name="PetMpRow" type="HBoxContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetMpIcon" type="Label" parent="PetMargin/PetVBox/PetMpRow"]
+layout_mode = 2
+text = "✨"
+
+[node name="PetMpKey" type="Label" parent="PetMargin/PetVBox/PetMpRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "灵力:"
+
+[node name="PetMpValue" type="Label" parent="PetMargin/PetVBox/PetMpRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "121000 / 121000"
+
+[node name="PetElementRow" type="HBoxContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetElementIcon" type="Label" parent="PetMargin/PetVBox/PetElementRow"]
+layout_mode = 2
+text = "🔱"
+
+[node name="PetElementKey" type="Label" parent="PetMargin/PetVBox/PetElementRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "元素属性:"
+
+[node name="PetElementValue" type="Label" parent="PetMargin/PetVBox/PetElementRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9098039, 0.25490198, 0.09411765, 1)
+theme_override_constants/outline_size = 2
+text = "火"
+
+[node name="PetHintRow" type="HBoxContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetHintIcon" type="Label" parent="PetMargin/PetVBox/PetHintRow"]
+layout_mode = 2
+text = "💡"
+
+[node name="PetHintText" type="Label" parent="PetMargin/PetVBox/PetHintRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9843137, 0.70980394, 0.19215687, 1)
+theme_override_constants/outline_size = 2
+text = "火系爆发型宠物，适合先手压血线。"
+
+[node name="PetGrid1" type="GridContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+columns = 2
+
+[node name="PetAtkBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid1"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetAtkIcon" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetAtkBox"]
+layout_mode = 2
+text = "⚔️"
+
+[node name="PetAtkKey" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetAtkBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "攻击:"
+
+[node name="PetAtkValue" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetAtkBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "12880"
+
+[node name="PetDefBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid1"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetDefIcon" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetDefBox"]
+layout_mode = 2
+text = "🛡️"
+
+[node name="PetDefKey" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetDefBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "防御:"
+
+[node name="PetDefValue" type="Label" parent="PetMargin/PetVBox/PetGrid1/PetDefBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "9450"
+
+[node name="PetGrid2" type="GridContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+columns = 2
+
+[node name="PetSpeedBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid2"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetSpeedIcon" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetSpeedBox"]
+layout_mode = 2
+text = "🥾"
+
+[node name="PetSpeedKey" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetSpeedBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "速度:"
+
+[node name="PetSpeedValue" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetSpeedBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "1180"
+
+[node name="PetAffinityBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid2"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetAffinityIcon" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetAffinityBox"]
+layout_mode = 2
+text = "💞"
+
+[node name="PetAffinityKey" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetAffinityBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "亲密度:"
+
+[node name="PetAffinityValue" type="Label" parent="PetMargin/PetVBox/PetGrid2/PetAffinityBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "999"
+
+[node name="PetGrid3" type="GridContainer" parent="PetMargin/PetVBox"]
+layout_mode = 2
+columns = 2
+
+[node name="PetHitBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid3"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetHitIcon" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetHitBox"]
+layout_mode = 2
+text = "🌿"
+
+[node name="PetHitKey" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetHitBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "命中:"
+
+[node name="PetHitValue" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetHitBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "214"
+
+[node name="PetDodgeBox" type="HBoxContainer" parent="PetMargin/PetVBox/PetGrid3"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PetDodgeIcon" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetDodgeBox"]
+layout_mode = 2
+text = "🌀"
+
+[node name="PetDodgeKey" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetDodgeBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "闪避:"
+
+[node name="PetDodgeValue" type="Label" parent="PetMargin/PetVBox/PetGrid3/PetDodgeBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "168"

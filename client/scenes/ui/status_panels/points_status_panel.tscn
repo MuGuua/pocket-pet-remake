@@ -1,0 +1,159 @@
+[gd_scene format=3 uid="uid://b6tpumoy6n0ag"]
+
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="1_inner"]
+[ext_resource type="Script" uid="uid://bglghc45s07bm" path="res://scripts/ui/points_status_panel.gd" id="2_script"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_inner"]
+texture = ExtResource("1_inner")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[node name="PointsStatusPanel" type="PanelContainer" unique_id=1660559316]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_inner")
+script = ExtResource("2_script")
+
+[node name="PointsMargin" type="MarginContainer" parent="." unique_id=1623664679]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="PointsVBox" type="VBoxContainer" parent="PointsMargin" unique_id=38599589]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PointsHeaderRow" type="HBoxContainer" parent="PointsMargin/PointsVBox" unique_id=1390972448]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PointsHeaderIcon" type="Label" parent="PointsMargin/PointsVBox/PointsHeaderRow" unique_id=267343554]
+layout_mode = 2
+text = "📘"
+
+[node name="PointsHeaderTitle" type="Label" parent="PointsMargin/PointsVBox/PointsHeaderRow" unique_id=272205209]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "属性加点"
+
+[node name="PointsDivider" type="ColorRect" parent="PointsMargin/PointsVBox" unique_id=923462175]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+size_flags_horizontal = 4
+color = Color(0.3647059, 0.2509804, 0.21568628, 0.9)
+
+[node name="FreePointsRow" type="HBoxContainer" parent="PointsMargin/PointsVBox" unique_id=1609534126]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FreePointsIcon" type="Label" parent="PointsMargin/PointsVBox/FreePointsRow" unique_id=263116840]
+layout_mode = 2
+text = "✨"
+
+[node name="FreePointsKey" type="Label" parent="PointsMargin/PointsVBox/FreePointsRow" unique_id=338824763]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "剩余点数:"
+
+[node name="FreePointsValue" type="Label" parent="PointsMargin/PointsVBox/FreePointsRow" unique_id=1004804167]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "12"
+
+[node name="PointsGrid1" type="GridContainer" parent="PointsMargin/PointsVBox" unique_id=941629049]
+layout_mode = 2
+columns = 2
+
+[node name="StrengthBox" type="HBoxContainer" parent="PointsMargin/PointsVBox/PointsGrid1" unique_id=1977783711]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="StrengthIcon" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/StrengthBox" unique_id=596206565]
+layout_mode = 2
+text = "⚔️"
+
+[node name="StrengthKey" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/StrengthBox" unique_id=1795448742]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "力量:"
+
+[node name="StrengthValue" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/StrengthBox" unique_id=809971777]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "80  +2"
+
+[node name="VitalityBox" type="HBoxContainer" parent="PointsMargin/PointsVBox/PointsGrid1" unique_id=1546704238]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="VitalityIcon" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/VitalityBox" unique_id=1510384514]
+layout_mode = 2
+text = "🛡️"
+
+[node name="VitalityKey" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/VitalityBox" unique_id=1467467784]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "体质:"
+
+[node name="VitalityValue" type="Label" parent="PointsMargin/PointsVBox/PointsGrid1/VitalityBox" unique_id=1860271834]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "75  +3"
+
+[node name="PointsGrid2" type="GridContainer" parent="PointsMargin/PointsVBox" unique_id=1806650090]
+layout_mode = 2
+columns = 2
+
+[node name="AgilityBox" type="HBoxContainer" parent="PointsMargin/PointsVBox/PointsGrid2" unique_id=603803746]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AgilityIcon" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/AgilityBox" unique_id=15750039]
+layout_mode = 2
+text = "🥾"
+
+[node name="AgilityKey" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/AgilityBox" unique_id=907249362]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "敏捷:"
+
+[node name="AgilityValue" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/AgilityBox" unique_id=662366246]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88235295, 0.69411767, 0.17254902, 1)
+theme_override_constants/outline_size = 2
+text = "68  +4"
+
+[node name="MindBox" type="HBoxContainer" parent="PointsMargin/PointsVBox/PointsGrid2" unique_id=1233761272]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MindIcon" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/MindBox" unique_id=1449932617]
+layout_mode = 2
+text = "🔮"
+
+[node name="MindKey" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/MindBox" unique_id=2107673897]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "灵力:"
+
+[node name="MindValue" type="Label" parent="PointsMargin/PointsVBox/PointsGrid2/MindBox" unique_id=1031636933]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "54  +3"

@@ -459,36 +459,77 @@
       "actor_type": 1,
       "pet_uid": 20001,
       "pet_id": 101,
-      "name": "DemoTrainer 的主战宠",
+      "name": "DemoTrainer 的1号宠物",
       "hp": 32,
       "hp_max": 32,
+      "atk": 14,
+      "def": 10,
+      "spd": 12,
+      "skills": [
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"},
+        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_single"}
+      ],
       "skill_ids": [1001, 1002],
+      "status_ids": [],
       "lineup_index": 0
+    },
+    {
+      "actor_id": 20002,
+      "actor_type": 1,
+      "pet_uid": 20002,
+      "pet_id": 102,
+      "name": "DemoTrainer 的2号宠物",
+      "hp": 28,
+      "hp_max": 30,
+      "atk": 12,
+      "def": 11,
+      "spd": 9,
+      "skills": [
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"},
+        {"skill_id": 1003, "name": "活力治愈", "target_type": "ally_single"}
+      ],
+      "skill_ids": [1001, 1003],
+      "status_ids": [],
+      "lineup_index": 1
     }
   ],
   "enemies": [
     {
-      "actor_id": 190001,
+      "actor_id": 900011,
       "actor_type": 2,
       "pet_uid": 0,
       "pet_id": 9001,
       "name": "GuideNPC",
       "hp": 22,
       "hp_max": 22,
+      "atk": 12,
+      "def": 9,
+      "spd": 8,
+      "skills": [
+        {"skill_id": 90001, "name": "野性撞击", "target_type": "enemy_single"},
+        {"skill_id": 90002, "name": "利爪突袭", "target_type": "enemy_single"}
+      ],
       "skill_ids": [90001, 90002],
+      "status_ids": [],
       "lineup_index": 0
     }
   ],
   "round": 1,
+  "phase": "command",
   "active_actor_id": 20001,
-  "active_pet_uid": 20001
+  "active_pet_uid": 20001,
+  "pending_actor_ids": [20001, 20002],
+  "controllable_actor_ids": [20001, 20002]
 }
 ```
 
 说明：
 
 - `skill_ids` 仅表示当前角色可提交的技能意图列表
-- `active_actor_id` / `active_pet_uid` 明确当前己方出战宠锚点
+- `skills` 为 `skill_ids` 的增强版快照，额外携带技能展示名和目标类型，客户端应优先使用它来决定按钮文案和友/敌方目标选择
+- `phase=command` 表示当前轮到客户端继续为己方单位收集动作
+- `pending_actor_ids` 表示这一回合还没提交动作的己方单位
+- `active_actor_id` / `active_pet_uid` 明确当前应高亮的己方单位
 - 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
 - 客户端只负责展示按钮和发送 `skill_id`
 
@@ -499,38 +540,58 @@
   "battle_id": 70001,
   "battle_version": 2,
   "round": 2,
+  "phase": "command",
   "active_actor_id": 20001,
   "active_pet_uid": 20001,
+  "pending_actor_ids": [20001, 20002],
+  "controllable_actor_ids": [20001, 20002],
   "events": [
     {
       "event_type": 1,
       "source_id": 20001,
-      "target_id": 190001,
-      "skill_id": 1001,
+      "target_id": 900011,
+      "skill_id": 1002,
       "value": 0,
-      "state_id": 0
+      "state_id": 0,
+      "label": "DemoTrainer 的1号宠物 使用了 火花冲击。"
     },
     {
       "event_type": 2,
       "source_id": 20001,
-      "target_id": 190001,
-      "skill_id": 1001,
-      "value": 11,
-      "state_id": 0
+      "target_id": 900011,
+      "skill_id": 1002,
+      "value": 22,
+      "state_id": 0,
+      "label": "GuideNPC 受到 22 点伤害。"
     }
   ],
   "actors": [
     {
       "actor_id": 20001,
-      "hp": 28,
+      "hp": 32,
       "hp_max": 32,
-      "dead": false
+      "dead": false,
+      "can_act": true,
+      "status_ids": [],
+      "charge_done": false
     },
     {
-      "actor_id": 190001,
-      "hp": 11,
+      "actor_id": 20002,
+      "hp": 28,
+      "hp_max": 30,
+      "dead": false,
+      "can_act": true,
+      "status_ids": [],
+      "charge_done": false
+    },
+    {
+      "actor_id": 900011,
+      "hp": 0,
       "hp_max": 22,
-      "dead": false
+      "dead": true,
+      "can_act": false,
+      "status_ids": [],
+      "charge_done": true
     }
   ]
 }
@@ -554,4 +615,4 @@
 说明：
 
 - 当前 `BATTLE_RESULT_PUSH` 仍只负责表达战斗胜负与返回世界信息
-- 如果该场战斗使主战宠 HP 发生变化，服务端会在结果后继续推送 `3011 PET_UPDATE_PUSH`
+- 如果该场战斗使多个己方宠物 HP 发生变化，服务端会在结果后按宠物逐条推送 `3011 PET_UPDATE_PUSH`

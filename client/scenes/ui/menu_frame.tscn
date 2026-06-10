@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://dmxg0ackwawrn"]
+
+[ext_resource type="Script" uid="uid://bsvx7q3xypqwb" path="res://scripts/ui/menu_frame.gd" id="1_vc7u5"]
+
+[node name="MenuFrame" type="Control" unique_id=1683748831]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_vc7u5")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1686350202]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Top" type="TextureRect" parent="." unique_id=1103838269]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Bottom" type="TextureRect" parent="." unique_id=517966503]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Left" type="TextureRect" parent="." unique_id=1716729860]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Right" type="TextureRect" parent="." unique_id=1614901891]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="TopLeft" type="TextureRect" parent="." unique_id=68537963]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="TopRight" type="TextureRect" parent="." unique_id=859652691]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="BottomLeft" type="TextureRect" parent="." unique_id=2042443758]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="BottomRight" type="TextureRect" parent="." unique_id=1189747165]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Content" type="MarginContainer" parent="." unique_id=1788160032]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=4 uid="uid://d1m24bpt6njlv"]
+[gd_scene load_steps=17 format=4 uid="uid://d1m24bpt6njlv"]
 
 [ext_resource type="Texture2D" uid="uid://cg2idfn1h1ob7" path="res://asset/generated_maps/maps/sgz/shangyequ/full_frames/sheet.png" id="1_xx1us"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_8056d"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://c4rv0s1451l8b" path="res://scripts/feature/world/scene_levels/radiant_market_level.gd" id="4_shichang"]
 [ext_resource type="PackedScene" uid="uid://cu743ifxrlss3" path="res://npc/shan-guang-zhen/shichang_limeng.tscn" id="5_iqe3u"]
 [ext_resource type="PackedScene" uid="uid://1kd5md1np8ax" path="res://npc/shan-guang-zhen/shichang_luoge.tscn" id="6_mrusq"]
+[ext_resource type="PackedScene" path="res://npc/shan-guang-zhen/bolin.tscn" id="7_bolin"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_aabwh"]
 texture = ExtResource("3_rbgk4")
@@ -2278,10 +2279,14 @@ shape = SubResource("RectangleShape2D_fcvqu")
 position = Vector2(96, 323)
 shape = SubResource("RectangleShape2D_iqe3u")
 
-[node name="NPC" type="Node2D" parent="."]
+[node name="ActorRoot" type="Node2D" parent="."]
+y_sort_enabled = true
 
-[node name="ShichangLimeng" parent="NPC" instance=ExtResource("5_iqe3u")]
+[node name="ShichangLimeng" parent="ActorRoot" instance=ExtResource("5_iqe3u")]
 position = Vector2(266, 191)
 
-[node name="ShichangLuoge" parent="NPC" instance=ExtResource("6_mrusq")]
+[node name="ShichangLuoge" parent="ActorRoot" instance=ExtResource("6_mrusq")]
 position = Vector2(282, 82)
+
+[node name="Bolin" parent="ActorRoot" instance=ExtResource("7_bolin")]
+position = Vector2(51, 273)

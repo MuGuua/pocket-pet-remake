@@ -1,7 +1,7 @@
 [gd_scene load_steps=11 format=4 uid="uid://tnq4fgoetvfj"]
 
 [ext_resource type="Texture2D" uid="uid://cy4ipwqxvfbos" path="res://asset/generated_maps/maps/sgz/yuanye/full_frames/sheet.png" id="1_j6bag"]
-[ext_resource type="Script" uid="uid://dut7t16y6omt3" path="res://scripts/feature/world/scene_levels/bei_lu_level.gd" id="1_rrpla"]
+[ext_resource type="Script" uid="uid://c1x7stm3w5g2a" path="res://scripts/feature/world/scene_levels/bei_lu_level.gd" id="1_rrpla"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_rrpla"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yq2qo"]
@@ -1287,7 +1287,6 @@ sources/1 = SubResource("TileSetAtlasSource_qomb7")
 [node name="BeiLu" type="Node2D"]
 position = Vector2(39, 56)
 script = ExtResource("1_rrpla")
-down_door_spawn_position = Vector2(103, 37)
 
 [node name="DownDoor" type="Area2D" parent="."]
 

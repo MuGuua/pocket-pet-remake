@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://c38jx0ejg8wdh"]
+
+[ext_resource type="Script" uid="uid://cjrh8y5aouh46" path="res://scripts/ui/main_menu.gd" id="1_5rxl3"]
+[ext_resource type="PackedScene" path="res://scenes/ui/menu_frame.tscn" id="2_11on6"]
+
+[node name="MainMenu" type="CanvasLayer" unique_id=988296387]
+script = ExtResource("1_5rxl3")
+
+[node name="Root" type="Control" parent="." unique_id=1768600115]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TabsFrame" parent="Root" unique_id=296405793 instance=ExtResource("2_11on6")]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -182.0
+offset_right = 150.0
+offset_bottom = -146.0
+grow_horizontal = 2
+grow_vertical = 2
+content_margin_left = 14
+content_margin_top = 10
+content_margin_right = 14
+
+[node name="TabsRow" type="HBoxContainer" parent="Root/TabsFrame/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ItemsFrame" parent="Root" unique_id=267236833 instance=ExtResource("2_11on6")]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -140.0
+offset_right = 150.0
+offset_bottom = 118.0
+grow_horizontal = 2
+grow_vertical = 2
+content_margin_left = 14
+content_margin_top = 12
+content_margin_right = 14
+content_margin_bottom = 12
+
+[node name="ItemsList" type="VBoxContainer" parent="Root/ItemsFrame/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4

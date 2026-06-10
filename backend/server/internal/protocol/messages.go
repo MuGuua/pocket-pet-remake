@@ -181,26 +181,42 @@ type WorldResyncPush struct {
 }
 
 type BattleActorSnapshot struct {
-	ActorID     uint64   `json:"actor_id"`
-	ActorType   uint32   `json:"actor_type"`
-	PetUID      uint64   `json:"pet_uid"`
-	PetID       uint32   `json:"pet_id"`
-	Name        string   `json:"name"`
-	HP          uint32   `json:"hp"`
-	HPMax       uint32   `json:"hp_max"`
-	SkillIDs    []uint32 `json:"skill_ids"`
-	LineupIndex uint32   `json:"lineup_index"`
+	ActorID     uint64                `json:"actor_id"`
+	ActorType   uint32                `json:"actor_type"`
+	PetUID      uint64                `json:"pet_uid"`
+	PetID       uint32                `json:"pet_id"`
+	Name        string                `json:"name"`
+	HP          uint32                `json:"hp"`
+	HPMax       uint32                `json:"hp_max"`
+	ATK         uint32                `json:"atk"`
+	DEF         uint32                `json:"def"`
+	SPD         uint32                `json:"spd"`
+	Skills      []BattleSkillSnapshot `json:"skills"`
+	SkillIDs    []uint32              `json:"skill_ids"`
+	StatusIDs   []uint32              `json:"status_ids"`
+	LineupIndex uint32                `json:"lineup_index"`
+}
+
+type BattleSkillSnapshot struct {
+	SkillID    uint32 `json:"skill_id"`
+	Name       string `json:"name"`
+	TargetType string `json:"target_type"`
 }
 
 type BattleStartPush struct {
-	BattleID      uint64                `json:"battle_id"`
-	BattleType    uint32                `json:"battle_type"`
-	BattleVersion uint32                `json:"battle_version"`
-	Allies        []BattleActorSnapshot `json:"allies"`
-	Enemies       []BattleActorSnapshot `json:"enemies"`
-	Round         uint32                `json:"round"`
-	ActiveActorID uint64                `json:"active_actor_id"`
-	ActivePetUID  uint64                `json:"active_pet_uid"`
+	BattleID             uint64                `json:"battle_id"`
+	BattleType           uint32                `json:"battle_type"`
+	BattleVersion        uint32                `json:"battle_version"`
+	Allies               []BattleActorSnapshot `json:"allies"`
+	Enemies              []BattleActorSnapshot `json:"enemies"`
+	Round                uint32                `json:"round"`
+	Phase                string                `json:"phase"`
+	ActiveActorID        uint64                `json:"active_actor_id"`
+	ActivePetUID         uint64                `json:"active_pet_uid"`
+	CommandDeadlineMS    int64                 `json:"command_deadline_ms"`
+	AutoBattleEnabled    bool                  `json:"auto_battle_enabled"`
+	PendingActorIDs      []uint64              `json:"pending_actor_ids"`
+	ControllableActorIDs []uint64              `json:"controllable_actor_ids"`
 }
 
 type BattleActionReq struct {
@@ -213,6 +229,7 @@ type BattleActionReq struct {
 	TargetID   uint64 `json:"target_id"`
 	ItemUID    uint64 `json:"item_uid"`
 	SwitchPet  uint64 `json:"switch_pet_uid"`
+	AutoBattleEnabled bool `json:"auto_battle_enabled"`
 }
 
 type BattleActionResp struct {
@@ -227,23 +244,32 @@ type BattleEvent struct {
 	SkillID   uint32 `json:"skill_id"`
 	Value     int32  `json:"value"`
 	StateID   uint32 `json:"state_id"`
+	Label     string `json:"label"`
 }
 
 type BattleActorState struct {
-	ActorID uint64 `json:"actor_id"`
-	HP      uint32 `json:"hp"`
-	HPMax   uint32 `json:"hp_max"`
-	Dead    bool   `json:"dead"`
+	ActorID    uint64   `json:"actor_id"`
+	HP         uint32   `json:"hp"`
+	HPMax      uint32   `json:"hp_max"`
+	Dead       bool     `json:"dead"`
+	CanAct     bool     `json:"can_act"`
+	StatusIDs  []uint32 `json:"status_ids"`
+	ChargeDone bool     `json:"charge_done"`
 }
 
 type BattleStatePush struct {
-	BattleID      uint64             `json:"battle_id"`
-	BattleVersion uint32             `json:"battle_version"`
-	Round         uint32             `json:"round"`
-	Events        []BattleEvent      `json:"events"`
-	Actors        []BattleActorState `json:"actors"`
-	ActiveActorID uint64             `json:"active_actor_id"`
-	ActivePetUID  uint64             `json:"active_pet_uid"`
+	BattleID             uint64             `json:"battle_id"`
+	BattleVersion        uint32             `json:"battle_version"`
+	Round                uint32             `json:"round"`
+	Phase                string             `json:"phase"`
+	Events               []BattleEvent      `json:"events"`
+	Actors               []BattleActorState `json:"actors"`
+	ActiveActorID        uint64             `json:"active_actor_id"`
+	ActivePetUID         uint64             `json:"active_pet_uid"`
+	CommandDeadlineMS    int64              `json:"command_deadline_ms"`
+	AutoBattleEnabled    bool               `json:"auto_battle_enabled"`
+	PendingActorIDs      []uint64           `json:"pending_actor_ids"`
+	ControllableActorIDs []uint64           `json:"controllable_actor_ids"`
 }
 
 type BattleResultPush struct {

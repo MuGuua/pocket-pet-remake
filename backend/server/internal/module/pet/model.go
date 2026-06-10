@@ -19,14 +19,20 @@ type Pet struct {
 	ATK      uint32
 	DEF      uint32
 	SPD      uint32
+	MANA     uint32
 	SkillIDs []uint32
 	InLineup bool
 }
 
 type LineupPet struct {
-	PetUID uint64
-	PetID  uint32
-	Level  uint32
-	HP     uint32
-	HPMax  uint32
+	PetUID   uint64
+	PetID    uint32
+	Level    uint32
+	HP       uint32
+	HPMax    uint32
+	ATK      uint32
+	DEF      uint32
+	SPD      uint32
+	MANA     uint32
+	SkillIDs []uint32
 }

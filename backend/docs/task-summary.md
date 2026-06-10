@@ -1,5 +1,52 @@
 # 任务总结
 
+## 2026-06-10 回合战斗公式层第一轮补全
+
+本次补充聚焦把回合战斗 MVP 中最简化的直接伤害计算，收敛成一个可继续扩展的独立公式层：
+- 新增 `backend/server/internal/module/battle/formula.go`，把基础伤害合成、防御减伤、最终伤害、治疗量、暴击上下限等规则从 `service.go` 中拆出
+- 当前公式层已支持攻击/防御/速度/目标当前生命/固定伤害合成，支持穿甲、易伤入口与 90% 防御减伤上限
+- 当前暴击链路已补上 100% 暴击率上限、2000% 暴击伤害上限，并明确“纯固定伤害默认不暴击”
+- 新增 `backend/server/internal/module/battle/formula_test.go`，覆盖基础伤害构成、防御修正、暴击边界、治疗量和固定伤害不暴击等关键规则
+- 已执行 `cd backend && GOCACHE=/private/tmp/pocket-pet-gocache go test ./server/internal/module/battle ./server/internal/transport/ws` 与 `cd backend && GOCACHE=/private/tmp/pocket-pet-gocache go test ./server/...`，当前通过
+
+本次继续补充第二轮公式能力：
+- `backend/server/internal/module/battle/formula.go` 继续接入法力系数、有效属性倍率入口与格挡减伤入口
+- `backend/server/internal/module/battle/service.go` 的战斗单位运行态新增 `mana` 与属性倍率/平值修正字段，为后续状态系统和被动系统预留承接点
+- 新增 `backend/server/migrations/007_add_pet_mana.sql`，为 `player_pet` 增加 `mana` 列，并回填演示账号宠物的默认法力值
+- `backend/server/internal/data/postgres/pet_repo.go` 与 `backend/server/internal/teststub/repos.go` 已同步接入 `mana`，避免 PostgreSQL 仓储和测试桩公式口径漂移
+
+本次继续补充第三轮“状态驱动公式”能力：
+- `backend/server/internal/module/battle/model.go` 新增 `易伤 / 破甲 / 减速 / 暴击提升` 状态编号
+- `backend/server/internal/module/battle/service.go` 已增加 `refreshStatusDerivedModifiers()`，让状态在施加、覆盖和到期时真实回写到速度倍率、暴击率、破甲与易伤等派生战斗属性
+- 当前技能表中，`火花冲击` 会附加易伤，`利爪突袭` 会附加减速，`活力治愈` 会附加暴击提升，便于先验证“状态影响公式”的闭环
+- `backend/server/internal/module/battle/formula_test.go` 已新增状态驱动公式测试，覆盖状态生效与到期恢复
+
+本次继续补充第四轮状态能力：
+- `backend/server/internal/module/battle/model.go` 新增 `诅咒 / 束缚 / 沉睡 / 麻痹 / 混乱` 状态编号
+- `backend/server/internal/module/battle/service.go` 已把诅咒加入回合末持续伤害结算，并把束缚/沉睡/麻痹统一接入“跳过行动”判定
+- 当前混乱会在服务端执行阶段强制改写目标，随机命中除自身外的任意存活单位，保持权威结算边界
+- `backend/server/internal/module/battle/formula_test.go` 已补充诅咒 tick、控制状态阻断与混乱目标改写测试
+
+本次继续补充第五轮被动能力：
+- `backend/server/internal/module/battle/service.go` 已新增服务端权威的 `闪避 / 吸血 / 反击` 结算分支，并统一收口到 `resolveDamageSkill()`
+- 当前被动仍先使用演示型运行时配置验证链路：101 号宠物默认吸血、102 号宠物默认闪避、敌方默认有一定反击概率
+- `backend/server/internal/module/battle/formula_test.go` 已新增被动测试，覆盖闪避拦截命中、吸血自我恢复和反击回打
+- `client/scripts/feature/battle/battle_scene.gd` 已补充新事件类型文案，避免移动端战斗面板只显示通用占位文本
+
+本次继续补充第六轮被动能力：
+- `backend/server/internal/module/battle/service.go` 已新增服务端权威的 `连击 / 复活 / 控制免疫` 结算分支
+- 当前 101 号宠物默认有连击概率，102 号宠物默认具备一次复活与控制免疫，用于验证完整被动主链
+- 持续伤害致死现在也会先尝试走复活分支，避免复活只覆盖直伤而漏掉状态结算
+- `backend/server/internal/module/battle/formula_test.go` 已补充连击额外攻击、复活打断死亡与控制免疫拦截控制状态测试
+
+## 2026-06-10 回合战斗开发任务清单入库
+
+本次补充聚焦把当前回合战斗的后续开发计划沉淀进仓库，方便重启会话后继续推进：
+- 新增 `docs/回合战斗开发任务清单.md`，整理了“当前已完成能力、未完成能力、推荐实施顺序、下一步任务拆分”
+- 文档明确当前实现仍是“PVE 回合战斗 MVP”，不是原始战斗规格文档中的全量实现
+- 文档把后续开发拆成规则补全、服务端权威托管、PVE 奖励闭环、客户端站位/表现层、PVP/组队 PVP 五个大阶段
+- 后续继续开发时，建议先阅读 `docs/回合战斗开发文档.md` 与 `docs/回合战斗开发任务清单.md` 再进入具体代码实现
+
 ## 2026-05-20 登录接口异常响应容错修复
 
 本次补充聚焦修正“后端未启动时客户端登录直接刷 JSON 解析错误”的问题：
@@ -133,12 +180,12 @@
 ## 2026-05-14 存储骨架补充
 
 本次补充聚焦服务端真实存储切换前的骨架准备，先把配置、仓储适配器和装配边界补齐：
-- 新增 `PP_REPOSITORY_MODE`、PostgreSQL、Redis 相关配置项，并补充示例环境变量
+- 新增 PostgreSQL、Redis 相关配置项，并补充示例环境变量；后续已进一步收敛为单一 `PostgreSQL + Redis` 运行路径
 - 新增 PostgreSQL 版账号、玩家、宠物仓储适配器，统一复用现有模块仓储接口
 - 新增 Redis 版 `ws_token` 仓储适配器，使用 key 前缀和一次性消费语义预留真实接入点
-- 新增 provider 装配层，统一管理 memory 与 `postgres_redis` 两种仓储模式的依赖绑定
-- 当前 `postgres_redis` 模式只完成骨架与接口约束，真实数据库连接、Redis 客户端初始化和驱动导入仍是下一步工作
-- 新增 `config.env` 自动加载能力，后续只需要改 `backend/server/configs/config.env` 和切换 `PP_REPOSITORY_MODE` 即可接入真实服务
+- 新增 provider 装配层，统一管理服务端仓储依赖绑定；后续已删除 memory 运行分支
+- 当时的 PostgreSQL/Redis 适配器先完成了骨架与接口约束，后续版本已补齐真实数据库连接、Redis 客户端初始化和驱动导入
+- 新增 `config.env` 自动加载能力，后续只需要改 `backend/server/configs/config.env` 即可接入真实服务
 
 ## 2026-05-14 登录页与登录链路补充
 
