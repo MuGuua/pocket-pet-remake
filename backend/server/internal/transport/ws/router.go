@@ -1,6 +1,7 @@
 package wstransport
 
 import (
+	"context"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/session"
@@ -63,6 +64,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.worldHandler.HandleEnterWorld(conn, packet)
+	case protocol.CmdReconnectReq:
+		if r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "connection already authenticated")
+		}
+		return r.handleReconnect(conn, packet)
 	case protocol.CmdMoveIntentReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -93,6 +99,16 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleBattleAction(conn, packet)
+	case protocol.CmdPVPChallengeReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandlePVPChallenge(conn, packet)
+	case protocol.CmdPVPChallengeReplyReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandlePVPChallengeReply(conn, packet)
 	case protocol.CmdQuestListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -119,6 +135,52 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 		}
 		return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "unsupported command")
 	}
+}
+
+func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.ReconnectReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid reconnect body")
+	}
+	sess, err := r.sessionService.Reconnect(request.ReconnectToken, conn)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "reconnect token invalid")
+	}
+
+	var worldSnapshot *protocol.EnterWorldResp
+	if r.worldHandler != nil {
+		worldSnapshot, err = r.worldHandler.BuildWorldSnapshotForPlayer(context.Background(), sess.PlayerID)
+		if err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load reconnect world snapshot failed")
+		}
+	}
+	var battleStart *protocol.BattleStartPush
+	var battleState *protocol.BattleStatePush
+	var battleResult *protocol.BattleResultPush
+	var battleReplayStates []protocol.BattleStatePush
+	if r.battleHandler != nil {
+		battleStart, battleState, battleResult, battleReplayStates, err = r.battleHandler.BuildReconnectSnapshot(context.Background(), sess.PlayerID, request.BattleID, request.LastFrame)
+		if err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "load reconnect battle snapshot failed")
+		}
+	}
+
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdReconnectResp, packet.Seq, errcode.WSCodeSuccess, protocol.ReconnectResp{
+		PlayerID:           sess.PlayerID,
+		SessionID:          sess.ID,
+		ReconnectToken:     sess.ReconnectToken,
+		HeartbeatSec:       uint32(r.sessionService.HeartbeatInterval() / time.Second),
+		ServerTimeMS:       time.Now().UnixMilli(),
+		World:              worldSnapshot,
+		BattleStart:        battleStart,
+		BattleState:        battleState,
+		BattleResult:       battleResult,
+		BattleReplayStates: battleReplayStates,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(responsePacket)
 }
 
 func sendError(conn packetSender, seq uint32, code uint32, message string) error {

@@ -2,7 +2,10 @@ package wstransport
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"sync"
+	"time"
 
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
@@ -23,9 +26,12 @@ type BattleHandler struct {
 	questService   *quest.Service
 	npcService     *npc.Service
 	battleService  *battle.Service
+	battleRepo     battle.Repository
+	reconnectMu    sync.Mutex
+	reconnectCache map[uint64]protocol.BattleResultPush
 }
 
-func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service) *BattleHandler {
+func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service, battleRepo battle.Repository) *BattleHandler {
 	return &BattleHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
@@ -34,6 +40,8 @@ func NewBattleHandler(sessionService *session.Service, playerService *player.Ser
 		questService:   questService,
 		npcService:     npcService,
 		battleService:  battleService,
+		battleRepo:     battleRepo,
+		reconnectCache: make(map[uint64]protocol.BattleResultPush),
 	}
 }
 
@@ -75,6 +83,8 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 		BattleID:             startSnapshot.BattleID,
 		BattleType:           startSnapshot.BattleType,
 		BattleVersion:        startSnapshot.BattleVersion,
+		Frame:                startSnapshot.Frame,
+		ParticipantPlayerIDs: append([]uint64{}, startSnapshot.ParticipantPlayerIDs...),
 		Allies:               toProtocolBattleActors(startSnapshot.Allies),
 		Enemies:              toProtocolBattleActors(startSnapshot.Enemies),
 		Round:                startSnapshot.Round,
@@ -100,12 +110,12 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 	}
 
 	outcome, err := h.battleService.SubmitAction(context.Background(), sess.PlayerID, battle.ActionRequest{
-		BattleID:   request.BattleID,
-		Round:      request.Round,
-		ActionType: request.ActionType,
-		ActorID:    request.ActorID,
-		SkillID:    request.SkillID,
-		TargetID:   request.TargetID,
+		BattleID:          request.BattleID,
+		Round:             request.Round,
+		ActionType:        request.ActionType,
+		ActorID:           request.ActorID,
+		SkillID:           request.SkillID,
+		TargetID:          request.TargetID,
 		AutoBattleEnabled: request.AutoBattleEnabled,
 	})
 	if err != nil {
@@ -124,6 +134,107 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
 }
 
+func (h *BattleHandler) HandlePVPChallenge(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.PVPChallengeReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid pvp challenge body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	targetSession, err := h.sessionService.GetByPlayerID(request.TargetPlayerID)
+	if err != nil || targetSession.Conn == nil {
+		return h.sendPVPChallengeResponse(conn, packet.Seq, false, "target player offline", 0, request.TargetPlayerID)
+	}
+	challenge, err := h.battleService.CreatePVPChallenge(context.Background(), sess.PlayerID, request.TargetPlayerID)
+	if err != nil {
+		if errors.Is(err, battle.ErrBattleAlreadyActive) {
+			return h.sendPVPChallengeResponse(conn, packet.Seq, false, "player already in battle", 0, request.TargetPlayerID)
+		}
+		if errors.Is(err, battle.ErrChallengeInvalid) {
+			return h.sendPVPChallengeResponse(conn, packet.Seq, false, "invalid challenge target", 0, request.TargetPlayerID)
+		}
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "create pvp challenge failed")
+	}
+	challengerProfile, err := h.playerService.GetProfile(context.Background(), sess.PlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "challenger not found")
+	}
+	if err := h.sendPVPChallengeResponse(conn, packet.Seq, true, "challenge sent", challenge.ChallengeID, request.TargetPlayerID); err != nil {
+		return err
+	}
+	if targetSession.Conn == nil {
+		return nil
+	}
+	return targetSession.Conn.SendPacket(mustJSONPacket(protocol.CmdPVPChallengePush, 0, protocol.PVPChallengePush{
+		ChallengeID: challenge.ChallengeID,
+		Challenger: protocol.PlayerBrief{
+			PlayerID: challengerProfile.PlayerID,
+			Name:     challengerProfile.Name,
+			Level:    challengerProfile.Level,
+		},
+		ExpiresAtMS: challenge.ExpiresAt.UnixMilli(),
+	}))
+}
+
+func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.PVPChallengeReplyReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid pvp challenge reply body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	challenge, err := h.battleService.ResolvePVPChallenge(context.Background(), request.ChallengeID, sess.PlayerID, request.Accept)
+	if err != nil {
+		switch {
+		case errors.Is(err, battle.ErrChallengeNotFound):
+			return h.sendPVPChallengeReplyResponse(conn, packet.Seq, false, "challenge not found", request.ChallengeID)
+		case errors.Is(err, battle.ErrChallengeExpired):
+			return h.sendPVPChallengeReplyResponse(conn, packet.Seq, false, "challenge expired", request.ChallengeID)
+		case errors.Is(err, battle.ErrChallengeInvalid):
+			return h.sendPVPChallengeReplyResponse(conn, packet.Seq, false, "challenge invalid", request.ChallengeID)
+		case errors.Is(err, battle.ErrBattleAlreadyActive):
+			return h.sendPVPChallengeReplyResponse(conn, packet.Seq, false, "player already in battle", request.ChallengeID)
+		default:
+			return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "resolve pvp challenge failed")
+		}
+	}
+	if !request.Accept {
+		if err := h.sendPVPChallengeReplyResponse(conn, packet.Seq, true, "challenge rejected", request.ChallengeID); err != nil {
+			return err
+		}
+		return h.pushNoticeToPlayer(challenge.ChallengerPlayerID, "对方拒绝了 PVP 邀请。")
+	}
+
+	challengerProfile, err := h.playerService.GetProfile(context.Background(), challenge.ChallengerPlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "challenger not found")
+	}
+	challengerLineup, err := h.petService.ListLineup(context.Background(), challenge.ChallengerPlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "load challenger lineup failed")
+	}
+	defenderProfile, err := h.playerService.GetProfile(context.Background(), challenge.DefenderPlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "defender not found")
+	}
+	defenderLineup, err := h.petService.ListLineup(context.Background(), challenge.DefenderPlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "load defender lineup failed")
+	}
+	startSnapshot, err := h.battleService.StartPVP(context.Background(), challengerProfile, challengerLineup, defenderProfile, defenderLineup)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "start pvp battle failed")
+	}
+	if err := h.sendPVPChallengeReplyResponse(conn, packet.Seq, true, "challenge accepted", request.ChallengeID); err != nil {
+		return err
+	}
+	return h.pushBattleStartToParticipants(startSnapshot)
+}
+
 func (h *BattleHandler) HandleBattleHeartbeat(conn packetSender) error {
 	sess, err := h.sessionService.GetByConnID(conn.ID())
 	if err != nil {
@@ -136,34 +247,342 @@ func (h *BattleHandler) HandleBattleHeartbeat(conn packetSender) error {
 	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
 }
 
+// BuildReconnectSnapshot exposes the active authoritative battle in the same
+// packet shapes the client already consumes during normal live battle flow.
+func (h *BattleHandler) BuildReconnectSnapshot(ctx context.Context, playerID uint64, battleID uint64, lastFrame uint32) (*protocol.BattleStartPush, *protocol.BattleStatePush, *protocol.BattleResultPush, []protocol.BattleStatePush, error) {
+	if h == nil || h.battleService == nil {
+		return nil, nil, h.popReconnectResult(playerID), nil, nil
+	}
+	start, state, ok := h.battleService.GetActiveSnapshot(ctx, playerID)
+	if !ok {
+		return nil, nil, h.popReconnectResult(playerID), nil, nil
+	}
+	replaySnapshots := h.battleService.GetReplaySnapshots(ctx, playerID, battleID, lastFrame)
+	replayStates := make([]protocol.BattleStatePush, 0, len(replaySnapshots))
+	for _, replay := range replaySnapshots {
+		replayStates = append(replayStates, protocol.BattleStatePush{
+			BattleID:             replay.BattleID,
+			BattleVersion:        replay.BattleVersion,
+			Frame:                replay.Frame,
+			ParticipantPlayerIDs: append([]uint64{}, replay.ParticipantPlayerIDs...),
+			Round:                replay.Round,
+			Phase:                replay.Phase,
+			Events:               toProtocolBattleEvents(replay.Events),
+			Actors:               toProtocolBattleActorStates(replay.Actors),
+			ActiveActorID:        replay.ActiveActorID,
+			ActivePetUID:         replay.ActivePetUID,
+			CommandDeadlineMS:    replay.CommandDeadlineMS,
+			AutoBattleEnabled:    replay.AutoBattleEnabled,
+			PendingActorIDs:      append([]uint64{}, replay.PendingActorIDs...),
+			ControllableActorIDs: append([]uint64{}, replay.ControllableActorIDs...),
+		})
+	}
+	return &protocol.BattleStartPush{
+			BattleID:             start.BattleID,
+			BattleType:           start.BattleType,
+			BattleVersion:        start.BattleVersion,
+			Frame:                start.Frame,
+			ParticipantPlayerIDs: append([]uint64{}, start.ParticipantPlayerIDs...),
+			Allies:               toProtocolBattleActors(start.Allies),
+			Enemies:              toProtocolBattleActors(start.Enemies),
+			Round:                start.Round,
+			Phase:                start.Phase,
+			ActiveActorID:        start.ActiveActorID,
+			ActivePetUID:         start.ActivePetUID,
+			CommandDeadlineMS:    start.CommandDeadlineMS,
+			AutoBattleEnabled:    start.AutoBattleEnabled,
+			PendingActorIDs:      append([]uint64{}, start.PendingActorIDs...),
+			ControllableActorIDs: append([]uint64{}, start.ControllableActorIDs...),
+		}, &protocol.BattleStatePush{
+			BattleID:             state.BattleID,
+			BattleVersion:        state.BattleVersion,
+			Frame:                state.Frame,
+			ParticipantPlayerIDs: append([]uint64{}, state.ParticipantPlayerIDs...),
+			Round:                state.Round,
+			Phase:                state.Phase,
+			Events:               toProtocolBattleEvents(state.Events),
+			Actors:               toProtocolBattleActorStates(state.Actors),
+			ActiveActorID:        state.ActiveActorID,
+			ActivePetUID:         state.ActivePetUID,
+			CommandDeadlineMS:    state.CommandDeadlineMS,
+			AutoBattleEnabled:    state.AutoBattleEnabled,
+			PendingActorIDs:      append([]uint64{}, state.PendingActorIDs...),
+			ControllableActorIDs: append([]uint64{}, state.ControllableActorIDs...),
+		}, nil, replayStates, nil
+}
+
+// HandleSessionDisconnect switches the player's active battle into server
+// custody mode so later sweeps can keep resolving rounds even after the socket
+// has gone away.
+func (h *BattleHandler) HandleSessionDisconnect(playerID uint64) {
+	if h == nil || h.battleService == nil || playerID == 0 {
+		return
+	}
+	if result := h.battleService.ResolveDisconnect(context.Background(), playerID); result != nil {
+		_ = h.pushBattleResultToParticipants(result, &battleSettlement{})
+		return
+	}
+	h.battleService.EnableAutoForPlayer(context.Background(), playerID)
+}
+
+// StartCustodySweeper periodically progresses battles that have entered server
+// custody mode, covering heartbeat loss and fully disconnected sessions.
+func (h *BattleHandler) StartCustodySweeper(ctx context.Context) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = h.ProcessAutoCustodyOnce(ctx)
+		}
+	}
+}
+
+// ProcessAutoCustodyOnce performs one custody sweep so tests and the runtime
+// loop can reuse the same auto progression path.
+func (h *BattleHandler) ProcessAutoCustodyOnce(ctx context.Context) error {
+	if h == nil || h.battleService == nil {
+		return nil
+	}
+	for _, item := range h.battleService.ProgressAutoAll(ctx) {
+		if err := h.deliverAutoOutcome(ctx, item.PlayerID, item.Outcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender, playerID uint64, outcome *battle.ActionOutcome) error {
 	if outcome == nil {
 		return nil
 	}
-	if outcome.State != nil {
-		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleStatePush, 0, protocol.BattleStatePush{
-			BattleID:             outcome.State.BattleID,
-			BattleVersion:        outcome.State.BattleVersion,
-			Round:                outcome.State.Round,
-			Phase:                outcome.State.Phase,
-			Events:               toProtocolBattleEvents(outcome.State.Events),
-			Actors:               toProtocolBattleActorStates(outcome.State.Actors),
-			ActiveActorID:        outcome.State.ActiveActorID,
-			ActivePetUID:         outcome.State.ActivePetUID,
-			CommandDeadlineMS:    outcome.State.CommandDeadlineMS,
-			AutoBattleEnabled:    outcome.State.AutoBattleEnabled,
-			PendingActorIDs:      append([]uint64{}, outcome.State.PendingActorIDs...),
-			ControllableActorIDs: append([]uint64{}, outcome.State.ControllableActorIDs...),
-		})); err != nil {
+	if outcome.State != nil && len(outcome.State.ParticipantPlayerIDs) > 1 {
+		if err := h.pushBattleStateToParticipants(outcome.State); err != nil {
 			return err
 		}
+	} else if err := h.pushBattleStatePacket(conn, outcome.State); err != nil {
+		return err
 	}
 	if outcome.Result == nil {
 		return nil
 	}
+	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result)
+	if err != nil {
+		return err
+	}
+	if len(outcome.Result.ParticipantPlayerIDs) > 1 {
+		if err := h.pushBattleResultToParticipants(outcome.Result, settlement); err != nil {
+			return err
+		}
+	} else {
+		if err := h.pushBattleResultPacket(conn, outcome.Result, settlement); err != nil {
+			return err
+		}
+	}
+	return h.pushBattleSettlementFollowUps(ctx, conn, playerID, outcome.Result, settlement)
+}
 
+func (h *BattleHandler) deliverAutoOutcome(ctx context.Context, playerID uint64, outcome *battle.ActionOutcome) error {
+	if outcome == nil {
+		return nil
+	}
+	var conn packetSender
+	if h.sessionService != nil {
+		sess, err := h.sessionService.GetByPlayerID(playerID)
+		if err == nil {
+			conn = sess.Conn
+		}
+	}
+	if conn != nil {
+		if err := h.pushBattleStatePacket(conn, outcome.State); err != nil {
+			return err
+		}
+	}
+	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result)
+	if err != nil {
+		return err
+	}
+	if conn != nil && outcome.Result != nil {
+		h.clearReconnectResult(playerID)
+		if err := h.pushBattleResultPacket(conn, outcome.Result, settlement); err != nil {
+			return err
+		}
+	} else if outcome.Result != nil {
+		h.storeReconnectResult(playerID, h.buildBattleResultPayload(outcome.Result, settlement))
+	}
+	return h.pushBattleSettlementFollowUps(ctx, conn, playerID, outcome.Result, settlement)
+}
+
+func (h *BattleHandler) pushBattleStatePacket(conn packetSender, state *battle.StateSnapshot) error {
+	if conn == nil || state == nil {
+		return nil
+	}
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStatePush, 0, protocol.BattleStatePush{
+		BattleID:             state.BattleID,
+		BattleVersion:        state.BattleVersion,
+		Frame:                state.Frame,
+		ParticipantPlayerIDs: append([]uint64{}, state.ParticipantPlayerIDs...),
+		Round:                state.Round,
+		Phase:                state.Phase,
+		Events:               toProtocolBattleEvents(state.Events),
+		Actors:               toProtocolBattleActorStates(state.Actors),
+		ActiveActorID:        state.ActiveActorID,
+		ActivePetUID:         state.ActivePetUID,
+		CommandDeadlineMS:    state.CommandDeadlineMS,
+		AutoBattleEnabled:    state.AutoBattleEnabled,
+		PendingActorIDs:      append([]uint64{}, state.PendingActorIDs...),
+		ControllableActorIDs: append([]uint64{}, state.ControllableActorIDs...),
+	}))
+}
+
+func (h *BattleHandler) pushBattleStateToParticipants(state *battle.StateSnapshot) error {
+	if state == nil {
+		return nil
+	}
+	for _, conn := range h.participantConns(state.ParticipantPlayerIDs) {
+		if err := h.pushBattleStatePacket(conn, state); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type battleSettlement struct {
+	PlayerProfile *player.Profile
+	Pets          []pet.Pet
+	questBefore   []quest.Summary
+}
+
+func (h *BattleHandler) pushBattleResultPacket(conn packetSender, result *battle.ResultSnapshot, settlement *battleSettlement) error {
+	if conn == nil || result == nil {
+		return nil
+	}
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, h.buildBattleResultPayload(result, settlement)))
+}
+
+func (h *BattleHandler) pushBattleResultToParticipants(result *battle.ResultSnapshot, settlement *battleSettlement) error {
+	if result == nil {
+		return nil
+	}
+	payload := h.buildBattleResultPayload(result, settlement)
+	for _, conn := range h.participantConns(result.ParticipantPlayerIDs) {
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, payload)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, settlement *battleSettlement) protocol.BattleResultPush {
+	playerGold := uint32(0)
+	playerExp := uint64(0)
+	petRewards := make([]protocol.BattlePetReward, 0, len(result.PetResults))
+	if settlement != nil && settlement.PlayerProfile != nil {
+		playerGold = settlement.PlayerProfile.Gold
+		playerExp = settlement.PlayerProfile.Exp
+	}
+	for _, petResult := range result.PetResults {
+		petRewards = append(petRewards, protocol.BattlePetReward{
+			PetUID: petResult.PetUID,
+			Exp:    petResult.ExpGained,
+		})
+	}
+	return protocol.BattleResultPush{
+		BattleID:      result.BattleID,
+		Win:           result.Win,
+		ReturnSceneID: result.ReturnSceneID,
+		ReturnPos: protocol.Vec2i{
+			X: result.ReturnPos.X,
+			Y: result.ReturnPos.Y,
+		},
+		Reason:          result.Reason,
+		RewardGold:      result.RewardGold,
+		RewardPlayerExp: result.RewardPlayerExp,
+		PlayerGold:      playerGold,
+		PlayerExp:       playerExp,
+		PetRewards:      petRewards,
+		DropTexts:       append([]string{}, result.DropTexts...),
+	}
+}
+
+func (h *BattleHandler) storeReconnectResult(playerID uint64, payload protocol.BattleResultPush) {
+	if h == nil || playerID == 0 {
+		return
+	}
+	h.reconnectMu.Lock()
+	defer h.reconnectMu.Unlock()
+	h.reconnectCache[playerID] = payload
+}
+
+func (h *BattleHandler) popReconnectResult(playerID uint64) *protocol.BattleResultPush {
+	if h == nil || playerID == 0 {
+		return nil
+	}
+	h.reconnectMu.Lock()
+	defer h.reconnectMu.Unlock()
+	payload, ok := h.reconnectCache[playerID]
+	if !ok {
+		return nil
+	}
+	delete(h.reconnectCache, playerID)
+	copy := payload
+	return &copy
+}
+
+func (h *BattleHandler) clearReconnectResult(playerID uint64) {
+	if h == nil || playerID == 0 {
+		return
+	}
+	h.reconnectMu.Lock()
+	defer h.reconnectMu.Unlock()
+	delete(h.reconnectCache, playerID)
+}
+
+func (h *BattleHandler) participantConns(playerIDs []uint64) []packetSender {
+	if h == nil || h.sessionService == nil || len(playerIDs) == 0 {
+		return nil
+	}
+	result := make([]packetSender, 0, len(playerIDs))
+	seen := map[string]bool{}
+	for _, playerID := range playerIDs {
+		sess, err := h.sessionService.GetByPlayerID(playerID)
+		if err != nil || sess.Conn == nil || seen[sess.Conn.ID()] {
+			continue
+		}
+		seen[sess.Conn.ID()] = true
+		result = append(result, sess.Conn)
+	}
+	return result
+}
+
+func (h *BattleHandler) pushNoticeToPlayer(playerID uint64, message string) error {
+	for _, conn := range h.participantConns([]uint64{playerID}) {
+		return conn.SendPacket(mustJSONPacket(protocol.CmdNoticePush, 0, map[string]any{
+			"message": message,
+		}))
+	}
+	return nil
+}
+
+func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ packetSender, playerID uint64, result *battle.ResultSnapshot) (*battleSettlement, error) {
+	if result == nil {
+		return nil, nil
+	}
+	if result.BattleType != battle.BattleTypePVE {
+		return &battleSettlement{}, nil
+	}
+	inserted, err := h.tryBeginBattleRewardGrant(ctx, playerID, result)
+	if err != nil {
+		return nil, err
+	}
+	if !inserted {
+		return nil, nil
+	}
 	var questBefore []quest.Summary
-	if h.questService != nil && outcome.Result.Win {
+	if h.questService != nil && result.Win {
 		questBefore, _ = listQuestSummaries(ctx, h.questService, playerID)
 		_, _ = h.questService.HandleEvent(ctx, quest.Event{
 			PlayerID:  playerID,
@@ -174,33 +593,66 @@ func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender
 			},
 		})
 	}
-	if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, protocol.BattleResultPush{
-		BattleID:      outcome.Result.BattleID,
-		Win:           outcome.Result.Win,
-		ReturnSceneID: outcome.Result.ReturnSceneID,
-		ReturnPos: protocol.Vec2i{
-			X: outcome.Result.ReturnPos.X,
-			Y: outcome.Result.ReturnPos.Y,
-		},
-		Reason: outcome.Result.Reason,
-	})); err != nil {
-		return err
-	}
-	for _, petResult := range outcome.Result.PetResults {
-		updatedPet, err := h.petService.UpdatePetHP(ctx, playerID, petResult.PetUID, petResult.HP)
+	settlement := &battleSettlement{}
+	if h.playerService != nil && (result.RewardGold > 0 || result.RewardPlayerExp > 0) {
+		updatedProfile, err := h.playerService.AddGoldAndExp(ctx, playerID, result.RewardGold, result.RewardPlayerExp)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		settlement.PlayerProfile = updatedProfile
+	}
+	if h.petService != nil {
+		for _, petResult := range result.PetResults {
+			updatedPet, err := h.petService.UpdatePetBattleProgress(ctx, playerID, petResult.PetUID, petResult.HP, petResult.ExpGained)
+			if err != nil {
+				return nil, err
+			}
+			settlement.Pets = append(settlement.Pets, updatedPet)
+		}
+	}
+	settlement.questBefore = questBefore
+	return settlement, nil
+}
+
+func (h *BattleHandler) pushBattleSettlementFollowUps(ctx context.Context, conn packetSender, playerID uint64, result *battle.ResultSnapshot, settlement *battleSettlement) error {
+	if conn == nil || result == nil || settlement == nil || result.BattleType != battle.BattleTypePVE {
+		return nil
+	}
+	for _, updatedPet := range settlement.Pets {
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
 			Pet: toProtocolPetDetail(updatedPet),
 		})); err != nil {
 			return err
 		}
 	}
-	if h.questService != nil && outcome.Result.Win {
-		_ = pushQuestDiff(ctx, conn, h.questService, playerID, questBefore)
+	if h.questService != nil && result.Win {
+		_ = pushQuestDiff(ctx, conn, h.questService, playerID, settlement.questBefore)
 	}
 	return nil
+}
+
+func (h *BattleHandler) tryBeginBattleRewardGrant(ctx context.Context, playerID uint64, result *battle.ResultSnapshot) (bool, error) {
+	if h == nil || h.battleRepo == nil || result == nil {
+		return true, nil
+	}
+	payloadJSON, err := json.Marshal(result)
+	if err != nil {
+		return false, err
+	}
+	recordResult := int16(0)
+	if result.Win {
+		recordResult = 1
+	}
+	inserted, err := h.battleRepo.CreateRewardRecord(ctx, battle.RewardRecord{
+		BattleID:    result.BattleID,
+		PlayerID:    playerID,
+		BattleType:  battle.BattleTypePVE,
+		Result:      recordResult,
+		RewardGold:  result.RewardGold,
+		RewardExp:   result.RewardPlayerExp,
+		PayloadJSON: payloadJSON,
+	})
+	return inserted, err
 }
 
 func (h *BattleHandler) loadPlayerBattleContext(connID string) (*session.Session, *player.Profile, []pet.LineupPet, *world.SceneSnapshot, error) {
@@ -243,6 +695,31 @@ func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, resp
 	return conn.SendPacket(packet)
 }
 
+func (h *BattleHandler) sendPVPChallengeResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64, targetPlayerID uint64) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeResp, seq, errcode.WSCodeSuccess, protocol.PVPChallengeResp{
+		Accepted:       accepted,
+		Reason:         reason,
+		ChallengeID:    challengeID,
+		TargetPlayerID: targetPlayerID,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
+func (h *BattleHandler) sendPVPChallengeReplyResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeReplyResp, seq, errcode.WSCodeSuccess, protocol.PVPChallengeReplyResp{
+		Accepted:    accepted,
+		Reason:      reason,
+		ChallengeID: challengeID,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
 func (h *BattleHandler) sendBattleActionResponse(conn packetSender, seq uint32, accepted bool, reason string) error {
 	packet, err := protocol.NewJSONPacket(protocol.CmdBattleActionResp, seq, errcode.WSCodeSuccess, protocol.BattleActionResp{
 		Accepted: accepted,
@@ -252,6 +729,35 @@ func (h *BattleHandler) sendBattleActionResponse(conn packetSender, seq uint32, 
 		return err
 	}
 	return conn.SendPacket(packet)
+}
+
+func (h *BattleHandler) pushBattleStartToParticipants(startSnapshot *battle.StartSnapshot) error {
+	if startSnapshot == nil {
+		return nil
+	}
+	payload := protocol.BattleStartPush{
+		BattleID:             startSnapshot.BattleID,
+		BattleType:           startSnapshot.BattleType,
+		BattleVersion:        startSnapshot.BattleVersion,
+		Frame:                startSnapshot.Frame,
+		ParticipantPlayerIDs: append([]uint64{}, startSnapshot.ParticipantPlayerIDs...),
+		Allies:               toProtocolBattleActors(startSnapshot.Allies),
+		Enemies:              toProtocolBattleActors(startSnapshot.Enemies),
+		Round:                startSnapshot.Round,
+		Phase:                startSnapshot.Phase,
+		ActiveActorID:        startSnapshot.ActiveActorID,
+		ActivePetUID:         startSnapshot.ActivePetUID,
+		CommandDeadlineMS:    startSnapshot.CommandDeadlineMS,
+		AutoBattleEnabled:    startSnapshot.AutoBattleEnabled,
+		PendingActorIDs:      append([]uint64{}, startSnapshot.PendingActorIDs...),
+		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
+	}
+	for _, conn := range h.participantConns(startSnapshot.ParticipantPlayerIDs) {
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, payload)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func findInteractTarget(entities []world.Entity, entityID uint64) (world.Entity, bool) {
@@ -280,26 +786,28 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 		skillSnapshots := make([]protocol.BattleSkillSnapshot, 0, len(actor.Skills))
 		for _, skill := range actor.Skills {
 			skillSnapshots = append(skillSnapshots, protocol.BattleSkillSnapshot{
-				SkillID:    skill.SkillID,
-				Name:       skill.Name,
-				TargetType: skill.TargetType,
+				SkillID:     skill.SkillID,
+				Name:        skill.Name,
+				TargetType:  skill.TargetType,
+				TargetCount: skill.TargetCount,
 			})
 		}
 		result = append(result, protocol.BattleActorSnapshot{
-			ActorID:     actor.ActorID,
-			ActorType:   actor.ActorType,
-			PetUID:      actor.PetUID,
-			PetID:       actor.PetID,
-			Name:        actor.Name,
-			HP:          actor.HP,
-			HPMax:       actor.HPMax,
-			ATK:         actor.ATK,
-			DEF:         actor.DEF,
-			SPD:         actor.SPD,
-			Skills:      skillSnapshots,
-			SkillIDs:    skills,
-			StatusIDs:   append([]uint32{}, actor.StatusIDs...),
-			LineupIndex: actor.LineupIndex,
+			ActorID:       actor.ActorID,
+			ActorType:     actor.ActorType,
+			OwnerPlayerID: actor.OwnerPlayerID,
+			PetUID:        actor.PetUID,
+			PetID:         actor.PetID,
+			Name:          actor.Name,
+			HP:            actor.HP,
+			HPMax:         actor.HPMax,
+			ATK:           actor.ATK,
+			DEF:           actor.DEF,
+			SPD:           actor.SPD,
+			Skills:        skillSnapshots,
+			SkillIDs:      skills,
+			StatusIDs:     append([]uint32{}, actor.StatusIDs...),
+			LineupIndex:   actor.LineupIndex,
 		})
 	}
 	return result

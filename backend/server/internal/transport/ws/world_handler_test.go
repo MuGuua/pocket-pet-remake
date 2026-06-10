@@ -2,6 +2,7 @@ package wstransport
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"testing"
@@ -91,7 +92,7 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil)
 	petHandler := NewPetHandler(sessionService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, questService, npcService, battle.NewService())
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
@@ -815,6 +816,24 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if !result.Win {
 		t.Fatalf("result.Win = false, want true")
 	}
+	if result.RewardGold == 0 {
+		t.Fatal("result.RewardGold = 0, want positive battle gold reward")
+	}
+	if result.RewardPlayerExp == 0 {
+		t.Fatal("result.RewardPlayerExp = 0, want positive player exp reward")
+	}
+	if result.PlayerGold <= 100 {
+		t.Fatalf("result.PlayerGold = %d, want greater than initial 100", result.PlayerGold)
+	}
+	if result.PlayerExp == 0 {
+		t.Fatal("result.PlayerExp = 0, want persisted player exp")
+	}
+	if len(result.PetRewards) != 2 {
+		t.Fatalf("len(result.PetRewards) = %d, want 2", len(result.PetRewards))
+	}
+	if len(result.DropTexts) == 0 {
+		t.Fatal("len(result.DropTexts) = 0, want text-only drop preview")
+	}
 	if conn.packets[7].Cmd != protocol.CmdPetUpdatePush {
 		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdPetUpdatePush)
 	}
@@ -825,6 +844,9 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	}
 	if petUpdate.Pet.PetUID != start.ActivePetUID {
 		t.Fatalf("petUpdate.Pet.PetUID = %d, want %d", petUpdate.Pet.PetUID, start.ActivePetUID)
+	}
+	if petUpdate.Pet.Exp <= 120 {
+		t.Fatalf("petUpdate.Pet.Exp = %d, want greater than starter exp 120", petUpdate.Pet.Exp)
 	}
 	allyHPAfterBattle := petUpdate.Pet.HP
 	if conn.packets[8].Cmd != protocol.CmdPetUpdatePush {
@@ -865,6 +887,9 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if petList.Pets[0].HP != allyHPAfterBattle {
 		t.Fatalf("petList.Pets[0].HP = %d, want %d", petList.Pets[0].HP, allyHPAfterBattle)
 	}
+	if petList.Pets[0].Exp <= 120 {
+		t.Fatalf("petList.Pets[0].Exp = %d, want persisted reward exp above 120", petList.Pets[0].Exp)
+	}
 	if len(petList.Lineup) == 0 {
 		t.Fatalf("len(petList.Lineup) = 0, want non-zero")
 	}
@@ -873,6 +898,341 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	}
 }
 
+func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
+	logger := log.New(io.Discard, "", 0)
+	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
+	playerService := player.NewService(teststub.NewPlayerRepository())
+	petService := pet.NewService(teststub.NewPetRepository())
+	worldService := world.NewService(teststub.NewWorldRepository())
+	questService := quest.NewService(teststub.NewQuestRepository())
+	npcService := npc.NewService(teststub.NewNPCRepository())
+	battleService := battle.NewService()
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
+
+	conn := &fakeConn{id: "disconnect-battle-conn"}
+	if _, err := sessionService.Bind(teststub.DemoPlayerID, conn); err != nil {
+		t.Fatalf("Bind() error = %v", err)
+	}
+
+	ctx := context.Background()
+	profile, err := playerService.GetProfile(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	lineup, err := petService.ListLineup(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("ListLineup() error = %v", err)
+	}
+	sceneSnapshot, err := worldService.GetSceneSnapshot(ctx, teststub.DemoPlayerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	if err != nil {
+		t.Fatalf("GetSceneSnapshot() error = %v", err)
+	}
+	target, found := findInteractTarget(sceneSnapshot.NearbyEntities, 90001)
+	if !found {
+		t.Fatal("findInteractTarget() = false, want nearby npc")
+	}
+
+	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if _, err := battleService.SubmitAction(ctx, profile.PlayerID, battle.ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	}); err != nil {
+		t.Fatalf("SubmitAction(first ally) error = %v", err)
+	}
+
+	sessionService.Disconnect(conn.ID())
+	if err := battleHandler.ProcessAutoCustodyOnce(ctx); err != nil {
+		t.Fatalf("ProcessAutoCustodyOnce() error = %v", err)
+	}
+	if len(conn.packets) != 0 {
+		t.Fatalf("len(conn.packets) = %d, want 0 because disconnected players should not receive pushes", len(conn.packets))
+	}
+
+	_, err = battleService.SubmitAction(ctx, profile.PlayerID, battle.ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if !errors.Is(err, battle.ErrBattleNotFound) {
+		t.Fatalf("SubmitAction(after custody finish) error = %v, want ErrBattleNotFound", err)
+	}
+
+	pets, err := petService.ListPets(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("ListPets() error = %v", err)
+	}
+	if len(pets) < 2 {
+		t.Fatalf("len(pets) = %d, want at least 2", len(pets))
+	}
+	var sawPersistedDamage bool
+	for _, item := range pets {
+		if item.HP < item.HPMax {
+			sawPersistedDamage = true
+			break
+		}
+	}
+	if !sawPersistedDamage {
+		t.Fatal("expected at least one pet hp change to be persisted after disconnected custody battle")
+	}
+}
+
+func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
+	logger := log.New(io.Discard, "", 0)
+	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
+	playerService := player.NewService(teststub.NewPlayerRepository())
+	petService := pet.NewService(teststub.NewPetRepository())
+	worldService := world.NewService(teststub.NewWorldRepository())
+	questService := quest.NewService(teststub.NewQuestRepository())
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	petHandler := NewPetHandler(sessionService, petService)
+	npcService := npc.NewService(teststub.NewNPCRepository())
+	battleService := battle.NewService()
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+
+	firstConn := &fakeConn{id: "reconnect-old-conn"}
+	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
+	if err != nil {
+		t.Fatalf("Bind() error = %v", err)
+	}
+	originalReconnectToken := sess.ReconnectToken
+
+	ctx := context.Background()
+	profile, err := playerService.GetProfile(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	lineup, err := petService.ListLineup(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("ListLineup() error = %v", err)
+	}
+	target := world.Entity{
+		EntityID:   90004,
+		EntityType: 2,
+		Pos:        world.Vec2i{X: profile.PosX + 1, Y: profile.PosY},
+		Name:       "ReconnectBattleNPC",
+	}
+	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if _, err := battleService.SubmitAction(ctx, profile.PlayerID, battle.ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	}); err != nil {
+		t.Fatalf("SubmitAction(first ally) error = %v", err)
+	}
+
+	sessionService.Disconnect(firstConn.ID())
+
+	secondConn := &fakeConn{id: "reconnect-new-conn"}
+	mustHandleJSONPacket(t, router, secondConn, protocol.CmdReconnectReq, 88, protocol.ReconnectReq{
+		ReconnectToken: originalReconnectToken,
+		BattleID:       start.BattleID,
+		LastFrame:      start.BattleVersion,
+	})
+	if len(secondConn.packets) != 1 {
+		t.Fatalf("len(secondConn.packets) = %d, want 1", len(secondConn.packets))
+	}
+	if secondConn.packets[0].Cmd != protocol.CmdReconnectResp {
+		t.Fatalf("secondConn.packets[0].Cmd = %d, want %d", secondConn.packets[0].Cmd, protocol.CmdReconnectResp)
+	}
+
+	var payload protocol.ReconnectResp
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &payload); err != nil {
+		t.Fatalf("UnmarshalBody(reconnect) error = %v", err)
+	}
+	if payload.PlayerID != teststub.DemoPlayerID {
+		t.Fatalf("payload.PlayerID = %d, want %d", payload.PlayerID, teststub.DemoPlayerID)
+	}
+	if payload.World == nil || payload.World.SceneID != profile.SceneID {
+		t.Fatalf("payload.World = %#v, want scene %d", payload.World, profile.SceneID)
+	}
+	if payload.BattleStart == nil || payload.BattleState == nil {
+		t.Fatalf("payload battle snapshot = start:%#v state:%#v, want both non-nil", payload.BattleStart, payload.BattleState)
+	}
+	if payload.BattleStart.BattleID != start.BattleID || payload.BattleState.BattleID != start.BattleID {
+		t.Fatalf("battle id mismatch start=%d state=%d want %d", payload.BattleStart.BattleID, payload.BattleState.BattleID, start.BattleID)
+	}
+	if len(payload.BattleState.PendingActorIDs) != 1 {
+		t.Fatalf("len(payload.BattleState.PendingActorIDs) = %d, want 1", len(payload.BattleState.PendingActorIDs))
+	}
+	if len(payload.BattleReplayStates) != 1 {
+		t.Fatalf("len(payload.BattleReplayStates) = %d, want 1", len(payload.BattleReplayStates))
+	}
+	if payload.BattleReplayStates[0].Frame <= start.BattleVersion {
+		t.Fatalf("payload.BattleReplayStates[0].Frame = %d, want > %d", payload.BattleReplayStates[0].Frame, start.BattleVersion)
+	}
+	if payload.ReconnectToken == originalReconnectToken {
+		t.Fatal("reconnect token was not rotated after reconnect")
+	}
+}
+
+func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T) {
+	logger := log.New(io.Discard, "", 0)
+	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
+	playerService := player.NewService(teststub.NewPlayerRepository())
+	petService := pet.NewService(teststub.NewPetRepository())
+	worldService := world.NewService(teststub.NewWorldRepository())
+	questService := quest.NewService(teststub.NewQuestRepository())
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	petHandler := NewPetHandler(sessionService, petService)
+	npcService := npc.NewService(teststub.NewNPCRepository())
+	battleService := battle.NewService()
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+
+	firstConn := &fakeConn{id: "reconnect-finished-old-conn"}
+	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
+	if err != nil {
+		t.Fatalf("Bind() error = %v", err)
+	}
+	originalReconnectToken := sess.ReconnectToken
+
+	ctx := context.Background()
+	profile, err := playerService.GetProfile(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	lineup, err := petService.ListLineup(ctx, teststub.DemoPlayerID)
+	if err != nil {
+		t.Fatalf("ListLineup() error = %v", err)
+	}
+	target := world.Entity{
+		EntityID:   90001,
+		EntityType: 2,
+		Pos:        world.Vec2i{X: profile.PosX + 1, Y: profile.PosY},
+		Name:       "ReconnectResultNPC",
+	}
+	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if _, err := battleService.SubmitAction(ctx, profile.PlayerID, battle.ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    start.Allies[0].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	}); err != nil {
+		t.Fatalf("SubmitAction(first ally) error = %v", err)
+	}
+
+	sessionService.Disconnect(firstConn.ID())
+	if err := battleHandler.ProcessAutoCustodyOnce(ctx); err != nil {
+		t.Fatalf("ProcessAutoCustodyOnce() error = %v", err)
+	}
+
+	secondConn := &fakeConn{id: "reconnect-finished-new-conn"}
+	mustHandleJSONPacket(t, router, secondConn, protocol.CmdReconnectReq, 89, protocol.ReconnectReq{
+		ReconnectToken: originalReconnectToken,
+		BattleID:       start.BattleID,
+		LastFrame:      start.BattleVersion,
+	})
+	if len(secondConn.packets) != 1 {
+		t.Fatalf("len(secondConn.packets) = %d, want 1", len(secondConn.packets))
+	}
+
+	var payload protocol.ReconnectResp
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &payload); err != nil {
+		t.Fatalf("UnmarshalBody(reconnect result) error = %v", err)
+	}
+	if payload.BattleStart != nil || payload.BattleState != nil {
+		t.Fatalf("payload battle snapshot = start:%#v state:%#v, want nil because custody already finished", payload.BattleStart, payload.BattleState)
+	}
+	if payload.BattleResult == nil {
+		t.Fatal("payload.BattleResult = nil, want cached result for reconnect")
+	}
+	if payload.BattleResult.BattleID != start.BattleID {
+		t.Fatalf("payload.BattleResult.BattleID = %d, want %d", payload.BattleResult.BattleID, start.BattleID)
+	}
+}
+
+func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) {
+	logger := log.New(io.Discard, "", 0)
+	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
+	playerService := player.NewService(teststub.NewPlayerRepository())
+	petService := pet.NewService(teststub.NewPetRepository())
+	worldService := world.NewService(teststub.NewWorldRepository())
+	questService := quest.NewService(teststub.NewQuestRepository())
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	petHandler := NewPetHandler(sessionService, petService)
+	npcService := npc.NewService(teststub.NewNPCRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+
+	challengerConn := &fakeConn{id: "pvp-challenger-conn"}
+	if _, err := sessionService.Bind(teststub.DemoPlayerID, challengerConn); err != nil {
+		t.Fatalf("Bind(challenger) error = %v", err)
+	}
+	defenderConn := &fakeConn{id: "pvp-defender-conn"}
+	if _, err := sessionService.Bind(teststub.RivalPlayerID, defenderConn); err != nil {
+		t.Fatalf("Bind(defender) error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, challengerConn, protocol.CmdPVPChallengeReq, 90, protocol.PVPChallengeReq{
+		OpID:           1,
+		TargetPlayerID: teststub.RivalPlayerID,
+	})
+	if len(challengerConn.packets) != 1 {
+		t.Fatalf("len(challengerConn.packets) = %d, want 1", len(challengerConn.packets))
+	}
+	if len(defenderConn.packets) != 1 {
+		t.Fatalf("len(defenderConn.packets) = %d, want 1 invite push", len(defenderConn.packets))
+	}
+
+	var invite protocol.PVPChallengePush
+	if err := protocol.UnmarshalBody(defenderConn.packets[0].Body, &invite); err != nil {
+		t.Fatalf("UnmarshalBody(invite) error = %v", err)
+	}
+	if invite.Challenger.PlayerID != teststub.DemoPlayerID {
+		t.Fatalf("invite.Challenger.PlayerID = %d, want %d", invite.Challenger.PlayerID, teststub.DemoPlayerID)
+	}
+
+	clearPackets(challengerConn)
+	clearPackets(defenderConn)
+	mustHandleJSONPacket(t, router, defenderConn, protocol.CmdPVPChallengeReplyReq, 91, protocol.PVPChallengeReplyReq{
+		ChallengeID: invite.ChallengeID,
+		Accept:      true,
+	})
+	if len(defenderConn.packets) < 2 {
+		t.Fatalf("len(defenderConn.packets) = %d, want reply resp + battle start", len(defenderConn.packets))
+	}
+	if len(challengerConn.packets) != 1 {
+		t.Fatalf("len(challengerConn.packets) = %d, want battle start", len(challengerConn.packets))
+	}
+
+	var challengerStart protocol.BattleStartPush
+	if err := protocol.UnmarshalBody(challengerConn.packets[0].Body, &challengerStart); err != nil {
+		t.Fatalf("UnmarshalBody(challenger start) error = %v", err)
+	}
+	if challengerStart.BattleType != battle.BattleTypePVP {
+		t.Fatalf("challengerStart.BattleType = %d, want %d", challengerStart.BattleType, battle.BattleTypePVP)
+	}
+	if len(challengerStart.ParticipantPlayerIDs) != 2 {
+		t.Fatalf("len(challengerStart.ParticipantPlayerIDs) = %d, want 2", len(challengerStart.ParticipantPlayerIDs))
+	}
+	if len(challengerStart.PendingActorIDs) < 2 {
+		t.Fatalf("len(challengerStart.PendingActorIDs) = %d, want at least 2", len(challengerStart.PendingActorIDs))
+	}
+}
 
 func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *fakeConn) {
 	t.Helper()
@@ -886,7 +1246,7 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
 	petHandler := NewPetHandler(sessionService, petService)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battle.NewService())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
 
 	conn := &fakeConn{id: "conn-1"}

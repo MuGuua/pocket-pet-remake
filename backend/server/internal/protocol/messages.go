@@ -22,6 +22,25 @@ type HeartbeatResp struct {
 	ServerTimeMS int64 `json:"server_time_ms"`
 }
 
+type ReconnectReq struct {
+	ReconnectToken string `json:"reconnect_token"`
+	BattleID       uint64 `json:"battle_id"`
+	LastFrame      uint32 `json:"last_frame"`
+}
+
+type ReconnectResp struct {
+	PlayerID           uint64            `json:"player_id"`
+	SessionID          string            `json:"session_id"`
+	ReconnectToken     string            `json:"reconnect_token"`
+	HeartbeatSec       uint32            `json:"heartbeat_sec"`
+	ServerTimeMS       int64             `json:"server_time_ms"`
+	World              *EnterWorldResp   `json:"world,omitempty"`
+	BattleStart        *BattleStartPush  `json:"battle_start,omitempty"`
+	BattleState        *BattleStatePush  `json:"battle_state,omitempty"`
+	BattleResult       *BattleResultPush `json:"battle_result,omitempty"`
+	BattleReplayStates []BattleStatePush `json:"battle_replay_states,omitempty"`
+}
+
 type ForceOfflinePush struct {
 	Reason string `json:"reason"`
 }
@@ -164,6 +183,35 @@ type NPCActionResp struct {
 	MenuEntries []NpcMenuEntry `json:"menu_entries"`
 }
 
+type PVPChallengeReq struct {
+	OpID           uint32 `json:"op_id"`
+	TargetPlayerID uint64 `json:"target_player_id"`
+}
+
+type PVPChallengeResp struct {
+	Accepted       bool   `json:"accepted"`
+	Reason         string `json:"reason"`
+	ChallengeID    uint64 `json:"challenge_id"`
+	TargetPlayerID uint64 `json:"target_player_id"`
+}
+
+type PVPChallengePush struct {
+	ChallengeID uint64      `json:"challenge_id"`
+	Challenger  PlayerBrief `json:"challenger"`
+	ExpiresAtMS int64       `json:"expires_at_ms"`
+}
+
+type PVPChallengeReplyReq struct {
+	ChallengeID uint64 `json:"challenge_id"`
+	Accept      bool   `json:"accept"`
+}
+
+type PVPChallengeReplyResp struct {
+	Accepted    bool   `json:"accepted"`
+	Reason      string `json:"reason"`
+	ChallengeID uint64 `json:"challenge_id"`
+}
+
 type EntityMovePush struct {
 	SceneVersion uint32 `json:"scene_version"`
 	EntityID     uint64 `json:"entity_id"`
@@ -181,32 +229,36 @@ type WorldResyncPush struct {
 }
 
 type BattleActorSnapshot struct {
-	ActorID     uint64                `json:"actor_id"`
-	ActorType   uint32                `json:"actor_type"`
-	PetUID      uint64                `json:"pet_uid"`
-	PetID       uint32                `json:"pet_id"`
-	Name        string                `json:"name"`
-	HP          uint32                `json:"hp"`
-	HPMax       uint32                `json:"hp_max"`
-	ATK         uint32                `json:"atk"`
-	DEF         uint32                `json:"def"`
-	SPD         uint32                `json:"spd"`
-	Skills      []BattleSkillSnapshot `json:"skills"`
-	SkillIDs    []uint32              `json:"skill_ids"`
-	StatusIDs   []uint32              `json:"status_ids"`
-	LineupIndex uint32                `json:"lineup_index"`
+	ActorID       uint64                `json:"actor_id"`
+	ActorType     uint32                `json:"actor_type"`
+	OwnerPlayerID uint64                `json:"owner_player_id"`
+	PetUID        uint64                `json:"pet_uid"`
+	PetID         uint32                `json:"pet_id"`
+	Name          string                `json:"name"`
+	HP            uint32                `json:"hp"`
+	HPMax         uint32                `json:"hp_max"`
+	ATK           uint32                `json:"atk"`
+	DEF           uint32                `json:"def"`
+	SPD           uint32                `json:"spd"`
+	Skills        []BattleSkillSnapshot `json:"skills"`
+	SkillIDs      []uint32              `json:"skill_ids"`
+	StatusIDs     []uint32              `json:"status_ids"`
+	LineupIndex   uint32                `json:"lineup_index"`
 }
 
 type BattleSkillSnapshot struct {
-	SkillID    uint32 `json:"skill_id"`
-	Name       string `json:"name"`
-	TargetType string `json:"target_type"`
+	SkillID     uint32 `json:"skill_id"`
+	Name        string `json:"name"`
+	TargetType  string `json:"target_type"`
+	TargetCount uint32 `json:"target_count"`
 }
 
 type BattleStartPush struct {
 	BattleID             uint64                `json:"battle_id"`
 	BattleType           uint32                `json:"battle_type"`
 	BattleVersion        uint32                `json:"battle_version"`
+	Frame                uint32                `json:"frame"`
+	ParticipantPlayerIDs []uint64              `json:"participant_player_ids"`
 	Allies               []BattleActorSnapshot `json:"allies"`
 	Enemies              []BattleActorSnapshot `json:"enemies"`
 	Round                uint32                `json:"round"`
@@ -220,16 +272,16 @@ type BattleStartPush struct {
 }
 
 type BattleActionReq struct {
-	OpID       uint32 `json:"op_id"`
-	BattleID   uint64 `json:"battle_id"`
-	Round      uint32 `json:"round"`
-	ActionType uint32 `json:"action_type"`
-	ActorID    uint64 `json:"actor_id"`
-	SkillID    uint32 `json:"skill_id"`
-	TargetID   uint64 `json:"target_id"`
-	ItemUID    uint64 `json:"item_uid"`
-	SwitchPet  uint64 `json:"switch_pet_uid"`
-	AutoBattleEnabled bool `json:"auto_battle_enabled"`
+	OpID              uint32 `json:"op_id"`
+	BattleID          uint64 `json:"battle_id"`
+	Round             uint32 `json:"round"`
+	ActionType        uint32 `json:"action_type"`
+	ActorID           uint64 `json:"actor_id"`
+	SkillID           uint32 `json:"skill_id"`
+	TargetID          uint64 `json:"target_id"`
+	ItemUID           uint64 `json:"item_uid"`
+	SwitchPet         uint64 `json:"switch_pet_uid"`
+	AutoBattleEnabled bool   `json:"auto_battle_enabled"`
 }
 
 type BattleActionResp struct {
@@ -260,6 +312,8 @@ type BattleActorState struct {
 type BattleStatePush struct {
 	BattleID             uint64             `json:"battle_id"`
 	BattleVersion        uint32             `json:"battle_version"`
+	Frame                uint32             `json:"frame"`
+	ParticipantPlayerIDs []uint64           `json:"participant_player_ids"`
 	Round                uint32             `json:"round"`
 	Phase                string             `json:"phase"`
 	Events               []BattleEvent      `json:"events"`
@@ -273,11 +327,22 @@ type BattleStatePush struct {
 }
 
 type BattleResultPush struct {
-	BattleID      uint64 `json:"battle_id"`
-	Win           bool   `json:"win"`
-	ReturnSceneID uint32 `json:"return_scene_id"`
-	ReturnPos     Vec2i  `json:"return_pos"`
-	Reason        string `json:"reason"`
+	BattleID        uint64            `json:"battle_id"`
+	Win             bool              `json:"win"`
+	ReturnSceneID   uint32            `json:"return_scene_id"`
+	ReturnPos       Vec2i             `json:"return_pos"`
+	Reason          string            `json:"reason"`
+	RewardGold      uint32            `json:"reward_gold"`
+	RewardPlayerExp uint64            `json:"reward_player_exp"`
+	PlayerGold      uint32            `json:"player_gold"`
+	PlayerExp       uint64            `json:"player_exp"`
+	PetRewards      []BattlePetReward `json:"pet_rewards"`
+	DropTexts       []string          `json:"drop_texts"`
+}
+
+type BattlePetReward struct {
+	PetUID uint64 `json:"pet_uid"`
+	Exp    uint64 `json:"exp"`
 }
 
 type QuestListReq struct{}

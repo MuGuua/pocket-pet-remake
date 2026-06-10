@@ -106,11 +106,12 @@ func store_ws_session(data: Dictionary) -> void:
     session_changed.emit()
 
 # 更新实时连接鉴权状态，并在失效时清空会话字段。
-func set_ws_authenticated(authenticated: bool) -> void:
+func set_ws_authenticated(authenticated: bool, preserve_reconnect_token: bool = false) -> void:
     is_ws_authenticated = authenticated
     if not authenticated:
         session_id = ""
-        reconnect_token = ""
+        if not preserve_reconnect_token:
+            reconnect_token = ""
         heartbeat_sec = 0
     session_changed.emit()
 
@@ -358,6 +359,18 @@ func set_battle_state(next_state: Dictionary, active: bool = true) -> void:
     battle_state = merged_state
     is_in_battle = active
     battle_changed.emit()
+
+# 把战斗结算里带回来的玩家成长结果合并到本地玩家快照。
+func apply_battle_player_rewards(payload: Dictionary) -> void:
+    var changed := false
+    if payload.has("player_gold"):
+        player_snapshot["gold"] = int(payload.get("player_gold", player_snapshot.get("gold", 0)))
+        changed = true
+    if payload.has("player_exp"):
+        player_snapshot["exp"] = int(payload.get("player_exp", player_snapshot.get("exp", 0)))
+        changed = true
+    if changed:
+        world_snapshot_changed.emit()
 
 # 返回当前激活战斗单位对应的快照数据。
 func active_battle_actor(group_key: String = "allies") -> Dictionary:

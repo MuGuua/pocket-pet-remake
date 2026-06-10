@@ -14,46 +14,67 @@ import (
 )
 
 type Service struct {
-	mu             sync.Mutex
-	nextBattleID   uint64
-	activeByPlayer map[uint64]*activeBattle
+	mu                sync.Mutex
+	nextBattleID      uint64
+	nextChallengeID   uint64
+	activeByPlayer    map[uint64]*activeBattle
+	pendingChallenges map[uint64]PVPChallenge
+}
+
+// AutoProgressOutcome carries one server-side auto progression result together
+// with the owning player, so higher layers can decide whether to push packets,
+// persist rewards, or both.
+type AutoProgressOutcome struct {
+	PlayerID uint64
+	Outcome  *ActionOutcome
+}
+
+type PVPChallenge struct {
+	ChallengeID        uint64
+	ChallengerPlayerID uint64
+	DefenderPlayerID   uint64
+	CreatedAt          time.Time
+	ExpiresAt          time.Time
 }
 
 type activeBattle struct {
-	battleID      uint64
-	battleType    uint32
-	battleVersion uint32
-	round         uint32
-	phase         string
-	playerID      uint64
-	returnSceneID uint32
-	returnPos     world.Vec2i
-	allies        []*actorRuntime
-	enemies       []*actorRuntime
-	pendingActors []uint64
-	plannedActs   map[uint64]ActionRequest
-	autoBattleEnabled bool
-	commandDeadline   time.Time
+	battleID             uint64
+	battleType           uint32
+	battleVersion        uint32
+	round                uint32
+	phase                string
+	playerID             uint64
+	participantPlayerIDs []uint64
+	returnSceneID        uint32
+	returnPos            world.Vec2i
+	allies               []*actorRuntime
+	enemies              []*actorRuntime
+	pendingActors        []uint64
+	plannedActs          map[uint64]ActionRequest
+	autoBattleEnabled    bool
+	commandDeadline      time.Time
+	stateHistory         []StateSnapshot
 }
 
 type actorRuntime struct {
-	actorID     uint64
-	actorType   uint32
-	petUID      uint64
-	petID       uint32
-	lineupIndex uint32
-	name        string
-	level       uint32
-	hp          uint32
-	hpMax       uint32
-	atk         uint32
-	def         uint32
-	spd         uint32
-	mana        uint32
-	skillIDs    []uint32
-	critRatePct uint32
-	critDmgPct  uint32
-	statuses    map[uint32]*statusRuntime
+	actorID       uint64
+	actorType     uint32
+	ownerPlayerID uint64
+	petUID        uint64
+	petID         uint32
+	lineupIndex   uint32
+	name          string
+	level         uint32
+	hp            uint32
+	hpMax         uint32
+	atk           uint32
+	def           uint32
+	spd           uint32
+	mana          uint32
+	skillIDs      []uint32
+	critRatePct   uint32
+	critDmgPct    uint32
+	statuses      map[uint32]*statusRuntime
 
 	// These runtime modifier fields are kept on the actor so future status and
 	// passive systems can change battle math without mutating base pet data.
@@ -98,13 +119,18 @@ type turnDecision struct {
 }
 
 const commandTimeout = 15 * time.Second
+const battleReplayHistoryLimit = 12
 
 func NewService() *Service {
 	return &Service{
-		nextBattleID:   70000,
-		activeByPlayer: make(map[uint64]*activeBattle),
+		nextBattleID:      70000,
+		nextChallengeID:   90000,
+		activeByPlayer:    make(map[uint64]*activeBattle),
+		pendingChallenges: make(map[uint64]PVPChallenge),
 	}
 }
+
+const pvpChallengeTimeout = 30 * time.Second
 
 func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity) (*StartSnapshot, error) {
 	if profile == nil {
@@ -124,19 +150,20 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 	s.nextBattleID++
 	battleID := s.nextBattleID
 	battle := &activeBattle{
-		battleID:      battleID,
-		battleType:    BattleTypePVE,
-		battleVersion: 1,
-		round:         1,
-		phase:         PhaseCommand,
-		playerID:      profile.PlayerID,
-		returnSceneID: profile.SceneID,
-		returnPos:     world.Vec2i{X: profile.PosX, Y: profile.PosY},
-		allies:        buildAllyTeam(profile, lineup),
-		enemies:       buildEnemyTeam(profile, enemy),
-		plannedActs:   make(map[uint64]ActionRequest),
+		battleID:             battleID,
+		battleType:           BattleTypePVE,
+		battleVersion:        1,
+		round:                1,
+		phase:                PhaseCommand,
+		playerID:             profile.PlayerID,
+		participantPlayerIDs: []uint64{profile.PlayerID},
+		returnSceneID:        profile.SceneID,
+		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
+		allies:               buildPlayerTeam(profile, lineup, PlayerActorType),
+		enemies:              buildEnemyTeam(profile, enemy),
+		plannedActs:          make(map[uint64]ActionRequest),
 	}
-	battle.pendingActors = battle.collectPendingAllies()
+	battle.pendingActors = battle.collectPendingControllableActors()
 	battle.resetCommandDeadline()
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
@@ -144,6 +171,120 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 
 	s.activeByPlayer[profile.PlayerID] = battle
 	return battle.toStartSnapshot(), nil
+}
+
+// StartPVP creates one shared authoritative battle for two online players.
+// The challenger controls the ally side and the defender controls the enemy
+// side, but both sides are still fully player-authored rather than AI.
+func (s *Service) StartPVP(_ context.Context, challenger *player.Profile, challengerLineup []pet.LineupPet, defender *player.Profile, defenderLineup []pet.LineupPet) (*StartSnapshot, error) {
+	if challenger == nil || defender == nil {
+		return nil, ErrTargetUnavailable
+	}
+	if len(challengerLineup) == 0 || len(defenderLineup) == 0 {
+		return nil, ErrNoLineupAvailable
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.activeByPlayer[challenger.PlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+	if _, exists := s.activeByPlayer[defender.PlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+
+	s.nextBattleID++
+	battleID := s.nextBattleID
+	battle := &activeBattle{
+		battleID:             battleID,
+		battleType:           BattleTypePVP,
+		battleVersion:        1,
+		round:                1,
+		phase:                PhaseCommand,
+		playerID:             challenger.PlayerID,
+		participantPlayerIDs: []uint64{challenger.PlayerID, defender.PlayerID},
+		returnSceneID:        challenger.SceneID,
+		returnPos:            world.Vec2i{X: challenger.PosX, Y: challenger.PosY},
+		allies:               buildPlayerTeam(challenger, challengerLineup, PlayerActorType),
+		enemies:              buildPlayerTeam(defender, defenderLineup, EnemyActorType),
+		plannedActs:          make(map[uint64]ActionRequest),
+	}
+	battle.pendingActors = battle.collectPendingControllableActors()
+	battle.resetCommandDeadline()
+	if len(battle.pendingActors) == 0 {
+		return nil, ErrNoLineupAvailable
+	}
+
+	s.activeByPlayer[challenger.PlayerID] = battle
+	s.activeByPlayer[defender.PlayerID] = battle
+	return battle.toStartSnapshot(), nil
+}
+
+func (s *Service) CreatePVPChallenge(_ context.Context, challengerPlayerID uint64, defenderPlayerID uint64) (*PVPChallenge, error) {
+	if challengerPlayerID == 0 || defenderPlayerID == 0 || challengerPlayerID == defenderPlayerID {
+		return nil, ErrChallengeInvalid
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.activeByPlayer[challengerPlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+	if _, exists := s.activeByPlayer[defenderPlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+	now := time.Now()
+	for challengeID, challenge := range s.pendingChallenges {
+		if now.After(challenge.ExpiresAt) {
+			delete(s.pendingChallenges, challengeID)
+		}
+		if challenge.ChallengerPlayerID == challengerPlayerID && challenge.DefenderPlayerID == defenderPlayerID {
+			copy := challenge
+			return &copy, nil
+		}
+	}
+
+	s.nextChallengeID++
+	challenge := PVPChallenge{
+		ChallengeID:        s.nextChallengeID,
+		ChallengerPlayerID: challengerPlayerID,
+		DefenderPlayerID:   defenderPlayerID,
+		CreatedAt:          now,
+		ExpiresAt:          now.Add(pvpChallengeTimeout),
+	}
+	s.pendingChallenges[challenge.ChallengeID] = challenge
+	return &challenge, nil
+}
+
+func (s *Service) ResolvePVPChallenge(_ context.Context, challengeID uint64, defenderPlayerID uint64, accept bool) (*PVPChallenge, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	challenge, ok := s.pendingChallenges[challengeID]
+	if !ok {
+		return nil, ErrChallengeNotFound
+	}
+	delete(s.pendingChallenges, challengeID)
+	if challenge.DefenderPlayerID != defenderPlayerID {
+		return nil, ErrChallengeInvalid
+	}
+	if time.Now().After(challenge.ExpiresAt) {
+		return nil, ErrChallengeExpired
+	}
+	if !accept {
+		copy := challenge
+		return &copy, nil
+	}
+	if _, exists := s.activeByPlayer[challenge.ChallengerPlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+	if _, exists := s.activeByPlayer[challenge.DefenderPlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+	copy := challenge
+	return &copy, nil
 }
 
 func (s *Service) SubmitAction(_ context.Context, playerID uint64, request ActionRequest) (*ActionOutcome, error) {
@@ -163,7 +304,7 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 		return s.queueActionLocked(playerID, battle, request)
 	case ActionTypeEscape:
 		result := battle.buildResult(false, "player escaped battle")
-		delete(s.activeByPlayer, playerID)
+		s.removeBattleLocked(battle)
 		return &ActionOutcome{
 			Response: BattleActionResponse{Accepted: true, Reason: "escape accepted"},
 			Result:   result,
@@ -194,9 +335,104 @@ func (s *Service) ProgressAuto(_ context.Context, playerID uint64) (*ActionOutco
 	}, nil
 }
 
+// GetActiveSnapshot returns a full reconnect-friendly snapshot of the current
+// authoritative battle, including both the actor roster and the latest command
+// phase state. Callers should treat a nil result as "player is not in battle".
+func (s *Service) GetActiveSnapshot(_ context.Context, playerID uint64) (*StartSnapshot, *StateSnapshot, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, ok := s.activeByPlayer[playerID]
+	if !ok {
+		return nil, nil, false
+	}
+	return current.toStartSnapshot(), current.toStateSnapshot(nil), true
+}
+
+// GetReplaySnapshots returns recent authoritative state snapshots newer than
+// the client-reported frame for the same active battle.
+func (s *Service) GetReplaySnapshots(_ context.Context, playerID uint64, battleID uint64, lastFrame uint32) []StateSnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, ok := s.activeByPlayer[playerID]
+	if !ok || battleID == 0 || current.battleID != battleID {
+		return nil
+	}
+	result := make([]StateSnapshot, 0, len(current.stateHistory))
+	for _, item := range current.stateHistory {
+		if item.Frame <= lastFrame {
+			continue
+		}
+		result = append(result, cloneStateSnapshot(item))
+	}
+	return result
+}
+
+// EnableAutoForPlayer flips the active battle into server custody mode. The
+// next heartbeat or background sweep will pick up any remaining pending actors.
+func (s *Service) EnableAutoForPlayer(_ context.Context, playerID uint64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	battle, ok := s.activeByPlayer[playerID]
+	if !ok || battle.phase != PhaseCommand {
+		return false
+	}
+	if battle.autoBattleEnabled {
+		return true
+	}
+	battle.autoBattleEnabled = true
+	battle.commandDeadline = time.Time{}
+	battle.battleVersion++
+	return true
+}
+
+// ResolveDisconnect keeps PVE and PVP disconnect handling separated: PVE can
+// still move into AI custody, while the current minimal PVP skeleton ends
+// immediately and treats the disconnected side as the loser.
+func (s *Service) ResolveDisconnect(_ context.Context, playerID uint64) *ResultSnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, ok := s.activeByPlayer[playerID]
+	if !ok || current.battleType != BattleTypePVP {
+		return nil
+	}
+	win := !current.isPlayerOnAllySide(playerID)
+	result := current.buildResult(win, "player disconnected")
+	s.removeBattleLocked(current)
+	return result
+}
+
+// ProgressAutoAll scans every active battle once so disconnected players can
+// still be progressed by a background server loop without requiring heartbeats.
+func (s *Service) ProgressAutoAll(_ context.Context) []AutoProgressOutcome {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	outcomes := make([]AutoProgressOutcome, 0)
+	for playerID, battle := range s.activeByPlayer {
+		if battle.phase != PhaseCommand || !battle.shouldAutoResolve(now) {
+			continue
+		}
+		state, result := s.autoResolvePendingLocked(playerID, battle)
+		outcomes = append(outcomes, AutoProgressOutcome{
+			PlayerID: playerID,
+			Outcome: &ActionOutcome{
+				Response: BattleActionResponse{Accepted: true, Reason: "server auto resolved pending actions"},
+				State:    state,
+				Result:   result,
+			},
+		})
+	}
+	return outcomes
+}
+
 func (s *Service) queueActionLocked(playerID uint64, battle *activeBattle, request ActionRequest) (*ActionOutcome, error) {
 	actor := battle.findActor(request.ActorID)
-	if actor == nil || actor.isDead() || actor.actorType != PlayerActorType {
+	if actor == nil || actor.isDead() || actor.ownerPlayerID != playerID {
 		return nil, ErrInvalidAction
 	}
 	if !battle.isPendingActor(actor.actorID) {
@@ -231,13 +467,13 @@ func (s *Service) queueActionLocked(playerID uint64, battle *activeBattle, reque
 		battle.battleVersion++
 		return &ActionOutcome{
 			Response: BattleActionResponse{Accepted: true, Reason: "action queued"},
-			State:    battle.toStateSnapshot(nil),
+			State:    battle.recordStateSnapshot(nil),
 		}, nil
 	}
 
 	state, result := battle.resolveRound()
 	if result != nil {
-		delete(s.activeByPlayer, playerID)
+		s.removeBattleLocked(battle)
 	}
 	return &ActionOutcome{
 		Response: BattleActionResponse{Accepted: true, Reason: "action accepted"},
@@ -260,7 +496,7 @@ func (s *Service) setAutoBattleLocked(playerID uint64, battle *activeBattle, req
 	battle.battleVersion++
 	return &ActionOutcome{
 		Response: BattleActionResponse{Accepted: true, Reason: "auto battle updated"},
-		State:    battle.toStateSnapshot(nil),
+		State:    battle.recordStateSnapshot(nil),
 	}, nil
 }
 
@@ -275,12 +511,21 @@ func (s *Service) autoResolvePendingLocked(playerID uint64, battle *activeBattle
 	battle.pendingActors = nil
 	state, result := battle.resolveRound()
 	if result != nil {
-		delete(s.activeByPlayer, playerID)
+		s.removeBattleLocked(battle)
 	}
 	return state, result
 }
 
-func buildAllyTeam(profile *player.Profile, lineup []pet.LineupPet) []*actorRuntime {
+func (s *Service) removeBattleLocked(current *activeBattle) {
+	if current == nil {
+		return
+	}
+	for _, participantPlayerID := range current.participantPlayerIDs {
+		delete(s.activeByPlayer, participantPlayerID)
+	}
+}
+
+func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType uint32) []*actorRuntime {
 	allies := make([]*actorRuntime, 0, len(lineup))
 	for index, item := range lineup {
 		skillIDs := append([]uint32{}, item.SkillIDs...)
@@ -289,7 +534,8 @@ func buildAllyTeam(profile *player.Profile, lineup []pet.LineupPet) []*actorRunt
 		}
 		allies = append(allies, &actorRuntime{
 			actorID:              item.PetUID,
-			actorType:            PlayerActorType,
+			actorType:            actorType,
+			ownerPlayerID:        profile.PlayerID,
 			petUID:               item.PetUID,
 			petID:                item.PetID,
 			lineupIndex:          uint32(index),
@@ -343,6 +589,7 @@ func buildEnemyTeam(profile *player.Profile, enemy world.Entity) []*actorRuntime
 		enemies = append(enemies, &actorRuntime{
 			actorID:              enemy.EntityID*10 + uint64(index+1),
 			actorType:            EnemyActorType,
+			ownerPlayerID:        0,
 			petUID:               0,
 			petID:                DefaultEnemyPetID + uint32(index),
 			lineupIndex:          uint32(index),
@@ -447,11 +694,11 @@ func (b *activeBattle) resolveRound() (*StateSnapshot, *ResultSnapshot) {
 	} else {
 		b.round++
 		b.phase = PhaseCommand
-		b.pendingActors = b.collectPendingAllies()
+		b.pendingActors = b.collectPendingControllableActors()
 		b.resetCommandDeadline()
 	}
 	b.battleVersion++
-	state := b.toStateSnapshot(events)
+	state := b.recordStateSnapshot(events)
 	return state, result
 }
 
@@ -466,7 +713,10 @@ func (b *activeBattle) collectTurnDecisions() []turnDecision {
 		decisions = append(decisions, turnDecision{actor: actor, action: decision, tie: rng.Int63()})
 	}
 	for _, actor := range b.livingActors(b.enemies) {
-		decision := b.defaultActionFor(actor)
+		decision := b.plannedActs[actor.actorID]
+		if decision.SkillID == 0 {
+			decision = b.defaultActionFor(actor)
+		}
 		decisions = append(decisions, turnDecision{actor: actor, action: decision, tie: rng.Int63()})
 	}
 	sort.SliceStable(decisions, func(left, right int) bool {
@@ -493,14 +743,18 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skill, _ = getSkillDef(skillID)
 	}
 	target := b.resolveDecisionTarget(actor, action.TargetID, skill)
-	if target == nil {
+	if target == nil && skill.TargetRule != targetEnemyAll {
 		return nil
 	}
 
+	primaryTargetID := uint64(0)
+	if target != nil {
+		primaryTargetID = target.actorID
+	}
 	events := []Event{{
 		EventType: EventTypeUseSkill,
 		SourceID:  actor.actorID,
-		TargetID:  target.actorID,
+		TargetID:  primaryTargetID,
 		SkillID:   skillID,
 		Label:     fmt.Sprintf("%s 使用了 %s。", actor.name, skill.Name),
 	}}
@@ -528,6 +782,18 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 					Label:     fmt.Sprintf("%s 的暴击率提升了 %d%%。", target.name, skill.CritBoostPct),
 				})
 			}
+		}
+		return events
+	}
+	if skill.TargetRule == targetEnemyAll && target == nil {
+		for _, multiTarget := range b.resolveAllEnemyTargets(actor) {
+			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true)...)
+		}
+		return events
+	}
+	if skill.TargetRule == targetEnemyMulti && target != nil {
+		for _, multiTarget := range b.resolveMultiEnemyTargets(actor, target, skill.TargetCount) {
+			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true)...)
 		}
 		return events
 	}
@@ -816,16 +1082,74 @@ func (b *activeBattle) buildRoundResult() *ResultSnapshot {
 
 func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 	petResults := make([]PetResult, 0, len(b.allies))
+	rewardGold := uint32(0)
+	rewardPlayerExp := uint64(0)
+	rewardPetExp := uint64(0)
+	dropTexts := []string{}
+	if win && b.battleType == BattleTypePVE {
+		rewardGold, rewardPlayerExp, rewardPetExp, dropTexts = b.buildPVERewards()
+	}
 	for _, actor := range b.allies {
-		petResults = append(petResults, PetResult{PetUID: actor.petUID, HP: actor.hp})
+		petResults = append(petResults, PetResult{
+			PetUID:    actor.petUID,
+			HP:        actor.hp,
+			ExpGained: rewardPetExp,
+		})
 	}
 	return &ResultSnapshot{
-		BattleID:      b.battleID,
-		PetResults:    petResults,
-		Win:           win,
-		ReturnSceneID: b.returnSceneID,
-		ReturnPos:     b.returnPos,
-		Reason:        reason,
+		BattleID:             b.battleID,
+		BattleType:           b.battleType,
+		ParticipantPlayerIDs: append([]uint64{}, b.participantPlayerIDs...),
+		PetResults:           petResults,
+		Win:                  win,
+		ReturnSceneID:        b.returnSceneID,
+		ReturnPos:            b.returnPos,
+		Reason:               reason,
+		RewardGold:           rewardGold,
+		RewardPlayerExp:      rewardPlayerExp,
+		DropTexts:            append([]string{}, dropTexts...),
+	}
+}
+
+// buildPVERewards keeps the first reward formula deliberately simple and fully
+// server-authored: enemy lineup size and level determine stable gold / exp
+// payouts, while each participating ally receives the same pet exp packet.
+func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []string) {
+	totalGold := uint32(0)
+	totalPlayerExp := uint64(0)
+	totalPetExp := uint64(0)
+	dropTexts := make([]string, 0, len(b.enemies))
+	for _, enemy := range b.enemies {
+		baseGold := enemy.level*6 + 12
+		baseExp := uint64(enemy.level)*10 + 18
+		if enemy.petID >= 9002 {
+			baseGold += 6
+			baseExp += 8
+		}
+		totalGold += baseGold
+		totalPlayerExp += baseExp
+		totalPetExp += baseExp
+		dropTexts = append(dropTexts, buildEnemyDropText(enemy))
+	}
+	return totalGold, totalPlayerExp, totalPetExp, dropTexts
+}
+
+// buildEnemyDropText gives the current MVP a deterministic text-only loot
+// preview without introducing a full bag pipeline yet.
+func buildEnemyDropText(enemy *actorRuntime) string {
+	if enemy == nil {
+		return ""
+	}
+	switch enemy.petID {
+	case 9001:
+		return "掉落: 野性毛皮 x1"
+	case 9002:
+		return "掉落: 锋爪碎片 x1"
+	default:
+		if enemy.level >= 4 {
+			return "掉落: 训练徽记 x1"
+		}
+		return "掉落: 治愈草叶 x1"
 	}
 }
 
@@ -834,6 +1158,8 @@ func (b *activeBattle) toStartSnapshot() *StartSnapshot {
 		BattleID:             b.battleID,
 		BattleType:           b.battleType,
 		BattleVersion:        b.battleVersion,
+		Frame:                b.battleVersion,
+		ParticipantPlayerIDs: append([]uint64{}, b.participantPlayerIDs...),
 		Allies:               b.snapshotActors(b.allies),
 		Enemies:              b.snapshotActors(b.enemies),
 		Round:                b.round,
@@ -853,6 +1179,8 @@ func (b *activeBattle) toStateSnapshot(events []Event) *StateSnapshot {
 	return &StateSnapshot{
 		BattleID:             b.battleID,
 		BattleVersion:        b.battleVersion,
+		Frame:                b.battleVersion,
+		ParticipantPlayerIDs: append([]uint64{}, b.participantPlayerIDs...),
 		Round:                b.round,
 		Phase:                b.phase,
 		Events:               copiedEvents,
@@ -864,6 +1192,28 @@ func (b *activeBattle) toStateSnapshot(events []Event) *StateSnapshot {
 		PendingActorIDs:      append([]uint64{}, b.pendingActors...),
 		ControllableActorIDs: b.controllableActorIDs(),
 	}
+}
+
+func (b *activeBattle) recordStateSnapshot(events []Event) *StateSnapshot {
+	snapshot := b.toStateSnapshot(events)
+	b.appendStateHistory(*snapshot)
+	return snapshot
+}
+
+func (b *activeBattle) appendStateHistory(snapshot StateSnapshot) {
+	b.stateHistory = append(b.stateHistory, cloneStateSnapshot(snapshot))
+	if len(b.stateHistory) > battleReplayHistoryLimit {
+		b.stateHistory = append([]StateSnapshot{}, b.stateHistory[len(b.stateHistory)-battleReplayHistoryLimit:]...)
+	}
+}
+
+func cloneStateSnapshot(input StateSnapshot) StateSnapshot {
+	clone := input
+	clone.Events = append([]Event{}, input.Events...)
+	clone.Actors = append([]ActorState{}, input.Actors...)
+	clone.PendingActorIDs = append([]uint64{}, input.PendingActorIDs...)
+	clone.ControllableActorIDs = append([]uint64{}, input.ControllableActorIDs...)
+	return clone
 }
 
 func (b *activeBattle) snapshotActors(actors []*actorRuntime) []ActorSnapshot {
@@ -954,6 +1304,9 @@ func (b *activeBattle) normalizeRequestedTarget(actor *actorRuntime, targetID ui
 		}
 		return 0
 	}
+	if skill.TargetRule == targetEnemyAll {
+		return 0
+	}
 	var target *actorRuntime
 	if actor.actorType == PlayerActorType {
 		target = b.findLivingActorFromList(b.enemies, targetID)
@@ -979,6 +1332,9 @@ func (b *activeBattle) resolveSkillTarget(actor *actorRuntime, targetID uint64, 
 		}
 		return b.findLivingActorFromList(b.enemies, targetID)
 	}
+	if skill.TargetRule == targetEnemyAll {
+		return nil
+	}
 	if actor.actorType == PlayerActorType {
 		return b.findLivingActorFromList(b.enemies, targetID)
 	}
@@ -992,6 +1348,45 @@ func (b *activeBattle) resolveDecisionTarget(actor *actorRuntime, targetID uint6
 		return b.randomConfusionTarget(actor)
 	}
 	return b.resolveSkillTarget(actor, targetID, skill)
+}
+
+func (b *activeBattle) resolveAllEnemyTargets(actor *actorRuntime) []*actorRuntime {
+	if actor == nil {
+		return nil
+	}
+	if actor.actorType == PlayerActorType {
+		return b.livingActors(b.enemies)
+	}
+	return b.livingActors(b.allies)
+}
+
+func (b *activeBattle) resolveMultiEnemyTargets(actor *actorRuntime, primary *actorRuntime, count uint32) []*actorRuntime {
+	if actor == nil || primary == nil {
+		return nil
+	}
+	if count == 0 {
+		count = 1
+	}
+	candidates := b.resolveAllEnemyTargets(actor)
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	result := make([]*actorRuntime, 0, count)
+	seen := map[uint64]bool{}
+	result = append(result, primary)
+	seen[primary.actorID] = true
+	for _, candidate := range candidates {
+		if uint32(len(result)) >= count {
+			break
+		}
+		if candidate == nil || seen[candidate.actorID] {
+			continue
+		}
+		result = append(result, candidate)
+		seen[candidate.actorID] = true
+	}
+	return result
 }
 
 func (b *activeBattle) findActor(actorID uint64) *actorRuntime {
@@ -1029,19 +1424,23 @@ func (b *activeBattle) livingActors(actors []*actorRuntime) []*actorRuntime {
 	return result
 }
 
-func (b *activeBattle) collectPendingAllies() []uint64 {
-	result := make([]uint64, 0, len(b.allies))
-	for _, actor := range b.allies {
-		if !actor.isDead() {
-			result = append(result, actor.actorID)
+func (b *activeBattle) collectPendingControllableActors() []uint64 {
+	result := make([]uint64, 0, len(b.allies)+len(b.enemies))
+	for _, actor := range b.allActors() {
+		if actor == nil || actor.isDead() || actor.ownerPlayerID == 0 {
+			continue
 		}
+		result = append(result, actor.actorID)
 	}
 	return result
 }
 
 func (b *activeBattle) controllableActorIDs() []uint64 {
-	result := make([]uint64, 0, len(b.allies))
-	for _, actor := range b.allies {
+	result := make([]uint64, 0, len(b.allies)+len(b.enemies))
+	for _, actor := range b.allActors() {
+		if actor == nil || actor.ownerPlayerID == 0 {
+			continue
+		}
 		result = append(result, actor.actorID)
 	}
 	return result
@@ -1051,8 +1450,8 @@ func (b *activeBattle) currentActiveActorID() uint64 {
 	if len(b.pendingActors) > 0 {
 		return b.pendingActors[0]
 	}
-	for _, actor := range b.allies {
-		if !actor.isDead() {
+	for _, actor := range b.allActors() {
+		if !actor.isDead() && actor.ownerPlayerID != 0 {
 			return actor.actorID
 		}
 	}
@@ -1061,7 +1460,7 @@ func (b *activeBattle) currentActiveActorID() uint64 {
 
 func (b *activeBattle) currentActivePetUID() uint64 {
 	actorID := b.currentActiveActorID()
-	for _, actor := range b.allies {
+	for _, actor := range b.allActors() {
 		if actor.actorID == actorID {
 			return actor.petUID
 		}
@@ -1103,6 +1502,15 @@ func (b *activeBattle) rollChance(chancePct uint32, sourceID, targetID uint64) b
 	}
 	rng := rand.New(rand.NewSource(int64(b.battleID) + int64(b.round)*131 + int64(sourceID) + int64(targetID)))
 	return uint32(rng.Intn(100)) < chancePct
+}
+
+func (b *activeBattle) isPlayerOnAllySide(playerID uint64) bool {
+	for _, actor := range b.allies {
+		if actor.ownerPlayerID == playerID {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *activeBattle) hasWinner() bool {
@@ -1178,33 +1586,36 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 	for _, skillID := range a.skillIDs {
 		if def, ok := getSkillDef(skillID); ok {
 			skillSnapshots = append(skillSnapshots, SkillSnapshot{
-				SkillID:    skillID,
-				Name:       def.Name,
-				TargetType: def.TargetRule.protocolName(),
+				SkillID:     skillID,
+				Name:        def.Name,
+				TargetType:  def.TargetRule.protocolName(),
+				TargetCount: def.TargetCount,
 			})
 			continue
 		}
 		skillSnapshots = append(skillSnapshots, SkillSnapshot{
-			SkillID:    skillID,
-			Name:       fmt.Sprintf("技能%d", skillID),
-			TargetType: targetEnemySingle.protocolName(),
+			SkillID:     skillID,
+			Name:        fmt.Sprintf("技能%d", skillID),
+			TargetType:  targetEnemySingle.protocolName(),
+			TargetCount: 1,
 		})
 	}
 	return ActorSnapshot{
-		ActorID:     a.actorID,
-		ActorType:   a.actorType,
-		PetUID:      a.petUID,
-		PetID:       a.petID,
-		Name:        a.name,
-		HP:          a.hp,
-		HPMax:       a.hpMax,
-		ATK:         a.atk,
-		DEF:         a.def,
-		SPD:         a.spd,
-		Skills:      skillSnapshots,
-		SkillIDs:    append([]uint32{}, a.skillIDs...),
-		StatusIDs:   a.statusIDs(),
-		LineupIndex: a.lineupIndex,
+		ActorID:       a.actorID,
+		ActorType:     a.actorType,
+		OwnerPlayerID: a.ownerPlayerID,
+		PetUID:        a.petUID,
+		PetID:         a.petID,
+		Name:          a.name,
+		HP:            a.hp,
+		HPMax:         a.hpMax,
+		ATK:           a.atk,
+		DEF:           a.def,
+		SPD:           a.spd,
+		Skills:        skillSnapshots,
+		SkillIDs:      append([]uint32{}, a.skillIDs...),
+		StatusIDs:     a.statusIDs(),
+		LineupIndex:   a.lineupIndex,
 	}
 }
 

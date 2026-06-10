@@ -109,3 +109,25 @@ func (s *Service) UpdatePetHP(ctx context.Context, playerID uint64, petUID uint6
 	}
 	return s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp)
 }
+
+func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (Pet, error) {
+	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)
+	if err != nil {
+		return Pet{}, err
+	}
+
+	var target *Pet
+	for index := range pets {
+		if pets[index].PetUID == petUID {
+			target = &pets[index]
+			break
+		}
+	}
+	if target == nil {
+		return Pet{}, ErrPetNotFound
+	}
+	if hp > target.HPMax {
+		hp = target.HPMax
+	}
+	return s.repo.UpdatePetHPAndExpByUID(ctx, playerID, petUID, hp, expGain)
+}

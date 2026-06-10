@@ -126,7 +126,7 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
 	lineup := []pet.LineupPet{
-		{PetUID: 20001, PetID: 101, Level: 5, HP: 60, HPMax: 60, ATK: 12, DEF: 10, SPD: 8, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1002}},
 		{PetUID: 20002, PetID: 102, Level: 4, HP: 30, HPMax: 30, ATK: 11, DEF: 11, SPD: 9, MANA: 18, SkillIDs: []uint32{1001, 1003}},
 	}
 	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
@@ -193,5 +193,192 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	}
 	if timeoutOutcome.State.Round != 2 {
 		t.Fatalf("timeoutOutcome.State.Round = %d, want 2", timeoutOutcome.State.Round)
+	}
+}
+
+func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
+	svc := NewService()
+	ctx := context.Background()
+	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
+	lineup := []pet.LineupPet{
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+		{PetUID: 20002, PetID: 102, Level: 4, HP: 30, HPMax: 30, ATK: 11, DEF: 11, SPD: 9, MANA: 18, SkillIDs: []uint32{1001, 1003}},
+	}
+	enemy := world.Entity{EntityID: 90004, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if len(start.Enemies) != 2 {
+		t.Fatalf("len(start.Enemies) = %d, want 2", len(start.Enemies))
+	}
+	if start.Allies[0].Skills[1].TargetType != "enemy_all" {
+		t.Fatalf("start.Allies[0].Skills[1].TargetType = %q, want enemy_all", start.Allies[0].Skills[1].TargetType)
+	}
+
+	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    1002,
+		TargetID:   0,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(all target) error = %v", err)
+	}
+	outcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[1].ActorID,
+		SkillID:    1001,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(second ally) error = %v", err)
+	}
+	if outcome.State == nil {
+		t.Fatal("outcome.State = nil, want resolved round state")
+	}
+
+	damagedTargets := map[uint64]bool{}
+	for _, event := range outcome.State.Events {
+		if event.EventType == EventTypeDamage && (event.TargetID == start.Enemies[0].ActorID || event.TargetID == start.Enemies[1].ActorID) {
+			damagedTargets[event.TargetID] = true
+		}
+	}
+	if len(damagedTargets) < 2 {
+		t.Fatalf("damagedTargets = %#v, enemies=(%d,%d), events=%#v", damagedTargets, start.Enemies[0].ActorID, start.Enemies[1].ActorID, outcome.State.Events)
+	}
+}
+
+func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
+	svc := NewService()
+	ctx := context.Background()
+	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
+	lineup := []pet.LineupPet{
+		// 第一只宠物显式携带双目标技能，用来验证服务端会以用户指定目标为首，
+		// 再自动补足剩余存活敌方单位，而不是把多目标选择权交给客户端。
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1004}},
+		{PetUID: 20002, PetID: 102, Level: 4, HP: 30, HPMax: 30, ATK: 11, DEF: 11, SPD: 9, MANA: 18, SkillIDs: []uint32{1001, 1003}},
+	}
+	enemy := world.Entity{EntityID: 90004, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if len(start.Enemies) != 2 {
+		t.Fatalf("len(start.Enemies) = %d, want 2", len(start.Enemies))
+	}
+	if len(start.Allies[0].Skills) != 2 || start.Allies[0].Skills[1].TargetType != "enemy_multi" {
+		t.Fatalf("first ally skills = %#v, want second skill target type enemy_multi", start.Allies[0].Skills)
+	}
+	if start.Allies[0].Skills[1].TargetCount != 2 {
+		t.Fatalf("start.Allies[0].Skills[1].TargetCount = %d, want 2", start.Allies[0].Skills[1].TargetCount)
+	}
+
+	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    1004,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(multi target) error = %v", err)
+	}
+	outcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[1].ActorID,
+		SkillID:    1001,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(second ally) error = %v", err)
+	}
+	if outcome.State == nil {
+		t.Fatal("outcome.State = nil, want resolved round state")
+	}
+
+	damagedTargets := map[uint64]bool{}
+	for _, event := range outcome.State.Events {
+		if event.EventType == EventTypeDamage && (event.TargetID == start.Enemies[0].ActorID || event.TargetID == start.Enemies[1].ActorID) {
+			damagedTargets[event.TargetID] = true
+		}
+	}
+	if len(damagedTargets) < 2 {
+		t.Fatalf("damagedTargets = %#v, enemies=(%d,%d), events=%#v", damagedTargets, start.Enemies[0].ActorID, start.Enemies[1].ActorID, outcome.State.Events)
+	}
+}
+
+func TestServiceStartPVPWaitsForBothPlayers(t *testing.T) {
+	svc := NewService()
+	ctx := context.Background()
+	challenger := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
+	defender := &player.Profile{PlayerID: 10002, Name: "RivalTrainer", Level: 8, SceneID: 1, PosX: 9, PosY: 6}
+	challengerLineup := []pet.LineupPet{
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+	}
+	defenderLineup := []pet.LineupPet{
+		{PetUID: 21001, PetID: 101, Level: 5, HP: 110, HPMax: 110, ATK: 12, DEF: 10, SPD: 28, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+	}
+
+	start, err := svc.StartPVP(ctx, challenger, challengerLineup, defender, defenderLineup)
+	if err != nil {
+		t.Fatalf("StartPVP() error = %v", err)
+	}
+	if start.BattleType != BattleTypePVP {
+		t.Fatalf("start.BattleType = %d, want %d", start.BattleType, BattleTypePVP)
+	}
+	if len(start.ParticipantPlayerIDs) != 2 {
+		t.Fatalf("len(start.ParticipantPlayerIDs) = %d, want 2", len(start.ParticipantPlayerIDs))
+	}
+	if len(start.PendingActorIDs) != 2 {
+		t.Fatalf("len(start.PendingActorIDs) = %d, want 2", len(start.PendingActorIDs))
+	}
+	if start.Enemies[0].OwnerPlayerID != defender.PlayerID {
+		t.Fatalf("start.Enemies[0].OwnerPlayerID = %d, want %d", start.Enemies[0].OwnerPlayerID, defender.PlayerID)
+	}
+
+	outcomeOne, err := svc.SubmitAction(ctx, challenger.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Allies[0].ActorID,
+		SkillID:    1001,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(challenger) error = %v", err)
+	}
+	if outcomeOne.State == nil || len(outcomeOne.State.PendingActorIDs) != 1 {
+		t.Fatalf("outcomeOne.State.PendingActorIDs = %#v, want one defender actor pending", outcomeOne.State)
+	}
+
+	outcomeTwo, err := svc.SubmitAction(ctx, defender.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    start.Enemies[0].ActorID,
+		SkillID:    1001,
+		TargetID:   start.Allies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(defender) error = %v", err)
+	}
+	if outcomeTwo.State == nil {
+		t.Fatal("outcomeTwo.State = nil, want resolved shared state")
+	}
+	if outcomeTwo.State.Round != 2 {
+		t.Fatalf("outcomeTwo.State.Round = %d, want 2", outcomeTwo.State.Round)
+	}
+	if len(outcomeTwo.State.ParticipantPlayerIDs) != 2 {
+		t.Fatalf("len(outcomeTwo.State.ParticipantPlayerIDs) = %d, want 2", len(outcomeTwo.State.ParticipantPlayerIDs))
 	}
 }

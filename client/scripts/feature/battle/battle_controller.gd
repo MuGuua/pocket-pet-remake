@@ -39,6 +39,7 @@ func handle_battle_state(payload: Dictionary) -> void:
 
 # 处理战斗结果推送，并把全局状态切换为非战斗态。
 func handle_battle_result(payload: Dictionary) -> void:
+    GameState.apply_battle_player_rewards(payload)
     GameState.set_battle_state(payload, false)
     battle_updated.emit(GameState.battle_state)
     battle_finished.emit(GameState.battle_state)

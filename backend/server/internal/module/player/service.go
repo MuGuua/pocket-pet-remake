@@ -24,3 +24,7 @@ func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, er
 func (s *Service) UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX, posY int32) error {
 	return s.repo.UpdatePosition(ctx, playerID, sceneID, posX, posY)
 }
+
+func (s *Service) AddGoldAndExp(ctx context.Context, playerID uint64, gold uint32, exp uint64) (*Profile, error) {
+	return s.repo.AddGoldAndExp(ctx, playerID, gold, exp)
+}

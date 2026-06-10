@@ -27,6 +27,7 @@ import (
 type App struct {
 	server         *http.Server
 	sessionService *session.Service
+	battleHandler  *wstransport.BattleHandler
 	logger         *log.Logger
 	cleanupClosers []io.Closer
 }
@@ -62,7 +63,8 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, questService, worldService)
 	petHandler := wstransport.NewPetHandler(sessionService, petService)
-	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService)
+	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, repos.Battles)
+	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService)
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
@@ -78,6 +80,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	return &App{
 		server:         server,
 		sessionService: sessionService,
+		battleHandler:  battleHandler,
 		logger:         logger,
 		cleanupClosers: closers,
 	}, nil
@@ -86,6 +89,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 func (a *App) Run(ctx context.Context) error {
 	defer a.closeResources()
 	go a.sessionService.StartSweeper(ctx)
+	if a.battleHandler != nil {
+		go a.battleHandler.StartCustodySweeper(ctx)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

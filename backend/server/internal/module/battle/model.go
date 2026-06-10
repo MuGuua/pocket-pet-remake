@@ -8,6 +8,7 @@ import (
 
 const (
 	BattleTypePVE uint32 = 1
+	BattleTypePVP uint32 = 2
 
 	ActionTypeSkill   uint32 = 1
 	ActionTypeEscape  uint32 = 4
@@ -55,35 +56,42 @@ var (
 	ErrInvalidAction       = errors.New("invalid battle action")
 	ErrNoLineupAvailable   = errors.New("no lineup available")
 	ErrTargetUnavailable   = errors.New("target unavailable")
+	ErrChallengeNotFound   = errors.New("pvp challenge not found")
+	ErrChallengeExpired    = errors.New("pvp challenge expired")
+	ErrChallengeInvalid    = errors.New("pvp challenge invalid")
 )
 
 type ActorSnapshot struct {
-	ActorID     uint64
-	ActorType   uint32
-	PetUID      uint64
-	PetID       uint32
-	Name        string
-	HP          uint32
-	HPMax       uint32
-	ATK         uint32
-	DEF         uint32
-	SPD         uint32
-	Skills      []SkillSnapshot
-	SkillIDs    []uint32
-	StatusIDs   []uint32
-	LineupIndex uint32
+	ActorID       uint64
+	ActorType     uint32
+	OwnerPlayerID uint64
+	PetUID        uint64
+	PetID         uint32
+	Name          string
+	HP            uint32
+	HPMax         uint32
+	ATK           uint32
+	DEF           uint32
+	SPD           uint32
+	Skills        []SkillSnapshot
+	SkillIDs      []uint32
+	StatusIDs     []uint32
+	LineupIndex   uint32
 }
 
 type SkillSnapshot struct {
-	SkillID    uint32
-	Name       string
-	TargetType string
+	SkillID     uint32
+	Name        string
+	TargetType  string
+	TargetCount uint32
 }
 
 type StartSnapshot struct {
 	BattleID             uint64
 	BattleType           uint32
 	BattleVersion        uint32
+	Frame                uint32
+	ParticipantPlayerIDs []uint64
 	Allies               []ActorSnapshot
 	Enemies              []ActorSnapshot
 	Round                uint32
@@ -119,6 +127,8 @@ type ActorState struct {
 type StateSnapshot struct {
 	BattleID             uint64
 	BattleVersion        uint32
+	Frame                uint32
+	ParticipantPlayerIDs []uint64
 	Round                uint32
 	Phase                string
 	Events               []Event
@@ -132,26 +142,32 @@ type StateSnapshot struct {
 }
 
 type PetResult struct {
-	PetUID uint64
-	HP     uint32
+	PetUID    uint64
+	HP        uint32
+	ExpGained uint64
 }
 
 type ResultSnapshot struct {
-	BattleID      uint64
-	PetResults    []PetResult
-	Win           bool
-	ReturnSceneID uint32
-	ReturnPos     world.Vec2i
-	Reason        string
+	BattleID             uint64
+	BattleType           uint32
+	ParticipantPlayerIDs []uint64
+	PetResults           []PetResult
+	Win                  bool
+	ReturnSceneID        uint32
+	ReturnPos            world.Vec2i
+	Reason               string
+	RewardGold           uint32
+	RewardPlayerExp      uint64
+	DropTexts            []string
 }
 
 type ActionRequest struct {
-	BattleID   uint64
-	Round      uint32
-	ActionType uint32
-	ActorID    uint64
-	SkillID    uint32
-	TargetID   uint64
+	BattleID          uint64
+	Round             uint32
+	ActionType        uint32
+	ActorID           uint64
+	SkillID           uint32
+	TargetID          uint64
 	AutoBattleEnabled bool
 }
 

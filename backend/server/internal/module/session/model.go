@@ -20,4 +20,5 @@ type Session struct {
 	ReconnectToken string
 	CreatedAt      time.Time
 	LastHeartbeat  time.Time
+	DisconnectedAt time.Time
 }

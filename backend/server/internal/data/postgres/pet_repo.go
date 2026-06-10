@@ -69,6 +69,13 @@ SET hp = LEAST($3, hp_max)
 WHERE player_id = $1 AND id = $2
 `
 
+const updatePetHPAndExpByUIDQuery = `
+UPDATE player_pet
+SET hp = LEAST($3, hp_max),
+    exp = exp + $4
+WHERE player_id = $1 AND id = $2
+`
+
 func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64) ([]pet.Pet, error) {
 	rows, err := r.db.QueryContext(ctx, listPetsByPlayerIDQuery, playerID)
 	if err != nil {
@@ -184,6 +191,31 @@ func (r *PetRepository) SetLineupByPlayerID(ctx context.Context, playerID uint64
 
 func (r *PetRepository) UpdatePetHPByUID(ctx context.Context, playerID uint64, petUID uint64, hp uint32) (pet.Pet, error) {
 	result, err := r.db.ExecContext(ctx, updatePetHPByUIDQuery, playerID, petUID, hp)
+	if err != nil {
+		return pet.Pet{}, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return pet.Pet{}, err
+	}
+	if rowsAffected == 0 {
+		return pet.Pet{}, pet.ErrPetNotFound
+	}
+
+	pets, err := r.ListPetsByPlayerID(ctx, playerID)
+	if err != nil {
+		return pet.Pet{}, err
+	}
+	for _, item := range pets {
+		if item.PetUID == petUID {
+			return item, nil
+		}
+	}
+	return pet.Pet{}, pet.ErrPetNotFound
+}
+
+func (r *PetRepository) UpdatePetHPAndExpByUID(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (pet.Pet, error) {
+	result, err := r.db.ExecContext(ctx, updatePetHPAndExpByUIDQuery, playerID, petUID, hp, expGain)
 	if err != nil {
 		return pet.Pet{}, err
 	}

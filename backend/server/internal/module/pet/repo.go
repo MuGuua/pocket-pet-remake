@@ -7,4 +7,5 @@ type Repository interface {
 	ListLineupByPlayerID(ctx context.Context, playerID uint64) ([]LineupPet, error)
 	SetLineupByPlayerID(ctx context.Context, playerID uint64, petUIDs []uint64) error
 	UpdatePetHPByUID(ctx context.Context, playerID uint64, petUID uint64, hp uint32) (Pet, error)
+	UpdatePetHPAndExpByUID(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (Pet, error)
 }

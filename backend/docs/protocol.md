@@ -175,6 +175,124 @@
 }
 ```
 
+### 1021 RECONNECT_REQ
+
+```json
+{
+  "reconnect_token": "xxx",
+  "battle_id": 70001,
+  "last_frame": 3
+}
+```
+
+说明：
+
+- 当前第一版断线重连直接使用 `reconnect_token` 恢复实时会话
+- 若客户端断线前仍处于战斗中，可额外携带 `battle_id` 与 `last_frame`
+- 当前 `last_frame` 直接复用服务端下发的 `frame` / `battle_version`
+
+### 1022 RECONNECT_RESP
+
+```json
+{
+  "player_id": 10001,
+  "session_id": "xxx",
+  "reconnect_token": "xxx-new",
+  "heartbeat_sec": 10,
+  "server_time_ms": 1710000005000,
+  "world": {
+    "self": {
+      "player_id": 10001,
+      "name": "DemoTrainer",
+      "level": 8
+    },
+    "scene_id": 1,
+    "self_pos": {
+      "x": 8,
+      "y": 6
+    },
+    "scene_version": 1,
+    "nearby_entities": [],
+    "lineup": [],
+    "gold": 118
+  },
+  "battle_start": {
+    "battle_id": 70001,
+    "battle_type": 1,
+    "battle_version": 3,
+    "allies": [],
+    "enemies": [],
+    "round": 1,
+    "phase": "command",
+    "active_actor_id": 20002,
+    "active_pet_uid": 20002,
+    "command_deadline_ms": 1710000015000,
+    "auto_battle_enabled": true,
+    "pending_actor_ids": [20002],
+    "controllable_actor_ids": [20001, 20002]
+  },
+  "battle_state": {
+    "battle_id": 70001,
+    "battle_version": 3,
+    "frame": 3,
+    "round": 1,
+    "phase": "command",
+    "events": [],
+    "actors": [],
+    "active_actor_id": 20002,
+    "active_pet_uid": 20002,
+    "command_deadline_ms": 1710000015000,
+    "auto_battle_enabled": true,
+    "pending_actor_ids": [20002],
+    "controllable_actor_ids": [20001, 20002]
+  },
+  "battle_replay_states": [
+    {
+      "battle_id": 70001,
+      "battle_version": 2,
+      "frame": 2,
+      "round": 1,
+      "phase": "command",
+      "events": [],
+      "actors": [],
+      "active_actor_id": 20002,
+      "active_pet_uid": 20002,
+      "command_deadline_ms": 1710000010000,
+      "auto_battle_enabled": false,
+      "pending_actor_ids": [20002],
+      "controllable_actor_ids": [20001, 20002]
+    }
+  ],
+  "battle_result": {
+    "battle_id": 70001,
+    "win": true,
+    "return_scene_id": 1,
+    "return_pos": {
+      "x": 8,
+      "y": 6
+    },
+    "reason": "enemy defeated",
+    "reward_gold": 18,
+    "reward_player_exp": 28,
+    "player_gold": 118,
+    "player_exp": 28,
+    "pet_rewards": [],
+    "drop_texts": [
+      "掉落: 野性毛皮 x1"
+    ]
+  }
+}
+```
+
+说明：
+
+- `world` 为断线恢复后的最新世界全量快照，客户端可按 `ENTER_WORLD_RESP/WORLD_RESYNC_PUSH` 的同等结构重建世界态
+- `battle_start` / `battle_state` 仅在玩家重连时仍处于活动战斗中时返回；客户端应按正常战斗进入流程恢复界面
+- `battle_replay_states` 表示服务端保留的最近若干帧战斗状态；当客户端上报的 `last_frame` 落后但仍在缓存窗口内时，可先按顺序回放这些状态，再与当前状态对齐
+- `battle_result` 仅在断线期间战斗已经由服务端托管结束、但客户端还没收到结算时返回；客户端应按正常 `BATTLE_RESULT_PUSH` 的处理链路展示奖励并退出战斗界面
+- 当前仍是“全量重同步优先、最近帧补发增强”的最小版；如果客户端落后帧数超过服务端缓存窗口，仍应回退到当前全量快照
+- `reconnect_token` 会在每次重连成功后轮换，旧 token 应立即作废
+
 ### 1012 ERROR_PUSH
 
 ```json
@@ -437,6 +555,28 @@
 }
 ```
 
+说明：
+
+- `action_type=1`：提交技能/普通攻击动作，需携带 `actor_id`、`skill_id` 与 `target_id`
+- `action_type=4`：提交逃跑请求，当前最小 PVE 版本由服务端直接处理逃跑结果
+- `action_type=5`：切换服务端自动战斗开关，此时 `actor_id`、`skill_id`、`target_id` 可为 `0`
+- `auto_battle_enabled`：仅在 `action_type=5` 时使用，表示当前请求希望服务端开启还是关闭托管
+
+自动战斗开关示例：
+
+```json
+{
+  "op_id": 2,
+  "battle_id": 70001,
+  "round": 1,
+  "action_type": 5,
+  "actor_id": 0,
+  "skill_id": 0,
+  "target_id": 0,
+  "auto_battle_enabled": true
+}
+```
+
 ### 4002 BATTLE_ACTION_RESP
 
 ```json
@@ -518,6 +658,8 @@
   "phase": "command",
   "active_actor_id": 20001,
   "active_pet_uid": 20001,
+  "command_deadline_ms": 1710000015000,
+  "auto_battle_enabled": false,
   "pending_actor_ids": [20001, 20002],
   "controllable_actor_ids": [20001, 20002]
 }
@@ -527,7 +669,11 @@
 
 - `skill_ids` 仅表示当前角色可提交的技能意图列表
 - `skills` 为 `skill_ids` 的增强版快照，额外携带技能展示名和目标类型，客户端应优先使用它来决定按钮文案和友/敌方目标选择
+- 当前已使用的 `target_type` 包括：`enemy_single`、`ally_single`、`enemy_all`、`enemy_multi`
+- `target_count` 表示技能配置的目标数量；当前单体技能通常为 `1`，`enemy_all` 可忽略该字段，`enemy_multi` 表示客户端先指定一个主目标，剩余目标数量由服务端按 `target_count` 自动补足
 - `phase=command` 表示当前轮到客户端继续为己方单位收集动作
+- `command_deadline_ms` 表示当前命令阶段由服务端给出的权威截止时间；超时补行动由服务端负责
+- `auto_battle_enabled` 表示当前战斗是否已经进入服务端自动托管模式
 - `pending_actor_ids` 表示这一回合还没提交动作的己方单位
 - `active_actor_id` / `active_pet_uid` 明确当前应高亮的己方单位
 - 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
@@ -543,6 +689,8 @@
   "phase": "command",
   "active_actor_id": 20001,
   "active_pet_uid": 20001,
+  "command_deadline_ms": 1710000030000,
+  "auto_battle_enabled": true,
   "pending_actor_ids": [20001, 20002],
   "controllable_actor_ids": [20001, 20002],
   "events": [
@@ -608,11 +756,31 @@
     "x": 8,
     "y": 6
   },
-  "reason": "enemy defeated"
+  "reason": "enemy defeated",
+  "reward_gold": 18,
+  "reward_player_exp": 28,
+  "player_gold": 118,
+  "player_exp": 28,
+  "drop_texts": [
+    "掉落: 野性毛皮 x1"
+  ],
+  "pet_rewards": [
+    {
+      "pet_uid": 20001,
+      "exp": 28
+    },
+    {
+      "pet_uid": 20002,
+      "exp": 28
+    }
+  ]
 }
 ```
 
 说明：
 
-- 当前 `BATTLE_RESULT_PUSH` 仍只负责表达战斗胜负与返回世界信息
-- 如果该场战斗使多个己方宠物 HP 发生变化，服务端会在结果后按宠物逐条推送 `3011 PET_UPDATE_PUSH`
+- `reward_gold` / `reward_player_exp` 表示本场战斗实际发放的金币与角色经验；失败或逃跑时通常为 `0`
+- `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要
+- `drop_texts` 表示本场战斗的文本掉落提示，当前只用于展示，不会写入背包
+- `pet_rewards` 表示本场战斗中各参战宠物获得的经验摘要；宠物最终 HP / EXP 明细仍以随后逐条推送的 `3011 PET_UPDATE_PUSH` 为准
+- 当前最小 PVE 奖励闭环已覆盖金币、角色经验、宠物经验、文本掉落展示和 `battle_record` 防重记录；真实物品掉落与背包落库仍待后续扩展

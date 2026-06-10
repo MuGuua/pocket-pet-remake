@@ -8,6 +8,7 @@ type Profile struct {
 	PlayerID uint64
 	Name     string
 	Level    uint32
+	Exp      uint64
 	Gold     uint32
 	SceneID  uint32
 	PosX     int32

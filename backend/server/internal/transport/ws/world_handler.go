@@ -36,6 +36,36 @@ func NewWorldHandler(sessionService *session.Service, playerService *player.Serv
 	}
 }
 
+// BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
+// reconnect can recover the current world view without duplicating scene logic.
+func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID uint64) (*protocol.EnterWorldResp, error) {
+	profile, err := h.playerService.GetProfile(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	lineup, err := h.petService.ListLineup(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	snapshot, err := h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	if err != nil {
+		return nil, err
+	}
+	return &protocol.EnterWorldResp{
+		Self: protocol.PlayerBrief{
+			PlayerID: profile.PlayerID,
+			Name:     profile.Name,
+			Level:    profile.Level,
+		},
+		SceneID:        snapshot.SceneID,
+		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
+		SceneVersion:   snapshot.SceneVersion,
+		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
+		Lineup:         toProtocolLineup(lineup),
+		Gold:           profile.Gold,
+	}, nil
+}
+
 func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Packet) error {
 	var request protocol.EnterWorldReq
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
@@ -48,34 +78,11 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	}
 
 	ctx := context.Background()
-	profile, err := h.playerService.GetProfile(ctx, sess.PlayerID)
-	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
-	}
-
-	lineup, err := h.petService.ListLineup(ctx, sess.PlayerID)
-	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load pet lineup failed")
-	}
-
-	snapshot, err := h.worldService.GetSceneSnapshot(ctx, sess.PlayerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	responseBody, err := h.BuildWorldSnapshotForPlayer(ctx, sess.PlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load scene snapshot failed")
 	}
-
-	responsePacket, err := protocol.NewJSONPacket(protocol.CmdEnterWorldResp, packet.Seq, errcode.WSCodeSuccess, protocol.EnterWorldResp{
-		Self: protocol.PlayerBrief{
-			PlayerID: profile.PlayerID,
-			Name:     profile.Name,
-			Level:    profile.Level,
-		},
-		SceneID:        snapshot.SceneID,
-		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
-		SceneVersion:   snapshot.SceneVersion,
-		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
-		Lineup:         toProtocolLineup(lineup),
-		Gold:           profile.Gold,
-	})
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdEnterWorldResp, packet.Seq, errcode.WSCodeSuccess, responseBody)
 	if err != nil {
 		return err
 	}
@@ -85,7 +92,7 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 		_, _ = h.questService.HandleEvent(ctx, quest.Event{
 			PlayerID:  sess.PlayerID,
 			EventType: "ENTER_SCENE",
-			SceneID:   snapshot.SceneID,
+			SceneID:   responseBody.SceneID,
 			Count:     1,
 		})
 	}

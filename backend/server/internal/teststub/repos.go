@@ -2,10 +2,12 @@ package teststub
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
@@ -14,11 +16,42 @@ import (
 )
 
 const (
-	DemoAccountName = "demo"
-	DemoPassword    = "demo123"
-	DemoAccountID   = 1
-	DemoPlayerID    = 10001
+	DemoAccountName  = "demo"
+	DemoPassword     = "demo123"
+	DemoAccountID    = 1
+	DemoPlayerID     = 10001
+	RivalAccountName = "rival"
+	RivalPassword    = "rival123"
+	RivalAccountID   = 2
+	RivalPlayerID    = 10002
 )
+
+// NewBattleRepository provides an in-memory reward record set so battle reward
+// grant logic can verify the duplicate guard without requiring PostgreSQL.
+func NewBattleRepository() *BattleRepository {
+	return &BattleRepository{records: map[string]battle.RewardRecord{}}
+}
+
+type BattleRepository struct {
+	mu      sync.Mutex
+	records map[string]battle.RewardRecord
+}
+
+func (r *BattleRepository) CreateRewardRecord(_ context.Context, record battle.RewardRecord) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	key := battleRecordKey(record.BattleID, record.PlayerID)
+	if _, exists := r.records[key]; exists {
+		return false, nil
+	}
+	r.records[key] = record
+	return true, nil
+}
+
+func battleRecordKey(battleID uint64, playerID uint64) string {
+	return fmt.Sprintf("%d:%d", battleID, playerID)
+}
 
 // NewAccountRepository returns a small in-process auth repository used only by
 // tests. It mirrors the seeded demo account so auth tests stay independent from
@@ -32,6 +65,14 @@ func NewAccountRepository() *AccountRepository {
 				PasswordHash: auth.HashPassword(DemoPassword),
 				PlayerID:     DemoPlayerID,
 				PlayerName:   "DemoTrainer",
+				PlayerLevel:  1,
+			},
+			RivalAccountName: {
+				AccountID:    RivalAccountID,
+				AccountName:  RivalAccountName,
+				PasswordHash: auth.HashPassword(RivalPassword),
+				PlayerID:     RivalPlayerID,
+				PlayerName:   "RivalTrainer",
 				PlayerLevel:  1,
 			},
 		},
@@ -102,9 +143,20 @@ func NewPlayerRepository() *PlayerRepository {
 				PlayerID: DemoPlayerID,
 				Name:     "DemoTrainer",
 				Level:    1,
+				Exp:      0,
 				Gold:     100,
 				SceneID:  1,
 				PosX:     8,
+				PosY:     6,
+			},
+			RivalPlayerID: {
+				PlayerID: RivalPlayerID,
+				Name:     "RivalTrainer",
+				Level:    1,
+				Exp:      0,
+				Gold:     100,
+				SceneID:  1,
+				PosX:     9,
 				PosY:     6,
 			},
 		},
@@ -143,6 +195,21 @@ func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sc
 	return nil
 }
 
+func (r *PlayerRepository) AddGoldAndExp(_ context.Context, playerID uint64, gold uint32, exp uint64) (*player.Profile, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.players[playerID]
+	if !ok {
+		return nil, player.ErrPlayerNotFound
+	}
+	current.Gold += gold
+	current.Exp += exp
+	r.players[playerID] = current
+	copied := current
+	return &copied, nil
+}
+
 // NewPetRepository returns the fixed starter pets used by battle, pet list,
 // and lineup tests. Keeping this local avoids coupling transport tests to a DB.
 func NewPetRepository() *PetRepository {
@@ -153,11 +220,19 @@ func NewPetRepository() *PetRepository {
 				{PetUID: 20002, PetID: 102, Level: 4, Exp: 80, Quality: 1, HP: 28, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20, SkillIDs: []uint32{1001, 1003}},
 				{PetUID: 20003, PetID: 101, Level: 3, Exp: 40, Quality: 1, HP: 24, HPMax: 24, ATK: 10, DEF: 8, SPD: 11, MANA: 12, SkillIDs: []uint32{1001}},
 			},
+			RivalPlayerID: {
+				{PetUID: 21001, PetID: 101, Level: 5, Exp: 110, Quality: 1, HP: 31, HPMax: 31, ATK: 13, DEF: 10, SPD: 11, MANA: 15, SkillIDs: []uint32{1001, 1002}},
+				{PetUID: 21002, PetID: 102, Level: 4, Exp: 75, Quality: 1, HP: 29, HPMax: 29, ATK: 11, DEF: 12, SPD: 10, MANA: 18, SkillIDs: []uint32{1001, 1003}},
+			},
 		},
 		lineup: map[uint64][]pet.LineupPet{
 			DemoPlayerID: {
 				{PetUID: 20001, PetID: 101, Level: 5, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16, SkillIDs: []uint32{1001, 1002}},
 				{PetUID: 20002, PetID: 102, Level: 4, HP: 28, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20, SkillIDs: []uint32{1001, 1003}},
+			},
+			RivalPlayerID: {
+				{PetUID: 21001, PetID: 101, Level: 5, HP: 31, HPMax: 31, ATK: 13, DEF: 10, SPD: 11, MANA: 15, SkillIDs: []uint32{1001, 1002}},
+				{PetUID: 21002, PetID: 102, Level: 4, HP: 29, HPMax: 29, ATK: 11, DEF: 12, SPD: 10, MANA: 18, SkillIDs: []uint32{1001, 1003}},
 			},
 		},
 	}
@@ -257,6 +332,44 @@ func (r *PetRepository) UpdatePetHPByUID(_ context.Context, playerID uint64, pet
 			hp = petsForPlayer[index].HPMax
 		}
 		petsForPlayer[index].HP = hp
+		r.pets[playerID] = petsForPlayer
+
+		lineup := r.lineup[playerID]
+		for lineupIndex := range lineup {
+			if lineup[lineupIndex].PetUID == petUID {
+				lineup[lineupIndex].HP = hp
+			}
+		}
+		r.lineup[playerID] = lineup
+
+		updated := petsForPlayer[index]
+		if len(updated.SkillIDs) > 0 {
+			updated.SkillIDs = append([]uint32{}, updated.SkillIDs...)
+		}
+		return updated, nil
+	}
+
+	return pet.Pet{}, pet.ErrPetNotFound
+}
+
+func (r *PetRepository) UpdatePetHPAndExpByUID(_ context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (pet.Pet, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	petsForPlayer, ok := r.pets[playerID]
+	if !ok {
+		return pet.Pet{}, pet.ErrPetNotFound
+	}
+
+	for index := range petsForPlayer {
+		if petsForPlayer[index].PetUID != petUID {
+			continue
+		}
+		if hp > petsForPlayer[index].HPMax {
+			hp = petsForPlayer[index].HPMax
+		}
+		petsForPlayer[index].HP = hp
+		petsForPlayer[index].Exp += expGain
 		r.pets[playerID] = petsForPlayer
 
 		lineup := r.lineup[playerID]

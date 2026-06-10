@@ -5,6 +5,8 @@ type skillTargetRule uint32
 const (
 	targetEnemySingle skillTargetRule = 1
 	targetAllySingle  skillTargetRule = 2
+	targetEnemyAll    skillTargetRule = 3
+	targetEnemyMulti  skillTargetRule = 4
 )
 
 type skillDef struct {
@@ -46,6 +48,7 @@ type skillDef struct {
 	ControlRounds          uint32
 	ControlStatusID        uint32
 	PreferredTargetHP      string
+	TargetCount            uint32
 }
 
 var skillCatalog = map[uint32]skillDef{
@@ -61,7 +64,7 @@ var skillCatalog = map[uint32]skillDef{
 	1002: {
 		ID:                     1002,
 		Name:                   "火花冲击",
-		TargetRule:             targetEnemySingle,
+		TargetRule:             targetEnemyAll,
 		AttackPct:              120,
 		ManaPct:                85,
 		SpeedPct:               55,
@@ -84,6 +87,22 @@ var skillCatalog = map[uint32]skillDef{
 		CritBoostRounds:   2,
 		CritBoostPct:      20,
 		PreferredTargetHP: "lowest",
+	},
+	1004: {
+		ID:               1004,
+		Name:             "弧光连射",
+		TargetRule:       targetEnemyMulti,
+		TargetCount:      2,
+		AttackPct:        105,
+		ManaPct:          40,
+		SpeedPct:         25,
+		AllowCrit:        true,
+		BleedChancePct:   40,
+		BleedRounds:      2,
+		BleedDamage:      2,
+		ControlChancePct: 20,
+		ControlRounds:    1,
+		ControlStatusID:  StatusConfusion,
 	},
 	DefaultEnemySkillID: {
 		ID:             DefaultEnemySkillID,
@@ -133,6 +152,10 @@ func (r skillTargetRule) protocolName() string {
 	switch r {
 	case targetAllySingle:
 		return "ally_single"
+	case targetEnemyAll:
+		return "enemy_all"
+	case targetEnemyMulti:
+		return "enemy_multi"
 	default:
 		return "enemy_single"
 	}

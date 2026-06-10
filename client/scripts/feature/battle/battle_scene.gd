@@ -5,6 +5,7 @@ const SKILL_LABELS := {
 	1001: "普通攻击",
 	1002: "火花冲击",
 	1003: "活力治愈",
+	1004: "弧光连射",
 	90001: "野性撞击",
 	90002: "利爪突袭",
 	90003: "野性回春",
@@ -340,6 +341,20 @@ func _actor_marker(actor: Dictionary, selected_target: bool, group_key: String) 
 
 # 读取并格式化最近几条服务端结算事件，便于在移动端小面板中快速查看回合结果。
 func _build_event_log_text() -> String:
+	if not GameState.is_in_battle:
+		var result_logs: Array[String] = []
+		var reward_gold := int(GameState.battle_state.get("reward_gold", 0))
+		var reward_player_exp := int(GameState.battle_state.get("reward_player_exp", 0))
+		if reward_gold > 0 or reward_player_exp > 0:
+			result_logs.append("本场奖励: %d 金币 / %d 角色经验" % [reward_gold, reward_player_exp])
+		var drop_texts_variant: Variant = GameState.battle_state.get("drop_texts", [])
+		if drop_texts_variant is Array:
+			for drop_text_variant in drop_texts_variant:
+				var drop_text := str(drop_text_variant)
+				if not drop_text.is_empty():
+					result_logs.append(drop_text)
+		if not result_logs.is_empty():
+			return "\n".join(result_logs)
 	var events_variant: Variant = GameState.battle_state.get("events", [])
 	if events_variant is not Array or events_variant.is_empty():
 		return "等待服务端同步战斗详情。"
@@ -514,9 +529,10 @@ func _apply_skill_button(button: Button, skills: Array[Dictionary], index: int) 
 # 按当前阶段刷新切换目标、自动战斗和逃跑按钮可用性。
 func _refresh_utility_buttons() -> void:
 	if target_button != null:
-		var target_count := _living_allies().size() if _current_skill_target_type() == "ally_single" else _living_enemies().size()
+		var current_target_type := _current_skill_target_type()
+		var target_count := _living_allies().size() if current_target_type == "ally_single" else _living_enemies().size()
 		target_button.text = "切友方" if _current_skill_target_type() == "ally_single" else "切换目标"
-		target_button.disabled = not _can_submit_manual_action() or target_count <= 1
+		target_button.disabled = not _can_submit_manual_action() or current_target_type == "enemy_all" or target_count <= 1
 	if auto_battle_button != null:
 		auto_battle_button.text = "自动中" if _auto_battle_enabled else "自动战斗"
 		auto_battle_button.disabled = not GameState.is_in_battle
@@ -651,13 +667,17 @@ func _current_selected_skill_name() -> String:
 func _skill_label(skill_id: int, skill_payload: Dictionary = {}) -> String:
 	var skill_name := str(skill_payload.get("name", ""))
 	if not skill_name.is_empty():
-		return "%s%s" % [skill_name, _skill_target_badge(str(skill_payload.get("target_type", "enemy_single")))]
-	return "%s%s" % [str(SKILL_LABELS.get(skill_id, "技能%d" % skill_id)), _skill_target_badge(str(skill_payload.get("target_type", "enemy_single")))]
+		return "%s%s" % [skill_name, _skill_target_badge(str(skill_payload.get("target_type", "enemy_single")), int(skill_payload.get("target_count", 1)))]
+	return "%s%s" % [str(SKILL_LABELS.get(skill_id, "技能%d" % skill_id)), _skill_target_badge(str(skill_payload.get("target_type", "enemy_single")), int(skill_payload.get("target_count", 1)))]
 
 # 返回技能目标类型对应的紧凑徽标，方便移动端快速识别这是打敌人还是指向己方。
-func _skill_target_badge(target_type: String) -> String:
+func _skill_target_badge(target_type: String, target_count: int = 1) -> String:
 	if target_type == "ally_single":
 		return " [友]"
+	if target_type == "enemy_all":
+		return " [敌全]"
+	if target_type == "enemy_multi":
+		return " [敌%d]" % maxi(target_count, 2)
 	return " [敌]"
 
 # 把当前生命转换成简洁的文本血条，方便在移动端列表里快速比较残血单位。

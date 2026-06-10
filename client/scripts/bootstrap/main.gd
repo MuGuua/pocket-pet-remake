@@ -235,7 +235,7 @@ func _on_kicked(reason: String) -> void:
 func _on_connection_state_changed(state: String) -> void:
 	_refresh_view()
 	_append_log("WebSocket 状态 -> %s" % state)
-	if state == "closed" and not _redirecting_to_login:
+	if state == "closed" and not _redirecting_to_login and not App.is_reconnecting():
 		_return_to_login_scene()
 
 # 处理世界场景装载完成事件，并在首次进入世界后拉取基础摘要数据。
@@ -320,8 +320,19 @@ func _on_battle_started(payload: Dictionary) -> void:
 		_append_log("战斗ID: %s" % str(payload.get("battle_id", "")))
 
 # 处理战斗结束事件，卸载战斗场景并回到世界显示。
-func _on_battle_finished(_payload: Dictionary) -> void:
-	_append_log("战斗结束，返回世界场景。")
+func _on_battle_finished(payload: Dictionary) -> void:
+	var reward_gold := int(payload.get("reward_gold", 0))
+	var reward_player_exp := int(payload.get("reward_player_exp", 0))
+	var drop_texts_variant: Variant = payload.get("drop_texts", [])
+	var drop_texts: Array = drop_texts_variant if drop_texts_variant is Array else []
+	if reward_gold > 0 or reward_player_exp > 0:
+		_append_log("战斗结束，获得 %d 金币 / %d 角色经验。" % [reward_gold, reward_player_exp])
+	else:
+		_append_log("战斗结束，返回世界场景。")
+	for drop_text_variant in drop_texts:
+		var drop_text := str(drop_text_variant)
+		if not drop_text.is_empty():
+			_append_log(drop_text)
 	_sync_battle_visibility()
 	_unmount_battle_scene()
 	App.request_quest_list()
@@ -332,6 +343,9 @@ func _on_websocket_closed(code: int, reason: String) -> void:
 	if code == -1 and reason.is_empty():
 		return
 	_append_log("WebSocket 已关闭: %d %s" % [code, reason])
+	if App.is_reconnecting():
+		_append_log("检测到可恢复会话，正在尝试断线重连。")
+		return
 	if not _redirecting_to_login:
 		_return_to_login_scene()
 
