@@ -129,6 +129,12 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, _ uint64, sceneI
 		); err != nil {
 			return nil, err
 		}
+		// The current table does not yet store a dedicated player_id column for
+		// scene avatars, so we mirror entity_id for player entities to keep the
+		// client-side PVP targeting contract explicit and stable.
+		if value.EntityType == 1 {
+			value.PlayerID = value.EntityID
+		}
 		nearby = append(nearby, value)
 	}
 	if err := rows.Err(); err != nil {

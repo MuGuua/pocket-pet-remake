@@ -14,6 +14,8 @@ const GENERIC_NPC_DIALOGUE_PATH := "res://dialogue/测试1.dialogue"
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 # 场景切换遮罩淡入淡出的持续时间。
 const TRANSITION_DURATION := 0.18
+# 当前客户端默认只允许从附近玩家列表中发起 PVP 挑战，避免没有明确目标时误发请求。
+const PLAYER_ENTITY_TYPE: int = 1
 
 # 上部游戏显示区域的根节点。
 @onready var gameplay_area: Control = %GameplayArea
@@ -44,8 +46,12 @@ var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
 var _npc_menu: CanvasLayer
 var _npc_list_menu: CanvasLayer
+var _pvp_target_menu: CanvasLayer
+var _pvp_invite_dialog: ConfirmationDialog
 var _opening_npc_menu_from_list: bool = false
 var _runtime_data_requested: bool = false
+# 缓存最近一次收到但尚未处理的 PVP 邀请载荷，供确认框按钮回调读取。
+var _pending_pvp_invite: Dictionary = {}
 
 # 初始化主运行态，挂载世界场景并注册主链路消息与信号。
 func _ready() -> void:
@@ -103,6 +109,9 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.register_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.register_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
+	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_RESP, Callable(battle_controller, "handle_pvp_challenge_response"))
+	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_PUSH, Callable(battle_controller, "handle_pvp_challenge_push"))
+	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_REPLY_RESP, Callable(battle_controller, "handle_pvp_challenge_reply_response"))
 
 	MessageRouter.register_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
 	MessageRouter.register_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
@@ -135,6 +144,9 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.unregister_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
+	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_RESP, Callable(battle_controller, "handle_pvp_challenge_response"))
+	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_PUSH, Callable(battle_controller, "handle_pvp_challenge_push"))
+	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_REPLY_RESP, Callable(battle_controller, "handle_pvp_challenge_reply_response"))
 	MessageRouter.unregister_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
 	MessageRouter.unregister_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
 	MessageRouter.unregister_handler(CommandIds.PET_LINEUP_SET_RESP, Callable(pet_controller, "handle_lineup_set_response"))
@@ -165,6 +177,12 @@ func _connect_signals() -> void:
 		battle_controller.connect("interact_payload_received", Callable(self, "_on_interact_payload_received"))
 	if battle_controller.has_signal("npc_action_payload_received"):
 		battle_controller.connect("npc_action_payload_received", Callable(self, "_on_npc_action_payload_received"))
+	if battle_controller.has_signal("pvp_challenge_responded"):
+		battle_controller.connect("pvp_challenge_responded", Callable(self, "_on_pvp_challenge_responded"))
+	if battle_controller.has_signal("pvp_challenge_received"):
+		battle_controller.connect("pvp_challenge_received", Callable(self, "_on_pvp_challenge_received"))
+	if battle_controller.has_signal("pvp_challenge_reply_responded"):
+		battle_controller.connect("pvp_challenge_reply_responded", Callable(self, "_on_pvp_challenge_reply_responded"))
 	if battle_controller.has_signal("battle_started"):
 		battle_controller.connect("battle_started", Callable(self, "_on_battle_started"))
 	if battle_controller.has_signal("battle_finished"):
@@ -412,12 +430,16 @@ func _create_runtime_ui() -> void:
 	_create_player_panel()
 	_create_npc_menu()
 	_create_npc_list_menu()
+	_create_pvp_target_menu()
+	_create_pvp_invite_dialog()
 
 func _create_main_menu() -> void:
 	_main_menu = MAIN_MENU_SCENE.instantiate() as CanvasLayer
 	if _main_menu == null:
 		return
 	add_child(_main_menu)
+	if _main_menu.has_signal("menu_item_selected"):
+		_main_menu.connect("menu_item_selected", Callable(self, "_on_main_menu_item_selected"))
 	if _main_menu.has_signal("menu_closed"):
 		_main_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
 
@@ -449,6 +471,27 @@ func _create_npc_list_menu() -> void:
 	if _npc_list_menu.has_signal("menu_closed"):
 		_npc_list_menu.connect("menu_closed", Callable(self, "_on_npc_list_closed"))
 
+func _create_pvp_target_menu() -> void:
+	_pvp_target_menu = NPC_LIST_MENU_SCENE.instantiate() as CanvasLayer
+	if _pvp_target_menu == null:
+		return
+	add_child(_pvp_target_menu)
+	if _pvp_target_menu.has_signal("npc_selected"):
+		_pvp_target_menu.connect("npc_selected", Callable(self, "_on_pvp_target_selected"))
+	if _pvp_target_menu.has_signal("menu_closed"):
+		_pvp_target_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
+func _create_pvp_invite_dialog() -> void:
+	_pvp_invite_dialog = ConfirmationDialog.new()
+	_pvp_invite_dialog.title = "PVP 邀请"
+	_pvp_invite_dialog.dialog_text = "收到新的 PVP 邀请。"
+	_pvp_invite_dialog.ok_button_text = "接受"
+	_pvp_invite_dialog.cancel_button_text = "拒绝"
+	_pvp_invite_dialog.initial_position = Window.WINDOW_INITIAL_POSITION_CENTER_MAIN_WINDOW_SCREEN
+	_pvp_invite_dialog.confirmed.connect(_on_pvp_invite_confirmed)
+	_pvp_invite_dialog.canceled.connect(_on_pvp_invite_canceled)
+	add_child(_pvp_invite_dialog)
+
 func _on_runtime_menu_closed() -> void:
 	_set_runtime_menu_locked(false)
 
@@ -467,6 +510,24 @@ func _on_npc_selected(npc_data: Dictionary) -> void:
 		_npc_list_menu.call("close_menu")
 	_append_log("通过列表选择 NPC: %s (%d)" % [str(npc_data.get("npc_name", "未知 NPC")), entity_id])
 	App.request_interact(entity_id)
+
+func _on_pvp_target_selected(target_data: Dictionary) -> void:
+	var target_player_id: int = int(target_data.get("target_player_id", target_data.get("entity_id", 0)))
+	if target_player_id <= 0:
+		_append_log("PVP 目标数据无效，无法发起挑战。")
+		return
+	if _pvp_target_menu != null and _pvp_target_menu.has_method("close_menu"):
+		_pvp_target_menu.call("close_menu")
+	_append_log("发起 PVP 挑战: %s (%d)" % [str(target_data.get("npc_name", target_data.get("name", "未知玩家"))), target_player_id])
+	App.request_pvp_challenge(target_player_id)
+
+func _on_main_menu_item_selected(item: Dictionary) -> void:
+	var label: String = str(item.get("label", ""))
+	if label != "全服竞技场":
+		return
+	if _main_menu != null and _main_menu.has_method("close_menu"):
+		_main_menu.call("close_menu")
+	_open_pvp_target_menu()
 
 func _on_npc_menu_option_selected(option: Dictionary) -> void:
 	if _npc_menu != null and _npc_menu.has_method("close_menu"):
@@ -492,6 +553,51 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 		App.request_interact(entity_id)
 		return
 	App.request_npc_action(entity_id, entry_id)
+
+func _on_pvp_challenge_responded(payload: Dictionary) -> void:
+	var accepted: bool = bool(payload.get("accepted", false))
+	var reason: String = str(payload.get("reason", ""))
+	var target_player_id: int = int(payload.get("target_player_id", 0))
+	if accepted:
+		_append_log("PVP 挑战已发送，目标玩家: %d。" % target_player_id)
+		return
+	_append_log("PVP 挑战发送失败: %s" % reason)
+
+func _on_pvp_challenge_received(payload: Dictionary) -> void:
+	_pending_pvp_invite = payload.duplicate(true)
+	var challenger_variant: Variant = payload.get("challenger", {})
+	var challenger: Dictionary = challenger_variant if challenger_variant is Dictionary else {}
+	var challenger_name: String = str(challenger.get("name", "未知玩家"))
+	var challenger_level: int = int(challenger.get("level", 0))
+	if _pvp_invite_dialog != null:
+		_pvp_invite_dialog.dialog_text = "%s 向你发起了 PVP 挑战。\n等级: %d\n是否接受？" % [challenger_name, challenger_level]
+		_pvp_invite_dialog.popup_centered_clamped(Vector2i(320, 180))
+	_set_runtime_menu_locked(true)
+	_append_log("收到 PVP 邀请: %s" % challenger_name)
+
+func _on_pvp_challenge_reply_responded(payload: Dictionary) -> void:
+	var accepted: bool = bool(payload.get("accepted", false))
+	var reason: String = str(payload.get("reason", ""))
+	if accepted:
+		_append_log("PVP 邀请应答已发送: %s" % reason)
+		return
+	_append_log("PVP 邀请应答失败: %s" % reason)
+
+func _on_pvp_invite_confirmed() -> void:
+	var challenge_id: int = int(_pending_pvp_invite.get("challenge_id", 0))
+	_set_runtime_menu_locked(false)
+	if challenge_id <= 0:
+		return
+	App.reply_pvp_challenge(challenge_id, true)
+	_pending_pvp_invite.clear()
+
+func _on_pvp_invite_canceled() -> void:
+	var challenge_id: int = int(_pending_pvp_invite.get("challenge_id", 0))
+	_set_runtime_menu_locked(false)
+	if challenge_id <= 0:
+		return
+	App.reply_pvp_challenge(challenge_id, false)
+	_pending_pvp_invite.clear()
 
 func _build_npc_menu_options(payload: Dictionary) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
@@ -526,6 +632,44 @@ func _collect_nearby_npc_entries() -> Array[Dictionary]:
 			"portrait_path": "res://asset/口袋所有形象/imgs/51.png",
 		})
 	return entries
+
+func _collect_nearby_player_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for entity_id_variant in GameState.nearby_entities.keys():
+		var entity_variant: Variant = GameState.nearby_entities.get(entity_id_variant, {})
+		if entity_variant is not Dictionary:
+			continue
+		var entity: Dictionary = entity_variant
+		var entity_type: int = int(entity.get("entity_type", 0))
+		# PVP 挑战目标必须使用服务端显式下发的 player_id，而不是继续依赖
+		# entity_id 的偶然重合关系。
+		var target_player_id: int = int(entity.get("player_id", 0))
+		if entity_type != PLAYER_ENTITY_TYPE:
+			continue
+		if target_player_id <= 0 or target_player_id == GameState.player_id:
+			continue
+		var entry := {
+			"entity_id": int(entity.get("entity_id", entity_id_variant)),
+			"target_player_id": target_player_id,
+			"npc_name": str(entity.get("name", "附近玩家")),
+			"portrait_path": "res://asset/口袋所有形象/imgs/51.png",
+		}
+		entries.append(entry)
+	return entries
+
+func _open_pvp_target_menu() -> void:
+	if GameState.is_in_battle:
+		_append_log("战斗中无法发起新的 PVP 挑战。")
+		return
+	if _pvp_target_menu == null:
+		return
+	var nearby_players: Array[Dictionary] = _collect_nearby_player_entries()
+	if nearby_players.is_empty():
+		_append_log("附近没有可挑战的玩家。")
+		return
+	_pvp_target_menu.call("configure", "选择挑战玩家", nearby_players)
+	_pvp_target_menu.call("open_menu")
+	_set_runtime_menu_locked(true)
 
 func _resolve_npc_dialogue_binding(option: Dictionary) -> Dictionary:
 	var entity_id: int = int(option.get("entity_id", 0))
@@ -570,9 +714,11 @@ func _set_runtime_menu_locked(locked: bool) -> void:
 		_world_controller.call("set_runtime_input_locked", locked)
 
 func _close_runtime_menus() -> void:
-	for layer in [_main_menu, _player_panel, _npc_menu, _npc_list_menu]:
+	for layer in [_main_menu, _player_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
 		if layer != null and layer.has_method("close_menu"):
 			layer.call("close_menu")
+	if _pvp_invite_dialog != null:
+		_pvp_invite_dialog.hide()
 	_set_runtime_menu_locked(false)
 
 func _has_blocking_ui_open(except: String = "") -> bool:
@@ -583,6 +729,10 @@ func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "npc_menu" and _npc_menu != null and _npc_menu.visible:
 		return true
 	if except != "npc_list" and _npc_list_menu != null and _npc_list_menu.visible:
+		return true
+	if except != "pvp_list" and _pvp_target_menu != null and _pvp_target_menu.visible:
+		return true
+	if except != "pvp_invite" and _pvp_invite_dialog != null and _pvp_invite_dialog.visible:
 		return true
 	return false
 

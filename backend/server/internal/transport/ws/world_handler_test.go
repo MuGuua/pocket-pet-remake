@@ -80,8 +80,18 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	if len(payload.Lineup) != 2 {
 		t.Fatalf("len(payload.Lineup) = %d, want 2", len(payload.Lineup))
 	}
-	if len(payload.NearbyEntities) != 2 {
-		t.Fatalf("len(payload.NearbyEntities) = %d, want 2", len(payload.NearbyEntities))
+	if len(payload.NearbyEntities) != 3 {
+		t.Fatalf("len(payload.NearbyEntities) = %d, want 3", len(payload.NearbyEntities))
+	}
+	var sawRivalPlayer bool
+	for _, entity := range payload.NearbyEntities {
+		if entity.PlayerID == teststub.RivalPlayerID {
+			sawRivalPlayer = true
+			break
+		}
+	}
+	if !sawRivalPlayer {
+		t.Fatal("payload.NearbyEntities missing rival player_id entry")
 	}
 }
 

@@ -11,6 +11,9 @@ type Vec2i struct {
 
 type Entity struct {
 	EntityID   uint64
+	// PlayerID keeps the authoritative player identifier when this scene entity
+	// represents an online player avatar. Non-player entities keep this as 0.
+	PlayerID   uint64
 	EntityType uint32
 	Pos        Vec2i
 	Dir        uint32

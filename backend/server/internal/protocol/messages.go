@@ -63,6 +63,9 @@ type PlayerBrief struct {
 
 type EntityBrief struct {
 	EntityID   uint64 `json:"entity_id"`
+	// PlayerID is only populated when the entity represents a real player in the
+	// world snapshot so clients can safely target PVP actions.
+	PlayerID   uint64 `json:"player_id"`
 	EntityType uint32 `json:"entity_type"`
 	Pos        Vec2i  `json:"pos"`
 	Dir        uint32 `json:"dir"`

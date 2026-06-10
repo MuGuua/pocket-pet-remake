@@ -1,6 +1,8 @@
 extends CanvasLayer
 
 signal menu_closed
+# 选中菜单项后向外广播该项的完整数据，供运行态决定是否执行实际功能。
+signal menu_item_selected(item: Dictionary)
 
 const MENU_ICON_1: Texture2D = preload("res://asset/口袋所有形象/菜单图标1.png")
 const MENU_ICON_2: Texture2D = preload("res://asset/口袋所有形象/菜单图标2.png")
@@ -371,6 +373,7 @@ func _on_item_gui_input(event: InputEvent, index: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_current_item_index = index
 		_refresh_item_selection()
+		_emit_current_item_selected()
 		get_viewport().set_input_as_handled()
 
 
@@ -382,3 +385,16 @@ func _select_tab(index: int) -> void:
 	_hovered_item_index = -1
 	_build_tabs()
 	_refresh_items()
+
+
+# 把当前选中的菜单项转成完整字典广播出去，让外层决定是否真的执行功能。
+func _emit_current_item_selected() -> void:
+	var items: Array = MENU_DATA[_current_tab_index].get("items", [])
+	if _current_item_index < 0 or _current_item_index >= items.size():
+		return
+	var item_variant: Variant = items[_current_item_index]
+	if item_variant is not Dictionary:
+		return
+	var item: Dictionary = item_variant.duplicate(true)
+	item["tab_title"] = String(MENU_DATA[_current_tab_index].get("title", ""))
+	menu_item_selected.emit(item)

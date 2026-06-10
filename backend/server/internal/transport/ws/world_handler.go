@@ -193,6 +193,7 @@ func toProtocolEntities(entities []world.Entity) []protocol.EntityBrief {
 	for _, entity := range entities {
 		result = append(result, protocol.EntityBrief{
 			EntityID:   entity.EntityID,
+			PlayerID:   entity.PlayerID,
 			EntityType: entity.EntityType,
 			Pos:        protocol.Vec2i{X: entity.Pos.X, Y: entity.Pos.Y},
 			Dir:        entity.Dir,

@@ -70,6 +70,16 @@ const BATTLE_RESULT_PUSH: int = 4013
 const BATTLE_EXIT_REQ: int = 4021
 # 战斗退出响应消息号。
 const BATTLE_EXIT_RESP: int = 4022
+# PVP 挑战请求消息号。
+const PVP_CHALLENGE_REQ: int = 4031
+# PVP 挑战响应消息号。
+const PVP_CHALLENGE_RESP: int = 4032
+# PVP 挑战邀请推送消息号。
+const PVP_CHALLENGE_PUSH: int = 4033
+# PVP 挑战应答请求消息号。
+const PVP_CHALLENGE_REPLY_REQ: int = 4034
+# PVP 挑战应答响应消息号。
+const PVP_CHALLENGE_REPLY_RESP: int = 4035
 
 # 背包列表请求消息号。
 const BAG_LIST_REQ: int = 5001

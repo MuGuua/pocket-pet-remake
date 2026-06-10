@@ -159,6 +159,26 @@ func request_npc_action(entity_id: int, entry_id: String) -> void:
         }
     )
 
+# 向服务端发起一次单人 PVP 挑战请求。
+func request_pvp_challenge(target_player_id: int) -> void:
+    NetClient.send_command(
+        CommandIds.PVP_CHALLENGE_REQ,
+        {
+            "op_id": _take_battle_op_id(),
+            "target_player_id": target_player_id,
+        }
+    )
+
+# 对收到的单人 PVP 邀请提交接受或拒绝结果。
+func reply_pvp_challenge(challenge_id: int, accept: bool) -> void:
+    NetClient.send_command(
+        CommandIds.PVP_CHALLENGE_REPLY_REQ,
+        {
+            "challenge_id": challenge_id,
+            "accept": accept,
+        }
+    )
+
 # 向服务端提交一条战斗动作意图。
 func submit_battle_action(
     battle_id: int,
