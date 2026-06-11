@@ -1,90 +1,130 @@
 # AGENTS.md
 
-This file defines durable Codex guidance for the `pocket-pet-remake` repository.
-It applies to the entire repo unless a deeper `AGENTS.md` overrides it for a subdirectory.
+本文件为 `pocket-pet-remake` 仓库定义了长期有效的 Codex 协作指引。
+除非某个子目录中存在更深层级的 `AGENTS.md` 并覆盖这些规则，否则本文件适用于整个仓库。
 
-## Project Overview
+## 规则优先级
 
-- This repo is a multiplayer pet game remake with a Godot 4 client in `client/` and a Go backend in `backend/`.
-- The client uses autoload singletons such as `App`, `GameState`, `NetClient`, `MessageRouter`, and `HttpClient` declared in `client/project.godot`.
-- The backend is organized around transport, protocol, data, and domain modules, with WebSocket message flow under `backend/server/internal/transport/ws/`.
-- Current core gameplay domains include auth, world/scene transfer, battle, bag, pet, NPC interaction, and quest progression.
+- 只要当前工作目录位于本仓库内，每次启动会话后都必须首先读取并遵守本文件。
+- 在本仓库中每次回答、每次分析、每次修改代码前，都必须优先检查本文件规则是否会影响当前决策。
+- 如果某个子目录中存在更深层级的 `AGENTS.md`，则该子目录内的工作以更深层规则为准；未覆盖部分继续沿用本文件。
+- 除非用户明确要求突破某条规则，否则不要忽略、弱化或跳过本文件中的约束。
+- 当系统规则、开发者规则与本文件不冲突时，本文件应始终作为本项目的默认执行规范。
+- 回答问题，必须先称呼我为靓仔：
 
-All the code you write needs to have detailed comments, and the default developer is someone who is new to this project.
+## 会话启动要求
 
-This game is a mobile game and needs to be developed and adapted according to the characteristics of mobile devices.
+- 进入仓库后，默认先按“移动端游戏 + 联机游戏 + 服务端权威 + 数据持久化”四个前提理解所有需求。
+- 如果需求涉及玩法、战斗、背包、宠物、任务、场景切换或数值计算，默认先检查服务端权威链路，再考虑客户端展示与交互。
+- 如果需求涉及新增数据、配置、属性、掉落、奖励或状态，默认优先考虑数据库结构、仓储读取、持久化写回与协议同步，不要只在代码运行态临时存放。
 
-## Default Working Style
+## 项目概览
 
-- Prefer the smallest change that completes the requested behavior without broad refactors.
-- Preserve existing naming, scene layout, protocol shape, and gameplay flow unless the user asks for a redesign.
-- Before editing, inspect adjacent files and existing patterns in the same feature area; do not introduce a parallel architecture casually.
-- When a request spans client and server, verify the full end-to-end contract: command IDs, payload fields, state updates, and push handling.
-- If the request is ambiguous, prefer continuing the current architecture instead of inventing a new subsystem.
+- 本仓库是一个多人宠物游戏复刻项目，包含位于 `client/` 的 Godot 4 客户端和位于 `backend/` 的 Go 后端。
+- 客户端使用在 `client/project.godot` 中声明的自动加载单例，例如 `App`、`GameState`、`NetClient`、`MessageRouter` 和 `HttpClient`。
+- 后端围绕传输层、协议层、数据层和领域模块组织，WebSocket 消息流位于 `backend/server/internal/transport/ws/`。
+- 当前核心玩法领域包括鉴权、世界/场景切换、战斗、背包、宠物、NPC 交互和任务推进。
 
-## Directory Boundaries
+你编写的所有代码都需要带有详细注释，并且默认读者是刚接触这个项目的新开发者。
 
-- `client/`: Godot scenes, scripts, assets, autoloads, feature controllers, NPC scenes, and world presentation.
-- `backend/`: Go services, WebSocket handlers, protocol structs, repositories, migrations, and design docs.
-- `docs/` and `backend/docs/`: product/design/protocol notes. Keep them aligned when behavior or contracts change.
-- `skills/`: local helper material; do not treat it as runtime game code.
+这是一个移动端游戏，开发和适配时需要符合移动设备的特性。
+开发的时候优先考虑，这是联机游戏，所有数据计算都在服务端进行，客户端只是负责展示和交互。
+所有数据来源都应该在数据库，所有数据也都应该持久化，不要在代码中硬编码数据。
 
-## Godot Client Rules
+## 默认工作方式
 
-- Follow existing Godot 4 patterns already used in this repo: autoload-driven orchestration, scene-specific scripts, and feature controllers.
-- Prefer editing `.tscn` files through narrowly scoped changes; avoid large mechanical rewrites of scene files.
-- Keep gameplay state in `GameState` or the existing owning controller instead of duplicating state in multiple scenes.
-- Route network requests through `App`, `NetClient`, `HttpClient`, and `MessageRouter` rather than creating ad hoc networking paths.
-- Reuse existing scene-level base scripts when adding new maps, portals, NPCs, or quest interactions.
-- When adding UI or interaction logic, ensure it works for the mobile-oriented viewport defined in `client/project.godot`.
-- Do not rename autoload singletons, scene paths, or resource paths unless the task explicitly requires it.
+- 优先选择能完成需求的最小改动，避免大范围重构。
+- 除非用户明确要求重新设计，否则应保留现有命名、场景布局、协议结构和玩法流程。
+- 修改前先检查相邻文件和同一功能区域中的既有实现模式，不要轻易引入一套并行架构。
+- 当需求同时涉及客户端与服务端时，必须核对完整的端到端契约：命令 ID、载荷字段、状态更新以及推送处理。
+- 如果需求有歧义，优先沿用当前架构继续实现，而不是自行发明一个新子系统。
+- 如果某项实现需要临时硬编码数据、假数据或运行时常量，默认先判断是否应改为数据库字段、配置表或持久化资源；除非只是测试用途，否则不要直接硬编码正式玩法数据。
+- 如果某项改动只改了客户端展示而没有核对服务端数据来源、协议字段和持久化路径，默认视为未完成。
+- 任何数据库数据和结构的修改都必须使用迁移sql,输出到指定目录，用户会自己执行
 
-## Go Backend Rules
+## 目录边界
 
-- Keep transport handlers thin. Put gameplay rules in domain services or repositories, not directly in WebSocket handlers.
-- Maintain the current layering: protocol/message parsing -> handler orchestration -> domain service -> data repository.
-- Reuse existing module boundaries such as `world`, `battle`, and `quest`; avoid cross-module coupling when an event or service boundary already exists.
-- When changing payloads, update both protocol structs and the client-side consumers in the same task when possible.
-- Preserve backward-compatible field names unless the user explicitly asks for a breaking protocol cleanup.
-- Prefer targeted tests near the touched package, especially under `backend/server/internal/...`.
+- `client/`：Godot 场景、脚本、资源、自动加载单例、功能控制器、NPC 场景，以及世界表现层。
+- `backend/`：Go 服务、WebSocket 处理器、协议结构、仓储、迁移脚本和设计文档。
+- `admin/` 或未来新增的 Web 后台目录：运营后台前端、后台页面组件、数据管理交互、鉴权壳层与接口请求封装。
+- `docs/` 与 `backend/docs/`：产品 / 设计 / 协议说明。行为或契约发生变化时要保持两边同步。
+- `skills/`：本地辅助材料，不应把它当成运行时游戏代码。
 
-## Protocol And Gameplay Contract Rules
+## Godot 客户端规则
 
-- Treat client-server message schemas as source-of-truth contracts. If one side changes, check the other side immediately.
-- Keep command IDs, message names, quest payloads, battle payloads, and world transfer payloads synchronized across both sides.
-- For new gameplay flows, confirm these four pieces together: request path, backend authority, push/update path, and client state/UI consumption.
-- Do not move authority for battle, quest completion, rewards, or scene transfer to the client.
-- When implementing quest or NPC work, prefer the existing documented direction in `backend/docs/quest-system.md`, `backend/docs/quest-protocol.md`, and `docs/market_npc_interaction_design.md`.
+- 遵循仓库中已经在使用的 Godot 4 模式：自动加载驱动的编排、场景专属脚本和功能控制器。
+- 修改 `.tscn` 文件时尽量只做小范围变更，避免对场景文件做大规模机械式重写。
+- 游戏状态应保存在 `GameState` 或现有归属控制器中，不要在多个场景里重复维护同一份状态。
+- 网络请求必须通过 `App`、`NetClient`、`HttpClient` 和 `MessageRouter` 流转，不要创建临时拼接的网络路径。
+- 新增地图、传送门、NPC 或任务交互时，应优先复用现有场景级基础脚本。
+- 新增 UI 或交互逻辑时，要确保它适配 `client/project.godot` 中定义的移动端视口。
+- 除非任务明确要求，否则不要重命名自动加载单例、场景路径或资源路径。
+- loading 遮罩使用通用UI与对应脚本，所有场景都必须使用这个UI。所有与服务端的请求都必须通过这个UI进行。获取到数据以后再进行面板打开（打开以后直接是新数据，不能老数据变成新数据的过程，本地不再内存中缓存旧数据），动画渲染，npc交互菜单拉取等等，除了多人同屏功能.
+- 所有浮点数数值在ui面板，动画渲染的时候都转成int类型，不能直接使用float64类型。
 
-## Assets And Generated Content
+## Web 后台规则
 
-- Be careful with binary assets and generated map outputs; add only files required for the requested feature.
-- Avoid committing accidental editor/system artifacts such as `.DS_Store`.
-- Do not mass-regenerate imported or generated assets unless the task specifically requires regeneration.
-- If a request involves map assets, preserve the current folder organization under `client/asset/`, `client/scenes/maps/`, and related NPC/script directories.
+- Web 后台默认服务对象是运营、策划、客服与测试人员，不是游戏玩家；交互优先考虑录入效率、批量操作、检索筛选、审计追踪与错误可回滚。
+- 后台页面涉及的所有核心游戏数据都必须走服务端权威接口与数据库持久化链路，不允许前端本地拼装“假成功”结果，也不允许绕过后端直接写数据库。
+- 后台前端默认按“列表页 / 详情抽屉或弹窗 / 新增编辑表单 / 操作确认 / 操作结果提示 / 审计字段展示”这套统一结构设计，除非用户明确要求特殊交互。
+- 后台的增删改查接口必须与现有领域模型、仓储和迁移脚本保持一致；新增后台能力时，优先补服务端 admin API，再补前端页面，不要先做纯前端静态壳子。
+- 后台表单中的枚举、配置项、数值上下限、开关状态等，优先来自服务端配置接口、数据库字典表或共享常量，不要在前端硬编码正式运营数据。
+- 后台所有高风险操作必须具备至少一种保护：二次确认、权限校验、操作原因填写、影响范围提示、或变更预览；批量修改默认视为高风险操作。
+- 后台列表页默认支持分页、关键字搜索、常用筛选、更新时间展示和主键/唯一标识展示，避免后续排查数据问题时缺少定位信息。
+- 后台界面文案要明确区分“展示值”“配置值”“最终生效值”“服务端返回值”，避免运营误把前端展示态当成数据库真实值。
+- 如果后台需求涉及游戏数值、掉落、任务、宠物、NPC、场景、商城或活动配置，必须同步考虑：数据库结构、管理接口、发布/生效机制、客户端/服务端消费方、以及回滚方案。
+- 后台前端实现要复用统一的请求层、鉴权层、错误提示、loading、空态、权限拦截和表格/表单组件，不要在多个页面复制粘贴一套并行实现。
+- 后台页面中的所有浮点展示默认转成适合运营理解的整数或明确格式化后的字符串；如果某个字段必须显示小数，必须由需求明确说明保留的小数位数与含义。
+- 后台相关行为、接口和页面方案发生实质变化时，优先更新 `docs/` 或 `backend/docs/` 中最贴近的设计文档，并补充字段、权限、操作流程和错误处理说明。
 
-## Documentation Expectations
+## Go 后端规则
 
-- When behavior, protocol, or architecture changes materially, update the closest relevant doc in `docs/` or `backend/docs/`.
-- Prefer updating an existing design/protocol doc instead of creating a duplicate note.
-- Keep docs concrete: mention message names, scene IDs, command flows, or migration details rather than generic prose.
+- 传输层处理器要保持轻薄。玩法规则应放在领域服务或仓储中，而不是直接写在 WebSocket 处理器里。
+- 保持当前分层：协议/消息解析 -> handler 编排 -> 领域服务 -> 数据仓储。
+- 复用已有模块边界，例如 `world`、`battle` 和 `quest`；如果已有事件边界或服务边界，不要引入跨模块强耦合。
+- 修改载荷时，尽可能在同一个任务内同步更新协议结构和客户端消费方。
+- 除非用户明确要求进行破坏性协议清理，否则要保持字段名向后兼容。
+- 优先在改动包附近补充有针对性的测试，尤其是 `backend/server/internal/...` 下的代码。
+- 尽量不在代码中包含测试demo和测试数据，可以直接使用正式数据库数据。
+- 功能模块开发都要考虑扩展一套后台管理页面的增删改查接口，同时开发管理页面的前端代码。
 
-## Verification Expectations
+## 协议与玩法契约规则
 
-- For backend-only changes, prefer `go test` on the narrowest affected package first, then widen if needed.
-- For protocol or gameplay changes touching multiple backend packages, prefer `go test ./server/...` from `backend/` when feasible.
-- For client changes, at minimum sanity-check impacted scene/script paths and confirm signal, autoload, and resource references are still coherent.
-- If you cannot run a meaningful verification step, say exactly what was not verified and what the user should run locally.
+- 将客户端与服务端之间的消息结构视为事实来源契约。任一侧变更后，必须立刻检查另一侧。
+- 命令 ID、消息名、任务载荷、战斗载荷和世界切换载荷必须保持两端同步。
+- 对于新的玩法流程，要一起确认这四部分：请求入口、后端权威归属、推送/更新路径，以及客户端状态/UI 消费。
+- 不要把战斗、任务完成、奖励结算或场景切换的权威下放到客户端。
+- 实现任务或 NPC 相关功能时，优先遵循 `backend/docs/quest-system.md`、`backend/docs/quest-protocol.md` 和 `docs/market_npc_interaction_design.md` 中已有的设计方向。
 
-## Response Style For This Repo
+## 资源与生成内容
 
-- Be concise and implementation-focused.
-- Call out client/server contract risks early.
-- Mention file paths when summarizing changes.
-- If there are hidden follow-ups, prefer suggesting them as numbered next steps.
+- 处理二进制资源和生成出的地图内容时要格外小心；只添加本次需求确实需要的文件。
+- 避免提交误加的编辑器/系统垃圾文件，例如 `.DS_Store`。
+- 除非任务明确要求重新生成，否则不要批量重新生成 imported 或其他自动生成资源。
+- 如果需求涉及地图资源，需保留 `client/asset/`、`client/scenes/maps/` 以及相关 NPC / 脚本目录下的现有组织方式。
 
-## When Unsure
+## 文档要求
 
-- Choose the more conservative change.
-- Prefer consistency with nearby code over abstract best-practice rewrites.
-- Ask for clarification only if making the wrong assumption would likely break gameplay flow, protocol compatibility, or project structure.
+- 当行为、协议或架构发生实质变化时，应更新 `docs/` 或 `backend/docs/` 中最贴近的相关文档。
+- 优先更新已有设计文档 / 协议文档，而不是新建一份重复说明。
+- 文档要尽量具体：写清消息名、场景 ID、命令流程或迁移细节，而不是泛泛而谈。
+
+## 验证要求
+
+- 仅后端改动时，优先先对最小受影响包执行 `go test`，必要时再扩大范围。
+- 如果是涉及多个后端包的协议或玩法改动，在可行的情况下优先在 `backend/` 目录下执行 `go test ./server/...`。
+- 客户端改动至少要静态检查受影响的场景 / 脚本路径，并确认信号、自动加载单例和资源引用仍然一致有效。
+- 如果你无法执行有意义的验证步骤，必须明确说明未验证的内容以及用户本地应运行的命令。
+
+## 本仓库的响应风格
+
+- 保持简洁，聚焦实现本身。
+- 尽早指出客户端 / 服务端契约风险。
+- 总结改动时要提到文件路径。
+- 如果存在隐藏的后续工作，优先用编号列表形式提出下一步建议。
+
+## 不确定时
+
+- 选择更保守的改动方案。
+- 优先与附近代码保持一致，而不是进行抽象意义上的“最佳实践”重写。
+- 只有在错误假设很可能破坏玩法流程、协议兼容性或项目结构时，才向用户请求澄清。

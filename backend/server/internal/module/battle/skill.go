@@ -13,6 +13,8 @@ type skillDef struct {
 	ID                     uint32
 	Name                   string
 	TargetRule             skillTargetRule
+	IsSkillAttack          bool
+	EnergyCost             uint32
 	AttackPct              int32
 	ManaPct                int32
 	DefensePct             int32
@@ -52,10 +54,27 @@ type skillDef struct {
 }
 
 var skillCatalog = map[uint32]skillDef{
+	DefaultCharacterSkillID: {
+		ID:                  DefaultCharacterSkillID,
+		Name:                "裂空斩",
+		TargetRule:          targetEnemySingle,
+		IsSkillAttack:       true,
+		EnergyCost:          16,
+		AttackPct:           135,
+		ManaPct:             55,
+		SpeedPct:            35,
+		AllowCrit:           true,
+		ArmorBreakChancePct: 100,
+		ArmorBreakRounds:    2,
+		BleedChancePct:      45,
+		BleedRounds:         2,
+		BleedDamage:         3,
+	},
 	DefaultAttackSkillID: {
 		ID:         DefaultAttackSkillID,
 		Name:       "普通攻击",
 		TargetRule: targetEnemySingle,
+		EnergyCost: 0,
 		AttackPct:  100,
 		ManaPct:    35,
 		SpeedPct:   35,
@@ -65,6 +84,8 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                     1002,
 		Name:                   "火花冲击",
 		TargetRule:             targetEnemyAll,
+		IsSkillAttack:          true,
+		EnergyCost:             18,
 		AttackPct:              120,
 		ManaPct:                85,
 		SpeedPct:               55,
@@ -83,6 +104,8 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                1003,
 		Name:              "活力治愈",
 		TargetRule:        targetAllySingle,
+		IsSkillAttack:     true,
+		EnergyCost:        14,
 		HealPct:           22,
 		CritBoostRounds:   2,
 		CritBoostPct:      20,
@@ -92,6 +115,8 @@ var skillCatalog = map[uint32]skillDef{
 		ID:               1004,
 		Name:             "弧光连射",
 		TargetRule:       targetEnemyMulti,
+		IsSkillAttack:    true,
+		EnergyCost:       16,
 		TargetCount:      2,
 		AttackPct:        105,
 		ManaPct:          40,
@@ -108,6 +133,7 @@ var skillCatalog = map[uint32]skillDef{
 		ID:             DefaultEnemySkillID,
 		Name:           "野性撞击",
 		TargetRule:     targetEnemySingle,
+		EnergyCost:     0,
 		AttackPct:      95,
 		ManaPct:        20,
 		FixedDamage:    2,
@@ -120,6 +146,7 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                90002,
 		Name:              "利爪突袭",
 		TargetRule:        targetEnemySingle,
+		EnergyCost:        12,
 		AttackPct:         110,
 		ManaPct:           30,
 		SpeedPct:          20,
@@ -138,6 +165,8 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                90003,
 		Name:              "野性回春",
 		TargetRule:        targetAllySingle,
+		IsSkillAttack:     true,
+		EnergyCost:        10,
 		HealPct:           18,
 		PreferredTargetHP: "lowest",
 	},

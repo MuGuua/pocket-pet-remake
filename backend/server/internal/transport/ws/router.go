@@ -2,6 +2,7 @@ package wstransport
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/session"
@@ -183,13 +184,19 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 	return conn.SendPacket(responsePacket)
 }
 
-func sendError(conn packetSender, seq uint32, code uint32, message string) error {
+func sendError(conn packetSender, seq uint32, code uint32, message string, causes ...error) error {
 	packet, err := protocol.NewJSONPacket(protocol.CmdErrorPush, seq, code, protocol.ErrorPush{
 		Code: code,
 		Msg:  message,
 	})
 	if err != nil {
+		log.Printf("[ws-error] conn_id=%s seq=%d code=%d msg=%s packet_err=%v", conn.ID(), seq, code, message, err)
 		return err
+	}
+	if len(causes) > 0 && causes[0] != nil {
+		log.Printf("[ws-error] conn_id=%s seq=%d code=%d msg=%s cause=%v", conn.ID(), seq, code, message, causes[0])
+	} else {
+		log.Printf("[ws-error] conn_id=%s seq=%d code=%d msg=%s", conn.ID(), seq, code, message)
 	}
 	return conn.SendPacket(packet)
 }

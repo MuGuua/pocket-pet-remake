@@ -61,8 +61,42 @@ type PlayerBrief struct {
 	Level    uint32 `json:"level"`
 }
 
+type PlayerSnapshot struct {
+	PlayerID           uint64   `json:"player_id"`
+	Name               string   `json:"name"`
+	Level              uint32   `json:"level"`
+	Exp                uint64   `json:"exp"`
+	Gold               uint32   `json:"gold"`
+	HP                 uint32   `json:"hp"`
+	HPMax              uint32   `json:"hp_max"`
+	Energy             uint32   `json:"energy"`
+	EnergyMax          uint32   `json:"energy_max"`
+	ATK                uint32   `json:"atk"`
+	DEF                uint32   `json:"def"`
+	SPD                uint32   `json:"spd"`
+	MANA               uint32   `json:"mana"`
+	HitPct             uint32   `json:"hit_pct"`
+	DodgePct           uint32   `json:"dodge_pct"`
+	CritRatePct        uint32   `json:"crit_rate_pct"`
+	CritDmgPct         uint32   `json:"crit_dmg_pct"`
+	PhysicalResistPct  uint32   `json:"physical_resist_pct"`
+	SkillResistPct     uint32   `json:"skill_resist_pct"`
+	ConfusionResistPct uint32   `json:"confusion_resist_pct"`
+	SleepResistPct     uint32   `json:"sleep_resist_pct"`
+	ParalysisResistPct uint32   `json:"paralysis_resist_pct"`
+	SealResistPct      uint32   `json:"seal_resist_pct"`
+	CurseResistPct     uint32   `json:"curse_resist_pct"`
+	CritResistPct      uint32   `json:"crit_resist_pct"`
+	CritDmgResistPct   uint32   `json:"crit_dmg_resist_pct"`
+	CharacterResistPct uint32   `json:"character_resist_pct"`
+	PetResistPct       uint32   `json:"pet_resist_pct"`
+	MercenaryResistPct uint32   `json:"mercenary_resist_pct"`
+	GenericShieldPct   uint32   `json:"generic_shield_pct"`
+	SkillIDs           []uint32 `json:"skill_ids"`
+}
+
 type EntityBrief struct {
-	EntityID   uint64 `json:"entity_id"`
+	EntityID uint64 `json:"entity_id"`
 	// PlayerID is only populated when the entity represents a real player in the
 	// world snapshot so clients can safely target PVP actions.
 	PlayerID   uint64 `json:"player_id"`
@@ -121,13 +155,14 @@ type PetLineupSetResp struct {
 type EnterWorldReq struct{}
 
 type EnterWorldResp struct {
-	Self           PlayerBrief   `json:"self"`
-	SceneID        uint32        `json:"scene_id"`
-	SelfPos        Vec2i         `json:"self_pos"`
-	SceneVersion   uint32        `json:"scene_version"`
-	NearbyEntities []EntityBrief `json:"nearby_entities"`
-	Lineup         []PetBrief    `json:"lineup"`
-	Gold           uint32        `json:"gold"`
+	Self           PlayerBrief    `json:"self"`
+	Player         PlayerSnapshot `json:"player"`
+	SceneID        uint32         `json:"scene_id"`
+	SelfPos        Vec2i          `json:"self_pos"`
+	SceneVersion   uint32         `json:"scene_version"`
+	NearbyEntities []EntityBrief  `json:"nearby_entities"`
+	Lineup         []PetBrief     `json:"lineup"`
+	Gold           uint32         `json:"gold"`
 }
 
 type MoveIntentReq struct {
@@ -234,6 +269,7 @@ type WorldResyncPush struct {
 type BattleActorSnapshot struct {
 	ActorID       uint64                `json:"actor_id"`
 	ActorType     uint32                `json:"actor_type"`
+	UnitClass     uint32                `json:"unit_class"`
 	OwnerPlayerID uint64                `json:"owner_player_id"`
 	PetUID        uint64                `json:"pet_uid"`
 	PetID         uint32                `json:"pet_id"`

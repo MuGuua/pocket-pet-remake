@@ -57,6 +57,39 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 			Name:     profile.Name,
 			Level:    profile.Level,
 		},
+		Player: protocol.PlayerSnapshot{
+			PlayerID:           profile.PlayerID,
+			Name:               profile.Name,
+			Level:              profile.Level,
+			Exp:                profile.Exp,
+			Gold:               profile.Gold,
+			HP:                 profile.HP,
+			HPMax:              profile.HPMax,
+			Energy:             profile.Energy,
+			EnergyMax:          profile.EnergyMax,
+			ATK:                profile.ATK,
+			DEF:                profile.DEF,
+			SPD:                profile.SPD,
+			MANA:               profile.MANA,
+			HitPct:             profile.HitPct,
+			DodgePct:           profile.DodgePct,
+			CritRatePct:        profile.CritRatePct,
+			CritDmgPct:         profile.CritDmgPct,
+			PhysicalResistPct:  profile.PhysicalResistPct,
+			SkillResistPct:     profile.SkillResistPct,
+			ConfusionResistPct: profile.ConfusionResistPct,
+			SleepResistPct:     profile.SleepResistPct,
+			ParalysisResistPct: profile.ParalysisResistPct,
+			SealResistPct:      profile.SealResistPct,
+			CurseResistPct:     profile.CurseResistPct,
+			CritResistPct:      profile.CritResistPct,
+			CritDmgResistPct:   profile.CritDmgResistPct,
+			CharacterResistPct: profile.CharacterResistPct,
+			PetResistPct:       profile.PetResistPct,
+			MercenaryResistPct: profile.MercenaryResistPct,
+			GenericShieldPct:   profile.GenericShieldPct,
+			SkillIDs:           append([]uint32{}, profile.SkillIDs...),
+		},
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
@@ -80,7 +113,7 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	ctx := context.Background()
 	responseBody, err := h.BuildWorldSnapshotForPlayer(ctx, sess.PlayerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load scene snapshot failed")
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load scene snapshot failed", err)
 	}
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdEnterWorldResp, packet.Seq, errcode.WSCodeSuccess, responseBody)
 	if err != nil {

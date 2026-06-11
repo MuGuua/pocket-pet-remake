@@ -1,0 +1,1757 @@
+# 背包、仓库与货币价格系统开发文档
+
+## 1. 文档目的
+
+本文用于为当前联机宠物游戏补充一套可落地的背包、仓库、货币与价格系统开发方案，统一以下内容：
+
+- 物品分类与物品模板设计
+- 玩家个人背包与个人仓库容量规则
+- 物品获得、消耗、使用、移动、整理、存仓、取仓规则
+- 三种基础货币的设计与价格存储规则
+- 服务端权威的数据结构、持久化方案与协议方向
+- 客户端展示与交互要求
+- 后台配置、查询与审计需求
+
+本文默认遵循当前项目既有前提：
+
+- 移动端游戏
+- 联机游戏
+- 服务端权威
+- 数据持久化
+- 客户端只负责展示与交互，不负责真实计算结果
+
+## 2. 当前项目约束
+
+### 2.1 客户端约束
+
+- 客户端不负责判定物品是否足够、背包是否有空格、仓库是否可存、货币是否足够。
+- 客户端只负责：
+  - 打开背包或仓库面板
+  - 发起物品操作请求
+  - 展示服务端返回的新状态
+  - 响应服务端推送刷新背包、仓库和货币快照
+- 所有打开面板动作都必须先走服务端请求，再展示新数据。
+- 所有与服务端交互前后的 loading 过程都必须走通用 loading UI。
+- UI 中所有数量、容量、价格、奖励数值都按整数展示，不能直接暴露浮点数。
+
+### 2.2 服务端约束
+
+- 服务端必须拥有以下最终权威：
+  - 物品模板定义
+  - 堆叠规则
+  - 背包与仓库容量判断
+  - 物品获得与消耗
+  - 扩容判定
+  - 货币增减与价格结算
+  - 仓库存取合法性
+  - 任务物品、装备、功能道具的限制规则
+- 玩法逻辑不能直接写在 WebSocket handler 中，应放在领域服务或仓储层。
+- 所有正式物品数据、容量数据、货币数据都要可持久化，不能只放在运行态内存。
+
+### 2.3 联机游戏约束
+
+- 客户端不能自行决定物品结果。
+- 掉落、奖励、消耗、购买、存仓、扩容必须由服务端判定并落库。
+- 断线重连后必须支持完整恢复背包、仓库和货币快照。
+- 背包与仓库的变更必须能推送到当前连接并可重同步。
+
+## 3. 设计目标
+
+本系统第一版建议同时满足以下目标：
+
+1. 支持个人背包与个人仓库两套存储空间
+2. 支持多种物品分类，满足战斗、任务、养成、运营活动扩展
+3. 支持容量上限、扩容道具与最大上限限制
+4. 支持可堆叠与不可堆叠物品
+5. 支持服务端权威的获得、消耗、使用、移动、整理、存仓、取仓
+6. 支持三种基础货币与统一价格体系
+7. 支持战斗掉落、任务奖励、NPC 兑换、商店购买、后台补发等来源
+8. 支持后台对物品模板、玩家容器、货币流水进行查询与审计
+
+## 4. 系统范围
+
+本文覆盖：
+
+- 物品模板
+- 玩家背包
+- 玩家仓库
+- 容量与扩容
+- 物品获得与消耗
+- 物品使用
+- 仓库存取
+- 三种基础货币
+- 统一价格系统
+- 协议方向
+- 后台管理需求
+
+本文暂不优先覆盖：
+
+- 拍卖行
+- 玩家交易
+- 公会仓库
+- 邮件附件完整系统
+- 装备强化、镶嵌、耐久的完整细则
+- 多仓库分页共享检索
+- 复杂拖拽动画表现
+
+## 5. 核心设计原则
+
+### 5.1 服务端权威
+
+以下行为全部由服务端判定：
+
+- 是否有空格
+- 是否可堆叠
+- 单格堆叠上限
+- 是否允许使用
+- 是否允许存仓
+- 是否允许取仓
+- 是否允许出售、丢弃、回收
+- 扩容道具是否合法
+- 货币是否足够
+- 自动进位和借位结果
+- 最终背包、仓库、货币变更结果
+
+客户端只负责发请求与展示结果。
+
+### 5.2 模板与实例分离
+
+- 物品模板定义“这是什么物品”
+- 玩家容器记录定义“这个玩家在某个格子里持有什么物品以及数量”
+- 货币账户定义“这个玩家当前拥有多少基础货币”
+
+不要把静态模板、玩家实例、钱包状态混在一层里。
+
+### 5.3 背包、仓库、钱包分离
+
+- 背包：高频操作空间，用于战斗、任务、道具使用
+- 仓库：低频存储空间，用于长期积累和整理
+- 钱包：基础货币账户，不占背包格子，不占仓库格子
+
+### 5.4 数据持久化优先
+
+以下结果必须持久化：
+
+- 物品进入背包
+- 物品数量减少
+- 物品移动或整理
+- 存仓、取仓
+- 背包扩容
+- 仓库扩容
+- 货币奖励
+- 货币扣费
+
+### 5.5 最小改动可扩展
+
+- 第一版优先做稳定、清晰、可扩展的基础底座
+- 不为了未来复杂玩法过早引入过重系统
+- 但要为装备实例化、商城、活动代币、后台管理预留字段
+
+## 6. 系统总览
+
+推荐将背包、仓库与货币统一理解为如下关系：
+
+```text
+战斗掉落 / 任务奖励 / 商店购买 / NPC 兑换 / 后台补发
+    -> 服务端 bag / wallet 领域服务
+    -> 校验容量 / 堆叠 / 价格 / 条件
+    -> 更新背包 / 仓库 / 钱包
+    -> 落库
+    -> 记录流水
+    -> 推送最新快照或增量更新
+    -> 客户端刷新界面
+```
+
+双端职责：
+
+- 服务端：
+  - 物品模板读取
+  - 容器与钱包读写
+  - 物品和货币规则计算
+  - 扩容与价格结算
+  - 协议响应与推送
+- 客户端：
+  - 背包与仓库面板展示
+  - 分类筛选
+  - 物品详情
+  - 货币与价格展示
+  - 发起使用、移动、整理、存仓、取仓请求
+
+## 7. 物品分类设计
+
+当前用户已明确物品至少包含：
+
+- 装备
+- 任务物品
+
+在此基础上，建议第一版扩展为以下 8 类。
+
+### 7.1 装备 `equipment`
+
+用于角色或宠物穿戴的装备类物品。
+
+建议子类：
+
+- 武器
+- 防具
+- 饰品
+- 特殊装备
+
+特点：
+
+- 通常不可堆叠
+- 后续可能带强化等级、品质、词条、绑定状态
+- 占用独立格子
+- 是否可存仓由模板配置决定
+
+### 7.2 任务物品 `quest`
+
+用于主线、支线、活动任务推进的物品。
+
+特点：
+
+- 默认不可出售
+- 默认不可丢弃
+- 是否允许存仓建议单独配置，默认谨慎开放
+- 任务完成后可配置自动回收
+
+### 7.3 消耗品 `consumable`
+
+用于回复、捕捉、增益、体力恢复等即时消耗。
+
+示例：
+
+- 生命药剂
+- 抓宠球
+- 精力恢复道具
+- 战斗增益药剂
+
+特点：
+
+- 通常可堆叠
+- 多数可主动使用
+- 使用效果由服务端执行
+
+### 7.4 材料 `material`
+
+用于制作、强化、进化、合成、兑换、提交任务。
+
+示例：
+
+- 宠物培养材料
+- 装备打造材料
+- 活动兑换素材
+- 合成碎片
+
+特点：
+
+- 通常可堆叠
+- 获取量大
+- 适合放入仓库长期积累
+
+### 7.5 宠物道具 `pet_item`
+
+用于宠物相关培养和调整。
+
+示例：
+
+- 宠物经验道具
+- 洗练道具
+- 进化道具
+- 亲密度道具
+- 技能学习道具
+
+特点：
+
+- 多数可堆叠
+- 使用时可能需要指定宠物实例
+- 使用合法性由服务端校验
+
+### 7.6 凭证类 `token`
+
+用于门票、资格、兑换与活动结算。
+
+示例：
+
+- 副本门票
+- 活动代币
+- 兑换券
+- 限时通行证
+
+特点：
+
+- 通常可堆叠
+- 可能存在有效期
+- 适合运营活动扩展
+
+### 7.7 功能道具 `functional`
+
+用于解锁或改变系统状态。
+
+示例：
+
+- 背包扩容券
+- 仓库扩容券
+- 改名卡
+- 技能重置券
+- 传送券
+
+特点：
+
+- 使用后影响角色系统状态
+- 建议记录重点使用日志
+- 必须做使用条件校验
+
+### 7.8 宝箱礼包 `box`
+
+开启后发放一个或多个奖励。
+
+示例：
+
+- 新手礼包
+- 每日活跃礼包
+- 宠物培养礼盒
+- 随机宝箱
+
+特点：
+
+- 使用后消耗自身
+- 奖励内容来自服务端配置
+- 必须做容量与发奖校验
+
+## 8. 物品模板基础属性设计
+
+建议所有物品模板至少包含以下字段。
+
+### 8.1 基础标识
+
+- `item_id`：物品模板 ID
+- `item_code`：物品编码
+- `item_name`：物品名称
+- `item_type`：主分类
+- `item_sub_type`：子分类
+- `quality`：品质
+- `rarity`：稀有度
+- `icon`：图标资源标识
+- `desc`：描述文本
+
+### 8.2 堆叠与占格
+
+- `max_stack`：单格最大堆叠数
+- `occupy_slots`：占用格数，第一版建议固定为 1
+- `auto_merge`：获得同类物品时是否优先并堆
+- `sort_weight`：整理排序权重
+
+建议默认规则：
+
+- 装备类 `max_stack = 1`
+- 任务物品多数 `max_stack > 1`，由模板配置决定
+- 消耗品、材料、凭证通常允许堆叠
+- 第一版不做多格占位物品
+
+### 8.3 使用与限制
+
+- `usable`：是否可主动使用
+- `use_scope`：使用场景
+- `target_type`：使用目标类型
+- `required_level`：使用等级要求
+- `required_scene_id`：使用场景要求
+- `bind_type`：绑定类型
+- `can_sell`
+- `can_drop`
+- `can_store`
+- `can_trade`
+- `expire_at_rule`
+
+### 8.4 业务效果
+
+建议预留：
+
+- `effect_type`
+- `effect_value`
+- `effect_params_json`
+
+典型效果：
+
+- 回复生命
+- 回复体力
+- 增加宠物经验
+- 背包扩容
+- 仓库扩容
+- 打开礼包
+- 发放奖励
+- 任务交付凭证
+
+### 8.5 价格字段
+
+建议模板直接补充：
+
+- `buy_price_copper`
+- `sell_price_copper`
+- `recycle_price_copper`
+- `price_type`
+
+第一版 `price_type` 可固定为 `base_coin`。
+
+## 9. 物品模板、容器与实例分层设计
+
+为了兼顾当前版本的实现成本与后续装备扩展需求，物品系统建议采用“统一模板主表 + 统一容器表 + 按需实例表/扩展表”的分层设计，而不是一开始就把每种物品拆成完全独立的一套表结构。
+
+### 9.1 统一物品模板主表
+
+所有物品都必须先经过统一物品模板表管理，建议主表命名为：
+
+- `item_definition`
+
+这张表是所有物品的静态配置事实来源，负责定义：
+
+- 物品是什么
+- 物品属于什么类型
+- 是否可堆叠
+- 是否可出售、丢弃、存仓
+- 是否可使用
+- 基础价格是多少
+- 基础效果是什么
+
+所有分类物品都先在这张表中统一注册，商店、掉落、任务奖励、后台配置统一引用 `item_id`。
+
+### 9.2 为什么不能只靠 `item_id`
+
+如果背包或仓库记录只保存：
+
+- `player_id`
+- `slot_index`
+- `item_id`
+- `quantity`
+
+那么它只适合“同模板完全等价”的物品，例如：
+
+- 药剂
+- 材料
+- 任务物品
+- 门票
+- 扩容券
+- 普通礼包
+
+但装备类物品后续可能出现：
+
+- 强化等级不同
+- 附加属性不同
+- 绑定状态不同
+- 耐久不同
+- 洗练结果不同
+- 来源不同
+- 是否正在穿戴不同
+
+因此，容器系统不能只依赖 `item_id`，还必须为“有个体差异的物品”预留实例引用。
+
+### 9.3 统一容器表设计
+
+背包与仓库建议统一使用同一套容器物品表，建议命名为：
+
+- `player_container_item`
+
+建议字段包括：
+
+- `id`
+- `player_id`
+- `container_type`
+- `slot_index`
+- `item_id`
+- `item_uid`
+- `quantity`
+- `is_bound`
+- `expire_at`
+- `instance_data_json`
+- `source_type`
+- `source_ref_id`
+- `created_at`
+- `updated_at`
+
+推荐约定：
+
+- 普通堆叠物品：`item_uid = NULL`
+- 装备等实例化物品：`quantity = 1`，`item_uid` 必填
+
+### 9.4 不建议一开始按物品类型拆很多主表
+
+当前阶段不建议一开始就拆出多张平行主表，例如：
+
+- `equipment_definition`
+- `quest_item_definition`
+- `consumable_definition`
+- `material_definition`
+- `pet_item_definition`
+- `token_definition`
+- `box_definition`
+
+第一版推荐策略是：
+
+- 所有物品先统一挂在 `item_definition`
+- 只有当某类物品确实存在大量特殊字段时，再补类型扩展表
+- 不为“只是分类不同”而拆独立主表
+
+### 9.5 类型扩展表设计原则
+
+并不是所有类型都要单独扩表，但对于“共性字段放不下、并且后续明确还会扩”的类型，可以增加扩展表。
+
+例如可选扩展表如下：
+
+#### 装备模板扩展表 `item_equipment_extra`
+
+建议字段：
+
+- `item_id`
+- `equip_slot`
+- `base_hp`
+- `base_mana`
+- `base_atk`
+- `base_def`
+- `base_spd`
+- `career_limit`
+- `pet_only`
+- `player_only`
+- `extra_rule_json`
+
+#### 宝箱模板扩展表 `item_box_extra`
+
+建议字段：
+
+- `item_id`
+- `reward_pool_id`
+- `select_mode`
+- `box_open_rule`
+- `daily_limit`
+- `extra_rule_json`
+
+#### 功能道具模板扩展表 `item_functional_extra`
+
+建议字段：
+
+- `item_id`
+- `function_type`
+- `expand_target`
+- `expand_slots`
+- `target_rule_json`
+
+扩展表是按需增加，不是所有分类都必须有自己的扩展表。
+
+## 10. 装备实例化与类型扩展表设计
+
+装备是当前最需要提前预留实例化能力的物品类型。
+
+### 10.1 装备模板与装备实例的区别
+
+装备模板回答的是：
+
+- 这是什么装备
+- 它的基础定位是什么
+- 它的默认基础属性是什么
+- 它卖多少钱
+- 能不能存仓、出售、丢弃
+
+这些信息属于静态配置，应放在：
+
+- `item_definition`
+- `item_equipment_extra`
+
+装备实例回答的是：
+
+- 这件装备当前强化到多少
+- 当前附加属性是什么
+- 是否已绑定
+- 当前耐久是多少
+- 属于哪个玩家
+- 是否有唯一成长记录
+
+这些信息属于玩家持有后的动态个体状态，应放在实例表。
+
+### 10.2 装备实例表建议
+
+当前项目第一版建议直接增加一张装备实例表，而不是一次性抽象成过大的通用实例系统。建议命名为：
+
+- `equipment_instance`
+
+建议字段：
+
+- `item_uid`
+- `player_id`
+- `item_id`
+- `enhance_level`
+- `star_level`
+- `durability`
+- `max_durability`
+- `bind_type`
+- `extra_attrs_json`
+- `special_effect_json`
+- `state`
+- `created_at`
+- `updated_at`
+
+### 10.3 为什么建议先做装备实例表，而不是通用实例表
+
+当前项目最明确会产生个体差异的物品是装备，所以第一版更建议：
+
+- 先做统一模板主表
+- 先做统一容器表
+- 先做装备实例表
+
+后续如果出现更多实例化物品，再评估是否把装备实例抽象升级为统一 `item_instance` 体系。
+
+### 10.4 哪些物品暂时不需要实例表
+
+以下物品在第一版通常不需要独立实例表：
+
+- 任务物品
+- 消耗品
+- 材料
+- 凭证类物品
+- 扩容券
+- 普通礼包
+
+### 10.5 结论与落地口径
+
+本项目的推荐口径如下：
+
+- 所有物品模板统一由 `item_definition` 管理
+- 不同类型物品默认不拆独立主表
+- 当某一类物品存在明确专属字段时，可以增加类型扩展表
+- 背包和仓库统一由 `player_container_item` 管理
+- 普通堆叠物品通过 `item_id + quantity` 表示
+- 装备类物品除 `item_id` 外，还必须支持 `item_uid`
+- 装备个体动态属性统一由 `equipment_instance` 管理
+
+## 11. 数据库表关系设计
+
+为了让背包、仓库、装备实例、钱包和价格系统之间的职责边界清晰，建议数据库层按“模板层、实例层、容器层、钱包层、流水层”组织。
+
+### 11.1 模板层
+
+建议包含以下表：
+
+- `item_definition`
+- `item_equipment_extra`
+- `item_box_extra`
+- `item_functional_extra`
+
+关系如下：
+
+```text
+item_definition (1)
+    -> (0..1) item_equipment_extra
+    -> (0..1) item_box_extra
+    -> (0..1) item_functional_extra
+```
+
+### 11.2 实例层
+
+当前第一版建议先只为装备建立实例层：
+
+- `equipment_instance`
+
+关系如下：
+
+```text
+item_definition (1) -> (N) equipment_instance
+```
+
+### 11.3 容器层
+
+建议表：
+
+- `player_container`
+- `player_container_item`
+
+关系如下：
+
+```text
+player_container (1) -> (N) player_container_item
+```
+
+同时，`player_container_item` 会引用模板层或实例层：
+
+```text
+player_container_item
+    -> item_definition.item_id
+    -> equipment_instance.item_uid (可空)
+```
+
+### 11.4 钱包层
+
+建议表：
+
+- `player_wallet`
+
+### 11.5 流水层
+
+建议表：
+
+- `item_change_log`
+- `container_expand_log`
+- `currency_change_log`
+
+## 12. 关键表职责与字段建议
+
+### 12.1 `item_definition`
+
+职责：
+
+- 所有物品的统一静态模板入口
+- 提供背包、仓库、商店、奖励、掉落的通用引用
+
+关键字段建议：
+
+- `item_id`
+- `item_code`
+- `item_name`
+- `item_type`
+- `item_sub_type`
+- `quality`
+- `max_stack`
+- `usable`
+- `can_sell`
+- `can_drop`
+- `can_store`
+- `buy_price_copper`
+- `sell_price_copper`
+- `effect_type`
+- `effect_params_json`
+
+### 12.2 `player_container`
+
+职责：
+
+- 记录玩家背包或仓库的容量配置
+
+关键字段建议：
+
+- `player_id`
+- `container_type`
+- `capacity`
+- `max_capacity`
+- `version`
+- `updated_at`
+
+### 12.3 `player_container_item`
+
+职责：
+
+- 记录玩家容器格子内容
+- 兼容普通堆叠物品和实例化装备
+
+关键字段建议：
+
+- `player_id`
+- `container_type`
+- `slot_index`
+- `item_id`
+- `item_uid`
+- `quantity`
+- `is_bound`
+- `expire_at`
+- `source_type`
+- `source_ref_id`
+
+### 12.4 `equipment_instance`
+
+职责：
+
+- 记录具体装备实例的个体属性
+
+关键字段建议：
+
+- `item_uid`
+- `player_id`
+- `item_id`
+- `enhance_level`
+- `star_level`
+- `durability`
+- `max_durability`
+- `bind_type`
+- `extra_attrs_json`
+- `special_effect_json`
+- `state`
+
+### 12.5 `player_wallet`
+
+职责：
+
+- 记录玩家基础货币总量
+- 统一管理金币、银币、铜币的总铜币表示
+
+关键字段建议：
+
+- `player_id`
+- `currency_copper_total`
+- `version`
+- `updated_at`
+
+## 13. 典型查询设计
+
+### 13.1 查询玩家背包列表
+
+推荐查询步骤：
+
+1. 查询 `player_container`
+2. 查询 `player_container_item`
+3. 批量查询 `item_definition`
+4. 若存在 `item_uid`，再批量查询 `equipment_instance`
+5. 组装响应
+
+### 13.2 查询玩家仓库列表
+
+与背包列表完全同构，只是 `container_type = 'warehouse'`。
+
+### 13.3 查询单个格子的完整信息
+
+推荐查询口径：
+
+1. 查询 `player_container_item`
+2. 查询 `item_definition`
+3. 如果 `item_uid` 非空，再查询 `equipment_instance`
+4. 如有类型扩展，再按 `item_type` 查询对应扩展表
+
+### 13.4 查询玩家钱包
+
+推荐只查：
+
+- `player_wallet.currency_copper_total`
+
+然后在服务端内拆分为：
+
+- `gold`
+- `silver`
+- `copper`
+
+## 14. 典型写入流程设计
+
+### 14.1 获得普通堆叠物品
+
+例如任务奖励发放 `20 个小型生命药剂`：
+
+1. 读取 `item_definition`
+2. 校验启用状态和 `max_stack`
+3. 查询容器配置
+4. 查询未满堆格子
+5. 优先并堆
+6. 剩余部分占用空格
+7. 更新或插入 `player_container_item`
+8. 记录 `item_change_log`
+9. 推送背包更新
+
+### 14.2 获得一件装备
+
+例如战斗掉落 `木剑` 一件：
+
+1. 读取 `item_definition`
+2. 确认 `item_type = equipment`
+3. 查询背包空格
+4. 生成唯一 `item_uid`
+5. 插入 `equipment_instance`
+6. 插入 `player_container_item`
+7. 记录 `item_change_log`
+8. 推送背包更新
+
+### 14.3 使用背包扩容券
+
+1. 查询源格子
+2. 查询 `item_definition`
+3. 查询 `item_functional_extra`
+4. 校验扩容目标
+5. 查询 `player_container`
+6. 校验未到上限
+7. 扣除扩容券
+8. 更新容量
+9. 写物品流水
+10. 写扩容日志
+11. 推送容量更新
+
+### 14.4 商店购买物品
+
+1. 查询商品配置或模板价格
+2. 计算总价
+3. 查询 `player_wallet`
+4. 校验金额足够
+5. 扣减钱包
+6. 发放物品
+7. 写货币流水
+8. 写物品流水
+9. 推送钱包和容器更新
+
+## 15. 货币系统设计
+
+### 15.1 货币种类
+
+当前基础货币固定为三种：
+
+- 金币 `gold`
+- 银币 `silver`
+- 铜币 `copper`
+
+### 15.2 兑换比例
+
+统一使用千进制：
+
+- `1 金币 = 1000 银币`
+- `1 银币 = 1000 铜币`
+
+换算关系：
+
+- `1 金币 = 1,000,000 铜币`
+
+### 15.3 自动进位规则
+
+- 铜币达到 `1000` 时，自动进位为 `1 银币`
+- 银币达到 `1000` 时，自动进位为 `1 金币`
+- 金币不设上限
+
+标准化结果要求：
+
+- `0 <= copper < 1000`
+- `0 <= silver < 1000`
+- `gold >= 0`
+
+### 15.4 钱包与背包分离
+
+基础货币属于玩家钱包，不属于普通背包物品：
+
+- 不占背包格子
+- 不占仓库格子
+- 不可存仓
+- 不通过普通道具使用协议处理
+
+## 16. 价格系统设计
+
+### 16.1 内部统一最小单位
+
+建议服务端内部统一按“铜币总量”进行计算。
+
+### 16.2 推荐存储方案
+
+推荐数据库只存一个基础货币字段：
+
+- `currency_copper_total`
+
+拆分公式：
+
+```text
+gold = total_copper / 1000000
+silver = (total_copper % 1000000) / 1000
+copper = total_copper % 1000
+```
+
+### 16.3 价格字段统一按铜币总量存储
+
+建议统一存：
+
+- `buy_price_copper`
+- `sell_price_copper`
+- `recycle_price_copper`
+- `reward_copper`
+- `cost_amount_copper`
+
+### 16.4 自动借位
+
+如果玩家显示为 `1 金 0 银 0 铜`，内部就是 `1,000,000 铜`。扣费时直接按总铜币扣减，再拆分展示即可，不需要单独写复杂借位逻辑。
+
+## 17. SQL 建表草案字段清单
+
+本节用于指导后续数据库迁移脚本编写，目标是先把背包、仓库、装备实例、钱包与日志表的结构边界定义清楚。
+
+### 17.1 命名与通用约定
+
+建议统一采用以下约定：
+
+- 主键优先使用 `BIGSERIAL` 或与现有项目一致的 `BIGINT`
+- 玩家 ID 与现有 `player` 表主键类型保持一致
+- 时间字段统一使用：
+  - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+  - `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- 枚举类字段第一版可先用 `VARCHAR(...)`
+- JSON 扩展字段使用 `JSONB`
+
+### 17.2 `item_definition`
+
+建议字段清单：
+
+- `item_id BIGINT PRIMARY KEY`
+- `item_code VARCHAR(64) NOT NULL UNIQUE`
+- `item_name VARCHAR(128) NOT NULL`
+- `item_type VARCHAR(32) NOT NULL`
+- `item_sub_type VARCHAR(32) NOT NULL DEFAULT ''`
+- `quality INT NOT NULL DEFAULT 1`
+- `rarity INT NOT NULL DEFAULT 1`
+- `icon VARCHAR(255) NOT NULL DEFAULT ''`
+- `desc TEXT NOT NULL DEFAULT ''`
+- `max_stack INT NOT NULL DEFAULT 1`
+- `occupy_slots INT NOT NULL DEFAULT 1`
+- `auto_merge BOOLEAN NOT NULL DEFAULT TRUE`
+- `sort_weight INT NOT NULL DEFAULT 0`
+- `usable BOOLEAN NOT NULL DEFAULT FALSE`
+- `use_scope VARCHAR(32) NOT NULL DEFAULT ''`
+- `target_type VARCHAR(32) NOT NULL DEFAULT ''`
+- `required_level INT NOT NULL DEFAULT 0`
+- `required_scene_id BIGINT NOT NULL DEFAULT 0`
+- `bind_type VARCHAR(32) NOT NULL DEFAULT 'none'`
+- `can_sell BOOLEAN NOT NULL DEFAULT FALSE`
+- `can_drop BOOLEAN NOT NULL DEFAULT FALSE`
+- `can_store BOOLEAN NOT NULL DEFAULT TRUE`
+- `can_trade BOOLEAN NOT NULL DEFAULT FALSE`
+- `expire_at_rule VARCHAR(64) NOT NULL DEFAULT ''`
+- `effect_type VARCHAR(32) NOT NULL DEFAULT ''`
+- `effect_value BIGINT NOT NULL DEFAULT 0`
+- `effect_params_json JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `buy_price_copper BIGINT NOT NULL DEFAULT 0`
+- `sell_price_copper BIGINT NOT NULL DEFAULT 0`
+- `recycle_price_copper BIGINT NOT NULL DEFAULT 0`
+- `price_type VARCHAR(32) NOT NULL DEFAULT 'base_coin'`
+- `is_enabled BOOLEAN NOT NULL DEFAULT TRUE`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 17.3 `player_container`
+
+建议字段清单：
+
+- `id BIGSERIAL PRIMARY KEY`
+- `player_id BIGINT NOT NULL`
+- `container_type VARCHAR(32) NOT NULL`
+- `capacity INT NOT NULL DEFAULT 30`
+- `max_capacity INT NOT NULL DEFAULT 300`
+- `version BIGINT NOT NULL DEFAULT 0`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 17.4 `player_container_item`
+
+建议字段清单：
+
+- `id BIGSERIAL PRIMARY KEY`
+- `player_id BIGINT NOT NULL`
+- `container_type VARCHAR(32) NOT NULL`
+- `slot_index INT NOT NULL`
+- `item_id BIGINT NOT NULL REFERENCES item_definition(item_id)`
+- `item_uid VARCHAR(64) NULL`
+- `quantity BIGINT NOT NULL DEFAULT 1`
+- `is_bound BOOLEAN NOT NULL DEFAULT FALSE`
+- `expire_at TIMESTAMPTZ NULL`
+- `instance_data_json JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `source_type VARCHAR(32) NOT NULL DEFAULT ''`
+- `source_ref_id BIGINT NOT NULL DEFAULT 0`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 17.5 `equipment_instance`
+
+建议字段清单：
+
+- `item_uid VARCHAR(64) PRIMARY KEY`
+- `player_id BIGINT NOT NULL`
+- `item_id BIGINT NOT NULL REFERENCES item_definition(item_id)`
+- `enhance_level INT NOT NULL DEFAULT 0`
+- `star_level INT NOT NULL DEFAULT 0`
+- `durability BIGINT NOT NULL DEFAULT 0`
+- `max_durability BIGINT NOT NULL DEFAULT 0`
+- `bind_type VARCHAR(32) NOT NULL DEFAULT 'none'`
+- `extra_attrs_json JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `special_effect_json JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `state VARCHAR(32) NOT NULL DEFAULT 'bag'`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 17.6 `player_wallet`
+
+建议字段清单：
+
+- `id BIGSERIAL PRIMARY KEY`
+- `player_id BIGINT NOT NULL UNIQUE`
+- `currency_copper_total BIGINT NOT NULL DEFAULT 0`
+- `version BIGINT NOT NULL DEFAULT 0`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 17.7 日志表
+
+建议表：
+
+- `item_change_log`
+- `container_expand_log`
+- `currency_change_log`
+
+## 18. 协议命令表设计建议
+
+当前项目已经预留背包/道具号段：
+
+- `5001 BAG_LIST_REQ`
+- `5002 BAG_LIST_RESP`
+- `5011 BAG_UPDATE_PUSH`
+- `5021 USE_ITEM_REQ`
+- `5022 USE_ITEM_RESP`
+
+建议继续扩展：
+
+- `5031 CONTAINER_LIST_REQ`
+- `5032 CONTAINER_LIST_RESP`
+- `5041 BAG_TO_WAREHOUSE_REQ`
+- `5042 BAG_TO_WAREHOUSE_RESP`
+- `5051 WAREHOUSE_TO_BAG_REQ`
+- `5052 WAREHOUSE_TO_BAG_RESP`
+- `5061 CONTAINER_SORT_REQ`
+- `5062 CONTAINER_SORT_RESP`
+- `5071 CONTAINER_MOVE_REQ`
+- `5072 CONTAINER_MOVE_RESP`
+- `5081 WALLET_QUERY_REQ`
+- `5082 WALLET_QUERY_RESP`
+- `5091 WALLET_UPDATE_PUSH`
+- `5101 BUY_ITEM_REQ`
+- `5102 BUY_ITEM_RESP`
+- `5111 SELL_ITEM_REQ`
+- `5112 SELL_ITEM_RESP`
+
+## 19. 通用数据结构建议
+
+### 19.1 容器类型字段
+
+建议统一使用：
+
+- `bag`
+- `warehouse`
+
+### 19.2 钱包结构
+
+```json
+{
+  "total_copper": 2345678,
+  "gold": 2,
+  "silver": 345,
+  "copper": 678
+}
+```
+
+### 19.3 物品槽位结构
+
+```json
+{
+  "slot_index": 1,
+  "item_id": 2001,
+  "item_uid": "eq_10001",
+  "quantity": 1,
+  "is_bound": true,
+  "expire_at": 0,
+  "item_name": "木剑",
+  "item_type": "equipment",
+  "item_sub_type": "weapon",
+  "quality": 2,
+  "icon": "res://asset/items/wood_sword.png",
+  "stack_limit": 1,
+  "can_sell": true,
+  "can_drop": false,
+  "can_store": true,
+  "buy_price_copper": 0,
+  "sell_price_copper": 1200,
+  "instance": {
+    "enhance_level": 3,
+    "star_level": 0,
+    "durability": 25,
+    "max_durability": 30
+  }
+}
+```
+
+## 20. 容器全量查询协议
+
+### 20.1 `5001 BAG_LIST_REQ`
+
+请求体建议：
+
+```json
+{}
+```
+
+或兼容未来扩展写法：
+
+```json
+{
+  "container_type": "bag"
+}
+```
+
+### 20.2 `5002 BAG_LIST_RESP`
+
+响应体建议：
+
+```json
+{
+  "container": {
+    "container_type": "bag",
+    "capacity": 30,
+    "max_capacity": 300,
+    "used_slots": 12,
+    "items": []
+  },
+  "wallet": {
+    "total_copper": 2345678,
+    "gold": 2,
+    "silver": 345,
+    "copper": 678
+  }
+}
+```
+
+### 20.3 `5031 CONTAINER_LIST_REQ`
+
+```json
+{
+  "container_type": "warehouse"
+}
+```
+
+### 20.4 `5032 CONTAINER_LIST_RESP`
+
+响应体与 `5002` 同构。
+
+## 21. 容器增量更新推送协议
+
+### 21.1 `5011 BAG_UPDATE_PUSH`
+
+建议扩展为通用容器更新推送：
+
+```json
+{
+  "container_type": "bag",
+  "capacity": 35,
+  "max_capacity": 300,
+  "used_slots": 13,
+  "updates": [
+    {
+      "slot_index": 3,
+      "deleted": false,
+      "item": {
+        "slot_index": 3,
+        "item_id": 1001,
+        "item_uid": "",
+        "quantity": 15
+      }
+    },
+    {
+      "slot_index": 8,
+      "deleted": true
+    }
+  ]
+}
+```
+
+## 22. 使用物品协议
+
+### 22.1 `5021 USE_ITEM_REQ`
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 5,
+  "quantity": 1,
+  "target_pet_uid": "",
+  "target_player_id": 0,
+  "extra_args": {}
+}
+```
+
+### 22.2 `5022 USE_ITEM_RESP`
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 5,
+  "item_id": 3001,
+  "used_quantity": 1,
+  "result": {
+    "effect_type": "bag_expand",
+    "expand_target": "bag",
+    "expand_slots": 5,
+    "new_capacity": 35
+  }
+}
+```
+
+## 23. 存仓与取仓协议
+
+### 23.1 `5041 BAG_TO_WAREHOUSE_REQ`
+
+```json
+{
+  "from_slot_index": 4,
+  "quantity": 10
+}
+```
+
+### 23.2 `5042 BAG_TO_WAREHOUSE_RESP`
+
+```json
+{
+  "moved_item_id": 1002,
+  "moved_item_uid": "",
+  "moved_quantity": 10,
+  "from_container_type": "bag",
+  "to_container_type": "warehouse"
+}
+```
+
+### 23.3 `5051 WAREHOUSE_TO_BAG_REQ`
+
+```json
+{
+  "from_slot_index": 2,
+  "quantity": 1
+}
+```
+
+### 23.4 `5052 WAREHOUSE_TO_BAG_RESP`
+
+```json
+{
+  "moved_item_id": 2001,
+  "moved_item_uid": "eq_10001",
+  "moved_quantity": 1,
+  "from_container_type": "warehouse",
+  "to_container_type": "bag"
+}
+```
+
+## 24. 整理与移动协议
+
+### 24.1 `5061 CONTAINER_SORT_REQ`
+
+```json
+{
+  "container_type": "bag"
+}
+```
+
+### 24.2 `5071 CONTAINER_MOVE_REQ`
+
+```json
+{
+  "container_type": "bag",
+  "from_slot_index": 2,
+  "to_slot_index": 8,
+  "quantity": 1
+}
+```
+
+## 25. 钱包查询与更新协议
+
+### 25.1 `5081 WALLET_QUERY_REQ`
+
+```json
+{}
+```
+
+### 25.2 `5082 WALLET_QUERY_RESP`
+
+```json
+{
+  "wallet": {
+    "total_copper": 2345678,
+    "gold": 2,
+    "silver": 345,
+    "copper": 678
+  }
+}
+```
+
+### 25.3 `5091 WALLET_UPDATE_PUSH`
+
+```json
+{
+  "wallet": {
+    "total_copper": 2350678,
+    "gold": 2,
+    "silver": 350,
+    "copper": 678
+  },
+  "reason_type": "quest_reward",
+  "reason_ref_id": 10001
+}
+```
+
+## 26. 购买与出售协议
+
+### 26.1 `5101 BUY_ITEM_REQ`
+
+```json
+{
+  "shop_id": 1,
+  "goods_id": 10001,
+  "item_id": 1001,
+  "quantity": 5
+}
+```
+
+### 26.2 `5102 BUY_ITEM_RESP`
+
+```json
+{
+  "shop_id": 1,
+  "goods_id": 10001,
+  "item_id": 1001,
+  "quantity": 5,
+  "cost": {
+    "currency_type": "base_coin",
+    "total_copper": 12500,
+    "gold": 0,
+    "silver": 12,
+    "copper": 500
+  },
+  "wallet": {
+    "total_copper": 2333178,
+    "gold": 2,
+    "silver": 333,
+    "copper": 178
+  }
+}
+```
+
+### 26.3 `5111 SELL_ITEM_REQ`
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 6,
+  "quantity": 3
+}
+```
+
+### 26.4 `5112 SELL_ITEM_RESP`
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 6,
+  "item_id": 1001,
+  "sold_quantity": 3,
+  "gain": {
+    "currency_type": "base_coin",
+    "total_copper": 300,
+    "gold": 0,
+    "silver": 0,
+    "copper": 300
+  },
+  "wallet": {
+    "total_copper": 2345978,
+    "gold": 2,
+    "silver": 345,
+    "copper": 978
+  }
+}
+```
+
+## 27. 服务端模块拆分设计
+
+推荐继续沿用当前项目分层：
+
+```text
+协议/消息解析
+    -> ws handler 编排
+    -> bag / wallet / shop / npc 领域服务
+    -> repo 仓储读写
+    -> 数据库
+```
+
+### 27.1 推荐模块划分
+
+第一版建议至少拆成以下职责块：
+
+- `bag`
+- `wallet`
+- `shop`
+- `item`
+- `npc/world`
+
+## 28. 各模块职责建议
+
+### 28.1 `item` 模块职责
+
+- 读取 `item_definition`
+- 读取类型扩展表
+- 对外提供统一的物品模板查询
+
+### 28.2 `bag` 模块职责
+
+- 背包与仓库列表查询
+- 容器物品并堆与空格分配
+- 增加物品
+- 扣除物品
+- 使用物品
+- 整理、移动、存仓、取仓
+- 背包/仓库扩容
+- 推送容器变化
+
+### 28.3 `wallet` 模块职责
+
+- 查询钱包
+- 增加货币
+- 扣减货币
+- 校验余额是否足够
+- 拆分显示结构
+- 写货币流水
+
+### 28.4 `shop` 模块职责
+
+- 读取商店商品配置
+- 计算购买价格
+- 校验商店访问权限
+- 调用 `wallet` 扣费
+- 调用 `bag` 发物品
+- 处理出售行为编排
+
+### 28.5 `npc/world` 模块职责
+
+- 校验玩家当前是否真的处于仓库 NPC 或商店 NPC 交互状态
+
+## 29. 仓储层拆分建议
+
+建议拆分：
+
+- `item_repo`
+- `bag_repo`
+- `wallet_repo`
+- `shop_repo`
+
+## 30. 服务端事务边界建议
+
+以下操作必须尽量在一个事务里完成：
+
+- 购买物品
+- 出售物品
+- 使用扩容券
+- 打开礼包
+- 存仓取仓
+
+## 31. 推送与重同步策略建议
+
+### 31.1 面板打开时走全量拉取
+
+- 打开背包面板 -> 全量请求背包
+- 打开仓库面板 -> 全量请求仓库
+- 打开商店面板 -> 至少拉最新钱包
+
+### 31.2 运行中走增量推送
+
+- 容器变化 -> `5011 BAG_UPDATE_PUSH`
+- 钱包变化 -> `5091 WALLET_UPDATE_PUSH`
+
+## 32. 客户端控制器拆分建议
+
+### 32.1 `bag_controller`
+
+职责：
+
+- 处理背包、仓库相关响应和推送
+- 管理背包和仓库本地快照写入
+
+### 32.2 `wallet_controller` 或 `bag_controller` 钱包子域
+
+职责：
+
+- 管理钱包快照
+- 刷新 HUD 货币展示
+
+### 32.3 `shop_controller`
+
+职责：
+
+- 打开商店前请求商品和钱包
+- 发起购买
+- 响应购买结果
+
+## 33. 后端开发任务清单
+
+### 33.1 阶段 A：数据库底座
+
+- 新增 `item_definition`
+- 新增 `item_equipment_extra`
+- 新增 `item_box_extra`
+- 新增 `item_functional_extra`
+- 新增 `player_container`
+- 新增 `player_container_item`
+- 新增 `equipment_instance`
+- 新增 `player_wallet`
+- 新增 `item_change_log`
+- 新增 `container_expand_log`
+- 新增 `currency_change_log`
+
+### 33.2 阶段 B：模板与钱包读取
+
+- 完成 `item_repo`
+- 完成 `wallet_repo`
+- 完成 `wallet` 服务
+- 实现 `5081/5082/5091`
+
+### 33.3 阶段 C：容器读取与列表协议
+
+- 完成 `bag_repo` 容器查询
+- 完成 `bag` 服务列表查询
+- 实现 `5001/5002`
+- 实现 `5031/5032`
+
+### 33.4 阶段 D：增删改物品底层能力
+
+- 实现普通物品并堆
+- 实现空格分配
+- 实现普通物品扣减
+- 实现装备实例创建
+- 实现统一物品流水
+
+### 33.5 阶段 E：使用物品与扩容
+
+- 实现 `5021/5022`
+- 实现消耗品使用
+- 实现功能道具使用
+- 实现背包扩容券
+- 实现仓库扩容券
+- 实现礼包开启
+
+### 33.6 阶段 F：存仓、取仓、整理、移动
+
+- 实现 `5041/5042`
+- 实现 `5051/5052`
+- 实现 `5061/5062`
+- 实现 `5071/5072`
+
+### 33.7 阶段 G：购买与出售
+
+- 实现 `5101/5102`
+- 实现 `5111/5112`
+- 实现购买事务
+- 实现出售事务
+
+### 33.8 阶段 H：掉落、任务、后台接入
+
+- 战斗掉落接入 `bag`
+- 任务奖励接入 `bag + wallet`
+- 后台补发接入统一发奖入口
+
+## 34. 客户端开发任务清单
+
+### 34.1 阶段 A：状态结构调整
+
+- 拆分 `bag_container`
+- 拆分 `warehouse_container`
+- 拆分 `wallet_snapshot`
+
+### 34.2 阶段 B：背包面板
+
+- 打开前拉 `5001`
+- 展示格子列表
+- 展示分类筛选
+- 接入 `5011`
+
+### 34.3 阶段 C：仓库面板
+
+- 打开前拉 `5031`
+- 展示存仓/取仓按钮
+- 接入 `warehouse` 更新
+
+### 34.4 阶段 D：使用、整理、移动交互
+
+- 使用物品按钮
+- 整理按钮
+- 同容器内移动
+- 存仓取仓确认
+
+### 34.5 阶段 E：商店与出售
+
+- 钱包显示区域
+- 购买按钮
+- 出售按钮
+- 价格格式化
+
+## 35. 后台开发任务清单
+
+### 35.1 物品模板管理
+
+- 物品列表
+- 类型筛选
+- 新增模板
+- 编辑模板
+- 上下架
+
+### 35.2 玩家容器查询
+
+- 查看背包
+- 查看仓库
+- 查看容量
+- 查询指定物品
+
+### 35.3 玩家钱包查询
+
+- 查看总铜币
+- 展示金/银/铜拆分
+- 查看货币流水
+
+### 35.4 高风险运营操作
+
+- 后台补发物品
+- 后台补发货币
+- 二次确认
+- 操作原因
+- 审计日志
+
+## 36. 测试与验证建议
+
+### 36.1 后端单元测试优先项
+
+- 物品并堆逻辑
+- 空格分配逻辑
+- 扣减数量逻辑
+- 装备实例创建逻辑
+- 总铜币拆分逻辑
+- 购买事务逻辑
+- 出售事务逻辑
+- 存仓取仓事务逻辑
+- 扩容上限逻辑
+
+### 36.2 后端集成测试优先项
+
+- 打开背包返回正确列表
+- 使用扩容券后容量变化正确
+- 仓库取回失败时不会丢物品
+- 购买物品时钱扣了且物品入包
+- 出售装备时装备实例和容器记录一致变化
+
+### 36.3 客户端静态验证优先项
+
+- 面板打开前是否一定先请求
+- loading 是否统一走通用 UI
+- `bag` 与 `warehouse` 是否不会串数据
+- `wallet` 是否不会被当成背包物品处理
+
+## 37. 开发风险提示
+
+### 37.1 最容易返工的点
+
+- 把货币做成普通背包道具
+- 容器表只存 `item_id` 不留 `item_uid`
+- 装备实例字段塞进模板表
+- 客户端先本地改状态再等服务端覆盖
+- 仓库不做服务端访问校验
+
+### 37.2 最建议先做稳的点
+
+- 统一模板表
+- 统一容器表
+- 钱包总铜币方案
+- 装备实例表
+- 使用物品复用一套协议
+
+## 38. 文档结论
+
+本系统建议按“模板统一、容器统一、钱包独立、装备实例化、协议增量扩展”的方式推进：
+
+- 静态物品配置统一管理
+- 动态玩家持有态分背包、仓库、钱包三类保存
+- 装备从第一版开始预留实例能力
+- 价格统一按总铜币存储
+- 协议尽量复用现有号段与已有链路
+- 服务端以事务和推送保证状态一致
+- 客户端以“打开前拉取、收到推送刷新”为核心模式接入

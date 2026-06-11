@@ -1,7 +1,7 @@
 [gd_scene load_steps=13 format=3 uid="uid://bfj0xufemgtb1"]
 
 [ext_resource type="Script" uid="uid://5re5ibp0mt7" path="res://dialogue/balloon.gd" id="1_36de5"]
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/menu-fan6.png" id="2_3fodd"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_3fodd"]
 [ext_resource type="PackedScene" uid="uid://ckvgyvclnwggo" path="res://addons/dialogue_manager/dialogue_label.tscn" id="2_a8ve6"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="3_0hx7h"]
 [ext_resource type="Script" uid="uid://bb52rsfwhkxbn" path="res://addons/dialogue_manager/dialogue_responses_menu.gd" id="3_72ixx"]

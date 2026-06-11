@@ -8,8 +8,8 @@ signal websocket_opened
 signal websocket_closed(code: int, reason: String)
 # 收到原始二进制包后向外广播底层字节数据。
 signal raw_packet_received(packet: PackedByteArray)
-# 收到开发态协议消息后向外广播消息号与载荷。
-signal dev_message_received(cmd: int, payload: Dictionary)
+# 收到开发态协议消息后向外广播消息号、序列号、错误码与载荷。
+signal dev_message_received(cmd: int, seq: int, code: int, payload: Dictionary)
 
 # 默认连接服务端时使用的 WebSocket 地址。
 const DEFAULT_WS_URL: String = "ws://127.0.0.1:8080/ws"
@@ -79,27 +79,32 @@ func configure_heartbeat(interval_sec: int) -> void:
     _heartbeat_interval_sec = max(interval_sec, 0)
     _last_heartbeat_sent_ms = _now_ms()
 
-# 发送一条业务命令，按当前模式选择文本或二进制封包。
-func send_command(cmd: int, payload: Dictionary) -> void:
+# 发送一条业务命令，按当前模式选择文本或二进制封包，并返回本次请求序列号。
+func send_command(cmd: int, payload: Dictionary) -> int:
     if _socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
         push_warning("WebSocket is not connected.")
-        return
+        return 0
+
+    # 先预留一个稳定序列号，后续等待回包和加载态时都依赖它做匹配。
+    var seq := _take_next_seq()
 
     if dev_json_transport:
         # 组装开发态文本协议使用的 JSON 信封。
         var envelope := JSON.stringify({
             "cmd": cmd,
+            "seq": seq,
             "payload": payload,
         })
         _socket.send_text(envelope)
-        return
+        return seq
 
     # 生成正式链路使用的二进制数据包。
-    var encoded := _encode_json_packet(cmd, _take_next_seq(), 0, payload)
+    var encoded := _encode_json_packet(cmd, seq, 0, payload)
     if encoded.is_empty():
         push_warning("Failed to encode packet for cmd %d." % cmd)
-        return
+        return 0
     _socket.send(encoded)
+    return seq
 
 # 每帧轮询底层连接状态，并处理收包和心跳逻辑。
 func _process(_delta: float) -> void:
@@ -145,7 +150,8 @@ func _handle_text_packet(packet_text: String) -> void:
         var payload: Dictionary = payload_variant if payload_variant is Dictionary else {}
         # 读取当前消息对应的协议号。
         var cmd: int = int(parsed.get("cmd", 0))
-        dev_message_received.emit(cmd, payload)
+        var seq := int(parsed.get("seq", 0))
+        dev_message_received.emit(cmd, seq, 0, payload)
 
 # 解析正式链路二进制协议，并把合法载荷转为统一事件。
 func _handle_binary_packet(packet: PackedByteArray) -> void:
@@ -158,7 +164,12 @@ func _handle_binary_packet(packet: PackedByteArray) -> void:
     var payload_variant: Variant = decoded.get("payload", {})
     # 规范化消息体载荷为字典结构。
     var payload: Dictionary = payload_variant if payload_variant is Dictionary else {}
-    dev_message_received.emit(int(decoded.get("cmd", 0)), payload)
+    dev_message_received.emit(
+        int(decoded.get("cmd", 0)),
+        int(decoded.get("seq", 0)),
+        int(decoded.get("code", 0)),
+        payload
+    )
 
 # 当连接已鉴权且超过间隔时主动发送一次心跳包。
 func _send_heartbeat_if_needed() -> void:

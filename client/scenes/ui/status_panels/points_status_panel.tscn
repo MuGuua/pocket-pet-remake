@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://b6tpumoy6n0ag"]
+[gd_scene load_steps=0 format=3 uid="uid://b6tpumoy6n0ag"]
 
-[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="1_inner"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="1_inner"]
 [ext_resource type="Script" uid="uid://bglghc45s07bm" path="res://scripts/ui/points_status_panel.gd" id="2_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_inner"]

@@ -1,0 +1,40 @@
+{
+    // 使用 IntelliSense 了解相关属性。
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // 后端主服务调试入口；直接从 game-server 启动，避免把当前打开文件目录误当成启动包。
+            "name": "Debug Backend Game Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/backend/server/cmd/game-server",
+            // 工作目录固定在 backend，保证相对路径日志和运行习惯与命令行一致。
+            "cwd": "${workspaceFolder}/backend",
+            "env": {
+                // 服务端现在统一从 YAML 文件读取配置，这里显式指定路径，避免 IDE 工作目录变化导致找错配置。
+                "PP_CONFIG_FILE": "${workspaceFolder}/backend/server/configs/config.yaml",
+                // 调试构建缓存收敛到工作区内，避免 Trae / VS Code 调试时写系统默认 Go 缓存失败。
+                "GOCACHE": "${workspaceFolder}/.tmp/go-build-cache"
+            },
+            "console": "integratedTerminal",
+            "showLog": true
+        },
+        {
+            // 保留一个当前文件调试入口，便于你临时调试单独的 Go 工具或脚本。
+            "name": "Launch Current Go Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${fileDirname}",
+            "cwd": "${workspaceFolder}/backend",
+            "env": {
+                "PP_CONFIG_FILE": "${workspaceFolder}/backend/server/configs/config.yaml",
+                "GOCACHE": "${workspaceFolder}/.tmp/go-build-cache"
+            },
+            "console": "integratedTerminal"
+        }
+    ]
+}

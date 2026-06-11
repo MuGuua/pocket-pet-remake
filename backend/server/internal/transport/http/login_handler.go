@@ -3,6 +3,7 @@ package httptransport
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"pocket-pet-remake/server/internal/module/auth"
@@ -43,6 +44,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
+		log.Printf("[http-error] path=%s method=%s msg=invalid request body err=%v", r.URL.Path, r.Method, err)
 		writeJSON(w, http.StatusBadRequest, errcode.HTTPInvalidRequest, "invalid request body", nil)
 		return
 	}
@@ -50,9 +52,11 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	result, err := h.authService.Login(r.Context(), request.Account, request.Password, request.DeviceID)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
+			log.Printf("[http-error] path=%s method=%s msg=invalid credentials account=%s", r.URL.Path, r.Method, request.Account)
 			writeJSON(w, http.StatusUnauthorized, errcode.HTTPUnauthorized, "invalid credentials", nil)
 			return
 		}
+		log.Printf("[http-error] path=%s method=%s msg=login failed account=%s err=%v", r.URL.Path, r.Method, request.Account, err)
 		writeJSON(w, http.StatusInternalServerError, errcode.HTTPInternalServer, "internal server error", nil)
 		return
 	}

@@ -14,6 +14,10 @@ signal notice_received(message: String)
 signal kicked(reason: String)
 # 断线重连状态发生变化后向外广播。
 signal reconnect_state_changed(in_progress: bool)
+# 收到服务端请求结果或关键推送后向外广播统一日志文本。
+signal server_result_logged(message: String)
+# 由 App 发起的请求收到成功/失败回包后向外广播，供带 loading 的 UI 等待完成。
+signal request_finished(request_cmd: int, seq: int, succeeded: bool, response_cmd: int, payload: Dictionary)
 
 # 默认演示账号名。
 const DEFAULT_ACCOUNT: String = "demo"
@@ -28,6 +32,10 @@ var _bootstrapped: bool = false
 var _next_battle_op_id: int = 1
 # 标记当前是否正在尝试断线重连。
 var _reconnect_in_progress: bool = false
+# 记录当前仍在等待回包的请求序列号与命令号映射，供加载态 UI 做精确匹配。
+var _pending_request_cmds_by_seq: Dictionary = {}
+# 同一个请求命令可能并发发送，因此还要保留按命令分组的序列队列。
+var _pending_request_seqs_by_cmd: Dictionary = {}
 
 # 让应用单例在运行期间持续参与帧循环。
 func _ready() -> void:
@@ -55,6 +63,7 @@ func bootstrap() -> void:
 func login(account: String, password: String) -> Dictionary:
     # 等待 HTTP 登录接口返回完整响应。
     var response: Dictionary = await HttpClient.login(account, password)
+    _emit_server_result_log(_format_http_result_log("/api/v1/auth/login", response))
     # 读取当前 HTTP 响应状态码。
     var code: int = int(response.get("code", 0))
     if code != 200:
@@ -80,7 +89,7 @@ func connect_ws() -> int:
 func authenticate_ws() -> void:
 # 使用当前保存的 `ws_token` 发起实时连接鉴权。
     if _reconnect_in_progress and not GameState.reconnect_token.is_empty():
-        NetClient.send_command(
+        _send_command(
             CommandIds.RECONNECT_REQ,
             {
                 "reconnect_token": GameState.reconnect_token,
@@ -94,7 +103,7 @@ func authenticate_ws() -> void:
         return
 
 
-    NetClient.send_command(
+    _send_command(
         CommandIds.WS_AUTH_REQ,
         {
             "ws_token": GameState.ws_token,
@@ -103,16 +112,21 @@ func authenticate_ws() -> void:
     )
 
 # 请求进入当前服务端权威世界场景。
-func enter_world() -> void:
-    NetClient.send_command(CommandIds.ENTER_WORLD_REQ, {})
+func enter_world() -> int:
+    return _send_command(CommandIds.ENTER_WORLD_REQ, {})
+
+# 人物状态面板打开时，仅重新拉取一次服务端权威玩家快照。
+# 当前人物属性挂在 EnterWorldResp.player 中，因此这里复用同一条请求。
+func refresh_player_status() -> int:
+    return _send_command(CommandIds.ENTER_WORLD_REQ, {})
 
 # 请求刷新当前玩家的宠物列表。
-func request_pet_list() -> void:
-    NetClient.send_command(CommandIds.PET_LIST_REQ, {})
+func request_pet_list() -> int:
+    return _send_command(CommandIds.PET_LIST_REQ, {})
 
 # 提交完整编队宠物唯一标识列表。
 func set_pet_lineup(pet_uids: Array[int]) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.PET_LINEUP_SET_REQ,
         {
             "op_id": _take_battle_op_id(),
@@ -121,28 +135,28 @@ func set_pet_lineup(pet_uids: Array[int]) -> void:
     )
 
 # 请求刷新当前玩家的背包摘要。
-func request_bag_list() -> void:
-    NetClient.send_command(CommandIds.BAG_LIST_REQ, {})
+func request_bag_list() -> int:
+    return _send_command(CommandIds.BAG_LIST_REQ, {})
 
 # 请求刷新当前玩家的任务列表。
-func request_quest_list() -> void:
-    NetClient.send_command(CommandIds.QUEST_LIST_REQ, {})
+func request_quest_list() -> int:
+    return _send_command(CommandIds.QUEST_LIST_REQ, {})
 
 # 请求接取指定任务。
 func accept_quest(quest_id: int, npc_id: int = 0) -> void:
-    NetClient.send_command(CommandIds.QUEST_ACCEPT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
+    _send_command(CommandIds.QUEST_ACCEPT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
 
 # 请求提交指定任务；NPC 交付任务时同时带上提交 NPC。
 func submit_quest(quest_id: int, npc_id: int = 0) -> void:
-    NetClient.send_command(CommandIds.QUEST_SUBMIT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
+    _send_command(CommandIds.QUEST_SUBMIT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
 
 # 请求切换当前追踪任务。
 func track_quest(quest_id: int) -> void:
-    NetClient.send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
+    _send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
 
 # 向服务端提交与指定实体的交互意图。
 func request_interact(entity_id: int) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.INTERACT_REQ,
         {
             "entity_id": entity_id,
@@ -151,7 +165,7 @@ func request_interact(entity_id: int) -> void:
 
 # 向服务端提交 NPC 菜单项执行请求。
 func request_npc_action(entity_id: int, entry_id: String) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.NPC_ACTION_REQ,
         {
             "entity_id": entity_id,
@@ -161,7 +175,7 @@ func request_npc_action(entity_id: int, entry_id: String) -> void:
 
 # 向服务端发起一次单人 PVP 挑战请求。
 func request_pvp_challenge(target_player_id: int) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.PVP_CHALLENGE_REQ,
         {
             "op_id": _take_battle_op_id(),
@@ -171,7 +185,7 @@ func request_pvp_challenge(target_player_id: int) -> void:
 
 # 对收到的单人 PVP 邀请提交接受或拒绝结果。
 func reply_pvp_challenge(challenge_id: int, accept: bool) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.PVP_CHALLENGE_REPLY_REQ,
         {
             "challenge_id": challenge_id,
@@ -188,7 +202,7 @@ func submit_battle_action(
     action_type: int = 1,
     skill_id: int = DEFAULT_BATTLE_SKILL_ID
 ) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.BATTLE_ACTION_REQ,
         {
             "op_id": _take_battle_op_id(),
@@ -203,7 +217,7 @@ func submit_battle_action(
 
 # 向服务端切换当前战斗是否进入自动托管。
 func set_battle_auto(battle_id: int, battle_round: int, enabled: bool) -> void:
-    NetClient.send_command(
+    _send_command(
         CommandIds.BATTLE_ACTION_REQ,
         {
             "op_id": _take_battle_op_id(),
@@ -218,7 +232,10 @@ func set_battle_auto(battle_id: int, battle_round: int, enabled: bool) -> void:
     )
 
 # 统一接收开发态消息并交给消息路由器分发。
-func _on_dev_message_received(cmd: int, payload: Dictionary) -> void:
+func _on_dev_message_received(cmd: int, seq: int, _code: int, payload: Dictionary) -> void:
+    if CommandIds.should_log_result(cmd):
+        _emit_server_result_log(_format_ws_result_log(cmd, payload))
+    _resolve_request_completion(cmd, seq, payload)
     MessageRouter.route_message(cmd, payload)
 
 # 底层 WebSocket 建连成功后自动发起业务鉴权。
@@ -317,6 +334,198 @@ func _on_kickout_push(payload: Dictionary) -> void:
 
 func is_reconnecting() -> bool:
     return _reconnect_in_progress
+
+
+# 把统一格式化后的服务端结果日志同时输出到控制台和上层 UI。
+func _emit_server_result_log(message: String) -> void:
+    if message.strip_edges().is_empty():
+        return
+    print("[ServerResult] %s" % message)
+    server_result_logged.emit(message)
+
+
+# 包装全部由 App 发起的 WebSocket 请求，统一补充发送日志，便于核对
+# 客户端按钮是否真的触发了服务端权威链路。
+func _send_command(cmd: int, payload: Dictionary) -> int:
+    if CommandIds.should_log_result(cmd):
+        _emit_server_result_log(_format_ws_request_log(cmd, payload))
+    var seq := NetClient.send_command(cmd, payload)
+    if seq > 0:
+        _pending_request_cmds_by_seq[seq] = cmd
+        var seqs_variant: Variant = _pending_request_seqs_by_cmd.get(cmd, [])
+        var seqs: Array = seqs_variant if seqs_variant is Array else []
+        seqs.append(seq)
+        _pending_request_seqs_by_cmd[cmd] = seqs
+    return seq
+
+
+# 根据收到的回包消息，结束对应请求的等待状态。这样 UI 可以在数据真正准备好之后再显示。
+func _resolve_request_completion(cmd: int, seq: int, payload: Dictionary) -> void:
+    if cmd == CommandIds.ERROR_PUSH:
+        var failed_request_cmd := int(_pending_request_cmds_by_seq.get(seq, 0))
+        if failed_request_cmd != 0:
+            _consume_pending_request(failed_request_cmd, seq)
+            request_finished.emit(failed_request_cmd, seq, false, cmd, payload)
+        return
+
+    var request_cmd := _request_cmd_for_response(cmd)
+    if request_cmd == 0:
+        return
+
+    var matched_seq := _pop_pending_seq_for_cmd(request_cmd)
+    if matched_seq == 0:
+        return
+    _pending_request_cmds_by_seq.erase(matched_seq)
+    request_finished.emit(request_cmd, matched_seq, true, cmd, payload)
+
+
+# 把响应消息号映射回最初发出的请求消息号，供等待中的 UI 找到自己的回包。
+func _request_cmd_for_response(response_cmd: int) -> int:
+    match response_cmd:
+        CommandIds.WS_AUTH_RESP:
+            return CommandIds.WS_AUTH_REQ
+        CommandIds.RECONNECT_RESP:
+            return CommandIds.RECONNECT_REQ
+        CommandIds.ENTER_WORLD_RESP:
+            return CommandIds.ENTER_WORLD_REQ
+        CommandIds.MOVE_INTENT_RESP:
+            return CommandIds.MOVE_INTENT_REQ
+        CommandIds.INTERACT_RESP:
+            return CommandIds.INTERACT_REQ
+        CommandIds.NPC_ACTION_RESP:
+            return CommandIds.NPC_ACTION_REQ
+        CommandIds.PET_LIST_RESP:
+            return CommandIds.PET_LIST_REQ
+        CommandIds.PET_LINEUP_SET_RESP:
+            return CommandIds.PET_LINEUP_SET_REQ
+        CommandIds.BATTLE_ACTION_RESP:
+            return CommandIds.BATTLE_ACTION_REQ
+        CommandIds.PVP_CHALLENGE_RESP:
+            return CommandIds.PVP_CHALLENGE_REQ
+        CommandIds.PVP_CHALLENGE_REPLY_RESP:
+            return CommandIds.PVP_CHALLENGE_REPLY_REQ
+        CommandIds.BAG_LIST_RESP:
+            return CommandIds.BAG_LIST_REQ
+        CommandIds.QUEST_LIST_RESP:
+            return CommandIds.QUEST_LIST_REQ
+        CommandIds.QUEST_ACCEPT_RESP:
+            return CommandIds.QUEST_ACCEPT_REQ
+        CommandIds.QUEST_SUBMIT_RESP:
+            return CommandIds.QUEST_SUBMIT_REQ
+        CommandIds.QUEST_TRACK_RESP:
+            return CommandIds.QUEST_TRACK_REQ
+        _:
+            return 0
+
+
+# 从命令对应的等待队列中弹出最早发出的请求序列号，保证连续点击时仍按顺序完成。
+func _pop_pending_seq_for_cmd(request_cmd: int) -> int:
+    var seqs_variant: Variant = _pending_request_seqs_by_cmd.get(request_cmd, [])
+    if seqs_variant is not Array or seqs_variant.is_empty():
+        return 0
+    var seqs: Array = seqs_variant
+    var matched_seq := int(seqs[0])
+    seqs.remove_at(0)
+    if seqs.is_empty():
+        _pending_request_seqs_by_cmd.erase(request_cmd)
+    else:
+        _pending_request_seqs_by_cmd[request_cmd] = seqs
+    return matched_seq
+
+
+# 发生错误推送时，需要按原始序列号把等待队列中的条目一并移除，避免后续请求错配。
+func _consume_pending_request(request_cmd: int, seq: int) -> void:
+    _pending_request_cmds_by_seq.erase(seq)
+    var seqs_variant: Variant = _pending_request_seqs_by_cmd.get(request_cmd, [])
+    if seqs_variant is not Array:
+        return
+    var seqs: Array = seqs_variant
+    var target_index := seqs.find(seq)
+    if target_index == -1:
+        return
+    seqs.remove_at(target_index)
+    if seqs.is_empty():
+        _pending_request_seqs_by_cmd.erase(request_cmd)
+    else:
+        _pending_request_seqs_by_cmd[request_cmd] = seqs
+
+
+# 组装 HTTP 请求结果日志，优先展示状态码、业务码和消息文本。
+func _format_http_result_log(path: String, response: Dictionary) -> String:
+    var code := int(response.get("code", 0))
+    var http_status := int(response.get("http_status", 0))
+    var message := str(response.get("msg", ""))
+    var data_variant: Variant = response.get("data", {})
+    var data: Dictionary = data_variant if data_variant is Dictionary else {}
+    var summary := "HTTP %s -> http=%d code=%d" % [path, http_status, code]
+    if not message.is_empty():
+        summary += " msg=%s" % message
+    var player_id := int(data.get("player_id", 0))
+    if player_id > 0:
+        summary += " player_id=%d" % player_id
+    return summary
+
+
+# 组装 WebSocket 请求结果日志，只摘服务端确认结果和关键数量字段，避免整包刷屏。
+func _format_ws_result_log(cmd: int, payload: Dictionary) -> String:
+    var summary := "%s" % CommandIds.name_of(cmd)
+
+    if payload.has("accepted"):
+        summary += " accepted=%s" % str(bool(payload.get("accepted", false)))
+    if payload.has("reason"):
+        summary += " reason=%s" % str(payload.get("reason", ""))
+    if payload.has("msg"):
+        summary += " msg=%s" % str(payload.get("msg", ""))
+    if payload.has("battle_id"):
+        summary += " battle_id=%s" % str(payload.get("battle_id", 0))
+    if payload.has("scene_id"):
+        summary += " scene_id=%s" % str(payload.get("scene_id", 0))
+    if payload.has("challenge_id"):
+        summary += " challenge_id=%s" % str(payload.get("challenge_id", 0))
+
+    # 这些摘要字段能帮助快速判断世界、宠物和战斗结果是否正确返回，
+    # 但又不会像整包 JSON 那样在移动端 HUD 里刷出过长文本。
+    if payload.has("lineup"):
+        var lineup_variant: Variant = payload.get("lineup", [])
+        if lineup_variant is Array:
+            summary += " lineup=%d" % lineup_variant.size()
+    if payload.has("pets"):
+        var pets_variant: Variant = payload.get("pets", [])
+        if pets_variant is Array:
+            summary += " pets=%d" % pets_variant.size()
+    if payload.has("allies"):
+        var allies_variant: Variant = payload.get("allies", [])
+        if allies_variant is Array:
+            summary += " allies=%d" % allies_variant.size()
+    if payload.has("enemies"):
+        var enemies_variant: Variant = payload.get("enemies", [])
+        if enemies_variant is Array:
+            summary += " enemies=%d" % enemies_variant.size()
+    if payload.has("events"):
+        var events_variant: Variant = payload.get("events", [])
+        if events_variant is Array:
+            summary += " events=%d" % events_variant.size()
+    return summary
+
+
+# 组装客户端发出的请求日志，只保留最关键的目标标识，避免 HUD 被完整 JSON 刷屏。
+func _format_ws_request_log(cmd: int, payload: Dictionary) -> String:
+    var summary := "REQ %s" % CommandIds.name_of(cmd)
+    if payload.has("entity_id"):
+        summary += " entity_id=%s" % str(payload.get("entity_id", 0))
+    if payload.has("target_player_id"):
+        summary += " target_player_id=%s" % str(payload.get("target_player_id", 0))
+    if payload.has("challenge_id"):
+        summary += " challenge_id=%s" % str(payload.get("challenge_id", 0))
+    if payload.has("quest_id"):
+        summary += " quest_id=%s" % str(payload.get("quest_id", 0))
+    if payload.has("battle_id"):
+        summary += " battle_id=%s" % str(payload.get("battle_id", 0))
+    if payload.has("pet_uids"):
+        var pet_uids_variant: Variant = payload.get("pet_uids", [])
+        if pet_uids_variant is Array:
+            summary += " pet_uids=%d" % pet_uids_variant.size()
+    return summary
 
 func _should_try_reconnect() -> bool:
     return GameState.player_id > 0 and not GameState.reconnect_token.is_empty()

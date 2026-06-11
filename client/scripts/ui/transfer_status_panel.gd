@@ -1,6 +1,7 @@
 extends PanelContainer
 
 const StatusPanelDataProvider = preload("res://scripts/data/status_panel_data_provider.gd")
+const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 var _default_data: Dictionary = {}
 
@@ -22,16 +23,16 @@ func _ready() -> void:
 func apply_data(data: Dictionary) -> void:
 	var resolved := _default_data.duplicate(true)
 	for key in data.keys():
-		resolved[key] = str(data[key])
+		resolved[key] = UiFormat.value_to_text(data[key])
 
-	_set_label_text(stage_value, str(resolved.get("stage", "")))
-	_set_label_text(progress_value, str(resolved.get("progress_value", "")))
-	_set_label_text(progress_rate, str(resolved.get("progress_rate", "")))
-	_set_label_text(need_value, str(resolved.get("need", "")))
-	_set_label_text(attack_bonus_value, str(resolved.get("attack_bonus", "")))
-	_set_label_text(hp_bonus_value, str(resolved.get("hp_bonus", "")))
-	_set_label_text(next_stage_value, str(resolved.get("next_stage", "")))
-	_set_label_text(desc_text, str(resolved.get("desc", "")))
+	_set_label_text(stage_value, UiFormat.value_to_text(resolved.get("stage", "")))
+	_set_label_text(progress_value, UiFormat.value_to_text(resolved.get("progress_value", "")))
+	_set_label_text(progress_rate, UiFormat.value_to_text(resolved.get("progress_rate", "")))
+	_set_label_text(need_value, UiFormat.value_to_text(resolved.get("need", "")))
+	_set_label_text(attack_bonus_value, UiFormat.value_to_text(resolved.get("attack_bonus", "")))
+	_set_label_text(hp_bonus_value, UiFormat.value_to_text(resolved.get("hp_bonus", "")))
+	_set_label_text(next_stage_value, UiFormat.value_to_text(resolved.get("next_stage", "")))
+	_set_label_text(desc_text, UiFormat.value_to_text(resolved.get("desc", "")))
 
 
 func _set_label_text(label: Label, value: String) -> void:

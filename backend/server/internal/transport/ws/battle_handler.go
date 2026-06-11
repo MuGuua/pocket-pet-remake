@@ -795,6 +795,7 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 		result = append(result, protocol.BattleActorSnapshot{
 			ActorID:       actor.ActorID,
 			ActorType:     actor.ActorType,
+			UnitClass:     actor.UnitClass,
 			OwnerPlayerID: actor.OwnerPlayerID,
 			PetUID:        actor.PetUID,
 			PetID:         actor.PetID,

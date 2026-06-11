@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="1_inner"]
-[ext_resource type="Script" path="res://scripts/ui/pet_status_panel.gd" id="2_script"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="1_inner"]
+[ext_resource type="Script" uid="uid://crlp7y8kc2r6j" path="res://scripts/ui/pet_status_panel.gd" id="2_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_inner"]
 texture = ExtResource("1_inner")

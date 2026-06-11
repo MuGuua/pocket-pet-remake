@@ -36,11 +36,11 @@ func (h *PetHandler) HandlePetList(conn packetSender, packet *protocol.Packet) e
 	ctx := context.Background()
 	pets, err := h.petService.ListPets(ctx, sess.PlayerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet list failed")
+		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet list failed", err)
 	}
 	lineup, err := h.petService.ListLineup(ctx, sess.PlayerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet lineup failed")
+		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet lineup failed", err)
 	}
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdPetListResp, packet.Seq, errcode.WSCodeSuccess, protocol.PetListResp{
@@ -69,7 +69,7 @@ func (h *PetHandler) HandleLineupSet(conn packetSender, packet *protocol.Packet)
 		if errors.Is(err, pet.ErrPetNotFound) || errors.Is(err, pet.ErrInvalidLineup) || errors.Is(err, pet.ErrDuplicateLineup) {
 			return h.sendLineupSetResponse(conn, packet.Seq, false, nil, err.Error())
 		}
-		return sendError(conn, packet.Seq, errcode.WSCodePetLineupInvalid, "set pet lineup failed")
+		return sendError(conn, packet.Seq, errcode.WSCodePetLineupInvalid, "set pet lineup failed", err)
 	}
 	return h.sendLineupSetResponse(conn, packet.Seq, true, lineup, "lineup updated")
 }

@@ -117,3 +117,125 @@ const QUEST_TRACK_RESP: int = 6042
 const NOTICE_PUSH: int = 9001
 # 服务端踢下线推送消息号。
 const KICKOUT_PUSH: int = 9002
+
+
+# 返回指定消息号对应的稳定名称，方便统一打印服务端请求结果日志。
+static func name_of(cmd: int) -> String:
+	match cmd:
+		WS_AUTH_REQ:
+			return "WS_AUTH_REQ"
+		WS_AUTH_RESP:
+			return "WS_AUTH_RESP"
+		HEARTBEAT_REQ:
+			return "HEARTBEAT_REQ"
+		HEARTBEAT_RESP:
+			return "HEARTBEAT_RESP"
+		FORCE_OFFLINE_PUSH:
+			return "FORCE_OFFLINE_PUSH"
+		ERROR_PUSH:
+			return "ERROR_PUSH"
+		RECONNECT_REQ:
+			return "RECONNECT_REQ"
+		RECONNECT_RESP:
+			return "RECONNECT_RESP"
+		ENTER_WORLD_REQ:
+			return "ENTER_WORLD_REQ"
+		ENTER_WORLD_RESP:
+			return "ENTER_WORLD_RESP"
+		ENTITY_ENTER_PUSH:
+			return "ENTITY_ENTER_PUSH"
+		ENTITY_LEAVE_PUSH:
+			return "ENTITY_LEAVE_PUSH"
+		ENTITY_MOVE_PUSH:
+			return "ENTITY_MOVE_PUSH"
+		WORLD_RESYNC_PUSH:
+			return "WORLD_RESYNC_PUSH"
+		MOVE_INTENT_REQ:
+			return "MOVE_INTENT_REQ"
+		MOVE_INTENT_RESP:
+			return "MOVE_INTENT_RESP"
+		INTERACT_REQ:
+			return "INTERACT_REQ"
+		INTERACT_RESP:
+			return "INTERACT_RESP"
+		NPC_ACTION_REQ:
+			return "NPC_ACTION_REQ"
+		NPC_ACTION_RESP:
+			return "NPC_ACTION_RESP"
+		ENCOUNTER_PUSH:
+			return "ENCOUNTER_PUSH"
+		PET_LIST_REQ:
+			return "PET_LIST_REQ"
+		PET_LIST_RESP:
+			return "PET_LIST_RESP"
+		PET_UPDATE_PUSH:
+			return "PET_UPDATE_PUSH"
+		PET_LINEUP_SET_REQ:
+			return "PET_LINEUP_SET_REQ"
+		PET_LINEUP_SET_RESP:
+			return "PET_LINEUP_SET_RESP"
+		BATTLE_ACTION_REQ:
+			return "BATTLE_ACTION_REQ"
+		BATTLE_ACTION_RESP:
+			return "BATTLE_ACTION_RESP"
+		BATTLE_START_PUSH:
+			return "BATTLE_START_PUSH"
+		BATTLE_STATE_PUSH:
+			return "BATTLE_STATE_PUSH"
+		BATTLE_RESULT_PUSH:
+			return "BATTLE_RESULT_PUSH"
+		BATTLE_EXIT_REQ:
+			return "BATTLE_EXIT_REQ"
+		BATTLE_EXIT_RESP:
+			return "BATTLE_EXIT_RESP"
+		PVP_CHALLENGE_REQ:
+			return "PVP_CHALLENGE_REQ"
+		PVP_CHALLENGE_RESP:
+			return "PVP_CHALLENGE_RESP"
+		PVP_CHALLENGE_PUSH:
+			return "PVP_CHALLENGE_PUSH"
+		PVP_CHALLENGE_REPLY_REQ:
+			return "PVP_CHALLENGE_REPLY_REQ"
+		PVP_CHALLENGE_REPLY_RESP:
+			return "PVP_CHALLENGE_REPLY_RESP"
+		BAG_LIST_REQ:
+			return "BAG_LIST_REQ"
+		BAG_LIST_RESP:
+			return "BAG_LIST_RESP"
+		BAG_UPDATE_PUSH:
+			return "BAG_UPDATE_PUSH"
+		USE_ITEM_REQ:
+			return "USE_ITEM_REQ"
+		USE_ITEM_RESP:
+			return "USE_ITEM_RESP"
+		QUEST_LIST_REQ:
+			return "QUEST_LIST_REQ"
+		QUEST_LIST_RESP:
+			return "QUEST_LIST_RESP"
+		QUEST_UPDATE_PUSH:
+			return "QUEST_UPDATE_PUSH"
+		QUEST_REMOVE_PUSH:
+			return "QUEST_REMOVE_PUSH"
+		QUEST_ACCEPT_REQ:
+			return "QUEST_ACCEPT_REQ"
+		QUEST_ACCEPT_RESP:
+			return "QUEST_ACCEPT_RESP"
+		QUEST_SUBMIT_REQ:
+			return "QUEST_SUBMIT_REQ"
+		QUEST_SUBMIT_RESP:
+			return "QUEST_SUBMIT_RESP"
+		QUEST_TRACK_REQ:
+			return "QUEST_TRACK_REQ"
+		QUEST_TRACK_RESP:
+			return "QUEST_TRACK_RESP"
+		NOTICE_PUSH:
+			return "NOTICE_PUSH"
+		KICKOUT_PUSH:
+			return "KICKOUT_PUSH"
+		_:
+			return "CMD_%d" % cmd
+
+
+# 判断当前消息是否值得打印到请求结果日志中；默认跳过高频心跳，避免刷屏。
+static func should_log_result(cmd: int) -> bool:
+	return cmd != HEARTBEAT_RESP

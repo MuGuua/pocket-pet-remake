@@ -22,14 +22,49 @@ enum EncounterType {
 
 message EnterWorldReq {}
 
+message PlayerSnapshot {
+  uint64 player_id = 1;
+  string name = 2;
+  uint32 level = 3;
+  uint64 exp = 4;
+  uint32 gold = 5;
+  uint32 hp = 6;
+  uint32 hp_max = 7;
+  uint32 energy = 8;
+  uint32 energy_max = 9;
+  uint32 atk = 10;
+  uint32 def = 11;
+  uint32 spd = 12;
+  uint32 mana = 13;
+  uint32 hit_pct = 14;
+  uint32 dodge_pct = 15;
+  uint32 crit_rate_pct = 16;
+  uint32 crit_dmg_pct = 17;
+  uint32 physical_resist_pct = 18;
+  uint32 skill_resist_pct = 19;
+  uint32 confusion_resist_pct = 20;
+  uint32 sleep_resist_pct = 21;
+  uint32 paralysis_resist_pct = 22;
+  uint32 seal_resist_pct = 23;
+  uint32 curse_resist_pct = 24;
+  uint32 crit_resist_pct = 25;
+  uint32 crit_dmg_resist_pct = 26;
+  uint32 character_resist_pct = 27;
+  uint32 pet_resist_pct = 28;
+  uint32 mercenary_resist_pct = 29;
+  uint32 generic_shield_pct = 30;
+  repeated uint32 skill_ids = 31;
+}
+
 message EnterWorldResp {
   pocketpet.common.PlayerBrief self = 1;
-  uint32 scene_id = 2;
-  pocketpet.common.Vec2i self_pos = 3;
-  uint32 scene_version = 4;
-  repeated pocketpet.common.EntityBrief nearby_entities = 5;
-  repeated pocketpet.common.PetBrief lineup = 6;
-  uint32 gold = 7;
+  PlayerSnapshot player = 2;
+  uint32 scene_id = 3;
+  pocketpet.common.Vec2i self_pos = 4;
+  uint32 scene_version = 5;
+  repeated pocketpet.common.EntityBrief nearby_entities = 6;
+  repeated pocketpet.common.PetBrief lineup = 7;
+  uint32 gold = 8;
 }
 
 message EntityEnterPush {

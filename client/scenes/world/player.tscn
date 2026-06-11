@@ -205,6 +205,7 @@ shape = SubResource("CircleShape2D_g2els")
 [node name="Camera2D" type="Camera2D" parent="."]
 physics_interpolation_mode = 1
 position = Vector2(-8, 42)
+process_callback = 0
 limit_left = 0
 limit_top = -75
 limit_right = 325

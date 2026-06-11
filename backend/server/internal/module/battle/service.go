@@ -59,6 +59,7 @@ type activeBattle struct {
 type actorRuntime struct {
 	actorID       uint64
 	actorType     uint32
+	unitClass     uint32
 	ownerPlayerID uint64
 	petUID        uint64
 	petID         uint32
@@ -67,14 +68,35 @@ type actorRuntime struct {
 	level         uint32
 	hp            uint32
 	hpMax         uint32
+	energy        uint32
+	energyMax     uint32
 	atk           uint32
 	def           uint32
 	spd           uint32
 	mana          uint32
+	hitPct        uint32
+	dodgeRatePct  uint32
 	skillIDs      []uint32
 	critRatePct   uint32
 	critDmgPct    uint32
 	statuses      map[uint32]*statusRuntime
+
+	// Resistance fields live directly on the authoritative runtime so damage,
+	// status, and crit branches can all consume one shared source-of-truth
+	// instead of rehydrating separate config objects during every action.
+	physicalResistPct  uint32
+	skillResistPct     uint32
+	confusionResistPct uint32
+	sleepResistPct     uint32
+	paralysisResistPct uint32
+	sealResistPct      uint32
+	curseResistPct     uint32
+	critResistPct      uint32
+	critDmgResistPct   uint32
+	characterResistPct uint32
+	petResistPct       uint32
+	mercenaryResistPct uint32
+	genericShieldPct   uint32
 
 	// These runtime modifier fields are kept on the actor so future status and
 	// passive systems can change battle math without mutating base pet data.
@@ -87,8 +109,6 @@ type actorRuntime struct {
 	defenseFlatBonus         int32
 	speedFlatBonus           int32
 	manaFlatBonus            int32
-	genericBlockPct          uint32
-	petBlockPct              uint32
 	statusVulnerabilityPct   uint32
 	statusArmorBroken        bool
 	statusSpeedMultiplierPct uint32
@@ -110,6 +130,40 @@ type statusRuntime struct {
 	statusID       uint32
 	remainingRound uint32
 	potency        int32
+}
+
+// combatAttributeTemplate centralizes the non-persistent runtime-facing battle
+// numbers for one actor archetype. We keep it separate from actorRuntime so
+// future DB/config loading can fill the same shape without rewriting builders.
+type combatAttributeTemplate struct {
+	HP          uint32
+	Energy      uint32
+	Attack      uint32
+	Defense     uint32
+	Speed       uint32
+	Mana        uint32
+	HitPct      uint32
+	DodgePct    uint32
+	CritRatePct uint32
+	CritDmgPct  uint32
+}
+
+// resistanceTemplate collects all incoming-damage and incoming-status
+// mitigation knobs that the user requested for character and enemy runtimes.
+type resistanceTemplate struct {
+	PhysicalResistPct  uint32
+	SkillResistPct     uint32
+	ConfusionResistPct uint32
+	SleepResistPct     uint32
+	ParalysisResistPct uint32
+	SealResistPct      uint32
+	CurseResistPct     uint32
+	CritResistPct      uint32
+	CritDmgResistPct   uint32
+	CharacterResistPct uint32
+	PetResistPct       uint32
+	MercenaryResistPct uint32
+	GenericShieldPct   uint32
 }
 
 type turnDecision struct {
@@ -136,9 +190,6 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 	if profile == nil {
 		return nil, ErrTargetUnavailable
 	}
-	if len(lineup) == 0 {
-		return nil, ErrNoLineupAvailable
-	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -159,9 +210,11 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 		participantPlayerIDs: []uint64{profile.PlayerID},
 		returnSceneID:        profile.SceneID,
 		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
-		allies:               buildPlayerTeam(profile, lineup, PlayerActorType),
-		enemies:              buildEnemyTeam(profile, enemy),
-		plannedActs:          make(map[uint64]ActionRequest),
+		// 单人 PVE 现在始终由人物作为我方权威入口开战，宠物编队再按原顺序追加，
+		// 这样客户端和服务端都能围绕同一个人物 actor 组织后续动作与表现。
+		allies:      buildSoloPVEAllies(profile, lineup),
+		enemies:     buildEnemyTeam(profile, enemy),
+		plannedActs: make(map[uint64]ActionRequest),
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
 	battle.resetCommandDeadline()
@@ -525,6 +578,326 @@ func (s *Service) removeBattleLocked(current *activeBattle) {
 	}
 }
 
+// defaultPlayerCharacterTemplate prepares the first server-side solo-character
+// combat profile. It deliberately ignores level growth for now, matching the
+// user's request to land the base stat system before the level curve.
+func defaultPlayerCharacterTemplate() (combatAttributeTemplate, resistanceTemplate) {
+	return combatAttributeTemplate{
+			HP:          120,
+			Energy:      100,
+			Attack:      24,
+			Defense:     12,
+			Speed:       18,
+			Mana:        20,
+			HitPct:      10,
+			DodgePct:    6,
+			CritRatePct: 10,
+			CritDmgPct:  155,
+		}, resistanceTemplate{
+			PhysicalResistPct:  6,
+			SkillResistPct:     4,
+			ConfusionResistPct: 8,
+			SleepResistPct:     8,
+			ParalysisResistPct: 6,
+			SealResistPct:      6,
+			CurseResistPct:     5,
+			CritResistPct:      4,
+			CritDmgResistPct:   10,
+			PetResistPct:       4,
+			GenericShieldPct:   2,
+		}
+}
+
+// combatTemplateFromProfile converts persistent player attributes into the
+// battle-layer template. Any zero-valued field still falls back to the current
+// starter template so older fixtures or partially migrated rows do not break
+// combat assembly.
+func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate, resistanceTemplate) {
+	defaultAttributes, defaultResistances := defaultPlayerCharacterTemplate()
+	if profile == nil {
+		return defaultAttributes, defaultResistances
+	}
+	attributes := combatAttributeTemplate{
+		HP:          profile.HP,
+		Energy:      profile.Energy,
+		Attack:      profile.ATK,
+		Defense:     profile.DEF,
+		Speed:       profile.SPD,
+		Mana:        profile.MANA,
+		HitPct:      profile.HitPct,
+		DodgePct:    profile.DodgePct,
+		CritRatePct: profile.CritRatePct,
+		CritDmgPct:  profile.CritDmgPct,
+	}
+	resistances := resistanceTemplate{
+		PhysicalResistPct:  profile.PhysicalResistPct,
+		SkillResistPct:     profile.SkillResistPct,
+		ConfusionResistPct: profile.ConfusionResistPct,
+		SleepResistPct:     profile.SleepResistPct,
+		ParalysisResistPct: profile.ParalysisResistPct,
+		SealResistPct:      profile.SealResistPct,
+		CurseResistPct:     profile.CurseResistPct,
+		CritResistPct:      profile.CritResistPct,
+		CritDmgResistPct:   profile.CritDmgResistPct,
+		CharacterResistPct: profile.CharacterResistPct,
+		PetResistPct:       profile.PetResistPct,
+		MercenaryResistPct: profile.MercenaryResistPct,
+		GenericShieldPct:   profile.GenericShieldPct,
+	}
+	if attributes.HP == 0 {
+		attributes.HP = defaultAttributes.HP
+	}
+	if profile.HPMax > 0 && profile.HPMax > attributes.HP {
+		attributes.HP = profile.HPMax
+	}
+	if attributes.Energy == 0 {
+		attributes.Energy = maxUint32(profile.EnergyMax, defaultAttributes.Energy)
+	}
+	if attributes.Attack == 0 {
+		attributes.Attack = defaultAttributes.Attack
+	}
+	if attributes.Defense == 0 {
+		attributes.Defense = defaultAttributes.Defense
+	}
+	if attributes.Speed == 0 {
+		attributes.Speed = defaultAttributes.Speed
+	}
+	if attributes.Mana == 0 {
+		attributes.Mana = defaultAttributes.Mana
+	}
+	if attributes.HitPct == 0 {
+		attributes.HitPct = defaultAttributes.HitPct
+	}
+	if attributes.DodgePct == 0 {
+		attributes.DodgePct = defaultAttributes.DodgePct
+	}
+	if attributes.CritRatePct == 0 {
+		attributes.CritRatePct = defaultAttributes.CritRatePct
+	}
+	if attributes.CritDmgPct == 0 {
+		attributes.CritDmgPct = defaultAttributes.CritDmgPct
+	}
+	if resistances.PhysicalResistPct == 0 {
+		resistances.PhysicalResistPct = defaultResistances.PhysicalResistPct
+	}
+	if resistances.SkillResistPct == 0 {
+		resistances.SkillResistPct = defaultResistances.SkillResistPct
+	}
+	if resistances.ConfusionResistPct == 0 {
+		resistances.ConfusionResistPct = defaultResistances.ConfusionResistPct
+	}
+	if resistances.SleepResistPct == 0 {
+		resistances.SleepResistPct = defaultResistances.SleepResistPct
+	}
+	if resistances.ParalysisResistPct == 0 {
+		resistances.ParalysisResistPct = defaultResistances.ParalysisResistPct
+	}
+	if resistances.SealResistPct == 0 {
+		resistances.SealResistPct = defaultResistances.SealResistPct
+	}
+	if resistances.CurseResistPct == 0 {
+		resistances.CurseResistPct = defaultResistances.CurseResistPct
+	}
+	if resistances.CritResistPct == 0 {
+		resistances.CritResistPct = defaultResistances.CritResistPct
+	}
+	if resistances.CritDmgResistPct == 0 {
+		resistances.CritDmgResistPct = defaultResistances.CritDmgResistPct
+	}
+	if resistances.PetResistPct == 0 {
+		resistances.PetResistPct = defaultResistances.PetResistPct
+	}
+	if resistances.GenericShieldPct == 0 {
+		resistances.GenericShieldPct = defaultResistances.GenericShieldPct
+	}
+	return attributes, resistances
+}
+
+// defaultPetTemplate keeps the current pet battle flow working while migrating
+// it onto the richer character/enemy attribute model introduced in this task.
+func defaultPetTemplate(item pet.LineupPet) (combatAttributeTemplate, resistanceTemplate) {
+	return combatAttributeTemplate{
+			HP:          item.HPMax,
+			Energy:      100,
+			Attack:      item.ATK,
+			Defense:     item.DEF,
+			Speed:       item.SPD,
+			Mana:        item.MANA,
+			HitPct:      8,
+			DodgePct:    5,
+			CritRatePct: 8,
+			CritDmgPct:  150,
+		}, resistanceTemplate{
+			PhysicalResistPct:  3,
+			SkillResistPct:     2,
+			ConfusionResistPct: 4,
+			SleepResistPct:     4,
+			ParalysisResistPct: 4,
+			SealResistPct:      4,
+			CurseResistPct:     3,
+			CritResistPct:      2,
+			CritDmgResistPct:   8,
+			PetResistPct:       3,
+		}
+}
+
+// defaultEnemyTemplate gives monsters the same stat dimensions as characters
+// and pets, but still keeps their numbers deterministic and easy to tune.
+func defaultEnemyTemplate(profile *player.Profile, enemy world.Entity, index int) (combatAttributeTemplate, resistanceTemplate, uint32) {
+	baseHP := uint32(18)
+	baseAttack := uint32(10)
+	baseDefense := uint32(8)
+	baseSpeed := uint32(7)
+	baseMana := uint32(9)
+	baseLevel := uint32(1)
+	if profile != nil {
+		baseHP += profile.Level * 4
+		baseAttack += profile.Level * 2
+		baseDefense += profile.Level
+		baseSpeed += profile.Level
+		baseMana += profile.Level * 2
+		baseLevel = profile.Level + 1
+	}
+	base := combatAttributeTemplate{
+		HP:          baseHP + uint32(index*4),
+		Energy:      100,
+		Attack:      baseAttack + uint32(index*2),
+		Defense:     baseDefense + uint32(index),
+		Speed:       baseSpeed + uint32(index),
+		Mana:        baseMana + uint32(index*2),
+		HitPct:      8,
+		DodgePct:    4,
+		CritRatePct: 6,
+		CritDmgPct:  145,
+	}
+	resist := resistanceTemplate{
+		PhysicalResistPct:  4,
+		SkillResistPct:     4,
+		ConfusionResistPct: 5,
+		SleepResistPct:     5,
+		ParalysisResistPct: 5,
+		SealResistPct:      5,
+		CurseResistPct:     6,
+		CritResistPct:      3,
+		CritDmgResistPct:   10,
+		PetResistPct:       2,
+		GenericShieldPct:   1,
+	}
+	level := baseLevel + uint32(index)
+	switch enemy.EntityID {
+	case 90006:
+		base.HP += 8
+		base.Attack += 3
+		base.Mana += 4
+		resist.SkillResistPct += 3
+		resist.CurseResistPct += 4
+	case 90004, 90005:
+		base.Speed += 1
+	}
+	return base, resist, level
+}
+
+func (a *actorRuntime) applyCombatTemplate(template combatAttributeTemplate) {
+	if a == nil {
+		return
+	}
+	a.hp = template.HP
+	a.hpMax = template.HP
+	a.energy = template.Energy
+	a.energyMax = template.Energy
+	a.atk = template.Attack
+	a.def = template.Defense
+	a.spd = template.Speed
+	a.mana = template.Mana
+	a.hitPct = template.HitPct
+	a.dodgeRatePct = template.DodgePct
+	a.critRatePct = template.CritRatePct
+	a.critDmgPct = template.CritDmgPct
+}
+
+func (a *actorRuntime) applyResistanceTemplate(template resistanceTemplate) {
+	if a == nil {
+		return
+	}
+	a.physicalResistPct = template.PhysicalResistPct
+	a.skillResistPct = template.SkillResistPct
+	a.confusionResistPct = template.ConfusionResistPct
+	a.sleepResistPct = template.SleepResistPct
+	a.paralysisResistPct = template.ParalysisResistPct
+	a.sealResistPct = template.SealResistPct
+	a.curseResistPct = template.CurseResistPct
+	a.critResistPct = template.CritResistPct
+	a.critDmgResistPct = template.CritDmgResistPct
+	a.characterResistPct = template.CharacterResistPct
+	a.petResistPct = template.PetResistPct
+	a.mercenaryResistPct = template.MercenaryResistPct
+	a.genericShieldPct = template.GenericShieldPct
+}
+
+func (a *actorRuntime) initRuntimeDefaults() {
+	if a == nil {
+		return
+	}
+	a.statuses = map[uint32]*statusRuntime{}
+	a.globalMultiplierPct = 100
+	a.attackMultiplierPct = 100
+	a.defenseMultiplierPct = 100
+	a.speedMultiplierPct = 100
+	a.manaMultiplierPct = 100
+}
+
+// buildPlayerCharacterActor is not wired into the current StartPVE flow yet,
+// but landing it now gives the upcoming solo-character PVE work one stable
+// service-side entry point instead of mixing character stats into pet builders.
+func buildPlayerCharacterActor(profile *player.Profile, actorType uint32) *actorRuntime {
+	if profile == nil {
+		return nil
+	}
+	attributes, resistances := combatTemplateFromProfile(profile)
+	actor := &actorRuntime{
+		actorID:       profile.PlayerID,
+		actorType:     actorType,
+		unitClass:     ActorUnitClassCharacter,
+		ownerPlayerID: profile.PlayerID,
+		name:          profile.Name,
+		level:         maxUint32(profile.Level, 1),
+		// 人物技能优先从持久化玩家档案读取；只有旧数据尚未迁移时才回退到默认模板。
+		skillIDs: playerCharacterSkillIDs(profile),
+	}
+	actor.initRuntimeDefaults()
+	actor.applyCombatTemplate(attributes)
+	if profile.HP > 0 {
+		actor.hp = profile.HP
+	}
+	if profile.HPMax > 0 {
+		actor.hpMax = profile.HPMax
+	}
+	if profile.Energy > 0 {
+		actor.energy = profile.Energy
+	}
+	if profile.EnergyMax > 0 {
+		actor.energyMax = profile.EnergyMax
+	}
+	actor.applyResistanceTemplate(resistances)
+	return actor
+}
+
+func playerCharacterSkillIDs(profile *player.Profile) []uint32 {
+	if profile == nil || len(profile.SkillIDs) == 0 {
+		return []uint32{DefaultCharacterSkillID, DefaultAttackSkillID}
+	}
+	return append([]uint32{}, profile.SkillIDs...)
+}
+
+func buildSoloPVEAllies(profile *player.Profile, lineup []pet.LineupPet) []*actorRuntime {
+	allies := make([]*actorRuntime, 0, len(lineup)+1)
+	if characterActor := buildPlayerCharacterActor(profile, PlayerActorType); characterActor != nil {
+		allies = append(allies, characterActor)
+	}
+	allies = append(allies, buildPlayerTeam(profile, lineup, PlayerActorType)...)
+	return allies
+}
+
 func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType uint32) []*actorRuntime {
 	allies := make([]*actorRuntime, 0, len(lineup))
 	for index, item := range lineup {
@@ -532,32 +905,28 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 		if len(skillIDs) == 0 {
 			skillIDs = []uint32{DefaultAttackSkillID}
 		}
-		allies = append(allies, &actorRuntime{
-			actorID:              item.PetUID,
-			actorType:            actorType,
-			ownerPlayerID:        profile.PlayerID,
-			petUID:               item.PetUID,
-			petID:                item.PetID,
-			lineupIndex:          uint32(index),
-			name:                 fmt.Sprintf("%s 的%d号宠物", profile.Name, index+1),
-			level:                item.Level,
-			hp:                   item.HP,
-			hpMax:                item.HPMax,
-			atk:                  item.ATK,
-			def:                  item.DEF,
-			spd:                  item.SPD,
-			mana:                 item.MANA,
-			skillIDs:             skillIDs,
-			critRatePct:          8,
-			critDmgPct:           150,
-			statuses:             map[uint32]*statusRuntime{},
-			globalMultiplierPct:  100,
-			attackMultiplierPct:  100,
-			defenseMultiplierPct: 100,
-			speedMultiplierPct:   100,
-			manaMultiplierPct:    100,
-		})
-		configurePassiveProfile(allies[len(allies)-1])
+		attributes, resistances := defaultPetTemplate(item)
+		actor := &actorRuntime{
+			actorID:       item.PetUID,
+			actorType:     actorType,
+			unitClass:     ActorUnitClassPet,
+			ownerPlayerID: profile.PlayerID,
+			petUID:        item.PetUID,
+			petID:         item.PetID,
+			lineupIndex:   uint32(index),
+			name:          fmt.Sprintf("%s 的%d号宠物", profile.Name, index+1),
+			level:         item.Level,
+			skillIDs:      skillIDs,
+		}
+		actor.initRuntimeDefaults()
+		actor.applyCombatTemplate(attributes)
+		actor.applyResistanceTemplate(resistances)
+		actor.hp = item.HP
+		if item.HPMax > 0 {
+			actor.hpMax = item.HPMax
+		}
+		allies = append(allies, actor)
+		configurePassiveProfile(actor)
 	}
 	return allies
 }
@@ -565,20 +934,12 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 func buildEnemyTeam(profile *player.Profile, enemy world.Entity) []*actorRuntime {
 	count := 1
 	skillSet := []uint32{DefaultEnemySkillID, 90002}
-	baseHP := uint32(18 + profile.Level*4)
-	baseATK := uint32(10 + profile.Level*2)
-	baseDEF := uint32(8 + profile.Level)
-	baseSPD := uint32(7 + profile.Level)
-	baseMANA := uint32(9 + profile.Level*2)
 	if enemy.EntityID == 90004 || enemy.EntityID == 90005 {
 		count = 2
 	}
 	if enemy.EntityID == 90006 {
 		count = 2
 		skillSet = []uint32{90002, 90003}
-		baseHP += 8
-		baseATK += 3
-		baseMANA += 4
 	}
 	enemies := make([]*actorRuntime, 0, count)
 	for index := 0; index < count; index++ {
@@ -586,32 +947,24 @@ func buildEnemyTeam(profile *player.Profile, enemy world.Entity) []*actorRuntime
 		if count > 1 {
 			enemyName = fmt.Sprintf("%s 随从%d", enemy.Name, index+1)
 		}
-		enemies = append(enemies, &actorRuntime{
-			actorID:              enemy.EntityID*10 + uint64(index+1),
-			actorType:            EnemyActorType,
-			ownerPlayerID:        0,
-			petUID:               0,
-			petID:                DefaultEnemyPetID + uint32(index),
-			lineupIndex:          uint32(index),
-			name:                 enemyName,
-			level:                profile.Level + uint32(index) + 1,
-			hp:                   baseHP + uint32(index*4),
-			hpMax:                baseHP + uint32(index*4),
-			atk:                  baseATK + uint32(index*2),
-			def:                  baseDEF + uint32(index),
-			spd:                  baseSPD + uint32(index),
-			mana:                 baseMANA + uint32(index*2),
-			skillIDs:             append([]uint32{}, skillSet...),
-			critRatePct:          5,
-			critDmgPct:           140,
-			statuses:             map[uint32]*statusRuntime{},
-			globalMultiplierPct:  100,
-			attackMultiplierPct:  100,
-			defenseMultiplierPct: 100,
-			speedMultiplierPct:   100,
-			manaMultiplierPct:    100,
-		})
-		configurePassiveProfile(enemies[len(enemies)-1])
+		attributes, resistances, enemyLevel := defaultEnemyTemplate(profile, enemy, index)
+		actor := &actorRuntime{
+			actorID:       enemy.EntityID*10 + uint64(index+1),
+			actorType:     EnemyActorType,
+			unitClass:     ActorUnitClassMonster,
+			ownerPlayerID: 0,
+			petUID:        0,
+			petID:         DefaultEnemyPetID + uint32(index),
+			lineupIndex:   uint32(index),
+			name:          enemyName,
+			level:         enemyLevel,
+			skillIDs:      append([]uint32{}, skillSet...),
+		}
+		actor.initRuntimeDefaults()
+		actor.applyCombatTemplate(attributes)
+		actor.applyResistanceTemplate(resistances)
+		enemies = append(enemies, actor)
+		configurePassiveProfile(actor)
 	}
 	return enemies
 }
@@ -742,9 +1095,16 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skillID = DefaultAttackSkillID
 		skill, _ = getSkillDef(skillID)
 	}
+	if skill.EnergyCost > 0 && !actor.canSpendEnergy(skill.EnergyCost) {
+		skillID = DefaultAttackSkillID
+		skill, _ = getSkillDef(skillID)
+	}
 	target := b.resolveDecisionTarget(actor, action.TargetID, skill)
 	if target == nil && skill.TargetRule != targetEnemyAll {
 		return nil
+	}
+	if skill.EnergyCost > 0 {
+		actor.spendEnergy(skill.EnergyCost)
 	}
 
 	primaryTargetID := uint64(0)
@@ -809,7 +1169,7 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 	// Evasion is checked on the authoritative server before any damage, on-hit
 	// status, lifesteal, or counter logic so later passive layers share one
 	// consistent "attack connected or not" branch.
-	if target.dodgePct > 0 && b.rollChance(target.dodgePct, target.actorID+83, actor.actorID+89) {
+	if dodgeChancePct := b.calculateDodgeChancePct(actor, target); dodgeChancePct > 0 && b.rollChance(dodgeChancePct, target.actorID+83, actor.actorID+89) {
 		return []Event{{
 			EventType: EventTypeDodge,
 			SourceID:  target.actorID,
@@ -901,7 +1261,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 	}
 
 	events := make([]Event, 0, 6)
-	if skill.BleedChancePct > 0 && b.rollChance(skill.BleedChancePct, actor.actorID, target.actorID) {
+	if chancePct := b.adjustStatusChancePct(skill.BleedChancePct, target, StatusBleed); chancePct > 0 && b.rollChance(chancePct, actor.actorID, target.actorID) {
 		if target.applyStatus(StatusBleed, skill.BleedRounds, skill.BleedDamage) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
@@ -914,7 +1274,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if skill.SealChancePct > 0 && b.rollChance(skill.SealChancePct, actor.actorID+9, target.actorID+17) {
+	if chancePct := b.adjustStatusChancePct(skill.SealChancePct, target, StatusSeal); chancePct > 0 && b.rollChance(chancePct, actor.actorID+9, target.actorID+17) {
 		if target.applyStatus(StatusSeal, skill.SealRounds, 0) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
@@ -964,7 +1324,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if skill.CurseChancePct > 0 && b.rollChance(skill.CurseChancePct, actor.actorID+61, target.actorID+67) {
+	if chancePct := b.adjustStatusChancePct(skill.CurseChancePct, target, StatusCurse); chancePct > 0 && b.rollChance(chancePct, actor.actorID+61, target.actorID+67) {
 		curseDamage := skill.CurseDamage + actor.effectiveStats().Mana*skill.CurseManaPct/100
 		if curseDamage < 1 {
 			curseDamage = 1
@@ -981,7 +1341,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if skill.ControlChancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(skill.ControlChancePct, actor.actorID+71, target.actorID+73) {
+	if chancePct := b.adjustStatusChancePct(skill.ControlChancePct, target, skill.ControlStatusID); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
 		if target.applyStatus(skill.ControlStatusID, skill.ControlRounds, 0) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
@@ -1090,6 +1450,10 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 		rewardGold, rewardPlayerExp, rewardPetExp, dropTexts = b.buildPVERewards()
 	}
 	for _, actor := range b.allies {
+		// 结算持久化仍然只写回真实宠物，人物 actor 的生命与奖励由玩家档案单独承担。
+		if actor == nil || actor.petUID == 0 {
+			continue
+		}
 		petResults = append(petResults, PetResult{
 			PetUID:    actor.petUID,
 			HP:        actor.hp,
@@ -1232,6 +1596,8 @@ func (b *activeBattle) snapshotActorStates() []ActorState {
 			ActorID:    actor.actorID,
 			HP:         actor.hp,
 			HPMax:      actor.hpMax,
+			Energy:     actor.energy,
+			EnergyMax:  actor.energyMax,
 			Dead:       actor.isDead(),
 			CanAct:     !actor.isDead() && !actor.isActionBlocked(),
 			StatusIDs:  actor.statusIDs(),
@@ -1251,8 +1617,8 @@ func (b *activeBattle) collectibleDefaultTarget(candidates []*actorRuntime) *act
 
 func (b *activeBattle) defaultActionFor(actor *actorRuntime) ActionRequest {
 	skillID := DefaultAttackSkillID
-	if actor.actorType == EnemyActorType && len(actor.skillIDs) > 0 {
-		skillID = actor.skillIDs[int((b.round-1)%uint32(len(actor.skillIDs)))]
+	if actor != nil {
+		skillID = b.defaultSkillIDFor(actor)
 	}
 	targetID := uint64(0)
 	skill, ok := getSkillDef(skillID)
@@ -1279,6 +1645,30 @@ func (b *activeBattle) defaultActionFor(actor *actorRuntime) ActionRequest {
 		SkillID:    skillID,
 		TargetID:   targetID,
 	}
+}
+
+func (b *activeBattle) defaultSkillIDFor(actor *actorRuntime) uint32 {
+	if actor == nil {
+		return DefaultAttackSkillID
+	}
+	if actor.actorType == EnemyActorType && len(actor.skillIDs) > 0 {
+		return actor.skillIDs[int((b.round-1)%uint32(len(actor.skillIDs)))]
+	}
+	if actor.unitClass == ActorUnitClassCharacter {
+		for _, skillID := range actor.skillIDs {
+			if skillID == DefaultAttackSkillID {
+				continue
+			}
+			skill, ok := getSkillDef(skillID)
+			if ok && actor.canSpendEnergy(skill.EnergyCost) {
+				return skillID
+			}
+		}
+	}
+	if len(actor.skillIDs) > 0 {
+		return actor.skillIDs[0]
+	}
+	return DefaultAttackSkillID
 }
 
 func (b *activeBattle) normalizeRequestedTarget(actor *actorRuntime, targetID uint64, skillID uint32) uint64 {
@@ -1504,6 +1894,38 @@ func (b *activeBattle) rollChance(chancePct uint32, sourceID, targetID uint64) b
 	return uint32(rng.Intn(100)) < chancePct
 }
 
+// calculateDodgeChancePct resolves the final dodge branch from the newly added
+// hit and dodge attributes plus any passive dodge bonus already present on the
+// runtime. Hit directly subtracts from the target's dodge budget.
+func (b *activeBattle) calculateDodgeChancePct(attacker *actorRuntime, target *actorRuntime) uint32 {
+	if attacker == nil || target == nil {
+		return 0
+	}
+	attackerStats := attacker.effectiveStats()
+	targetStats := target.effectiveStats()
+	finalChance := int32(targetStats.DodgePct) + int32(target.dodgePct) - int32(attackerStats.HitPct)
+	if finalChance < 0 {
+		return 0
+	}
+	if finalChance > 80 {
+		return 80
+	}
+	return uint32(finalChance)
+}
+
+// adjustStatusChancePct lets each target consume its own status-specific
+// resistance without changing the rest of the battle pipeline.
+func (b *activeBattle) adjustStatusChancePct(baseChancePct uint32, target *actorRuntime, statusID uint32) uint32 {
+	if target == nil || baseChancePct == 0 {
+		return 0
+	}
+	resistPct := target.statusResistPct(statusID)
+	if resistPct >= baseChancePct {
+		return 0
+	}
+	return baseChancePct - resistPct
+}
+
 func (b *activeBattle) isPlayerOnAllySide(playerID uint64) bool {
 	for _, actor := range b.allies {
 		if actor.ownerPlayerID == playerID {
@@ -1601,21 +2023,42 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 		})
 	}
 	return ActorSnapshot{
-		ActorID:       a.actorID,
-		ActorType:     a.actorType,
-		OwnerPlayerID: a.ownerPlayerID,
-		PetUID:        a.petUID,
-		PetID:         a.petID,
-		Name:          a.name,
-		HP:            a.hp,
-		HPMax:         a.hpMax,
-		ATK:           a.atk,
-		DEF:           a.def,
-		SPD:           a.spd,
-		Skills:        skillSnapshots,
-		SkillIDs:      append([]uint32{}, a.skillIDs...),
-		StatusIDs:     a.statusIDs(),
-		LineupIndex:   a.lineupIndex,
+		ActorID:            a.actorID,
+		ActorType:          a.actorType,
+		UnitClass:          a.unitClass,
+		OwnerPlayerID:      a.ownerPlayerID,
+		PetUID:             a.petUID,
+		PetID:              a.petID,
+		Name:               a.name,
+		HP:                 a.hp,
+		HPMax:              a.hpMax,
+		Energy:             a.energy,
+		EnergyMax:          a.energyMax,
+		ATK:                a.atk,
+		DEF:                a.def,
+		SPD:                a.spd,
+		MANA:               a.mana,
+		HitPct:             a.hitPct,
+		DodgePct:           a.dodgeRatePct,
+		CritRatePct:        a.critRatePct,
+		CritDmgPct:         a.critDmgPct,
+		PhysicalResistPct:  a.physicalResistPct,
+		SkillResistPct:     a.skillResistPct,
+		ConfusionResistPct: a.confusionResistPct,
+		SleepResistPct:     a.sleepResistPct,
+		ParalysisResistPct: a.paralysisResistPct,
+		SealResistPct:      a.sealResistPct,
+		CurseResistPct:     a.curseResistPct,
+		CritResistPct:      a.critResistPct,
+		CritDmgResistPct:   a.critDmgResistPct,
+		CharacterResistPct: a.characterResistPct,
+		PetResistPct:       a.petResistPct,
+		MercenaryResistPct: a.mercenaryResistPct,
+		GenericShieldPct:   a.genericShieldPct,
+		Skills:             skillSnapshots,
+		SkillIDs:           append([]uint32{}, a.skillIDs...),
+		StatusIDs:          a.statusIDs(),
+		LineupIndex:        a.lineupIndex,
 	}
 }
 
@@ -1641,11 +2084,11 @@ func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, battl
 	targetStats := target.effectiveStats()
 	baseDamage := calculateBaseDamage(attackerStats, targetStats, skill)
 	defenseReduction := calculateDefenseReduction(targetStats, skill)
-	blockReduction := calculateBlockReduction(attackerStats, targetStats)
+	blockReduction := calculateBlockReduction(attackerStats, targetStats, skill)
 	damage := calculateFinalDamage(baseDamage.Total, defenseReduction, blockReduction)
 	crit := false
-	critRatePct := clampCritRatePct(attackerStats.CritRatePct)
-	critDmgPct := clampCritDmgPct(attackerStats.CritDmgPct)
+	critRatePct := clampCritRatePct(saturatingSubUint32(attackerStats.CritRatePct, targetStats.CritResistPct))
+	critDmgPct := clampCritDmgPct(saturatingSubUint32(attackerStats.CritDmgPct, targetStats.CritDmgResistPct))
 	if skill.AllowCrit && baseDamage.allowsCriticalHit() && critRatePct > 0 {
 		rng := rand.New(rand.NewSource(int64(battleID) + int64(round)*151 + int64(a.actorID) + int64(target.actorID)))
 		crit = uint32(rng.Intn(100)) < critRatePct
@@ -1693,6 +2136,44 @@ func (a *actorRuntime) restoreFromRevive(amount int32) int32 {
 	}
 	a.hp = uint32(amount)
 	return amount
+}
+
+func (a *actorRuntime) canSpendEnergy(cost uint32) bool {
+	if a == nil {
+		return false
+	}
+	return cost == 0 || a.energy >= cost
+}
+
+func (a *actorRuntime) spendEnergy(cost uint32) uint32 {
+	if a == nil || cost == 0 {
+		return 0
+	}
+	if cost > a.energy {
+		cost = a.energy
+	}
+	a.energy -= cost
+	return cost
+}
+
+func (a *actorRuntime) statusResistPct(statusID uint32) uint32 {
+	if a == nil {
+		return 0
+	}
+	switch statusID {
+	case StatusConfusion:
+		return a.confusionResistPct
+	case StatusSleep:
+		return a.sleepResistPct
+	case StatusParalysis:
+		return a.paralysisResistPct
+	case StatusSeal:
+		return a.sealResistPct
+	case StatusCurse:
+		return a.curseResistPct
+	default:
+		return 0
+	}
 }
 
 func (a *actorRuntime) applyStatus(statusID uint32, rounds uint32, potency int32) bool {

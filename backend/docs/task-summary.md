@@ -187,6 +187,21 @@
 - 当时的 PostgreSQL/Redis 适配器先完成了骨架与接口约束，后续版本已补齐真实数据库连接、Redis 客户端初始化和驱动导入
 - 新增 `config.env` 自动加载能力，后续只需要改 `backend/server/configs/config.env` 即可接入真实服务
 
+## 2026-06-11 服务端 YAML 配置切换
+
+本次补充聚焦把服务端启动配置从环境变量文件收敛到 YAML 配置文件：
+- `backend/server/cmd/game-server/main.go` 不再先加载 `config.env`，改为解析 `backend/server/configs/config.yaml`；`PP_CONFIG_FILE` 仍可保留为“覆盖配置文件路径”的入口
+- `backend/server/internal/config/config.go` 改为读取分段 YAML 结构：`http`、`auth`、`heartbeat`、`postgres`、`redis`，再转换成现有运行时 `Config` 结构，尽量不影响业务层依赖注入
+- 示例文件已更新为 `backend/server/configs/config.yaml` 与 `backend/server/configs/config.yaml.example`，后续本地联调或部署时统一改 YAML，不再维护一长串 `PP_*` 配置键值
+- 已新增配置加载测试，覆盖 YAML 解析、默认路径选择与基础校验，降低这次加载方式切换对启动链路的破坏风险
+
+## 2026-06-11 PostgreSQL 宠物 mana 字段补齐
+
+本次补充聚焦修复 PostgreSQL 模式下进入世界时报 `pp.mana does not exist` 的结构不一致问题：
+- 新增迁移 `backend/server/migrations/010_add_player_pet_mana.sql`，为 `player_pet` 表补充 `mana` 字段，和当前 `pet_repo` / 战斗构建链路保持一致
+- 同一迁移里已回填演示宠物 `20001/20002/20003` 的起始法力，保持 PostgreSQL 模式与内存测试仓储的默认值一致
+- 这样 `PET_LIST_RESP`、编队读取、人物带宠进入战斗以及断线重连回放都可以继续复用同一个持久化宠物资源字段，不再因为数据库旧结构直接失败
+
 ## 2026-05-14 登录页与登录链路补充
 
 本次补充聚焦 Godot 客户端首个可用登录入口，目标是把现有 HTTP 登录骨架升级为可直接联调的完整登录流程：
@@ -484,3 +499,32 @@
 - 进一步补入了最近战斗状态缓存与 `last_frame` 协议字段：客户端重连时若仍知道自己停在第几帧，服务端会在缓存窗口内返回 `battle_replay_states`，先补最近几帧，再与当前战斗态对齐
 - 客户端 `App` 已补入最小自动重连流程：连接关闭后若本地仍持有 `reconnect_token`，会优先发起 `RECONNECT_REQ`，成功后重建世界快照、恢复战斗界面，并补拉宠物/背包/任务摘要
 - 已补充 WebSocket 测试覆盖“断开后重连恢复世界与战斗快照”的服务端闭环；当前版本仍属于全量重同步，不做战斗事件增量补帧与逐帧回放
+
+## 2026-06-10 战斗属性与抗性底座扩展
+
+本次补充聚焦先把“人物单人 PVE”需要的服务端属性底座补齐，但暂时不接等级成长：
+- `battle` 运行态的 `actorRuntime` 已新增完整核心属性：生命、精力、攻击、防御、速度、法力、命中、闪避、致命率、爆伤倍率，并补入物理/技能抗性、混乱/昏睡/麻痹/封印/诅咒抗性、抗致命、抗爆伤、抗人物、抗宠物、抗佣兵与通用护盾抗性
+- `formula.go` 的有效属性与减伤链路现已识别新的攻击来源与抗性维度：技能/物理抗性、通用护盾抗性、人物/宠物/佣兵来源抗性都会进入最终减伤计算
+- 战斗执行链路已补入精力消耗判定：主动技能若精力不足，会在服务端权威降级为普通攻击，避免未来人物单人战斗再单独补一套资源校验
+- 状态命中链路现已支持按目标的混乱、昏睡、麻痹、封印、诅咒抗性扣减命中率；暴击结算也会额外吃目标的抗致命与抗爆伤
+- 已新增 `buildPlayerCharacterActor()` 作为未来“人物单人 PVE”入口的服务端人物战斗模板；当前尚未接入 `StartPVE()` 正式参战，但人物和敌人的服务端属性模型已经可复用
+- 已执行 `cd backend && go test ./server/internal/module/battle/...`，当前 battle 模块测试通过
+
+## 2026-06-10 人物战斗属性入库第一版
+
+本次补充聚焦把上一节的人物战斗属性从“只存在 battle 运行态”推进到“玩家仓储可持久化读取”：
+- 新增迁移 `backend/server/migrations/008_add_player_combat_stats.sql`，为 `player` 表补充人物战斗核心字段与抗性字段，包括精力、攻击、防御、速度、法力、命中、闪避、致命、爆伤，以及物理/技能/状态/来源抗性和通用护盾抗性
+- `player.Profile` 与 PostgreSQL `player_repo` 现已同步扩展；`FindByPlayerID()` 会把这些持久化字段全部读回，后续人物参战时不再只能依赖 battle 模块里的硬编码模板
+- `teststub` 的内存玩家仓储也已补齐同一套人物战斗字段，保证 battle / ws / auth 等本地测试仓储口径一致
+- `buildPlayerCharacterActor()` 现已优先使用 `player.Profile` 中的真实持久化人物数值；若旧测试桩或未迁移数据里某些字段仍为 `0`，才会回落到最小默认模板，降低迁移阶段的联调风险
+- 敌方构建逻辑保留了现有按玩家等级生成强度的口径，只是在同一条链路中补上了新的抗性和资源字段，避免这次入库改动意外改变现有 PVE 测试节奏
+- 已执行 `cd backend && go test ./server/...`，当前服务端测试通过
+
+## 2026-06-10 单人 PVE 人物 actor 正式接入
+
+本次补充把前两节铺好的“人物战斗属性 + 持久化数据”真正接进单人 PVE 开战链路：
+- `battle.Service.StartPVE()` 现在会先构建人物 actor，再按原顺序追加宠物编队；即使当前没有上阵宠物，单人 PVE 也可以由人物独立开战
+- 新增人物持久化技能字段迁移 `backend/server/migrations/009_add_player_skill_ids.sql`，并把 `player.Profile` / PostgreSQL 仓储 / teststub 一起扩展为读取 `skill_ids`，避免人物技能继续硬编码在 battle 运行态
+- 人物 actor 默认使用数据库中的技能顺序；当前人物起手技能为人物专属主动技 `1101: 裂空斩`，服务端自动托管与超时补行动作也会优先选择人物主动技能，精力不足时再权威回退到普通攻击
+- `EnterWorldResp` 新增完整 `player` 快照，客户端 `player_snapshot` 现在可以直接读取人物的生命、精力、攻击、防御、速度、法力、命中、闪避、暴击与技能列表；战斗 actor 快照也新增 `unit_class`，客户端可以区分人物 / 宠物 / 怪物
+- 战斗结算已改为只回写真实宠物的 HP / 经验，避免把人物 actor 误当成 `pet_uid=0` 的宠物持久化

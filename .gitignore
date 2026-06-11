@@ -1,3 +1,6 @@
 skills/
 client/.godot/
 .tmp/
+admin/node_modules/
+admin/dist/
+admin/*.tsbuildinfo

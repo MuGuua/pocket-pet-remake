@@ -6,7 +6,9 @@ import (
 	"pocket-pet-remake/server/internal/config"
 	pgrepo "pocket-pet-remake/server/internal/data/postgres"
 	redisrepo "pocket-pet-remake/server/internal/data/redis"
+	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
@@ -17,7 +19,9 @@ import (
 
 type Bundle struct {
 	Accounts auth.AccountRepository
+	Admins   admin.UserRepository
 	Battles  battle.Repository
+	Bags     bag.Repository
 	Players  player.Repository
 	Pets     pet.Repository
 	Quests   quest.Repository
@@ -41,7 +45,9 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 
 	return Bundle{
 		Accounts: pgrepo.NewAccountRepository(deps.Postgres),
+		Admins:   pgrepo.NewAdminRepository(deps.Postgres),
 		Battles:  pgrepo.NewBattleRepository(deps.Postgres),
+		Bags:     pgrepo.NewBagRepository(deps.Postgres),
 		Players:  pgrepo.NewPlayerRepository(deps.Postgres),
 		Pets:     pgrepo.NewPetRepository(deps.Postgres),
 		Quests:   pgrepo.NewQuestRepository(deps.Postgres),

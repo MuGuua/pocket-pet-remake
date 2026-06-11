@@ -1,10 +1,10 @@
 [gd_scene load_steps=7 format=3 uid="uid://ceqwdnrygguwl"]
 
-[ext_resource type="PackedScene" uid="uid://bjmjjyt5kmck5" path="res://scenes/ui/bag_panel.tscn" id="1_bag"]
-[ext_resource type="Script" path="res://scripts/ui/player_panel.gd" id="2_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panel.tscn" id="3_status"]
-[ext_resource type="PackedScene" path="res://scenes/ui/team_panel.tscn" id="4_team"]
-[ext_resource type="PackedScene" path="res://scenes/ui/skill_panel.tscn" id="5_skill"]
+[ext_resource type="PackedScene" uid="uid://bjmjjyt5kmck5" path="res://scenes/ui/bag_panels/bag_panel.tscn" id="1_bag"]
+[ext_resource type="Script" uid="uid://bbeupot85l5ew" path="res://scripts/ui/player_panel.gd" id="2_script"]
+[ext_resource type="PackedScene" uid="uid://mxci3vd20kum" path="res://scenes/ui/status_panel.tscn" id="3_status"]
+[ext_resource type="PackedScene" uid="uid://csbnqcyj4lcy4" path="res://scenes/ui/team_panel.tscn" id="4_team"]
+[ext_resource type="PackedScene" uid="uid://cjp6w7fmwwuxs" path="res://scenes/ui/skill_panel.tscn" id="5_skill"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0, 0, 0, 0)

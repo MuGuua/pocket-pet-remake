@@ -133,16 +133,17 @@ func TestEffectiveStatsAndBlockReduction(t *testing.T) {
 	}
 
 	blockReduction := calculateBlockReduction(
-		effectiveStats{Attack: 10},
-		effectiveStats{GenericBlockPct: 5, PetBlockPct: 18},
+		effectiveStats{UnitClass: ActorUnitClassPet, Attack: 10},
+		effectiveStats{GenericShieldPct: 5, PetResistPct: 18},
+		skillDef{},
 	)
-	if blockReduction != 0.18 {
-		t.Fatalf("blockReduction = %.2f, want 0.18", blockReduction)
+	if blockReduction != 0.23 {
+		t.Fatalf("blockReduction = %.2f, want 0.23", blockReduction)
 	}
 
 	damage := calculateFinalDamage(100, 0.20, blockReduction)
-	if damage != 66 {
-		t.Fatalf("damage = %d, want 66", damage)
+	if damage != 62 {
+		t.Fatalf("damage = %d, want 62", damage)
 	}
 }
 

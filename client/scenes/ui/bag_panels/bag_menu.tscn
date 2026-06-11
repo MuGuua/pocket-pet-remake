@@ -1,0 +1,200 @@
+[gd_scene load_steps=0 format=3 uid="uid://ouqflhaorqka"]
+
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_u1nl1"]
+[ext_resource type="Texture2D" uid="uid://ie2ma6nit4uj" path="res://asset/Border All 6.png" id="2_xxc0b"]
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/pixel items0.png" id="3_81d2i"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_rw5t8"]
+texture = ExtResource("1_u1nl1")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_t7csk"]
+atlas = ExtResource("2_xxc0b")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_2l80c"]
+texture = ExtResource("1_u1nl1")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v67e0"]
+atlas = ExtResource("3_81d2i")
+region = Rect2(192, 96, 32, 32)
+
+[node name="BagMenu" type="Control" unique_id=1900721827]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1895674542]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_rw5t8")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=96109284]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 54
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="GridContainer" type="GridContainer" parent="PanelContainer/MarginContainer" unique_id=2044148150]
+layout_mode = 2
+theme_override_constants/h_separation = 0
+theme_override_constants/v_separation = 0
+columns = 5
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1846795201]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect7" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1026099002]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect8" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=399087261]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect9" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=712560147]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect10" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=82311043]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect11" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1667114878]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect12" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1326370997]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect13" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1232995286]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect14" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=141577959]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect15" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=359039791]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect16" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1518620494]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect17" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=658425860]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect18" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=2060160752]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect19" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1707119351]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect20" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=2042187117]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1519448006]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect3" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=705267534]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect4" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1668793121]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect5" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=337650481]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="TextureRect6" type="TextureRect" parent="PanelContainer/MarginContainer/GridContainer" unique_id=1433597047]
+layout_mode = 2
+texture = SubResource("AtlasTexture_t7csk")
+
+[node name="BagName" type="MarginContainer" parent="PanelContainer" unique_id=191936693]
+layout_mode = 2
+theme_override_constants/margin_left = -256
+theme_override_constants/margin_top = -12
+theme_override_constants/margin_bottom = 249
+
+[node name="PanelContainer2" type="PanelContainer" parent="PanelContainer/BagName" unique_id=1043696607]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxTexture_2l80c")
+
+[node name="Label" type="Label" parent="PanelContainer/BagName/PanelContainer2" unique_id=1058831343]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/line_spacing = 3
+theme_override_font_sizes/font_size = 20
+text = "背包"
+
+[node name="MarginContainer3" type="MarginContainer" parent="PanelContainer" unique_id=539851279]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 54
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="ItemGrid" type="GridContainer" parent="PanelContainer/MarginContainer3" unique_id=1866891900]
+layout_mode = 2
+theme_override_constants/h_separation = 0
+theme_override_constants/v_separation = 0
+columns = 5
+
+[node name="Slot" type="Control" parent="PanelContainer/MarginContainer3/ItemGrid" unique_id=1814594682]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer3/ItemGrid/Slot" unique_id=1215200133]
+layout_mode = 0
+offset_right = 64.0
+offset_bottom = 64.0
+texture = SubResource("AtlasTexture_v67e0")
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer3/ItemGrid/Slot" unique_id=53129879]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -26.0
+offset_top = -26.0
+offset_right = 26.0
+offset_bottom = 26.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
+text = "99"
+horizontal_alignment = 2
+vertical_alignment = 2

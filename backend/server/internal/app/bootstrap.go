@@ -10,7 +10,9 @@ import (
 
 	"pocket-pet-remake/server/internal/config"
 	"pocket-pet-remake/server/internal/data/provider"
+	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
@@ -51,7 +53,10 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	}
 
 	signer := auth.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
+	adminSigner := admin.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
 	authService := auth.NewService(repos.Accounts, repos.WSTokens, signer, cfg.WSTokenTTL)
+	adminService := admin.NewService(repos.Admins, adminSigner)
+	bagService := bag.NewService(repos.Bags)
 	playerService := player.NewService(repos.Players)
 	petService := pet.NewService(repos.Pets)
 	questService := quest.NewService(repos.Quests)
@@ -69,7 +74,8 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
-	httpHandler := buildHTTPHandler(loginHandler, wsHub)
+	adminHandlers := httptransport.NewAdminHandlers(adminService, playerService, petService, bagService, questService, npcService)
+	httpHandler := buildHTTPHandler(loginHandler, adminHandlers, wsHub)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

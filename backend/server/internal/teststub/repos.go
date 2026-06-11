@@ -3,10 +3,12 @@ package teststub
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/auth"
+	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
@@ -138,26 +140,75 @@ func (r *WSTokenRepository) Consume(_ context.Context, token string) (*auth.WSTo
 // transport tests. The defaults intentionally match the seeded demo account.
 func NewPlayerRepository() *PlayerRepository {
 	return &PlayerRepository{
+		nextID: RivalPlayerID + 1,
 		players: map[uint64]player.Profile{
 			DemoPlayerID: {
-				PlayerID: DemoPlayerID,
-				Name:     "DemoTrainer",
-				Level:    1,
-				Exp:      0,
-				Gold:     100,
-				SceneID:  1,
-				PosX:     8,
-				PosY:     6,
+				PlayerID:           DemoPlayerID,
+				Name:               "DemoTrainer",
+				Level:              1,
+				Exp:                0,
+				Gold:               100,
+				SceneID:            1,
+				PosX:               8,
+				PosY:               6,
+				HP:                 120,
+				HPMax:              120,
+				Energy:             100,
+				EnergyMax:          100,
+				ATK:                24,
+				DEF:                12,
+				SPD:                18,
+				MANA:               20,
+				HitPct:             10,
+				DodgePct:           6,
+				CritRatePct:        10,
+				CritDmgPct:         155,
+				PhysicalResistPct:  6,
+				SkillResistPct:     4,
+				ConfusionResistPct: 8,
+				SleepResistPct:     8,
+				ParalysisResistPct: 6,
+				SealResistPct:      6,
+				CurseResistPct:     5,
+				CritResistPct:      4,
+				CritDmgResistPct:   10,
+				PetResistPct:       4,
+				GenericShieldPct:   2,
+				SkillIDs:           []uint32{1101, 1001},
 			},
 			RivalPlayerID: {
-				PlayerID: RivalPlayerID,
-				Name:     "RivalTrainer",
-				Level:    1,
-				Exp:      0,
-				Gold:     100,
-				SceneID:  1,
-				PosX:     9,
-				PosY:     6,
+				PlayerID:           RivalPlayerID,
+				Name:               "RivalTrainer",
+				Level:              1,
+				Exp:                0,
+				Gold:               100,
+				SceneID:            1,
+				PosX:               9,
+				PosY:               6,
+				HP:                 110,
+				HPMax:              110,
+				Energy:             100,
+				EnergyMax:          100,
+				ATK:                23,
+				DEF:                11,
+				SPD:                17,
+				MANA:               18,
+				HitPct:             10,
+				DodgePct:           6,
+				CritRatePct:        10,
+				CritDmgPct:         155,
+				PhysicalResistPct:  6,
+				SkillResistPct:     4,
+				ConfusionResistPct: 8,
+				SleepResistPct:     8,
+				ParalysisResistPct: 6,
+				SealResistPct:      6,
+				CurseResistPct:     5,
+				CritResistPct:      4,
+				CritDmgResistPct:   10,
+				PetResistPct:       4,
+				GenericShieldPct:   2,
+				SkillIDs:           []uint32{1101, 1001},
 			},
 		},
 	}
@@ -166,6 +217,7 @@ func NewPlayerRepository() *PlayerRepository {
 type PlayerRepository struct {
 	mu      sync.RWMutex
 	players map[uint64]player.Profile
+	nextID  uint64
 }
 
 func (r *PlayerRepository) FindByPlayerID(_ context.Context, playerID uint64) (*player.Profile, error) {
@@ -178,6 +230,238 @@ func (r *PlayerRepository) FindByPlayerID(_ context.Context, playerID uint64) (*
 	}
 	copied := profile
 	return &copied, nil
+}
+
+func (r *PlayerRepository) ListForAdmin(_ context.Context, query player.AdminListQuery) (*player.AdminPlayerList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]player.AdminPlayerSummary, 0, len(r.players))
+	for _, profile := range r.players {
+		if query.PlayerID > 0 && profile.PlayerID != query.PlayerID {
+			continue
+		}
+		if query.Name != "" && !strings.Contains(strings.ToLower(profile.Name), strings.ToLower(query.Name)) {
+			continue
+		}
+		if query.Status != nil && *query.Status != 1 {
+			continue
+		}
+		items = append(items, player.AdminPlayerSummary{
+			PlayerID:    profile.PlayerID,
+			AccountName: fmt.Sprintf("player_%d", profile.PlayerID),
+			Name:        profile.Name,
+			Level:       profile.Level,
+			Gold:        uint64(profile.Gold),
+			Status:      1,
+			StatusText:  player.AdminPlayerStatusText(1),
+			SceneID:     profile.SceneID,
+			HP:          profile.HP,
+			HPMax:       profile.HPMax,
+			Energy:      profile.Energy,
+			EnergyMax:   profile.EnergyMax,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		})
+	}
+	return &player.AdminPlayerList{
+		Items:    items,
+		Total:    uint64(len(items)),
+		Page:     query.Page,
+		PageSize: query.PageSize,
+	}, nil
+}
+
+func (r *PlayerRepository) FindAdminDetailByPlayerID(_ context.Context, playerID uint64) (*player.AdminPlayerDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	profile, ok := r.players[playerID]
+	if !ok {
+		return nil, nil
+	}
+	return &player.AdminPlayerDetail{
+		PlayerID:           profile.PlayerID,
+		AccountID:          profile.PlayerID,
+		AccountName:        fmt.Sprintf("player_%d", profile.PlayerID),
+		Name:               profile.Name,
+		Level:              profile.Level,
+		Exp:                profile.Exp,
+		Gold:               uint64(profile.Gold),
+		Status:             1,
+		StatusText:         player.AdminPlayerStatusText(1),
+		SceneID:            profile.SceneID,
+		PosX:               profile.PosX,
+		PosY:               profile.PosY,
+		HP:                 profile.HP,
+		HPMax:              profile.HPMax,
+		Energy:             profile.Energy,
+		EnergyMax:          profile.EnergyMax,
+		ATK:                profile.ATK,
+		DEF:                profile.DEF,
+		SPD:                profile.SPD,
+		MANA:               profile.MANA,
+		HitPct:             profile.HitPct,
+		DodgePct:           profile.DodgePct,
+		CritRatePct:        profile.CritRatePct,
+		CritDmgPct:         profile.CritDmgPct,
+		PhysicalResistPct:  profile.PhysicalResistPct,
+		SkillResistPct:     profile.SkillResistPct,
+		ConfusionResistPct: profile.ConfusionResistPct,
+		SleepResistPct:     profile.SleepResistPct,
+		ParalysisResistPct: profile.ParalysisResistPct,
+		SealResistPct:      profile.SealResistPct,
+		CurseResistPct:     profile.CurseResistPct,
+		CritResistPct:      profile.CritResistPct,
+		CritDmgResistPct:   profile.CritDmgResistPct,
+		CharacterResistPct: profile.CharacterResistPct,
+		PetResistPct:       profile.PetResistPct,
+		MercenaryResistPct: profile.MercenaryResistPct,
+		GenericShieldPct:   profile.GenericShieldPct,
+		SkillIDs:           append([]uint32{}, profile.SkillIDs...),
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}, nil
+}
+
+func (r *PlayerRepository) CreateForAdmin(_ context.Context, input player.AdminCreatePlayerInput) (*player.AdminPlayerDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, current := range r.players {
+		if strings.EqualFold(current.Name, input.Name) {
+			return nil, player.ErrPlayerNameDuplicated
+		}
+	}
+
+	input = input.Normalize()
+	playerID := r.nextID
+	r.nextID++
+	r.players[playerID] = player.Profile{
+		PlayerID:  playerID,
+		Name:      input.Name,
+		Level:     input.Level,
+		Gold:      uint32(input.Gold),
+		SceneID:   input.SceneID,
+		PosX:      input.PosX,
+		PosY:      input.PosY,
+		HP:        input.HP,
+		HPMax:     input.HPMax,
+		Energy:    input.Energy,
+		EnergyMax: input.EnergyMax,
+		ATK:       input.ATK,
+		DEF:       input.DEF,
+		SPD:       input.SPD,
+		MANA:      input.MANA,
+		SkillIDs:  append([]uint32{}, input.SkillIDs...),
+	}
+	profile := r.players[playerID]
+	return &player.AdminPlayerDetail{
+		PlayerID:    profile.PlayerID,
+		AccountID:   profile.PlayerID,
+		AccountName: input.AccountName,
+		Name:        profile.Name,
+		Level:       profile.Level,
+		Gold:        uint64(profile.Gold),
+		Status:      1,
+		StatusText:  player.AdminPlayerStatusText(1),
+		SceneID:     profile.SceneID,
+		PosX:        profile.PosX,
+		PosY:        profile.PosY,
+		HP:          profile.HP,
+		HPMax:       profile.HPMax,
+		Energy:      profile.Energy,
+		EnergyMax:   profile.EnergyMax,
+		ATK:         profile.ATK,
+		DEF:         profile.DEF,
+		SPD:         profile.SPD,
+		MANA:        profile.MANA,
+		SkillIDs:    append([]uint32{}, profile.SkillIDs...),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
+}
+
+func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, input player.AdminUpdatePlayerInput) (*player.AdminPlayerDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.players[playerID]
+	if !ok {
+		return nil, player.ErrPlayerNotFound
+	}
+	input = input.Normalize()
+	current.Name = input.Name
+	current.Level = input.Level
+	current.Exp = input.Exp
+	current.Gold = uint32(input.Gold)
+	current.SceneID = input.SceneID
+	current.PosX = input.PosX
+	current.PosY = input.PosY
+	current.HP = input.HP
+	current.HPMax = input.HPMax
+	current.Energy = input.Energy
+	current.EnergyMax = input.EnergyMax
+	current.ATK = input.ATK
+	current.DEF = input.DEF
+	current.SPD = input.SPD
+	current.MANA = input.MANA
+	current.SkillIDs = append([]uint32{}, input.SkillIDs...)
+	r.players[playerID] = current
+	return &player.AdminPlayerDetail{
+		PlayerID:           current.PlayerID,
+		AccountID:          current.PlayerID,
+		AccountName:        fmt.Sprintf("player_%d", current.PlayerID),
+		Name:               current.Name,
+		Level:              current.Level,
+		Exp:                current.Exp,
+		Gold:               uint64(current.Gold),
+		Status:             input.Status,
+		StatusText:         player.AdminPlayerStatusText(input.Status),
+		SceneID:            current.SceneID,
+		PosX:               current.PosX,
+		PosY:               current.PosY,
+		HP:                 current.HP,
+		HPMax:              current.HPMax,
+		Energy:             current.Energy,
+		EnergyMax:          current.EnergyMax,
+		ATK:                current.ATK,
+		DEF:                current.DEF,
+		SPD:                current.SPD,
+		MANA:               current.MANA,
+		HitPct:             current.HitPct,
+		DodgePct:           current.DodgePct,
+		CritRatePct:        current.CritRatePct,
+		CritDmgPct:         current.CritDmgPct,
+		PhysicalResistPct:  current.PhysicalResistPct,
+		SkillResistPct:     current.SkillResistPct,
+		ConfusionResistPct: current.ConfusionResistPct,
+		SleepResistPct:     current.SleepResistPct,
+		ParalysisResistPct: current.ParalysisResistPct,
+		SealResistPct:      current.SealResistPct,
+		CurseResistPct:     current.CurseResistPct,
+		CritResistPct:      current.CritResistPct,
+		CritDmgResistPct:   current.CritDmgResistPct,
+		CharacterResistPct: current.CharacterResistPct,
+		PetResistPct:       current.PetResistPct,
+		MercenaryResistPct: current.MercenaryResistPct,
+		GenericShieldPct:   current.GenericShieldPct,
+		SkillIDs:           append([]uint32{}, current.SkillIDs...),
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}, nil
+}
+
+func (r *PlayerRepository) DeleteForAdmin(_ context.Context, playerID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.players[playerID]; !ok {
+		return player.ErrPlayerNotFound
+	}
+	delete(r.players, playerID)
+	return nil
 }
 
 func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sceneID uint32, posX, posY int32) error {
@@ -214,6 +498,7 @@ func (r *PlayerRepository) AddGoldAndExp(_ context.Context, playerID uint64, gol
 // and lineup tests. Keeping this local avoids coupling transport tests to a DB.
 func NewPetRepository() *PetRepository {
 	return &PetRepository{
+		nextID: 30000,
 		pets: map[uint64][]pet.Pet{
 			DemoPlayerID: {
 				{PetUID: 20001, PetID: 101, Level: 5, Exp: 120, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16, SkillIDs: []uint32{1001, 1002}},
@@ -242,6 +527,7 @@ type PetRepository struct {
 	mu     sync.RWMutex
 	pets   map[uint64][]pet.Pet
 	lineup map[uint64][]pet.LineupPet
+	nextID uint64
 }
 
 func (r *PetRepository) ListPetsByPlayerID(_ context.Context, playerID uint64) ([]pet.Pet, error) {
@@ -390,10 +676,322 @@ func (r *PetRepository) UpdatePetHPAndExpByUID(_ context.Context, playerID uint6
 	return pet.Pet{}, pet.ErrPetNotFound
 }
 
+func (r *PetRepository) ListForAdmin(_ context.Context, query pet.AdminListQuery) (*pet.AdminPetList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]pet.AdminPetSummary, 0)
+	for playerID, petsForPlayer := range r.pets {
+		for _, item := range petsForPlayer {
+			if query.PetUID > 0 && item.PetUID != query.PetUID {
+				continue
+			}
+			if query.PlayerID > 0 && playerID != query.PlayerID {
+				continue
+			}
+			if query.PetID > 0 && item.PetID != query.PetID {
+				continue
+			}
+			items = append(items, pet.AdminPetSummary{
+				PetUID:     item.PetUID,
+				PlayerID:   playerID,
+				PlayerName: fmt.Sprintf("Player%d", playerID),
+				PetID:      item.PetID,
+				Level:      item.Level,
+				Quality:    item.Quality,
+				HP:         item.HP,
+				HPMax:      item.HPMax,
+				ATK:        item.ATK,
+				DEF:        item.DEF,
+				SPD:        item.SPD,
+				MANA:       item.MANA,
+				InLineup:   item.InLineup,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			})
+		}
+	}
+	return &pet.AdminPetList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *PetRepository) FindAdminDetailByPetUID(_ context.Context, petUID uint64) (*pet.AdminPetDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for playerID, petsForPlayer := range r.pets {
+		for _, item := range petsForPlayer {
+			if item.PetUID != petUID {
+				continue
+			}
+			return &pet.AdminPetDetail{
+				PetUID:     item.PetUID,
+				PlayerID:   playerID,
+				PlayerName: fmt.Sprintf("Player%d", playerID),
+				PetID:      item.PetID,
+				Level:      item.Level,
+				Exp:        item.Exp,
+				Quality:    item.Quality,
+				HP:         item.HP,
+				HPMax:      item.HPMax,
+				ATK:        item.ATK,
+				DEF:        item.DEF,
+				SPD:        item.SPD,
+				MANA:       item.MANA,
+				SkillIDs:   append([]uint32{}, item.SkillIDs...),
+				InLineup:   item.InLineup,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
+func (r *PetRepository) CreateForAdmin(_ context.Context, input pet.AdminCreatePetInput) (*pet.AdminPetDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	input = input.Normalize()
+	item := pet.Pet{
+		PetUID:   r.nextID,
+		PetID:    input.PetID,
+		Level:    input.Level,
+		Exp:      input.Exp,
+		Quality:  input.Quality,
+		HP:       input.HP,
+		HPMax:    input.HPMax,
+		ATK:      input.ATK,
+		DEF:      input.DEF,
+		SPD:      input.SPD,
+		MANA:     input.MANA,
+		SkillIDs: append([]uint32{}, input.SkillIDs...),
+	}
+	r.nextID++
+	r.pets[input.PlayerID] = append(r.pets[input.PlayerID], item)
+	return &pet.AdminPetDetail{
+		PetUID:     item.PetUID,
+		PlayerID:   input.PlayerID,
+		PlayerName: fmt.Sprintf("Player%d", input.PlayerID),
+		PetID:      item.PetID,
+		Level:      item.Level,
+		Exp:        item.Exp,
+		Quality:    item.Quality,
+		HP:         item.HP,
+		HPMax:      item.HPMax,
+		ATK:        item.ATK,
+		DEF:        item.DEF,
+		SPD:        item.SPD,
+		MANA:       item.MANA,
+		SkillIDs:   append([]uint32{}, item.SkillIDs...),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}, nil
+}
+
+func (r *PetRepository) UpdateForAdmin(_ context.Context, petUID uint64, input pet.AdminUpdatePetInput) (*pet.AdminPetDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for playerID, petsForPlayer := range r.pets {
+		for index := range petsForPlayer {
+			if petsForPlayer[index].PetUID != petUID {
+				continue
+			}
+			input = input.Normalize()
+			petsForPlayer[index].PetID = input.PetID
+			petsForPlayer[index].Level = input.Level
+			petsForPlayer[index].Exp = input.Exp
+			petsForPlayer[index].Quality = input.Quality
+			petsForPlayer[index].HP = input.HP
+			petsForPlayer[index].HPMax = input.HPMax
+			petsForPlayer[index].ATK = input.ATK
+			petsForPlayer[index].DEF = input.DEF
+			petsForPlayer[index].SPD = input.SPD
+			petsForPlayer[index].MANA = input.MANA
+			petsForPlayer[index].SkillIDs = append([]uint32{}, input.SkillIDs...)
+			r.pets[playerID] = petsForPlayer
+			item := petsForPlayer[index]
+			return &pet.AdminPetDetail{
+				PetUID:     item.PetUID,
+				PlayerID:   playerID,
+				PlayerName: fmt.Sprintf("Player%d", playerID),
+				PetID:      item.PetID,
+				Level:      item.Level,
+				Exp:        item.Exp,
+				Quality:    item.Quality,
+				HP:         item.HP,
+				HPMax:      item.HPMax,
+				ATK:        item.ATK,
+				DEF:        item.DEF,
+				SPD:        item.SPD,
+				MANA:       item.MANA,
+				SkillIDs:   append([]uint32{}, item.SkillIDs...),
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			}, nil
+		}
+	}
+	return nil, pet.ErrPetNotFound
+}
+
+func (r *PetRepository) DeleteForAdmin(_ context.Context, petUID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for playerID, petsForPlayer := range r.pets {
+		for index := range petsForPlayer {
+			if petsForPlayer[index].PetUID != petUID {
+				continue
+			}
+			r.pets[playerID] = append(petsForPlayer[:index], petsForPlayer[index+1:]...)
+			lineup := r.lineup[playerID]
+			nextLineup := make([]pet.LineupPet, 0, len(lineup))
+			for _, item := range lineup {
+				if item.PetUID != petUID {
+					nextLineup = append(nextLineup, item)
+				}
+			}
+			r.lineup[playerID] = nextLineup
+			return nil
+		}
+	}
+	return pet.ErrPetNotFound
+}
+
+// NewBagRepository 提供后台背包 CRUD 的内存桩，避免 HTTP 测试依赖真实 PostgreSQL。
+func NewBagRepository() *BagRepository {
+	return &BagRepository{
+		nextID: 40000,
+		items: map[uint64]bag.AdminItemDetail{
+			30001: {RecordID: 30001, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ItemID: 2001, Count: 3, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			30002: {RecordID: 30002, PlayerID: RivalPlayerID, PlayerName: "RivalTrainer", ItemID: 2001, Count: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		},
+	}
+}
+
+type BagRepository struct {
+	mu     sync.RWMutex
+	items  map[uint64]bag.AdminItemDetail
+	nextID uint64
+}
+
+func (r *BagRepository) ListForAdmin(_ context.Context, query bag.AdminListQuery) (*bag.AdminItemList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]bag.AdminItemSummary, 0, len(r.items))
+	for _, current := range r.items {
+		if query.RecordID > 0 && current.RecordID != query.RecordID {
+			continue
+		}
+		if query.PlayerID > 0 && current.PlayerID != query.PlayerID {
+			continue
+		}
+		if query.ItemID > 0 && current.ItemID != query.ItemID {
+			continue
+		}
+		items = append(items, bag.AdminItemSummary{
+			RecordID:   current.RecordID,
+			PlayerID:   current.PlayerID,
+			PlayerName: current.PlayerName,
+			ItemID:     current.ItemID,
+			Count:      current.Count,
+			CreatedAt:  current.CreatedAt,
+			UpdatedAt:  current.UpdatedAt,
+		})
+	}
+	return &bag.AdminItemList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *BagRepository) FindAdminDetailByRecordID(_ context.Context, recordID uint64) (*bag.AdminItemDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	current, ok := r.items[recordID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	return &copied, nil
+}
+
+func (r *BagRepository) CreateForAdmin(_ context.Context, input bag.AdminCreateItemInput) (*bag.AdminItemDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, current := range r.items {
+		if current.PlayerID == input.PlayerID && current.ItemID == input.ItemID {
+			return nil, bag.ErrBagItemConflict
+		}
+	}
+	recordID := r.nextID
+	r.nextID++
+	item := bag.AdminItemDetail{
+		RecordID:   recordID,
+		PlayerID:   input.PlayerID,
+		PlayerName: bagPlayerName(input.PlayerID),
+		ItemID:     input.ItemID,
+		Count:      input.Count,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	r.items[recordID] = item
+	copied := item
+	return &copied, nil
+}
+
+func (r *BagRepository) UpdateForAdmin(_ context.Context, recordID uint64, input bag.AdminUpdateItemInput) (*bag.AdminItemDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.items[recordID]
+	if !ok {
+		return nil, bag.ErrBagItemNotFound
+	}
+	for otherID, other := range r.items {
+		if otherID != recordID && other.PlayerID == input.PlayerID && other.ItemID == input.ItemID {
+			return nil, bag.ErrBagItemConflict
+		}
+	}
+	current.PlayerID = input.PlayerID
+	current.PlayerName = bagPlayerName(input.PlayerID)
+	current.ItemID = input.ItemID
+	current.Count = input.Count
+	current.UpdatedAt = time.Now()
+	r.items[recordID] = current
+	copied := current
+	return &copied, nil
+}
+
+func (r *BagRepository) DeleteForAdmin(_ context.Context, recordID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.items[recordID]; !ok {
+		return bag.ErrBagItemNotFound
+	}
+	delete(r.items, recordID)
+	return nil
+}
+
+func bagPlayerName(playerID uint64) string {
+	switch playerID {
+	case DemoPlayerID:
+		return "DemoTrainer"
+	case RivalPlayerID:
+		return "RivalTrainer"
+	default:
+		return fmt.Sprintf("Player%d", playerID)
+	}
+}
+
 // NewQuestRepository provides deterministic quest templates and per-player
 // mutable state for world handler tests.
 func NewQuestRepository() *QuestRepository {
 	return &QuestRepository{
+		nextPlayerQuestRecordID: 50000,
 		templates: map[uint64]quest.Template{
 			1001: {
 				QuestID:     1001,
@@ -436,10 +1034,11 @@ func NewQuestRepository() *QuestRepository {
 }
 
 type QuestRepository struct {
-	mu               sync.RWMutex
-	templates        map[uint64]quest.Template
-	playerQuests     map[uint64]map[uint64]quest.PlayerQuest
-	playerObjectives map[uint64]map[uint64][]quest.PlayerObjective
+	mu                      sync.RWMutex
+	nextPlayerQuestRecordID uint64
+	templates               map[uint64]quest.Template
+	playerQuests            map[uint64]map[uint64]quest.PlayerQuest
+	playerObjectives        map[uint64]map[uint64][]quest.PlayerObjective
 }
 
 func (r *QuestRepository) ListTemplates(_ context.Context) ([]quest.Template, error) {
@@ -463,6 +1062,205 @@ func (r *QuestRepository) FindTemplateByQuestID(_ context.Context, questID uint6
 	}
 	copied := value
 	return &copied, nil
+}
+
+func (r *QuestRepository) ListTemplatesForAdmin(_ context.Context, query quest.AdminTemplateListQuery) (*quest.AdminTemplateList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]quest.AdminTemplateSummary, 0, len(r.templates))
+	for _, template := range r.templates {
+		if query.QuestID > 0 && template.QuestID != query.QuestID {
+			continue
+		}
+		if query.QuestType != "" && !strings.EqualFold(template.QuestType, query.QuestType) {
+			continue
+		}
+		if query.Title != "" && !strings.Contains(strings.ToLower(template.Title), strings.ToLower(query.Title)) {
+			continue
+		}
+		status := uint32(1)
+		if query.Status != nil && *query.Status != status {
+			continue
+		}
+		items = append(items, quest.AdminTemplateSummary{
+			QuestID:        template.QuestID,
+			Name:           fmt.Sprintf("quest_%d", template.QuestID),
+			QuestType:      template.QuestType,
+			Title:          template.Title,
+			Chapter:        1,
+			SortOrder:      uint32(template.QuestID),
+			AcceptMode:     template.AcceptMode,
+			SubmitMode:     template.SubmitMode,
+			AutoTrack:      template.AutoTrack,
+			MinPlayerLevel: 1,
+			Status:         status,
+			StatusText:     quest.AdminQuestTemplateStatusText(status),
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+	}
+	return &quest.AdminTemplateList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *QuestRepository) FindAdminTemplateDetailByQuestID(_ context.Context, questID uint64) (*quest.AdminTemplateDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	template, ok := r.templates[questID]
+	if !ok {
+		return nil, nil
+	}
+	objectives := make([]quest.AdminObjectiveInput, 0, len(template.Objectives))
+	for _, objective := range template.Objectives {
+		objectives = append(objectives, quest.AdminObjectiveInput{
+			ObjectiveID:    objective.ObjectiveID,
+			EventType:      objective.EventType,
+			Description:    objective.Description,
+			TargetValue:    objective.TargetValue,
+			TargetSelector: objective.TargetSelector,
+		})
+	}
+	return &quest.AdminTemplateDetail{
+		QuestID:        template.QuestID,
+		Name:           fmt.Sprintf("quest_%d", template.QuestID),
+		QuestType:      template.QuestType,
+		Title:          template.Title,
+		Description:    template.Description,
+		Chapter:        1,
+		SortOrder:      uint32(template.QuestID),
+		AcceptMode:     template.AcceptMode,
+		SubmitMode:     template.SubmitMode,
+		AutoTrack:      template.AutoTrack,
+		StartNPCID:     template.StartNPCID,
+		SubmitNPCID:    template.SubmitNPCID,
+		MinPlayerLevel: 1,
+		Status:         1,
+		StatusText:     quest.AdminQuestTemplateStatusText(1),
+		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
+		Objectives:     objectives,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}, nil
+}
+
+func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.AdminCreateTemplateInput) (*quest.AdminTemplateDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.templates[input.QuestID]; exists {
+		return nil, quest.ErrAdminQuestConflict
+	}
+	template := quest.Template{
+		QuestID:     input.QuestID,
+		QuestType:   input.QuestType,
+		Title:       input.Title,
+		Description: input.Description,
+		AcceptMode:  input.AcceptMode,
+		SubmitMode:  input.SubmitMode,
+		StartNPCID:  input.StartNPCID,
+		SubmitNPCID: input.SubmitNPCID,
+		AutoTrack:   input.AutoTrack,
+		PreQuestIDs: append([]uint64{}, input.PreQuestIDs...),
+	}
+	for _, objective := range input.Objectives {
+		template.Objectives = append(template.Objectives, quest.ObjectiveTemplate{
+			ObjectiveID:    objective.ObjectiveID,
+			EventType:      objective.EventType,
+			Description:    objective.Description,
+			TargetValue:    objective.TargetValue,
+			TargetSelector: objective.TargetSelector,
+		})
+	}
+	r.templates[input.QuestID] = template
+	objectives := make([]quest.AdminObjectiveInput, 0, len(input.Objectives))
+	objectives = append(objectives, input.Objectives...)
+	return &quest.AdminTemplateDetail{
+		QuestID:        template.QuestID,
+		Name:           input.Name,
+		QuestType:      template.QuestType,
+		Title:          template.Title,
+		Description:    template.Description,
+		Chapter:        input.Chapter,
+		SortOrder:      input.SortOrder,
+		AcceptMode:     template.AcceptMode,
+		SubmitMode:     template.SubmitMode,
+		AutoTrack:      template.AutoTrack,
+		StartNPCID:     template.StartNPCID,
+		SubmitNPCID:    template.SubmitNPCID,
+		MinPlayerLevel: input.MinPlayerLevel,
+		Status:         input.Status,
+		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
+		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
+		Objectives:     objectives,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}, nil
+}
+
+func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint64, input quest.AdminUpdateTemplateInput) (*quest.AdminTemplateDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	template, exists := r.templates[questID]
+	if !exists {
+		return nil, quest.ErrAdminQuestTemplateNotFound
+	}
+	template.QuestType = input.QuestType
+	template.Title = input.Title
+	template.Description = input.Description
+	template.AcceptMode = input.AcceptMode
+	template.SubmitMode = input.SubmitMode
+	template.StartNPCID = input.StartNPCID
+	template.SubmitNPCID = input.SubmitNPCID
+	template.AutoTrack = input.AutoTrack
+	template.PreQuestIDs = append([]uint64{}, input.PreQuestIDs...)
+	template.Objectives = []quest.ObjectiveTemplate{}
+	for _, objective := range input.Objectives {
+		template.Objectives = append(template.Objectives, quest.ObjectiveTemplate{
+			ObjectiveID:    objective.ObjectiveID,
+			EventType:      objective.EventType,
+			Description:    objective.Description,
+			TargetValue:    objective.TargetValue,
+			TargetSelector: objective.TargetSelector,
+		})
+	}
+	r.templates[questID] = template
+	objectives := make([]quest.AdminObjectiveInput, 0, len(input.Objectives))
+	objectives = append(objectives, input.Objectives...)
+	return &quest.AdminTemplateDetail{
+		QuestID:        template.QuestID,
+		Name:           input.Name,
+		QuestType:      template.QuestType,
+		Title:          template.Title,
+		Description:    template.Description,
+		Chapter:        input.Chapter,
+		SortOrder:      input.SortOrder,
+		AcceptMode:     template.AcceptMode,
+		SubmitMode:     template.SubmitMode,
+		AutoTrack:      template.AutoTrack,
+		StartNPCID:     template.StartNPCID,
+		SubmitNPCID:    template.SubmitNPCID,
+		MinPlayerLevel: input.MinPlayerLevel,
+		Status:         input.Status,
+		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
+		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
+		Objectives:     objectives,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}, nil
+}
+
+func (r *QuestRepository) DeleteTemplateForAdmin(_ context.Context, questID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.templates[questID]; !exists {
+		return quest.ErrAdminQuestTemplateNotFound
+	}
+	delete(r.templates, questID)
+	return nil
 }
 
 func (r *QuestRepository) ListPlayerQuestsByPlayerID(_ context.Context, playerID uint64) ([]quest.PlayerQuest, error) {
@@ -493,6 +1291,205 @@ func (r *QuestRepository) ListPlayerObjectivesByPlayerID(_ context.Context, play
 		result = append(result, values...)
 	}
 	return result, nil
+}
+
+func (r *QuestRepository) ListPlayerQuestsForAdmin(_ context.Context, query quest.AdminPlayerQuestListQuery) (*quest.AdminPlayerQuestList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]quest.AdminPlayerQuestSummary, 0)
+	for playerID, playerMap := range r.playerQuests {
+		for questID, value := range playerMap {
+			if query.PlayerID > 0 && playerID != query.PlayerID {
+				continue
+			}
+			if query.QuestID > 0 && questID != query.QuestID {
+				continue
+			}
+			if query.State != "" && value.State != query.State {
+				continue
+			}
+			if query.Tracked != nil && value.Tracked != *query.Tracked {
+				continue
+			}
+			recordID := adminPlayerQuestRecordID(playerID, questID)
+			if query.RecordID > 0 && recordID != query.RecordID {
+				continue
+			}
+			template := r.templates[questID]
+			items = append(items, quest.AdminPlayerQuestSummary{
+				RecordID:      recordID,
+				PlayerID:      playerID,
+				PlayerName:    bagPlayerName(playerID),
+				QuestID:       questID,
+				QuestTitle:    template.Title,
+				QuestType:     template.QuestType,
+				State:         value.State,
+				Tracked:       value.Tracked,
+				RewardClaimed: value.State == quest.StateCompleted,
+				CreatedAt:     time.Now(),
+				UpdatedAt:     time.Now(),
+			})
+		}
+	}
+	return &quest.AdminPlayerQuestList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *QuestRepository) FindAdminPlayerQuestDetailByRecordID(_ context.Context, recordID uint64) (*quest.AdminPlayerQuestDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	playerID, questID, ok := parseAdminPlayerQuestRecordID(recordID)
+	if !ok {
+		return nil, nil
+	}
+	value, exists := r.playerQuests[playerID][questID]
+	if !exists {
+		return nil, nil
+	}
+	template := r.templates[questID]
+	objectives := make([]quest.AdminPlayerObjectiveInput, 0, len(r.playerObjectives[playerID][questID]))
+	for _, objective := range r.playerObjectives[playerID][questID] {
+		objectives = append(objectives, quest.AdminPlayerObjectiveInput{
+			ObjectiveID:  objective.ObjectiveID,
+			Description:  objective.Description,
+			CurrentValue: objective.CurrentValue,
+			TargetValue:  objective.TargetValue,
+			Completed:    objective.Completed,
+		})
+	}
+	return &quest.AdminPlayerQuestDetail{
+		RecordID:      recordID,
+		PlayerID:      playerID,
+		PlayerName:    bagPlayerName(playerID),
+		QuestID:       questID,
+		QuestTitle:    template.Title,
+		QuestType:     template.QuestType,
+		State:         value.State,
+		Tracked:       value.Tracked,
+		RewardClaimed: value.State == quest.StateCompleted,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		Objectives:    objectives,
+	}, nil
+}
+
+func (r *QuestRepository) CreatePlayerQuestForAdmin(_ context.Context, input quest.AdminCreatePlayerQuestInput) (*quest.AdminPlayerQuestDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.templates[input.QuestID]; !exists {
+		return nil, quest.ErrAdminQuestTemplateNotFound
+	}
+	if r.playerQuests[input.PlayerID] == nil {
+		r.playerQuests[input.PlayerID] = map[uint64]quest.PlayerQuest{}
+	}
+	if _, exists := r.playerQuests[input.PlayerID][input.QuestID]; exists {
+		return nil, quest.ErrAdminQuestConflict
+	}
+	r.playerQuests[input.PlayerID][input.QuestID] = quest.PlayerQuest{PlayerID: input.PlayerID, QuestID: input.QuestID, State: input.State, Tracked: input.Tracked}
+	if r.playerObjectives[input.PlayerID] == nil {
+		r.playerObjectives[input.PlayerID] = map[uint64][]quest.PlayerObjective{}
+	}
+	objectives := make([]quest.PlayerObjective, 0, len(input.Objectives))
+	for _, objective := range input.Objectives {
+		objectives = append(objectives, quest.PlayerObjective{
+			PlayerID: input.PlayerID, QuestID: input.QuestID, ObjectiveID: objective.ObjectiveID,
+			Description: objective.Description, CurrentValue: objective.CurrentValue, TargetValue: objective.TargetValue, Completed: objective.Completed,
+		})
+	}
+	r.playerObjectives[input.PlayerID][input.QuestID] = objectives
+	template := r.templates[input.QuestID]
+	detailObjectives := make([]quest.AdminPlayerObjectiveInput, 0, len(input.Objectives))
+	detailObjectives = append(detailObjectives, input.Objectives...)
+	return &quest.AdminPlayerQuestDetail{
+		RecordID:      adminPlayerQuestRecordID(input.PlayerID, input.QuestID),
+		PlayerID:      input.PlayerID,
+		PlayerName:    bagPlayerName(input.PlayerID),
+		QuestID:       input.QuestID,
+		QuestTitle:    template.Title,
+		QuestType:     template.QuestType,
+		State:         input.State,
+		Tracked:       input.Tracked,
+		RewardClaimed: input.RewardClaimed,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		Objectives:    detailObjectives,
+	}, nil
+}
+
+func (r *QuestRepository) UpdatePlayerQuestForAdmin(_ context.Context, recordID uint64, input quest.AdminUpdatePlayerQuestInput) (*quest.AdminPlayerQuestDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	oldPlayerID, oldQuestID, ok := parseAdminPlayerQuestRecordID(recordID)
+	if !ok {
+		return nil, quest.ErrAdminPlayerQuestNotFound
+	}
+	if _, exists := r.playerQuests[oldPlayerID][oldQuestID]; !exists {
+		return nil, quest.ErrAdminPlayerQuestNotFound
+	}
+	if _, exists := r.templates[input.QuestID]; !exists {
+		return nil, quest.ErrAdminQuestTemplateNotFound
+	}
+	if r.playerQuests[input.PlayerID] == nil {
+		r.playerQuests[input.PlayerID] = map[uint64]quest.PlayerQuest{}
+	}
+	if (oldPlayerID != input.PlayerID || oldQuestID != input.QuestID) && r.playerQuests[input.PlayerID][input.QuestID].QuestID != 0 {
+		return nil, quest.ErrAdminQuestConflict
+	}
+	delete(r.playerQuests[oldPlayerID], oldQuestID)
+	if r.playerObjectives[oldPlayerID] != nil {
+		delete(r.playerObjectives[oldPlayerID], oldQuestID)
+	}
+	r.playerQuests[input.PlayerID][input.QuestID] = quest.PlayerQuest{PlayerID: input.PlayerID, QuestID: input.QuestID, State: input.State, Tracked: input.Tracked}
+	if r.playerObjectives[input.PlayerID] == nil {
+		r.playerObjectives[input.PlayerID] = map[uint64][]quest.PlayerObjective{}
+	}
+	objectives := make([]quest.PlayerObjective, 0, len(input.Objectives))
+	for _, objective := range input.Objectives {
+		objectives = append(objectives, quest.PlayerObjective{
+			PlayerID: input.PlayerID, QuestID: input.QuestID, ObjectiveID: objective.ObjectiveID,
+			Description: objective.Description, CurrentValue: objective.CurrentValue, TargetValue: objective.TargetValue, Completed: objective.Completed,
+		})
+	}
+	r.playerObjectives[input.PlayerID][input.QuestID] = objectives
+	template := r.templates[input.QuestID]
+	detailObjectives := make([]quest.AdminPlayerObjectiveInput, 0, len(input.Objectives))
+	detailObjectives = append(detailObjectives, input.Objectives...)
+	return &quest.AdminPlayerQuestDetail{
+		RecordID:      adminPlayerQuestRecordID(input.PlayerID, input.QuestID),
+		PlayerID:      input.PlayerID,
+		PlayerName:    bagPlayerName(input.PlayerID),
+		QuestID:       input.QuestID,
+		QuestTitle:    template.Title,
+		QuestType:     template.QuestType,
+		State:         input.State,
+		Tracked:       input.Tracked,
+		RewardClaimed: input.RewardClaimed,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		Objectives:    detailObjectives,
+	}, nil
+}
+
+func (r *QuestRepository) DeletePlayerQuestForAdmin(_ context.Context, recordID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	playerID, questID, ok := parseAdminPlayerQuestRecordID(recordID)
+	if !ok {
+		return quest.ErrAdminPlayerQuestNotFound
+	}
+	if _, exists := r.playerQuests[playerID][questID]; !exists {
+		return quest.ErrAdminPlayerQuestNotFound
+	}
+	delete(r.playerQuests[playerID], questID)
+	if r.playerObjectives[playerID] != nil {
+		delete(r.playerObjectives[playerID], questID)
+	}
+	return nil
 }
 
 func (r *QuestRepository) UpsertPlayerQuest(_ context.Context, value quest.PlayerQuest) error {
@@ -540,46 +1537,289 @@ func (r *QuestRepository) SetTrackedQuest(_ context.Context, playerID uint64, qu
 	return nil
 }
 
-// NewNPCRepository supplies the static menu/action data expected by NPC tests.
-func NewNPCRepository() *NPCRepository {
-	return &NPCRepository{}
+func adminPlayerQuestRecordID(playerID uint64, questID uint64) uint64 {
+	return playerID*100000 + questID
 }
 
-type NPCRepository struct{}
+func parseAdminPlayerQuestRecordID(recordID uint64) (uint64, uint64, bool) {
+	if recordID < 100000 {
+		return 0, 0, false
+	}
+	return recordID / 100000, recordID % 100000, true
+}
 
-var npcMenuEntries = map[uint64][]npc.MenuEntry{
-	91001: {{EntityID: 91001, EntryID: "dialog_warehouse_intro", EntryType: "dialog", Title: "仓库介绍", Subtitle: "问问仓库平时负责什么", State: "available", Priority: 80, ActionResultType: "notice", ActionNotice: "罗思说：这里负责保管训练家暂时寄存的物资。"}},
-	93001: {{EntityID: 93001, EntryID: "dialog_market_news", EntryType: "dialog", Title: "打听消息", Subtitle: "问问市场最近的新鲜事", State: "available", Priority: 80, ActionResultType: "notice", ActionNotice: "理萌说：最近市场新开了几家铺子。"}},
-	93002: {
-		{EntityID: 93002, EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100, ActionResultType: "notice", ActionNotice: "商店面板待接入，当前先返回占位提示。"},
-		{EntityID: 93002, EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70, ActionResultType: "notice", ActionNotice: "罗格说：买卖讲究货比三家。"},
-	},
+// NewNPCRepository supplies the static menu/action data expected by NPC tests.
+func NewNPCRepository() *NPCRepository {
+	return &NPCRepository{
+		entities: map[uint64]npc.AdminEntityDetail{
+			91001: {EntityID: 91001, EntityCode: "warehouse_luosi", DisplayName: "罗思", EntityType: 2, SceneID: 1, PosX: 6, PosY: 6, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			93001: {EntityID: 93001, EntityCode: "radiant_market_limeng", DisplayName: "市场理萌", EntityType: 2, SceneID: 3, PosX: 13, PosY: 8, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			93002: {EntityID: 93002, EntityCode: "radiant_market_luoge", DisplayName: "市场罗格", EntityType: 2, SceneID: 3, PosX: 14, PosY: 6, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		},
+		menuEntries: map[uint64]map[string]npc.AdminMenuEntryDetail{
+			91001: {
+				"dialog_warehouse_intro": {EntityID: 91001, EntryID: "dialog_warehouse_intro", EntryType: "dialog", Title: "仓库介绍", Subtitle: "问问仓库平时负责什么", State: "available", Priority: 80, SortOrder: 10, ActionResultType: "notice", ActionNotice: "罗思说：这里负责保管训练家暂时寄存的物资。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			},
+			93001: {
+				"dialog_market_news": {EntityID: 93001, EntryID: "dialog_market_news", EntryType: "dialog", Title: "打听消息", Subtitle: "问问市场最近的新鲜事", State: "available", Priority: 80, SortOrder: 10, ActionResultType: "notice", ActionNotice: "理萌说：最近市场新开了几家铺子。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			},
+			93002: {
+				"shop_open_market": {EntityID: 93002, EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100, SortOrder: 10, ActionResultType: "notice", ActionNotice: "商店面板待接入，当前先返回占位提示。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"dialog_trade_tip": {EntityID: 93002, EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70, SortOrder: 20, ActionResultType: "notice", ActionNotice: "罗格说：买卖讲究货比三家。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			},
+		},
+	}
+}
+
+type NPCRepository struct {
+	mu          sync.RWMutex
+	entities    map[uint64]npc.AdminEntityDetail
+	menuEntries map[uint64]map[string]npc.AdminMenuEntryDetail
 }
 
 func (r *NPCRepository) ListMenuEntriesByEntityID(_ context.Context, entityID uint64) ([]npc.MenuEntry, error) {
-	entries, ok := npcMenuEntries[entityID]
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entries, ok := r.menuEntries[entityID]
 	if !ok {
 		return nil, nil
 	}
 	result := make([]npc.MenuEntry, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, entry)
+		result = append(result, npc.MenuEntry{
+			EntityID: entry.EntityID, EntryID: entry.EntryID, EntryType: entry.EntryType, Title: entry.Title,
+			Subtitle: entry.Subtitle, State: entry.State, Priority: entry.Priority, ActionResultType: entry.ActionResultType, ActionNotice: entry.ActionNotice,
+		})
 	}
 	return result, nil
 }
 
 func (r *NPCRepository) FindActionResult(_ context.Context, entityID uint64, entryID string) (*npc.ActionResult, error) {
-	entries, ok := npcMenuEntries[entityID]
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entries, ok := r.menuEntries[entityID]
 	if !ok {
 		return nil, nil
 	}
-	for _, entry := range entries {
-		if entry.EntryID != entryID {
-			continue
-		}
+	entry, ok := entries[entryID]
+	if ok {
 		return &npc.ActionResult{EntityID: entityID, EntryID: entryID, ResultType: entry.ActionResultType, Notice: entry.ActionNotice}, nil
 	}
 	return nil, nil
+}
+
+func (r *NPCRepository) ListEntitiesForAdmin(_ context.Context, query npc.AdminEntityListQuery) (*npc.AdminEntityList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]npc.AdminEntitySummary, 0, len(r.entities))
+	for _, current := range r.entities {
+		if query.EntityID > 0 && current.EntityID != query.EntityID {
+			continue
+		}
+		if query.SceneID > 0 && current.SceneID != query.SceneID {
+			continue
+		}
+		if query.EntityType != nil && current.EntityType != *query.EntityType {
+			continue
+		}
+		if query.Status != nil && current.Status != *query.Status {
+			continue
+		}
+		if query.Name != "" && !strings.Contains(strings.ToLower(current.DisplayName), strings.ToLower(query.Name)) {
+			continue
+		}
+		items = append(items, npc.AdminEntitySummary{
+			EntityID: current.EntityID, EntityCode: current.EntityCode, DisplayName: current.DisplayName, EntityType: current.EntityType,
+			SceneID: current.SceneID, PosX: current.PosX, PosY: current.PosY, Dir: current.Dir, Speed: current.Speed,
+			Status: current.Status, StatusText: current.StatusText, CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt,
+		})
+	}
+	return &npc.AdminEntityList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *NPCRepository) FindAdminEntityDetailByEntityID(_ context.Context, entityID uint64) (*npc.AdminEntityDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	current, ok := r.entities[entityID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	return &copied, nil
+}
+
+func (r *NPCRepository) CreateEntityForAdmin(_ context.Context, input npc.AdminCreateEntityInput) (*npc.AdminEntityDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.entities[input.EntityID]; exists {
+		return nil, npc.ErrAdminNPCConflict
+	}
+	now := time.Now()
+	detail := npc.AdminEntityDetail{
+		EntityID: input.EntityID, EntityCode: input.EntityCode, DisplayName: input.DisplayName, EntityType: input.EntityType,
+		SceneID: input.SceneID, PosX: input.PosX, PosY: input.PosY, Dir: input.Dir, Speed: input.Speed,
+		Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
+	}
+	r.entities[input.EntityID] = detail
+	return &detail, nil
+}
+
+func (r *NPCRepository) UpdateEntityForAdmin(_ context.Context, entityID uint64, input npc.AdminUpdateEntityInput) (*npc.AdminEntityDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, exists := r.entities[entityID]
+	if !exists {
+		return nil, npc.ErrAdminNPCNotFound
+	}
+	current.EntityCode = input.EntityCode
+	current.DisplayName = input.DisplayName
+	current.EntityType = input.EntityType
+	current.SceneID = input.SceneID
+	current.PosX = input.PosX
+	current.PosY = input.PosY
+	current.Dir = input.Dir
+	current.Speed = input.Speed
+	current.Status = input.Status
+	current.StatusText = npc.AdminNPCStatusText(input.Status)
+	current.UpdatedAt = time.Now()
+	r.entities[entityID] = current
+	return &current, nil
+}
+
+func (r *NPCRepository) DeleteEntityForAdmin(_ context.Context, entityID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.entities[entityID]; !exists {
+		return npc.ErrAdminNPCNotFound
+	}
+	delete(r.entities, entityID)
+	delete(r.menuEntries, entityID)
+	return nil
+}
+
+func (r *NPCRepository) ListMenuEntriesForAdmin(_ context.Context, query npc.AdminMenuEntryListQuery) (*npc.AdminMenuEntryList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]npc.AdminMenuEntrySummary, 0)
+	for entityID, entryMap := range r.menuEntries {
+		if query.EntityID > 0 && entityID != query.EntityID {
+			continue
+		}
+		for _, current := range entryMap {
+			if query.EntryID != "" && current.EntryID != query.EntryID {
+				continue
+			}
+			if query.Status != nil && current.Status != *query.Status {
+				continue
+			}
+			items = append(items, npc.AdminMenuEntrySummary{
+				EntityID: current.EntityID, EntryID: current.EntryID, EntryType: current.EntryType, Title: current.Title,
+				Subtitle: current.Subtitle, State: current.State, Priority: current.Priority, SortOrder: current.SortOrder,
+				ActionResultType: current.ActionResultType, Status: current.Status, StatusText: current.StatusText,
+				CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt,
+			})
+		}
+	}
+	return &npc.AdminMenuEntryList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *NPCRepository) FindAdminMenuEntryDetail(_ context.Context, entityID uint64, entryID string) (*npc.AdminMenuEntryDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entryMap, ok := r.menuEntries[entityID]
+	if !ok {
+		return nil, nil
+	}
+	current, ok := entryMap[entryID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	return &copied, nil
+}
+
+func (r *NPCRepository) CreateMenuEntryForAdmin(_ context.Context, input npc.AdminCreateMenuEntryInput) (*npc.AdminMenuEntryDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.entities[input.EntityID]; !exists {
+		return nil, npc.ErrAdminNPCNotFound
+	}
+	if r.menuEntries[input.EntityID] == nil {
+		r.menuEntries[input.EntityID] = map[string]npc.AdminMenuEntryDetail{}
+	}
+	if _, exists := r.menuEntries[input.EntityID][input.EntryID]; exists {
+		return nil, npc.ErrAdminNPCConflict
+	}
+	now := time.Now()
+	detail := npc.AdminMenuEntryDetail{
+		EntityID: input.EntityID, EntryID: input.EntryID, EntryType: input.EntryType, Title: input.Title, Subtitle: input.Subtitle,
+		State: input.State, Priority: input.Priority, SortOrder: input.SortOrder, ActionResultType: input.ActionResultType,
+		ActionNotice: input.ActionNotice, Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
+	}
+	r.menuEntries[input.EntityID][input.EntryID] = detail
+	return &detail, nil
+}
+
+func (r *NPCRepository) UpdateMenuEntryForAdmin(_ context.Context, entityID uint64, entryID string, input npc.AdminUpdateMenuEntryInput) (*npc.AdminMenuEntryDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entryMap, ok := r.menuEntries[entityID]
+	if !ok {
+		return nil, npc.ErrAdminNPCMenuEntryNotFound
+	}
+	current, ok := entryMap[entryID]
+	if !ok {
+		return nil, npc.ErrAdminNPCMenuEntryNotFound
+	}
+	if _, exists := r.entities[input.EntityID]; !exists {
+		return nil, npc.ErrAdminNPCNotFound
+	}
+	delete(entryMap, entryID)
+	if r.menuEntries[input.EntityID] == nil {
+		r.menuEntries[input.EntityID] = map[string]npc.AdminMenuEntryDetail{}
+	}
+	current.EntityID = input.EntityID
+	current.EntryType = input.EntryType
+	current.Title = input.Title
+	current.Subtitle = input.Subtitle
+	current.State = input.State
+	current.Priority = input.Priority
+	current.SortOrder = input.SortOrder
+	current.ActionResultType = input.ActionResultType
+	current.ActionNotice = input.ActionNotice
+	current.Status = input.Status
+	current.StatusText = npc.AdminNPCStatusText(input.Status)
+	current.UpdatedAt = time.Now()
+	r.menuEntries[input.EntityID][entryID] = current
+	return &current, nil
+}
+
+func (r *NPCRepository) DeleteMenuEntryForAdmin(_ context.Context, entityID uint64, entryID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entryMap, ok := r.menuEntries[entityID]
+	if !ok {
+		return npc.ErrAdminNPCMenuEntryNotFound
+	}
+	if _, ok := entryMap[entryID]; !ok {
+		return npc.ErrAdminNPCMenuEntryNotFound
+	}
+	delete(entryMap, entryID)
+	return nil
 }
 
 // NewWorldRepository provides deterministic scene snapshots and portal routing

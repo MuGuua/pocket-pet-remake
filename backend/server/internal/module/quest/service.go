@@ -21,6 +21,110 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// ListAdminTemplates 返回后台任务模板列表。
+// 这样后台页的分页和筛选都复用服务端统一规则，不依赖前端自行裁剪结果。
+func (s *Service) ListAdminTemplates(ctx context.Context, query AdminTemplateListQuery) (*AdminTemplateList, error) {
+	result, err := s.repo.ListTemplatesForAdmin(ctx, query.Normalize())
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		query = query.Normalize()
+		return &AdminTemplateList{Items: []AdminTemplateSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
+	}
+	return result, nil
+}
+
+// GetAdminTemplateDetail 返回后台编辑任务模板所需的完整快照。
+func (s *Service) GetAdminTemplateDetail(ctx context.Context, questID uint64) (*AdminTemplateDetail, error) {
+	result, err := s.repo.FindAdminTemplateDetailByQuestID(ctx, questID)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrAdminQuestTemplateNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) CreateAdminTemplate(ctx context.Context, input AdminCreateTemplateInput) (*AdminTemplateDetail, error) {
+	input = input.Normalize()
+	if input.QuestID == 0 || input.Name == "" || input.Title == "" {
+		return nil, ErrInvalidAdminQuestInput
+	}
+	return s.repo.CreateTemplateForAdmin(ctx, input)
+}
+
+func (s *Service) UpdateAdminTemplate(ctx context.Context, questID uint64, input AdminUpdateTemplateInput) (*AdminTemplateDetail, error) {
+	input = input.Normalize()
+	if questID == 0 || input.Name == "" || input.Title == "" {
+		return nil, ErrInvalidAdminQuestInput
+	}
+	result, err := s.repo.UpdateTemplateForAdmin(ctx, questID, input)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrAdminQuestTemplateNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteAdminTemplate(ctx context.Context, questID uint64) error {
+	return s.repo.DeleteTemplateForAdmin(ctx, questID)
+}
+
+// ListAdminPlayerQuests 返回后台玩家任务列表。
+func (s *Service) ListAdminPlayerQuests(ctx context.Context, query AdminPlayerQuestListQuery) (*AdminPlayerQuestList, error) {
+	result, err := s.repo.ListPlayerQuestsForAdmin(ctx, query.Normalize())
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		query = query.Normalize()
+		return &AdminPlayerQuestList{Items: []AdminPlayerQuestSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
+	}
+	return result, nil
+}
+
+func (s *Service) GetAdminPlayerQuestDetail(ctx context.Context, recordID uint64) (*AdminPlayerQuestDetail, error) {
+	result, err := s.repo.FindAdminPlayerQuestDetailByRecordID(ctx, recordID)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrAdminPlayerQuestNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) CreateAdminPlayerQuest(ctx context.Context, input AdminCreatePlayerQuestInput) (*AdminPlayerQuestDetail, error) {
+	input = input.Normalize()
+	if input.PlayerID == 0 || input.QuestID == 0 || input.State == "" {
+		return nil, ErrInvalidAdminQuestInput
+	}
+	return s.repo.CreatePlayerQuestForAdmin(ctx, input)
+}
+
+func (s *Service) UpdateAdminPlayerQuest(ctx context.Context, recordID uint64, input AdminUpdatePlayerQuestInput) (*AdminPlayerQuestDetail, error) {
+	input = input.Normalize()
+	if recordID == 0 || input.PlayerID == 0 || input.QuestID == 0 || input.State == "" {
+		return nil, ErrInvalidAdminQuestInput
+	}
+	result, err := s.repo.UpdatePlayerQuestForAdmin(ctx, recordID, input)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrAdminPlayerQuestNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteAdminPlayerQuest(ctx context.Context, recordID uint64) error {
+	return s.repo.DeletePlayerQuestForAdmin(ctx, recordID)
+}
+
 func (s *Service) List(ctx context.Context, playerID uint64) ([]Summary, uint64, error) {
 	templates, playerQuestMap, playerObjectiveMap, err := s.loadState(ctx, playerID)
 	if err != nil {

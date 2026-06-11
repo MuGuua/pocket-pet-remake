@@ -1,5 +1,7 @@
 extends Control
 
+const UiFormat = preload("res://scripts/common/ui_format.gd")
+
 # 战斗场景中技能标识到展示文案的映射表。
 const SKILL_LABELS := {
 	1001: "普通攻击",
@@ -113,15 +115,15 @@ func _refresh_view() -> void:
 	var battle_id := str(GameState.battle_state.get("battle_id", "未分配"))
 	var round_text := str(GameState.battle_state.get("round", 0))
 	var phase_text := str(GameState.battle_state.get("phase", "command"))
-	summary_label.text = "战斗ID: %s | 回合: %s | 阶段: %s" % [battle_id, round_text, phase_text]
-	event_banner_label.text = _build_event_banner_text()
+	summary_label.text = UiFormat.normalize_text("战斗ID: %s | 回合: %s | 阶段: %s" % [battle_id, round_text, phase_text])
+	event_banner_label.text = UiFormat.normalize_text(_build_event_banner_text())
 	_refresh_board_headers()
 
-	ally_label.text = _build_group_text("allies")
-	enemy_label.text = _build_group_text("enemies")
-	detail_label.text = _build_event_log_text()
-	hint_label.text = _build_hint_text()
-	action_status_label.text = _build_action_status_text()
+	ally_label.text = UiFormat.normalize_text(_build_group_text("allies"))
+	enemy_label.text = UiFormat.normalize_text(_build_group_text("enemies"))
+	detail_label.text = UiFormat.normalize_text(_build_event_log_text())
+	hint_label.text = UiFormat.normalize_text(_build_hint_text())
+	action_status_label.text = UiFormat.normalize_text(_build_action_status_text())
 	_refresh_skill_buttons()
 	_refresh_utility_buttons()
 
@@ -319,7 +321,7 @@ func _build_actor_text(actor: Dictionary, state: Dictionary, selected_target: bo
 	var suffix := ""
 	if not tags.is_empty():
 		suffix = " [%s]" % ", ".join(tags)
-	return "%s %s\nHP %d/%d %s%s" % [_actor_marker(actor, selected_target, group_key), str(actor.get("name", "未知")), hp, hp_max, _build_hp_bar(hp, hp_max), suffix]
+	return "%s %s%s\nHP %d/%d %s%s" % [_actor_marker(actor, selected_target, group_key), _actor_kind_label(actor), str(actor.get("name", "未知")), hp, hp_max, _build_hp_bar(hp, hp_max), suffix]
 
 # 刷新左右阵营面板标题，让当前轮到选择的阵营标题更醒目。
 func _refresh_board_headers() -> void:
@@ -338,6 +340,18 @@ func _actor_marker(actor: Dictionary, selected_target: bool, group_key: String) 
 	if bool(_actor_state(actor).get("dead", false)):
 		return "xx"
 	return "--"
+
+# 给人物 / 宠物 / 怪物补一个紧凑前缀，方便移动端在同一列表里快速识别当前行动主体。
+func _actor_kind_label(actor: Dictionary) -> String:
+	match int(actor.get("unit_class", 0)):
+		1:
+			return "[人] "
+		2:
+			return "[宠] "
+		4:
+			return "[怪] "
+		_:
+			return ""
 
 # 读取并格式化最近几条服务端结算事件，便于在移动端小面板中快速查看回合结果。
 func _build_event_log_text() -> String:
@@ -442,7 +456,7 @@ func _update_event_banner() -> void:
 	_current_event_banner = _event_playback_queue.pop_front()
 	_event_banner_until_sec = now_sec + 0.9
 	if event_banner_label != null:
-		event_banner_label.text = _current_event_banner
+		event_banner_label.text = UiFormat.normalize_text(_current_event_banner)
 
 # 组合当前回合提示文本，帮助玩家理解还需要给多少单位下指令。
 func _build_hint_text() -> String:
@@ -461,7 +475,13 @@ func _build_hint_text() -> String:
 		if not enemy_target.is_empty():
 			target_name = str(enemy_target.get("name", "未锁定"))
 	var mode_text := "自动" if _auto_battle_enabled else "手动"
-	return "模式: %s | 技能: %s | 当前锁定目标: %s | 本回合待选择单位: %d | 服务端剩余 %.1f 秒" % [mode_text, _current_selected_skill_name(), target_name, pending_count, _remaining_command_sec()]
+	return "模式: %s | 技能: %s | 当前锁定目标: %s | 本回合待选择单位: %d | 服务端剩余 %s 秒" % [
+		mode_text,
+		_current_selected_skill_name(),
+		target_name,
+		pending_count,
+		UiFormat.value_to_text(_remaining_command_sec()),
+	]
 
 # 组合当前操作状态文本，并区分提交中、等待中和已结束三种状态。
 func _build_action_status_text() -> String:

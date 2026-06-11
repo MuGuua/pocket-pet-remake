@@ -87,12 +87,36 @@
 - `4021 BATTLE_EXIT_REQ`
 - `4022 BATTLE_EXIT_RESP`
 
-### 5000-5099 背包 / 道具
+### 5000-5099 背包 / 道具（当前已实现）
 - `5001 BAG_LIST_REQ`
 - `5002 BAG_LIST_RESP`
 - `5011 BAG_UPDATE_PUSH`
 - `5021 USE_ITEM_REQ`
 - `5022 USE_ITEM_RESP`
+
+### 5030-5199 背包 / 仓库 / 钱包 / 商店（规划预留，尚未进入当前代码）
+
+以下命令当前用于文档预留，不代表 `server/internal/protocol/command.go` 已经声明：
+
+- `5031 CONTAINER_LIST_REQ`
+- `5032 CONTAINER_LIST_RESP`
+- `5041 BAG_TO_WAREHOUSE_REQ`
+- `5042 BAG_TO_WAREHOUSE_RESP`
+- `5051 WAREHOUSE_TO_BAG_REQ`
+- `5052 WAREHOUSE_TO_BAG_RESP`
+- `5061 CONTAINER_SORT_REQ`
+- `5062 CONTAINER_SORT_RESP`
+- `5071 CONTAINER_MOVE_REQ`
+- `5072 CONTAINER_MOVE_RESP`
+- `5081 WALLET_QUERY_REQ`
+- `5082 WALLET_QUERY_RESP`
+- `5091 WALLET_UPDATE_PUSH`
+- `5101 BUY_ITEM_REQ`
+- `5102 BUY_ITEM_RESP`
+- `5111 SELL_ITEM_REQ`
+- `5112 SELL_ITEM_RESP`
+
+详细字段设计、数据库分层与客户端展示约束请同步参考 `backend/docs/bag-system.md`。
 
 ### 9000-9099 系统通知
 - `9001 NOTICE_PUSH`
@@ -205,6 +229,20 @@
       "player_id": 10001,
       "name": "DemoTrainer",
       "level": 8
+    },
+    "player": {
+      "player_id": 10001,
+      "name": "DemoTrainer",
+      "level": 8,
+      "hp": 120,
+      "hp_max": 120,
+      "energy": 100,
+      "energy_max": 100,
+      "atk": 24,
+      "def": 12,
+      "spd": 18,
+      "mana": 20,
+      "skill_ids": [1101, 1001]
     },
     "scene_id": 1,
     "self_pos": {
@@ -539,6 +577,265 @@
 }
 ```
 
+## 背包扩展协议规划
+
+以下内容描述的是背包、仓库、钱包与购买/出售链路的规划协议口径，当前尚未全部进入服务端代码。实现时应与：
+
+- `backend/docs/bag-system.md`
+- `backend/docs/message-routing.md`
+- `server/internal/protocol/command.go`
+
+保持同步。
+
+### 通用钱包结构
+
+```json
+{
+  "total_copper": 2345678,
+  "gold": 2,
+  "silver": 345,
+  "copper": 678
+}
+```
+
+说明：
+
+- `total_copper` 是服务端权威结算字段
+- `gold / silver / copper` 是返回给客户端直接渲染的拆分结果
+
+### 通用容器快照结构
+
+```json
+{
+  "container_type": "bag",
+  "capacity": 30,
+  "max_capacity": 300,
+  "used_slots": 12,
+  "items": []
+}
+```
+
+说明：
+
+- `container_type` 当前规划值为 `bag` 或 `warehouse`
+- 打开面板前客户端应先请求全量快照，再展示最新数据
+
+### 5031 CONTAINER_LIST_REQ（规划）
+
+```json
+{
+  "container_type": "warehouse"
+}
+```
+
+### 5032 CONTAINER_LIST_RESP（规划）
+
+```json
+{
+  "container": {
+    "container_type": "warehouse",
+    "capacity": 30,
+    "max_capacity": 300,
+    "used_slots": 6,
+    "items": []
+  },
+  "wallet": {
+    "total_copper": 2345678,
+    "gold": 2,
+    "silver": 345,
+    "copper": 678
+  }
+}
+```
+
+说明：
+
+- 仓库面板可按需带回 `wallet`，方便后续付费扩容或展示资产
+
+### 5041 BAG_TO_WAREHOUSE_REQ（规划）
+
+```json
+{
+  "from_slot_index": 4,
+  "quantity": 10
+}
+```
+
+### 5042 BAG_TO_WAREHOUSE_RESP（规划）
+
+```json
+{
+  "moved_item_id": 1002,
+  "moved_item_uid": "",
+  "moved_quantity": 10,
+  "from_container_type": "bag",
+  "to_container_type": "warehouse"
+}
+```
+
+### 5051 WAREHOUSE_TO_BAG_REQ（规划）
+
+```json
+{
+  "from_slot_index": 2,
+  "quantity": 1
+}
+```
+
+### 5052 WAREHOUSE_TO_BAG_RESP（规划）
+
+```json
+{
+  "moved_item_id": 2001,
+  "moved_item_uid": "eq_10001",
+  "moved_quantity": 1,
+  "from_container_type": "warehouse",
+  "to_container_type": "bag"
+}
+```
+
+### 5061 CONTAINER_SORT_REQ（规划）
+
+```json
+{
+  "container_type": "bag"
+}
+```
+
+### 5062 CONTAINER_SORT_RESP（规划）
+
+```json
+{
+  "container_type": "bag",
+  "sorted": true
+}
+```
+
+### 5071 CONTAINER_MOVE_REQ（规划）
+
+```json
+{
+  "container_type": "bag",
+  "from_slot_index": 2,
+  "to_slot_index": 8,
+  "quantity": 1
+}
+```
+
+### 5072 CONTAINER_MOVE_RESP（规划）
+
+```json
+{
+  "container_type": "bag",
+  "from_slot_index": 2,
+  "to_slot_index": 8,
+  "moved": true
+}
+```
+
+### 5081 WALLET_QUERY_REQ（规划）
+
+```json
+{}
+```
+
+### 5082 WALLET_QUERY_RESP（规划）
+
+```json
+{
+  "wallet": {
+    "total_copper": 2345678,
+    "gold": 2,
+    "silver": 345,
+    "copper": 678
+  }
+}
+```
+
+### 5091 WALLET_UPDATE_PUSH（规划）
+
+```json
+{
+  "wallet": {
+    "total_copper": 2350678,
+    "gold": 2,
+    "silver": 350,
+    "copper": 678
+  },
+  "reason_type": "quest_reward",
+  "reason_ref_id": 10001
+}
+```
+
+### 5101 BUY_ITEM_REQ（规划）
+
+```json
+{
+  "shop_id": 1,
+  "goods_id": 10001,
+  "item_id": 1001,
+  "quantity": 5
+}
+```
+
+### 5102 BUY_ITEM_RESP（规划）
+
+```json
+{
+  "shop_id": 1,
+  "goods_id": 10001,
+  "item_id": 1001,
+  "quantity": 5,
+  "cost": {
+    "currency_type": "base_coin",
+    "total_copper": 12500,
+    "gold": 0,
+    "silver": 12,
+    "copper": 500
+  },
+  "wallet": {
+    "total_copper": 2333178,
+    "gold": 2,
+    "silver": 333,
+    "copper": 178
+  }
+}
+```
+
+### 5111 SELL_ITEM_REQ（规划）
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 6,
+  "quantity": 3
+}
+```
+
+### 5112 SELL_ITEM_RESP（规划）
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 6,
+  "item_id": 1001,
+  "sold_quantity": 3,
+  "gain": {
+    "currency_type": "base_coin",
+    "total_copper": 300,
+    "gold": 0,
+    "silver": 0,
+    "copper": 300
+  },
+  "wallet": {
+    "total_copper": 2345978,
+    "gold": 2,
+    "silver": 345,
+    "copper": 978
+  }
+}
+```
+
 ### 4001 BATTLE_ACTION_REQ
 
 战斗动作只提交意图，伤害、回合推进和胜负均由服务端结算：
@@ -595,8 +892,29 @@
   "battle_version": 1,
   "allies": [
     {
+      "actor_id": 10001,
+      "actor_type": 1,
+      "unit_class": 1,
+      "pet_uid": 0,
+      "pet_id": 0,
+      "name": "DemoTrainer",
+      "hp": 120,
+      "hp_max": 120,
+      "atk": 24,
+      "def": 12,
+      "spd": 18,
+      "skills": [
+        {"skill_id": 1101, "name": "裂空斩", "target_type": "enemy_single"},
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"}
+      ],
+      "skill_ids": [1101, 1001],
+      "status_ids": [],
+      "lineup_index": 0
+    },
+    {
       "actor_id": 20001,
       "actor_type": 1,
+      "unit_class": 2,
       "pet_uid": 20001,
       "pet_id": 101,
       "name": "DemoTrainer 的1号宠物",
@@ -607,30 +925,11 @@
       "spd": 12,
       "skills": [
         {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"},
-        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_single"}
+        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_all"}
       ],
       "skill_ids": [1001, 1002],
       "status_ids": [],
       "lineup_index": 0
-    },
-    {
-      "actor_id": 20002,
-      "actor_type": 1,
-      "pet_uid": 20002,
-      "pet_id": 102,
-      "name": "DemoTrainer 的2号宠物",
-      "hp": 28,
-      "hp_max": 30,
-      "atk": 12,
-      "def": 11,
-      "spd": 9,
-      "skills": [
-        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"},
-        {"skill_id": 1003, "name": "活力治愈", "target_type": "ally_single"}
-      ],
-      "skill_ids": [1001, 1003],
-      "status_ids": [],
-      "lineup_index": 1
     }
   ],
   "enemies": [
@@ -669,13 +968,14 @@
 
 - `skill_ids` 仅表示当前角色可提交的技能意图列表
 - `skills` 为 `skill_ids` 的增强版快照，额外携带技能展示名和目标类型，客户端应优先使用它来决定按钮文案和友/敌方目标选择
+- `unit_class` 用来区分当前战斗单位是真人角色、宠物还是怪物；当前约定 `1=人物`、`2=宠物`、`4=怪物`
 - 当前已使用的 `target_type` 包括：`enemy_single`、`ally_single`、`enemy_all`、`enemy_multi`
 - `target_count` 表示技能配置的目标数量；当前单体技能通常为 `1`，`enemy_all` 可忽略该字段，`enemy_multi` 表示客户端先指定一个主目标，剩余目标数量由服务端按 `target_count` 自动补足
 - `phase=command` 表示当前轮到客户端继续为己方单位收集动作
 - `command_deadline_ms` 表示当前命令阶段由服务端给出的权威截止时间；超时补行动由服务端负责
 - `auto_battle_enabled` 表示当前战斗是否已经进入服务端自动托管模式
 - `pending_actor_ids` 表示这一回合还没提交动作的己方单位
-- `active_actor_id` / `active_pet_uid` 明确当前应高亮的己方单位
+- `active_actor_id` / `active_pet_uid` 明确当前应高亮的己方单位；若当前轮到人物 actor，则 `active_pet_uid=0`
 - 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
 - 客户端只负责展示按钮和发送 `skill_id`
 

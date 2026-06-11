@@ -1,6 +1,7 @@
 extends PanelContainer
 
 const StatusPanelDataProvider = preload("res://scripts/data/status_panel_data_provider.gd")
+const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 var _default_data: Dictionary = {}
 
@@ -27,18 +28,18 @@ func _ready() -> void:
 func apply_data(data: Dictionary) -> void:
 	var resolved := _default_data.duplicate(true)
 	for key in data.keys():
-		resolved[key] = str(data[key])
+		resolved[key] = UiFormat.value_to_text(data[key])
 
-	pet_name.text = str(resolved.get("name", ""))
-	pet_mood.text = str(resolved.get("mood", ""))
-	pet_level.text = str(resolved.get("level", ""))
-	hp_value.text = str(resolved.get("hp", ""))
-	mp_value.text = str(resolved.get("mp", ""))
-	element_value.text = str(resolved.get("element", ""))
-	hint_text.text = str(resolved.get("hint", ""))
-	attack_value.text = str(resolved.get("attack", ""))
-	defense_value.text = str(resolved.get("defense", ""))
-	speed_value.text = str(resolved.get("speed", ""))
-	affinity_value.text = str(resolved.get("affinity", ""))
-	hit_value.text = str(resolved.get("hit", ""))
-	dodge_value.text = str(resolved.get("dodge", ""))
+	pet_name.text = UiFormat.value_to_text(resolved.get("name", ""))
+	pet_mood.text = UiFormat.value_to_text(resolved.get("mood", ""))
+	pet_level.text = UiFormat.value_to_text(resolved.get("level", ""))
+	hp_value.text = UiFormat.value_to_text(resolved.get("hp", ""))
+	mp_value.text = UiFormat.value_to_text(resolved.get("mp", ""))
+	element_value.text = UiFormat.value_to_text(resolved.get("element", ""))
+	hint_text.text = UiFormat.value_to_text(resolved.get("hint", ""))
+	attack_value.text = UiFormat.value_to_text(resolved.get("attack", ""))
+	defense_value.text = UiFormat.value_to_text(resolved.get("defense", ""))
+	speed_value.text = UiFormat.value_to_text(resolved.get("speed", ""))
+	affinity_value.text = UiFormat.value_to_text(resolved.get("affinity", ""))
+	hit_value.text = UiFormat.value_to_text(resolved.get("hit", ""))
+	dodge_value.text = UiFormat.value_to_text(resolved.get("dodge", ""))

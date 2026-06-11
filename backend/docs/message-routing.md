@@ -17,6 +17,21 @@
 | 5001 | BAG_LIST_REQ | ws/bag_handler | bag | 返回背包列表 |
 | 5021 | USE_ITEM_REQ | ws/bag_handler | bag + pet + player | 世界内道具使用 |
 
+## 规划中的背包扩展路由
+
+以下命令是与 `backend/docs/bag-system.md` 对齐的规划路由，当前尚未全部进入服务端代码和路由注册表，落地时需同步更新 `server/internal/protocol/command.go`、WS handler 与客户端控制器：
+
+| cmd | 消息名 | 入口层 | 业务模块 | 说明 |
+| --- | --- | --- | --- | --- |
+| 5031 | CONTAINER_LIST_REQ | ws/bag_handler | bag | 统一查询背包或仓库列表 |
+| 5041 | BAG_TO_WAREHOUSE_REQ | ws/bag_handler | bag + world | 背包存入仓库，需校验仓库 NPC 交互态 |
+| 5051 | WAREHOUSE_TO_BAG_REQ | ws/bag_handler | bag + world | 仓库取回背包，需校验仓库 NPC 交互态 |
+| 5061 | CONTAINER_SORT_REQ | ws/bag_handler | bag | 整理指定容器并回推最新格子状态 |
+| 5071 | CONTAINER_MOVE_REQ | ws/bag_handler | bag | 同容器内换位或整格移动 |
+| 5081 | WALLET_QUERY_REQ | ws/bag_handler | wallet | 查询钱包快照 |
+| 5101 | BUY_ITEM_REQ | ws/shop_handler 或 ws/bag_handler | shop + wallet + bag | 扣货币并发放物品 |
+| 5111 | SELL_ITEM_REQ | ws/shop_handler 或 ws/bag_handler | shop + wallet + bag | 扣除背包物品并增加货币 |
+
 ## 服务端推送表
 
 | cmd | 消息名 | 来源模块 | 目标 |
@@ -36,6 +51,7 @@
 | 4012 | BATTLE_STATE_PUSH | battle | 参战连接 |
 | 4013 | BATTLE_RESULT_PUSH | battle | 参战连接 |
 | 5011 | BAG_UPDATE_PUSH | bag | 当前连接 |
+| 5091 | WALLET_UPDATE_PUSH | wallet | 当前连接 |
 | 9001 | NOTICE_PUSH | system | 当前连接或广播 |
 | 9002 | KICKOUT_PUSH | session / admin | 当前连接 |
 
@@ -62,6 +78,9 @@
 | 4013 | `battle_controller.gd` | 结算展示并返回世界 |
 | 5002 | `bag_controller.gd` | 刷新背包列表 |
 | 5011 | `bag_controller.gd` | 局部刷新道具数量 |
+| 5032 | `bag_controller.gd` | 刷新仓库或统一容器列表 |
+| 5082 | `bag_controller.gd` 或 `wallet_controller.gd` | 刷新钱包快照 |
+| 5091 | `bag_controller.gd` 或 `wallet_controller.gd` | 刷新 HUD 货币与价格展示 |
 | 9001 | `App.gd` | 系统通知展示 |
 | 9002 | `App.gd` | 弹窗后断开连接 |
 

@@ -3,6 +3,7 @@ extends PanelContainer
 const TAB_NORMAL_COLOR := Color(0.5019608, 0.62352943, 0.654902, 1)
 const TAB_HOVER_COLOR := Color(0.65882355, 0.7607843, 0.7529412, 1)
 const TAB_ACTIVE_COLOR := Color(0.8352941, 0.91764706, 0.8509804, 1)
+const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 @onready var character_tab_button: Button = $RootVBox/SubTabRow/CharacterTabButton
 @onready var pet_tab_button: Button = $RootVBox/SubTabRow/PetTabButton
@@ -44,7 +45,32 @@ func _ready() -> void:
 	points_tab_button.mouse_exited.connect(_on_tab_hover_exited.bind(2))
 	transfer_tab_button.mouse_exited.connect(_on_tab_hover_exited.bind(3))
 
+	# 状态面板默认展示的是服务端权威玩家快照，因此这里直接订阅
+	# GameState 的会话、世界、宠物和战斗结算变化，确保面板在打开期间
+	# 也会随着最新快照自动刷新，而不是只在面板首次打开时取一次值。
+	if not GameState.session_changed.is_connected(refresh_panel_data):
+		GameState.session_changed.connect(refresh_panel_data)
+	if not GameState.world_snapshot_changed.is_connected(refresh_panel_data):
+		GameState.world_snapshot_changed.connect(refresh_panel_data)
+	if not GameState.pets_changed.is_connected(refresh_panel_data):
+		GameState.pets_changed.connect(refresh_panel_data)
+	if not GameState.battle_changed.is_connected(refresh_panel_data):
+		GameState.battle_changed.connect(refresh_panel_data)
+
 	_select_tab(0)
+	refresh_panel_data()
+
+
+func _exit_tree() -> void:
+	# 断开全局状态信号，避免面板被销毁后仍然收到回调。
+	if GameState.session_changed.is_connected(refresh_panel_data):
+		GameState.session_changed.disconnect(refresh_panel_data)
+	if GameState.world_snapshot_changed.is_connected(refresh_panel_data):
+		GameState.world_snapshot_changed.disconnect(refresh_panel_data)
+	if GameState.pets_changed.is_connected(refresh_panel_data):
+		GameState.pets_changed.disconnect(refresh_panel_data)
+	if GameState.battle_changed.is_connected(refresh_panel_data):
+		GameState.battle_changed.disconnect(refresh_panel_data)
 
 
 func reset_to_default() -> void:
@@ -115,11 +141,11 @@ func _refresh_tabs() -> void:
 func _apply_header_data(data: Dictionary) -> void:
 	if data.is_empty():
 		return
-	name_label.text = str(data.get("name", name_label.text))
-	badge_label.text = str(data.get("title", badge_label.text))
-	level_label.text = str(data.get("level", level_label.text))
-	fly_label.text = str(data.get("fly", fly_label.text))
-	tier_label.text = str(data.get("tier", tier_label.text))
+	name_label.text = UiFormat.value_to_text(data.get("name", name_label.text))
+	badge_label.text = UiFormat.value_to_text(data.get("title", badge_label.text))
+	level_label.text = UiFormat.value_to_text(data.get("level", level_label.text))
+	fly_label.text = UiFormat.value_to_text(data.get("fly", fly_label.text))
+	tier_label.text = UiFormat.value_to_text(data.get("tier", tier_label.text))
 
 
 func _apply_panel_data(panel: Control, data: Dictionary) -> void:
@@ -142,28 +168,51 @@ func _build_runtime_panel_data() -> Dictionary:
 	header["name"] = str(GameState.player_snapshot.get("name", header.get("name", "玩家名")))
 	header["title"] = str(GameState.player_snapshot.get("title", player_title))
 	if GameState.player_snapshot.has("level"):
-		header["level"] = str(GameState.player_snapshot.get("level", header.get("level", "")))
+		header["level"] = UiFormat.value_to_text(GameState.player_snapshot.get("level", header.get("level", "")))
 
 	if GameState.player_snapshot.has("hp") and GameState.player_snapshot.has("hp_max"):
 		character["hp"] = "%s / %s" % [
-			str(GameState.player_snapshot.get("hp", 0)),
-			str(GameState.player_snapshot.get("hp_max", 0)),
+			UiFormat.value_to_text(GameState.player_snapshot.get("hp", 0)),
+			UiFormat.value_to_text(GameState.player_snapshot.get("hp_max", 0)),
 		]
+	if GameState.player_snapshot.has("energy") and GameState.player_snapshot.has("energy_max"):
+		character["energy"] = "%s / %s" % [
+			UiFormat.value_to_text(GameState.player_snapshot.get("energy", 0)),
+			UiFormat.value_to_text(GameState.player_snapshot.get("energy_max", 0)),
+		]
+	if GameState.player_snapshot.has("exp"):
+		character["exp"] = UiFormat.value_to_text(GameState.player_snapshot.get("exp", 0))
+	if GameState.player_snapshot.has("atk"):
+		character["attack"] = UiFormat.value_to_text(GameState.player_snapshot.get("atk", 0))
+	if GameState.player_snapshot.has("def"):
+		character["defense"] = UiFormat.value_to_text(GameState.player_snapshot.get("def", 0))
+	if GameState.player_snapshot.has("spd"):
+		character["speed"] = UiFormat.value_to_text(GameState.player_snapshot.get("spd", 0))
+	if GameState.player_snapshot.has("mana"):
+		character["mana"] = UiFormat.value_to_text(GameState.player_snapshot.get("mana", 0))
+	if GameState.player_snapshot.has("hit_pct"):
+		character["hit"] = "%s%%" % UiFormat.value_to_text(GameState.player_snapshot.get("hit_pct", 0))
+	if GameState.player_snapshot.has("dodge_pct"):
+		character["dodge"] = "%s%%" % UiFormat.value_to_text(GameState.player_snapshot.get("dodge_pct", 0))
+	if GameState.player_snapshot.has("crit_rate_pct"):
+		character["crit"] = "%s%%" % UiFormat.value_to_text(GameState.player_snapshot.get("crit_rate_pct", 0))
+	if GameState.player_snapshot.has("crit_dmg_pct"):
+		character["crit_damage"] = "%s%%" % UiFormat.value_to_text(GameState.player_snapshot.get("crit_dmg_pct", 0))
 
 	if not GameState.pets.is_empty():
 		var pet_variant: Variant = GameState.pets[0]
 		if pet_variant is Dictionary:
 			var first_pet: Dictionary = pet_variant
 			pet["name"] = str(first_pet.get("name", pet.get("name", "宠物")))
-			pet["level"] = "Lv.%s" % str(first_pet.get("level", pet.get("level", "1")))
+			pet["level"] = "Lv.%s" % UiFormat.value_to_text(first_pet.get("level", pet.get("level", "1")))
 			pet["hp"] = "%s / %s" % [
-				str(first_pet.get("hp", 0)),
-				str(first_pet.get("hp_max", 0)),
+				UiFormat.value_to_text(first_pet.get("hp", 0)),
+				UiFormat.value_to_text(first_pet.get("hp_max", 0)),
 			]
 			if first_pet.has("mp") or first_pet.has("mp_max"):
 				pet["mp"] = "%s / %s" % [
-					str(first_pet.get("mp", 0)),
-					str(first_pet.get("mp_max", 0)),
+					UiFormat.value_to_text(first_pet.get("mp", 0)),
+					UiFormat.value_to_text(first_pet.get("mp_max", 0)),
 				]
 
 	data["header"] = header

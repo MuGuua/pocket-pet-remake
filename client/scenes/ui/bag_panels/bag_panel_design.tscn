@@ -1,0 +1,463 @@
+[gd_scene load_steps=17 format=3 uid="uid://ds2dqt3j82m8i"]
+
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_ucce2"]
+[ext_resource type="Texture2D" uid="uid://buorrn06isqgu" path="res://asset/WenrexaAssetsUI_SciFI/PNG/TitlePanel02.png" id="2_kaafd"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="3_0xk4r"]
+[ext_resource type="Texture2D" uid="uid://btaxiven1m80b" path="res://asset/分类/ui/zhuangbei_button.png" id="4_70cxv"]
+[ext_resource type="Texture2D" uid="uid://b2yrykkl0084p" path="res://asset/分类/ui/xiao_button.png" id="5_ucce2"]
+[ext_resource type="StyleBox" uid="uid://18gg6c4ro3i" path="res://scenes/ui/bag_panels/bag_button_style.tres" id="6_70cxv"]
+[ext_resource type="StyleBox" uid="uid://bjc7gp0wfu4dh" path="res://scenes/ui/bag_panels/bag_button_style_1.tres" id="7_wbji5"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_27pr6"]
+texture = ExtResource("1_ucce2")
+texture_margin_left = 10.0
+texture_margin_top = 10.0
+texture_margin_right = 10.0
+texture_margin_bottom = 10.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_cy0lw"]
+texture = ExtResource("2_kaafd")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ucce2"]
+texture = ExtResource("3_0xk4r")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_0xk4r"]
+texture = ExtResource("4_70cxv")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_wbji5"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_70cxv"]
+texture = ExtResource("5_ucce2")
+texture_margin_left = 7.0
+texture_margin_top = 7.0
+texture_margin_right = 7.0
+texture_margin_bottom = 7.0
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_iddar"]
+load_path = "res://.godot/imported/菜单图标2.png-229490cc21129c3f9a6834380b32910e.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ucce2"]
+atlas = SubResource("CompressedTexture2D_iddar")
+region = Rect2(126, 0, 18, 18)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kaafd"]
+bg_color = Color(0.6, 0.70980394, 0.92156863, 0.11764706)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.90588236, 0.7411765, 0.52156866, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="BagPanelDesign" type="CanvasLayer"]
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_27pr6")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="Control/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(90, 25)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_cy0lw")
+
+[node name="Label" type="Label" parent="Control/PanelContainer/VBoxContainer/HBoxContainer/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+text = "背包"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_ucce2")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Button" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button2" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button3" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button4" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button5" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button6" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button7" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 25)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+
+[node name="Button8" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button9" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button10" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Control" type="Control" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(209, 70)
+layout_mode = 2
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+
+[node name="Button8" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button9" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="Button10" type="Button" parent="Control/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_0xk4r")
+
+[node name="PanelContainer2" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="PanelContainer4" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2"]
+custom_minimum_size = Vector2(5, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_wbji5")
+
+[node name="PanelContainer2" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2"]
+custom_minimum_size = Vector2(91, 32)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_70cxv")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer"]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer/MarginContainer"]
+custom_minimum_size = Vector2(12, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_ucce2")
+
+[node name="MarginContainer2" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer/MarginContainer2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "123"
+
+[node name="Label2" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "/"
+
+[node name="MarginContainer4" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer"]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer2/HBoxContainer/MarginContainer4"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "300"
+
+[node name="PanelContainer6" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_wbji5")
+
+[node name="PanelContainer5" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2"]
+custom_minimum_size = Vector2(91, 32)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_70cxv")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer"]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer/MarginContainer"]
+custom_minimum_size = Vector2(12, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_ucce2")
+
+[node name="MarginContainer2" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer/MarginContainer2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "123"
+
+[node name="Label2" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "/"
+
+[node name="MarginContainer4" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer"]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="Control/PanelContainer/VBoxContainer/PanelContainer2/PanelContainer5/HBoxContainer/MarginContainer4"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.43137255, 1)
+theme_override_font_sizes/font_size = 12
+text = "300"
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="PanelContainer3" type="PanelContainer" parent="Control/PanelContainer/VBoxContainer/MarginContainer"]
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kaafd")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_top = 4
+
+[node name="GridContainer" type="GridContainer" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
+columns = 6
+
+[node name="Button" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button2" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button3" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button4" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button5" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button6" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button7" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button8" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button9" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button10" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button11" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button12" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button13" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button14" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button15" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button16" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button17" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button18" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button19" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button20" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button21" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button22" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button23" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="Button24" type="Button" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer/MarginContainer/GridContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6_70cxv")
+theme_override_styles/focus = ExtResource("7_wbji5")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/PanelContainer/VBoxContainer/MarginContainer/PanelContainer3/VBoxContainer"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2

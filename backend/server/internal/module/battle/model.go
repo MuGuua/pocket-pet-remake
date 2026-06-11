@@ -29,6 +29,15 @@ const (
 	PlayerActorType uint32 = 1
 	EnemyActorType  uint32 = 2
 
+	// Actor unit classes distinguish the source body behind one battle actor.
+	// They are intentionally separate from ActorType because "which side am I
+	// on" and "am I a character / pet / mercenary / monster" answer different
+	// combat questions such as source-specific resistance.
+	ActorUnitClassCharacter uint32 = 1
+	ActorUnitClassPet       uint32 = 2
+	ActorUnitClassMercenary uint32 = 3
+	ActorUnitClassMonster   uint32 = 4
+
 	StatusBleed         uint32 = 1
 	StatusSeal          uint32 = 2
 	StatusStun          uint32 = 3
@@ -42,9 +51,10 @@ const (
 	StatusParalysis     uint32 = 11
 	StatusConfusion     uint32 = 12
 
-	DefaultAttackSkillID uint32 = 1001
-	DefaultEnemyPetID    uint32 = 9001
-	DefaultEnemySkillID  uint32 = 90001
+	DefaultAttackSkillID    uint32 = 1001
+	DefaultCharacterSkillID uint32 = 1101
+	DefaultEnemyPetID       uint32 = 9001
+	DefaultEnemySkillID     uint32 = 90001
 
 	PhaseCommand  string = "command"
 	PhaseFinished string = "finished"
@@ -62,21 +72,42 @@ var (
 )
 
 type ActorSnapshot struct {
-	ActorID       uint64
-	ActorType     uint32
-	OwnerPlayerID uint64
-	PetUID        uint64
-	PetID         uint32
-	Name          string
-	HP            uint32
-	HPMax         uint32
-	ATK           uint32
-	DEF           uint32
-	SPD           uint32
-	Skills        []SkillSnapshot
-	SkillIDs      []uint32
-	StatusIDs     []uint32
-	LineupIndex   uint32
+	ActorID            uint64
+	ActorType          uint32
+	UnitClass          uint32
+	OwnerPlayerID      uint64
+	PetUID             uint64
+	PetID              uint32
+	Name               string
+	HP                 uint32
+	HPMax              uint32
+	Energy             uint32
+	EnergyMax          uint32
+	ATK                uint32
+	DEF                uint32
+	SPD                uint32
+	MANA               uint32
+	HitPct             uint32
+	DodgePct           uint32
+	CritRatePct        uint32
+	CritDmgPct         uint32
+	PhysicalResistPct  uint32
+	SkillResistPct     uint32
+	ConfusionResistPct uint32
+	SleepResistPct     uint32
+	ParalysisResistPct uint32
+	SealResistPct      uint32
+	CurseResistPct     uint32
+	CritResistPct      uint32
+	CritDmgResistPct   uint32
+	CharacterResistPct uint32
+	PetResistPct       uint32
+	MercenaryResistPct uint32
+	GenericShieldPct   uint32
+	Skills             []SkillSnapshot
+	SkillIDs           []uint32
+	StatusIDs          []uint32
+	LineupIndex        uint32
 }
 
 type SkillSnapshot struct {
@@ -118,6 +149,8 @@ type ActorState struct {
 	ActorID    uint64
 	HP         uint32
 	HPMax      uint32
+	Energy     uint32
+	EnergyMax  uint32
 	Dead       bool
 	CanAct     bool
 	StatusIDs  []uint32

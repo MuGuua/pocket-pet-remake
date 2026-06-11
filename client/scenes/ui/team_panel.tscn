@@ -1,8 +1,9 @@
-[gd_scene format=3 uid="uid://csbnqcyj4lcy4"]
+[gd_scene load_steps=0 format=3 uid="uid://csbnqcyj4lcy4"]
 
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/menu-fan6.png" id="1_1wwl1"]
-[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="2_inner"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_1wwl1"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_inner"]
 [ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/战斗箭头.png" id="3_arrow"]
+[ext_resource type="Script" uid="uid://cab8nwme7cj4o" path="res://scripts/ui/team_panel.gd" id="4_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_outer"]
 texture = ExtResource("1_1wwl1")
@@ -31,6 +32,7 @@ region = Rect2(0, 0, 15, 11)
 
 [node name="TeamPanel" type="PanelContainer" unique_id=1595152012]
 custom_minimum_size = Vector2(350, 0)
+script = ExtResource("4_script")
 theme_override_styles/panel = SubResource("StyleBoxTexture_outer")
 
 [node name="RootVBox" type="VBoxContainer" parent="." unique_id=766161791]

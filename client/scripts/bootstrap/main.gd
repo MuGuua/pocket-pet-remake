@@ -1,5 +1,7 @@
 extends Node
 
+const UiFormat = preload("res://scripts/common/ui_format.gd")
+
 # 世界场景资源的预加载引用。
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
 # 战斗场景资源的预加载引用。
@@ -75,6 +77,28 @@ func _ready() -> void:
 # 退出主场景时注销当前注册的业务路由。
 func _exit_tree() -> void:
 	_unregister_routes()
+	if App.notice_received.is_connected(_on_notice_received):
+		App.notice_received.disconnect(_on_notice_received)
+	if App.kicked.is_connected(_on_kicked):
+		App.kicked.disconnect(_on_kicked)
+	if App.server_result_logged.is_connected(_on_server_result_logged):
+		App.server_result_logged.disconnect(_on_server_result_logged)
+	if gameplay_area != null and gameplay_area.resized.is_connected(_sync_world_render_frame):
+		gameplay_area.resized.disconnect(_sync_world_render_frame)
+	if GameState.session_changed.is_connected(_refresh_view):
+		GameState.session_changed.disconnect(_refresh_view)
+	if GameState.world_snapshot_changed.is_connected(_refresh_view):
+		GameState.world_snapshot_changed.disconnect(_refresh_view)
+	if GameState.battle_changed.is_connected(_sync_battle_visibility):
+		GameState.battle_changed.disconnect(_sync_battle_visibility)
+	if GameState.battle_changed.is_connected(_refresh_view):
+		GameState.battle_changed.disconnect(_refresh_view)
+	if GameState.quests_changed.is_connected(_refresh_view):
+		GameState.quests_changed.disconnect(_refresh_view)
+	if NetClient.connection_state_changed.is_connected(_on_connection_state_changed):
+		NetClient.connection_state_changed.disconnect(_on_connection_state_changed)
+	if NetClient.websocket_closed.is_connected(_on_websocket_closed):
+		NetClient.websocket_closed.disconnect(_on_websocket_closed)
 
 # 挂载世界场景实例，并绑定世界控制器对外广播的信号。
 func _mount_world_scene() -> void:
@@ -167,6 +191,7 @@ func _unregister_routes() -> void:
 func _connect_signals() -> void:
 	App.notice_received.connect(_on_notice_received)
 	App.kicked.connect(_on_kicked)
+	App.server_result_logged.connect(_on_server_result_logged)
 	gameplay_area.resized.connect(_sync_world_render_frame)
 
 	if battle_controller.has_signal("interact_responded"):
@@ -244,6 +269,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_notice_received(message: String) -> void:
 	_append_log("提示: %s" % message)
 
+# 把统一格式的服务端请求结果写入运行态 HUD，便于边操作边核对服务端回包。
+func _on_server_result_logged(message: String) -> void:
+	_append_log("服务端结果: %s" % message)
+
 # 处理被服务端踢下线的事件，并返回登录页。
 func _on_kicked(reason: String) -> void:
 	_append_log("连接已被服务端断开: %s" % reason)
@@ -276,6 +305,7 @@ func _on_player_position_changed(local_position: Vector2, global_position: Vecto
 		global_position.x,
 		global_position.y,
 	]
+	player_text = UiFormat.normalize_text(player_text)
 	hud_root.set_header_texts(str(hud_root.status_label.text), str(hud_root.scene_label.text), player_text)
 
 # 记录切图请求发起时的来源与目标场景。

@@ -4,8 +4,8 @@ signal menu_closed
 # 选中菜单项后向外广播该项的完整数据，供运行态决定是否执行实际功能。
 signal menu_item_selected(item: Dictionary)
 
-const MENU_ICON_1: Texture2D = preload("res://asset/口袋所有形象/菜单图标1.png")
-const MENU_ICON_2: Texture2D = preload("res://asset/口袋所有形象/菜单图标2.png")
+const MENU_ICON_1: Texture2D = preload("res://asset/分类/菜单表情/菜单图标1.png")
+const MENU_ICON_2: Texture2D = preload("res://asset/分类/菜单表情/菜单图标2.png")
 const ICON_SIZE := 16
 const TAB_TEXT_COLOR := Color(0.82, 0.9, 0.98, 1.0)
 const TAB_ACTIVE_COLOR := Color(1.0, 0.88, 0.35, 1.0)

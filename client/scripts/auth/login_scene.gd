@@ -1,5 +1,7 @@
 extends Node
 
+const UiFormat = preload("res://scripts/common/ui_format.gd")
+
 # 登录成功后要切入的主运行态场景路径。
 const MAIN_SCENE_PATH := "res://scenes/bootstrap/main.tscn"
 # 登录页默认填充的演示账号名。
@@ -56,11 +58,36 @@ func _connect_signals() -> void:
 	App.session_authenticated.connect(_on_session_authenticated)
 	App.notice_received.connect(_on_notice_received)
 	App.kicked.connect(_on_kicked)
+	App.server_result_logged.connect(_on_server_result_logged)
 
 	GameState.session_changed.connect(_refresh_view)
 	GameState.world_snapshot_changed.connect(_refresh_view)
 	NetClient.connection_state_changed.connect(_on_connection_state_changed)
 	NetClient.websocket_closed.connect(_on_websocket_closed)
+
+
+# 登录页销毁时断开全局信号，避免返回登录页多次后重复打印同一条服务端日志。
+func _exit_tree() -> void:
+	if App.login_succeeded.is_connected(_on_login_succeeded):
+		App.login_succeeded.disconnect(_on_login_succeeded)
+	if App.login_failed.is_connected(_on_login_failed):
+		App.login_failed.disconnect(_on_login_failed)
+	if App.session_authenticated.is_connected(_on_session_authenticated):
+		App.session_authenticated.disconnect(_on_session_authenticated)
+	if App.notice_received.is_connected(_on_notice_received):
+		App.notice_received.disconnect(_on_notice_received)
+	if App.kicked.is_connected(_on_kicked):
+		App.kicked.disconnect(_on_kicked)
+	if App.server_result_logged.is_connected(_on_server_result_logged):
+		App.server_result_logged.disconnect(_on_server_result_logged)
+	if GameState.session_changed.is_connected(_refresh_view):
+		GameState.session_changed.disconnect(_refresh_view)
+	if GameState.world_snapshot_changed.is_connected(_refresh_view):
+		GameState.world_snapshot_changed.disconnect(_refresh_view)
+	if NetClient.connection_state_changed.is_connected(_on_connection_state_changed):
+		NetClient.connection_state_changed.disconnect(_on_connection_state_changed)
+	if NetClient.websocket_closed.is_connected(_on_websocket_closed):
+		NetClient.websocket_closed.disconnect(_on_websocket_closed)
 
 # 在输入框为空时自动填充演示账号和密码。
 func _fill_demo_credentials() -> void:
@@ -119,6 +146,11 @@ func _on_login_succeeded(response: Dictionary) -> void:
 func _on_login_failed(message: String) -> void:
 	_append_log("登录失败: %s" % message)
 
+
+# 统一展示服务端请求结果，方便在登录页直接看到 HTTP 登录和首次 WS 回包。
+func _on_server_result_logged(message: String) -> void:
+	_append_log("服务端结果: %s" % message)
+
 # 处理实时连接鉴权成功事件，并切换到主运行态场景。
 func _on_session_authenticated(_payload: Dictionary) -> void:
 	_append_log("实时连接鉴权成功，正在进入主场景。")
@@ -157,10 +189,12 @@ func _refresh_view() -> void:
 		_short_token(GameState.access_jwt),
 		"ok" if GameState.is_ws_authenticated else "pending",
 	]
+	status_label.text = UiFormat.normalize_text(status_label.text)
 
 	# 读取当前世界快照中的场景标识。
 	var scene_id := str(GameState.scene_snapshot.get("scene_id", "未进入"))
 	scene_label.text = "场景: %s | 附近实体: %d" % [scene_id, GameState.nearby_entities.size()]
+	scene_label.text = UiFormat.normalize_text(scene_label.text)
 
 	# 读取当前玩家名称用于拼接角色文案。
 	var player_name := str(GameState.player_snapshot.get("name", "未登录"))
@@ -169,6 +203,7 @@ func _refresh_view() -> void:
 	if GameState.player_id > 0:
 		player_text += " (#%d)" % GameState.player_id
 	player_label.text = "玩家: %s" % player_text
+	player_label.text = UiFormat.normalize_text(player_label.text)
 
 	hint_label.text = "演示账号: %s  演示密码: %s" % [DEMO_ACCOUNT, DEMO_PASSWORD]
 	if GameState.is_ws_authenticated:
@@ -186,7 +221,7 @@ func _set_login_busy(busy: bool) -> void:
 
 # 向登录页日志区域追加一条文本。
 func _append_log(message: String) -> void:
-	log_output.append_text(message + "\n")
+	log_output.append_text(UiFormat.normalize_text(message) + "\n")
 
 # 切换到主运行态场景，并在切换前播放淡出动画。
 func _enter_main_scene() -> void:

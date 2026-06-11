@@ -26,6 +26,17 @@ type fakeConn struct {
 	closed  bool
 }
 
+func mustFindProtocolBattleActorByUnitClass(t *testing.T, actors []protocol.BattleActorSnapshot, unitClass uint32) protocol.BattleActorSnapshot {
+	t.Helper()
+	for _, actor := range actors {
+		if actor.UnitClass == unitClass {
+			return actor
+		}
+	}
+	t.Fatalf("missing protocol battle actor for unit class %d", unitClass)
+	return protocol.BattleActorSnapshot{}
+}
+
 func (c *fakeConn) ID() string {
 	return c.id
 }
@@ -73,6 +84,12 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	}
 	if payload.SceneID != 1 {
 		t.Fatalf("payload.SceneID = %d, want 1", payload.SceneID)
+	}
+	if payload.Player.PlayerID != demoPlayerID {
+		t.Fatalf("payload.Player.PlayerID = %d, want %d", payload.Player.PlayerID, demoPlayerID)
+	}
+	if len(payload.Player.SkillIDs) != 2 {
+		t.Fatalf("len(payload.Player.SkillIDs) = %d, want 2", len(payload.Player.SkillIDs))
 	}
 	if payload.Gold != 100 {
 		t.Fatalf("payload.Gold = %d, want 100", payload.Gold)
@@ -722,32 +739,37 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if start.BattleID == 0 {
 		t.Fatalf("start.BattleID = 0, want non-zero")
 	}
-	if len(start.Allies) != 2 || len(start.Enemies) != 1 {
+	if len(start.Allies) != 3 || len(start.Enemies) != 1 {
 		t.Fatalf("unexpected actor counts allies=%d enemies=%d", len(start.Allies), len(start.Enemies))
 	}
-	if start.ActiveActorID != start.Allies[0].ActorID {
-		t.Fatalf("start.ActiveActorID = %d, want %d", start.ActiveActorID, start.Allies[0].ActorID)
+	character := mustFindProtocolBattleActorByUnitClass(t, start.Allies, battle.ActorUnitClassCharacter)
+	firstPet := mustFindProtocolBattleActorByUnitClass(t, start.Allies, battle.ActorUnitClassPet)
+	if start.ActiveActorID != character.ActorID {
+		t.Fatalf("start.ActiveActorID = %d, want %d", start.ActiveActorID, character.ActorID)
 	}
-	if start.ActivePetUID != start.Allies[0].PetUID {
-		t.Fatalf("start.ActivePetUID = %d, want %d", start.ActivePetUID, start.Allies[0].PetUID)
+	if start.ActivePetUID != 0 {
+		t.Fatalf("start.ActivePetUID = %d, want 0 on the opening character turn", start.ActivePetUID)
 	}
-	if start.Allies[0].LineupIndex != 0 {
-		t.Fatalf("start.Allies[0].LineupIndex = %d, want 0", start.Allies[0].LineupIndex)
+	if character.UnitClass != battle.ActorUnitClassCharacter {
+		t.Fatalf("character.UnitClass = %d, want %d", character.UnitClass, battle.ActorUnitClassCharacter)
 	}
-	if len(start.Allies[0].SkillIDs) != 2 {
-		t.Fatalf("len(start.Allies[0].SkillIDs) = %d, want 2", len(start.Allies[0].SkillIDs))
+	if len(character.SkillIDs) != 2 {
+		t.Fatalf("len(character.SkillIDs) = %d, want 2", len(character.SkillIDs))
 	}
-	if len(start.Allies[0].Skills) != 2 {
-		t.Fatalf("len(start.Allies[0].Skills) = %d, want 2", len(start.Allies[0].Skills))
+	if len(character.Skills) != 2 {
+		t.Fatalf("len(character.Skills) = %d, want 2", len(character.Skills))
 	}
-	if start.Allies[0].Skills[0].TargetType != "enemy_single" {
-		t.Fatalf("start.Allies[0].Skills[0].TargetType = %q, want %q", start.Allies[0].Skills[0].TargetType, "enemy_single")
+	if character.Skills[0].TargetType != "enemy_single" {
+		t.Fatalf("character.Skills[0].TargetType = %q, want %q", character.Skills[0].TargetType, "enemy_single")
 	}
-	if len(start.Allies[1].Skills) != 2 {
-		t.Fatalf("len(start.Allies[1].Skills) = %d, want 2", len(start.Allies[1].Skills))
+	if firstPet.LineupIndex != 0 {
+		t.Fatalf("firstPet.LineupIndex = %d, want 0", firstPet.LineupIndex)
 	}
-	if start.Allies[1].Skills[1].TargetType != "ally_single" {
-		t.Fatalf("start.Allies[1].Skills[1].TargetType = %q, want %q", start.Allies[1].Skills[1].TargetType, "ally_single")
+	if len(start.Allies[2].Skills) != 2 {
+		t.Fatalf("len(start.Allies[2].Skills) = %d, want 2", len(start.Allies[2].Skills))
+	}
+	if start.Allies[2].Skills[1].TargetType != "ally_single" {
+		t.Fatalf("start.Allies[2].Skills[1].TargetType = %q, want %q", start.Allies[2].Skills[1].TargetType, "ally_single")
 	}
 
 	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
@@ -755,8 +777,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 		BattleID:   start.BattleID,
 		Round:      start.Round,
 		ActionType: battle.ActionTypeSkill,
-		ActorID:    start.Allies[0].ActorID,
-		SkillID:    start.Allies[0].SkillIDs[0],
+		ActorID:    character.ActorID,
+		SkillID:    character.SkillIDs[0],
 		TargetID:   start.Enemies[0].ActorID,
 	})
 	if err != nil {
@@ -780,13 +802,13 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if state.Round != 1 {
 		t.Fatalf("state.Round = %d, want 1", state.Round)
 	}
-	if state.ActiveActorID != start.Allies[1].ActorID {
-		t.Fatalf("state.ActiveActorID = %d, want %d", state.ActiveActorID, start.Allies[1].ActorID)
+	if state.ActiveActorID != firstPet.ActorID {
+		t.Fatalf("state.ActiveActorID = %d, want %d", state.ActiveActorID, firstPet.ActorID)
 	}
-	if state.ActivePetUID != start.Allies[1].PetUID {
-		t.Fatalf("state.ActivePetUID = %d, want %d", state.ActivePetUID, start.Allies[1].PetUID)
+	if state.ActivePetUID != firstPet.PetUID {
+		t.Fatalf("state.ActivePetUID = %d, want %d", state.ActivePetUID, firstPet.PetUID)
 	}
-	if len(state.PendingActorIDs) != 1 || state.PendingActorIDs[0] != start.Allies[1].ActorID {
+	if len(state.PendingActorIDs) != 2 || state.PendingActorIDs[0] != firstPet.ActorID {
 		t.Fatalf("unexpected pending actor ids: %#v", state.PendingActorIDs)
 	}
 	if len(state.Events) != 0 {
@@ -798,8 +820,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 		BattleID:   start.BattleID,
 		Round:      state.Round,
 		ActionType: battle.ActionTypeSkill,
-		ActorID:    start.Allies[1].ActorID,
-		SkillID:    start.Allies[1].SkillIDs[0],
+		ActorID:    firstPet.ActorID,
+		SkillID:    firstPet.SkillIDs[0],
 		TargetID:   start.Enemies[0].ActorID,
 	})
 	if err != nil {
@@ -812,15 +834,38 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(secondAction) error = %v", err)
 	}
-	if len(conn.packets) != 9 {
-		t.Fatalf("len(conn.packets) after second action = %d, want 9", len(conn.packets))
+	if len(conn.packets) != 6 {
+		t.Fatalf("len(conn.packets) after second action = %d, want 6", len(conn.packets))
 	}
-	if conn.packets[6].Cmd != protocol.CmdBattleResultPush {
-		t.Fatalf("conn.packets[6].Cmd = %d, want %d", conn.packets[6].Cmd, protocol.CmdBattleResultPush)
+
+	thirdAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 19, 0, protocol.BattleActionReq{
+		OpID:       3,
+		BattleID:   start.BattleID,
+		Round:      state.Round,
+		ActionType: battle.ActionTypeSkill,
+		ActorID:    start.Allies[2].ActorID,
+		SkillID:    start.Allies[2].SkillIDs[0],
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(thirdAction) error = %v", err)
+	}
+	raw, err = protocol.EncodePacket(thirdAction)
+	if err != nil {
+		t.Fatalf("EncodePacket(thirdAction) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(thirdAction) error = %v", err)
+	}
+	if len(conn.packets) != 11 {
+		t.Fatalf("len(conn.packets) after third action = %d, want 11", len(conn.packets))
+	}
+	if conn.packets[8].Cmd != protocol.CmdBattleResultPush {
+		t.Fatalf("conn.packets[8].Cmd = %d, want %d", conn.packets[8].Cmd, protocol.CmdBattleResultPush)
 	}
 
 	var result protocol.BattleResultPush
-	if err := protocol.UnmarshalBody(conn.packets[6].Body, &result); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[8].Body, &result); err != nil {
 		t.Fatalf("UnmarshalBody(result) error = %v", err)
 	}
 	if !result.Win {
@@ -844,32 +889,32 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if len(result.DropTexts) == 0 {
 		t.Fatal("len(result.DropTexts) = 0, want text-only drop preview")
 	}
-	if conn.packets[7].Cmd != protocol.CmdPetUpdatePush {
-		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdPetUpdatePush)
+	if conn.packets[9].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[9].Cmd = %d, want %d", conn.packets[9].Cmd, protocol.CmdPetUpdatePush)
 	}
 
 	var petUpdate protocol.PetUpdatePush
-	if err := protocol.UnmarshalBody(conn.packets[7].Body, &petUpdate); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[9].Body, &petUpdate); err != nil {
 		t.Fatalf("UnmarshalBody(petUpdate) error = %v", err)
 	}
-	if petUpdate.Pet.PetUID != start.ActivePetUID {
-		t.Fatalf("petUpdate.Pet.PetUID = %d, want %d", petUpdate.Pet.PetUID, start.ActivePetUID)
+	if petUpdate.Pet.PetUID != start.Allies[1].PetUID {
+		t.Fatalf("petUpdate.Pet.PetUID = %d, want %d", petUpdate.Pet.PetUID, start.Allies[1].PetUID)
 	}
 	if petUpdate.Pet.Exp <= 120 {
 		t.Fatalf("petUpdate.Pet.Exp = %d, want greater than starter exp 120", petUpdate.Pet.Exp)
 	}
 	allyHPAfterBattle := petUpdate.Pet.HP
-	if conn.packets[8].Cmd != protocol.CmdPetUpdatePush {
-		t.Fatalf("conn.packets[8].Cmd = %d, want %d", conn.packets[8].Cmd, protocol.CmdPetUpdatePush)
+	if conn.packets[10].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[10].Cmd = %d, want %d", conn.packets[10].Cmd, protocol.CmdPetUpdatePush)
 	}
-	if conn.packets[5].Cmd != protocol.CmdBattleStatePush {
-		t.Fatalf("conn.packets[5].Cmd = %d, want %d", conn.packets[5].Cmd, protocol.CmdBattleStatePush)
+	if conn.packets[7].Cmd != protocol.CmdBattleStatePush {
+		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdBattleStatePush)
 	}
 	if allyHPAfterBattle == 0 {
 		t.Fatalf("allyHPAfterBattle = 0, want non-zero")
 	}
 
-	petListPacket, err := protocol.NewJSONPacket(protocol.CmdPetListReq, 19, 0, protocol.PetListReq{})
+	petListPacket, err := protocol.NewJSONPacket(protocol.CmdPetListReq, 20, 0, protocol.PetListReq{})
 	if err != nil {
 		t.Fatalf("NewJSONPacket(petList) error = %v", err)
 	}
@@ -880,19 +925,19 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(petList) error = %v", err)
 	}
-	if len(conn.packets) != 10 {
-		t.Fatalf("len(conn.packets) after pet list = %d, want 10", len(conn.packets))
+	if len(conn.packets) != 12 {
+		t.Fatalf("len(conn.packets) after pet list = %d, want 12", len(conn.packets))
 	}
 
 	var petList protocol.PetListResp
-	if err := protocol.UnmarshalBody(conn.packets[9].Body, &petList); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[11].Body, &petList); err != nil {
 		t.Fatalf("UnmarshalBody(petList) error = %v", err)
 	}
 	if len(petList.Pets) == 0 {
 		t.Fatalf("len(petList.Pets) = 0, want non-zero")
 	}
-	if petList.Pets[0].PetUID != start.ActivePetUID {
-		t.Fatalf("petList.Pets[0].PetUID = %d, want %d", petList.Pets[0].PetUID, start.ActivePetUID)
+	if petList.Pets[0].PetUID != start.Allies[1].PetUID {
+		t.Fatalf("petList.Pets[0].PetUID = %d, want %d", petList.Pets[0].PetUID, start.Allies[1].PetUID)
 	}
 	if petList.Pets[0].HP != allyHPAfterBattle {
 		t.Fatalf("petList.Pets[0].HP = %d, want %d", petList.Pets[0].HP, allyHPAfterBattle)
@@ -1079,8 +1124,8 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 	if payload.BattleStart.BattleID != start.BattleID || payload.BattleState.BattleID != start.BattleID {
 		t.Fatalf("battle id mismatch start=%d state=%d want %d", payload.BattleStart.BattleID, payload.BattleState.BattleID, start.BattleID)
 	}
-	if len(payload.BattleState.PendingActorIDs) != 1 {
-		t.Fatalf("len(payload.BattleState.PendingActorIDs) = %d, want 1", len(payload.BattleState.PendingActorIDs))
+	if len(payload.BattleState.PendingActorIDs) != 2 {
+		t.Fatalf("len(payload.BattleState.PendingActorIDs) = %d, want 2", len(payload.BattleState.PendingActorIDs))
 	}
 	if len(payload.BattleReplayStates) != 1 {
 		t.Fatalf("len(payload.BattleReplayStates) = %d, want 1", len(payload.BattleReplayStates))

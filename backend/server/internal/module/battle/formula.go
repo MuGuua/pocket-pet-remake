@@ -11,8 +11,9 @@ const defenseReductionScale = 1000.0
 // The design doc suggests explicit upper bounds for crit-related values so one
 // malformed data row cannot create runaway numbers in battle resolution.
 const (
-	maxCritRatePct = 100
-	maxCritDmgPct  = 2000
+	maxCritRatePct     = 100
+	maxCritDmgPct      = 2000
+	maxDamageResistPct = 95
 )
 
 // effectiveStats is the normalized combat stat snapshot used by the formula
@@ -20,22 +21,31 @@ const (
 // passives, and state-derived overrides easier to plug in without rewriting the
 // whole battle actor model.
 type effectiveStats struct {
-	Attack      int32
-	Defense     int32
-	Speed       int32
-	Mana        int32
-	CurrentHP   int32
-	MaxHP       int32
-	CritRatePct uint32
-	CritDmgPct  uint32
-	ArmorBroken bool
+	UnitClass        uint32
+	Attack           int32
+	Defense          int32
+	Speed            int32
+	Mana             int32
+	CurrentHP        int32
+	MaxHP            int32
+	HitPct           uint32
+	DodgePct         uint32
+	CritRatePct      uint32
+	CritDmgPct       uint32
+	CritResistPct    uint32
+	CritDmgResistPct uint32
+	ArmorBroken      bool
 
 	// The current MVP only needs a small subset of the future buff/debuff model,
 	// but keeping these formula-facing fields explicit lets status and passive
 	// systems plug into damage math without changing every call site again.
-	VulnerabilityPct uint32
-	GenericBlockPct  uint32
-	PetBlockPct      uint32
+	VulnerabilityPct   uint32
+	PhysicalResistPct  uint32
+	SkillResistPct     uint32
+	GenericShieldPct   uint32
+	CharacterResistPct uint32
+	PetResistPct       uint32
+	MercenaryResistPct uint32
 }
 
 // baseDamageBreakdown records each formula contribution separately so tests and
@@ -72,19 +82,28 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 	speed := applyPercentModifier(int32(a.spd)+a.speedFlatBonus, speedMultiplierPct, a.globalMultiplierPct)
 	mana := applyPercentModifier(int32(a.mana)+a.manaFlatBonus, a.manaMultiplierPct, a.globalMultiplierPct)
 	return effectiveStats{
-		Attack:      attack,
-		Defense:     defense,
-		Speed:       speed,
-		Mana:        mana,
-		CurrentHP:   int32(a.hp),
-		MaxHP:       int32(a.hpMax),
-		CritRatePct: a.critRatePct + a.statusCritRateBonusPct,
-		CritDmgPct:  a.critDmgPct,
-		ArmorBroken: a.statusArmorBroken,
+		UnitClass:        a.unitClass,
+		Attack:           attack,
+		Defense:          defense,
+		Speed:            speed,
+		Mana:             mana,
+		CurrentHP:        int32(a.hp),
+		MaxHP:            int32(a.hpMax),
+		HitPct:           a.hitPct,
+		DodgePct:         a.dodgeRatePct,
+		CritRatePct:      a.critRatePct + a.statusCritRateBonusPct,
+		CritDmgPct:       a.critDmgPct,
+		CritResistPct:    a.critResistPct,
+		CritDmgResistPct: a.critDmgResistPct,
+		ArmorBroken:      a.statusArmorBroken,
 
-		VulnerabilityPct: a.statusVulnerabilityPct,
-		GenericBlockPct:  a.genericBlockPct,
-		PetBlockPct:      a.petBlockPct,
+		VulnerabilityPct:   a.statusVulnerabilityPct,
+		PhysicalResistPct:  a.physicalResistPct,
+		SkillResistPct:     a.skillResistPct,
+		GenericShieldPct:   a.genericShieldPct,
+		CharacterResistPct: a.characterResistPct,
+		PetResistPct:       a.petResistPct,
+		MercenaryResistPct: a.mercenaryResistPct,
 	}
 }
 
@@ -131,17 +150,29 @@ func calculateDefenseReduction(target effectiveStats, skill skillDef) float64 {
 	return math.Min(reduction, 0.90)
 }
 
-func calculateBlockReduction(attacker effectiveStats, target effectiveStats) float64 {
-	blockPct := target.GenericBlockPct
-	// The current battle MVP only has pet-vs-monster combat, so both sides are
-	// treated as pet-sourced damage until humanoid/mercenary actors arrive.
-	if attacker.Attack > 0 || attacker.Mana > 0 {
-		blockPct = maxUint32(blockPct, target.PetBlockPct)
+func calculateBlockReduction(attacker effectiveStats, target effectiveStats, skill skillDef) float64 {
+	// The new resistance model combines three independent dimensions:
+	// generic shield-style mitigation, attack-category mitigation, and source-
+	// class mitigation. We sum them and clamp the total so one malformed row
+	// still cannot create true invulnerability.
+	totalResistPct := target.GenericShieldPct
+	if skill.IsSkillAttack {
+		totalResistPct += target.SkillResistPct
+	} else {
+		totalResistPct += target.PhysicalResistPct
 	}
-	if blockPct > 100 {
-		blockPct = 100
+	switch attacker.UnitClass {
+	case ActorUnitClassCharacter:
+		totalResistPct += target.CharacterResistPct
+	case ActorUnitClassPet:
+		totalResistPct += target.PetResistPct
+	case ActorUnitClassMercenary:
+		totalResistPct += target.MercenaryResistPct
 	}
-	return float64(blockPct) / 100.0
+	if totalResistPct > maxDamageResistPct {
+		totalResistPct = maxDamageResistPct
+	}
+	return float64(totalResistPct) / 100.0
 }
 
 func calculateFinalDamage(baseDamage int32, defenseReduction float64, blockReduction float64) int32 {
@@ -190,6 +221,13 @@ func maxUint32(left uint32, right uint32) uint32 {
 		return left
 	}
 	return right
+}
+
+func saturatingSubUint32(left uint32, right uint32) uint32 {
+	if right >= left {
+		return 0
+	}
+	return left - right
 }
 
 func calculateHealAmount(caster effectiveStats, skill skillDef) int32 {

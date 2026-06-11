@@ -1,6 +1,7 @@
 extends PanelContainer
 
 const StatusPanelDataProvider = preload("res://scripts/data/status_panel_data_provider.gd")
+const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 var _default_data: Dictionary = {}
 
@@ -31,22 +32,22 @@ func _ready() -> void:
 func apply_data(data: Dictionary) -> void:
 	var resolved := _default_data.duplicate(true)
 	for key in data.keys():
-		resolved[key] = str(data[key])
+		resolved[key] = UiFormat.value_to_text(data[key])
 
-	hp_value.text = str(resolved.get("hp", ""))
-	element_value.text = str(resolved.get("element", ""))
-	energy_value.text = str(resolved.get("energy", ""))
-	exp_value.text = str(resolved.get("exp", ""))
-	guard_value.text = str(resolved.get("guard_level", ""))
-	fly_value.text = str(resolved.get("fly_value", ""))
-	fly_rate.text = str(resolved.get("fly_rate", ""))
-	transfer_value.text = str(resolved.get("transfer_value", ""))
-	transfer_rate.text = str(resolved.get("transfer_rate", ""))
-	attack_value.text = str(resolved.get("attack", ""))
-	defense_value.text = str(resolved.get("defense", ""))
-	speed_value.text = str(resolved.get("speed", ""))
-	mana_value.text = str(resolved.get("mana", ""))
-	hit_value.text = str(resolved.get("hit", ""))
-	dodge_value.text = str(resolved.get("dodge", ""))
-	crit_value.text = str(resolved.get("crit", ""))
-	crit_damage_value.text = str(resolved.get("crit_damage", ""))
+	hp_value.text = UiFormat.value_to_text(resolved.get("hp", ""))
+	element_value.text = UiFormat.value_to_text(resolved.get("element", ""))
+	energy_value.text = UiFormat.value_to_text(resolved.get("energy", ""))
+	exp_value.text = UiFormat.value_to_text(resolved.get("exp", ""))
+	guard_value.text = UiFormat.value_to_text(resolved.get("guard_level", ""))
+	fly_value.text = UiFormat.value_to_text(resolved.get("fly_value", ""))
+	fly_rate.text = UiFormat.value_to_text(resolved.get("fly_rate", ""))
+	transfer_value.text = UiFormat.value_to_text(resolved.get("transfer_value", ""))
+	transfer_rate.text = UiFormat.value_to_text(resolved.get("transfer_rate", ""))
+	attack_value.text = UiFormat.value_to_text(resolved.get("attack", ""))
+	defense_value.text = UiFormat.value_to_text(resolved.get("defense", ""))
+	speed_value.text = UiFormat.value_to_text(resolved.get("speed", ""))
+	mana_value.text = UiFormat.value_to_text(resolved.get("mana", ""))
+	hit_value.text = UiFormat.value_to_text(resolved.get("hit", ""))
+	dodge_value.text = UiFormat.value_to_text(resolved.get("dodge", ""))
+	crit_value.text = UiFormat.value_to_text(resolved.get("crit", ""))
+	crit_damage_value.text = UiFormat.value_to_text(resolved.get("crit_damage", ""))

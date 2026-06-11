@@ -131,3 +131,53 @@ func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, 
 	}
 	return s.repo.UpdatePetHPAndExpByUID(ctx, playerID, petUID, hp, expGain)
 }
+
+func (s *Service) ListAdminPets(ctx context.Context, query AdminListQuery) (*AdminPetList, error) {
+	result, err := s.repo.ListForAdmin(ctx, query.Normalize())
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		query = query.Normalize()
+		return &AdminPetList{Items: []AdminPetSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
+	}
+	return result, nil
+}
+
+func (s *Service) GetAdminPetDetail(ctx context.Context, petUID uint64) (*AdminPetDetail, error) {
+	result, err := s.repo.FindAdminDetailByPetUID(ctx, petUID)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrPetNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput) (*AdminPetDetail, error) {
+	input = input.Normalize()
+	if input.PlayerID == 0 || input.PetID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	return s.repo.CreateForAdmin(ctx, input)
+}
+
+func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input AdminUpdatePetInput) (*AdminPetDetail, error) {
+	input = input.Normalize()
+	if input.PetID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	result, err := s.repo.UpdateForAdmin(ctx, petUID, input)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrPetNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteAdminPet(ctx context.Context, petUID uint64) error {
+	return s.repo.DeleteForAdmin(ctx, petUID)
+}

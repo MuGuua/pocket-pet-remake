@@ -14,13 +14,15 @@ import (
 func main() {
 	logger := logx.New()
 
-	if loadedPath, err := config.LoadDefaultEnvFiles(); err != nil {
-		logger.Fatalf("load env file: %v", err)
-	} else if loadedPath != "" {
-		logger.Printf("loaded config env file: %s", loadedPath)
+	configPath, err := config.LoadDefaultYAMLFile()
+	if err != nil {
+		logger.Fatalf("resolve yaml config: %v", err)
 	}
+	logger.Printf("loaded yaml config file: %s", configPath)
 
-	cfg, err := config.LoadFromEnv()
+	// 运行时配置现在统一从 YAML 文件读取，避免随着字段增多继续把
+	// 玩家、网络和存储配置散落到一长串环境变量中。
+	cfg, err := config.LoadFromYAMLFile(configPath)
 	if err != nil {
 		logger.Fatalf("load config: %v", err)
 	}

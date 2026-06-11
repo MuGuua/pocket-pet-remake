@@ -40,13 +40,14 @@ message BattleStartPush {
 message BattleActorSnapshot {
   uint64 actor_id = 1;
   uint32 actor_type = 2;
-  uint64 pet_uid = 3;
-  uint32 pet_id = 4;
-  string name = 5;
-  uint32 hp = 6;
-  uint32 hp_max = 7;
-  repeated uint32 skill_ids = 8;
-  uint32 lineup_index = 9;
+  uint32 unit_class = 3;
+  uint64 pet_uid = 4;
+  uint32 pet_id = 5;
+  string name = 6;
+  uint32 hp = 7;
+  uint32 hp_max = 8;
+  repeated uint32 skill_ids = 9;
+  uint32 lineup_index = 10;
 }
 
 message BattleActionReq {

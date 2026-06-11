@@ -35,7 +35,7 @@ func (h *QuestHandler) HandleQuestList(conn packetSender, packet *protocol.Packe
 	}
 	summaries, trackedQuestID, err := h.questService.List(context.Background(), playerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest list failed")
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest list failed", err)
 	}
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdQuestListResp, packet.Seq, errcode.WSCodeSuccess, protocol.QuestListResp{
@@ -62,7 +62,7 @@ func (h *QuestHandler) HandleQuestAccept(conn packetSender, packet *protocol.Pac
 	ctx := context.Background()
 	before, err := listQuestSummaries(ctx, h.questService, playerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed")
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
 	}
 	summary, err := h.questService.Accept(ctx, playerID, request.QuestID, request.NPCID)
 	if err != nil {
@@ -96,7 +96,7 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 	ctx := context.Background()
 	before, err := listQuestSummaries(ctx, h.questService, playerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed")
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
 	}
 	summary, err := h.questService.Submit(ctx, playerID, request.QuestID, request.NPCID)
 	if err != nil {
@@ -130,7 +130,7 @@ func (h *QuestHandler) HandleQuestTrack(conn packetSender, packet *protocol.Pack
 	ctx := context.Background()
 	before, err := listQuestSummaries(ctx, h.questService, playerID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed")
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
 	}
 	if err := h.questService.Track(ctx, playerID, request.QuestID); err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)

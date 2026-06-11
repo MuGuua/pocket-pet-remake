@@ -1,5 +1,12 @@
 # 最新变更记录
 
+## 2026-06-11
+- 新增迁移 `backend/server/migrations/010_add_player_pet_mana.sql`，为 `player_pet` 表补齐 `mana` 字段，并同步回填演示宠物初始法力，修复 PostgreSQL 模式下进入世界/读取编队时因 `pp.mana` 缺列导致的失败
+- 服务端配置加载方式已从 `config.env` 环境变量文件切换为单一 YAML 配置文件：`backend/server/cmd/game-server/main.go` 现在会优先解析 `backend/server/configs/config.yaml`
+- `backend/server/internal/config/config.go` 改为从 YAML 结构读取 `http/auth/heartbeat/postgres/redis` 五段配置，并继续复用原有运行时校验逻辑，避免只改加载方式就把启动约束放松
+- 新增 `backend/server/internal/config/config_test.go`、`backend/server/internal/config/yamlfile_test.go`，覆盖 YAML 配置解析、默认路径解析与基础校验
+- 示例配置文件已从 `backend/server/configs/config.env(.example)` 切换为 `backend/server/configs/config.yaml(.example)`；`PP_CONFIG_FILE` 现仅用于覆盖 YAML 文件路径，不再承载各项运行参数
+
 ## 2026-06-10
 - 服务端配置已收敛为单一 `PostgreSQL + Redis` 运行路径：`backend/server/internal/config/config.go`、`backend/server/internal/data/provider/` 与示例环境变量已删除 `memory` / `PP_REPOSITORY_MODE` 分支，后续不再维护双仓储模式
 - 已新增 `backend/server/migrations/006_seed_postgres_demo_account.sql`，为 `postgres_redis` 模式补齐 `demo / demo123` 演示账号、`DemoTrainer` 玩家、三只起始宠物与默认编队；切到 PostgreSQL 仓储后不再因为数据库缺少演示数据而登录失败

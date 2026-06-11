@@ -1,8 +1,8 @@
 extends Control
 
-const HORIZONTAL_BORDER: Texture2D = preload("res://asset/口袋所有形象/菜单ui边框横.png")
-const VERTICAL_BORDER: Texture2D = preload("res://asset/口袋所有形象/菜单ui边框竖.png")
-const CORNER_BORDER: Texture2D = preload("res://asset/口袋所有形象/菜单ui边框角落(左上角).png")
+const HORIZONTAL_BORDER: Texture2D = preload("res://asset/分类/菜单表情/菜单ui边框横.png")
+const VERTICAL_BORDER: Texture2D = preload("res://asset/分类/菜单表情/菜单ui边框竖.png")
+const CORNER_BORDER: Texture2D = preload("res://asset/分类/菜单表情/菜单ui边框角落(左上角).png")
 
 @export var background_color: Color = Color(0.06, 0.09, 0.14, 0.88)
 @export var content_margin_left: int = 12

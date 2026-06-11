@@ -1,13 +1,12 @@
-[gd_scene format=3 uid="uid://mxci3vd20kum"]
+[gd_scene load_steps=0 format=3 uid="uid://mxci3vd20kum"]
 
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/menu-fan6.png" id="1_dvh5f"]
-[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/精灵-0006.png" id="2_inner"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_dvh5f"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_inner"]
 [ext_resource type="Script" uid="uid://bofxjhvd3qcyr" path="res://scripts/ui/status_panel.gd" id="3_script"]
-
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/character_status_panel.tscn" id="panel_1"]
+[ext_resource type="PackedScene" uid="uid://wey7yyjsuwmg" path="res://scenes/ui/status_panels/character_status_panel.tscn" id="panel_1"]
 [ext_resource type="PackedScene" path="res://scenes/ui/status_panels/pet_status_panel.tscn" id="panel_2"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/points_status_panel.tscn" id="panel_3"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/transfer_status_panel.tscn" id="panel_4"]
+[ext_resource type="PackedScene" uid="uid://b6tpumoy6n0ag" path="res://scenes/ui/status_panels/points_status_panel.tscn" id="panel_3"]
+[ext_resource type="PackedScene" uid="uid://beo78vp0e71fg" path="res://scenes/ui/status_panels/transfer_status_panel.tscn" id="panel_4"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_outer"]
 texture = ExtResource("1_dvh5f")
