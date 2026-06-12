@@ -8,12 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/item"
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/unlock"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
 	"pocket-pet-remake/server/internal/protocol"
@@ -91,8 +96,8 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	if len(payload.Player.SkillIDs) != 2 {
 		t.Fatalf("len(payload.Player.SkillIDs) = %d, want 2", len(payload.Player.SkillIDs))
 	}
-	if payload.Gold != 100 {
-		t.Fatalf("payload.Gold = %d, want 100", payload.Gold)
+	if payload.Gold != 2 {
+		t.Fatalf("payload.Gold = %d, want 2", payload.Gold)
 	}
 	if len(payload.Lineup) != 2 {
 		t.Fatalf("len(payload.Lineup) = %d, want 2", len(payload.Lineup))
@@ -112,15 +117,56 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	}
 }
 
+func TestRouterHandleEnterWorldFallsBackToMarketWhenSceneMissing(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+
+	// 先把玩家档案中的非法场景写进去，模拟历史脏数据或旧配置导致的 scene_id 失效。
+	if err := playerService.UpdatePosition(context.Background(), demoPlayerID, 999, 0, 0); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 111, 0, nil)
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket() error = %v", err)
+	}
+
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var payload protocol.EnterWorldResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &payload); err != nil {
+		t.Fatalf("UnmarshalBody() error = %v", err)
+	}
+	if payload.SceneID != world.FallbackSceneID {
+		t.Fatalf("payload.SceneID = %d, want %d", payload.SceneID, world.FallbackSceneID)
+	}
+	if payload.SelfPos != (protocol.Vec2i{X: 12, Y: 10}) {
+		t.Fatalf("payload.SelfPos = %#v, want market fallback spawn", payload.SelfPos)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != world.FallbackSceneID || profile.PosX != 12 || profile.PosY != 10 {
+		t.Fatalf("profile fallback = (%d,%d,%d), want (%d,12,10)", profile.SceneID, profile.PosX, profile.PosY, world.FallbackSceneID)
+	}
+}
+
 func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil)
+	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil, nil, nil)
 	petHandler := NewPetHandler(sessionService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, nil, nil, questService, npcService, battle.NewService(nil), teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, nil, NewQuestHandler(questService, sessionService, nil, nil, nil, nil, nil), sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
 	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 12, 0, nil)
@@ -289,6 +335,278 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	}
 }
 
+func TestRouterHandleUseItemExpandsBagAndPushesContainerUpdate(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdUseItemReq, 301, protocol.UseItemReq{
+		ContainerType: bag.ContainerTypeBag,
+		SlotIndex:     3,
+		Quantity:      1,
+	})
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdUseItemResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdUseItemResp)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBagUpdatePush)
+	}
+
+	var useResp protocol.UseItemResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &useResp); err != nil {
+		t.Fatalf("UnmarshalBody(useResp) error = %v", err)
+	}
+	if useResp.ItemID != 3001 {
+		t.Fatalf("useResp.ItemID = %d, want 3001", useResp.ItemID)
+	}
+	if useResp.Result.EffectType != "bag_expand" {
+		t.Fatalf("useResp.Result.EffectType = %q, want bag_expand", useResp.Result.EffectType)
+	}
+	if useResp.Result.NewCapacity != 35 {
+		t.Fatalf("useResp.Result.NewCapacity = %d, want 35", useResp.Result.NewCapacity)
+	}
+
+	var update protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &update); err != nil {
+		t.Fatalf("UnmarshalBody(update) error = %v", err)
+	}
+	if update.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("update.ContainerType = %q, want %q", update.ContainerType, bag.ContainerTypeBag)
+	}
+	if update.Capacity != 35 {
+		t.Fatalf("update.Capacity = %d, want 35", update.Capacity)
+	}
+}
+
+func TestRouterHandleUseItemRestoresPetHPAndPushesPetUpdate(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdUseItemReq, 302, protocol.UseItemReq{
+		ContainerType: bag.ContainerTypeBag,
+		SlotIndex:     1,
+		Quantity:      1,
+		TargetPetUID:  20002,
+	})
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) = %d, want 3", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdUseItemResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdUseItemResp)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBagUpdatePush)
+	}
+	if conn.packets[2].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[2].Cmd = %d, want %d", conn.packets[2].Cmd, protocol.CmdPetUpdatePush)
+	}
+
+	var useResp protocol.UseItemResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &useResp); err != nil {
+		t.Fatalf("UnmarshalBody(useResp) error = %v", err)
+	}
+	if useResp.ItemID != 3003 {
+		t.Fatalf("useResp.ItemID = %d, want 3003", useResp.ItemID)
+	}
+	if useResp.Result.EffectType != "pet_hp_restore" {
+		t.Fatalf("useResp.Result.EffectType = %q, want pet_hp_restore", useResp.Result.EffectType)
+	}
+	if useResp.Result.TargetPetUID != 20002 {
+		t.Fatalf("useResp.Result.TargetPetUID = %d, want 20002", useResp.Result.TargetPetUID)
+	}
+	if useResp.Result.RestoredHP != 2 {
+		t.Fatalf("useResp.Result.RestoredHP = %d, want 2", useResp.Result.RestoredHP)
+	}
+	if useResp.Result.NewPetHP != 30 {
+		t.Fatalf("useResp.Result.NewPetHP = %d, want 30", useResp.Result.NewPetHP)
+	}
+
+	var bagUpdate protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &bagUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
+	}
+	if bagUpdate.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("bagUpdate.ContainerType = %q, want %q", bagUpdate.ContainerType, bag.ContainerTypeBag)
+	}
+	if len(bagUpdate.Updates) != int(bagUpdate.Capacity) {
+		t.Fatalf("len(bagUpdate.Updates) = %d, want %d", len(bagUpdate.Updates), bagUpdate.Capacity)
+	}
+	if bagUpdate.Updates[0].SlotIndex != 1 || bagUpdate.Updates[0].Item == nil || bagUpdate.Updates[0].Item.Quantity != 2 {
+		t.Fatalf("bagUpdate.Updates[0] = %#v, want slot 1 quantity 2", bagUpdate.Updates[0])
+	}
+
+	var petUpdate protocol.PetUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[2].Body, &petUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(petUpdate) error = %v", err)
+	}
+	if petUpdate.Pet.PetUID != 20002 {
+		t.Fatalf("petUpdate.Pet.PetUID = %d, want 20002", petUpdate.Pet.PetUID)
+	}
+	if petUpdate.Pet.HP != 30 || petUpdate.Pet.HPMax != 30 {
+		t.Fatalf("petUpdate.Pet HP = %d/%d, want 30/30", petUpdate.Pet.HP, petUpdate.Pet.HPMax)
+	}
+
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdPetListReq, 303, protocol.PetListReq{})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+	var petList protocol.PetListResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &petList); err != nil {
+		t.Fatalf("UnmarshalBody(petList) error = %v", err)
+	}
+	var found bool
+	for _, currentPet := range petList.Pets {
+		if currentPet.PetUID != 20002 {
+			continue
+		}
+		found = true
+		if currentPet.HP != 30 {
+			t.Fatalf("currentPet.HP = %d, want 30", currentPet.HP)
+		}
+	}
+	if !found {
+		t.Fatal("pet list missing updated target pet")
+	}
+}
+
+func TestRouterHandleUseItemOpensRewardBoxAndPushesBagAndWallet(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	clearPackets(conn)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdUseItemReq, 304, protocol.UseItemReq{
+		ContainerType: bag.ContainerTypeBag,
+		SlotIndex:     4,
+		Quantity:      1,
+	})
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) = %d, want 3", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdUseItemResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdUseItemResp)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBagUpdatePush)
+	}
+	if conn.packets[2].Cmd != protocol.CmdWalletUpdatePush {
+		t.Fatalf("conn.packets[2].Cmd = %d, want %d", conn.packets[2].Cmd, protocol.CmdWalletUpdatePush)
+	}
+
+	var useResp protocol.UseItemResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &useResp); err != nil {
+		t.Fatalf("UnmarshalBody(useResp) error = %v", err)
+	}
+	if useResp.ItemID != 3004 {
+		t.Fatalf("useResp.ItemID = %d, want 3004", useResp.ItemID)
+	}
+	if useResp.Result.EffectType != "reward_box" {
+		t.Fatalf("useResp.Result.EffectType = %q, want reward_box", useResp.Result.EffectType)
+	}
+	if len(useResp.Result.Rewards) != 2 {
+		t.Fatalf("len(useResp.Result.Rewards) = %d, want 2", len(useResp.Result.Rewards))
+	}
+	if useResp.Result.Rewards[0].Type != "gold" || useResp.Result.Rewards[0].Value != 2 {
+		t.Fatalf("useResp.Result.Rewards[0] = %#v, want gold 2", useResp.Result.Rewards[0])
+	}
+	if useResp.Result.Rewards[1].Type != "item" || useResp.Result.Rewards[1].ItemID != 2001 || useResp.Result.Rewards[1].Count != 1 {
+		t.Fatalf("useResp.Result.Rewards[1] = %#v, want item 2001 x1", useResp.Result.Rewards[1])
+	}
+
+	var bagUpdate protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &bagUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
+	}
+	if bagUpdate.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("bagUpdate.ContainerType = %q, want %q", bagUpdate.ContainerType, bag.ContainerTypeBag)
+	}
+	if bagUpdate.Updates[0].SlotIndex != 1 || bagUpdate.Updates[0].Item == nil || bagUpdate.Updates[0].Item.Quantity != 3 {
+		t.Fatalf("bagUpdate.Updates[0] = %#v, want slot 1 quantity 3 after reward grant", bagUpdate.Updates[0])
+	}
+	if bagUpdate.Updates[3].SlotIndex != 4 || bagUpdate.Updates[3].Item != nil {
+		t.Fatalf("bagUpdate.Updates[3] = %#v, want consumed reward box slot to be empty", bagUpdate.Updates[3])
+	}
+
+	var walletUpdate protocol.WalletUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[2].Body, &walletUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(walletUpdate) error = %v", err)
+	}
+	if walletUpdate.ReasonType != "item_use_reward" || walletUpdate.ReasonRefID != 3004 {
+		t.Fatalf("walletUpdate = %#v, want item_use_reward/3004", walletUpdate)
+	}
+	if walletUpdate.Wallet.Gold <= 2 {
+		t.Fatalf("walletUpdate.Wallet.Gold = %d, want greater than initial 2", walletUpdate.Wallet.Gold)
+	}
+}
+
+func TestRouterHandleBuyItemConsumesWalletAndPushesBag(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+	clearPackets(conn)
+	mustMovePlayerToScene(t, playerService, 3, 12, 10)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdBuyItemReq, 305, protocol.BuyItemReq{
+		ShopID:   93002,
+		GoodsID:  1001,
+		ItemID:   1001,
+		Quantity: 2,
+	})
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) = %d, want 3", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdBuyItemResp {
+		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdBuyItemResp)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBagUpdatePush)
+	}
+	if conn.packets[2].Cmd != protocol.CmdWalletUpdatePush {
+		t.Fatalf("conn.packets[2].Cmd = %d, want %d", conn.packets[2].Cmd, protocol.CmdWalletUpdatePush)
+	}
+
+	var buyResp protocol.BuyItemResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &buyResp); err != nil {
+		t.Fatalf("UnmarshalBody(buyResp) error = %v", err)
+	}
+	if buyResp.ShopID != 93002 || buyResp.GoodsID != 1001 || buyResp.ItemID != 1001 {
+		t.Fatalf("buyResp identity = %#v, want shop=93002 goods=1001 item=1001", buyResp)
+	}
+	if buyResp.Quantity != 2 {
+		t.Fatalf("buyResp.Quantity = %d, want 2", buyResp.Quantity)
+	}
+	if buyResp.Cost.CurrencyType != "base_coin" || buyResp.Cost.TotalCopper != 1000 {
+		t.Fatalf("buyResp.Cost = %#v, want base_coin/1000", buyResp.Cost)
+	}
+	if buyResp.Wallet.TotalCopper != 2344678 {
+		t.Fatalf("buyResp.Wallet.TotalCopper = %d, want 2344678", buyResp.Wallet.TotalCopper)
+	}
+
+	var bagUpdate protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &bagUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
+	}
+	if bagUpdate.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("bagUpdate.ContainerType = %q, want %q", bagUpdate.ContainerType, bag.ContainerTypeBag)
+	}
+	if bagUpdate.Updates[1].SlotIndex != 2 || bagUpdate.Updates[1].Item == nil {
+		t.Fatalf("bagUpdate.Updates[1] = %#v, want purchased item on slot 2", bagUpdate.Updates[1])
+	}
+	if bagUpdate.Updates[1].Item.ItemID != 1001 || bagUpdate.Updates[1].Item.Quantity != 2 {
+		t.Fatalf("bagUpdate.Updates[1].Item = %#v, want item 1001 x2", bagUpdate.Updates[1].Item)
+	}
+
+	var walletUpdate protocol.WalletUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[2].Body, &walletUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(walletUpdate) error = %v", err)
+	}
+	if walletUpdate.ReasonType != "shop_buy" || walletUpdate.ReasonRefID != 93002 {
+		t.Fatalf("walletUpdate = %#v, want shop_buy/93002", walletUpdate)
+	}
+	if walletUpdate.Wallet.TotalCopper != 2344678 {
+		t.Fatalf("walletUpdate.Wallet.TotalCopper = %d, want 2344678", walletUpdate.Wallet.TotalCopper)
+	}
+}
+
 func TestRouterHandleNPCActionPushesQuestUpdate(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 
@@ -358,8 +676,8 @@ func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
 	clearPackets(conn)
 
 	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 214, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93001})
-	if len(conn.packets) != 3 {
-		t.Fatalf("len(conn.packets) after correct submit = %d, want 3", len(conn.packets))
+	if len(conn.packets) != 6 {
+		t.Fatalf("len(conn.packets) after correct submit = %d, want 6", len(conn.packets))
 	}
 	if conn.packets[0].Cmd != protocol.CmdQuestSubmitResp {
 		t.Fatalf("conn.packets[0].Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdQuestSubmitResp)
@@ -374,8 +692,56 @@ func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
 	if submitResp.Quest.State != quest.StateCompleted {
 		t.Fatalf("submitResp.Quest.State = %q, want %q", submitResp.Quest.State, quest.StateCompleted)
 	}
+	if len(submitResp.Rewards) != 4 {
+		t.Fatalf("len(submitResp.Rewards) = %d, want 4 supported runtime rewards", len(submitResp.Rewards))
+	}
+	if submitResp.Rewards[0].Type != "gold" || submitResp.Rewards[0].Value != 150 {
+		t.Fatalf("submitResp.Rewards[0] = %#v, want gold 150", submitResp.Rewards[0])
+	}
+	if submitResp.Rewards[1].Type != "item" || submitResp.Rewards[1].ItemID != 2001 || submitResp.Rewards[1].Count != 2 {
+		t.Fatalf("submitResp.Rewards[1] = %#v, want item 2001 x2", submitResp.Rewards[1])
+	}
+	if submitResp.Rewards[2].Type != "pet" || submitResp.Rewards[2].PetID != 102 {
+		t.Fatalf("submitResp.Rewards[2] = %#v, want pet 102", submitResp.Rewards[2])
+	}
+	if submitResp.Rewards[3].Type != "feature_unlock" || submitResp.Rewards[3].Value != 1 {
+		t.Fatalf("submitResp.Rewards[3] = %#v, want feature_unlock 1", submitResp.Rewards[3])
+	}
+	if conn.packets[1].Cmd != protocol.CmdWalletUpdatePush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdWalletUpdatePush)
+	}
+	var walletUpdate protocol.WalletUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &walletUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(walletUpdate) error = %v", err)
+	}
+	if walletUpdate.ReasonType != "quest_reward" || walletUpdate.ReasonRefID != 1002 {
+		t.Fatalf("walletUpdate = %#v, want quest_reward/1002", walletUpdate)
+	}
+	if walletUpdate.Wallet.Gold <= 2 {
+		t.Fatalf("walletUpdate.Wallet.Gold = %d, want greater than initial 2", walletUpdate.Wallet.Gold)
+	}
+	if conn.packets[2].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[2].Cmd = %d, want %d", conn.packets[2].Cmd, protocol.CmdBagUpdatePush)
+	}
+	var bagUpdate protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[2].Body, &bagUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
+	}
+	if bagUpdate.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("bagUpdate.ContainerType = %q, want %q", bagUpdate.ContainerType, bag.ContainerTypeBag)
+	}
+	if conn.packets[3].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[3].Cmd = %d, want %d", conn.packets[3].Cmd, protocol.CmdPetUpdatePush)
+	}
+	var petUpdate protocol.PetUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[3].Body, &petUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(petUpdate) error = %v", err)
+	}
+	if petUpdate.Pet.PetID != 102 {
+		t.Fatalf("petUpdate.Pet.PetID = %d, want 102", petUpdate.Pet.PetID)
+	}
 
-	questUpdates := collectQuestUpdatesByID(t, conn.packets[1:])
+	questUpdates := collectQuestUpdatesByID(t, conn.packets[4:])
 	if got := questUpdates[1003].State; got != quest.StateAccepted {
 		t.Fatalf("quest 1003 state = %q, want %q", got, quest.StateAccepted)
 	}
@@ -707,8 +1073,45 @@ func TestRouterHandleNPCAction(t *testing.T) {
 	if resp.EntityID != 93002 {
 		t.Fatalf("resp.EntityID = %d, want 93002", resp.EntityID)
 	}
-	if len(resp.MenuEntries) != 2 {
-		t.Fatalf("len(resp.MenuEntries) = %d, want 2", len(resp.MenuEntries))
+	if len(resp.MenuEntries) != 3 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 3", len(resp.MenuEntries))
+	}
+}
+
+func TestRouterHandleNPCActionBattle(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCActionReq, 171, 0, protocol.NPCActionReq{EntityID: 93002, EntryID: "battle_market_guard"})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(npc battle action) error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket(npc battle action) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(npc battle action) error = %v", err)
+	}
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+
+	var resp protocol.NPCActionResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted {
+		t.Fatalf("resp.Accepted = false, reason=%q", resp.Reason)
+	}
+	if resp.ResultType != "battle" {
+		t.Fatalf("resp.ResultType = %q, want battle", resp.ResultType)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBattleStartPush {
+		t.Fatalf("conn.packets[1].Cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBattleStartPush)
 	}
 }
 
@@ -762,6 +1165,9 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if character.Skills[0].TargetType != "enemy_single" {
 		t.Fatalf("character.Skills[0].TargetType = %q, want %q", character.Skills[0].TargetType, "enemy_single")
 	}
+	if character.Skills[0].AnimationKey == "" || character.Skills[0].CastColor == "" || character.Skills[0].ImpactColor == "" {
+		t.Fatalf("character.Skills[0] = %#v, want visual metadata from battle skill snapshot", character.Skills[0])
+	}
 	if firstPet.LineupIndex != 0 {
 		t.Fatalf("firstPet.LineupIndex = %d, want 0", firstPet.LineupIndex)
 	}
@@ -770,6 +1176,9 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	}
 	if start.Allies[2].Skills[1].TargetType != "ally_single" {
 		t.Fatalf("start.Allies[2].Skills[1].TargetType = %q, want %q", start.Allies[2].Skills[1].TargetType, "ally_single")
+	}
+	if start.Allies[2].Skills[1].AnimationKey != "heal" || start.Allies[2].Skills[1].Projectile {
+		t.Fatalf("start.Allies[2].Skills[1] = %#v, want heal animation without projectile", start.Allies[2].Skills[1])
 	}
 
 	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
@@ -857,8 +1266,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(thirdAction) error = %v", err)
 	}
-	if len(conn.packets) != 11 {
-		t.Fatalf("len(conn.packets) after third action = %d, want 11", len(conn.packets))
+	if len(conn.packets) != 13 {
+		t.Fatalf("len(conn.packets) after third action = %d, want 13", len(conn.packets))
 	}
 	if conn.packets[8].Cmd != protocol.CmdBattleResultPush {
 		t.Fatalf("conn.packets[8].Cmd = %d, want %d", conn.packets[8].Cmd, protocol.CmdBattleResultPush)
@@ -877,8 +1286,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if result.RewardPlayerExp == 0 {
 		t.Fatal("result.RewardPlayerExp = 0, want positive player exp reward")
 	}
-	if result.PlayerGold <= 100 {
-		t.Fatalf("result.PlayerGold = %d, want greater than initial 100", result.PlayerGold)
+	if result.PlayerGold <= 2 {
+		t.Fatalf("result.PlayerGold = %d, want greater than initial wallet gold 2", result.PlayerGold)
 	}
 	if result.PlayerExp == 0 {
 		t.Fatal("result.PlayerExp = 0, want persisted player exp")
@@ -907,11 +1316,34 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if conn.packets[10].Cmd != protocol.CmdPetUpdatePush {
 		t.Fatalf("conn.packets[10].Cmd = %d, want %d", conn.packets[10].Cmd, protocol.CmdPetUpdatePush)
 	}
+	if conn.packets[11].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[11].Cmd = %d, want %d", conn.packets[11].Cmd, protocol.CmdBagUpdatePush)
+	}
+	if conn.packets[12].Cmd != protocol.CmdWalletUpdatePush {
+		t.Fatalf("conn.packets[12].Cmd = %d, want %d", conn.packets[12].Cmd, protocol.CmdWalletUpdatePush)
+	}
 	if conn.packets[7].Cmd != protocol.CmdBattleStatePush {
 		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdBattleStatePush)
 	}
 	if allyHPAfterBattle == 0 {
 		t.Fatalf("allyHPAfterBattle = 0, want non-zero")
+	}
+	var bagUpdate protocol.BagUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[11].Body, &bagUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
+	}
+	if bagUpdate.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("bagUpdate.ContainerType = %q, want %q", bagUpdate.ContainerType, bag.ContainerTypeBag)
+	}
+	var walletUpdate protocol.WalletUpdatePush
+	if err := protocol.UnmarshalBody(conn.packets[12].Body, &walletUpdate); err != nil {
+		t.Fatalf("UnmarshalBody(walletUpdate) error = %v", err)
+	}
+	if walletUpdate.ReasonType != "battle_reward" {
+		t.Fatalf("walletUpdate.ReasonType = %q, want battle_reward", walletUpdate.ReasonType)
+	}
+	if walletUpdate.Wallet.Gold != uint64(result.PlayerGold) {
+		t.Fatalf("walletUpdate.Wallet.Gold = %d, want %d", walletUpdate.Wallet.Gold, result.PlayerGold)
 	}
 
 	petListPacket, err := protocol.NewJSONPacket(protocol.CmdPetListReq, 20, 0, protocol.PetListReq{})
@@ -925,12 +1357,12 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(petList) error = %v", err)
 	}
-	if len(conn.packets) != 12 {
-		t.Fatalf("len(conn.packets) after pet list = %d, want 12", len(conn.packets))
+	if len(conn.packets) != 14 {
+		t.Fatalf("len(conn.packets) after pet list = %d, want 14", len(conn.packets))
 	}
 
 	var petList protocol.PetListResp
-	if err := protocol.UnmarshalBody(conn.packets[11].Body, &petList); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[13].Body, &petList); err != nil {
 		t.Fatalf("UnmarshalBody(petList) error = %v", err)
 	}
 	if len(petList.Pets) == 0 {
@@ -956,13 +1388,14 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	playerService := player.NewService(teststub.NewPlayerRepository(), nil)
+	petService := pet.NewService(teststub.NewPetRepository(), nil, nil)
+	walletService := wallet.NewService(teststub.NewWalletRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleService := battle.NewService()
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	battleService := battle.NewService(nil)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, nil, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 
 	conn := &fakeConn{id: "disconnect-battle-conn"}
@@ -1045,16 +1478,22 @@ func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	playerService := player.NewService(teststub.NewPlayerRepository(), nil)
+	petRepo := teststub.NewPetRepository()
+	bagRepo := teststub.NewBagRepository()
+	bagRepo.BindPetRepository(petRepo)
+	petService := pet.NewService(petRepo, nil, nil)
+	bagService := bag.NewService(bagRepo)
+	walletService := wallet.NewService(teststub.NewWalletRepository())
+	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
 	petHandler := NewPetHandler(sessionService, petService)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleService := battle.NewService()
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+	battleService := battle.NewService(nil)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	firstConn := &fakeConn{id: "reconnect-old-conn"}
 	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
@@ -1141,17 +1580,23 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	playerService := player.NewService(teststub.NewPlayerRepository(), nil)
+	petRepo := teststub.NewPetRepository()
+	bagRepo := teststub.NewBagRepository()
+	bagRepo.BindPetRepository(petRepo)
+	petService := pet.NewService(petRepo, nil, nil)
+	bagService := bag.NewService(bagRepo)
+	walletService := wallet.NewService(teststub.NewWalletRepository())
+	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
 	petHandler := NewPetHandler(sessionService, petService)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleService := battle.NewService()
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	battleService := battle.NewService(nil)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	firstConn := &fakeConn{id: "reconnect-finished-old-conn"}
 	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
@@ -1223,15 +1668,20 @@ func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T
 func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	playerService := player.NewService(teststub.NewPlayerRepository(), nil)
+	petService := pet.NewService(teststub.NewPetRepository(), nil, nil)
+	bagService := bag.NewService(teststub.NewBagRepository())
+	itemService := item.NewService(teststub.NewItemRepository())
+	walletService := wallet.NewService(teststub.NewWalletRepository())
+	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
 	petHandler := NewPetHandler(sessionService, petService)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battle.NewService(nil), teststub.NewBattleRepository())
+	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	challengerConn := &fakeConn{id: "pvp-challenger-conn"}
 	if _, err := sessionService.Bind(teststub.DemoPlayerID, challengerConn); err != nil {
@@ -1294,15 +1744,24 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	playerService := player.NewService(teststub.NewPlayerRepository(), nil)
+	petRepo := teststub.NewPetRepository()
+	bagRepo := teststub.NewBagRepository()
+	bagRepo.BindPetRepository(petRepo)
+	petService := pet.NewService(petRepo, nil, nil)
+	bagService := bag.NewService(bagRepo)
+	itemService := item.NewService(teststub.NewItemRepository())
+	walletService := wallet.NewService(teststub.NewWalletRepository())
+	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, worldService)
+	monsterService := monster.NewService(teststub.NewMonsterRepository(), nil, nil)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService)
 	petHandler := NewPetHandler(sessionService, petService)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, worldService, questService, npcService, battle.NewService(), teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, NewQuestHandler(questService, sessionService), sessionService)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battle.NewService(monsterService), teststub.NewBattleRepository())
+	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	conn := &fakeConn{id: "conn-1"}
 	if _, err := sessionService.Bind(teststub.DemoPlayerID, conn); err != nil {
@@ -1355,4 +1814,57 @@ func collectQuestUpdatesByID(t *testing.T, packets []*protocol.Packet) map[uint6
 		result[payload.Quest.QuestID] = payload.Quest
 	}
 	return result
+}
+
+func TestEnterWorldIncludesWildEncounterConfig(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+	if err := playerService.UpdatePosition(context.Background(), 10001, 4, 4, 7); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 21, protocol.EnterWorldReq{})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+	var response protocol.EnterWorldResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody() error = %v", err)
+	}
+	if !response.WildEncounter.Enabled {
+		t.Fatalf("WildEncounter.Enabled = false, want true on scene 4")
+	}
+	if response.WildEncounter.EncounterRate != 800 {
+		t.Fatalf("WildEncounter.EncounterRate = %d, want 800", response.WildEncounter.EncounterRate)
+	}
+	if len(response.WildEncounter.SpawnMonsterIDs) != 1 || response.WildEncounter.SpawnMonsterIDs[0] != 9001 {
+		t.Fatalf("WildEncounter.SpawnMonsterIDs = %v, want [9001]", response.WildEncounter.SpawnMonsterIDs)
+	}
+}
+
+func TestHandleWildEncounterStartsBattle(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+	if err := playerService.UpdatePosition(context.Background(), 10001, 4, 4, 7); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdWildEncounterReq, 31, protocol.WildEncounterReq{
+		SceneID: 4,
+		MoveSeq: 12,
+	})
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdWildEncounterResp {
+		t.Fatalf("first cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdWildEncounterResp)
+	}
+	var wildResp protocol.WildEncounterResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &wildResp); err != nil {
+		t.Fatalf("UnmarshalBody(wild resp) error = %v", err)
+	}
+	if !wildResp.Accepted {
+		t.Fatalf("wildResp.Accepted = false, reason=%s", wildResp.Reason)
+	}
+	if conn.packets[1].Cmd != protocol.CmdBattleStartPush {
+		t.Fatalf("second cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBattleStartPush)
+	}
 }

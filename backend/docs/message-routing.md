@@ -44,8 +44,10 @@
 | 2011 | ENTITY_ENTER_PUSH | world | AOI 内其他玩家 |
 | 2012 | ENTITY_LEAVE_PUSH | world | AOI 内其他玩家 |
 | 2013 | ENTITY_MOVE_PUSH | world | AOI 内所有相关玩家 |
-| 2014 | WORLD_RESYNC_PUSH | world | 当前位置失真玩家 |
-| 2041 | ENCOUNTER_PUSH | world | 当前连接 |
+| 2014 | WORLD_RESYNC_PUSH | world | 当前连接（含 wild_encounter 配置） |
+| 2035 | WILD_ENCOUNTER_REQ | battle | 当前连接 |
+| 2036 | WILD_ENCOUNTER_RESP | battle | 当前连接 |
+| 2041 | ENCOUNTER_PUSH | world | 预留（暗雷改客户端上报） |
 | 3011 | PET_UPDATE_PUSH | pet | 当前连接 |
 | 4011 | BATTLE_START_PUSH | battle | 参战连接 |
 | 4012 | BATTLE_STATE_PUSH | battle | 参战连接 |
@@ -68,8 +70,9 @@
 | 2011 | `world_controller.gd` | 创建进入视野实体 |
 | 2012 | `world_controller.gd` | 删除离开视野实体 |
 | 2013 | `world_controller.gd` | 目标实体插值移动 |
-| 2014 | `world_controller.gd` | 强制重置本地位置与 AOI 缓存 |
-| 2041 | `world_controller.gd` | 切换战斗加载状态 |
+| 2014 | `world_controller.gd` | 强制重置本地位置、AOI 与暗雷配置 |
+| 2036 | `world_controller.gd` | 暗雷上报回执；成功则等待 `4011` |
+| 2041 | `world_controller.gd` | 预留 |
 | 3002 | `pet_controller.gd` | 刷新宠物列表 |
 | 3011 | `pet_controller.gd` | 刷新变化宠物并通知 UI |
 | 3022 | `pet_controller.gd` | 更新编队数据 |

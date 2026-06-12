@@ -1,13 +1,25 @@
 package pet
 
-import "context"
+import (
+	"context"
 
-type Service struct {
-	repo Repository
+	"pocket-pet-remake/server/internal/module/monster"
+	"pocket-pet-remake/server/internal/module/skill"
+)
+
+// CaptureConfigReader 供捕捉发放链路读取怪物模板的 capture_pet_id 映射。
+type CaptureConfigReader interface {
+	FindCaptureConfig(ctx context.Context, monsterID uint32) (*monster.CaptureConfig, error)
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+type Service struct {
+	repo                  Repository
+	skillService          *skill.Service
+	captureConfigReader   CaptureConfigReader
+}
+
+func NewService(repo Repository, skillService *skill.Service, captureConfigReader CaptureConfigReader) *Service {
+	return &Service{repo: repo, skillService: skillService, captureConfigReader: captureConfigReader}
 }
 
 func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) {
@@ -17,6 +29,9 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 	}
 	if pets == nil {
 		pets = []Pet{}
+	}
+	if err := s.applyUsableFlags(ctx, pets); err != nil {
+		return nil, err
 	}
 
 	lineup, err := s.ListLineup(ctx, playerID)
@@ -61,10 +76,13 @@ func (s *Service) SetLineup(ctx context.Context, playerID uint64, petUIDs []uint
 	if len(pets) == 0 {
 		return nil, ErrPetNotFound
 	}
+	if err := s.applyUsableFlags(ctx, pets); err != nil {
+		return nil, err
+	}
 
-	owned := make(map[uint64]struct{}, len(pets))
+	owned := make(map[uint64]Pet, len(pets))
 	for _, item := range pets {
-		owned[item.PetUID] = struct{}{}
+		owned[item.PetUID] = item
 	}
 
 	seen := make(map[uint64]struct{}, len(petUIDs))
@@ -75,8 +93,12 @@ func (s *Service) SetLineup(ctx context.Context, playerID uint64, petUIDs []uint
 		if _, exists := seen[petUID]; exists {
 			return nil, ErrDuplicateLineup
 		}
-		if _, exists := owned[petUID]; !exists {
+		item, exists := owned[petUID]
+		if !exists {
 			return nil, ErrPetNotFound
+		}
+		if !item.IsUsable {
+			return nil, ErrPetUnusable
 		}
 		seen[petUID] = struct{}{}
 	}
@@ -132,6 +154,67 @@ func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, 
 	return s.repo.UpdatePetHPAndExpByUID(ctx, playerID, petUID, hp, expGain)
 }
 
+// GrantRuntimePet 按服务端数据库里的宠物模板发放一只新宠物给玩家。
+// 奖励宠物默认不会自动进出战阵容，客户端收到推送后再决定是否引导玩家配置。
+func (s *Service) GrantRuntimePet(ctx context.Context, playerID uint64, petID uint32, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*RuntimeGrantResult, error) {
+	if playerID == 0 || petID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	return s.repo.GrantRuntimePet(ctx, playerID, petID, reasonType, reasonRefID, operatorType, operatorID)
+}
+
+// GrantWildCapturePet 按野外捕捉模板发放宠物，并在服务端 roll 五项成长资质。
+func (s *Service) GrantWildCapturePet(ctx context.Context, playerID uint64, petID uint32, captureMonsterID uint32, reasonType string, reasonRefID uint64) (*RuntimeGrantResult, error) {
+	if playerID == 0 || petID == 0 || captureMonsterID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	return s.repo.GrantWildCapturePet(ctx, playerID, petID, captureMonsterID, reasonType, reasonRefID)
+}
+
+// GrantCapturedPet 在战斗捕捉成功后，按怪物 capture_pet_id 发放关联系统宠物。
+// 不继承战斗中的 HP/等级等数值，仅使用模板基础属性 + roll 资质。
+func (s *Service) GrantCapturedPet(ctx context.Context, playerID uint64, monsterID uint32, reasonType string, reasonRefID uint64) (*RuntimeGrantResult, error) {
+	if playerID == 0 || monsterID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	if s.captureConfigReader == nil {
+		return nil, monster.ErrMonsterNotCapturable
+	}
+	config, err := s.captureConfigReader.FindCaptureConfig(ctx, monsterID)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil || !config.IsCapturable || config.CapturePetID == 0 {
+		return nil, monster.ErrMonsterNotCapturable
+	}
+	return s.repo.GrantWildCapturePet(ctx, playerID, config.CapturePetID, monsterID, reasonType, reasonRefID)
+}
+
+// ValidateCapturePetTemplate 校验怪物关联的捕捉宠物模板是否为启用的野外捕捉类。
+func (s *Service) ValidateCapturePetTemplate(ctx context.Context, petID uint32) error {
+	if petID == 0 {
+		return ErrInvalidWildCapturePetTemplate
+	}
+	usableMap, err := s.repo.MapUsablePetDefinitionIDs(ctx, []uint32{petID})
+	if err != nil {
+		return err
+	}
+	if !usableMap[petID] {
+		return ErrPetUnusable
+	}
+	definition, err := s.repo.FindPetDefinitionForAdmin(ctx, petID)
+	if err != nil {
+		return err
+	}
+	if definition == nil {
+		return ErrPetDefinitionNotFound
+	}
+	if !IsWildCaptureAcquireMethod(definition.AcquireMethod) {
+		return ErrInvalidWildCapturePetTemplate
+	}
+	return ValidateAptitudeRollRanges(adminRollRangesFromDefinition(*definition))
+}
+
 func (s *Service) ListAdminPets(ctx context.Context, query AdminListQuery) (*AdminPetList, error) {
 	result, err := s.repo.ListForAdmin(ctx, query.Normalize())
 	if err != nil {
@@ -160,6 +243,16 @@ func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput)
 	if input.PlayerID == 0 || input.PetID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
+	usableMap, err := s.repo.MapUsablePetDefinitionIDs(ctx, []uint32{input.PetID})
+	if err != nil {
+		return nil, err
+	}
+	if !usableMap[input.PetID] {
+		return nil, ErrPetUnusable
+	}
+	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
+		return nil, err
+	}
 	return s.repo.CreateForAdmin(ctx, input)
 }
 
@@ -167,6 +260,9 @@ func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input Admin
 	input = input.Normalize()
 	if input.PetID == 0 {
 		return nil, ErrInvalidAdminPetInput
+	}
+	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
+		return nil, err
 	}
 	result, err := s.repo.UpdateForAdmin(ctx, petUID, input)
 	if err != nil {
@@ -180,4 +276,114 @@ func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input Admin
 
 func (s *Service) DeleteAdminPet(ctx context.Context, petUID uint64) error {
 	return s.repo.DeleteForAdmin(ctx, petUID)
+}
+
+func (s *Service) ListAdminPetDefinitions(ctx context.Context, query AdminPetDefinitionListQuery) (*AdminPetDefinitionList, error) {
+	result, err := s.repo.ListPetDefinitionsForAdmin(ctx, query.Normalize())
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		query = query.Normalize()
+		return &AdminPetDefinitionList{Items: []AdminPetDefinitionSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
+	}
+	return result, nil
+}
+
+func (s *Service) GetAdminPetDefinitionDetail(ctx context.Context, petID uint32) (*AdminPetDefinitionDetail, error) {
+	result, err := s.repo.FindPetDefinitionForAdmin(ctx, petID)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrPetDefinitionNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) CreateAdminPetDefinition(ctx context.Context, input AdminUpsertPetDefinitionInput) (*AdminPetDefinitionDetail, error) {
+	input = input.Normalize()
+	if input.PetID == 0 || input.PetName == "" {
+		return nil, ErrInvalidAdminPetDefinitionInput
+	}
+	if err := s.validateAdminPetDefinitionInput(input); err != nil {
+		return nil, err
+	}
+	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
+		return nil, err
+	}
+	return s.repo.CreatePetDefinitionForAdmin(ctx, input)
+}
+
+func (s *Service) UpdateAdminPetDefinition(ctx context.Context, petID uint32, input AdminUpsertPetDefinitionInput) (*AdminPetDefinitionDetail, error) {
+	input = input.Normalize()
+	if petID == 0 || input.PetName == "" {
+		return nil, ErrInvalidAdminPetDefinitionInput
+	}
+	if err := s.validateAdminPetDefinitionInput(input); err != nil {
+		return nil, err
+	}
+	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
+		return nil, err
+	}
+	result, err := s.repo.UpdatePetDefinitionForAdmin(ctx, petID, input)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrPetDefinitionNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteAdminPetDefinition(ctx context.Context, petID uint32) error {
+	return s.repo.DeletePetDefinitionForAdmin(ctx, petID)
+}
+
+func (s *Service) applyUsableFlags(ctx context.Context, pets []Pet) error {
+	if len(pets) == 0 {
+		return nil
+	}
+	petIDs := make([]uint32, 0, len(pets))
+	for _, item := range pets {
+		petIDs = append(petIDs, item.PetID)
+	}
+	usableMap, err := s.repo.MapUsablePetDefinitionIDs(ctx, petIDs)
+	if err != nil {
+		return err
+	}
+	for index := range pets {
+		pets[index].IsUsable = usableMap[pets[index].PetID]
+	}
+	return nil
+}
+
+func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error {
+	if s.skillService == nil || len(skillIDs) == 0 {
+		return nil
+	}
+	return s.skillService.ValidateEnabledSkillIDs(ctx, skillIDs)
+}
+
+func (s *Service) validateAdminPetDefinitionInput(input AdminUpsertPetDefinitionInput) error {
+	if !IsWildCaptureAcquireMethod(input.AcquireMethod) {
+		return nil
+	}
+	return ValidateAptitudeRollRanges(AptitudeRollRanges{
+		HPAptMin: input.HPAptRollMin, HPAptMax: input.HPAptRollMax,
+		ATKAptMin: input.ATKAptRollMin, ATKAptMax: input.ATKAptRollMax,
+		DEFAptMin: input.DEFAptRollMin, DEFAptMax: input.DEFAptRollMax,
+		SPDAptMin: input.SPDAptRollMin, SPDAptMax: input.SPDAptRollMax,
+		MANAAptMin: input.MANAAptRollMin, MANAAptMax: input.MANAAptRollMax,
+	})
+}
+
+func adminRollRangesFromDefinition(definition AdminPetDefinitionDetail) AptitudeRollRanges {
+	return AptitudeRollRanges{
+		HPAptMin: definition.AptitudeRollRanges.HPAptRollMin, HPAptMax: definition.AptitudeRollRanges.HPAptRollMax,
+		ATKAptMin: definition.AptitudeRollRanges.ATKAptRollMin, ATKAptMax: definition.AptitudeRollRanges.ATKAptRollMax,
+		DEFAptMin: definition.AptitudeRollRanges.DEFAptRollMin, DEFAptMax: definition.AptitudeRollRanges.DEFAptRollMax,
+		SPDAptMin: definition.AptitudeRollRanges.SPDAptRollMin, SPDAptMax: definition.AptitudeRollRanges.SPDAptRollMax,
+		MANAAptMin: definition.AptitudeRollRanges.MANAAptRollMin, MANAAptMax: definition.AptitudeRollRanges.MANAAptRollMax,
+	}
 }

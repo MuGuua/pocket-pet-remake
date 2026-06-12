@@ -1,6 +1,53 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1jl6ua4xy86t"]
+[gd_scene load_steps=20 format=3 uid="uid://bexdpppkhd0f6"]
 
-[ext_resource type="Script" uid="uid://c8m0cpucsdhs2" path="res://scripts/feature/battle/battle_scene.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/feature/battle/battle_scene.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://c784o77teiplw" path="res://asset/login_bg.png" id="2_ugm31"]
+[ext_resource type="Texture2D" uid="uid://ceg8aw0vrel1o" path="res://asset/魔法阵.png" id="3_o3k7m"]
+[ext_resource type="PackedScene" uid="uid://b2cmrubwg3bla" path="res://scenes/battle/battle_player.tscn" id="4_lbt8a"]
+[ext_resource type="PackedScene" uid="uid://bs76kksdxylt0" path="res://scenes/battle/battle_enemy.tscn" id="4_o3k7m"]
+[ext_resource type="Texture2D" uid="uid://bcqr7w3fwkyex" path="res://asset/分类/ui/战斗ui.png" id="6_lbt8a"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lbt8a"]
+bg_color = Color(0.11372549, 0.101960786, 0.12156863, 0.73333335)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_3511k"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_cywj5"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2wmvw"]
+atlas = ExtResource("6_lbt8a")
+region = Rect2(0, 0, 175, 32)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_lbt8a"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_lbt8a"]
+load_path = "res://.godot/imported/战斗ui.png-0d65c3b36a39ce588c9815345175be12.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cywj5"]
+atlas = SubResource("CompressedTexture2D_lbt8a")
+region = Rect2(178, 0, 36, 36)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_2wmvw"]
+texture = SubResource("AtlasTexture_cywj5")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cywj5"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cywj5"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2wmvw"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ww1p6"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7hnyd"]
 
 [node name="BattleScene" type="Control"]
 layout_mode = 3
@@ -9,185 +56,136 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 4
 script = ExtResource("1")
 
-[node name="Overlay" type="ColorRect" parent="."]
+[node name="TextureRect" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -1.0
-offset_bottom = -1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.0470588, 0.0627451, 0.101961, 0.92)
+texture = ExtResource("2_ugm31")
+expand_mode = 1
 
-[node name="CenterCard" type="PanelContainer" parent="."]
+[node name="TextureRect2" type="TextureRect" parent="."]
+custom_minimum_size = Vector2(250, 200)
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -144.0
-offset_top = -146.0
-offset_right = 144.0
-offset_bottom = 146.0
+offset_left = -125.0
+offset_top = -131.0
+offset_right = 125.0
+offset_bottom = 68.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+texture = ExtResource("3_o3k7m")
+expand_mode = 1
+
+[node name="PanelContainer2" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lbt8a")
+
+[node name="PanelContainer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBox" type="VBoxContainer" parent="CenterCard"]
-layout_mode = 2
-theme_override_constants/separation = 8
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="TitleLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 330)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "战斗中"
-horizontal_alignment = 1
+theme_override_styles/panel = SubResource("StyleBoxEmpty_3511k")
 
-[node name="SummaryLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
+[node name="BattleEnemy" parent="PanelContainer/VBoxContainer/PanelContainer" instance=ExtResource("4_o3k7m")]
+position = Vector2(292, 228)
+
+[node name="BattlePlayer" parent="PanelContainer/VBoxContainer/PanelContainer" instance=ExtResource("4_lbt8a")]
+position = Vector2(67, 209)
+
+[node name="PanelContainer3" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "战斗ID: 未分配 | 回合: 0"
-horizontal_alignment = 1
 
-[node name="EventBannerLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(250, 0)
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/PanelContainer3"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "等待回合事件。"
-horizontal_alignment = 1
-autowrap_mode = 2
 
-[node name="Boards" type="HBoxContainer" parent="CenterCard/VBox"]
+[node name="CenterContainer" type="CenterContainer" parent="PanelContainer/VBoxContainer/PanelContainer3/MarginContainer"]
 layout_mode = 2
-theme_override_constants/separation = 10
 
-[node name="AllyBoard" type="PanelContainer" parent="CenterCard/VBox/Boards"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 0)
+[node name="RichTextLabel" type="RichTextLabel" parent="PanelContainer/VBoxContainer/PanelContainer3/MarginContainer/CenterContainer"]
 layout_mode = 2
-size_flags_horizontal = 3
 
-[node name="VBox" type="VBoxContainer" parent="CenterCard/VBox/Boards/AllyBoard"]
+[node name="PanelContainer2" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_cywj5")
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/PanelContainer2"]
+layout_mode = 2
+texture = SubResource("AtlasTexture_2wmvw")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/PanelContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="AllyTitleLabel" type="Label" parent="CenterCard/VBox/Boards/AllyBoard/VBox"]
-unique_name_in_owner = true
+[node name="Button" type="Button" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(65, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "我方阵营"
-horizontal_alignment = 1
+theme_override_styles/normal = SubResource("StyleBoxEmpty_lbt8a")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_2wmvw")
+theme_override_styles/hover = SubResource("StyleBoxFlat_cywj5")
+toggle_mode = true
 
-[node name="AllyLabel" type="Label" parent="CenterCard/VBox/Boards/AllyBoard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
+[node name="Button2" type="Button" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(65, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "未同步"
-autowrap_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_cywj5")
+toggle_mode = true
 
-[node name="EnemyBoard" type="PanelContainer" parent="CenterCard/VBox/Boards"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 0)
+[node name="Button3" type="Button" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(65, 0)
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_2wmvw")
+toggle_mode = true
 
-[node name="VBox" type="VBoxContainer" parent="CenterCard/VBox/Boards/EnemyBoard"]
+[node name="Button4" type="Button" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(65, 0)
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_styles/normal = SubResource("StyleBoxEmpty_ww1p6")
+toggle_mode = true
 
-[node name="EnemyTitleLabel" type="Label" parent="CenterCard/VBox/Boards/EnemyBoard/VBox"]
-unique_name_in_owner = true
+[node name="Button5" type="Button" parent="PanelContainer/VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(65, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "敌方阵营"
-horizontal_alignment = 1
-
-[node name="EnemyLabel" type="Label" parent="CenterCard/VBox/Boards/EnemyBoard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "未同步"
-autowrap_mode = 2
-
-[node name="DetailLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(250, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "等待服务端同步战斗详情。"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="HintLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(250, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "战斗场景已接管显示，等待服务端继续推进。"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="ActionStatusLabel" type="Label" parent="CenterCard/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(250, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "操作将提交给服务端处理。"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="SkillButtons" type="HBoxContainer" parent="CenterCard/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="PrimarySkillButton" type="Button" parent="CenterCard/VBox/SkillButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-text = "普通攻击"
-
-[node name="SecondarySkillButton" type="Button" parent="CenterCard/VBox/SkillButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-text = "技能2"
-
-[node name="UtilityButtons" type="HBoxContainer" parent="CenterCard/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="TargetButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-text = "切换目标"
-
-[node name="AutoBattleButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-text = "自动战斗"
-
-[node name="EscapeButton" type="Button" parent="CenterCard/VBox/UtilityButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-text = "逃跑"
+theme_override_styles/normal = SubResource("StyleBoxEmpty_7hnyd")
+toggle_mode = true

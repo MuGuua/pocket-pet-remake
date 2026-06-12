@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Card,
   Col,
@@ -15,12 +14,10 @@ import {
   Select,
   Space,
   Spin,
-  Statistic,
   Switch,
   Table,
   Tabs,
   Tag,
-  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -112,16 +109,13 @@ const editableQuestStateOptions = questStateOptions.filter((item) => item.value 
 // 任务管理页把模板管理和玩家任务修正放到同一个页面，方便策划和运营在一个入口完成模板配置与进度排障。
 export function QuestAdminPage() {
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Alert type="info" showIcon message="任务管理已接入真实服务端接口，支持任务模板 CRUD 与玩家任务进度修正。" />
-      <Tabs
+    <Tabs
         defaultActiveKey="templates"
         items={[
           { key: 'templates', label: '任务模板管理', children: <QuestTemplatePanel /> },
           { key: 'player-progress', label: '玩家任务进度', children: <PlayerQuestPanel /> },
         ]}
-      />
-    </Space>
+    />
   );
 }
 
@@ -268,26 +262,32 @@ function QuestTemplatePanel() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}><Card><Statistic title="当前页模板数" value={rows.length} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="启用模板" value={rows.filter((item) => item.status === 1).length} valueStyle={{ color: '#2f7d4a' }} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="总模板数" value={total} /></Card></Col>
-      </Row>
-      <Card title="模板筛选" extra={<Button type="primary" onClick={() => void handleOpenEditor('create')}>新增模板</Button>}>
-        <Form form={filterForm} layout="vertical" onFinish={(values) => { setPage(1); setFilters(values); }}>
-          <Row gutter={16}>
-            <Col xs={24} md={6}><Form.Item label="任务ID" name="quest_id"><Input allowClear /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="类型" name="quest_type"><Select allowClear options={questTypeOptions} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="标题" name="title"><Input allowClear /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="状态" name="status"><Select options={templateStatusOptions} /></Form.Item></Col>
-          </Row>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
-            <Button onClick={() => { filterForm.resetFields(); filterForm.setFieldsValue({ status: '1' }); setPage(1); setFilters({ status: '1' }); }}>重置</Button>
-          </Space>
-        </Form>
-      </Card>
-      <Card title="模板列表">
+      <Card
+        title="模板列表"
+        extra={(
+          <Form form={filterForm} layout="inline" onFinish={(values) => { setPage(1); setFilters(values); }}>
+            <Form.Item name="quest_id" label="任务ID">
+              <Input allowClear placeholder="任务ID" style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="quest_type" label="类型">
+              <Select allowClear placeholder="类型" style={{ width: 100 }} options={questTypeOptions} />
+            </Form.Item>
+            <Form.Item name="title" label="标题">
+              <Input allowClear placeholder="标题" style={{ width: 120 }} />
+            </Form.Item>
+            <Form.Item name="status" label="状态">
+              <Select options={templateStatusOptions} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
+                <Button onClick={() => { filterForm.resetFields(); filterForm.setFieldsValue({ status: '1' }); setPage(1); setFilters({ status: '1' }); }}>重置</Button>
+                <Button type="primary" onClick={() => void handleOpenEditor('create')}>新增模板</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      >
         <Table columns={columns} dataSource={rows} rowKey="quest_id" loading={loading} locale={{ emptyText: <Empty description="当前筛选条件下没有任务模板" /> }} scroll={{ x: 1400 }} pagination={{ current: page, pageSize, total, showSizeChanger: true, showTotal: (value) => `共 ${value} 个模板`, onChange: (nextPage, nextPageSize) => { setPage(nextPage); setPageSize(nextPageSize); } }} />
       </Card>
       <Drawer title={detail ? `任务模板详情 · ${detail.quest_id}` : '任务模板详情'} width={640} open={detailOpen} onClose={() => setDetailOpen(false)} destroyOnClose>
@@ -472,27 +472,35 @@ function PlayerQuestPanel() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}><Card><Statistic title="当前页任务数" value={rows.length} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="已完成任务" value={rows.filter((item) => item.state === 'COMPLETED').length} valueStyle={{ color: '#2f7d4a' }} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="总记录数" value={total} /></Card></Col>
-      </Row>
-      <Card title="玩家任务筛选" extra={<Button type="primary" onClick={() => void handleOpenEditor('create')}>新增玩家任务</Button>}>
-        <Form form={filterForm} layout="vertical" onFinish={(values) => { setPage(1); setFilters(values); }}>
-          <Row gutter={16}>
-            <Col xs={24} md={6}><Form.Item label="记录ID" name="record_id"><Input allowClear /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="玩家ID" name="player_id"><Input allowClear /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="任务ID" name="quest_id"><Input allowClear /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="状态" name="state"><Select options={questStateOptions} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item label="是否追踪" name="tracked"><Select allowClear options={[{ label: '全部', value: '' }, { label: '是', value: 'true' }, { label: '否', value: 'false' }]} /></Form.Item></Col>
-          </Row>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
-            <Button onClick={() => { filterForm.resetFields(); setPage(1); setFilters({}); }}>重置</Button>
-          </Space>
-        </Form>
-      </Card>
-      <Card title="玩家任务列表">
+      <Card
+        title="玩家任务列表"
+        extra={(
+          <Form form={filterForm} layout="inline" onFinish={(values) => { setPage(1); setFilters(values); }}>
+            <Form.Item name="record_id" label="记录ID">
+              <Input allowClear placeholder="记录ID" style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="player_id" label="玩家ID">
+              <Input allowClear placeholder="玩家ID" style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="quest_id" label="任务ID">
+              <Input allowClear placeholder="任务ID" style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="state" label="状态">
+              <Select options={questStateOptions} style={{ width: 140 }} />
+            </Form.Item>
+            <Form.Item name="tracked" label="追踪">
+              <Select allowClear placeholder="追踪" style={{ width: 90 }} options={[{ label: '全部', value: '' }, { label: '是', value: 'true' }, { label: '否', value: 'false' }]} />
+            </Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
+                <Button onClick={() => { filterForm.resetFields(); setPage(1); setFilters({}); }}>重置</Button>
+                <Button type="primary" onClick={() => void handleOpenEditor('create')}>新增玩家任务</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
+      >
         <Table columns={columns} dataSource={rows} rowKey="record_id" loading={loading} locale={{ emptyText: <Empty description="当前筛选条件下没有玩家任务" /> }} scroll={{ x: 1500 }} pagination={{ current: page, pageSize, total, showSizeChanger: true, showTotal: (value) => `共 ${value} 条任务记录`, onChange: (nextPage, nextPageSize) => { setPage(nextPage); setPageSize(nextPageSize); } }} />
       </Card>
       <Drawer title={detail ? `玩家任务详情 · ${detail.record_id}` : '玩家任务详情'} width={640} open={detailOpen} onClose={() => setDetailOpen(false)} destroyOnClose>

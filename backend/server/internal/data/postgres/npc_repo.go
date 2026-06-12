@@ -26,7 +26,8 @@ SELECT
   state,
   priority,
   action_result_type,
-  action_notice
+  action_notice,
+  battle_encounter_entity_id
 FROM npc_menu_entry
 WHERE entity_id = $1 AND status = 1
 ORDER BY priority DESC, sort_order ASC, entry_id ASC
@@ -37,7 +38,8 @@ SELECT
   entity_id,
   entry_id,
   action_result_type,
-  action_notice
+  action_notice,
+  battle_encounter_entity_id
 FROM npc_menu_entry
 WHERE entity_id = $1 AND entry_id = $2 AND status = 1
 LIMIT 1
@@ -63,6 +65,7 @@ func (r *NPCRepository) ListMenuEntriesByEntityID(ctx context.Context, entityID 
 			&value.Priority,
 			&value.ActionResultType,
 			&value.ActionNotice,
+			&value.BattleEncounterEntityID,
 		); err != nil {
 			return nil, err
 		}
@@ -81,6 +84,7 @@ func (r *NPCRepository) FindActionResult(ctx context.Context, entityID uint64, e
 		&value.EntryID,
 		&value.ResultType,
 		&value.Notice,
+		&value.BattleEncounterEntityID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

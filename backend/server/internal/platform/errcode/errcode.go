@@ -20,4 +20,9 @@ const (
 	WSCodeBattleStartFailed          = 40001
 	WSCodeBattleNotFound             = 40002
 	WSCodeBattleActionInvalid        = 40003
+	WSCodeBagListFailed              = 50001
+	WSCodeBagRequestInvalid          = 50002
+	WSCodeWalletQueryFailed          = 50003
+	WSCodeShopRequestInvalid         = 50004
+	WSCodeShopBuyFailed              = 50005
 )

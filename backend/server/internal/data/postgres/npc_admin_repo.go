@@ -92,6 +92,7 @@ SELECT
   priority,
   sort_order,
   action_result_type,
+  battle_encounter_entity_id,
   status,
   created_at,
   updated_at
@@ -110,6 +111,7 @@ SELECT
   sort_order,
   action_result_type,
   action_notice,
+  battle_encounter_entity_id,
   status,
   created_at,
   updated_at
@@ -130,8 +132,9 @@ INSERT INTO npc_menu_entry (
   sort_order,
   action_result_type,
   action_notice,
+  battle_encounter_entity_id,
   status
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
 const updateAdminNPCMenuEntryQuery = `
@@ -145,7 +148,8 @@ SET entity_id = $3,
     sort_order = $9,
     action_result_type = $10,
     action_notice = $11,
-    status = $12
+    battle_encounter_entity_id = $12,
+    status = $13
 WHERE entity_id = $1 AND entry_id = $2
 `
 
@@ -328,7 +332,7 @@ func (r *NPCRepository) CreateMenuEntryForAdmin(ctx context.Context, input npc.A
 	if !ok {
 		return nil, npc.ErrAdminNPCNotFound
 	}
-	_, err = r.db.ExecContext(ctx, insertAdminNPCMenuEntryQuery, input.EntityID, input.EntryID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.Status)
+	_, err = r.db.ExecContext(ctx, insertAdminNPCMenuEntryQuery, input.EntityID, input.EntryID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -346,7 +350,7 @@ func (r *NPCRepository) UpdateMenuEntryForAdmin(ctx context.Context, entityID ui
 	if !ok {
 		return nil, npc.ErrAdminNPCNotFound
 	}
-	result, err := r.db.ExecContext(ctx, updateAdminNPCMenuEntryQuery, entityID, entryID, input.EntityID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.Status)
+	result, err := r.db.ExecContext(ctx, updateAdminNPCMenuEntryQuery, entityID, entryID, input.EntityID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -435,7 +439,7 @@ func scanAdminNPCMenuEntrySummary(rows *sql.Rows) (npc.AdminMenuEntrySummary, er
 		sortOrder int64
 		status    int64
 	)
-	if err := rows.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.BattleEncounterEntityID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return npc.AdminMenuEntrySummary{}, err
 	}
 	item.Priority = uint32(priority)
@@ -452,7 +456,7 @@ func scanAdminNPCMenuEntryDetail(row *sql.Row) (*npc.AdminMenuEntryDetail, error
 		sortOrder int64
 		status    int64
 	)
-	if err := row.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.ActionNotice, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.ActionNotice, &item.BattleEncounterEntityID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Priority = uint32(priority)

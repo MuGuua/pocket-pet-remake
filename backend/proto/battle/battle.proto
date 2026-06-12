@@ -13,6 +13,7 @@ enum BattleActionType {
   BATTLE_ACTION_TYPE_USE_ITEM = 2;
   BATTLE_ACTION_TYPE_SWITCH_PET = 3;
   BATTLE_ACTION_TYPE_ESCAPE = 4;
+  BATTLE_ACTION_TYPE_SET_AUTO = 5;
 }
 
 enum BattleEventType {
@@ -21,33 +22,61 @@ enum BattleEventType {
   BATTLE_EVENT_TYPE_DAMAGE = 2;
   BATTLE_EVENT_TYPE_HEAL = 3;
   BATTLE_EVENT_TYPE_ADD_STATE = 4;
-  BATTLE_EVENT_TYPE_REMOVE_STATE = 5;
-  BATTLE_EVENT_TYPE_DEAD = 6;
-  BATTLE_EVENT_TYPE_CAPTURE = 7;
+  BATTLE_EVENT_TYPE_STATUS_TICK = 5;
+  BATTLE_EVENT_TYPE_SKIP_TURN = 6;
+  BATTLE_EVENT_TYPE_DEFEAT = 7;
+  BATTLE_EVENT_TYPE_DODGE = 8;
+  BATTLE_EVENT_TYPE_COUNTER = 9;
+  BATTLE_EVENT_TYPE_REVIVE = 10;
+  BATTLE_EVENT_TYPE_COMBO = 11;
 }
 
 message BattleStartPush {
   uint64 battle_id = 1;
   uint32 battle_type = 2;
   uint32 battle_version = 3;
-  repeated BattleActorSnapshot allies = 4;
-  repeated BattleActorSnapshot enemies = 5;
-  uint32 round = 6;
-  uint64 active_actor_id = 7;
-  uint64 active_pet_uid = 8;
+  uint32 frame = 4;
+  repeated uint64 participant_player_ids = 5;
+  repeated BattleActorSnapshot allies = 6;
+  repeated BattleActorSnapshot enemies = 7;
+  uint32 round = 8;
+  string phase = 9;
+  uint64 active_actor_id = 10;
+  uint64 active_pet_uid = 11;
+  int64 command_deadline_ms = 12;
+  bool auto_battle_enabled = 13;
+  repeated uint64 pending_actor_ids = 14;
+  repeated uint64 controllable_actor_ids = 15;
 }
 
 message BattleActorSnapshot {
   uint64 actor_id = 1;
   uint32 actor_type = 2;
   uint32 unit_class = 3;
-  uint64 pet_uid = 4;
-  uint32 pet_id = 5;
-  string name = 6;
-  uint32 hp = 7;
-  uint32 hp_max = 8;
-  repeated uint32 skill_ids = 9;
-  uint32 lineup_index = 10;
+  uint64 owner_player_id = 4;
+  uint64 pet_uid = 5;
+  uint32 pet_id = 6;
+  string name = 7;
+  uint32 hp = 8;
+  uint32 hp_max = 9;
+  uint32 atk = 10;
+  uint32 def = 11;
+  uint32 spd = 12;
+  repeated BattleSkillSnapshot skills = 13;
+  repeated uint32 skill_ids = 14;
+  repeated uint32 status_ids = 15;
+  uint32 lineup_index = 16;
+}
+
+message BattleSkillSnapshot {
+  uint32 skill_id = 1;
+  string name = 2;
+  string target_type = 3;
+  uint32 target_count = 4;
+  string animation_key = 5;
+  string cast_color = 6;
+  string impact_color = 7;
+  bool projectile = 8;
 }
 
 message BattleActionReq {
@@ -60,6 +89,7 @@ message BattleActionReq {
   uint64 target_id = 7;
   uint64 item_uid = 8;
   uint64 switch_pet_uid = 9;
+  bool auto_battle_enabled = 10;
 }
 
 message BattleActionResp {
@@ -70,11 +100,18 @@ message BattleActionResp {
 message BattleStatePush {
   uint64 battle_id = 1;
   uint32 battle_version = 2;
-  uint32 round = 3;
-  repeated BattleEvent events = 4;
-  repeated BattleActorState actors = 5;
-  uint64 active_actor_id = 6;
-  uint64 active_pet_uid = 7;
+  uint32 frame = 3;
+  repeated uint64 participant_player_ids = 4;
+  uint32 round = 5;
+  string phase = 6;
+  repeated BattleEvent events = 7;
+  repeated BattleActorState actors = 8;
+  uint64 active_actor_id = 9;
+  uint64 active_pet_uid = 10;
+  int64 command_deadline_ms = 11;
+  bool auto_battle_enabled = 12;
+  repeated uint64 pending_actor_ids = 13;
+  repeated uint64 controllable_actor_ids = 14;
 }
 
 message BattleEvent {
@@ -84,6 +121,7 @@ message BattleEvent {
   uint32 skill_id = 4;
   int32 value = 5;
   uint32 state_id = 6;
+  string label = 7;
 }
 
 message BattleActorState {
@@ -91,15 +129,25 @@ message BattleActorState {
   uint32 hp = 2;
   uint32 hp_max = 3;
   bool dead = 4;
+  bool can_act = 5;
+  repeated uint32 status_ids = 6;
+  bool charge_done = 7;
 }
 
 message BattleResultPush {
   uint64 battle_id = 1;
-  bool win = 2;
-  pocketpet.common.Reward reward = 3;
-  pocketpet.pet.PetDetail captured_pet = 4;
-  uint32 return_scene_id = 5;
-  pocketpet.common.Vec2i return_pos = 6;
+  uint32 battle_type = 2;
+  repeated uint64 participant_player_ids = 3;
+  repeated BattlePetReward pet_rewards = 4;
+  bool win = 5;
+  uint32 return_scene_id = 6;
+  pocketpet.common.Vec2i return_pos = 7;
+  string reason = 8;
+  uint32 reward_gold = 9;
+  uint64 reward_player_exp = 10;
+  repeated string drop_texts = 11;
+  uint32 player_gold = 12;
+  uint64 player_exp = 13;
 }
 
 message BattleExitReq {
@@ -109,4 +157,10 @@ message BattleExitReq {
 
 message BattleExitResp {
   bool accepted = 1;
+}
+
+message BattlePetReward {
+  uint64 pet_uid = 1;
+  uint32 hp = 2;
+  uint64 exp = 3;
 }

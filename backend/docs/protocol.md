@@ -69,7 +69,9 @@
 - `2022 MOVE_INTENT_RESP`（已实现）
 - `2031 INTERACT_REQ`
 - `2032 INTERACT_RESP`
-- `2041 ENCOUNTER_PUSH`
+- `2035 WILD_ENCOUNTER_REQ`（已实现）
+- `2036 WILD_ENCOUNTER_RESP`（已实现）
+- `2041 ENCOUNTER_PUSH`（预留，暗雷改由客户端上报 + `4011 BATTLE_START_PUSH`）
 
 ### 3000-3099 宠物 / 编队
 - `3001 PET_LIST_REQ`
@@ -312,7 +314,7 @@
     "reason": "enemy defeated",
     "reward_gold": 18,
     "reward_player_exp": 28,
-    "player_gold": 118,
+    "player_gold": 20,
     "player_exp": 28,
     "pet_rewards": [],
     "drop_texts": [
@@ -375,9 +377,22 @@
     }
   ],
   "lineup": [],
-  "gold": 100
+  "gold": 100,
+  "wild_encounter": {
+    "enabled": false,
+    "scene_id": 1,
+    "encounter_rate": 0,
+    "spawn_monster_ids": []
+  }
 }
 ```
+
+`wild_encounter` 字段说明：
+
+- 服务端在 `ENTER_WORLD_RESP` 与 `WORLD_RESYNC_PUSH` 中下发当前地图暗雷配置
+- 地图内移动由客户端本地处理；客户端按 `encounter_rate`（万分比，800=8%）逐步判定是否触发
+- 触发后客户端发送 `2035 WILD_ENCOUNTER_REQ`，服务端校验通过后推送 `4011 BATTLE_START_PUSH`
+- 无暗雷配置的地图返回 `enabled=false`
 
 ### 2021 MOVE_INTENT_REQ
 
@@ -442,9 +457,37 @@
       "speed": 0,
       "name": "StationKeeper"
     }
-  ]
+  ],
+  "wild_encounter": {
+    "enabled": false,
+    "scene_id": 2,
+    "encounter_rate": 0,
+    "spawn_monster_ids": []
+  }
 }
 ```
+
+### 2035 WILD_ENCOUNTER_REQ
+
+客户端在本地判定暗雷触发后上报，服务端校验 scene 与冷却后权威开战：
+
+```json
+{
+  "scene_id": 4,
+  "move_seq": 128
+}
+```
+
+### 2036 WILD_ENCOUNTER_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "battle started"
+}
+```
+
+成功后服务端还会推送 `4011 BATTLE_START_PUSH`，后续战斗交互与 NPC 固定战一致。
 
 ### 2031 INTERACT_REQ
 
@@ -656,10 +699,16 @@
 
 ```json
 {
+  "entity_id": 91001,
   "from_slot_index": 4,
   "quantity": 10
 }
 ```
+
+说明：
+
+- 当前落地实现会校验玩家当前场景附近是否存在可交互的仓库 NPC
+- `entity_id` 建议传入本次操作对应的仓库 NPC，便于服务端做更严格的交互校验
 
 ### 5042 BAG_TO_WAREHOUSE_RESP（规划）
 
@@ -677,6 +726,7 @@
 
 ```json
 {
+  "entity_id": 91001,
   "from_slot_index": 2,
   "quantity": 1
 }
@@ -733,13 +783,13 @@
 }
 ```
 
-### 5081 WALLET_QUERY_REQ（规划）
+### 5081 WALLET_QUERY_REQ
 
 ```json
 {}
 ```
 
-### 5082 WALLET_QUERY_RESP（规划）
+### 5082 WALLET_QUERY_RESP
 
 ```json
 {
@@ -752,7 +802,7 @@
 }
 ```
 
-### 5091 WALLET_UPDATE_PUSH（规划）
+### 5091 WALLET_UPDATE_PUSH
 
 ```json
 {
@@ -762,12 +812,12 @@
     "silver": 350,
     "copper": 678
   },
-  "reason_type": "quest_reward",
-  "reason_ref_id": 10001
+  "reason_type": "battle_reward",
+  "reason_ref_id": 9000001
 }
 ```
 
-### 5101 BUY_ITEM_REQ（规划）
+### 5101 BUY_ITEM_REQ（最小已实现）
 
 ```json
 {
@@ -778,7 +828,11 @@
 }
 ```
 
-### 5102 BUY_ITEM_RESP（规划）
+- 当前最小实现里，`shop_id` 直接表示附近商店 NPC 的 `entity_id`
+- 服务端会校验玩家当前场景附近是否存在该 NPC，且 NPC 菜单中至少有一个 `entry_type=shop`
+- 当前正式购买仅支持 `price_type=base_coin` 的启用物品模板，`goods_id` 先与 `item_id` 等价消费；若传 `0`，服务端会按 `item_id` 回填响应
+
+### 5102 BUY_ITEM_RESP（最小已实现）
 
 ```json
 {
@@ -801,6 +855,12 @@
   }
 }
 ```
+
+- 成功后当前连接还会继续收到：
+  - `5011 BAG_UPDATE_PUSH`：刷新背包最新格子状态
+  - `5091 WALLET_UPDATE_PUSH`：刷新钱包余额
+- 当前最小实现暂未补入独立商店货架表，因此购买价格直接来自 `item_definition.buy_price_copper`
+- 若背包加物成功但钱包扣减失败，服务端会回滚本次加到背包里的购买道具，避免出现“白拿道具”
 
 ### 5111 SELL_ITEM_REQ（规划）
 
@@ -857,7 +917,33 @@
 - `action_type=1`：提交技能/普通攻击动作，需携带 `actor_id`、`skill_id` 与 `target_id`
 - `action_type=4`：提交逃跑请求，当前最小 PVE 版本由服务端直接处理逃跑结果
 - `action_type=5`：切换服务端自动战斗开关，此时 `actor_id`、`skill_id`、`target_id` 可为 `0`
+- `action_type=6`：PVE 战斗捕捉，需携带 `actor_id`（玩家侧单位）、`target_id`（敌方 actor_id）、`item_id`（捕捉球道具 ID）、`bag_slot_index`（背包格子）
 - `auto_battle_enabled`：仅在 `action_type=5` 时使用，表示当前请求希望服务端开启还是关闭托管
+
+捕捉请求示例：
+
+```json
+{
+  "op_id": 3,
+  "battle_id": 70001,
+  "round": 1,
+  "action_type": 6,
+  "actor_id": 10001,
+  "target_id": 900011,
+  "item_id": 2001,
+  "bag_slot_index": 2
+}
+```
+
+捕捉规则（服务端权威）：
+
+- 仅 PVE 战斗可用；PVP 返回 `accepted=false`
+- 目标怪物必须在 `monster_definition.is_capturable=1` 且配置了 `capture_pet_id`
+- 目标当前生命百分比需 `<= capture_min_hp_pct`
+- `item_id` 必须出现在怪物模板的 `capture_item_ids` 中
+- 捕捉成功：结束战斗，不发放常规击败金币/经验/掉落；按 `capture_pet_id` 发放系统宠物并 roll 野外资质
+- 捕捉失败：扣除 1 个捕捉道具，战斗继续，推送 `4012 BATTLE_STATE_PUSH` 内含 `event_type=12` 捕捉事件
+- 捕捉成功响应：`4002` 的 `capture_success=true`；随后 `4013 BATTLE_RESULT_PUSH` 携带 `capture_success`、`capture_monster_id`、`captured_pet_id`、`captured_pet_uid`；并推送 `3011 PET_UPDATE_PUSH`
 
 自动战斗开关示例：
 
@@ -879,7 +965,8 @@
 ```json
 {
   "accepted": true,
-  "reason": "action accepted"
+  "reason": "capture success",
+  "capture_success": true
 }
 ```
 
@@ -904,8 +991,8 @@
       "def": 12,
       "spd": 18,
       "skills": [
-        {"skill_id": 1101, "name": "裂空斩", "target_type": "enemy_single"},
-        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"}
+        {"skill_id": 1101, "name": "裂空斩", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#8FD6FF", "impact_color": "#BDE9FF", "projectile": true},
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false}
       ],
       "skill_ids": [1101, 1001],
       "status_ids": [],
@@ -924,8 +1011,8 @@
       "def": 10,
       "spd": 12,
       "skills": [
-        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single"},
-        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_all"}
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false},
+        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_all", "target_count": 0, "animation_key": "burst", "cast_color": "#FFAA5C", "impact_color": "#FFD46B", "projectile": true}
       ],
       "skill_ids": [1001, 1002],
       "status_ids": [],
@@ -945,8 +1032,8 @@
       "def": 9,
       "spd": 8,
       "skills": [
-        {"skill_id": 90001, "name": "野性撞击", "target_type": "enemy_single"},
-        {"skill_id": 90002, "name": "利爪突袭", "target_type": "enemy_single"}
+        {"skill_id": 90001, "name": "野性撞击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#FFB88F", "impact_color": "#FFDDD1", "projectile": false},
+        {"skill_id": 90002, "name": "利爪突袭", "target_type": "enemy_single", "target_count": 1, "animation_key": "volley", "cast_color": "#FF9E85", "impact_color": "#FFC7BA", "projectile": true}
       ],
       "skill_ids": [90001, 90002],
       "status_ids": [],
@@ -967,10 +1054,11 @@
 说明：
 
 - `skill_ids` 仅表示当前角色可提交的技能意图列表
-- `skills` 为 `skill_ids` 的增强版快照，额外携带技能展示名和目标类型，客户端应优先使用它来决定按钮文案和友/敌方目标选择
+- `skills` 为 `skill_ids` 的增强版快照，额外携带技能展示名、目标规则与表现参数，客户端应优先使用它来决定按钮文案、友/敌方目标选择和技能动画播放
 - `unit_class` 用来区分当前战斗单位是真人角色、宠物还是怪物；当前约定 `1=人物`、`2=宠物`、`4=怪物`
 - 当前已使用的 `target_type` 包括：`enemy_single`、`ally_single`、`enemy_all`、`enemy_multi`
 - `target_count` 表示技能配置的目标数量；当前单体技能通常为 `1`，`enemy_all` 可忽略该字段，`enemy_multi` 表示客户端先指定一个主目标，剩余目标数量由服务端按 `target_count` 自动补足
+- `animation_key` / `cast_color` / `impact_color` / `projectile` 为技能表现字段；当前仅用于客户端战斗表现层，真实命中、伤害、治疗与目标选择仍完全以服务端结算结果为准
 - `phase=command` 表示当前轮到客户端继续为己方单位收集动作
 - `command_deadline_ms` 表示当前命令阶段由服务端给出的权威截止时间；超时补行动由服务端负责
 - `auto_battle_enabled` 表示当前战斗是否已经进入服务端自动托管模式
@@ -1059,7 +1147,7 @@
   "reason": "enemy defeated",
   "reward_gold": 18,
   "reward_player_exp": 28,
-  "player_gold": 118,
+  "player_gold": 20,
   "player_exp": 28,
   "drop_texts": [
     "掉落: 野性毛皮 x1"
@@ -1080,7 +1168,9 @@
 说明：
 
 - `reward_gold` / `reward_player_exp` 表示本场战斗实际发放的金币与角色经验；失败或逃跑时通常为 `0`
-- `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要
+- `reward_gold` 当前会按 `1 金币 = 1,000,000 铜币` 写入 `player_wallet.currency_copper_total`
+- `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要；其中 `player_gold` 是从钱包快照映射出的兼容字段
+- 成功发放货币后，当前连接还会额外收到 `5091 WALLET_UPDATE_PUSH`，用于刷新 HUD / 背包面板里的钱包展示
 - `drop_texts` 表示本场战斗的文本掉落提示，当前只用于展示，不会写入背包
 - `pet_rewards` 表示本场战斗中各参战宠物获得的经验摘要；宠物最终 HP / EXP 明细仍以随后逐条推送的 `3011 PET_UPDATE_PUSH` 为准
 - 当前最小 PVE 奖励闭环已覆盖金币、角色经验、宠物经验、文本掉落展示和 `battle_record` 防重记录；真实物品掉落与背包落库仍待后续扩展

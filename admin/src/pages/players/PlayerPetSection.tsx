@@ -1,0 +1,401 @@
+import {
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Drawer,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Row,
+  Space,
+  Spin,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { useEffect, useMemo, useState } from 'react';
+import { SkillReferenceText } from '../../components/SkillReferenceText';
+import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
+import {
+  createAdminPet,
+  deleteAdminPet,
+  fetchAdminPetDetail,
+  fetchAdminPets,
+  updateAdminPet,
+} from '../../services/pet';
+import type {
+  AdminCreatePetPayload,
+  AdminPetDetail,
+  AdminPetSummary,
+  AdminUpdatePetPayload,
+} from '../../types/pet';
+import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
+
+interface PetFormValues {
+  player_id?: number;
+  pet_id: number;
+  level: number;
+  exp: number;
+  quality: number;
+  hp: number;
+  hp_max: number;
+  atk: number;
+  def: number;
+  spd: number;
+  mana: number;
+  skill_names_text: string;
+}
+
+interface PlayerPetSectionProps {
+  playerId: number;
+  playerName: string;
+}
+
+// 玩家详情/编辑页内的宠物区块：按 player_id 拉取列表，并支持查看、编辑、新增与删除。
+export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps) {
+  const { map: skillReferenceMap } = useSkillReferenceMap();
+  const [editorForm] = Form.useForm<PetFormValues>();
+  const [rows, setRows] = useState<AdminPetSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [petDetailOpen, setPetDetailOpen] = useState(false);
+  const [petDetailLoading, setPetDetailLoading] = useState(false);
+  const [petDetail, setPetDetail] = useState<AdminPetDetail | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<AdminPetDetail | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingID, setDeletingID] = useState<number | null>(null);
+
+  useEffect(() => {
+    void loadPets();
+  }, [playerId]);
+
+  async function loadPets() {
+    setLoading(true);
+    try {
+      const result = await fetchAdminPets({
+        filters: { player_id: String(playerId) },
+        page: 1,
+        pageSize: 100,
+      });
+      setRows(result.items);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载玩家宠物失败');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleViewDetail(petUID: number) {
+    setPetDetailOpen(true);
+    setPetDetailLoading(true);
+    setPetDetail(null);
+    try {
+      setPetDetail(await fetchAdminPetDetail(petUID));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载宠物详情失败');
+      setPetDetailOpen(false);
+    } finally {
+      setPetDetailLoading(false);
+    }
+  }
+
+  async function handleOpenEditor(mode: 'create' | 'edit', petUID?: number) {
+    setEditorOpen(true);
+    if (mode === 'create') {
+      setEditingRecord(null);
+      editorForm.resetFields();
+      editorForm.setFieldsValue(defaultCreateValues(playerId));
+      return;
+    }
+    if (!petUID) {
+      return;
+    }
+    setPetDetailLoading(true);
+    try {
+      const result = await fetchAdminPetDetail(petUID);
+      setEditingRecord(result);
+      editorForm.setFieldsValue(mapDetailToForm(result, skillReferenceMap));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载宠物编辑数据失败');
+      setEditorOpen(false);
+    } finally {
+      setPetDetailLoading(false);
+    }
+  }
+
+  async function handleSubmitEditor(values: PetFormValues) {
+    setSaving(true);
+    try {
+      if (editingRecord) {
+        await updateAdminPet(editingRecord.pet_uid, mapFormToUpdatePayload(values, skillReferenceMap));
+        message.success('宠物更新成功');
+      } else {
+        await createAdminPet(mapFormToCreatePayload(values, skillReferenceMap));
+        message.success('宠物创建成功');
+      }
+      setEditorOpen(false);
+      setEditingRecord(null);
+      editorForm.resetFields();
+      await loadPets();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '保存宠物失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(petUID: number) {
+    setDeletingID(petUID);
+    try {
+      await deleteAdminPet(petUID);
+      message.success('宠物已删除');
+      if (petDetail?.pet_uid === petUID) {
+        setPetDetailOpen(false);
+        setPetDetail(null);
+      }
+      await loadPets();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '删除宠物失败');
+    } finally {
+      setDeletingID(null);
+    }
+  }
+
+  const columns = useMemo<ColumnsType<AdminPetSummary>>(
+    () => [
+      { title: '宠物UID', dataIndex: 'pet_uid', key: 'pet_uid', width: 100 },
+      { title: '宠物ID', dataIndex: 'pet_id', key: 'pet_id', width: 90 },
+      { title: '等级', dataIndex: 'level', key: 'level', width: 70 },
+      { title: '品质', dataIndex: 'quality', key: 'quality', width: 70 },
+      { title: '生命', key: 'hp', width: 100, render: (_value, record) => `${record.hp}/${record.hp_max}` },
+      { title: '攻/防/速', key: 'stats', width: 110, render: (_value, record) => `${record.atk}/${record.def}/${record.spd}` },
+      {
+        title: '出战',
+        dataIndex: 'in_lineup',
+        key: 'in_lineup',
+        width: 70,
+        render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '是' : '否'}</Tag>,
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 160,
+        render: (_value, record) => (
+          <Space size="small" onClick={(event) => event.stopPropagation()}>
+            <Button type="link" onClick={() => void handleViewDetail(record.pet_uid)}>查看</Button>
+            <Button type="link" onClick={() => void handleOpenEditor('edit', record.pet_uid)}>编辑</Button>
+            <Popconfirm title="确认删除这个宠物吗？" onConfirm={() => void handleDelete(record.pet_uid)}>
+              <Button type="link" danger loading={deletingID === record.pet_uid}>删除</Button>
+            </Popconfirm>
+          </Space>
+        ),
+      },
+    ],
+    [deletingID],
+  );
+
+  return (
+    <>
+      <Card
+        size="small"
+        title="宠物信息"
+        extra={(
+          <Button type="primary" size="small" onClick={() => void handleOpenEditor('create')}>
+            新增宠物
+          </Button>
+        )}
+      >
+        <Table
+          columns={columns}
+          dataSource={rows}
+          rowKey="pet_uid"
+          loading={loading}
+          size="small"
+          locale={{ emptyText: <Empty description={`${playerName} 还没有宠物`} /> }}
+          scroll={{ x: 900 }}
+          pagination={false}
+          onRow={(record) => ({
+            onClick: () => void handleViewDetail(record.pet_uid),
+            style: { cursor: 'pointer' },
+          })}
+        />
+        <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+          点击表格行可快速查看宠物详情。
+        </Typography.Text>
+      </Card>
+
+      <Drawer
+        title={petDetail ? `宠物详情 · ${petDetail.pet_uid}` : '宠物详情'}
+        width={560}
+        open={petDetailOpen}
+        onClose={() => setPetDetailOpen(false)}
+        destroyOnClose
+        extra={petDetail ? (
+          <Space>
+            <Button onClick={() => void handleOpenEditor('edit', petDetail.pet_uid)}>编辑</Button>
+            <Popconfirm title="确认删除这个宠物吗？" onConfirm={() => void handleDelete(petDetail.pet_uid)}>
+              <Button danger loading={deletingID === petDetail.pet_uid}>删除</Button>
+            </Popconfirm>
+          </Space>
+        ) : null}
+      >
+        {petDetailLoading ? (
+          <div style={{ minHeight: 240, display: 'grid', placeItems: 'center' }}>
+            <Spin tip="正在加载宠物详情..." />
+          </div>
+        ) : petDetail ? (
+          <Descriptions bordered column={2} size="small">
+            <Descriptions.Item label="宠物UID">{petDetail.pet_uid}</Descriptions.Item>
+            <Descriptions.Item label="玩家ID">{petDetail.player_id}</Descriptions.Item>
+            <Descriptions.Item label="玩家名">{petDetail.player_name}</Descriptions.Item>
+            <Descriptions.Item label="宠物ID">{petDetail.pet_id}</Descriptions.Item>
+            <Descriptions.Item label="等级">{petDetail.level}</Descriptions.Item>
+            <Descriptions.Item label="经验">{petDetail.exp}</Descriptions.Item>
+            <Descriptions.Item label="品质">{petDetail.quality}</Descriptions.Item>
+            <Descriptions.Item label="出战"><Switch checked={petDetail.in_lineup} disabled /></Descriptions.Item>
+            <Descriptions.Item label="生命">{`${petDetail.hp}/${petDetail.hp_max}`}</Descriptions.Item>
+            <Descriptions.Item label="攻/防/速">{`${petDetail.atk}/${petDetail.def}/${petDetail.spd}`}</Descriptions.Item>
+            <Descriptions.Item label="法力">{petDetail.mana}</Descriptions.Item>
+            <Descriptions.Item label="技能" span={2}>
+              <SkillReferenceText skillIds={petDetail.skill_ids} map={skillReferenceMap} emptyText="无" />
+            </Descriptions.Item>
+            <Descriptions.Item label="创建时间">{formatDateTime(petDetail.created_at)}</Descriptions.Item>
+            <Descriptions.Item label="更新时间">{formatDateTime(petDetail.updated_at)}</Descriptions.Item>
+          </Descriptions>
+        ) : null}
+      </Drawer>
+
+      <Modal
+        title={editingRecord ? `编辑宠物 · ${editingRecord.pet_uid}` : `新增宠物 · ${playerName}`}
+        open={editorOpen}
+        onCancel={() => {
+          setEditorOpen(false);
+          setEditingRecord(null);
+          editorForm.resetFields();
+        }}
+        onOk={() => editorForm.submit()}
+        confirmLoading={saving}
+        destroyOnClose
+        width={700}
+        okText={editingRecord ? '保存修改' : '创建宠物'}
+        cancelText="取消"
+      >
+        <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+          <Row gutter={16}>
+            {!editingRecord ? (
+              <Col xs={24} md={12}>
+                <Form.Item label="所属玩家ID" name="player_id">
+                  <InputNumber min={1} style={{ width: '100%' }} disabled />
+                </Form.Item>
+              </Col>
+            ) : null}
+            <Col xs={24} md={12}>
+              <Form.Item label="宠物ID" name="pet_id" rules={[{ required: true, message: '请输入宠物ID' }]}>
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={12} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="经验" name="exp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="生命" name="hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="生命上限" name="hp_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="攻击" name="atk"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 普通攻击,火花冲击">
+                <Input placeholder="普通攻击,火花冲击" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+    </>
+  );
+}
+
+function defaultCreateValues(playerId: number): PetFormValues {
+  return {
+    player_id: playerId,
+    pet_id: 101,
+    level: 1,
+    exp: 0,
+    quality: 1,
+    hp: 10,
+    hp_max: 10,
+    atk: 5,
+    def: 5,
+    spd: 5,
+    mana: 0,
+    skill_names_text: '普通攻击',
+  };
+}
+
+function mapDetailToForm(detail: AdminPetDetail, skillReferenceMap: SkillReferenceMap): PetFormValues {
+  return {
+    pet_id: detail.pet_id,
+    level: detail.level,
+    exp: detail.exp,
+    quality: detail.quality,
+    hp: detail.hp,
+    hp_max: detail.hp_max,
+    atk: detail.atk,
+    def: detail.def,
+    spd: detail.spd,
+    mana: detail.mana,
+    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+  };
+}
+
+function mapFormToCreatePayload(values: PetFormValues, skillReferenceMap: SkillReferenceMap): AdminCreatePetPayload {
+  return {
+    player_id: values.player_id ?? 0,
+    pet_id: values.pet_id,
+    level: values.level,
+    exp: values.exp,
+    quality: values.quality,
+    hp: values.hp,
+    hp_max: values.hp_max,
+    atk: values.atk,
+    def: values.def,
+    spd: values.spd,
+    mana: values.mana,
+    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+  };
+}
+
+function mapFormToUpdatePayload(values: PetFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePetPayload {
+  return {
+    pet_id: values.pet_id,
+    level: values.level,
+    exp: values.exp,
+    quality: values.quality,
+    hp: values.hp,
+    hp_max: values.hp_max,
+    atk: values.atk,
+    def: values.def,
+    spd: values.spd,
+    mana: values.mana,
+    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+  };
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('zh-CN', { hour12: false });
+}

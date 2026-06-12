@@ -1,4 +1,4 @@
-import { Alert, Card, Col, List, Progress, Row, Space, Tag, Typography } from 'antd';
+import { Card, Col, List, Progress, Row, Space, Tag, Typography } from 'antd';
 
 const statCards = [
   { title: '后台鉴权', value: '已接通', tag: 'DONE', percent: 100 },
@@ -17,7 +17,6 @@ const todoItems = [
 export function DashboardPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Alert type="success" showIcon message="后台已切到 Ant Design 管理台形态，玩家模块已按 CRUD 闭环接通真实服务端接口。" />
       <Row gutter={[16, 16]}>
         {statCards.map((item) => (
           <Col xs={24} sm={12} xl={6} key={item.title}>

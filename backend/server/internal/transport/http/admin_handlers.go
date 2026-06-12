@@ -10,23 +10,37 @@ import (
 
 	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/item"
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/reward"
+	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/unlock"
+	"pocket-pet-remake/server/internal/module/wallet"
 )
 
 // AdminHandlers 聚合后台管理入口使用的基础 handler。
 // 当前已经落地健康检查、管理员登录、当前用户信息，以及玩家/宠物管理 CRUD 一期闭环。
 type AdminHandlers struct {
-	Login   http.Handler
-	Me      http.Handler
-	Health  http.Handler
-	Players http.Handler
-	Pets    http.Handler
-	Bags    http.Handler
-	Quests  http.Handler
-	NPCs    http.Handler
+	Login              http.Handler
+	Me                 http.Handler
+	Health             http.Handler
+	Players            http.Handler
+	Pets               http.Handler
+	Bags               http.Handler
+	Items              http.Handler
+	Quests             http.Handler
+	NPCs               http.Handler
+	Wallets            http.Handler
+	Rewards            http.Handler
+	PetDefinitions     http.Handler
+	SkillDefinitions   http.Handler
+	MonsterDefinitions     http.Handler
+	MonsterEncounters      http.Handler
+	SceneWildEncounters    http.Handler
 }
 
 type AdminLoginHandler struct {
@@ -63,16 +77,25 @@ type adminLoginRequest struct {
 	Password string `json:"password"`
 }
 
-func NewAdminHandlers(adminService *admin.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, questService *quest.Service, npcService *npc.Service) AdminHandlers {
+func NewAdminHandlers(adminService *admin.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service) AdminHandlers {
+	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
-		Login:   &AdminLoginHandler{service: adminService},
-		Me:      http.HandlerFunc(handleAdminMe(adminService)),
-		Health:  http.HandlerFunc(handleAdminHealth),
-		Players: &AdminPlayerHandler{adminService: adminService, playerService: playerService},
-		Pets:    &AdminPetHandler{adminService: adminService, petService: petService},
-		Bags:    &AdminBagHandler{adminService: adminService, bagService: bagService},
-		Quests:  &AdminQuestHandler{adminService: adminService, questService: questService},
-		NPCs:    &AdminNPCHandler{adminService: adminService, npcService: npcService},
+		Login:              &AdminLoginHandler{service: adminService},
+		Me:                 http.HandlerFunc(handleAdminMe(adminService)),
+		Health:             http.HandlerFunc(handleAdminHealth),
+		Players:            &AdminPlayerHandler{adminService: adminService, playerService: playerService},
+		Pets:               &AdminPetHandler{adminService: adminService, petService: petService},
+		Bags:               &AdminBagHandler{adminService: adminService, bagService: bagService},
+		Items:              &AdminItemHandler{adminService: adminService, itemService: itemService},
+		Quests:             &AdminQuestHandler{adminService: adminService, questService: questService},
+		NPCs:               &AdminNPCHandler{adminService: adminService, npcService: npcService},
+		Wallets:            &AdminWalletHandler{adminService: adminService, walletService: walletService},
+		Rewards:            &AdminRewardHandler{adminService: adminService, rewardService: rewardService, bagService: bagService},
+		PetDefinitions:     &AdminPetDefinitionHandler{adminService: adminService, petService: petService},
+		SkillDefinitions:   &AdminSkillDefinitionHandler{adminService: adminService, skillService: skillService},
+		MonsterDefinitions:  &AdminMonsterDefinitionHandler{adminService: adminService, monsterService: monsterService},
+		MonsterEncounters:   &AdminMonsterEncounterHandler{adminService: adminService, monsterService: monsterService},
+		SceneWildEncounters: &AdminSceneWildEncounterHandler{adminService: adminService, monsterService: monsterService},
 	}
 }
 
@@ -439,6 +462,8 @@ func (h *AdminPlayerHandler) handleUpdate(w http.ResponseWriter, r *http.Request
 			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "player not found", nil)
 		case errors.Is(err, player.ErrPlayerNameDuplicated):
 			writeJSON(w, http.StatusConflict, http.StatusConflict, "player name already exists", nil)
+		case errors.Is(err, skill.ErrInvalidSkillReference):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid skill reference", nil)
 		default:
 			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "update admin player failed", nil)
 		}
@@ -500,6 +525,10 @@ func (h *AdminPetHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid pet payload", nil)
 		case errors.Is(err, pet.ErrPetNotFound):
 			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "player or pet not found", nil)
+		case errors.Is(err, pet.ErrPetUnusable):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "pet definition unavailable", nil)
+		case errors.Is(err, skill.ErrInvalidSkillReference):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid skill reference", nil)
 		default:
 			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "create admin pet failed", nil)
 		}
@@ -522,6 +551,8 @@ func (h *AdminPetHandler) handleUpdate(w http.ResponseWriter, r *http.Request, p
 			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid pet payload", nil)
 		case errors.Is(err, pet.ErrPetNotFound):
 			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "pet not found", nil)
+		case errors.Is(err, skill.ErrInvalidSkillReference):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid skill reference", nil)
 		default:
 			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "update admin pet failed", nil)
 		}
@@ -1130,26 +1161,20 @@ func parseAdminBagListQuery(r *http.Request) (bag.AdminListQuery, error) {
 		query.PlayerID = parsed
 	}
 	if raw := strings.TrimSpace(values.Get("item_id")); raw != "" {
-		parsed, err := strconv.ParseUint(raw, 10, 32)
+		parsed, err := strconv.ParseUint(raw, 10, 64)
 		if err != nil {
 			return bag.AdminListQuery{}, fmt.Errorf("invalid item_id")
 		}
-		query.ItemID = uint32(parsed)
+		query.ItemID = parsed
 	}
-	if raw := strings.TrimSpace(values.Get("page")); raw != "" {
-		parsed, err := strconv.ParseUint(raw, 10, 32)
-		if err != nil {
-			return bag.AdminListQuery{}, fmt.Errorf("invalid page")
-		}
-		query.Page = uint32(parsed)
+	query.ContainerType = strings.TrimSpace(values.Get("container_type"))
+	query.ItemUID = strings.TrimSpace(values.Get("item_uid"))
+	page, pageSize, err := parsePageParams(values.Get("page"), values.Get("page_size"))
+	if err != nil {
+		return bag.AdminListQuery{}, err
 	}
-	if raw := strings.TrimSpace(values.Get("page_size")); raw != "" {
-		parsed, err := strconv.ParseUint(raw, 10, 32)
-		if err != nil {
-			return bag.AdminListQuery{}, fmt.Errorf("invalid page_size")
-		}
-		query.PageSize = uint32(parsed)
-	}
+	query.Page = page
+	query.PageSize = pageSize
 	return query.Normalize(), nil
 }
 

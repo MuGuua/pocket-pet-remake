@@ -13,6 +13,7 @@ const (
 	ActionTypeSkill   uint32 = 1
 	ActionTypeEscape  uint32 = 4
 	ActionTypeSetAuto uint32 = 5
+	ActionTypeCapture uint32 = 6
 
 	EventTypeUseSkill    uint32 = 1
 	EventTypeDamage      uint32 = 2
@@ -25,6 +26,7 @@ const (
 	EventTypeCounter     uint32 = 9
 	EventTypeRevive      uint32 = 10
 	EventTypeCombo       uint32 = 11
+	EventTypeCapture     uint32 = 12
 
 	PlayerActorType uint32 = 1
 	EnemyActorType  uint32 = 2
@@ -69,6 +71,7 @@ var (
 	ErrChallengeNotFound   = errors.New("pvp challenge not found")
 	ErrChallengeExpired    = errors.New("pvp challenge expired")
 	ErrChallengeInvalid    = errors.New("pvp challenge invalid")
+	ErrWildEncounterUnavailable = errors.New("wild encounter unavailable")
 )
 
 type ActorSnapshot struct {
@@ -111,10 +114,14 @@ type ActorSnapshot struct {
 }
 
 type SkillSnapshot struct {
-	SkillID     uint32
-	Name        string
-	TargetType  string
-	TargetCount uint32
+	SkillID      uint32
+	Name         string
+	TargetType   string
+	TargetCount  uint32
+	AnimationKey string
+	CastColor    string
+	ImpactColor  string
+	Projectile   bool
 }
 
 type StartSnapshot struct {
@@ -180,6 +187,13 @@ type PetResult struct {
 	ExpGained uint64
 }
 
+// DropReward 描述一条服务端权威掉落结果。
+// 当前先只保留 item_id 与数量，掉落名称统一以后续数据库模板或发奖结果为准。
+type DropReward struct {
+	ItemID   uint64
+	Quantity uint64
+}
+
 type ResultSnapshot struct {
 	BattleID             uint64
 	BattleType           uint32
@@ -191,7 +205,11 @@ type ResultSnapshot struct {
 	Reason               string
 	RewardGold           uint32
 	RewardPlayerExp      uint64
+	DropItems            []DropReward
 	DropTexts            []string
+	CaptureSuccess       bool
+	CaptureMonsterID     uint32
+	CapturedPetID        uint32
 }
 
 type ActionRequest struct {
@@ -201,6 +219,8 @@ type ActionRequest struct {
 	ActorID           uint64
 	SkillID           uint32
 	TargetID          uint64
+	ItemID            uint32
+	BagSlotIndex      uint32
 	AutoBattleEnabled bool
 }
 
@@ -211,6 +231,7 @@ type ActionOutcome struct {
 }
 
 type BattleActionResponse struct {
-	Accepted bool
-	Reason   string
+	Accepted       bool
+	Reason         string
+	CaptureSuccess bool
 }

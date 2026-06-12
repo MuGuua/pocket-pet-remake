@@ -13,6 +13,10 @@ type skillDef struct {
 	ID                     uint32
 	Name                   string
 	TargetRule             skillTargetRule
+	AnimationKey           string
+	CastColor              string
+	ImpactColor            string
+	Projectile             bool
 	IsSkillAttack          bool
 	EnergyCost             uint32
 	AttackPct              int32
@@ -58,6 +62,10 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                  DefaultCharacterSkillID,
 		Name:                "裂空斩",
 		TargetRule:          targetEnemySingle,
+		AnimationKey:        "slash",
+		CastColor:           "#8FD6FF",
+		ImpactColor:         "#BDE9FF",
+		Projectile:          true,
 		IsSkillAttack:       true,
 		EnergyCost:          16,
 		AttackPct:           135,
@@ -71,19 +79,27 @@ var skillCatalog = map[uint32]skillDef{
 		BleedDamage:         3,
 	},
 	DefaultAttackSkillID: {
-		ID:         DefaultAttackSkillID,
-		Name:       "普通攻击",
-		TargetRule: targetEnemySingle,
-		EnergyCost: 0,
-		AttackPct:  100,
-		ManaPct:    35,
-		SpeedPct:   35,
-		AllowCrit:  true,
+		ID:           DefaultAttackSkillID,
+		Name:         "普通攻击",
+		TargetRule:   targetEnemySingle,
+		AnimationKey: "slash",
+		CastColor:    "#EBEBF5",
+		ImpactColor:  "#FFF2F2",
+		Projectile:   false,
+		EnergyCost:   0,
+		AttackPct:    100,
+		ManaPct:      35,
+		SpeedPct:     35,
+		AllowCrit:    true,
 	},
 	1002: {
 		ID:                     1002,
 		Name:                   "火花冲击",
 		TargetRule:             targetEnemyAll,
+		AnimationKey:           "burst",
+		CastColor:              "#FFAA5C",
+		ImpactColor:            "#FFD46B",
+		Projectile:             true,
 		IsSkillAttack:          true,
 		EnergyCost:             18,
 		AttackPct:              120,
@@ -104,6 +120,10 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                1003,
 		Name:              "活力治愈",
 		TargetRule:        targetAllySingle,
+		AnimationKey:      "heal",
+		CastColor:         "#73F5A3",
+		ImpactColor:       "#B7FFD0",
+		Projectile:        false,
 		IsSkillAttack:     true,
 		EnergyCost:        14,
 		HealPct:           22,
@@ -115,6 +135,10 @@ var skillCatalog = map[uint32]skillDef{
 		ID:               1004,
 		Name:             "弧光连射",
 		TargetRule:       targetEnemyMulti,
+		AnimationKey:     "volley",
+		CastColor:        "#C6D1FF",
+		ImpactColor:      "#ECECFF",
+		Projectile:       true,
 		IsSkillAttack:    true,
 		EnergyCost:       16,
 		TargetCount:      2,
@@ -133,6 +157,10 @@ var skillCatalog = map[uint32]skillDef{
 		ID:             DefaultEnemySkillID,
 		Name:           "野性撞击",
 		TargetRule:     targetEnemySingle,
+		AnimationKey:   "slash",
+		CastColor:      "#FFB88F",
+		ImpactColor:    "#FFDDD1",
+		Projectile:     false,
 		EnergyCost:     0,
 		AttackPct:      95,
 		ManaPct:        20,
@@ -146,6 +174,10 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                90002,
 		Name:              "利爪突袭",
 		TargetRule:        targetEnemySingle,
+		AnimationKey:      "volley",
+		CastColor:         "#FF9E85",
+		ImpactColor:       "#FFC7BA",
+		Projectile:        true,
 		EnergyCost:        12,
 		AttackPct:         110,
 		ManaPct:           30,
@@ -165,16 +197,15 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                90003,
 		Name:              "野性回春",
 		TargetRule:        targetAllySingle,
+		AnimationKey:      "heal",
+		CastColor:         "#84F8B3",
+		ImpactColor:       "#C8FFE0",
+		Projectile:        false,
 		IsSkillAttack:     true,
 		EnergyCost:        10,
 		HealPct:           18,
 		PreferredTargetHP: "lowest",
 	},
-}
-
-func getSkillDef(skillID uint32) (skillDef, bool) {
-	def, ok := skillCatalog[skillID]
-	return def, ok
 }
 
 func (r skillTargetRule) protocolName() string {

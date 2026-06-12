@@ -25,8 +25,19 @@ type Pet struct {
 	DEF      uint32
 	SPD      uint32
 	MANA     uint32
-	SkillIDs []uint32
-	InLineup bool
+	SkillIDs         []uint32
+	GrowthAptitudes  GrowthAptitudes
+	GrantSource      string
+	CaptureMonsterID uint32
+	InLineup         bool
+	// IsUsable 表示该实例对应的 pet_id 是否存在于启用中的系统宠物模板列表。
+	IsUsable bool
+}
+
+// RuntimeGrantResult 描述一次系统侧发放宠物后的结果。
+// 当前供任务奖励、活动补偿等正式链路复用，确保奖励落库后可直接给客户端推送最新宠物快照。
+type RuntimeGrantResult struct {
+	Pet Pet `json:"pet"`
 }
 
 type LineupPet struct {

@@ -11,6 +11,8 @@ const TAB_STATUS_INDEX := 0
 const TAB_BAG_INDEX := 1
 const TAB_TEAM_INDEX := 2
 const TAB_SKILL_INDEX := 3
+const BAG_CONTEXT_BAG := "bag"
+const BAG_CONTEXT_WAREHOUSE := "warehouse"
 
 @onready var status_button: Button = $RootPanel/ContentRow/TabButtons/StatusTabButton
 @onready var bag_button: Button = $RootPanel/ContentRow/TabButtons/BagTabButton
@@ -35,6 +37,9 @@ var _loading_label: Label
 var _loading_tip_label: Label
 var _loading_delay_timer: Timer
 var _loading_timer: Timer
+var _bag_context: String = BAG_CONTEXT_BAG
+var _bag_button_default_text: String = "背包"
+var _warehouse_entity_id: int = 0
 
 
 func _ready() -> void:
@@ -48,12 +53,27 @@ func _ready() -> void:
 	skill_button.pressed.connect(_on_tab_pressed.bind(3))
 
 	_build_loading_overlay()
+	_bag_button_default_text = bag_button.text
+	if bag_panel != null:
+		if bag_panel.has_signal("transfer_requested"):
+			bag_panel.connect("transfer_requested", Callable(self, "_on_bag_transfer_requested"))
+		if bag_panel.has_signal("container_switch_requested"):
+			bag_panel.connect("container_switch_requested", Callable(self, "_on_bag_container_switch_requested"))
 	_select_tab(0)
 
 
 func open_menu() -> void:
+	_warehouse_entity_id = 0
+	_set_bag_context(BAG_CONTEXT_BAG)
 	show()
 	_request_tab_open(TAB_STATUS_INDEX)
+
+
+func open_warehouse_menu(entity_id: int = 0) -> void:
+	_warehouse_entity_id = entity_id
+	_set_bag_context(BAG_CONTEXT_WAREHOUSE)
+	show()
+	_request_tab_open(TAB_BAG_INDEX)
 
 
 func set_player_source(player_source: Node) -> void:
@@ -67,6 +87,8 @@ func close_menu() -> void:
 	_loading_request_cmd = 0
 	_hide_loading_overlay()
 	hide()
+	_warehouse_entity_id = 0
+	_set_bag_context(BAG_CONTEXT_BAG)
 	if was_visible:
 		menu_closed.emit()
 
@@ -228,7 +250,7 @@ func _request_cmd_for_tab(index: int) -> int:
 		TAB_STATUS_INDEX:
 			return CommandIds.ENTER_WORLD_REQ
 		TAB_BAG_INDEX:
-			return CommandIds.BAG_LIST_REQ
+			return CommandIds.CONTAINER_LIST_REQ if _bag_context == BAG_CONTEXT_WAREHOUSE else CommandIds.BAG_LIST_REQ
 		TAB_TEAM_INDEX:
 			return CommandIds.PET_LIST_REQ
 		TAB_SKILL_INDEX:
@@ -242,7 +264,7 @@ func _send_request_for_tab(index: int) -> int:
 		TAB_STATUS_INDEX:
 			return App.refresh_player_status()
 		TAB_BAG_INDEX:
-			return App.request_bag_list()
+			return App.request_container_list(BAG_CONTEXT_WAREHOUSE) if _bag_context == BAG_CONTEXT_WAREHOUSE else App.request_bag_list()
 		TAB_TEAM_INDEX:
 			return App.request_pet_list()
 		TAB_SKILL_INDEX:
@@ -256,7 +278,7 @@ func _loading_tip_for_tab(index: int) -> String:
 		TAB_STATUS_INDEX:
 			return "正在同步服务端人物属性"
 		TAB_BAG_INDEX:
-			return "正在同步服务端背包数据"
+			return "正在同步服务端仓库数据" if _bag_context == BAG_CONTEXT_WAREHOUSE else "正在同步服务端背包数据"
 		TAB_TEAM_INDEX:
 			return "正在同步服务端队伍数据"
 		TAB_SKILL_INDEX:
@@ -287,3 +309,33 @@ func _set_tab_buttons_disabled(disabled: bool) -> void:
 	for button in _tab_buttons:
 		if button != null:
 			button.disabled = disabled
+
+
+func _set_bag_context(context: String) -> void:
+	_bag_context = context if context == BAG_CONTEXT_WAREHOUSE else BAG_CONTEXT_BAG
+	if bag_button != null:
+		bag_button.text = "仓库" if _bag_context == BAG_CONTEXT_WAREHOUSE else _bag_button_default_text
+	if bag_panel != null and bag_panel.has_method("set_container_context"):
+		var title := "仓库" if _bag_context == BAG_CONTEXT_WAREHOUSE else "背包"
+		bag_panel.call("set_container_context", _bag_context, title)
+	if bag_panel != null and bag_panel.has_method("set_warehouse_available"):
+		bag_panel.call("set_warehouse_available", _warehouse_entity_id > 0)
+
+
+func _on_bag_container_switch_requested(target_container_type: String) -> void:
+	if target_container_type == BAG_CONTEXT_WAREHOUSE:
+		if _warehouse_entity_id <= 0:
+			return
+		_set_bag_context(BAG_CONTEXT_WAREHOUSE)
+	else:
+		_set_bag_context(BAG_CONTEXT_BAG)
+	_request_tab_open(TAB_BAG_INDEX)
+
+
+func _on_bag_transfer_requested(source_container_type: String, slot_index: int, quantity: int) -> void:
+	if slot_index <= 0 or quantity <= 0 or _warehouse_entity_id <= 0:
+		return
+	if source_container_type == BAG_CONTEXT_WAREHOUSE:
+		App.request_warehouse_to_bag(_warehouse_entity_id, slot_index, quantity)
+	else:
+		App.request_bag_to_warehouse(_warehouse_entity_id, slot_index, quantity)

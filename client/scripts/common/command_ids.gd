@@ -42,6 +42,10 @@ const INTERACT_RESP: int = 2032
 const NPC_ACTION_REQ: int = 2033
 # NPC 菜单项执行响应消息号。
 const NPC_ACTION_RESP: int = 2034
+# 暗雷遭遇上报请求消息号。
+const WILD_ENCOUNTER_REQ: int = 2035
+# 暗雷遭遇上报响应消息号。
+const WILD_ENCOUNTER_RESP: int = 2036
 # 遭遇战触发推送消息号。
 const ENCOUNTER_PUSH: int = 2041
 
@@ -91,6 +95,24 @@ const BAG_UPDATE_PUSH: int = 5011
 const USE_ITEM_REQ: int = 5021
 # 使用物品响应消息号。
 const USE_ITEM_RESP: int = 5022
+# 容器列表请求消息号，可用于单独查询仓库等容器。
+const CONTAINER_LIST_REQ: int = 5031
+# 容器列表响应消息号。
+const CONTAINER_LIST_RESP: int = 5032
+# 背包存入仓库请求消息号。
+const BAG_TO_WAREHOUSE_REQ: int = 5041
+# 背包存入仓库响应消息号。
+const BAG_TO_WAREHOUSE_RESP: int = 5042
+# 仓库取回背包请求消息号。
+const WAREHOUSE_TO_BAG_REQ: int = 5051
+# 仓库取回背包响应消息号。
+const WAREHOUSE_TO_BAG_RESP: int = 5052
+# 钱包查询请求消息号。
+const WALLET_QUERY_REQ: int = 5081
+# 钱包查询响应消息号。
+const WALLET_QUERY_RESP: int = 5082
+# 钱包增量更新推送消息号。
+const WALLET_UPDATE_PUSH: int = 5091
 
 # 任务列表请求消息号。
 const QUEST_LIST_REQ: int = 6001
@@ -162,6 +184,10 @@ static func name_of(cmd: int) -> String:
 			return "NPC_ACTION_REQ"
 		NPC_ACTION_RESP:
 			return "NPC_ACTION_RESP"
+		WILD_ENCOUNTER_REQ:
+			return "WILD_ENCOUNTER_REQ"
+		WILD_ENCOUNTER_RESP:
+			return "WILD_ENCOUNTER_RESP"
 		ENCOUNTER_PUSH:
 			return "ENCOUNTER_PUSH"
 		PET_LIST_REQ:
@@ -208,6 +234,24 @@ static func name_of(cmd: int) -> String:
 			return "USE_ITEM_REQ"
 		USE_ITEM_RESP:
 			return "USE_ITEM_RESP"
+		CONTAINER_LIST_REQ:
+			return "CONTAINER_LIST_REQ"
+		CONTAINER_LIST_RESP:
+			return "CONTAINER_LIST_RESP"
+		BAG_TO_WAREHOUSE_REQ:
+			return "BAG_TO_WAREHOUSE_REQ"
+		BAG_TO_WAREHOUSE_RESP:
+			return "BAG_TO_WAREHOUSE_RESP"
+		WAREHOUSE_TO_BAG_REQ:
+			return "WAREHOUSE_TO_BAG_REQ"
+		WAREHOUSE_TO_BAG_RESP:
+			return "WAREHOUSE_TO_BAG_RESP"
+		WALLET_QUERY_REQ:
+			return "WALLET_QUERY_REQ"
+		WALLET_QUERY_RESP:
+			return "WALLET_QUERY_RESP"
+		WALLET_UPDATE_PUSH:
+			return "WALLET_UPDATE_PUSH"
 		QUEST_LIST_REQ:
 			return "QUEST_LIST_REQ"
 		QUEST_LIST_RESP:

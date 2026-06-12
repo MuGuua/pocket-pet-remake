@@ -12,10 +12,16 @@ import (
 
 	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/item"
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/reward"
+	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/unlock"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/teststub"
 )
 
@@ -48,7 +54,7 @@ func (r *adminRepoStub) TouchLastLoginAt(_ context.Context, adminUserID uint64) 
 }
 
 func TestAdminHealthHandler(t *testing.T) {
-	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil)
+	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -127,7 +133,7 @@ func TestAdminPetCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, pet.AdminCreatePetInput{PlayerID: teststub.DemoPlayerID, PetID: 103, Level: 6, Exp: 240, Quality: 2, HP: 40, HPMax: 42, ATK: 18, DEF: 14, SPD: 16, MANA: 21, SkillIDs: []uint32{1001, 1004}})
+	createBody := marshalJSON(t, pet.AdminCreatePetInput{PlayerID: teststub.DemoPlayerID, PetID: 101, Level: 6, Exp: 240, Quality: 2, HP: 40, HPMax: 42, ATK: 18, DEF: 14, SPD: 16, MANA: 21, SkillIDs: []uint32{1001, 1004}})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/pets", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -143,7 +149,7 @@ func TestAdminPetCRUDHandler(t *testing.T) {
 		t.Fatalf("json.Unmarshal(create pet) error = %v", err)
 	}
 
-	updateBody := marshalJSON(t, pet.AdminUpdatePetInput{PetID: 104, Level: 7, Exp: 300, Quality: 3, HP: 50, HPMax: 55, ATK: 20, DEF: 15, SPD: 19, MANA: 24, SkillIDs: []uint32{1002}})
+	updateBody := marshalJSON(t, pet.AdminUpdatePetInput{PetID: 102, Level: 7, Exp: 300, Quality: 3, HP: 50, HPMax: 55, ATK: 20, DEF: 15, SPD: 19, MANA: 24, SkillIDs: []uint32{1002}})
 	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/pets/"+strconv.FormatUint(createPayload.Data.PetUID, 10), bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
@@ -178,7 +184,7 @@ func TestAdminBagCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, bag.AdminCreateItemInput{PlayerID: teststub.DemoPlayerID, ItemID: 2002, Count: 5})
+	createBody := marshalJSON(t, bag.AdminCreateItemInput{PlayerID: teststub.DemoPlayerID, ContainerType: "bag", SlotIndex: 8, ItemID: 2002, Quantity: 5})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/bags", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -194,7 +200,7 @@ func TestAdminBagCRUDHandler(t *testing.T) {
 		t.Fatalf("json.Unmarshal(create bag) error = %v", err)
 	}
 
-	updateBody := marshalJSON(t, bag.AdminUpdateItemInput{PlayerID: teststub.RivalPlayerID, ItemID: 2003, Count: 9})
+	updateBody := marshalJSON(t, bag.AdminUpdateItemInput{PlayerID: teststub.RivalPlayerID, ContainerType: "warehouse", SlotIndex: 9, ItemID: 2003, Quantity: 9})
 	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/bags/"+strconv.FormatUint(createPayload.Data.RecordID, 10), bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
@@ -358,16 +364,288 @@ func TestAdminNPCMenuEntryCRUDHandler(t *testing.T) {
 	}
 }
 
+func TestAdminItemsListHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/items?page=1&page_size=20", nil)
+	request.Header.Set("Authorization", "Bearer "+issueAdminTokenForTest(t))
+	response := httptest.NewRecorder()
+
+	handlers.Items.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("response.Code = %d, want %d, body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+}
+
+func TestAdminWalletsListAndAdjustHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/admin/wallets?page=1&page_size=20", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+token)
+	listResponse := httptest.NewRecorder()
+	handlers.Wallets.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("wallet list response.Code = %d, want %d, body=%s", listResponse.Code, http.StatusOK, listResponse.Body.String())
+	}
+
+	adjustBody := marshalJSON(t, wallet.AdminAdjustInput{ChangeTotalCopper: 5000, Reason: "test adjust"})
+	adjustRequest := httptest.NewRequest(http.MethodPut, "/api/admin/wallets/"+strconv.FormatUint(teststub.DemoPlayerID, 10), bytes.NewReader(adjustBody))
+	adjustRequest.Header.Set("Authorization", "Bearer "+token)
+	adjustResponse := httptest.NewRecorder()
+	handlers.Wallets.ServeHTTP(adjustResponse, adjustRequest)
+	if adjustResponse.Code != http.StatusOK {
+		t.Fatalf("wallet adjust response.Code = %d, want %d, body=%s", adjustResponse.Code, http.StatusOK, adjustResponse.Body.String())
+	}
+}
+
+func TestAdminRewardsGrantHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	requestBody := marshalJSON(t, adminRewardGrantRequest{
+		PlayerID: teststub.DemoPlayerID,
+		Reason:   "test admin reward",
+		Rewards: []reward.Entry{
+			{Type: "gold", Value: 3},
+			{Type: "item", ItemID: 2001, Count: 2},
+		},
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/rewards", bytes.NewReader(requestBody))
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+
+	handlers.Rewards.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("reward grant response.Code = %d, want %d, body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var payload struct {
+		Code int                      `json:"code"`
+		Msg  string                   `json:"msg"`
+		Data adminRewardGrantResponse `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("json.Unmarshal(response) error = %v", err)
+	}
+	if len(payload.Data.Granted) != 2 {
+		t.Fatalf("len(payload.Data.Granted) = %d, want 2", len(payload.Data.Granted))
+	}
+	if payload.Data.Wallet == nil || payload.Data.Wallet.Gold <= 2 {
+		t.Fatalf("payload.Data.Wallet = %#v, want wallet gold above initial 2", payload.Data.Wallet)
+	}
+	if payload.Data.Bag == nil || payload.Data.Bag.ContainerType != bag.ContainerTypeBag {
+		t.Fatalf("payload.Data.Bag = %#v, want bag snapshot", payload.Data.Bag)
+	}
+}
+
+func TestAdminPetDefinitionCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, pet.AdminUpsertPetDefinitionInput{
+		PetID: 99001, PetName: "后台测试宠物", Description: "用于后台 CRUD 测试", AcquireMethod: "运营发放",
+		IsEnabled: true, Level: 1, Quality: 1, HP: 20, HPMax: 20, ATK: 10, DEF: 8, SPD: 9, MANA: 12,
+		HPApt: 10, ATKApt: 10, DEFApt: 10, SPDApt: 10, MANAApt: 10, SkillIDs: []uint32{1001},
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/pet-definitions", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.PetDefinitions.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create pet definition response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, pet.AdminUpsertPetDefinitionInput{
+		PetName: "后台测试宠物已更新", Description: "更新后的描述", AcquireMethod: "活动奖励",
+		IsEnabled: false, Level: 2, Quality: 2, HP: 24, HPMax: 24, ATK: 11, DEF: 9, SPD: 10, MANA: 14,
+		HPApt: 11, ATKApt: 12, DEFApt: 10, SPDApt: 9, MANAApt: 8, SkillIDs: []uint32{1001, 1002},
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/pet-definitions/99001", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.PetDefinitions.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update pet definition response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/pet-definitions/99001", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.PetDefinitions.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete pet definition response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminSkillDefinitionCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, skill.AdminUpsertInput{
+		SkillID: 88001, SkillCode: "test_skill", SkillName: "后台测试技能", SkillCategory: "pet", SkillType: "attack",
+		TargetType: "enemy_single", AnimationKey: "slash", IsEnabled: true, AttackPct: 110, ManaPct: 20, SpeedPct: 10, AllowCrit: true,
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/skill-definitions", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.SkillDefinitions.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create skill definition response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, skill.AdminUpsertInput{
+		SkillName: "后台测试技能已更新", SkillCategory: "pet", SkillType: "attack", TargetType: "enemy_single",
+		AnimationKey: "burst", IsEnabled: false, AttackPct: 120, ManaPct: 25, SpeedPct: 15, AllowCrit: true,
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/skill-definitions/88001", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.SkillDefinitions.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update skill definition response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/skill-definitions/88001", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.SkillDefinitions.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete skill definition response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminMonsterDefinitionCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, monster.AdminUpsertDefinitionInput{
+		MonsterID: 88001, MonsterName: "后台测试怪物", Description: "测试怪物模板", IsEnabled: true,
+		Level: 3, Quality: 1, HP: 30, HPMax: 30, ATK: 14, DEF: 10, SPD: 9, MANA: 8, SkillIDs: []uint32{90001, 90002},
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/monster-definitions", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.MonsterDefinitions.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create monster definition response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, monster.AdminUpsertDefinitionInput{
+		MonsterName: "后台测试怪物已更新", Description: "更新后的怪物模板", IsEnabled: false,
+		Level: 4, Quality: 2, HP: 32, HPMax: 32, ATK: 15, DEF: 11, SPD: 10, MANA: 9, SkillIDs: []uint32{90002},
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/monster-definitions/88001", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.MonsterDefinitions.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update monster definition response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/monster-definitions/88001", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.MonsterDefinitions.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete monster definition response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminMonsterEncounterCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, monster.AdminUpsertEncounterInput{
+		EntityID: 88001, EncounterName: "后台测试遭遇", Description: "测试遭遇配置", SpawnMonsterIDs: []uint32{9001}, IsEnabled: true,
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/monster-encounters", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.MonsterEncounters.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create monster encounter response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, monster.AdminUpsertEncounterInput{
+		EncounterName: "后台测试遭遇已更新", Description: "更新后的遭遇配置", SpawnMonsterIDs: []uint32{9001, 9002}, IsEnabled: true,
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/monster-encounters/88001", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.MonsterEncounters.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update monster encounter response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/monster-encounters/88001", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.MonsterEncounters.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete monster encounter response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminSceneWildEncounterCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, monster.AdminUpsertWildEncounterInput{
+		SceneID: 6, EncounterName: "后台测试暗雷", Description: "测试地图暗雷配置",
+		EncounterRate: 1000, SpawnMonsterIDs: []uint32{9001}, IsEnabled: true,
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/scene-wild-encounters", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.SceneWildEncounters.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create scene wild encounter response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, monster.AdminUpsertWildEncounterInput{
+		EncounterName: "后台测试暗雷已更新", Description: "更新后的暗雷配置",
+		EncounterRate: 1200, SpawnMonsterIDs: []uint32{9001, 9002}, IsEnabled: true,
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/scene-wild-encounters/6", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.SceneWildEncounters.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update scene wild encounter response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/scene-wild-encounters/6", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.SceneWildEncounters.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete scene wild encounter response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
 func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	t.Helper()
-	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"players:view", "players:edit", "pets:view", "pets:edit", "bag:view", "bag:grant", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
+	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"players:view", "players:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
 	adminService := admin.NewService(adminRepo, admin.NewHMACSigner("test-secret", time.Hour))
-	playerService := player.NewService(teststub.NewPlayerRepository())
-	petService := pet.NewService(teststub.NewPetRepository())
+	skillRepo := teststub.NewSkillRepository()
+	skillService := skill.NewService(skillRepo)
+	if err := skillService.RefreshRuntimeCache(context.Background()); err != nil {
+		t.Fatalf("RefreshRuntimeCache() error = %v", err)
+	}
+	monsterRepo := teststub.NewMonsterRepository()
+	petRepo := teststub.NewPetRepository()
+	petService := pet.NewService(petRepo, skillService, monsterRepo)
+	monsterService := monster.NewService(monsterRepo, skillService, petService)
+	playerService := player.NewService(teststub.NewPlayerRepository(), skillService)
 	bagService := bag.NewService(teststub.NewBagRepository())
+	itemService := item.NewService(teststub.NewItemRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	return NewAdminHandlers(adminService, playerService, petService, bagService, questService, npcService)
+	walletService := wallet.NewService(teststub.NewWalletRepository())
+	unlockService := unlock.NewService(teststub.NewUnlockRepository())
+	return NewAdminHandlers(adminService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
 }
 
 func issueAdminTokenForTest(t *testing.T) string {

@@ -1,0 +1,62 @@
+[gd_scene load_steps=7 format=3 uid="uid://b2cmrubwg3bla"]
+
+[ext_resource type="Script" uid="uid://bt4b1kudje0i8" path="res://scenes/battle/battle_player.gd" id="1_ae1lw"]
+[ext_resource type="Texture2D" uid="uid://by3nryyl771c7" path="res://asset/分类/人物/职业形象/641.png" id="2_h5y67"]
+
+[sub_resource type="Animation" id="Animation_u7p5w"]
+resource_name = "idle"
+length = 0.3
+loop_mode = 2
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [16, 17]
+}
+
+[sub_resource type="Animation" id="Animation_l3tcj"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_3rttl"]
+_data = {
+&"RESET": SubResource("Animation_l3tcj"),
+&"idle": SubResource("Animation_u7p5w")
+}
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_h5y67"]
+radius = 1.0
+
+[node name="BattlePlayer" type="CharacterBody2D"]
+position = Vector2(0, -19)
+script = ExtResource("1_ae1lw")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_h5y67")
+flip_h = true
+hframes = 18
+
+[node name="AnimatedSprite2D" type="AnimationPlayer" parent="."]
+libraries = {
+&"": SubResource("AnimationLibrary_3rttl")
+}
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_h5y67")

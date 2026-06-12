@@ -10,4 +10,11 @@ type Repository interface {
 	CreateForAdmin(ctx context.Context, input AdminCreateItemInput) (*AdminItemDetail, error)
 	UpdateForAdmin(ctx context.Context, recordID uint64, input AdminUpdateItemInput) (*AdminItemDetail, error)
 	DeleteForAdmin(ctx context.Context, recordID uint64) error
+	ListRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*RuntimeContainerSnapshot, error)
+	TransferRuntimeItem(ctx context.Context, playerID uint64, fromContainerType string, toContainerType string, fromSlotIndex uint32, quantity uint64) (*RuntimeTransferResult, error)
+	SortRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*RuntimeSortResult, error)
+	MoveRuntimeItem(ctx context.Context, playerID uint64, containerType string, fromSlotIndex uint32, toSlotIndex uint32, quantity uint64) (*RuntimeMoveResult, error)
+	GrantRuntimeItem(ctx context.Context, playerID uint64, containerType string, itemID uint64, quantity uint64, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*RuntimeGrantResult, error)
+	UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*RuntimeUseResult, error)
+	ConsumeRuntimeItemStack(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, reasonType string, reasonRefID uint64) (*RuntimeContainerSnapshot, error)
 }

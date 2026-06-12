@@ -3,6 +3,7 @@ package teststub
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -10,10 +11,12 @@ import (
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 )
 
@@ -479,7 +482,7 @@ func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sc
 	return nil
 }
 
-func (r *PlayerRepository) AddGoldAndExp(_ context.Context, playerID uint64, gold uint32, exp uint64) (*player.Profile, error) {
+func (r *PlayerRepository) AddExp(_ context.Context, playerID uint64, exp uint64) (*player.Profile, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -487,7 +490,6 @@ func (r *PlayerRepository) AddGoldAndExp(_ context.Context, playerID uint64, gol
 	if !ok {
 		return nil, player.ErrPlayerNotFound
 	}
-	current.Gold += gold
 	current.Exp += exp
 	r.players[playerID] = current
 	copied := current
@@ -499,6 +501,26 @@ func (r *PlayerRepository) AddGoldAndExp(_ context.Context, playerID uint64, gol
 func NewPetRepository() *PetRepository {
 	return &PetRepository{
 		nextID: 30000,
+		definitions: map[uint32]pet.AdminPetDefinitionDetail{
+			101: {
+				PetID: 101, PetName: "小火龙", Description: "初始火系宠物", AcquireMethod: "新手赠送",
+				IsEnabled: true, StatusText: "启用",
+				BaseStats:       pet.AdminPetDefinitionBaseStats{Level: 1, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16},
+				GrowthAptitudes: pet.AdminPetDefinitionGrowthAptitudes{HPApt: 12, ATKApt: 11, DEFApt: 10, SPDApt: 10, MANAApt: 9},
+				SkillIDs:        []uint32{1001, 1002},
+				CreatedAt:       time.Now(),
+				UpdatedAt:       time.Now(),
+			},
+			102: {
+				PetID: 102, PetName: "小水龟", Description: "初始水系宠物", AcquireMethod: "新手赠送",
+				IsEnabled: true, StatusText: "启用",
+				BaseStats:       pet.AdminPetDefinitionBaseStats{Level: 1, Quality: 1, HP: 30, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20},
+				GrowthAptitudes: pet.AdminPetDefinitionGrowthAptitudes{HPApt: 11, ATKApt: 9, DEFApt: 12, SPDApt: 8, MANAApt: 13},
+				SkillIDs:        []uint32{1001, 1003},
+				CreatedAt:       time.Now(),
+				UpdatedAt:       time.Now(),
+			},
+		},
 		pets: map[uint64][]pet.Pet{
 			DemoPlayerID: {
 				{PetUID: 20001, PetID: 101, Level: 5, Exp: 120, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16, SkillIDs: []uint32{1001, 1002}},
@@ -524,10 +546,11 @@ func NewPetRepository() *PetRepository {
 }
 
 type PetRepository struct {
-	mu     sync.RWMutex
-	pets   map[uint64][]pet.Pet
-	lineup map[uint64][]pet.LineupPet
-	nextID uint64
+	mu          sync.RWMutex
+	pets        map[uint64][]pet.Pet
+	lineup      map[uint64][]pet.LineupPet
+	definitions map[uint32]pet.AdminPetDefinitionDetail
+	nextID      uint64
 }
 
 func (r *PetRepository) ListPetsByPlayerID(_ context.Context, playerID uint64) ([]pet.Pet, error) {
@@ -674,6 +697,74 @@ func (r *PetRepository) UpdatePetHPAndExpByUID(_ context.Context, playerID uint6
 	}
 
 	return pet.Pet{}, pet.ErrPetNotFound
+}
+
+func (r *PetRepository) GrantRuntimePet(_ context.Context, playerID uint64, petID uint32, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*pet.RuntimeGrantResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	template := pet.Pet{
+		PetID:    petID,
+		Level:    1,
+		Quality:  1,
+		HP:       20,
+		HPMax:    20,
+		ATK:      8,
+		DEF:      7,
+		SPD:      6,
+		MANA:     10,
+		SkillIDs: []uint32{1001},
+		InLineup: false,
+	}
+	switch petID {
+	case 101:
+		template.Level = 5
+		template.HP = 32
+		template.HPMax = 32
+		template.ATK = 14
+		template.DEF = 10
+		template.SPD = 12
+		template.MANA = 16
+		template.SkillIDs = []uint32{1001, 1002}
+	case 102:
+		template.Level = 4
+		template.HP = 28
+		template.HPMax = 30
+		template.ATK = 12
+		template.DEF = 11
+		template.SPD = 9
+		template.MANA = 20
+		template.SkillIDs = []uint32{1001, 1003}
+	}
+	template.PetUID = r.nextID
+	r.nextID++
+	r.pets[playerID] = append(r.pets[playerID], template)
+	_ = reasonType
+	_ = reasonRefID
+	_ = operatorType
+	_ = operatorID
+	copyValue := template
+	if len(copyValue.SkillIDs) > 0 {
+		copyValue.SkillIDs = append([]uint32{}, copyValue.SkillIDs...)
+	}
+	return &pet.RuntimeGrantResult{Pet: copyValue}, nil
+}
+
+func (r *PetRepository) GrantWildCapturePet(_ context.Context, playerID uint64, petID uint32, captureMonsterID uint32, reasonType string, reasonRefID uint64) (*pet.RuntimeGrantResult, error) {
+	result, err := r.GrantRuntimePet(context.Background(), playerID, petID, reasonType, reasonRefID, "", 0)
+	if err != nil {
+		return nil, err
+	}
+	result.Pet.GrantSource = pet.GrantSourceWildCapture
+	result.Pet.CaptureMonsterID = captureMonsterID
+	result.Pet.GrowthAptitudes = pet.RollWildCaptureAptitudes(pet.AptitudeRollRanges{
+		HPAptMin: 8, HPAptMax: 14,
+		ATKAptMin: 8, ATKAptMax: 13,
+		DEFAptMin: 8, DEFAptMax: 12,
+		SPDAptMin: 7, SPDAptMax: 12,
+		MANAAptMin: 6, MANAAptMax: 11,
+	}, nil)
+	return result, nil
 }
 
 func (r *PetRepository) ListForAdmin(_ context.Context, query pet.AdminListQuery) (*pet.AdminPetList, error) {
@@ -859,21 +950,182 @@ func (r *PetRepository) DeleteForAdmin(_ context.Context, petUID uint64) error {
 	return pet.ErrPetNotFound
 }
 
-// NewBagRepository 提供后台背包 CRUD 的内存桩，避免 HTTP 测试依赖真实 PostgreSQL。
+func (r *PetRepository) ListPetDefinitionsForAdmin(_ context.Context, query pet.AdminPetDefinitionListQuery) (*pet.AdminPetDefinitionList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	query = query.Normalize()
+	items := make([]pet.AdminPetDefinitionSummary, 0, len(r.definitions))
+	for _, current := range r.definitions {
+		if query.PetID > 0 && current.PetID != query.PetID {
+			continue
+		}
+		if query.Name != "" && !strings.Contains(current.PetName, query.Name) {
+			continue
+		}
+		if query.Enabled != nil && current.IsEnabled != *query.Enabled {
+			continue
+		}
+		items = append(items, pet.AdminPetDefinitionSummary{
+			PetID:         current.PetID,
+			PetName:       current.PetName,
+			Quality:       current.BaseStats.Quality,
+			Level:         current.BaseStats.Level,
+			AcquireMethod: current.AcquireMethod,
+			IsEnabled:     current.IsEnabled,
+			StatusText:    current.StatusText,
+			CreatedAt:     current.CreatedAt,
+			UpdatedAt:     current.UpdatedAt,
+		})
+	}
+	return &pet.AdminPetDefinitionList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *PetRepository) FindPetDefinitionForAdmin(_ context.Context, petID uint32) (*pet.AdminPetDefinitionDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	current, ok := r.definitions[petID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	if len(current.SkillIDs) > 0 {
+		copied.SkillIDs = append([]uint32{}, current.SkillIDs...)
+	}
+	return &copied, nil
+}
+
+func (r *PetRepository) CreatePetDefinitionForAdmin(_ context.Context, input pet.AdminUpsertPetDefinitionInput) (*pet.AdminPetDefinitionDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.definitions[input.PetID]; exists {
+		return nil, pet.ErrPetDefinitionConflict
+	}
+	now := time.Now()
+	detail := buildStubPetDefinitionDetail(input, now)
+	r.definitions[input.PetID] = detail
+	return r.findPetDefinitionLocked(input.PetID)
+}
+
+func (r *PetRepository) UpdatePetDefinitionForAdmin(_ context.Context, petID uint32, input pet.AdminUpsertPetDefinitionInput) (*pet.AdminPetDefinitionDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.definitions[petID]
+	if !ok {
+		return nil, nil
+	}
+	updated := buildStubPetDefinitionDetail(input, current.CreatedAt)
+	updated.PetID = petID
+	updated.UpdatedAt = time.Now()
+	r.definitions[petID] = updated
+	return r.findPetDefinitionLocked(petID)
+}
+
+func (r *PetRepository) DeletePetDefinitionForAdmin(_ context.Context, petID uint32) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.definitions[petID]; !ok {
+		return pet.ErrPetDefinitionNotFound
+	}
+	delete(r.definitions, petID)
+	return nil
+}
+
+func (r *PetRepository) MapUsablePetDefinitionIDs(_ context.Context, petIDs []uint32) (map[uint32]bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make(map[uint32]bool, len(petIDs))
+	for _, petID := range petIDs {
+		current, ok := r.definitions[petID]
+		if ok && current.IsEnabled {
+			result[petID] = true
+		}
+	}
+	return result, nil
+}
+
+func (r *PetRepository) findPetDefinitionLocked(petID uint32) (*pet.AdminPetDefinitionDetail, error) {
+	current, ok := r.definitions[petID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	if len(current.SkillIDs) > 0 {
+		copied.SkillIDs = append([]uint32{}, current.SkillIDs...)
+	}
+	return &copied, nil
+}
+
+func buildStubPetDefinitionDetail(input pet.AdminUpsertPetDefinitionInput, createdAt time.Time) pet.AdminPetDefinitionDetail {
+	statusText := "停用"
+	if input.IsEnabled {
+		statusText = "启用"
+	}
+	skillIDs := append([]uint32{}, input.SkillIDs...)
+	return pet.AdminPetDefinitionDetail{
+		PetID:         input.PetID,
+		PetName:       input.PetName,
+		Description:   input.Description,
+		AcquireMethod: input.AcquireMethod,
+		IsEnabled:     input.IsEnabled,
+		StatusText:    statusText,
+		BaseStats: pet.AdminPetDefinitionBaseStats{
+			Level: input.Level, Quality: input.Quality, HP: input.HP, HPMax: input.HPMax,
+			ATK: input.ATK, DEF: input.DEF, SPD: input.SPD, MANA: input.MANA,
+		},
+		GrowthAptitudes: pet.AdminPetDefinitionGrowthAptitudes{
+			HPApt: input.HPApt, ATKApt: input.ATKApt, DEFApt: input.DEFApt, SPDApt: input.SPDApt, MANAApt: input.MANAApt,
+		},
+		AptitudeRollRanges: pet.AdminPetDefinitionAptitudeRollRanges{
+			HPAptRollMin: input.HPAptRollMin, HPAptRollMax: input.HPAptRollMax,
+			ATKAptRollMin: input.ATKAptRollMin, ATKAptRollMax: input.ATKAptRollMax,
+			DEFAptRollMin: input.DEFAptRollMin, DEFAptRollMax: input.DEFAptRollMax,
+			SPDAptRollMin: input.SPDAptRollMin, SPDAptRollMax: input.SPDAptRollMax,
+			MANAAptRollMin: input.MANAAptRollMin, MANAAptRollMax: input.MANAAptRollMax,
+		},
+		SkillIDs:  skillIDs,
+		CreatedAt: createdAt,
+		UpdatedAt: time.Now(),
+	}
+}
+
+// NewBagRepository 提供后台背包与仓库 CRUD 的内存桩，避免 HTTP 测试依赖真实 PostgreSQL。
 func NewBagRepository() *BagRepository {
+	now := time.Now()
 	return &BagRepository{
 		nextID: 40000,
+		capacities: map[uint64]map[string]uint32{
+			DemoPlayerID:  {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
+			RivalPlayerID: {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
+		},
 		items: map[uint64]bag.AdminItemDetail{
-			30001: {RecordID: 30001, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ItemID: 2001, Count: 3, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-			30002: {RecordID: 30002, PlayerID: RivalPlayerID, PlayerName: "RivalTrainer", ItemID: 2001, Count: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			30001: {RecordID: 30001, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 1, ItemID: 3003, ItemName: "宠物治疗药剂", ItemType: "consumable", Quantity: 3, CreatedAt: now, UpdatedAt: now},
+			30004: {RecordID: 30004, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 4, ItemID: 3004, ItemName: "新手补给礼包", ItemType: "box", Quantity: 1, CreatedAt: now, UpdatedAt: now},
+			30003: {RecordID: 30003, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 3, ItemID: 3001, ItemName: "背包扩容券", ItemType: "functional", Quantity: 2, CreatedAt: now, UpdatedAt: now},
+			30002: {RecordID: 30002, PlayerID: RivalPlayerID, PlayerName: "RivalTrainer", ContainerType: "warehouse", SlotIndex: 2, ItemID: 2002, ItemName: "训练护腕", ItemType: "equipment", ItemUID: "eq_rival_1", Quantity: 1, IsBound: true, CreatedAt: now, UpdatedAt: now},
 		},
 	}
 }
 
 type BagRepository struct {
-	mu     sync.RWMutex
-	items  map[uint64]bag.AdminItemDetail
-	nextID uint64
+	mu         sync.RWMutex
+	capacities map[uint64]map[string]uint32
+	items      map[uint64]bag.AdminItemDetail
+	petRepo    *PetRepository
+	nextID     uint64
+}
+
+// BindPetRepository 让背包道具使用和宠物查询共用同一份内存宠物状态。
+// 这样测试里的宠物治疗药剂在扣道具后，`PET_LIST` 读取到的也是同一份最新数据。
+func (r *BagRepository) BindPetRepository(petRepo *PetRepository) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.petRepo = petRepo
 }
 
 func (r *BagRepository) ListForAdmin(_ context.Context, query bag.AdminListQuery) (*bag.AdminItemList, error) {
@@ -889,17 +1141,20 @@ func (r *BagRepository) ListForAdmin(_ context.Context, query bag.AdminListQuery
 		if query.PlayerID > 0 && current.PlayerID != query.PlayerID {
 			continue
 		}
+		if query.ContainerType != "" && current.ContainerType != query.ContainerType {
+			continue
+		}
 		if query.ItemID > 0 && current.ItemID != query.ItemID {
 			continue
 		}
+		if query.ItemUID != "" && current.ItemUID != query.ItemUID {
+			continue
+		}
 		items = append(items, bag.AdminItemSummary{
-			RecordID:   current.RecordID,
-			PlayerID:   current.PlayerID,
-			PlayerName: current.PlayerName,
-			ItemID:     current.ItemID,
-			Count:      current.Count,
-			CreatedAt:  current.CreatedAt,
-			UpdatedAt:  current.UpdatedAt,
+			RecordID: current.RecordID, PlayerID: current.PlayerID, PlayerName: current.PlayerName,
+			ContainerType: current.ContainerType, SlotIndex: current.SlotIndex, ItemID: current.ItemID, ItemUID: current.ItemUID,
+			ItemName: current.ItemName, ItemType: current.ItemType, Quantity: current.Quantity, IsBound: current.IsBound,
+			CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt,
 		})
 	}
 	return &bag.AdminItemList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
@@ -908,7 +1163,6 @@ func (r *BagRepository) ListForAdmin(_ context.Context, query bag.AdminListQuery
 func (r *BagRepository) FindAdminDetailByRecordID(_ context.Context, recordID uint64) (*bag.AdminItemDetail, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
 	current, ok := r.items[recordID]
 	if !ok {
 		return nil, nil
@@ -920,45 +1174,45 @@ func (r *BagRepository) FindAdminDetailByRecordID(_ context.Context, recordID ui
 func (r *BagRepository) CreateForAdmin(_ context.Context, input bag.AdminCreateItemInput) (*bag.AdminItemDetail, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	for _, current := range r.items {
-		if current.PlayerID == input.PlayerID && current.ItemID == input.ItemID {
+		if current.PlayerID == input.PlayerID && current.ContainerType == input.ContainerType && current.SlotIndex == input.SlotIndex {
 			return nil, bag.ErrBagItemConflict
 		}
 	}
 	recordID := r.nextID
 	r.nextID++
-	item := bag.AdminItemDetail{
-		RecordID:   recordID,
-		PlayerID:   input.PlayerID,
-		PlayerName: bagPlayerName(input.PlayerID),
-		ItemID:     input.ItemID,
-		Count:      input.Count,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+	now := time.Now()
+	itemValue := bag.AdminItemDetail{
+		RecordID: recordID, PlayerID: input.PlayerID, PlayerName: bagPlayerName(input.PlayerID), ContainerType: input.ContainerType,
+		SlotIndex: input.SlotIndex, ItemID: input.ItemID, ItemUID: input.ItemUID, ItemName: fmt.Sprintf("Item%d", input.ItemID),
+		ItemType: "consumable", Quantity: input.Quantity, IsBound: input.IsBound, CreatedAt: now, UpdatedAt: now,
 	}
-	r.items[recordID] = item
-	copied := item
+	r.items[recordID] = itemValue
+	copied := itemValue
 	return &copied, nil
 }
 
 func (r *BagRepository) UpdateForAdmin(_ context.Context, recordID uint64, input bag.AdminUpdateItemInput) (*bag.AdminItemDetail, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	current, ok := r.items[recordID]
 	if !ok {
 		return nil, bag.ErrBagItemNotFound
 	}
 	for otherID, other := range r.items {
-		if otherID != recordID && other.PlayerID == input.PlayerID && other.ItemID == input.ItemID {
+		if otherID != recordID && other.PlayerID == input.PlayerID && other.ContainerType == input.ContainerType && other.SlotIndex == input.SlotIndex {
 			return nil, bag.ErrBagItemConflict
 		}
 	}
 	current.PlayerID = input.PlayerID
 	current.PlayerName = bagPlayerName(input.PlayerID)
+	current.ContainerType = input.ContainerType
+	current.SlotIndex = input.SlotIndex
 	current.ItemID = input.ItemID
-	current.Count = input.Count
+	current.ItemUID = input.ItemUID
+	current.ItemName = fmt.Sprintf("Item%d", input.ItemID)
+	current.Quantity = input.Quantity
+	current.IsBound = input.IsBound
 	current.UpdatedAt = time.Now()
 	r.items[recordID] = current
 	copied := current
@@ -968,12 +1222,538 @@ func (r *BagRepository) UpdateForAdmin(_ context.Context, recordID uint64, input
 func (r *BagRepository) DeleteForAdmin(_ context.Context, recordID uint64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	if _, ok := r.items[recordID]; !ok {
 		return bag.ErrBagItemNotFound
 	}
 	delete(r.items, recordID)
 	return nil
+}
+
+func (r *BagRepository) ListRuntimeContainer(_ context.Context, playerID uint64, containerType string) (*bag.RuntimeContainerSnapshot, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	normalizedContainerType, err := bag.NormalizeRuntimeContainerType(containerType)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]bag.RuntimeItemSnapshot, 0)
+	for _, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != normalizedContainerType {
+			continue
+		}
+		items = append(items, bag.RuntimeItemSnapshot{
+			SlotIndex:    current.SlotIndex,
+			ItemID:       current.ItemID,
+			ItemUID:      current.ItemUID,
+			Quantity:     current.Quantity,
+			IsBound:      current.IsBound,
+			ItemName:     current.ItemName,
+			ItemType:     current.ItemType,
+			ItemSubType:  "",
+			Quality:      1,
+			Icon:         "",
+			EnhanceLevel: 0,
+		})
+	}
+	return &bag.RuntimeContainerSnapshot{
+		ContainerType: normalizedContainerType,
+		Capacity:      r.containerCapacity(playerID, normalizedContainerType),
+		MaxCapacity:   300,
+		UsedSlots:     uint32(len(items)),
+		Items:         items,
+	}, nil
+}
+
+func (r *BagRepository) TransferRuntimeItem(_ context.Context, playerID uint64, fromContainerType string, toContainerType string, fromSlotIndex uint32, quantity uint64) (*bag.RuntimeTransferResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var (
+		recordID uint64
+		source   bag.AdminItemDetail
+		found    bool
+	)
+	for currentRecordID, current := range r.items {
+		if current.PlayerID == playerID && current.ContainerType == fromContainerType && current.SlotIndex == fromSlotIndex {
+			recordID = currentRecordID
+			source = current
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if quantity == 0 || quantity > source.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if toContainerType == bag.ContainerTypeWarehouse && source.ItemID == 0 {
+		return nil, bag.ErrItemCannotStore
+	}
+
+	targetSlotIndex := uint32(1)
+	occupied := map[uint32]bool{}
+	for _, current := range r.items {
+		if current.PlayerID == playerID && current.ContainerType == toContainerType {
+			occupied[current.SlotIndex] = true
+		}
+	}
+	for occupied[targetSlotIndex] {
+		targetSlotIndex++
+		if targetSlotIndex > 300 {
+			return nil, bag.ErrContainerCapacityFull
+		}
+	}
+
+	now := time.Now()
+	targetRecordID := r.nextID
+	r.nextID++
+	r.items[targetRecordID] = bag.AdminItemDetail{
+		RecordID:      targetRecordID,
+		PlayerID:      playerID,
+		PlayerName:    bagPlayerName(playerID),
+		ContainerType: toContainerType,
+		SlotIndex:     targetSlotIndex,
+		ItemID:        source.ItemID,
+		ItemUID:       source.ItemUID,
+		ItemName:      source.ItemName,
+		ItemType:      source.ItemType,
+		Quantity:      quantity,
+		IsBound:       source.IsBound,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	if quantity == source.Quantity {
+		delete(r.items, recordID)
+	} else {
+		source.Quantity -= quantity
+		source.UpdatedAt = now
+		r.items[recordID] = source
+	}
+
+	return &bag.RuntimeTransferResult{
+		MovedItemID:       source.ItemID,
+		MovedItemUID:      source.ItemUID,
+		MovedQuantity:     quantity,
+		FromContainerType: fromContainerType,
+		ToContainerType:   toContainerType,
+		FromSlotIndex:     fromSlotIndex,
+		ToSlotIndex:       targetSlotIndex,
+	}, nil
+}
+
+func (r *BagRepository) SortRuntimeContainer(_ context.Context, playerID uint64, containerType string) (*bag.RuntimeSortResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	items := make([]bag.AdminItemDetail, 0)
+	for _, current := range r.items {
+		if current.PlayerID == playerID && current.ContainerType == containerType {
+			items = append(items, current)
+		}
+	}
+	sort.SliceStable(items, func(left int, right int) bool {
+		if items[left].ItemID != items[right].ItemID {
+			return items[left].ItemID < items[right].ItemID
+		}
+		return items[left].SlotIndex < items[right].SlotIndex
+	})
+	for index, current := range items {
+		current.SlotIndex = uint32(index + 1)
+		current.UpdatedAt = time.Now()
+		for recordID, saved := range r.items {
+			if saved.RecordID == current.RecordID {
+				r.items[recordID] = current
+				break
+			}
+		}
+	}
+	return &bag.RuntimeSortResult{ContainerType: containerType, Sorted: true}, nil
+}
+
+func (r *BagRepository) MoveRuntimeItem(_ context.Context, playerID uint64, containerType string, fromSlotIndex uint32, toSlotIndex uint32, quantity uint64) (*bag.RuntimeMoveResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var (
+		sourceRecordID uint64
+		targetRecordID uint64
+		source         bag.AdminItemDetail
+		target         bag.AdminItemDetail
+		sourceFound    bool
+		targetFound    bool
+	)
+	for recordID, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != containerType {
+			continue
+		}
+		if current.SlotIndex == fromSlotIndex {
+			sourceRecordID = recordID
+			source = current
+			sourceFound = true
+		}
+		if current.SlotIndex == toSlotIndex {
+			targetRecordID = recordID
+			target = current
+			targetFound = true
+		}
+	}
+	if !sourceFound || quantity == 0 || quantity > source.Quantity || fromSlotIndex == toSlotIndex {
+		return nil, bag.ErrInvalidContainerMove
+	}
+	now := time.Now()
+	if !targetFound {
+		if quantity == source.Quantity {
+			source.SlotIndex = toSlotIndex
+			source.UpdatedAt = now
+			r.items[sourceRecordID] = source
+		} else {
+			source.Quantity -= quantity
+			source.UpdatedAt = now
+			r.items[sourceRecordID] = source
+			recordID := r.nextID
+			r.nextID++
+			r.items[recordID] = bag.AdminItemDetail{
+				RecordID:      recordID,
+				PlayerID:      playerID,
+				PlayerName:    bagPlayerName(playerID),
+				ContainerType: containerType,
+				SlotIndex:     toSlotIndex,
+				ItemID:        source.ItemID,
+				ItemUID:       source.ItemUID,
+				ItemName:      source.ItemName,
+				ItemType:      source.ItemType,
+				Quantity:      quantity,
+				IsBound:       source.IsBound,
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			}
+		}
+	} else {
+		if quantity != source.Quantity {
+			return nil, bag.ErrInvalidContainerMove
+		}
+		source.SlotIndex = toSlotIndex
+		source.UpdatedAt = now
+		target.SlotIndex = fromSlotIndex
+		target.UpdatedAt = now
+		r.items[sourceRecordID] = source
+		r.items[targetRecordID] = target
+	}
+	return &bag.RuntimeMoveResult{
+		ContainerType: containerType,
+		FromSlotIndex: fromSlotIndex,
+		ToSlotIndex:   toSlotIndex,
+		Moved:         true,
+	}, nil
+}
+
+func (r *BagRepository) GrantRuntimeItem(_ context.Context, playerID uint64, containerType string, itemID uint64, quantity uint64, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*bag.RuntimeGrantResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if quantity == 0 {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	occupied := map[uint32]bool{}
+	var mergeRecordID uint64
+	var mergeItem bag.AdminItemDetail
+	for recordID, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != containerType {
+			continue
+		}
+		occupied[current.SlotIndex] = true
+		if current.ItemID == itemID && current.ItemUID == "" {
+			mergeRecordID = recordID
+			mergeItem = current
+		}
+	}
+	now := time.Now()
+	if mergeRecordID != 0 {
+		mergeItem.Quantity += quantity
+		mergeItem.UpdatedAt = now
+		r.items[mergeRecordID] = mergeItem
+		return &bag.RuntimeGrantResult{
+			ContainerType: containerType,
+			ItemID:        itemID,
+			ItemName:      mergeItem.ItemName,
+			ItemUID:       "",
+			GrantedQty:    quantity,
+			SlotIndex:     mergeItem.SlotIndex,
+		}, nil
+	}
+	slotIndex := uint32(1)
+	for occupied[slotIndex] {
+		slotIndex++
+		if slotIndex > 300 {
+			return nil, bag.ErrContainerCapacityFull
+		}
+	}
+	recordID := r.nextID
+	r.nextID++
+	itemName := fmt.Sprintf("Item%d", itemID)
+	itemType := "consumable"
+	if itemID == 2001 {
+		itemName = "新手精灵球"
+	}
+	r.items[recordID] = bag.AdminItemDetail{
+		RecordID:      recordID,
+		PlayerID:      playerID,
+		PlayerName:    bagPlayerName(playerID),
+		ContainerType: containerType,
+		SlotIndex:     slotIndex,
+		ItemID:        itemID,
+		ItemUID:       "",
+		ItemName:      itemName,
+		ItemType:      itemType,
+		Quantity:      quantity,
+		IsBound:       false,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	return &bag.RuntimeGrantResult{
+		ContainerType: containerType,
+		ItemID:        itemID,
+		ItemName:      itemName,
+		ItemUID:       "",
+		GrantedQty:    quantity,
+		SlotIndex:     slotIndex,
+	}, nil
+}
+
+func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*bag.RuntimeUseResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if quantity == 0 {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	var (
+		recordID uint64
+		source   bag.AdminItemDetail
+		found    bool
+	)
+	for currentRecordID, current := range r.items {
+		if current.PlayerID == playerID && current.ContainerType == containerType && current.SlotIndex == slotIndex {
+			recordID = currentRecordID
+			source = current
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if quantity > source.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+
+	var (
+		effectType   string
+		expandTarget string
+		expandSlots  uint32
+	)
+	switch source.ItemID {
+	case 3001:
+		effectType = "bag_expand"
+		expandTarget = bag.ContainerTypeBag
+		expandSlots = 5
+	case 3002:
+		effectType = "warehouse_expand"
+		expandTarget = bag.ContainerTypeWarehouse
+		expandSlots = 5
+	case 3003:
+		if targetPlayerID != 0 && targetPlayerID != playerID {
+			return nil, bag.ErrUseTargetNotFound
+		}
+		if targetPetUID == 0 {
+			return nil, bag.ErrUseTargetRequired
+		}
+		if r.petRepo == nil {
+			return nil, bag.ErrUseTargetNotFound
+		}
+		r.petRepo.mu.Lock()
+		defer r.petRepo.mu.Unlock()
+		petsForPlayer, ok := r.petRepo.pets[playerID]
+		if !ok {
+			return nil, bag.ErrUseTargetNotFound
+		}
+		var (
+			targetPet *pet.Pet
+			petIndex  int
+		)
+		for index := range petsForPlayer {
+			if petsForPlayer[index].PetUID == targetPetUID {
+				targetPet = &petsForPlayer[index]
+				petIndex = index
+				break
+			}
+		}
+		if targetPet == nil {
+			return nil, bag.ErrUseTargetNotFound
+		}
+		if targetPet.HP >= targetPet.HPMax {
+			return nil, bag.ErrItemUseNoEffect
+		}
+		restoreAmount := uint32(quantity * 10)
+		nextHP := targetPet.HP + restoreAmount
+		if nextHP > targetPet.HPMax {
+			nextHP = targetPet.HPMax
+		}
+		restoredHP := nextHP - targetPet.HP
+		petsForPlayer[petIndex].HP = nextHP
+		r.petRepo.pets[playerID] = petsForPlayer
+		lineup := r.petRepo.lineup[playerID]
+		inLineup := false
+		for lineupIndex := range lineup {
+			if lineup[lineupIndex].PetUID == targetPetUID {
+				lineup[lineupIndex].HP = nextHP
+				inLineup = true
+			}
+		}
+		r.petRepo.lineup[playerID] = lineup
+		updatedPet := petsForPlayer[petIndex]
+		if len(updatedPet.SkillIDs) > 0 {
+			updatedPet.SkillIDs = append([]uint32{}, updatedPet.SkillIDs...)
+		}
+		now := time.Now()
+		if quantity == source.Quantity {
+			delete(r.items, recordID)
+		} else {
+			source.Quantity -= quantity
+			source.UpdatedAt = now
+			r.items[recordID] = source
+		}
+		return &bag.RuntimeUseResult{
+			ContainerType: containerType,
+			SlotIndex:     slotIndex,
+			ItemID:        source.ItemID,
+			UsedQuantity:  quantity,
+			Result: bag.RuntimeUseEffect{
+				EffectType:   "pet_hp_restore",
+				TargetPetUID: targetPetUID,
+				RestoredHP:   restoredHP,
+				NewPetHP:     nextHP,
+				UpdatedPet: &bag.RuntimePetSnapshot{
+					PetUID:   updatedPet.PetUID,
+					PetID:    updatedPet.PetID,
+					Level:    updatedPet.Level,
+					Exp:      updatedPet.Exp,
+					Quality:  updatedPet.Quality,
+					HP:       updatedPet.HP,
+					HPMax:    updatedPet.HPMax,
+					ATK:      updatedPet.ATK,
+					DEF:      updatedPet.DEF,
+					SPD:      updatedPet.SPD,
+					SkillIDs: updatedPet.SkillIDs,
+					InLineup: inLineup,
+				},
+			},
+		}, nil
+	case 3004:
+		now := time.Now()
+		if quantity == source.Quantity {
+			delete(r.items, recordID)
+		} else {
+			source.Quantity -= quantity
+			source.UpdatedAt = now
+			r.items[recordID] = source
+		}
+		return &bag.RuntimeUseResult{
+			ContainerType: containerType,
+			SlotIndex:     slotIndex,
+			ItemID:        source.ItemID,
+			UsedQuantity:  quantity,
+			Result: bag.RuntimeUseEffect{
+				EffectType: "reward_box",
+				Rewards: []bag.RuntimeRewardItem{
+					{
+						Type:  "gold",
+						Value: 2 * quantity,
+					},
+					{
+						Type:     "item",
+						ItemID:   2001,
+						ItemName: "新手精灵球",
+						Count:    quantity,
+					},
+				},
+			},
+		}, nil
+	default:
+		return nil, bag.ErrItemNotUsable
+	}
+
+	currentCapacity := r.containerCapacity(playerID, expandTarget)
+	totalExpand := expandSlots * uint32(quantity)
+	nextCapacity := currentCapacity + totalExpand
+	if nextCapacity > 300 {
+		return nil, bag.ErrContainerCapacityLimit
+	}
+	r.ensureContainerCapacityMap(playerID)
+	r.capacities[playerID][expandTarget] = nextCapacity
+
+	now := time.Now()
+	if quantity == source.Quantity {
+		delete(r.items, recordID)
+	} else {
+		source.Quantity -= quantity
+		source.UpdatedAt = now
+		r.items[recordID] = source
+	}
+
+	return &bag.RuntimeUseResult{
+		ContainerType: containerType,
+		SlotIndex:     slotIndex,
+		ItemID:        source.ItemID,
+		UsedQuantity:  quantity,
+		Result: bag.RuntimeUseEffect{
+			EffectType:   effectType,
+			ExpandTarget: expandTarget,
+			ExpandSlots:  totalExpand,
+			NewCapacity:  nextCapacity,
+		},
+	}, nil
+}
+
+func (r *BagRepository) ConsumeRuntimeItemStack(_ context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, reasonType string, reasonRefID uint64) (*bag.RuntimeContainerSnapshot, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if quantity == 0 {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	var (
+		recordID uint64
+		source   bag.AdminItemDetail
+		found    bool
+	)
+	for currentRecordID, current := range r.items {
+		if current.PlayerID == playerID && current.ContainerType == containerType && current.SlotIndex == slotIndex {
+			recordID = currentRecordID
+			source = current
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if quantity > source.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if quantity == source.Quantity {
+		delete(r.items, recordID)
+	} else {
+		source.Quantity -= quantity
+		source.UpdatedAt = time.Now()
+		r.items[recordID] = source
+	}
+	_ = reasonType
+	_ = reasonRefID
+	return r.ListRuntimeContainer(context.Background(), playerID, containerType)
 }
 
 func bagPlayerName(playerID uint64) string {
@@ -985,6 +1765,249 @@ func bagPlayerName(playerID uint64) string {
 	default:
 		return fmt.Sprintf("Player%d", playerID)
 	}
+}
+
+func (r *BagRepository) ensureContainerCapacityMap(playerID uint64) {
+	if r.capacities == nil {
+		r.capacities = map[uint64]map[string]uint32{}
+	}
+	if _, ok := r.capacities[playerID]; !ok {
+		r.capacities[playerID] = map[string]uint32{
+			bag.ContainerTypeBag:       30,
+			bag.ContainerTypeWarehouse: 30,
+		}
+	}
+}
+
+func (r *BagRepository) containerCapacity(playerID uint64, containerType string) uint32 {
+	r.ensureContainerCapacityMap(playerID)
+	if value, ok := r.capacities[playerID][containerType]; ok && value > 0 {
+		return value
+	}
+	return 30
+}
+
+// NewItemRepository 提供后台物品模板 CRUD 的内存桩。
+func NewItemRepository() *ItemRepository {
+	now := time.Now()
+	return &ItemRepository{
+		items: map[uint64]item.AdminItemDetail{
+			2001: {ItemID: 2001, ItemCode: "starter_capture_ball", ItemName: "新手精灵球", ItemType: "consumable", ItemSubType: "capture", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, CanSell: true, CanDrop: true, CanStore: true, PriceType: "base_coin", BuyPriceCopper: 1000, SellPriceCopper: 200, EffectParamsJSON: "{}", BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			1001: {ItemID: 1001, ItemCode: "hp_potion_small", ItemName: "小型生命药剂", ItemType: "consumable", ItemSubType: "hp_potion", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, CanSell: true, CanDrop: true, CanStore: true, PriceType: "base_coin", BuyPriceCopper: 500, SellPriceCopper: 100, EffectParamsJSON: "{}", BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			2002: {ItemID: 2002, ItemCode: "training_bracer", ItemName: "训练护腕", ItemType: "equipment", ItemSubType: "armor", Quality: 2, Rarity: 2, MaxStack: 1, OccupySlots: 1, AutoMerge: false, CanSell: true, CanDrop: false, CanStore: true, PriceType: "base_coin", SellPriceCopper: 1200, EffectParamsJSON: "{}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			3001: {ItemID: 3001, ItemCode: "bag_expand_ticket_small", ItemName: "背包扩容券", ItemType: "functional", ItemSubType: "expand", Quality: 2, Rarity: 2, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, CanSell: false, CanDrop: false, CanStore: true, EffectType: "bag_expand", EffectParamsJSON: "{\"expand_target\":\"bag\",\"expand_slots\":5}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			3003: {ItemID: 3003, ItemCode: "pet_hp_potion_small", ItemName: "宠物治疗药剂", ItemType: "consumable", ItemSubType: "pet_restore", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "pet_single", CanSell: true, CanDrop: true, CanStore: true, EffectType: "pet_hp_restore", EffectValue: 10, EffectParamsJSON: "{\"restore_type\":\"flat\"}", BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			3004: {ItemID: 3004, ItemCode: "starter_reward_box", ItemName: "新手补给礼包", ItemType: "box", ItemSubType: "reward_box", Quality: 2, Rarity: 2, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "self", CanSell: false, CanDrop: false, CanStore: true, EffectType: "reward_box", EffectParamsJSON: "{\"rewards\":[{\"type\":\"gold\",\"value\":2},{\"type\":\"item\",\"item_id\":2001,\"item_name\":\"新手精灵球\",\"count\":1}]}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+		},
+	}
+}
+
+type ItemRepository struct {
+	mu    sync.RWMutex
+	items map[uint64]item.AdminItemDetail
+}
+
+func (r *ItemRepository) ListForAdmin(_ context.Context, query item.AdminListQuery) (*item.AdminItemList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	query = query.Normalize()
+	items := make([]item.AdminItemSummary, 0, len(r.items))
+	for _, current := range r.items {
+		if query.ItemID > 0 && current.ItemID != query.ItemID {
+			continue
+		}
+		if query.ItemType != "" && current.ItemType != query.ItemType {
+			continue
+		}
+		if query.Keyword != "" && !strings.Contains(strings.ToLower(current.ItemCode+current.ItemName), strings.ToLower(query.Keyword)) {
+			continue
+		}
+		if query.Enabled != nil && current.IsEnabled != *query.Enabled {
+			continue
+		}
+		items = append(items, item.AdminItemSummary{ItemID: current.ItemID, ItemCode: current.ItemCode, ItemName: current.ItemName, ItemType: current.ItemType, ItemSubType: current.ItemSubType, Quality: current.Quality, MaxStack: current.MaxStack, BuyPriceCopper: current.BuyPriceCopper, SellPriceCopper: current.SellPriceCopper, Usable: current.Usable, CanSell: current.CanSell, CanStore: current.CanStore, IsEnabled: current.IsEnabled, UpdatedAt: current.UpdatedAt, CreatedAt: current.CreatedAt})
+	}
+	return &item.AdminItemList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *ItemRepository) FindAdminDetailByItemID(_ context.Context, itemID uint64) (*item.AdminItemDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	current, ok := r.items[itemID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	return &copied, nil
+}
+
+func (r *ItemRepository) CreateForAdmin(_ context.Context, input item.AdminUpsertItemInput) (*item.AdminItemDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.items[input.ItemID]; ok {
+		return nil, item.ErrItemDefinitionConflict
+	}
+	now := time.Now()
+	value := item.AdminItemDetail{ItemID: input.ItemID, ItemCode: input.ItemCode, ItemName: input.ItemName, ItemType: input.ItemType, ItemSubType: input.ItemSubType, Quality: input.Quality, Rarity: input.Rarity, Icon: input.Icon, Desc: input.Desc, MaxStack: input.MaxStack, OccupySlots: input.OccupySlots, AutoMerge: input.AutoMerge, SortWeight: input.SortWeight, Usable: input.Usable, UseScope: input.UseScope, TargetType: input.TargetType, RequiredLevel: input.RequiredLevel, RequiredSceneID: input.RequiredSceneID, BindType: input.BindType, CanSell: input.CanSell, CanDrop: input.CanDrop, CanStore: input.CanStore, CanTrade: input.CanTrade, ExpireAtRule: input.ExpireAtRule, EffectType: input.EffectType, EffectValue: input.EffectValue, EffectParamsJSON: input.EffectParamsJSON, BuyPriceCopper: input.BuyPriceCopper, SellPriceCopper: input.SellPriceCopper, RecyclePriceCopper: input.RecyclePriceCopper, PriceType: input.PriceType, IsEnabled: input.IsEnabled, CreatedAt: now, UpdatedAt: now}
+	r.items[input.ItemID] = value
+	copied := value
+	return &copied, nil
+}
+
+func (r *ItemRepository) UpdateForAdmin(_ context.Context, itemID uint64, input item.AdminUpsertItemInput) (*item.AdminItemDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	current, ok := r.items[itemID]
+	if !ok {
+		return nil, item.ErrItemDefinitionNotFound
+	}
+	current.ItemCode = input.ItemCode
+	current.ItemName = input.ItemName
+	current.ItemType = input.ItemType
+	current.ItemSubType = input.ItemSubType
+	current.Quality = input.Quality
+	current.Rarity = input.Rarity
+	current.Icon = input.Icon
+	current.Desc = input.Desc
+	current.MaxStack = input.MaxStack
+	current.OccupySlots = input.OccupySlots
+	current.AutoMerge = input.AutoMerge
+	current.SortWeight = input.SortWeight
+	current.Usable = input.Usable
+	current.UseScope = input.UseScope
+	current.TargetType = input.TargetType
+	current.RequiredLevel = input.RequiredLevel
+	current.RequiredSceneID = input.RequiredSceneID
+	current.BindType = input.BindType
+	current.CanSell = input.CanSell
+	current.CanDrop = input.CanDrop
+	current.CanStore = input.CanStore
+	current.CanTrade = input.CanTrade
+	current.ExpireAtRule = input.ExpireAtRule
+	current.EffectType = input.EffectType
+	current.EffectValue = input.EffectValue
+	current.EffectParamsJSON = input.EffectParamsJSON
+	current.BuyPriceCopper = input.BuyPriceCopper
+	current.SellPriceCopper = input.SellPriceCopper
+	current.RecyclePriceCopper = input.RecyclePriceCopper
+	current.PriceType = input.PriceType
+	current.IsEnabled = input.IsEnabled
+	current.UpdatedAt = time.Now()
+	r.items[itemID] = current
+	copied := current
+	return &copied, nil
+}
+
+func (r *ItemRepository) DeleteForAdmin(_ context.Context, itemID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.items[itemID]; !ok {
+		return item.ErrItemDefinitionNotFound
+	}
+	delete(r.items, itemID)
+	return nil
+}
+
+// NewWalletRepository 提供后台钱包列表与调账的内存桩。
+func NewWalletRepository() *WalletRepository {
+	now := time.Now()
+	return &WalletRepository{
+		wallets: map[uint64]wallet.AdminWalletDetail{
+			DemoPlayerID:  {PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", Wallet: wallet.Snapshot{TotalCopper: 2345678, Gold: 2, Silver: 345, Copper: 678}, Version: 1, CreatedAt: now, UpdatedAt: now},
+			RivalPlayerID: {PlayerID: RivalPlayerID, PlayerName: "RivalTrainer", Wallet: wallet.Snapshot{TotalCopper: 9800, Gold: 0, Silver: 9, Copper: 800}, Version: 1, CreatedAt: now, UpdatedAt: now},
+		},
+	}
+}
+
+type WalletRepository struct {
+	mu      sync.RWMutex
+	wallets map[uint64]wallet.AdminWalletDetail
+}
+
+func (r *WalletRepository) ListForAdmin(_ context.Context, query wallet.AdminListQuery) (*wallet.AdminWalletList, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	query = query.Normalize()
+	items := make([]wallet.AdminWalletSummary, 0, len(r.wallets))
+	for _, current := range r.wallets {
+		if query.PlayerID > 0 && current.PlayerID != query.PlayerID {
+			continue
+		}
+		if query.Keyword != "" && !strings.Contains(strings.ToLower(current.PlayerName), strings.ToLower(query.Keyword)) {
+			continue
+		}
+		items = append(items, wallet.AdminWalletSummary{PlayerID: current.PlayerID, PlayerName: current.PlayerName, Wallet: current.Wallet, CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt})
+	}
+	return &wallet.AdminWalletList{Items: items, Total: uint64(len(items)), Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (r *WalletRepository) FindAdminDetailByPlayerID(_ context.Context, playerID uint64) (*wallet.AdminWalletDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	current, ok := r.wallets[playerID]
+	if !ok {
+		return nil, nil
+	}
+	copied := current
+	return &copied, nil
+}
+
+func (r *WalletRepository) AdjustForAdmin(_ context.Context, playerID uint64, input wallet.AdminAdjustInput) (*wallet.AdminWalletDetail, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	current, ok := r.wallets[playerID]
+	if !ok {
+		return nil, nil
+	}
+	next := int64(current.Wallet.TotalCopper) + input.ChangeTotalCopper
+	if next < 0 {
+		return nil, wallet.ErrInvalidAdminWalletInput
+	}
+	current.Wallet = wallet.Snapshot{TotalCopper: uint64(next), Gold: uint64(next) / 1000000, Silver: (uint64(next) % 1000000) / 1000, Copper: uint64(next) % 1000}
+	current.Version++
+	current.UpdatedAt = time.Now()
+	r.wallets[playerID] = current
+	copied := current
+	return &copied, nil
+}
+
+func (r *WalletRepository) AdjustRuntime(_ context.Context, playerID uint64, input wallet.RuntimeAdjustInput) (*wallet.RuntimeAdjustResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	current, ok := r.wallets[playerID]
+	if !ok {
+		return nil, nil
+	}
+	next := int64(current.Wallet.TotalCopper) + input.ChangeTotalCopper
+	if next < 0 {
+		return nil, wallet.ErrInvalidRuntimeAdjustInput
+	}
+	current.Wallet = wallet.Snapshot{
+		TotalCopper: uint64(next),
+		Gold:        uint64(next) / wallet.CopperPerGold,
+		Silver:      (uint64(next) % wallet.CopperPerGold) / wallet.CopperPerSilver,
+		Copper:      uint64(next) % wallet.CopperPerSilver,
+	}
+	current.Version++
+	current.UpdatedAt = time.Now()
+	r.wallets[playerID] = current
+	return &wallet.RuntimeAdjustResult{
+		Wallet:      current.Wallet,
+		Version:     current.Version,
+		ReasonType:  input.ReasonType,
+		ReasonRefID: input.ReasonRefID,
+	}, nil
+}
+
+func (r *WalletRepository) GetRuntimeSnapshot(_ context.Context, playerID uint64) (*wallet.Snapshot, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	current, ok := r.wallets[playerID]
+	if !ok {
+		return nil, nil
+	}
+	snapshot := current.Wallet
+	return &snapshot, nil
 }
 
 // NewQuestRepository provides deterministic quest templates and per-player
@@ -1002,6 +2025,7 @@ func NewQuestRepository() *QuestRepository {
 				SubmitMode:  "AUTO",
 				AutoTrack:   true,
 				Objectives:  []quest.ObjectiveTemplate{{ObjectiveID: 1, EventType: "ENTER_SCENE", Description: "进入闪光镇东路", TargetValue: 1, TargetSelector: map[string]any{"scene_id": uint32(2)}}},
+				Rewards:     []quest.Reward{{Type: "gold", Value: 100}},
 			},
 			1002: {
 				QuestID:     1002,
@@ -1015,6 +2039,12 @@ func NewQuestRepository() *QuestRepository {
 				AutoTrack:   true,
 				PreQuestIDs: []uint64{1001},
 				Objectives:  []quest.ObjectiveTemplate{{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "与市场理萌交谈", TargetValue: 1, TargetSelector: map[string]any{"npc_id": uint64(93001)}}},
+				Rewards: []quest.Reward{
+					{Type: "gold", Value: 150},
+					{Type: "item", ItemID: 2001, Count: 2},
+					{Type: "pet", PetID: 102},
+					{Type: "feature_unlock", Value: 1},
+				},
 			},
 			1003: {
 				QuestID:     1003,
@@ -1026,6 +2056,9 @@ func NewQuestRepository() *QuestRepository {
 				AutoTrack:   true,
 				PreQuestIDs: []uint64{1002},
 				Objectives:  []quest.ObjectiveTemplate{{ObjectiveID: 1, EventType: "WIN_BATTLE", Description: "完成 1 场战斗", TargetValue: 1, TargetSelector: map[string]any{"battle_type": "PVE"}}},
+				Rewards: []quest.Reward{
+					{Type: "gold", Value: 200},
+				},
 			},
 		},
 		playerQuests:     map[uint64]map[uint64]quest.PlayerQuest{},
@@ -1566,6 +2599,7 @@ func NewNPCRepository() *NPCRepository {
 			93002: {
 				"shop_open_market": {EntityID: 93002, EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100, SortOrder: 10, ActionResultType: "notice", ActionNotice: "商店面板待接入，当前先返回占位提示。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 				"dialog_trade_tip": {EntityID: 93002, EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70, SortOrder: 20, ActionResultType: "notice", ActionNotice: "罗格说：买卖讲究货比三家。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"battle_market_guard": {EntityID: 93002, EntryID: "battle_market_guard", EntryType: "battle", Title: "挑战", Subtitle: "与市场守卫切磋", State: "available", Priority: 90, SortOrder: 15, ActionResultType: "battle", ActionNotice: "", BattleEncounterEntityID: 90002, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 			},
 		},
 	}
@@ -1590,6 +2624,7 @@ func (r *NPCRepository) ListMenuEntriesByEntityID(_ context.Context, entityID ui
 		result = append(result, npc.MenuEntry{
 			EntityID: entry.EntityID, EntryID: entry.EntryID, EntryType: entry.EntryType, Title: entry.Title,
 			Subtitle: entry.Subtitle, State: entry.State, Priority: entry.Priority, ActionResultType: entry.ActionResultType, ActionNotice: entry.ActionNotice,
+			BattleEncounterEntityID: entry.BattleEncounterEntityID,
 		})
 	}
 	return result, nil
@@ -1605,7 +2640,7 @@ func (r *NPCRepository) FindActionResult(_ context.Context, entityID uint64, ent
 	}
 	entry, ok := entries[entryID]
 	if ok {
-		return &npc.ActionResult{EntityID: entityID, EntryID: entryID, ResultType: entry.ActionResultType, Notice: entry.ActionNotice}, nil
+		return &npc.ActionResult{EntityID: entityID, EntryID: entryID, ResultType: entry.ActionResultType, Notice: entry.ActionNotice, BattleEncounterEntityID: entry.BattleEncounterEntityID}, nil
 	}
 	return nil, nil
 }
@@ -1725,7 +2760,8 @@ func (r *NPCRepository) ListMenuEntriesForAdmin(_ context.Context, query npc.Adm
 			items = append(items, npc.AdminMenuEntrySummary{
 				EntityID: current.EntityID, EntryID: current.EntryID, EntryType: current.EntryType, Title: current.Title,
 				Subtitle: current.Subtitle, State: current.State, Priority: current.Priority, SortOrder: current.SortOrder,
-				ActionResultType: current.ActionResultType, Status: current.Status, StatusText: current.StatusText,
+				ActionResultType: current.ActionResultType, BattleEncounterEntityID: current.BattleEncounterEntityID,
+				Status: current.Status, StatusText: current.StatusText,
 				CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt,
 			})
 		}
@@ -1766,7 +2802,7 @@ func (r *NPCRepository) CreateMenuEntryForAdmin(_ context.Context, input npc.Adm
 	detail := npc.AdminMenuEntryDetail{
 		EntityID: input.EntityID, EntryID: input.EntryID, EntryType: input.EntryType, Title: input.Title, Subtitle: input.Subtitle,
 		State: input.State, Priority: input.Priority, SortOrder: input.SortOrder, ActionResultType: input.ActionResultType,
-		ActionNotice: input.ActionNotice, Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
+		ActionNotice: input.ActionNotice, BattleEncounterEntityID: input.BattleEncounterEntityID, Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
 	}
 	r.menuEntries[input.EntityID][input.EntryID] = detail
 	return &detail, nil
@@ -1800,6 +2836,7 @@ func (r *NPCRepository) UpdateMenuEntryForAdmin(_ context.Context, entityID uint
 	current.SortOrder = input.SortOrder
 	current.ActionResultType = input.ActionResultType
 	current.ActionNotice = input.ActionNotice
+	current.BattleEncounterEntityID = input.BattleEncounterEntityID
 	current.Status = input.Status
 	current.StatusText = npc.AdminNPCStatusText(input.Status)
 	current.UpdatedAt = time.Now()

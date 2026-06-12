@@ -128,6 +128,8 @@ type PetDetail struct {
 	SPD      uint32   `json:"spd"`
 	SkillIDs []uint32 `json:"skill_ids"`
 	InLineup bool     `json:"in_lineup"`
+	// IsUsable 表示该实例对应的 pet_id 是否存在于启用中的系统宠物模板列表。
+	IsUsable bool `json:"is_usable"`
 }
 
 type PetListReq struct{}
@@ -155,14 +157,15 @@ type PetLineupSetResp struct {
 type EnterWorldReq struct{}
 
 type EnterWorldResp struct {
-	Self           PlayerBrief    `json:"self"`
-	Player         PlayerSnapshot `json:"player"`
-	SceneID        uint32         `json:"scene_id"`
-	SelfPos        Vec2i          `json:"self_pos"`
-	SceneVersion   uint32         `json:"scene_version"`
-	NearbyEntities []EntityBrief  `json:"nearby_entities"`
-	Lineup         []PetBrief     `json:"lineup"`
-	Gold           uint32         `json:"gold"`
+	Self           PlayerBrief         `json:"self"`
+	Player         PlayerSnapshot      `json:"player"`
+	SceneID        uint32              `json:"scene_id"`
+	SelfPos        Vec2i               `json:"self_pos"`
+	SceneVersion   uint32              `json:"scene_version"`
+	NearbyEntities []EntityBrief       `json:"nearby_entities"`
+	Lineup         []PetBrief          `json:"lineup"`
+	Gold           uint32              `json:"gold"`
+	WildEncounter  WildEncounterConfig `json:"wild_encounter"`
 }
 
 type MoveIntentReq struct {
@@ -260,10 +263,29 @@ type EntityMovePush struct {
 }
 
 type WorldResyncPush struct {
-	SceneID        uint32        `json:"scene_id"`
-	SelfPos        Vec2i         `json:"self_pos"`
-	SceneVersion   uint32        `json:"scene_version"`
-	NearbyEntities []EntityBrief `json:"nearby_entities"`
+	SceneID        uint32              `json:"scene_id"`
+	SelfPos        Vec2i               `json:"self_pos"`
+	SceneVersion   uint32              `json:"scene_version"`
+	NearbyEntities []EntityBrief       `json:"nearby_entities"`
+	WildEncounter  WildEncounterConfig `json:"wild_encounter"`
+}
+
+// WildEncounterConfig 描述当前地图暗雷遭遇参数，由服务端在进图/切图时下发，客户端本地按步判定。
+type WildEncounterConfig struct {
+	Enabled         bool     `json:"enabled"`
+	SceneID         uint32   `json:"scene_id"`
+	EncounterRate   uint32   `json:"encounter_rate"`
+	SpawnMonsterIDs []uint32 `json:"spawn_monster_ids"`
+}
+
+type WildEncounterReq struct {
+	SceneID uint32 `json:"scene_id"`
+	MoveSeq uint32 `json:"move_seq"`
+}
+
+type WildEncounterResp struct {
+	Accepted bool   `json:"accepted"`
+	Reason   string `json:"reason"`
 }
 
 type BattleActorSnapshot struct {
@@ -286,10 +308,14 @@ type BattleActorSnapshot struct {
 }
 
 type BattleSkillSnapshot struct {
-	SkillID     uint32 `json:"skill_id"`
-	Name        string `json:"name"`
-	TargetType  string `json:"target_type"`
-	TargetCount uint32 `json:"target_count"`
+	SkillID      uint32 `json:"skill_id"`
+	Name         string `json:"name"`
+	TargetType   string `json:"target_type"`
+	TargetCount  uint32 `json:"target_count"`
+	AnimationKey string `json:"animation_key"`
+	CastColor    string `json:"cast_color"`
+	ImpactColor  string `json:"impact_color"`
+	Projectile   bool   `json:"projectile"`
 }
 
 type BattleStartPush struct {
@@ -319,13 +345,16 @@ type BattleActionReq struct {
 	SkillID           uint32 `json:"skill_id"`
 	TargetID          uint64 `json:"target_id"`
 	ItemUID           uint64 `json:"item_uid"`
+	ItemID            uint32 `json:"item_id"`
+	BagSlotIndex      uint32 `json:"bag_slot_index"`
 	SwitchPet         uint64 `json:"switch_pet_uid"`
 	AutoBattleEnabled bool   `json:"auto_battle_enabled"`
 }
 
 type BattleActionResp struct {
-	Accepted bool   `json:"accepted"`
-	Reason   string `json:"reason"`
+	Accepted       bool   `json:"accepted"`
+	Reason         string `json:"reason"`
+	CaptureSuccess bool   `json:"capture_success,omitempty"`
 }
 
 type BattleEvent struct {
@@ -366,22 +395,211 @@ type BattleStatePush struct {
 }
 
 type BattleResultPush struct {
-	BattleID        uint64            `json:"battle_id"`
-	Win             bool              `json:"win"`
-	ReturnSceneID   uint32            `json:"return_scene_id"`
-	ReturnPos       Vec2i             `json:"return_pos"`
-	Reason          string            `json:"reason"`
-	RewardGold      uint32            `json:"reward_gold"`
-	RewardPlayerExp uint64            `json:"reward_player_exp"`
-	PlayerGold      uint32            `json:"player_gold"`
-	PlayerExp       uint64            `json:"player_exp"`
-	PetRewards      []BattlePetReward `json:"pet_rewards"`
-	DropTexts       []string          `json:"drop_texts"`
+	BattleID         uint64            `json:"battle_id"`
+	Win              bool              `json:"win"`
+	ReturnSceneID    uint32            `json:"return_scene_id"`
+	ReturnPos        Vec2i             `json:"return_pos"`
+	Reason           string            `json:"reason"`
+	RewardGold       uint32            `json:"reward_gold"`
+	RewardPlayerExp  uint64            `json:"reward_player_exp"`
+	PlayerGold       uint32            `json:"player_gold"`
+	PlayerExp        uint64            `json:"player_exp"`
+	PetRewards       []BattlePetReward `json:"pet_rewards"`
+	DropTexts        []string          `json:"drop_texts"`
+	CaptureSuccess   bool              `json:"capture_success,omitempty"`
+	CaptureMonsterID uint32            `json:"capture_monster_id,omitempty"`
+	CapturedPetID    uint32            `json:"captured_pet_id,omitempty"`
+	CapturedPetUID   uint64            `json:"captured_pet_uid,omitempty"`
 }
 
 type BattlePetReward struct {
 	PetUID uint64 `json:"pet_uid"`
 	Exp    uint64 `json:"exp"`
+}
+
+type BagListReq struct {
+	ContainerType string `json:"container_type,omitempty"`
+}
+
+type UseItemReq struct {
+	ContainerType  string         `json:"container_type"`
+	SlotIndex      uint32         `json:"slot_index"`
+	Quantity       uint64         `json:"quantity"`
+	TargetPetUID   uint64         `json:"target_pet_uid,omitempty"`
+	TargetPlayerID uint64         `json:"target_player_id,omitempty"`
+	ExtraArgs      map[string]any `json:"extra_args,omitempty"`
+}
+
+type UseItemResult struct {
+	EffectType   string        `json:"effect_type"`
+	ExpandTarget string        `json:"expand_target,omitempty"`
+	ExpandSlots  uint32        `json:"expand_slots,omitempty"`
+	NewCapacity  uint32        `json:"new_capacity,omitempty"`
+	TargetPetUID uint64        `json:"target_pet_uid,omitempty"`
+	RestoredHP   uint32        `json:"restored_hp,omitempty"`
+	NewPetHP     uint32        `json:"new_pet_hp,omitempty"`
+	Rewards      []QuestReward `json:"rewards,omitempty"`
+}
+
+type UseItemResp struct {
+	ContainerType string        `json:"container_type"`
+	SlotIndex     uint32        `json:"slot_index"`
+	ItemID        uint64        `json:"item_id"`
+	UsedQuantity  uint64        `json:"used_quantity"`
+	Result        UseItemResult `json:"result"`
+}
+
+type ContainerListReq struct {
+	ContainerType string `json:"container_type"`
+}
+
+type WalletQueryReq struct{}
+
+type BagToWarehouseReq struct {
+	EntityID      uint64 `json:"entity_id"`
+	FromSlotIndex uint32 `json:"from_slot_index"`
+	Quantity      uint64 `json:"quantity"`
+}
+
+type BagToWarehouseResp struct {
+	Accepted          bool   `json:"accepted"`
+	Reason            string `json:"reason"`
+	MovedItemID       uint64 `json:"moved_item_id"`
+	MovedItemUID      string `json:"moved_item_uid"`
+	MovedQuantity     uint64 `json:"moved_quantity"`
+	FromContainerType string `json:"from_container_type"`
+	ToContainerType   string `json:"to_container_type"`
+	FromSlotIndex     uint32 `json:"from_slot_index"`
+	ToSlotIndex       uint32 `json:"to_slot_index"`
+}
+
+type WarehouseToBagReq struct {
+	EntityID      uint64 `json:"entity_id"`
+	FromSlotIndex uint32 `json:"from_slot_index"`
+	Quantity      uint64 `json:"quantity"`
+}
+
+type WarehouseToBagResp struct {
+	Accepted          bool   `json:"accepted"`
+	Reason            string `json:"reason"`
+	MovedItemID       uint64 `json:"moved_item_id"`
+	MovedItemUID      string `json:"moved_item_uid"`
+	MovedQuantity     uint64 `json:"moved_quantity"`
+	FromContainerType string `json:"from_container_type"`
+	ToContainerType   string `json:"to_container_type"`
+	FromSlotIndex     uint32 `json:"from_slot_index"`
+	ToSlotIndex       uint32 `json:"to_slot_index"`
+}
+
+type ContainerSortReq struct {
+	ContainerType string `json:"container_type"`
+}
+
+type ContainerSortResp struct {
+	ContainerType string `json:"container_type"`
+	Sorted        bool   `json:"sorted"`
+}
+
+type ContainerMoveReq struct {
+	ContainerType string `json:"container_type"`
+	FromSlotIndex uint32 `json:"from_slot_index"`
+	ToSlotIndex   uint32 `json:"to_slot_index"`
+	Quantity      uint64 `json:"quantity"`
+}
+
+type ContainerMoveResp struct {
+	ContainerType string `json:"container_type"`
+	FromSlotIndex uint32 `json:"from_slot_index"`
+	ToSlotIndex   uint32 `json:"to_slot_index"`
+	Moved         bool   `json:"moved"`
+	Reason        string `json:"reason"`
+}
+
+type WalletSnapshot struct {
+	TotalCopper uint64 `json:"total_copper"`
+	Gold        uint64 `json:"gold"`
+	Silver      uint64 `json:"silver"`
+	Copper      uint64 `json:"copper"`
+}
+
+type ContainerItemSnapshot struct {
+	SlotIndex    uint32 `json:"slot_index"`
+	ItemID       uint64 `json:"item_id"`
+	ItemUID      string `json:"item_uid"`
+	Quantity     uint64 `json:"quantity"`
+	IsBound      bool   `json:"is_bound"`
+	ItemName     string `json:"item_name"`
+	ItemType     string `json:"item_type"`
+	ItemSubType  string `json:"item_sub_type"`
+	Quality      uint32 `json:"quality"`
+	Icon         string `json:"icon"`
+	EnhanceLevel uint32 `json:"enhance_level"`
+}
+
+type ContainerSnapshot struct {
+	ContainerType string                  `json:"container_type"`
+	Capacity      uint32                  `json:"capacity"`
+	MaxCapacity   uint32                  `json:"max_capacity"`
+	UsedSlots     uint32                  `json:"used_slots"`
+	Items         []ContainerItemSnapshot `json:"items"`
+}
+
+type BagListResp struct {
+	Container ContainerSnapshot `json:"container"`
+	Wallet    WalletSnapshot    `json:"wallet"`
+}
+
+type ContainerListResp struct {
+	Container ContainerSnapshot `json:"container"`
+	Wallet    WalletSnapshot    `json:"wallet"`
+}
+
+type WalletQueryResp struct {
+	Wallet WalletSnapshot `json:"wallet"`
+}
+
+type BagSlotUpdate struct {
+	SlotIndex uint32                 `json:"slot_index"`
+	Deleted   bool                   `json:"deleted"`
+	Item      *ContainerItemSnapshot `json:"item,omitempty"`
+}
+
+type BagUpdatePush struct {
+	ContainerType string          `json:"container_type"`
+	Capacity      uint32          `json:"capacity"`
+	MaxCapacity   uint32          `json:"max_capacity"`
+	UsedSlots     uint32          `json:"used_slots"`
+	Updates       []BagSlotUpdate `json:"updates"`
+}
+
+type WalletUpdatePush struct {
+	Wallet      WalletSnapshot `json:"wallet"`
+	ReasonType  string         `json:"reason_type"`
+	ReasonRefID uint64         `json:"reason_ref_id"`
+}
+
+type CurrencyCost struct {
+	CurrencyType string `json:"currency_type"`
+	TotalCopper  uint64 `json:"total_copper"`
+	Gold         uint64 `json:"gold"`
+	Silver       uint64 `json:"silver"`
+	Copper       uint64 `json:"copper"`
+}
+
+type BuyItemReq struct {
+	ShopID   uint64 `json:"shop_id"`
+	GoodsID  uint64 `json:"goods_id"`
+	ItemID   uint64 `json:"item_id"`
+	Quantity uint64 `json:"quantity"`
+}
+
+type BuyItemResp struct {
+	ShopID   uint64         `json:"shop_id"`
+	GoodsID  uint64         `json:"goods_id"`
+	ItemID   uint64         `json:"item_id"`
+	Quantity uint64         `json:"quantity"`
+	Cost     CurrencyCost   `json:"cost"`
+	Wallet   WalletSnapshot `json:"wallet"`
 }
 
 type QuestListReq struct{}
@@ -392,6 +610,14 @@ type QuestObjectiveState struct {
 	Current     uint32 `json:"current"`
 	Target      uint32 `json:"target"`
 	Completed   bool   `json:"completed"`
+}
+
+type QuestReward struct {
+	Type   string `json:"type"`
+	Value  uint64 `json:"value"`
+	ItemID uint64 `json:"item_id"`
+	Count  uint64 `json:"count"`
+	PetID  uint64 `json:"pet_id"`
 }
 
 type QuestSummary struct {
@@ -437,9 +663,10 @@ type QuestSubmitReq struct {
 }
 
 type QuestSubmitResp struct {
-	Accepted bool         `json:"accepted"`
-	Reason   string       `json:"reason"`
-	Quest    QuestSummary `json:"quest"`
+	Accepted bool          `json:"accepted"`
+	Reason   string        `json:"reason"`
+	Quest    QuestSummary  `json:"quest"`
+	Rewards  []QuestReward `json:"rewards"`
 }
 
 type QuestTrackReq struct {

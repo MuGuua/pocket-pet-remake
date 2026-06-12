@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Form, Input, Space, Typography, message } from 'antd';
+import { Button, Card, Form, Input, Space, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { fetchAdminProfile, loginAdmin, logoutAdmin } from '../../services/auth';
@@ -73,7 +73,7 @@ export function LoginPage() {
               使用独立管理员账号登录，不复用游戏玩家账号体系。
             </Typography.Text>
           </div>
-          <Alert type="info" showIcon message="默认已预留超级管理员账号，请按服务端迁移脚本初始化数据库。" />
+
           <Form<LoginFormValues>
             layout="vertical"
             initialValues={{

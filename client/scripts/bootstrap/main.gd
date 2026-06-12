@@ -4,8 +4,6 @@ const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 # 世界场景资源的预加载引用。
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
-# 战斗场景资源的预加载引用。
-const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/player_panel.tscn")
 const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
@@ -23,8 +21,6 @@ const PLAYER_ENTITY_TYPE: int = 1
 @onready var gameplay_area: Control = %GameplayArea
 # 世界场景实例的挂载节点。
 @onready var world_mount: Control = $GameplayArea/WorldMount
-# 战斗场景实例的挂载节点。
-@onready var battle_mount: Control = $GameplayArea/BattleMount
 # 宠物相关消息处理控制器。
 @onready var pet_controller: Node = %PetController
 # 战斗相关消息处理控制器。
@@ -40,8 +36,6 @@ const PLAYER_ENTITY_TYPE: int = 1
 
 # 当前挂载的世界控制器实例引用。
 var _world_controller: Node
-# 当前挂载的战斗场景实例引用。
-var _battle_scene: Control
 # 标记当前是否正在跳回登录页，避免重复切场景。
 var _redirecting_to_login: bool = false
 var _main_menu: CanvasLayer
@@ -70,7 +64,6 @@ func _ready() -> void:
 	_sync_world_render_frame()
 	_append_log("主场景已就绪。")
 	_append_log("正在请求进入世界。")
-	_sync_battle_visibility()
 	App.enter_world()
 	_refresh_view()
 
@@ -89,8 +82,6 @@ func _exit_tree() -> void:
 		GameState.session_changed.disconnect(_refresh_view)
 	if GameState.world_snapshot_changed.is_connected(_refresh_view):
 		GameState.world_snapshot_changed.disconnect(_refresh_view)
-	if GameState.battle_changed.is_connected(_sync_battle_visibility):
-		GameState.battle_changed.disconnect(_sync_battle_visibility)
 	if GameState.battle_changed.is_connected(_refresh_view):
 		GameState.battle_changed.disconnect(_refresh_view)
 	if GameState.quests_changed.is_connected(_refresh_view):
@@ -118,6 +109,8 @@ func _mount_world_scene() -> void:
 		_world_controller.connect("scene_transition_failed", Callable(self, "_on_scene_transition_failed"))
 	if _world_controller.has_signal("npc_interaction_requested"):
 		_world_controller.connect("npc_interaction_requested", Callable(self, "_on_npc_interaction_requested"))
+	if _world_controller.has_signal("wild_encounter_responded"):
+		_world_controller.connect("wild_encounter_responded", Callable(self, "_on_wild_encounter_responded"))
 	_append_log("世界场景已挂载。")
 
 # 注册主运行态依赖的全部协议路由。
@@ -130,6 +123,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.ENTITY_LEAVE_PUSH, Callable(_world_controller, "handle_entity_leave"))
 	MessageRouter.register_handler(CommandIds.ENTITY_MOVE_PUSH, Callable(_world_controller, "handle_entity_move"))
 	MessageRouter.register_handler(CommandIds.WORLD_RESYNC_PUSH, Callable(_world_controller, "handle_world_resync"))
+	MessageRouter.register_handler(CommandIds.WILD_ENCOUNTER_RESP, Callable(_world_controller, "handle_wild_encounter_response"))
 	MessageRouter.register_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.register_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.register_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
@@ -148,6 +142,10 @@ func _register_routes() -> void:
 
 	MessageRouter.register_handler(CommandIds.BAG_LIST_RESP, Callable(bag_controller, "handle_bag_list"))
 	MessageRouter.register_handler(CommandIds.BAG_UPDATE_PUSH, Callable(bag_controller, "handle_bag_update"))
+	MessageRouter.register_handler(CommandIds.USE_ITEM_RESP, Callable(bag_controller, "handle_use_item_response"))
+	MessageRouter.register_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
+	MessageRouter.register_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
+	MessageRouter.register_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
 	MessageRouter.register_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.register_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.register_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -165,6 +163,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.ENTITY_LEAVE_PUSH, Callable(_world_controller, "handle_entity_leave"))
 	MessageRouter.unregister_handler(CommandIds.ENTITY_MOVE_PUSH, Callable(_world_controller, "handle_entity_move"))
 	MessageRouter.unregister_handler(CommandIds.WORLD_RESYNC_PUSH, Callable(_world_controller, "handle_world_resync"))
+	MessageRouter.unregister_handler(CommandIds.WILD_ENCOUNTER_RESP, Callable(_world_controller, "handle_wild_encounter_response"))
 	MessageRouter.unregister_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.unregister_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
@@ -180,6 +179,10 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.BATTLE_RESULT_PUSH, Callable(battle_controller, "handle_battle_result"))
 	MessageRouter.unregister_handler(CommandIds.BAG_LIST_RESP, Callable(bag_controller, "handle_bag_list"))
 	MessageRouter.unregister_handler(CommandIds.BAG_UPDATE_PUSH, Callable(bag_controller, "handle_bag_update"))
+	MessageRouter.unregister_handler(CommandIds.USE_ITEM_RESP, Callable(bag_controller, "handle_use_item_response"))
+	MessageRouter.unregister_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
+	MessageRouter.unregister_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
+	MessageRouter.unregister_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -215,7 +218,6 @@ func _connect_signals() -> void:
 
 	GameState.session_changed.connect(_refresh_view)
 	GameState.world_snapshot_changed.connect(_refresh_view)
-	GameState.battle_changed.connect(_sync_battle_visibility)
 	GameState.battle_changed.connect(_refresh_view)
 	GameState.quests_changed.connect(_refresh_view)
 	NetClient.connection_state_changed.connect(_on_connection_state_changed)
@@ -320,6 +322,10 @@ func _on_npc_interaction_requested(entity_id: int, npc_name: String) -> void:
 	_append_log("尝试与 NPC 交互: %s (%d)" % [npc_name, entity_id])
 	App.request_interact(entity_id)
 
+func _on_wild_encounter_responded(accepted: bool, reason: String) -> void:
+	_append_log("暗雷遭遇: %s (%s)" % ["accepted" if accepted else "rejected", reason])
+	_refresh_view()
+
 func _on_interact_payload_received(payload: Dictionary) -> void:
 	if str(payload.get("response_type", "")) != "menu":
 		return
@@ -331,6 +337,9 @@ func _on_interact_payload_received(payload: Dictionary) -> void:
 		_set_runtime_menu_locked(true)
 
 func _on_npc_action_payload_received(payload: Dictionary) -> void:
+	if str(payload.get("result_type", "")) == "battle":
+		_close_runtime_menus()
+		return
 	var dialogue_binding := _resolve_npc_dialogue_binding({
 		"entity_id": int(payload.get("entity_id", 0)),
 		"id": str(payload.get("entry_id", "")),
@@ -358,16 +367,15 @@ func _on_interact_responded(accepted: bool, reason: String) -> void:
 func _on_action_responded(accepted: bool, reason: String) -> void:
 	_append_log("战斗动作结果: %s (%s)" % ["accepted" if accepted else "rejected", reason])
 
-# 处理战斗开始事件，挂载战斗场景并同步显示状态。
+# 处理战斗开始事件；当前已移除独立战斗场景，仅保留运行态日志与头部状态提示。
 func _on_battle_started(payload: Dictionary) -> void:
-	_append_log("进入战斗场景。")
+	_append_log("收到战斗开始事件。")
 	_close_runtime_menus()
-	_mount_battle_scene()
-	_sync_battle_visibility()
 	if payload.has("battle_id"):
 		_append_log("战斗ID: %s" % str(payload.get("battle_id", "")))
+	_refresh_view()
 
-# 处理战斗结束事件，卸载战斗场景并回到世界显示。
+# 处理战斗结束事件，并回到普通世界 HUD 展示。
 func _on_battle_finished(payload: Dictionary) -> void:
 	var reward_gold := int(payload.get("reward_gold", 0))
 	var reward_player_exp := int(payload.get("reward_player_exp", 0))
@@ -381,8 +389,6 @@ func _on_battle_finished(payload: Dictionary) -> void:
 		var drop_text := str(drop_text_variant)
 		if not drop_text.is_empty():
 			_append_log(drop_text)
-	_sync_battle_visibility()
-	_unmount_battle_scene()
 	App.request_quest_list()
 	_refresh_view()
 
@@ -429,31 +435,6 @@ func _refresh_view() -> void:
 # 向底部 HUD 日志区域追加一条文本。
 func _append_log(message: String) -> void:
 	hud_root.append_log(message)
-
-# 挂载战斗场景实例。
-func _mount_battle_scene() -> void:
-	if _battle_scene != null:
-		return
-	_battle_scene = BATTLE_SCENE.instantiate() as Control
-	if _battle_scene == null:
-		return
-	battle_mount.add_child(_battle_scene)
-
-# 卸载当前战斗场景实例。
-func _unmount_battle_scene() -> void:
-	if _battle_scene == null:
-		return
-	_battle_scene.queue_free()
-	_battle_scene = null
-
-# 根据全局战斗状态切换世界层和战斗层的可见性。
-func _sync_battle_visibility() -> void:
-	# 标记当前是否处于战斗态。
-	var active := GameState.is_in_battle
-	if active:
-		_mount_battle_scene()
-	world_mount.visible = not active
-	battle_mount.visible = active
 
 func _create_runtime_ui() -> void:
 	_create_main_menu()
@@ -581,6 +562,15 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 			if not submit_dialogue.is_empty():
 				_show_npc_dialogue(submit_dialogue, str(option.get("npc_name", "NPC")))
 		App.request_interact(entity_id)
+		return
+	if entry_type == "warehouse":
+		_append_log("打开仓库面板: %s (%d)" % [str(option.get("npc_name", "仓库 NPC")), entity_id])
+		if _player_panel != null and _player_panel.has_method("open_warehouse_menu"):
+			_player_panel.call("open_warehouse_menu", entity_id)
+			_set_runtime_menu_locked(true)
+		return
+	if entry_type == "battle":
+		App.request_npc_action(entity_id, entry_id)
 		return
 	App.request_npc_action(entity_id, entry_id)
 

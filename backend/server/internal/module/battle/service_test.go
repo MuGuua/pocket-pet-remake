@@ -22,7 +22,7 @@ func mustFindSnapshotByUnitClass(t *testing.T, actors []ActorSnapshot, unitClass
 }
 
 func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
 	lineup := []pet.LineupPet{
@@ -171,7 +171,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 }
 
 func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
 	lineup := []pet.LineupPet{
@@ -207,7 +207,7 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 		t.Fatalf("autoOutcome.State.Frame = %d, want progress beyond start frame %d", autoOutcome.State.Frame, start.Frame)
 	}
 
-	svc = NewService()
+	svc = NewService(nil)
 	start, err = svc.StartPVE(ctx, profile, lineup, enemy)
 	if err != nil {
 		t.Fatalf("StartPVE(timeout case) error = %v", err)
@@ -246,7 +246,7 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 }
 
 func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
 	lineup := []pet.LineupPet{
@@ -265,6 +265,9 @@ func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
 	damagePet := start.Allies[1]
 	if damagePet.Skills[1].TargetType != "enemy_all" {
 		t.Fatalf("damage pet skills = %#v, want second skill target type enemy_all", damagePet.Skills)
+	}
+	if damagePet.Skills[1].AnimationKey != "burst" || damagePet.Skills[1].CastColor == "" || damagePet.Skills[1].ImpactColor == "" || !damagePet.Skills[1].Projectile {
+		t.Fatalf("damage pet skill visuals = %#v, want burst animation metadata", damagePet.Skills[1])
 	}
 
 	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -424,7 +427,7 @@ func TestAdjustStatusChancePctUsesSpecificResistance(t *testing.T) {
 }
 
 func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
 	lineup := []pet.LineupPet{
@@ -448,6 +451,9 @@ func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 	}
 	if multiTargetPet.Skills[1].TargetCount != 2 {
 		t.Fatalf("multiTargetPet.Skills[1].TargetCount = %d, want 2", multiTargetPet.Skills[1].TargetCount)
+	}
+	if multiTargetPet.Skills[1].AnimationKey != "volley" || multiTargetPet.Skills[1].CastColor == "" || multiTargetPet.Skills[1].ImpactColor == "" || !multiTargetPet.Skills[1].Projectile {
+		t.Fatalf("multiTargetPet.Skills[1] visuals = %#v, want volley animation metadata", multiTargetPet.Skills[1])
 	}
 
 	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -499,7 +505,7 @@ func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 }
 
 func TestServiceStartPVPWaitsForBothPlayers(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	challenger := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6}
 	defender := &player.Profile{PlayerID: 10002, Name: "RivalTrainer", Level: 8, SceneID: 1, PosX: 9, PosY: 6}
@@ -565,7 +571,7 @@ func TestServiceStartPVPWaitsForBothPlayers(t *testing.T) {
 }
 
 func TestServiceStartPVEIncludesCharacterWithoutLineup(t *testing.T) {
-	svc := NewService()
+	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{
 		PlayerID: 50001,

@@ -5,10 +5,12 @@ signal player_position_changed(local_position: Vector2, global_position: Vector2
 signal scene_transition_requested(from_scene_id: int, to_scene_id: int)
 signal scene_transition_failed(reason: String)
 signal npc_interaction_requested(entity_id: int, npc_name: String)
+signal wild_encounter_responded(accepted: bool, reason: String)
 
 const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(360.0, 480.0)
 const PORTAL_ACTIVATION_COOLDOWN_MS: int = 350
 const DEFAULT_GRID_TO_PIXELS: float = 24.0
+const WILD_ENCOUNTER_RATE_DENOMINATOR: int = 10000
 const BACKGROUND_OVERSCAN_SCALE: float = 3.0
 const INVALID_NAVIGATION_CELL: Vector2i = Vector2i(-2147483648, -2147483648)
 const CLICK_MARKER_RING_RADIUS: float = 10.0
@@ -110,10 +112,13 @@ var _click_destination_marker_root: Node2D
 var _click_destination_marker_ring: Line2D
 var _click_destination_marker_cross: Line2D
 var _click_destination_marker_tween: Tween
+var _last_wild_encounter_nav_cell: Vector2i = INVALID_NAVIGATION_CELL
+var _wild_encounter_request_pending: bool = false
 
 func _process(_delta: float) -> void:
 	_report_player_position_if_changed()
 	_process_npc_interaction_input()
+	_check_wild_encounter_step()
 
 func _ready() -> void:
 	_refresh_game_layout()
@@ -124,6 +129,7 @@ func _ready() -> void:
 	if game_viewport_container != null and not game_viewport_container.gui_input.is_connected(_on_game_viewport_gui_input):
 		game_viewport_container.gui_input.connect(_on_game_viewport_gui_input)
 	GameState.battle_changed.connect(_sync_local_player_battle_state)
+	GameState.battle_changed.connect(_on_battle_state_changed)
 	_ensure_click_destination_marker()
 	call_deferred("_refresh_game_layout")
 	_sync_local_player_battle_state()
@@ -172,6 +178,16 @@ func handle_world_resync(payload: Dictionary) -> void:
 	GameState.set_world_snapshot(payload)
 	_apply_authoritative_snapshot()
 	_emit_scene_loaded_if_changed(false)
+
+func handle_wild_encounter_response(payload: Dictionary) -> void:
+	var accepted: bool = bool(payload.get("accepted", false))
+	var reason: String = str(payload.get("reason", ""))
+	_wild_encounter_request_pending = false
+	_set_transition_loading(false)
+	if not accepted:
+		set_runtime_input_locked(false)
+		_unlock_local_player()
+	wild_encounter_responded.emit(accepted, reason)
 
 func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_direction: Vector2 = Vector2.ZERO) -> void:
 	var current_scene_id := _current_scene_id()
@@ -417,6 +433,70 @@ func _apply_authoritative_snapshot() -> void:
 	_set_transition_loading(false)
 	_unlock_local_player()
 	player_position_changed.emit(_current_player_scene_position(), _current_player_global_position())
+	_reset_wild_encounter_step_tracking()
+
+func _reset_wild_encounter_step_tracking() -> void:
+	_last_wild_encounter_nav_cell = INVALID_NAVIGATION_CELL
+	if player_node == null or _navigation_layer == null:
+		return
+	var current_cell: Vector2i = _world_to_navigation_cell(player_node.global_position)
+	if _is_navigation_cell_valid(current_cell):
+		_last_wild_encounter_nav_cell = current_cell
+
+func _check_wild_encounter_step() -> void:
+	if _wild_encounter_request_pending or GameState.is_in_battle:
+		return
+	if _pending_target_scene_id != 0 or _runtime_input_locked:
+		return
+	if player_node == null or _navigation_layer == null or _navigation_grid == null:
+		return
+	if not bool(GameState.wild_encounter_config.get("enabled", false)):
+		return
+
+	var config_scene_id: int = int(GameState.wild_encounter_config.get("scene_id", 0))
+	var current_scene_id: int = _current_scene_id()
+	if config_scene_id <= 0 or config_scene_id != current_scene_id:
+		return
+
+	if not _is_player_moving_for_wild_encounter():
+		return
+
+	var current_cell: Vector2i = _world_to_navigation_cell(player_node.global_position)
+	if not _is_navigation_cell_valid(current_cell):
+		return
+	if _last_wild_encounter_nav_cell == INVALID_NAVIGATION_CELL:
+		_last_wild_encounter_nav_cell = current_cell
+		return
+	if current_cell == _last_wild_encounter_nav_cell:
+		return
+
+	_last_wild_encounter_nav_cell = current_cell
+	_try_roll_wild_encounter(current_scene_id)
+
+func _is_player_moving_for_wild_encounter() -> bool:
+	if player_node == null:
+		return false
+	if player_node.velocity.length_squared() <= 0.0:
+		return false
+	return true
+
+func _try_roll_wild_encounter(scene_id: int) -> void:
+	var encounter_rate: int = int(GameState.wild_encounter_config.get("encounter_rate", 0))
+	if encounter_rate <= 0:
+		return
+	var roll_value: int = randi() % WILD_ENCOUNTER_RATE_DENOMINATOR
+	if roll_value >= encounter_rate:
+		return
+	_request_wild_encounter_battle(scene_id)
+
+func _request_wild_encounter_battle(scene_id: int) -> void:
+	_wild_encounter_request_pending = true
+	_lock_local_player()
+	set_runtime_input_locked(true)
+	if player_node != null and player_node.has_method("clear_auto_move_path"):
+		player_node.call("clear_auto_move_path")
+	_set_transition_loading(true)
+	App.request_wild_encounter(scene_id, _take_next_move_seq())
 
 func _ensure_scene_loaded(scene_id: int) -> bool:
 	if scene_id <= 0:
@@ -882,6 +962,14 @@ func _is_navigation_cell_valid(cell: Vector2i) -> bool:
 func _sync_local_player_battle_state() -> void:
 	if player_node != null and player_node.has_method("set_battle_active"):
 		player_node.call("set_battle_active", GameState.is_in_battle)
+
+func _on_battle_state_changed() -> void:
+	if GameState.is_in_battle:
+		_wild_encounter_request_pending = false
+		_set_transition_loading(false)
+		set_runtime_input_locked(true)
+		return
+	set_runtime_input_locked(false)
 
 func _lock_local_player() -> void:
 	if player_node != null and player_node.has_method("set_scene_transition_locked"):

@@ -29,7 +29,8 @@ SELECT
   submit_npc_id,
   auto_track,
   pre_quest_ids,
-  objectives_json
+  objectives_json,
+  rewards_json
 FROM quest_template
 WHERE status = 1
 ORDER BY chapter ASC, sort_order ASC, quest_id ASC
@@ -47,7 +48,8 @@ SELECT
   submit_npc_id,
   auto_track,
   pre_quest_ids,
-  objectives_json
+  objectives_json,
+  rewards_json
 FROM quest_template
 WHERE quest_id = $1 AND status = 1
 LIMIT 1
@@ -257,6 +259,7 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 		value          quest.Template
 		preQuestRaw    []byte
 		objectivesRaw  []byte
+		rewardsRaw     []byte
 		objectivesJSON []struct {
 			ObjectiveID    uint64         `json:"objective_id"`
 			EventType      string         `json:"event_type"`
@@ -264,6 +267,7 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 			Target         uint32         `json:"target"`
 			TargetSelector map[string]any `json:"target_selector"`
 		}
+		rewardsJSON []quest.Reward
 	)
 
 	err := scanner.Scan(
@@ -278,6 +282,7 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 		&value.AutoTrack,
 		&preQuestRaw,
 		&objectivesRaw,
+		&rewardsRaw,
 	)
 	if err != nil {
 		return quest.Template{}, err
@@ -292,6 +297,11 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 			return quest.Template{}, err
 		}
 	}
+	if len(rewardsRaw) > 0 {
+		if err := json.Unmarshal(rewardsRaw, &rewardsJSON); err != nil {
+			return quest.Template{}, err
+		}
+	}
 	value.Objectives = make([]quest.ObjectiveTemplate, 0, len(objectivesJSON))
 	for _, objective := range objectivesJSON {
 		value.Objectives = append(value.Objectives, quest.ObjectiveTemplate{
@@ -302,5 +312,6 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 			TargetSelector: objective.TargetSelector,
 		})
 	}
+	value.Rewards = append([]quest.Reward{}, rewardsJSON...)
 	return value, nil
 }

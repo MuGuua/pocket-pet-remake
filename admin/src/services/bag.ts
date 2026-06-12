@@ -1,11 +1,5 @@
 import { requestJSON } from './http';
-import type {
-  AdminBagDetail,
-  AdminBagListFilters,
-  AdminBagListResult,
-  AdminCreateBagPayload,
-  AdminUpdateBagPayload,
-} from '../types/bag';
+import type { AdminBagDetail, AdminBagListFilters, AdminBagListResult, AdminCreateBagPayload, AdminUpdateBagPayload } from '../types/bag';
 
 export async function fetchAdminBags(params: {
   filters?: AdminBagListFilters;
@@ -13,15 +7,11 @@ export async function fetchAdminBags(params: {
   pageSize?: number;
 }): Promise<AdminBagListResult> {
   const query = new URLSearchParams();
-  if (params.filters?.record_id?.trim()) {
-    query.set('record_id', params.filters.record_id.trim());
-  }
-  if (params.filters?.player_id?.trim()) {
-    query.set('player_id', params.filters.player_id.trim());
-  }
-  if (params.filters?.item_id?.trim()) {
-    query.set('item_id', params.filters.item_id.trim());
-  }
+  if (params.filters?.record_id?.trim()) query.set('record_id', params.filters.record_id.trim());
+  if (params.filters?.player_id?.trim()) query.set('player_id', params.filters.player_id.trim());
+  if (params.filters?.container_type?.trim()) query.set('container_type', params.filters.container_type.trim());
+  if (params.filters?.item_id?.trim()) query.set('item_id', params.filters.item_id.trim());
+  if (params.filters?.item_uid?.trim()) query.set('item_uid', params.filters.item_uid.trim());
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminBagListResult>({ url: `/api/admin/bags?${query.toString()}`, method: 'GET' });

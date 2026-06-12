@@ -66,7 +66,7 @@ func (h *PetHandler) HandleLineupSet(conn packetSender, packet *protocol.Packet)
 
 	lineup, err := h.petService.SetLineup(context.Background(), sess.PlayerID, request.PetUIDs)
 	if err != nil {
-		if errors.Is(err, pet.ErrPetNotFound) || errors.Is(err, pet.ErrInvalidLineup) || errors.Is(err, pet.ErrDuplicateLineup) {
+		if errors.Is(err, pet.ErrPetNotFound) || errors.Is(err, pet.ErrInvalidLineup) || errors.Is(err, pet.ErrDuplicateLineup) || errors.Is(err, pet.ErrPetUnusable) {
 			return h.sendLineupSetResponse(conn, packet.Seq, false, nil, err.Error())
 		}
 		return sendError(conn, packet.Seq, errcode.WSCodePetLineupInvalid, "set pet lineup failed", err)

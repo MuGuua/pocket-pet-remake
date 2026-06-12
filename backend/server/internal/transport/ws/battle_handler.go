@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
+	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
 	"pocket-pet-remake/server/internal/protocol"
@@ -22,26 +26,35 @@ type BattleHandler struct {
 	sessionService *session.Service
 	playerService  *player.Service
 	petService     *pet.Service
+	bagService     *bag.Service
+	walletService  *wallet.Service
 	worldService   *world.Service
 	questService   *quest.Service
 	npcService     *npc.Service
 	battleService  *battle.Service
 	battleRepo     battle.Repository
+	rewardService  *reward.Service
 	reconnectMu    sync.Mutex
 	reconnectCache map[uint64]protocol.BattleResultPush
+	wildEncounterMu sync.Mutex
+	wildEncounterLast map[uint64]time.Time
 }
 
-func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service, battleRepo battle.Repository) *BattleHandler {
+func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, walletService *wallet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service, battleRepo battle.Repository) *BattleHandler {
 	return &BattleHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
 		petService:     petService,
+		bagService:     bagService,
+		walletService:  walletService,
 		worldService:   worldService,
 		questService:   questService,
 		npcService:     npcService,
 		battleService:  battleService,
 		battleRepo:     battleRepo,
+		rewardService:  reward.NewService(bagService, petService, playerService, nil, walletService),
 		reconnectCache: make(map[uint64]protocol.BattleResultPush),
+		wildEncounterLast: make(map[uint64]time.Time),
 	}
 }
 
@@ -98,6 +111,86 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	}))
 }
 
+const wildEncounterCooldown = 2 * time.Second
+
+func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.WildEncounterReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid wild encounter body")
+	}
+
+	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID())
+	if err != nil {
+		return h.handleContextError(conn, packet.Seq, err)
+	}
+	if request.SceneID == 0 || request.SceneID != profile.SceneID {
+		return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "scene mismatch"})
+	}
+	if !h.allowWildEncounterReport(sess.PlayerID) {
+		return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "encounter cooldown"})
+	}
+
+	startSnapshot, err := h.battleService.StartPVEWildEncounterByScene(context.Background(), profile, lineup, request.SceneID)
+	if err != nil {
+		if errors.Is(err, battle.ErrBattleAlreadyActive) {
+			return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "battle already active"})
+		}
+		if errors.Is(err, battle.ErrNoLineupAvailable) {
+			return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "no lineup available"})
+		}
+		if errors.Is(err, battle.ErrWildEncounterUnavailable) {
+			return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "wild encounter unavailable"})
+		}
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "wild encounter battle start failed")
+	}
+	h.markWildEncounterReport(sess.PlayerID)
+
+	if err := h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: true, Reason: "battle started"}); err != nil {
+		return err
+	}
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, protocol.BattleStartPush{
+		BattleID:             startSnapshot.BattleID,
+		BattleType:           startSnapshot.BattleType,
+		BattleVersion:        startSnapshot.BattleVersion,
+		Frame:                startSnapshot.Frame,
+		ParticipantPlayerIDs: append([]uint64{}, startSnapshot.ParticipantPlayerIDs...),
+		Allies:               toProtocolBattleActors(startSnapshot.Allies),
+		Enemies:              toProtocolBattleActors(startSnapshot.Enemies),
+		Round:                startSnapshot.Round,
+		Phase:                startSnapshot.Phase,
+		ActiveActorID:        startSnapshot.ActiveActorID,
+		ActivePetUID:         startSnapshot.ActivePetUID,
+		CommandDeadlineMS:    startSnapshot.CommandDeadlineMS,
+		AutoBattleEnabled:    startSnapshot.AutoBattleEnabled,
+		PendingActorIDs:      append([]uint64{}, startSnapshot.PendingActorIDs...),
+		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
+	}))
+}
+
+func (h *BattleHandler) allowWildEncounterReport(playerID uint64) bool {
+	h.wildEncounterMu.Lock()
+	defer h.wildEncounterMu.Unlock()
+	lastReport, exists := h.wildEncounterLast[playerID]
+	if exists && time.Since(lastReport) < wildEncounterCooldown {
+		return false
+	}
+	return true
+}
+
+func (h *BattleHandler) markWildEncounterReport(playerID uint64) {
+	h.wildEncounterMu.Lock()
+	defer h.wildEncounterMu.Unlock()
+	h.wildEncounterLast[playerID] = time.Now()
+}
+
+func (h *BattleHandler) sendWildEncounterResponse(conn packetSender, seq uint32, response protocol.WildEncounterResp) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdWildEncounterResp, seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
 func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.Packet) error {
 	var request protocol.BattleActionReq
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
@@ -109,6 +202,12 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 
+	if request.ActionType == battle.ActionTypeCapture {
+		if err := h.validateCaptureBagItem(context.Background(), sess.PlayerID, request.ItemID, request.BagSlotIndex); err != nil {
+			return h.sendBattleActionResponse(conn, packet.Seq, false, err.Error(), false)
+		}
+	}
+
 	outcome, err := h.battleService.SubmitAction(context.Background(), sess.PlayerID, battle.ActionRequest{
 		BattleID:          request.BattleID,
 		Round:             request.Round,
@@ -116,22 +215,44 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 		ActorID:           request.ActorID,
 		SkillID:           request.SkillID,
 		TargetID:          request.TargetID,
+		ItemID:            request.ItemID,
+		BagSlotIndex:      request.BagSlotIndex,
 		AutoBattleEnabled: request.AutoBattleEnabled,
 	})
 	if err != nil {
 		if errors.Is(err, battle.ErrBattleNotFound) {
-			return h.sendBattleActionResponse(conn, packet.Seq, false, "battle not found")
+			return h.sendBattleActionResponse(conn, packet.Seq, false, "battle not found", false)
 		}
 		if errors.Is(err, battle.ErrInvalidAction) {
-			return h.sendBattleActionResponse(conn, packet.Seq, false, "invalid action")
+			return h.sendBattleActionResponse(conn, packet.Seq, false, "invalid action", false)
 		}
 		return sendError(conn, packet.Seq, errcode.WSCodeBattleActionInvalid, "battle action failed")
 	}
 
-	if err := h.sendBattleActionResponse(conn, packet.Seq, outcome.Response.Accepted, outcome.Response.Reason); err != nil {
+	var bagSnapshot *bag.RuntimeContainerSnapshot
+	if request.ActionType == battle.ActionTypeCapture && outcome != nil && outcome.Response.Accepted {
+		if h.bagService == nil {
+			return h.sendBattleActionResponse(conn, packet.Seq, false, "bag service unavailable", false)
+		}
+		consumedBag, consumeErr := h.bagService.ConsumeRuntimeItemStack(
+			context.Background(),
+			sess.PlayerID,
+			bag.ContainerTypeBag,
+			request.BagSlotIndex,
+			1,
+			"battle_capture",
+			request.BattleID,
+		)
+		if consumeErr != nil {
+			return h.sendBattleActionResponse(conn, packet.Seq, false, "capture item consume failed", false)
+		}
+		bagSnapshot = consumedBag
+	}
+
+	if err := h.sendBattleActionResponse(conn, packet.Seq, outcome.Response.Accepted, outcome.Response.Reason, outcome.Response.CaptureSuccess); err != nil {
 		return err
 	}
-	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
+	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome, bagSnapshot)
 }
 
 func (h *BattleHandler) HandlePVPChallenge(conn packetSender, packet *protocol.Packet) error {
@@ -244,7 +365,7 @@ func (h *BattleHandler) HandleBattleHeartbeat(conn packetSender) error {
 	if err != nil || outcome == nil {
 		return err
 	}
-	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome)
+	return h.pushBattleOutcome(context.Background(), conn, sess.PlayerID, outcome, nil)
 }
 
 // BuildReconnectSnapshot exposes the active authoritative battle in the same
@@ -355,7 +476,7 @@ func (h *BattleHandler) ProcessAutoCustodyOnce(ctx context.Context) error {
 	return nil
 }
 
-func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender, playerID uint64, outcome *battle.ActionOutcome) error {
+func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender, playerID uint64, outcome *battle.ActionOutcome, preConsumedBag *bag.RuntimeContainerSnapshot) error {
 	if outcome == nil {
 		return nil
 	}
@@ -369,7 +490,7 @@ func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender
 	if outcome.Result == nil {
 		return nil
 	}
-	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result)
+	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, preConsumedBag)
 	if err != nil {
 		return err
 	}
@@ -401,7 +522,7 @@ func (h *BattleHandler) deliverAutoOutcome(ctx context.Context, playerID uint64,
 			return err
 		}
 	}
-	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result)
+	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, nil)
 	if err != nil {
 		return err
 	}
@@ -452,7 +573,12 @@ func (h *BattleHandler) pushBattleStateToParticipants(state *battle.StateSnapsho
 
 type battleSettlement struct {
 	PlayerProfile *player.Profile
+	BagSnapshot   *bag.RuntimeContainerSnapshot
+	Wallet        *wallet.Snapshot
+	WalletReason  string
+	WalletRefID   uint64
 	Pets          []pet.Pet
+	CapturedPet   *pet.Pet
 	questBefore   []quest.Summary
 }
 
@@ -481,8 +607,10 @@ func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, 
 	playerExp := uint64(0)
 	petRewards := make([]protocol.BattlePetReward, 0, len(result.PetResults))
 	if settlement != nil && settlement.PlayerProfile != nil {
-		playerGold = settlement.PlayerProfile.Gold
 		playerExp = settlement.PlayerProfile.Exp
+	}
+	if settlement != nil && settlement.Wallet != nil {
+		playerGold = legacyGoldFromWalletSnapshot(settlement.Wallet)
 	}
 	for _, petResult := range result.PetResults {
 		petRewards = append(petRewards, protocol.BattlePetReward{
@@ -498,14 +626,25 @@ func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, 
 			X: result.ReturnPos.X,
 			Y: result.ReturnPos.Y,
 		},
-		Reason:          result.Reason,
-		RewardGold:      result.RewardGold,
-		RewardPlayerExp: result.RewardPlayerExp,
-		PlayerGold:      playerGold,
-		PlayerExp:       playerExp,
-		PetRewards:      petRewards,
-		DropTexts:       append([]string{}, result.DropTexts...),
+		Reason:           result.Reason,
+		RewardGold:       result.RewardGold,
+		RewardPlayerExp:  result.RewardPlayerExp,
+		PlayerGold:       playerGold,
+		PlayerExp:        playerExp,
+		PetRewards:       petRewards,
+		DropTexts:        append([]string{}, result.DropTexts...),
+		CaptureSuccess:   result.CaptureSuccess,
+		CaptureMonsterID: result.CaptureMonsterID,
+		CapturedPetID:    result.CapturedPetID,
+		CapturedPetUID:   capturedPetUIDFromSettlement(settlement),
 	}
+}
+
+func capturedPetUIDFromSettlement(settlement *battleSettlement) uint64 {
+	if settlement == nil || settlement.CapturedPet == nil {
+		return 0
+	}
+	return settlement.CapturedPet.PetUID
 }
 
 func (h *BattleHandler) storeReconnectResult(playerID uint64, payload protocol.BattleResultPush) {
@@ -567,7 +706,7 @@ func (h *BattleHandler) pushNoticeToPlayer(playerID uint64, message string) erro
 	return nil
 }
 
-func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ packetSender, playerID uint64, result *battle.ResultSnapshot) (*battleSettlement, error) {
+func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ packetSender, playerID uint64, result *battle.ResultSnapshot, preConsumedBag *bag.RuntimeContainerSnapshot) (*battleSettlement, error) {
 	if result == nil {
 		return nil, nil
 	}
@@ -581,6 +720,23 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 	if !inserted {
 		return nil, nil
 	}
+	settlement := &battleSettlement{}
+	if preConsumedBag != nil {
+		settlement.BagSnapshot = preConsumedBag
+	}
+	if result.CaptureSuccess {
+		if h.petService != nil && result.CaptureMonsterID > 0 {
+			grantResult, grantErr := h.petService.GrantCapturedPet(ctx, playerID, result.CaptureMonsterID, "battle_capture", result.BattleID)
+			if grantErr != nil {
+				return nil, grantErr
+			}
+			if grantResult != nil {
+				captured := grantResult.Pet
+				settlement.CapturedPet = &captured
+			}
+		}
+		return settlement, nil
+	}
 	var questBefore []quest.Summary
 	if h.questService != nil && result.Win {
 		questBefore, _ = listQuestSummaries(ctx, h.questService, playerID)
@@ -593,13 +749,48 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 			},
 		})
 	}
-	settlement := &battleSettlement{}
-	if h.playerService != nil && (result.RewardGold > 0 || result.RewardPlayerExp > 0) {
-		updatedProfile, err := h.playerService.AddGoldAndExp(ctx, playerID, result.RewardGold, result.RewardPlayerExp)
+	if h.rewardService != nil {
+		grantResult, err := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
+			PlayerID:     playerID,
+			ReasonType:   "battle_reward",
+			ReasonRefID:  result.BattleID,
+			OperatorType: "system",
+			OperatorID:   playerID,
+			Rewards:      toBattleRewardEntries(result),
+		})
 		if err != nil {
 			return nil, err
 		}
-		settlement.PlayerProfile = updatedProfile
+		settlement.PlayerProfile = grantResult.PlayerProfile
+		settlement.Wallet = grantResult.Wallet
+		if grantResult.Wallet != nil {
+			settlement.WalletReason = "battle_reward"
+			settlement.WalletRefID = result.BattleID
+		}
+		if grantResult.BagUpdated && h.bagService != nil {
+			bagSnapshot, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
+			if err != nil {
+				return nil, err
+			}
+			settlement.BagSnapshot = bagSnapshot
+		}
+		if len(grantResult.Granted) > 0 {
+			result.DropTexts = battleDropTextsFromGrantedRewards(grantResult.Granted)
+		}
+	}
+	if (result.RewardGold > 0 || result.RewardPlayerExp > 0) && settlement.PlayerProfile == nil && h.playerService != nil {
+		currentProfile, err := h.playerService.GetProfile(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		settlement.PlayerProfile = currentProfile
+	}
+	if (result.RewardGold > 0 || result.RewardPlayerExp > 0) && settlement.Wallet == nil && h.walletService != nil {
+		currentWallet, err := h.walletService.GetRuntimeWallet(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		settlement.Wallet = currentWallet
 	}
 	if h.petService != nil {
 		for _, petResult := range result.PetResults {
@@ -614,14 +805,73 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 	return settlement, nil
 }
 
+// toBattleRewardEntries 把当前战斗结算结果转成统一发奖服务可消费的奖励列表。
+func toBattleRewardEntries(result *battle.ResultSnapshot) []reward.Entry {
+	if result == nil {
+		return nil
+	}
+	entries := make([]reward.Entry, 0, len(result.DropItems)+2)
+	if result.RewardGold > 0 {
+		entries = append(entries, reward.Entry{Type: "gold", Value: uint64(result.RewardGold)})
+	}
+	if result.RewardPlayerExp > 0 {
+		entries = append(entries, reward.Entry{Type: "exp", Value: result.RewardPlayerExp})
+	}
+	for _, dropItem := range result.DropItems {
+		if dropItem.ItemID == 0 || dropItem.Quantity == 0 {
+			continue
+		}
+		entries = append(entries, reward.Entry{
+			Type:   "item",
+			ItemID: dropItem.ItemID,
+			Count:  dropItem.Quantity,
+		})
+	}
+	return entries
+}
+
+// battleDropTextsFromGrantedRewards 用统一发奖服务成功发放后的奖励结果重建掉落文本。
+// 这里只提取 item 奖励，保证战斗结果面板仍然只展示战利品摘要而不是全部奖励。
+func battleDropTextsFromGrantedRewards(values []reward.Entry) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value.Type != "item" || value.ItemID == 0 || value.Count == 0 {
+			continue
+		}
+		itemName := value.ItemName
+		if itemName == "" {
+			itemName = fmt.Sprintf("物品%d", value.ItemID)
+		}
+		result = append(result, fmt.Sprintf("掉落: %s x%d", itemName, value.Count))
+	}
+	return result
+}
+
 func (h *BattleHandler) pushBattleSettlementFollowUps(ctx context.Context, conn packetSender, playerID uint64, result *battle.ResultSnapshot, settlement *battleSettlement) error {
 	if conn == nil || result == nil || settlement == nil || result.BattleType != battle.BattleTypePVE {
 		return nil
+	}
+	if settlement.CapturedPet != nil {
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+			Pet: toProtocolPetDetail(*settlement.CapturedPet),
+		})); err != nil {
+			return err
+		}
 	}
 	for _, updatedPet := range settlement.Pets {
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
 			Pet: toProtocolPetDetail(updatedPet),
 		})); err != nil {
+			return err
+		}
+	}
+	if settlement.BagSnapshot != nil {
+		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBagUpdatePush, 0, buildContainerUpdatePush(*settlement.BagSnapshot))); err != nil {
+			return err
+		}
+	}
+	if settlement.Wallet != nil && settlement.WalletReason != "" {
+		if err := pushWalletUpdatePacket(conn, *settlement.Wallet, settlement.WalletReason, settlement.WalletRefID); err != nil {
 			return err
 		}
 	}
@@ -720,10 +970,40 @@ func (h *BattleHandler) sendPVPChallengeReplyResponse(conn packetSender, seq uin
 	return conn.SendPacket(packet)
 }
 
-func (h *BattleHandler) sendBattleActionResponse(conn packetSender, seq uint32, accepted bool, reason string) error {
+func (h *BattleHandler) validateCaptureBagItem(ctx context.Context, playerID uint64, itemID uint32, bagSlotIndex uint32) error {
+	if playerID == 0 || itemID == 0 || bagSlotIndex == 0 {
+		return fmt.Errorf("capture item required")
+	}
+	if h.bagService == nil {
+		return fmt.Errorf("bag service unavailable")
+	}
+	container, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
+	if err != nil {
+		return fmt.Errorf("load bag failed")
+	}
+	if container == nil {
+		return fmt.Errorf("bag item not found")
+	}
+	for _, current := range container.Items {
+		if current.SlotIndex != bagSlotIndex {
+			continue
+		}
+		if uint32(current.ItemID) != itemID {
+			return fmt.Errorf("bag item mismatch")
+		}
+		if current.Quantity == 0 {
+			return fmt.Errorf("bag item not found")
+		}
+		return nil
+	}
+	return fmt.Errorf("bag item not found")
+}
+
+func (h *BattleHandler) sendBattleActionResponse(conn packetSender, seq uint32, accepted bool, reason string, captureSuccess bool) error {
 	packet, err := protocol.NewJSONPacket(protocol.CmdBattleActionResp, seq, errcode.WSCodeSuccess, protocol.BattleActionResp{
-		Accepted: accepted,
-		Reason:   reason,
+		Accepted:       accepted,
+		Reason:         reason,
+		CaptureSuccess: captureSuccess,
 	})
 	if err != nil {
 		return err
@@ -786,10 +1066,14 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 		skillSnapshots := make([]protocol.BattleSkillSnapshot, 0, len(actor.Skills))
 		for _, skill := range actor.Skills {
 			skillSnapshots = append(skillSnapshots, protocol.BattleSkillSnapshot{
-				SkillID:     skill.SkillID,
-				Name:        skill.Name,
-				TargetType:  skill.TargetType,
-				TargetCount: skill.TargetCount,
+				SkillID:      skill.SkillID,
+				Name:         skill.Name,
+				TargetType:   skill.TargetType,
+				TargetCount:  skill.TargetCount,
+				AnimationKey: skill.AnimationKey,
+				CastColor:    skill.CastColor,
+				ImpactColor:  skill.ImpactColor,
+				Projectile:   skill.Projectile,
 			})
 		}
 		result = append(result, protocol.BattleActorSnapshot{
@@ -876,6 +1160,7 @@ func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
 		SPD:      item.SPD,
 		SkillIDs: skills,
 		InLineup: item.InLineup,
+		IsUsable: item.IsUsable,
 	}
 }
 
@@ -885,7 +1170,7 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc action body")
 	}
 
-	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -893,18 +1178,24 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	if !found {
 		return h.sendNPCActionResponse(conn, packet.Seq, protocol.NPCActionResp{Accepted: false, Reason: "target unavailable", EntityID: request.EntityID, EntryID: request.EntryID})
 	}
-	var (
-		playerID    uint64 = sess.PlayerID
-		questBefore []quest.Summary
-	)
-	response, ok := h.buildNPCActionResponse(context.Background(), playerID, target, request.EntryID)
+
+	actionResult, err := h.npcService.FindActionResult(context.Background(), target.EntityID, request.EntryID)
+	if err != nil || actionResult == nil {
+		return h.sendNPCActionResponse(conn, packet.Seq, protocol.NPCActionResp{Accepted: false, Reason: "unsupported npc action", EntityID: request.EntityID, EntryID: request.EntryID})
+	}
+	if actionResult.ResultType == "battle" {
+		return h.handleNPCBattleAction(conn, packet.Seq, sess.PlayerID, profile, lineup, target, request.EntryID, actionResult)
+	}
+
+	var questBefore []quest.Summary
+	response, ok := h.buildNPCActionResponse(context.Background(), sess.PlayerID, target, request.EntryID, actionResult)
 	if !ok {
 		return h.sendNPCActionResponse(conn, packet.Seq, protocol.NPCActionResp{Accepted: false, Reason: "unsupported npc action", EntityID: request.EntityID, EntryID: request.EntryID})
 	}
 	if h.questService != nil {
-		questBefore, _ = listQuestSummaries(context.Background(), h.questService, playerID)
+		questBefore, _ = listQuestSummaries(context.Background(), h.questService, sess.PlayerID)
 		_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
-			PlayerID:  playerID,
+			PlayerID:  sess.PlayerID,
 			EventType: "TALK_TO_NPC",
 			NPCID:     target.EntityID,
 			Count:     1,
@@ -913,10 +1204,69 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	if err := h.sendNPCActionResponse(conn, packet.Seq, response); err != nil {
 		return err
 	}
+	if h.questService != nil && sess.PlayerID != 0 {
+		_ = pushQuestDiff(context.Background(), conn, h.questService, sess.PlayerID, questBefore)
+	}
+	return nil
+}
+
+func (h *BattleHandler) handleNPCBattleAction(conn packetSender, seq uint32, playerID uint64, profile *player.Profile, lineup []pet.LineupPet, target world.Entity, entryID string, actionResult *npc.ActionResult) error {
+	encounterEntityID := actionResult.BattleEncounterEntityID
+	if encounterEntityID == 0 {
+		encounterEntityID = target.EntityID
+	}
+	enemy := target
+	enemy.EntityID = encounterEntityID
+
+	var questBefore []quest.Summary
+	if h.questService != nil && playerID != 0 {
+		questBefore, _ = listQuestSummaries(context.Background(), h.questService, playerID)
+		_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
+			PlayerID:  playerID,
+			EventType: "TALK_TO_NPC",
+			NPCID:     target.EntityID,
+			Count:     1,
+		})
+	}
+
+	startSnapshot, err := h.battleService.StartPVE(context.Background(), profile, lineup, enemy)
+	if err != nil {
+		reason := "battle start failed"
+		switch {
+		case errors.Is(err, battle.ErrBattleAlreadyActive):
+			reason = "battle already active"
+		case errors.Is(err, battle.ErrNoLineupAvailable):
+			reason = "no lineup available"
+		case errors.Is(err, battle.ErrTargetUnavailable):
+			reason = "target unavailable"
+		}
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{
+			Accepted: false,
+			Reason:   reason,
+			EntityID: target.EntityID,
+			EntryID:  entryID,
+		})
+	}
+
+	response := protocol.NPCActionResp{
+		Accepted:   true,
+		Reason:     "battle started",
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "battle",
+		Notice:     "battle started",
+		NPCName:    target.Name,
+	}
+	if entries, ok := h.npcMenuEntriesByEntityID(context.Background(), playerID, target.EntityID); ok {
+		response.MenuEntries = entries
+	}
+	if err := h.sendNPCActionResponse(conn, seq, response); err != nil {
+		return err
+	}
 	if h.questService != nil && playerID != 0 {
 		_ = pushQuestDiff(context.Background(), conn, h.questService, playerID, questBefore)
 	}
-	return nil
+	return h.pushBattleStartToParticipants(startSnapshot)
 }
 
 func (h *BattleHandler) requirePlayerID(connID string) (uint64, error) {
@@ -948,20 +1298,18 @@ func (h *BattleHandler) buildNPCMenuResponse(ctx context.Context, playerID uint6
 	}, true
 }
 
-func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uint64, target world.Entity, entryID string) (protocol.NPCActionResp, bool) {
+func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uint64, target world.Entity, entryID string, actionResult *npc.ActionResult) (protocol.NPCActionResp, bool) {
+	if actionResult == nil {
+		return protocol.NPCActionResp{}, false
+	}
 	base := protocol.NPCActionResp{
 		Accepted:   true,
 		EntityID:   target.EntityID,
 		EntryID:    entryID,
-		ResultType: "notice",
+		ResultType: actionResult.ResultType,
+		Notice:     actionResult.Notice,
 		NPCName:    target.Name,
 	}
-	actionResult, err := h.npcService.FindActionResult(ctx, target.EntityID, entryID)
-	if err != nil || actionResult == nil {
-		return protocol.NPCActionResp{}, false
-	}
-	base.ResultType = actionResult.ResultType
-	base.Notice = actionResult.Notice
 	entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID)
 	if ok {
 		base.MenuEntries = entries

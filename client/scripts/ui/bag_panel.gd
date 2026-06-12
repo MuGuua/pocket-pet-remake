@@ -1,11 +1,15 @@
 extends PanelContainer
 
+signal transfer_requested(source_container_type: String, slot_index: int, quantity: int)
+signal container_switch_requested(target_container_type: String)
+
 # 当前背包面板沿用旧 UI 外框，但内部数据改为直接消费 GameState 中
 # 的服务端权威背包快照，避免继续展示静态占位数字。
 const INVENTORY_CAPACITY: int = 30
 const GRID_PAGE_SIZE: int = 32
 const UiFormat = preload("res://scripts/common/ui_format.gd")
 
+@onready var title_label: Label = $VBoxContainer/HBoxContainer/ColorRect/Label
 @onready var capacity_label: Label = $VBoxContainer/HBoxContainer2/PanelContainer/HBoxContainer/Label
 @onready var gold_label: Label = $VBoxContainer/HBoxContainer2/PanelContainer2/HBoxContainer/Label
 @onready var distinct_count_label: Label = $VBoxContainer/HBoxContainer2/PanelContainer2/HBoxContainer/Label3
@@ -13,6 +17,16 @@ const UiFormat = preload("res://scripts/common/ui_format.gd")
 @onready var grid_container: GridContainer = $VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer/GridContainer
 
 var _items_summary_label: Label
+var _action_container: VBoxContainer
+var _switch_button: Button
+var _quantity_dialog: ConfirmationDialog
+var _quantity_spin_box: SpinBox
+var _pending_transfer_container_type: String = "bag"
+var _pending_transfer_slot_index: int = 0
+var _pending_transfer_max_quantity: int = 0
+var _container_type: String = "bag"
+var _panel_title: String = "背包"
+var _warehouse_available: bool = false
 
 
 func _ready() -> void:
@@ -24,10 +38,36 @@ func _ready() -> void:
 	$VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer.add_child(_items_summary_label)
 	$VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer.move_child(_items_summary_label, 1)
 
+	_action_container = VBoxContainer.new()
+	_action_container.name = "ActionContainer"
+	_action_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	$VBoxContainer/PanelContainer2/MarginContainer/HBoxContainer.add_child(_action_container)
+
+	_switch_button = Button.new()
+	_switch_button.name = "SwitchContainerButton"
+	_switch_button.custom_minimum_size = Vector2(0, 28)
+	_switch_button.pressed.connect(_on_switch_button_pressed)
+	_action_container.add_child(_switch_button)
+
+	_build_quantity_dialog()
+
 	if not GameState.bag_changed.is_connected(refresh_panel_data):
 		GameState.bag_changed.connect(refresh_panel_data)
 	if not GameState.world_snapshot_changed.is_connected(refresh_panel_data):
 		GameState.world_snapshot_changed.connect(refresh_panel_data)
+	refresh_panel_data()
+
+
+func set_container_context(container_type: String, panel_title: String = "") -> void:
+	_container_type = container_type if not container_type.is_empty() else "bag"
+	_panel_title = panel_title if not panel_title.is_empty() else ("仓库" if _container_type == "warehouse" else "背包")
+	if title_label != null:
+		title_label.text = _panel_title
+	refresh_panel_data()
+
+
+func set_warehouse_available(available: bool) -> void:
+	_warehouse_available = available
 	refresh_panel_data()
 
 
@@ -40,23 +80,29 @@ func _exit_tree() -> void:
 
 
 func refresh_panel_data() -> void:
-	var items: Array = GameState.bag_items
+	var container: Dictionary = GameState.warehouse_container if _container_type == "warehouse" else GameState.bag_container
+	var items_variant: Variant = container.get("items", GameState.bag_items if _container_type == "bag" else [])
+	var items: Array = items_variant if items_variant is Array else []
 	var total_stack_count: int = 0
 	for item_variant in items:
 		if item_variant is Dictionary:
-			total_stack_count += int(item_variant.get("count", 0))
+			total_stack_count += int(item_variant.get("quantity", item_variant.get("count", 0)))
 
-	capacity_label.text = "%d/%d" % [items.size(), INVENTORY_CAPACITY]
-	gold_label.text = UiFormat.value_to_text(GameState.player_snapshot.get("gold", 0))
+	if title_label != null:
+		title_label.text = _panel_title
+	var capacity: int = int(container.get("capacity", INVENTORY_CAPACITY))
+	capacity_label.text = "%d/%d" % [items.size(), capacity]
+	gold_label.text = _format_wallet_text(GameState.wallet_snapshot)
 	distinct_count_label.text = UiFormat.value_to_text(total_stack_count)
 	page_label.text = UiFormat.normalize_text("1/%d" % maxi(1, int(ceil(float(max(items.size(), 1)) / float(GRID_PAGE_SIZE)))))
 	_items_summary_label.text = _build_items_summary(items)
+	_refresh_action_buttons(items)
 	_apply_grid_tooltips(items)
 
 
 func _build_items_summary(items: Array) -> String:
 	if items.is_empty():
-		return "服务端背包为空，等待后续获得物品。"
+		return "服务端%s为空，等待后续获得物品。" % _panel_title
 
 	var lines: Array[String] = []
 	var max_lines := mini(items.size(), 6)
@@ -65,15 +111,25 @@ func _build_items_summary(items: Array) -> String:
 		if item_variant is Dictionary:
 			var item: Dictionary = item_variant
 			lines.append(
-				"槽位%d 物品ID %d x%d" % [
-					index + 1,
-					int(item.get("item_id", 0)),
-					int(item.get("count", 0)),
+				"槽位%d %s x%d" % [
+					int(item.get("slot_index", index + 1)),
+					str(item.get("item_name", "物品ID %d" % int(item.get("item_id", 0)))),
+					int(item.get("quantity", item.get("count", 0))),
 				]
 			)
 	if items.size() > max_lines:
 		lines.append("...... 其余 %d 个物品槽请以后续背包交互页为准" % (items.size() - max_lines))
 	return UiFormat.normalize_text("\n".join(lines))
+
+
+func _format_wallet_text(snapshot: Dictionary) -> String:
+	if snapshot.is_empty():
+		return UiFormat.value_to_text(GameState.player_snapshot.get("gold", 0))
+	return UiFormat.normalize_text("%d金 %d银 %d铜" % [
+		int(snapshot.get("gold", 0)),
+		int(snapshot.get("silver", 0)),
+		int(snapshot.get("copper", 0)),
+	])
 
 
 func _apply_grid_tooltips(items: Array) -> void:
@@ -89,10 +145,122 @@ func _apply_grid_tooltips(items: Array) -> void:
 		var item_variant: Variant = items[index]
 		if item_variant is Dictionary:
 			var item: Dictionary = item_variant
-			cell.tooltip_text = UiFormat.normalize_text("item_id=%d\ncount=%d\nitem_uid=%d" % [
-				int(item.get("item_id", 0)),
-				int(item.get("count", 0)),
-				int(item.get("item_uid", 0)),
-			])
+			cell.tooltip_text = UiFormat.normalize_text("slot=%d\nitem_id=%d\nquantity=%d\nitem_uid=%s" % [
+				int(item.get("slot_index", index + 1)),
+					int(item.get("item_id", 0)),
+					int(item.get("quantity", item.get("count", 0))),
+					str(item.get("item_uid", "")),
+				]
+			)
 		else:
 			cell.tooltip_text = "槽位数据格式异常"
+
+
+func _refresh_action_buttons(items: Array) -> void:
+	if _action_container == null:
+		return
+
+	for index in range(_action_container.get_child_count() - 1, 0, -1):
+		var child := _action_container.get_child(index)
+		_action_container.remove_child(child)
+		child.queue_free()
+
+	if _switch_button != null:
+		_switch_button.visible = _warehouse_available
+		_switch_button.text = "切换到仓库" if _container_type == "bag" else "切换到背包"
+
+	if items.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "当前容器为空。"
+		_action_container.add_child(empty_label)
+		return
+
+	var hint_label := Label.new()
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.text = "点击下方条目可%s整格物品。" % ("存入仓库" if _container_type == "bag" else "取回背包")
+	_action_container.add_child(hint_label)
+
+	var max_buttons := mini(items.size(), 8)
+	for index in range(max_buttons):
+		var item_variant: Variant = items[index]
+		if item_variant is not Dictionary:
+			continue
+		var item: Dictionary = item_variant
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0, 28)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var slot_index: int = int(item.get("slot_index", index + 1))
+		var item_name: String = str(item.get("item_name", "物品ID %d" % int(item.get("item_id", 0))))
+		var quantity: int = int(item.get("quantity", item.get("count", 0)))
+		button.text = "%s 槽位%d %s x%d" % [
+			"存入" if _container_type == "bag" else "取回",
+			slot_index,
+			item_name,
+			quantity,
+		]
+		button.pressed.connect(_on_transfer_button_pressed.bind(slot_index, quantity))
+		_action_container.add_child(button)
+
+	if items.size() > max_buttons:
+		var more_label := Label.new()
+		more_label.text = "仅展示前 %d 个可操作条目。" % max_buttons
+		_action_container.add_child(more_label)
+
+
+func _on_switch_button_pressed() -> void:
+	if not _warehouse_available:
+		return
+	container_switch_requested.emit("warehouse" if _container_type == "bag" else "bag")
+
+
+func _on_transfer_button_pressed(slot_index: int, quantity: int) -> void:
+	if quantity <= 0:
+		return
+	if quantity == 1:
+		transfer_requested.emit(_container_type, slot_index, quantity)
+		return
+
+	_pending_transfer_container_type = _container_type
+	_pending_transfer_slot_index = slot_index
+	_pending_transfer_max_quantity = quantity
+	if _quantity_spin_box != null:
+		_quantity_spin_box.min_value = 1
+		_quantity_spin_box.max_value = quantity
+		_quantity_spin_box.step = 1
+		_quantity_spin_box.value = quantity
+	if _quantity_dialog != null:
+		_quantity_dialog.dialog_text = "请选择本次要%s的数量。" % ("存入仓库" if _container_type == "bag" else "取回背包")
+		_quantity_dialog.popup_centered(Vector2i(240, 120))
+
+
+func _build_quantity_dialog() -> void:
+	_quantity_dialog = ConfirmationDialog.new()
+	_quantity_dialog.title = "选择数量"
+	_quantity_dialog.ok_button_text = "确认"
+	_quantity_dialog.cancel_button_text = "取消"
+	_quantity_dialog.confirmed.connect(_on_quantity_dialog_confirmed)
+	add_child(_quantity_dialog)
+
+	var dialog_container := VBoxContainer.new()
+	dialog_container.custom_minimum_size = Vector2(160, 48)
+	_quantity_dialog.add_child(dialog_container)
+
+	var hint_label := Label.new()
+	hint_label.text = "数量"
+	dialog_container.add_child(hint_label)
+
+	_quantity_spin_box = SpinBox.new()
+	_quantity_spin_box.min_value = 1
+	_quantity_spin_box.max_value = 1
+	_quantity_spin_box.step = 1
+	_quantity_spin_box.rounded = true
+	_quantity_spin_box.allow_greater = false
+	_quantity_spin_box.allow_lesser = false
+	dialog_container.add_child(_quantity_spin_box)
+
+
+func _on_quantity_dialog_confirmed() -> void:
+	if _pending_transfer_slot_index <= 0 or _pending_transfer_max_quantity <= 0:
+		return
+	var quantity: int = clampi(int(_quantity_spin_box.value), 1, _pending_transfer_max_quantity)
+	transfer_requested.emit(_pending_transfer_container_type, _pending_transfer_slot_index, quantity)

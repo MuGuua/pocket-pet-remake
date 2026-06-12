@@ -15,16 +15,18 @@ type Router struct {
 	worldHandler   *WorldHandler
 	petHandler     *PetHandler
 	battleHandler  *BattleHandler
+	bagHandler     *BagHandler
 	questHandler   *QuestHandler
 	sessionService *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
 	return &Router{
 		authHandler:    authHandler,
 		worldHandler:   worldHandler,
 		petHandler:     petHandler,
 		battleHandler:  battleHandler,
+		bagHandler:     bagHandler,
 		questHandler:   questHandler,
 		sessionService: sessionService,
 	}
@@ -95,6 +97,83 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.petHandler.HandleLineupSet(conn, packet)
+	case protocol.CmdBagListReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleBagList(conn, packet)
+	case protocol.CmdUseItemReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleUseItem(conn, packet)
+	case protocol.CmdContainerListReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleContainerList(conn, packet)
+	case protocol.CmdBagToWarehouseReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleBagToWarehouse(conn, packet)
+	case protocol.CmdWarehouseToBagReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleWarehouseToBag(conn, packet)
+	case protocol.CmdContainerSortReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleContainerSort(conn, packet)
+	case protocol.CmdContainerMoveReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleContainerMove(conn, packet)
+	case protocol.CmdWalletQueryReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleWalletQuery(conn, packet)
+	case protocol.CmdBuyItemReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleBuyItem(conn, packet)
+	case protocol.CmdWildEncounterReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleWildEncounter(conn, packet)
 	case protocol.CmdBattleActionReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

@@ -9,8 +9,11 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { QuestAdminPage } from '../pages/quests/QuestAdminPage';
 import { NPCConfigPage } from '../pages/npcs/NPCConfigPage';
-import { BagListPage } from '../pages/bags/BagListPage';
-import { PetListPage } from '../pages/pets/PetListPage';
+import { ItemDefinitionPage } from '../pages/items/ItemDefinitionPage';
+import { PetDefinitionPage } from '../pages/pets/PetDefinitionPage';
+import { SkillDefinitionPage } from '../pages/skills/SkillDefinitionPage';
+import { MonsterDefinitionPage } from '../pages/monsters/MonsterDefinitionPage';
+import { EncounterConfigPage } from '../pages/monsters/EncounterConfigPage';
 import { PlayerListPage } from '../pages/players/PlayerListPage';
 
 function RequireAdminAuth() {
@@ -73,8 +76,12 @@ export function AppRouter() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="players" element={<PlayerListPage />} />
-        <Route path="pets" element={<PetListPage />} />
-        <Route path="bags" element={<BagListPage />} />
+        <Route path="pet-definitions" element={<PetDefinitionPage />} />
+        <Route path="skill-definitions" element={<SkillDefinitionPage />} />
+        <Route path="monster-definitions" element={<MonsterDefinitionPage />} />
+        <Route path="monster-encounters" element={<EncounterConfigPage />} />
+        <Route path="scene-wild-encounters" element={<Navigate to="/monster-encounters" replace />} />
+        <Route path="items" element={<ItemDefinitionPage />} />
         <Route path="quests" element={<QuestAdminPage />} />
         <Route path="npcs" element={<NPCConfigPage />} />
       </Route>

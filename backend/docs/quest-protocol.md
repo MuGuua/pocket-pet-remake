@@ -465,7 +465,7 @@
 ```json
 {
   "accepted": true,
-  "reason": "",
+  "reason": "quest submitted",
   "quest": {
     "quest_id": 20001,
     "quest_type": "DAILY",
@@ -533,7 +533,7 @@
 ```json
 {
   "accepted": true,
-  "reason": "",
+  "reason": "quest submitted",
   "quest": {
     "quest_id": 10001,
     "quest_type": "MAIN",
@@ -553,28 +553,30 @@
     "submitted_at": 1780000200000,
     "expire_at": 0,
     "toast_text": "任务完成：获得 100 金币",
-    "objectives": [],
-    "rewards": [
-      {
-        "type": "gold",
-        "value": 100,
-        "item_id": 0,
-        "count": 0,
-        "pet_id": 0
-      }
-    ]
+    "objectives": []
   },
-  "granted_rewards": [
+  "rewards": [
     {
       "type": "gold",
       "value": 100,
       "item_id": 0,
       "count": 0,
       "pet_id": 0
+    },
+    {
+      "type": "item",
+      "value": 0,
+      "item_id": 2001,
+      "count": 2,
+      "pet_id": 0
+    },
+    {
+      "type": "pet",
+      "value": 0,
+      "item_id": 0,
+      "count": 0,
+      "pet_id": 102
     }
-  ],
-  "next_quest_ids": [
-    10002
   ]
 }
 ```
@@ -587,6 +589,17 @@
   "reason": "quest not ready to submit"
 }
 ```
+
+说明：
+
+- 当前运行时已正式接入 `gold` / `exp` / `item` / `pet` 四类任务奖励
+- `feature_unlock` 仍保留在任务模板配置中，后续由对应后端模块接入正式发放
+- `rewards` 字段表示本次已经实际走过服务端发奖链路的奖励
+- 如果本次奖励包含金币，服务端会继续推送 `5091 WALLET_UPDATE_PUSH`
+- 如果本次奖励包含道具，服务端会继续推送 `5011 BAG_UPDATE_PUSH`
+- 如果本次奖励包含宠物，服务端会继续推送 `3011 PET_UPDATE_PUSH`
+- 如果本次任务奖励包含金币，服务端会继续推送 `5091 WALLET_UPDATE_PUSH`
+- 如果本次任务奖励包含道具，服务端会继续推送 `5011 BAG_UPDATE_PUSH`
 
 失败原因建议：
 - `quest not found`

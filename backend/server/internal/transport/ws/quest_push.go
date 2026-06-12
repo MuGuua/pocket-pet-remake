@@ -104,3 +104,17 @@ func toProtocolQuestSummary(value quest.Summary) protocol.QuestSummary {
 		Objectives:  objectives,
 	}
 }
+
+func toProtocolQuestRewards(values []quest.Reward) []protocol.QuestReward {
+	result := make([]protocol.QuestReward, 0, len(values))
+	for _, value := range values {
+		result = append(result, protocol.QuestReward{
+			Type:   value.Type,
+			Value:  value.Value,
+			ItemID: value.ItemID,
+			Count:  value.Count,
+			PetID:  value.PetID,
+		})
+	}
+	return result
+}

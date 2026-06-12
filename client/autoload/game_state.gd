@@ -8,6 +8,8 @@ signal world_snapshot_changed
 signal pets_changed
 # 背包数据变化后向外广播。
 signal bag_changed
+# 钱包数据变化后向外广播。
+signal wallet_changed
 # 任务快照变化后向外广播。
 signal quests_changed
 # 战斗状态变化后向外广播。
@@ -41,6 +43,12 @@ var pets: Array = []
 var lineup: Array = []
 # 当前背包物品列表。
 var bag_items: Array = []
+# 当前随身背包完整快照。
+var bag_container: Dictionary = {}
+# 当前仓库完整快照。
+var warehouse_container: Dictionary = {}
+# 当前钱包完整快照。
+var wallet_snapshot: Dictionary = {}
 # 当前任务快照列表。
 var quests: Array = []
 # 当前追踪任务的任务标识。
@@ -49,6 +57,8 @@ var tracked_quest_id: int = 0
 var battle_state: Dictionary = {}
 # 标记当前是否处于战斗中。
 var is_in_battle: bool = false
+# 当前地图暗雷遭遇配置，由进图/切图响应下发。
+var wild_encounter_config: Dictionary = {}
 
 # 清空当前会话和运行态数据，并广播会话变化。
 func reset_session_state() -> void:
@@ -71,13 +81,18 @@ func reset_runtime_state() -> void:
     pets = []
     lineup = []
     bag_items = []
+    bag_container = {}
+    warehouse_container = {}
+    wallet_snapshot = {}
     quests = []
     tracked_quest_id = 0
     battle_state = {}
     is_in_battle = false
+    wild_encounter_config = {}
     world_snapshot_changed.emit()
     pets_changed.emit()
     bag_changed.emit()
+    wallet_changed.emit()
     quests_changed.emit()
     battle_changed.emit()
 
@@ -152,6 +167,12 @@ func set_world_snapshot(payload: Dictionary) -> void:
     # 提取当前世界快照中的编队摘要列表。
     var lineup_variant: Variant = payload.get("lineup", [])
     lineup = lineup_variant.duplicate(true) if lineup_variant is Array else []
+
+    var wild_encounter_variant: Variant = payload.get("wild_encounter", {})
+    wild_encounter_config = wild_encounter_variant.duplicate(true) if wild_encounter_variant is Dictionary else {}
+    if not wild_encounter_config.is_empty():
+        scene_snapshot["wild_encounter"] = wild_encounter_config.duplicate(true)
+
     world_snapshot_changed.emit()
     pets_changed.emit()
 
@@ -256,8 +277,45 @@ func _sync_pet_lineup_flags() -> void:
 
 # 整体替换背包物品列表。
 func set_bag_items(next_items: Array) -> void:
-    bag_items = next_items.duplicate(true)
+    var normalized_items := next_items.duplicate(true)
+    bag_items = normalized_items
+    if bag_container.is_empty():
+        bag_container = {
+            "container_type": "bag",
+            "capacity": maxi(normalized_items.size(), 30),
+            "max_capacity": 300,
+            "used_slots": normalized_items.size(),
+            "items": normalized_items,
+        }
+    else:
+        bag_container["items"] = normalized_items
+        bag_container["used_slots"] = normalized_items.size()
     bag_changed.emit()
+
+# 用服务端权威容器快照整体刷新随身背包或仓库。
+func set_container_snapshot(container: Dictionary) -> void:
+    var normalized_container := container.duplicate(true)
+    var container_type := str(normalized_container.get("container_type", "bag"))
+    var items_variant: Variant = normalized_container.get("items", [])
+    var normalized_items: Array = items_variant.duplicate(true) if items_variant is Array else []
+    normalized_container["items"] = normalized_items
+    normalized_container["used_slots"] = int(normalized_container.get("used_slots", normalized_items.size()))
+
+    if container_type == "warehouse":
+        warehouse_container = normalized_container
+    else:
+        bag_container = normalized_container
+        bag_items = normalized_items
+    bag_changed.emit()
+
+# 用服务端权威钱包快照整体刷新本地货币状态。
+func set_wallet_snapshot(snapshot: Dictionary) -> void:
+    wallet_snapshot = snapshot.duplicate(true)
+    # 旧 UI 仍有部分文案从 player_snapshot.gold 读取，这里同步一个兼容值，
+    # 直到全部价格与货币展示都切换到 wallet_snapshot 为止。
+    player_snapshot["gold"] = int(wallet_snapshot.get("gold", 0))
+    bag_changed.emit()
+    wallet_changed.emit()
 
 # 整体替换任务快照列表，并同步当前追踪任务。
 func set_quests(next_quests: Array, next_tracked_quest_id: int = 0) -> void:
@@ -318,20 +376,76 @@ func tracked_quest() -> Dictionary:
 
 # 把单个物品的最新权威状态合并进本地背包列表。
 func upsert_bag_item(item: Dictionary) -> void:
-    # 读取当前物品的唯一标识。
+    # 新版容器格子应优先按 slot_index 合并，避免同模板多堆叠或装备实例互相覆盖。
+    var slot_index: int = int(item.get("slot_index", 0))
     var item_id: int = int(item.get("item_id", 0))
-    if item_id == 0:
+    if slot_index == 0 and item_id == 0:
         return
 
     for index in bag_items.size():
         # 读取当前遍历到的本地物品数据。
         var current: Variant = bag_items[index]
-        if current is Dictionary and int(current.get("item_id", 0)) == item_id:
+        if current is Dictionary and (
+            int(current.get("slot_index", 0)) == slot_index or
+            (slot_index == 0 and int(current.get("item_id", 0)) == item_id)
+        ):
             bag_items[index] = item.duplicate(true)
+            if not bag_container.is_empty():
+                bag_container["items"] = bag_items.duplicate(true)
+                bag_container["used_slots"] = bag_items.size()
             bag_changed.emit()
             return
 
     bag_items.append(item.duplicate(true))
+    if not bag_container.is_empty():
+        bag_container["items"] = bag_items.duplicate(true)
+        bag_container["used_slots"] = bag_items.size()
+    bag_changed.emit()
+
+# 按服务端增量推送把指定容器的多个格子更新合并进本地状态。
+func apply_container_updates(container_type: String, updates: Array, capacity: int = 0, max_capacity: int = 0, used_slots: int = -1) -> void:
+    var target_container: Dictionary = warehouse_container.duplicate(true) if container_type == "warehouse" else bag_container.duplicate(true)
+    var items_variant: Variant = target_container.get("items", [])
+    var target_items: Array = items_variant.duplicate(true) if items_variant is Array else []
+
+    for update_variant in updates:
+        if update_variant is not Dictionary:
+            continue
+        var update: Dictionary = update_variant
+        var slot_index: int = int(update.get("slot_index", 0))
+        if slot_index == 0:
+            continue
+        var deleted: bool = bool(update.get("deleted", false))
+        var replaced := false
+        for index in range(target_items.size() - 1, -1, -1):
+            var current: Variant = target_items[index]
+            if current is Dictionary and int(current.get("slot_index", 0)) == slot_index:
+                if deleted:
+                    target_items.remove_at(index)
+                else:
+                    var item_variant: Variant = update.get("item", {})
+                    if item_variant is Dictionary:
+                        target_items[index] = item_variant.duplicate(true)
+                replaced = true
+                break
+        if not deleted and not replaced:
+            var append_item_variant: Variant = update.get("item", {})
+            if append_item_variant is Dictionary:
+                target_items.append(append_item_variant.duplicate(true))
+
+    target_container["container_type"] = container_type
+    if capacity > 0:
+        target_container["capacity"] = capacity
+    if max_capacity > 0:
+        target_container["max_capacity"] = max_capacity
+    target_container["items"] = target_items
+    target_container["used_slots"] = used_slots if used_slots >= 0 else target_items.size()
+
+    if container_type == "warehouse":
+        warehouse_container = target_container
+    else:
+        bag_container = target_container
+        bag_items = target_items
     bag_changed.emit()
 
 # 按当前任务列表优先选择显式追踪任务，否则回落到首个可展示任务。

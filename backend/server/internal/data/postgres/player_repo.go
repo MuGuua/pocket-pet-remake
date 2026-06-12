@@ -75,10 +75,9 @@ SET scene_id = $2,
 WHERE id = $1
 `
 
-const addPlayerGoldAndExpQuery = `
+const addPlayerExpQuery = `
 UPDATE player
-SET gold = gold + $2,
-    exp = exp + $3
+SET exp = exp + $2
 WHERE id = $1
 `
 
@@ -664,8 +663,8 @@ func (r *PlayerRepository) UpdatePosition(ctx context.Context, playerID uint64, 
 	return nil
 }
 
-func (r *PlayerRepository) AddGoldAndExp(ctx context.Context, playerID uint64, gold uint32, exp uint64) (*player.Profile, error) {
-	result, err := r.db.ExecContext(ctx, addPlayerGoldAndExpQuery, playerID, gold, exp)
+func (r *PlayerRepository) AddExp(ctx context.Context, playerID uint64, exp uint64) (*player.Profile, error) {
+	result, err := r.db.ExecContext(ctx, addPlayerExpQuery, playerID, exp)
 	if err != nil {
 		return nil, err
 	}

@@ -10,10 +10,15 @@ import (
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/item"
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/unlock"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 )
 
@@ -22,10 +27,15 @@ type Bundle struct {
 	Admins   admin.UserRepository
 	Battles  battle.Repository
 	Bags     bag.Repository
+	Items    item.Repository
+	Monsters monster.Repository
+	Skills   skill.Repository
 	Players  player.Repository
 	Pets     pet.Repository
 	Quests   quest.Repository
+	Unlocks  unlock.Repository
 	NPCs     npc.Repository
+	Wallets  wallet.Repository
 	World    world.Repository
 	WSTokens auth.WSTokenRepository
 }
@@ -48,10 +58,15 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 		Admins:   pgrepo.NewAdminRepository(deps.Postgres),
 		Battles:  pgrepo.NewBattleRepository(deps.Postgres),
 		Bags:     pgrepo.NewBagRepository(deps.Postgres),
+		Items:    pgrepo.NewItemRepository(deps.Postgres),
+		Monsters: pgrepo.NewMonsterRepository(deps.Postgres),
+		Skills:   pgrepo.NewSkillRepository(deps.Postgres),
 		Players:  pgrepo.NewPlayerRepository(deps.Postgres),
 		Pets:     pgrepo.NewPetRepository(deps.Postgres),
 		Quests:   pgrepo.NewQuestRepository(deps.Postgres),
+		Unlocks:  pgrepo.NewUnlockRepository(deps.Postgres),
 		NPCs:     pgrepo.NewNPCRepository(deps.Postgres),
+		Wallets:  pgrepo.NewWalletRepository(deps.Postgres),
 		World:    pgrepo.NewWorldRepository(deps.Postgres),
 		WSTokens: redisrepo.NewWSTokenRepository(deps.Redis, cfg.Redis.KeyPrefix),
 	}, nil

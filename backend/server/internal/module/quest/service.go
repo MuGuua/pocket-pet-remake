@@ -3,6 +3,7 @@ package quest
 import (
 	"context"
 	"sort"
+	"strings"
 )
 
 const (
@@ -209,18 +210,18 @@ func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, n
 	return buildSummary(*template, playerQuest, refreshedObjectives, completed), nil
 }
 
-func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, npcID uint64) (Summary, error) {
+func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, npcID uint64) (SubmitResult, error) {
 	template, playerQuestMap, playerObjectiveMap, err := s.loadSingle(ctx, playerID, questID)
 	if err != nil {
-		return Summary{}, err
+		return SubmitResult{}, err
 	}
 	if template.SubmitMode == "NPC" && template.SubmitNPCID != 0 && template.SubmitNPCID != npcID {
-		return Summary{}, ErrQuestSubmitNPCMismatch
+		return SubmitResult{}, ErrQuestSubmitNPCMismatch
 	}
 
 	existing := playerQuestMap[questID]
 	if existing == nil || (existing.State != StateAccepted && existing.State != StateReadyToSubmit && existing.State != StateAvailable) {
-		return Summary{}, ErrQuestNotAvailable
+		return SubmitResult{}, ErrQuestNotAvailable
 	}
 
 	objectives := playerObjectiveMap[questID]
@@ -249,16 +250,19 @@ func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, n
 		State:    StateCompleted,
 		Tracked:  existing.Tracked,
 	}); err != nil {
-		return Summary{}, err
+		return SubmitResult{}, err
 	}
 	if err := s.repo.ReplacePlayerObjectives(ctx, playerID, questID, objectives); err != nil {
-		return Summary{}, err
+		return SubmitResult{}, err
 	}
 
 	playerQuest := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateCompleted, Tracked: existing.Tracked}
 	completed := completedQuestSet(playerQuestMap)
 	completed[questID] = true
-	return buildSummary(*template, playerQuest, objectives, completed), nil
+	return SubmitResult{
+		Summary: buildSummary(*template, playerQuest, objectives, completed),
+		Rewards: collectSupportedRewards(template.Rewards),
+	}, nil
 }
 
 func (s *Service) Track(ctx context.Context, playerID uint64, questID uint64) error {
@@ -611,4 +615,17 @@ func maxUint32(a uint32, b uint32) uint32 {
 		return a
 	}
 	return b
+}
+
+// collectSupportedRewards 过滤出当前运行时已经有正式发放能力的奖励。
+// 先把金币和角色经验接入服务端权威链路，其他奖励类型后续在背包/宠物/功能系统补齐后再落正式发放。
+func collectSupportedRewards(configured []Reward) []Reward {
+	result := make([]Reward, 0, len(configured))
+	for _, reward := range configured {
+		switch strings.ToLower(strings.TrimSpace(reward.Type)) {
+		case "gold", "exp", "item", "pet", "feature_unlock":
+			result = append(result, reward)
+		}
+	}
+	return result
 }

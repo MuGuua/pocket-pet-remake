@@ -29,6 +29,7 @@ type Template struct {
 	AutoTrack   bool
 	PreQuestIDs []uint64
 	Objectives  []ObjectiveTemplate
+	Rewards     []Reward
 }
 
 type ObjectiveTemplate struct {
@@ -84,6 +85,23 @@ type Event struct {
 	NPCID     uint64
 	Count     uint32
 	Meta      map[string]any
+}
+
+// Reward 描述任务模板里声明的一条奖励配置。
+// 当前先覆盖金币、经验、道具、宠物和功能解锁几类基础字段，后续可继续扩展更多经济类型。
+type Reward struct {
+	Type   string `json:"type"`
+	Value  uint64 `json:"value"`
+	ItemID uint64 `json:"item_id"`
+	Count  uint64 `json:"count"`
+	PetID  uint64 `json:"pet_id"`
+}
+
+// SubmitResult 统一返回任务提交后的状态与本次已发放奖励。
+// WebSocket handler 可以直接基于这里的奖励结果继续推送钱包变化，避免再重复推导模板配置。
+type SubmitResult struct {
+	Summary Summary  `json:"summary"`
+	Rewards []Reward `json:"rewards"`
 }
 
 // AdminTemplateListQuery 描述后台任务模板分页与筛选条件。

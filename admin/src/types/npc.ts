@@ -56,6 +56,7 @@ export interface AdminNPCMenuEntrySummary {
   priority: number;
   sort_order: number;
   action_result_type: string;
+  battle_encounter_entity_id?: number;
   status: number;
   status_text: string;
   updated_at: string;
@@ -90,6 +91,7 @@ export interface AdminCreateNPCMenuEntryPayload {
   sort_order: number;
   action_result_type: string;
   action_notice: string;
+  battle_encounter_entity_id?: number;
   status: number;
 }
 

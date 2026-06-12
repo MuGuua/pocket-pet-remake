@@ -49,7 +49,14 @@ SELECT
   def,
   spd,
   mana,
-  skill_ids
+  skill_ids,
+  hp_apt,
+  atk_apt,
+  def_apt,
+  spd_apt,
+  mana_apt,
+  grant_source,
+  capture_monster_id
 FROM player_pet
 WHERE player_id = $1
 ORDER BY id ASC
@@ -76,6 +83,65 @@ UPDATE player_pet
 SET hp = LEAST($3, hp_max),
     exp = exp + $4
 WHERE player_id = $1 AND id = $2
+`
+
+const runtimePetDefinitionQuery = `
+SELECT
+  pet_id,
+  level,
+  quality,
+  hp,
+  hp_max,
+  atk,
+  def,
+  spd,
+  mana,
+  skill_ids,
+  acquire_method,
+  hp_apt,
+  atk_apt,
+  def_apt,
+  spd_apt,
+  mana_apt,
+  hp_apt_roll_min,
+  hp_apt_roll_max,
+  atk_apt_roll_min,
+  atk_apt_roll_max,
+  def_apt_roll_min,
+  def_apt_roll_max,
+  spd_apt_roll_min,
+  spd_apt_roll_max,
+  mana_apt_roll_min,
+  mana_apt_roll_max
+FROM pet_definition
+WHERE pet_id = $1
+  AND status = 1
+LIMIT 1
+`
+
+const insertRuntimePetQuery = `
+INSERT INTO player_pet (
+  player_id,
+  pet_id,
+  level,
+  exp,
+  quality,
+  hp,
+  hp_max,
+  atk,
+  def,
+  spd,
+  mana,
+  skill_ids,
+  hp_apt,
+  atk_apt,
+  def_apt,
+  spd_apt,
+  mana_apt,
+  grant_source,
+  capture_monster_id
+) VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+RETURNING id
 `
 
 const adminPetListBaseQuery = `
@@ -308,6 +374,100 @@ func (r *PetRepository) UpdatePetHPAndExpByUID(ctx context.Context, playerID uin
 	return pet.Pet{}, pet.ErrPetNotFound
 }
 
+func (r *PetRepository) GrantRuntimePet(ctx context.Context, playerID uint64, petID uint32, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*pet.RuntimeGrantResult, error) {
+	definition, err := r.loadRuntimePetDefinition(ctx, petID)
+	if err != nil {
+		return nil, err
+	}
+	if definition == nil {
+		return nil, pet.ErrPetNotFound
+	}
+	aptitudes := pet.GrowthAptitudes{
+		HPApt:   definition.HPApt,
+		ATKApt:  definition.ATKApt,
+		DEFApt:  definition.DEFApt,
+		SPDApt:  definition.SPDApt,
+		MANAApt: definition.MANAApt,
+	}
+	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, pet.GrantSourceTemplate, 0, reasonType, reasonRefID, operatorType, operatorID)
+}
+
+func (r *PetRepository) GrantWildCapturePet(ctx context.Context, playerID uint64, petID uint32, captureMonsterID uint32, reasonType string, reasonRefID uint64) (*pet.RuntimeGrantResult, error) {
+	definition, err := r.loadRuntimePetDefinition(ctx, petID)
+	if err != nil {
+		return nil, err
+	}
+	if definition == nil {
+		return nil, pet.ErrPetNotFound
+	}
+	if !pet.IsWildCaptureAcquireMethod(definition.AcquireMethod) {
+		return nil, pet.ErrInvalidWildCapturePetTemplate
+	}
+	rollRanges := pet.AptitudeRollRanges{
+		HPAptMin: definition.HPAptRollMin, HPAptMax: definition.HPAptRollMax,
+		ATKAptMin: definition.ATKAptRollMin, ATKAptMax: definition.ATKAptRollMax,
+		DEFAptMin: definition.DEFAptRollMin, DEFAptMax: definition.DEFAptRollMax,
+		SPDAptMin: definition.SPDAptRollMin, SPDAptMax: definition.SPDAptRollMax,
+		MANAAptMin: definition.MANAAptRollMin, MANAAptMax: definition.MANAAptRollMax,
+	}
+	if err := pet.ValidateAptitudeRollRanges(rollRanges); err != nil {
+		return nil, err
+	}
+	aptitudes := pet.RollWildCaptureAptitudes(rollRanges, nil)
+	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, pet.GrantSourceWildCapture, captureMonsterID, reasonType, reasonRefID, "", 0)
+}
+
+func (r *PetRepository) insertRuntimePet(
+	ctx context.Context,
+	playerID uint64,
+	definition *runtimePetDefinitionRow,
+	aptitudes pet.GrowthAptitudes,
+	grantSource string,
+	captureMonsterID uint32,
+	reasonType string,
+	reasonRefID uint64,
+	operatorType string,
+	operatorID uint64,
+) (*pet.RuntimeGrantResult, error) {
+	var petUID uint64
+	if err := r.db.QueryRowContext(
+		ctx,
+		insertRuntimePetQuery,
+		playerID,
+		definition.PetID,
+		definition.Level,
+		definition.Quality,
+		definition.HP,
+		definition.HPMax,
+		definition.ATK,
+		definition.DEF,
+		definition.SPD,
+		definition.MANA,
+		definition.SkillIDsJSON,
+		aptitudes.HPApt,
+		aptitudes.ATKApt,
+		aptitudes.DEFApt,
+		aptitudes.SPDApt,
+		aptitudes.MANAApt,
+		grantSource,
+		captureMonsterID,
+	).Scan(&petUID); err != nil {
+		return nil, err
+	}
+	grantedPet, err := r.loadPetByUID(ctx, playerID, petUID)
+	if err != nil {
+		return nil, err
+	}
+	if grantedPet == nil {
+		return nil, pet.ErrPetNotFound
+	}
+	_ = reasonType
+	_ = reasonRefID
+	_ = operatorType
+	_ = operatorID
+	return &pet.RuntimeGrantResult{Pet: *grantedPet}, nil
+}
+
 func (r *PetRepository) ListForAdmin(ctx context.Context, query pet.AdminListQuery) (*pet.AdminPetList, error) {
 	query = query.Normalize()
 	conditions := []string{}
@@ -462,23 +622,124 @@ func (r *PetRepository) DeleteForAdmin(ctx context.Context, petUID uint64) error
 	return tx.Commit()
 }
 
+type runtimePetDefinitionRow struct {
+	PetID            uint32
+	Level            uint32
+	Quality          uint32
+	HP               uint32
+	HPMax            uint32
+	ATK              uint32
+	DEF              uint32
+	SPD              uint32
+	MANA             uint32
+	SkillIDsJSON     []byte
+	AcquireMethod    string
+	HPApt            uint32
+	ATKApt           uint32
+	DEFApt           uint32
+	SPDApt           uint32
+	MANAApt          uint32
+	HPAptRollMin     uint32
+	HPAptRollMax     uint32
+	ATKAptRollMin    uint32
+	ATKAptRollMax    uint32
+	DEFAptRollMin    uint32
+	DEFAptRollMax    uint32
+	SPDAptRollMin    uint32
+	SPDAptRollMax    uint32
+	MANAAptRollMin   uint32
+	MANAAptRollMax   uint32
+}
+
+func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint32) (*runtimePetDefinitionRow, error) {
+	var value runtimePetDefinitionRow
+	if err := r.db.QueryRowContext(ctx, runtimePetDefinitionQuery, petID).Scan(
+		&value.PetID,
+		&value.Level,
+		&value.Quality,
+		&value.HP,
+		&value.HPMax,
+		&value.ATK,
+		&value.DEF,
+		&value.SPD,
+		&value.MANA,
+		&value.SkillIDsJSON,
+		&value.AcquireMethod,
+		&value.HPApt,
+		&value.ATKApt,
+		&value.DEFApt,
+		&value.SPDApt,
+		&value.MANAApt,
+		&value.HPAptRollMin,
+		&value.HPAptRollMax,
+		&value.ATKAptRollMin,
+		&value.ATKAptRollMax,
+		&value.DEFAptRollMin,
+		&value.DEFAptRollMax,
+		&value.SPDAptRollMin,
+		&value.SPDAptRollMax,
+		&value.MANAAptRollMin,
+		&value.MANAAptRollMax,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &value, nil
+}
+
+func (r *PetRepository) loadPetByUID(ctx context.Context, playerID uint64, petUID uint64) (*pet.Pet, error) {
+	pets, err := r.ListPetsByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	lineup, err := r.ListLineupByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	lineupSet := make(map[uint64]struct{}, len(lineup))
+	for _, current := range lineup {
+		lineupSet[current.PetUID] = struct{}{}
+	}
+	for _, current := range pets {
+		if current.PetUID != petUID {
+			continue
+		}
+		_, current.InLineup = lineupSet[current.PetUID]
+		copyValue := current
+		return &copyValue, nil
+	}
+	return nil, nil
+}
+
 func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	var (
-		item         pet.Pet
-		petUID       int64
-		petID        int64
-		level        int64
-		exp          int64
-		quality      int64
-		hp           int64
-		hpMax        int64
-		atk          int64
-		def          int64
-		spd          int64
-		mana         int64
-		skillIDsJSON []byte
+		item              pet.Pet
+		petUID            int64
+		petID             int64
+		level             int64
+		exp               int64
+		quality           int64
+		hp                int64
+		hpMax             int64
+		atk               int64
+		def               int64
+		spd               int64
+		mana              int64
+		skillIDsJSON      []byte
+		hpApt             int64
+		atkApt            int64
+		defApt            int64
+		spdApt            int64
+		manaApt           int64
+		grantSource       string
+		captureMonsterID  int64
 	)
-	if err := rows.Scan(&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON); err != nil {
+	if err := rows.Scan(
+		&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
+		&hpApt, &atkApt, &defApt, &spdApt, &manaApt, &grantSource, &captureMonsterID,
+	); err != nil {
 		return pet.Pet{}, err
 	}
 	item.PetUID = uint64(petUID)
@@ -492,6 +753,15 @@ func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	item.DEF = uint32(def)
 	item.SPD = uint32(spd)
 	item.MANA = uint32(mana)
+	item.GrowthAptitudes = pet.GrowthAptitudes{
+		HPApt:   uint32(hpApt),
+		ATKApt:  uint32(atkApt),
+		DEFApt:  uint32(defApt),
+		SPDApt:  uint32(spdApt),
+		MANAApt: uint32(manaApt),
+	}
+	item.GrantSource = grantSource
+	item.CaptureMonsterID = uint32(captureMonsterID)
 	if len(skillIDsJSON) > 0 {
 		if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
 			return pet.Pet{}, fmt.Errorf("unmarshal pet skill ids: %w", err)

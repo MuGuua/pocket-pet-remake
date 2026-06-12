@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/world"
@@ -19,6 +20,7 @@ type Service struct {
 	nextChallengeID   uint64
 	activeByPlayer    map[uint64]*activeBattle
 	pendingChallenges map[uint64]PVPChallenge
+	monsterService    *monster.Service
 }
 
 // AutoProgressOutcome carries one server-side auto progression result together
@@ -175,18 +177,19 @@ type turnDecision struct {
 const commandTimeout = 15 * time.Second
 const battleReplayHistoryLimit = 12
 
-func NewService() *Service {
+func NewService(monsterService *monster.Service) *Service {
 	return &Service{
 		nextBattleID:      70000,
 		nextChallengeID:   90000,
 		activeByPlayer:    make(map[uint64]*activeBattle),
 		pendingChallenges: make(map[uint64]PVPChallenge),
+		monsterService:    monsterService,
 	}
 }
 
 const pvpChallengeTimeout = 30 * time.Second
 
-func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity) (*StartSnapshot, error) {
+func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity) (*StartSnapshot, error) {
 	if profile == nil {
 		return nil, ErrTargetUnavailable
 	}
@@ -213,7 +216,7 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 		// 单人 PVE 现在始终由人物作为我方权威入口开战，宠物编队再按原顺序追加，
 		// 这样客户端和服务端都能围绕同一个人物 actor 组织后续动作与表现。
 		allies:      buildSoloPVEAllies(profile, lineup),
-		enemies:     buildEnemyTeam(profile, enemy),
+		enemies:     s.buildEnemyTeam(ctx, profile, enemy),
 		plannedActs: make(map[uint64]ActionRequest),
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
@@ -224,6 +227,63 @@ func (s *Service) StartPVE(_ context.Context, profile *player.Profile, lineup []
 
 	s.activeByPlayer[profile.PlayerID] = battle
 	return battle.toStartSnapshot(), nil
+}
+
+// StartPVEWildEncounter 在客户端暗雷上报通过后，按 scene_id 解析刷怪并开启 PVE。
+func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, encounter *monster.RuntimeWildEncounter) (*StartSnapshot, error) {
+	if profile == nil || encounter == nil || len(encounter.Slots) == 0 {
+		return nil, ErrWildEncounterUnavailable
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.activeByPlayer[profile.PlayerID]; exists {
+		return nil, ErrBattleAlreadyActive
+	}
+
+	virtualEnemy := world.Entity{
+		EntityID:   monster.WildEncounterEntityID(encounter.SceneID),
+		EntityType: ActorUnitClassMonster,
+		Name:       encounter.EncounterName,
+	}
+
+	s.nextBattleID++
+	battleID := s.nextBattleID
+	battle := &activeBattle{
+		battleID:             battleID,
+		battleType:           BattleTypePVE,
+		battleVersion:        1,
+		round:                1,
+		phase:                PhaseCommand,
+		playerID:             profile.PlayerID,
+		participantPlayerIDs: []uint64{profile.PlayerID},
+		returnSceneID:        profile.SceneID,
+		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
+		allies:               buildSoloPVEAllies(profile, lineup),
+		enemies:              s.buildEnemyTeamFromSlots(ctx, profile, virtualEnemy, encounter.Slots),
+		plannedActs:          make(map[uint64]ActionRequest),
+	}
+	battle.pendingActors = battle.collectPendingControllableActors()
+	battle.resetCommandDeadline()
+	if len(battle.pendingActors) == 0 {
+		return nil, ErrNoLineupAvailable
+	}
+
+	s.activeByPlayer[profile.PlayerID] = battle
+	return battle.toStartSnapshot(), nil
+}
+
+// StartPVEWildEncounterByScene 校验 scene_id 对应暗雷配置后开战。
+func (s *Service) StartPVEWildEncounterByScene(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, sceneID uint32) (*StartSnapshot, error) {
+	if s.monsterService == nil || sceneID == 0 {
+		return nil, ErrWildEncounterUnavailable
+	}
+	encounter, err := s.monsterService.ResolveWildEncounterForScene(ctx, sceneID)
+	if err != nil {
+		return nil, err
+	}
+	return s.StartPVEWildEncounter(ctx, profile, lineup, encounter)
 }
 
 // StartPVP creates one shared authoritative battle for two online players.
@@ -364,6 +424,8 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 		}, nil
 	case ActionTypeSetAuto:
 		return s.setAutoBattleLocked(playerID, battle, request)
+	case ActionTypeCapture:
+		return s.submitCaptureLocked(playerID, battle, request)
 	default:
 		return nil, ErrInvalidAction
 	}
@@ -551,6 +613,138 @@ func (s *Service) setAutoBattleLocked(playerID uint64, battle *activeBattle, req
 		Response: BattleActionResponse{Accepted: true, Reason: "auto battle updated"},
 		State:    battle.recordStateSnapshot(nil),
 	}, nil
+}
+
+// submitCaptureLocked 处理 PVE 战斗中的捕捉尝试：服务端判定道具、目标 HP 与成功率，不继承战斗数值。
+func (s *Service) submitCaptureLocked(playerID uint64, battle *activeBattle, request ActionRequest) (*ActionOutcome, error) {
+	if battle.battleType != BattleTypePVE {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "capture only allowed in pve"},
+		}, nil
+	}
+	actor := battle.findActor(request.ActorID)
+	if actor == nil || actor.isDead() || actor.ownerPlayerID != playerID || actor.actorType != PlayerActorType {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "invalid capture actor"},
+		}, nil
+	}
+	if !battle.isPendingActor(actor.actorID) {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "actor cannot act now"},
+		}, nil
+	}
+	target := battle.findActor(request.TargetID)
+	if target == nil || target.isDead() || target.actorType != EnemyActorType {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "invalid capture target"},
+		}, nil
+	}
+	if request.ItemID == 0 || request.BagSlotIndex == 0 {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "capture item required"},
+		}, nil
+	}
+	if s.monsterService == nil {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "capture unavailable"},
+		}, nil
+	}
+	config, err := s.monsterService.GetCaptureConfig(context.Background(), target.petID)
+	if err != nil || config == nil || !config.IsCapturable || config.CapturePetID == 0 {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "target not capturable"},
+		}, nil
+	}
+	if !captureItemAllowed(config.CaptureItemIDs, request.ItemID) {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "capture item not allowed"},
+		}, nil
+	}
+	if target.hpMax == 0 {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "invalid target hp"},
+		}, nil
+	}
+	hpPct := target.hp * 100 / target.hpMax
+	if hpPct > config.CaptureMinHPPct {
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: false, Reason: "target hp too high"},
+		}, nil
+	}
+
+	rateBase := config.CaptureRateBase
+	if rateBase == 0 {
+		rateBase = 5000
+	}
+	if rateBase > 10000 {
+		rateBase = 10000
+	}
+	roll := rand.Intn(10000)
+	if roll >= int(rateBase) {
+		battle.pendingActors = removeActorID(battle.pendingActors, actor.actorID)
+		events := []Event{{
+			EventType: EventTypeCapture,
+			SourceID:  actor.actorID,
+			TargetID:  target.actorID,
+			Value:     0,
+			Label:     fmt.Sprintf("%s 使用捕捉道具失败。", actor.name),
+		}}
+		if len(battle.pendingActors) > 0 {
+			battle.resetCommandDeadline()
+			battle.battleVersion++
+			return &ActionOutcome{
+				Response: BattleActionResponse{Accepted: true, Reason: "capture failed"},
+				State:    battle.recordStateSnapshot(events),
+			}, nil
+		}
+		state, result := battle.resolveRound()
+		if len(events) > 0 && state != nil {
+			state.Events = append(events, state.Events...)
+		}
+		if result != nil {
+			s.removeBattleLocked(battle)
+		}
+		return &ActionOutcome{
+			Response: BattleActionResponse{Accepted: true, Reason: "capture failed"},
+			State:    state,
+			Result:   result,
+		}, nil
+	}
+
+	result := battle.buildCaptureSuccessResult(target.petID, config.CapturePetID)
+	s.removeBattleLocked(battle)
+	return &ActionOutcome{
+		Response: BattleActionResponse{
+			Accepted:       true,
+			Reason:         "capture success",
+			CaptureSuccess: true,
+		},
+		Result: result,
+	}, nil
+}
+
+func captureItemAllowed(allowed []uint32, itemID uint32) bool {
+	for _, current := range allowed {
+		if current == itemID {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *activeBattle) buildCaptureSuccessResult(monsterID uint32, petID uint32) *ResultSnapshot {
+	result := b.buildResult(true, "capture success")
+	result.RewardGold = 0
+	result.RewardPlayerExp = 0
+	result.DropItems = nil
+	result.DropTexts = nil
+	for index := range result.PetResults {
+		result.PetResults[index].ExpGained = 0
+	}
+	result.CaptureSuccess = true
+	result.CaptureMonsterID = monsterID
+	result.CapturedPetID = petID
+	return result
 }
 
 func (s *Service) autoResolvePendingLocked(playerID uint64, battle *activeBattle) (*StateSnapshot, *ResultSnapshot) {
@@ -931,7 +1125,60 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 	return allies
 }
 
-func buildEnemyTeam(profile *player.Profile, enemy world.Entity) []*actorRuntime {
+func (s *Service) buildEnemyTeam(ctx context.Context, profile *player.Profile, enemy world.Entity) []*actorRuntime {
+	slots := s.resolveEncounterSlots(ctx, enemy)
+	return s.buildEnemyTeamFromSlots(ctx, profile, enemy, slots)
+}
+
+func (s *Service) buildEnemyTeamFromSlots(ctx context.Context, profile *player.Profile, enemy world.Entity, slots []monster.RuntimeEncounterSlot) []*actorRuntime {
+	enemies := make([]*actorRuntime, 0, len(slots))
+	for index, slot := range slots {
+		enemyName := enemy.Name
+		if len(slots) > 1 {
+			enemyName = fmt.Sprintf("%s 随从%d", enemy.Name, index+1)
+		}
+		if slot.MonsterName != "" && len(slots) == 1 {
+			enemyName = slot.MonsterName
+		} else if slot.MonsterName != "" && len(slots) > 1 {
+			enemyName = fmt.Sprintf("%s·%s", enemy.Name, slot.MonsterName)
+		}
+		attributes, resistances, enemyLevel := combatTemplateFromMonsterSlot(profile, enemy, index, slot)
+		skillIDs := append([]uint32{}, slot.SkillIDs...)
+		if len(skillIDs) == 0 {
+			skillIDs = []uint32{DefaultEnemySkillID, 90002}
+		}
+		actor := &actorRuntime{
+			actorID:       enemy.EntityID*10 + uint64(index+1),
+			actorType:     EnemyActorType,
+			unitClass:     ActorUnitClassMonster,
+			ownerPlayerID: 0,
+			petUID:        0,
+			petID:         slot.MonsterID,
+			lineupIndex:   uint32(index),
+			name:          enemyName,
+			level:         enemyLevel,
+			skillIDs:      skillIDs,
+		}
+		actor.initRuntimeDefaults()
+		actor.applyCombatTemplate(attributes)
+		actor.applyResistanceTemplate(resistances)
+		enemies = append(enemies, actor)
+		configurePassiveProfile(actor)
+	}
+	return enemies
+}
+
+func (s *Service) resolveEncounterSlots(ctx context.Context, enemy world.Entity) []monster.RuntimeEncounterSlot {
+	if s.monsterService != nil {
+		encounter, err := s.monsterService.ResolveEncounterForEntity(ctx, enemy.EntityID)
+		if err == nil && encounter != nil && len(encounter.Slots) > 0 {
+			return encounter.Slots
+		}
+	}
+	return fallbackEncounterSlots(enemy)
+}
+
+func fallbackEncounterSlots(enemy world.Entity) []monster.RuntimeEncounterSlot {
 	count := 1
 	skillSet := []uint32{DefaultEnemySkillID, 90002}
 	if enemy.EntityID == 90004 || enemy.EntityID == 90005 {
@@ -941,32 +1188,29 @@ func buildEnemyTeam(profile *player.Profile, enemy world.Entity) []*actorRuntime
 		count = 2
 		skillSet = []uint32{90002, 90003}
 	}
-	enemies := make([]*actorRuntime, 0, count)
+	slots := make([]monster.RuntimeEncounterSlot, 0, count)
 	for index := 0; index < count; index++ {
-		enemyName := enemy.Name
-		if count > 1 {
-			enemyName = fmt.Sprintf("%s 随从%d", enemy.Name, index+1)
-		}
-		attributes, resistances, enemyLevel := defaultEnemyTemplate(profile, enemy, index)
-		actor := &actorRuntime{
-			actorID:       enemy.EntityID*10 + uint64(index+1),
-			actorType:     EnemyActorType,
-			unitClass:     ActorUnitClassMonster,
-			ownerPlayerID: 0,
-			petUID:        0,
-			petID:         DefaultEnemyPetID + uint32(index),
-			lineupIndex:   uint32(index),
-			name:          enemyName,
-			level:         enemyLevel,
-			skillIDs:      append([]uint32{}, skillSet...),
-		}
-		actor.initRuntimeDefaults()
-		actor.applyCombatTemplate(attributes)
-		actor.applyResistanceTemplate(resistances)
-		enemies = append(enemies, actor)
-		configurePassiveProfile(actor)
+		slots = append(slots, monster.RuntimeEncounterSlot{
+			MonsterID: DefaultEnemyPetID + uint32(index),
+			SkillIDs:  append([]uint32{}, skillSet...),
+		})
 	}
-	return enemies
+	return slots
+}
+
+func combatTemplateFromMonsterSlot(profile *player.Profile, enemy world.Entity, index int, slot monster.RuntimeEncounterSlot) (combatAttributeTemplate, resistanceTemplate, uint32) {
+	base, resist, level := defaultEnemyTemplate(profile, enemy, index)
+	if slot.HPMax > 0 {
+		base.HP = slot.HPMax + uint32(index*4)
+		base.Attack = slot.ATK + uint32(index*2)
+		base.Defense = slot.DEF + uint32(index)
+		base.Speed = slot.SPD + uint32(index)
+		base.Mana = slot.MANA + uint32(index*2)
+	}
+	if slot.Level > 0 {
+		level = slot.Level + uint32(index)
+	}
+	return base, resist, level
 }
 
 func configurePassiveProfile(actor *actorRuntime) {
@@ -1445,9 +1689,10 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 	rewardGold := uint32(0)
 	rewardPlayerExp := uint64(0)
 	rewardPetExp := uint64(0)
+	dropItems := []DropReward{}
 	dropTexts := []string{}
 	if win && b.battleType == BattleTypePVE {
-		rewardGold, rewardPlayerExp, rewardPetExp, dropTexts = b.buildPVERewards()
+		rewardGold, rewardPlayerExp, rewardPetExp, dropItems, dropTexts = b.buildPVERewards()
 	}
 	for _, actor := range b.allies {
 		// 结算持久化仍然只写回真实宠物，人物 actor 的生命与奖励由玩家档案单独承担。
@@ -1471,6 +1716,7 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 		Reason:               reason,
 		RewardGold:           rewardGold,
 		RewardPlayerExp:      rewardPlayerExp,
+		DropItems:            append([]DropReward{}, dropItems...),
 		DropTexts:            append([]string{}, dropTexts...),
 	}
 }
@@ -1478,10 +1724,11 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 // buildPVERewards keeps the first reward formula deliberately simple and fully
 // server-authored: enemy lineup size and level determine stable gold / exp
 // payouts, while each participating ally receives the same pet exp packet.
-func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []string) {
+func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []DropReward, []string) {
 	totalGold := uint32(0)
 	totalPlayerExp := uint64(0)
 	totalPetExp := uint64(0)
+	dropItems := make([]DropReward, 0, len(b.enemies))
 	dropTexts := make([]string, 0, len(b.enemies))
 	for _, enemy := range b.enemies {
 		baseGold := enemy.level*6 + 12
@@ -1493,13 +1740,36 @@ func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []string) {
 		totalGold += baseGold
 		totalPlayerExp += baseExp
 		totalPetExp += baseExp
-		dropTexts = append(dropTexts, buildEnemyDropText(enemy))
+		if dropReward, ok := buildEnemyDropReward(enemy); ok {
+			dropItems = append(dropItems, dropReward)
+			dropTexts = append(dropTexts, buildEnemyDropText(enemy))
+		}
 	}
-	return totalGold, totalPlayerExp, totalPetExp, dropTexts
+	return totalGold, totalPlayerExp, totalPetExp, dropItems, dropTexts
+}
+
+// buildEnemyDropReward 先为当前 MVP 提供稳定的掉落物品主键与数量。
+// 当前掉落表还没有完全数据化，因此这里暂时按敌方模板做最小映射，
+// 后续应继续迁移到数据库配置或共享掉落表。
+func buildEnemyDropReward(enemy *actorRuntime) (DropReward, bool) {
+	if enemy == nil {
+		return DropReward{}, false
+	}
+	switch enemy.petID {
+	case 9001:
+		return DropReward{ItemID: 3101, Quantity: 1}, true
+	case 9002:
+		return DropReward{ItemID: 3102, Quantity: 1}, true
+	default:
+		if enemy.level >= 4 {
+			return DropReward{ItemID: 3103, Quantity: 1}, true
+		}
+		return DropReward{ItemID: 3104, Quantity: 1}, true
+	}
 }
 
 // buildEnemyDropText gives the current MVP a deterministic text-only loot
-// preview without introducing a full bag pipeline yet.
+// preview. BattleHandler 在真正发奖成功后会再用数据库模板名称覆盖这里的文本。
 func buildEnemyDropText(enemy *actorRuntime) string {
 	if enemy == nil {
 		return ""
@@ -2008,18 +2278,26 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 	for _, skillID := range a.skillIDs {
 		if def, ok := getSkillDef(skillID); ok {
 			skillSnapshots = append(skillSnapshots, SkillSnapshot{
-				SkillID:     skillID,
-				Name:        def.Name,
-				TargetType:  def.TargetRule.protocolName(),
-				TargetCount: def.TargetCount,
+				SkillID:      skillID,
+				Name:         def.Name,
+				TargetType:   def.TargetRule.protocolName(),
+				TargetCount:  def.TargetCount,
+				AnimationKey: def.AnimationKey,
+				CastColor:    def.CastColor,
+				ImpactColor:  def.ImpactColor,
+				Projectile:   def.Projectile,
 			})
 			continue
 		}
 		skillSnapshots = append(skillSnapshots, SkillSnapshot{
-			SkillID:     skillID,
-			Name:        fmt.Sprintf("技能%d", skillID),
-			TargetType:  targetEnemySingle.protocolName(),
-			TargetCount: 1,
+			SkillID:      skillID,
+			Name:         fmt.Sprintf("技能%d", skillID),
+			TargetType:   targetEnemySingle.protocolName(),
+			TargetCount:  1,
+			AnimationKey: "slash",
+			CastColor:    "#EBEBF5",
+			ImpactColor:  "#FFF2F2",
+			Projectile:   false,
 		})
 	}
 	return ActorSnapshot{

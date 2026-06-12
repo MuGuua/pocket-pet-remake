@@ -1,13 +1,18 @@
 package player
 
-import "context"
+import (
+	"context"
+
+	"pocket-pet-remake/server/internal/module/skill"
+)
 
 type Service struct {
-	repo Repository
+	repo         Repository
+	skillService *skill.Service
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository, skillService *skill.Service) *Service {
+	return &Service{repo: repo, skillService: skillService}
 }
 
 func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, error) {
@@ -62,6 +67,9 @@ func (s *Service) UpdateAdminPlayer(ctx context.Context, playerID uint64, input 
 	if input.Name == "" {
 		return nil, ErrInvalidAdminInput
 	}
+	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
+		return nil, err
+	}
 	detail, err := s.repo.UpdateForAdmin(ctx, playerID, input)
 	if err != nil {
 		return nil, err
@@ -81,6 +89,15 @@ func (s *Service) UpdatePosition(ctx context.Context, playerID uint64, sceneID u
 	return s.repo.UpdatePosition(ctx, playerID, sceneID, posX, posY)
 }
 
-func (s *Service) AddGoldAndExp(ctx context.Context, playerID uint64, gold uint32, exp uint64) (*Profile, error) {
-	return s.repo.AddGoldAndExp(ctx, playerID, gold, exp)
+// AddExp 只增加角色经验，供新钱包体系下的战斗奖励复用。
+// 货币奖励已经迁移到 wallet 模块，这里保留玩家成长字段的最小更新职责。
+func (s *Service) AddExp(ctx context.Context, playerID uint64, exp uint64) (*Profile, error) {
+	return s.repo.AddExp(ctx, playerID, exp)
+}
+
+func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error {
+	if s.skillService == nil || len(skillIDs) == 0 {
+		return nil
+	}
+	return s.skillService.ValidateEnabledSkillIDs(ctx, skillIDs)
 }

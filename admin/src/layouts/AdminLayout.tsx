@@ -8,10 +8,13 @@ const { Header, Sider, Content } = Layout;
 const menuItems = [
   { key: '/dashboard', label: '控制台' },
   { key: '/players', label: '玩家管理' },
-  { key: '/pets', label: '宠物管理' },
-  { key: '/bags', label: '背包管理' },
+  { key: '/pet-definitions', label: '系统宠物管理' },
+  { key: '/skill-definitions', label: '系统技能管理' },
+  { key: '/monster-definitions', label: '系统怪物管理' },
+  { key: '/monster-encounters', label: '怪物遭遇配置' },
+  { key: '/items', label: '物品模板' },
   { key: '/quests', label: '任务管理' },
-  { key: '/npcs', label: 'NPC 配置' },
+  { key: '/npcs', label: '地图NPC配置' },
 ];
 
 interface AdminLayoutProps {

@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Card,
   Col,
@@ -15,14 +14,14 @@ import {
   Select,
   Space,
   Spin,
-  Statistic,
   Table,
   Tag,
-  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { SkillReferenceText } from '../../components/SkillReferenceText';
+import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
   createAdminPlayer,
   deleteAdminPlayer,
@@ -37,6 +36,9 @@ import type {
   AdminPlayerSummary,
   AdminUpdatePlayerPayload,
 } from '../../types/player';
+import { PlayerPetSection } from './PlayerPetSection';
+import { PlayerBagSection } from './PlayerBagSection';
+import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
 
 interface PlayerFormValues {
   account_name?: string;
@@ -57,7 +59,7 @@ interface PlayerFormValues {
   spd: number;
   mana: number;
   status: number;
-  skill_ids_text: string;
+  skill_names_text: string;
 }
 
 const statusOptions = [
@@ -75,6 +77,7 @@ const editableStatusOptions = [
 
 // 玩家管理页按 ant-design-skill 的 CRUD 模式重写：筛选表格 + 详情抽屉 + 新增/编辑弹窗 + 删除确认。
 export function PlayerListPage() {
+  const { map: skillReferenceMap } = useSkillReferenceMap();
   const [filterForm] = Form.useForm<AdminPlayerListFilters>();
   const [editorForm] = Form.useForm<PlayerFormValues>();
   const [filters, setFilters] = useState<AdminPlayerListFilters>({ status: '1' });
@@ -147,7 +150,7 @@ export function PlayerListPage() {
     try {
       const result = await fetchAdminPlayerDetail(playerID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapDetailToForm(result));
+      editorForm.setFieldsValue(mapDetailToForm(result, skillReferenceMap));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载编辑数据失败');
       setEditorOpen(false);
@@ -160,15 +163,14 @@ export function PlayerListPage() {
     setSaving(true);
     try {
       if (editingRecord) {
-        await updateAdminPlayer(editingRecord.player_id, mapFormToUpdatePayload(values));
+        await updateAdminPlayer(editingRecord.player_id, mapFormToUpdatePayload(values, skillReferenceMap));
         message.success('玩家更新成功');
       } else {
-        await createAdminPlayer(mapFormToCreatePayload(values));
+        const created = await createAdminPlayer(mapFormToCreatePayload(values, skillReferenceMap));
         message.success('玩家创建成功');
+        setEditingRecord(created);
+        editorForm.setFieldsValue(mapDetailToForm(created, skillReferenceMap));
       }
-      setEditorOpen(false);
-      setEditingRecord(null);
-      editorForm.resetFields();
       await loadPlayers(filters, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存玩家失败');
@@ -253,94 +255,48 @@ export function PlayerListPage() {
     [deletingID],
   );
 
-  const activeCount = rows.filter((item) => item.status === 1).length;
-  const bannedCount = rows.filter((item) => item.status === 2).length;
-  const deletedCount = rows.filter((item) => item.status === 0).length;
-
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Alert
-        type="info"
-        showIcon
-        message="当前玩家管理已支持完整 CRUD，所有增删改查都直接走服务端 `/api/admin/players` 权威接口。"
-      />
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8} xl={6}>
-          <Card>
-            <Statistic title="当前页玩家数" value={rows.length} />
-          </Card>
-        </Col>
-        <Col xs={24} md={8} xl={6}>
-          <Card>
-            <Statistic title="正常玩家" value={activeCount} valueStyle={{ color: '#2f7d4a' }} />
-          </Card>
-        </Col>
-        <Col xs={24} md={8} xl={6}>
-          <Card>
-            <Statistic title="封禁玩家" value={bannedCount} valueStyle={{ color: '#d48806' }} />
-          </Card>
-        </Col>
-        <Col xs={24} md={8} xl={6}>
-          <Card>
-            <Statistic title="已删除" value={deletedCount} valueStyle={{ color: '#cf1322' }} />
-          </Card>
-        </Col>
-      </Row>
-
       <Card
-        title="玩家筛选"
-        extra={
-          <Button type="primary" onClick={() => void handleOpenEditor('create')}>
-            新增玩家
-          </Button>
-        }
+        title="玩家列表"
+        extra={(
+          <Form<AdminPlayerListFilters>
+            form={filterForm}
+            layout="inline"
+            onFinish={(values) => {
+              setPage(1);
+              setFilters(values);
+            }}
+          >
+            <Form.Item name="player_id" label="玩家ID">
+              <Input allowClear placeholder="玩家ID" style={{ width: 120 }} />
+            </Form.Item>
+            <Form.Item name="name" label="昵称">
+              <Input allowClear placeholder="昵称" style={{ width: 120 }} />
+            </Form.Item>
+            <Form.Item name="status" label="状态">
+              <Select options={statusOptions} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
+                <Button
+                  onClick={() => {
+                    const nextValues = { status: '1' };
+                    filterForm.resetFields();
+                    filterForm.setFieldsValue(nextValues);
+                    setPage(1);
+                    setFilters(nextValues);
+                  }}
+                >
+                  重置
+                </Button>
+                <Button type="primary" onClick={() => void handleOpenEditor('create')}>新增玩家</Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
       >
-        <Form<AdminPlayerListFilters>
-          form={filterForm}
-          layout="vertical"
-          onFinish={(values) => {
-            setPage(1);
-            setFilters(values);
-          }}
-        >
-          <Row gutter={16}>
-            <Col xs={24} md={8}>
-              <Form.Item label="玩家ID" name="player_id">
-                <Input placeholder="按玩家ID精确查询" allowClear />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="昵称" name="name">
-                <Input placeholder="按昵称模糊查询" allowClear />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="状态" name="status">
-                <Select options={statusOptions} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              查询
-            </Button>
-            <Button
-              onClick={() => {
-                const nextValues = { status: '1' };
-                filterForm.resetFields();
-                filterForm.setFieldsValue(nextValues);
-                setPage(1);
-                setFilters(nextValues);
-              }}
-            >
-              重置
-            </Button>
-          </Space>
-        </Form>
-      </Card>
-
-      <Card title="玩家列表" extra={<Typography.Text type="secondary">默认采用服务端分页，避免前端伪造列表状态。</Typography.Text>}>
         <Table<AdminPlayerSummary>
           columns={columns}
           dataSource={rows}
@@ -364,7 +320,7 @@ export function PlayerListPage() {
 
       <Drawer
         title={detail ? `玩家详情 · ${detail.name}` : '玩家详情'}
-        width={600}
+        width={760}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         destroyOnClose
@@ -438,10 +394,12 @@ export function PlayerListPage() {
               <Descriptions.Item label="宠物减伤">{detail.pet_resist_pct}</Descriptions.Item>
               <Descriptions.Item label="佣兵减伤">{detail.mercenary_resist_pct}</Descriptions.Item>
               <Descriptions.Item label="护盾减免">{detail.generic_shield_pct}</Descriptions.Item>
-              <Descriptions.Item label="技能ID" span={2}>
-                {detail.skill_ids.length > 0 ? detail.skill_ids.join(', ') : '无'}
+              <Descriptions.Item label="技能" span={2}>
+                <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
               </Descriptions.Item>
             </Descriptions>
+            <PlayerPetSection playerId={detail.player_id} playerName={detail.name} />
+            <PlayerBagSection playerId={detail.player_id} playerName={detail.name} />
           </Space>
         ) : null}
       </Drawer>
@@ -457,7 +415,7 @@ export function PlayerListPage() {
         onOk={() => editorForm.submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={760}
+        width={860}
         okText={editingRecord ? '保存修改' : '创建玩家'}
         cancelText="取消"
       >
@@ -502,12 +460,20 @@ export function PlayerListPage() {
             <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col span={24}>
-              <Form.Item label="技能ID 列表" name="skill_ids_text" extra="使用英文逗号分隔，例如 1101,1001">
-                <Input placeholder="1101,1001" />
+              <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 裂空斩,普通攻击">
+                <Input placeholder="裂空斩,普通攻击" />
               </Form.Item>
             </Col>
           </Row>
         </Form>
+        {editingRecord ? (
+          <div style={{ marginTop: 24 }}>
+            <PlayerPetSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
+            <div style={{ marginTop: 16 }}>
+              <PlayerBagSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </Space>
   );
@@ -533,11 +499,11 @@ function defaultCreateValues(): PlayerFormValues {
     spd: 18,
     mana: 20,
     status: 1,
-    skill_ids_text: '1101,1001',
+    skill_names_text: '裂空斩,普通攻击',
   };
 }
 
-function mapDetailToForm(detail: AdminPlayerDetail): PlayerFormValues {
+function mapDetailToForm(detail: AdminPlayerDetail, skillReferenceMap: SkillReferenceMap): PlayerFormValues {
   return {
     name: detail.name,
     level: detail.level,
@@ -555,11 +521,11 @@ function mapDetailToForm(detail: AdminPlayerDetail): PlayerFormValues {
     spd: detail.spd,
     mana: detail.mana,
     status: detail.status,
-    skill_ids_text: detail.skill_ids.join(','),
+    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
   };
 }
 
-function mapFormToCreatePayload(values: PlayerFormValues): AdminCreatePlayerPayload {
+function mapFormToCreatePayload(values: PlayerFormValues, skillReferenceMap: SkillReferenceMap): AdminCreatePlayerPayload {
   return {
     account_name: values.account_name?.trim() ?? '',
     password: values.password?.trim() ?? '',
@@ -578,11 +544,11 @@ function mapFormToCreatePayload(values: PlayerFormValues): AdminCreatePlayerPayl
     spd: values.spd,
     mana: values.mana,
     status: values.status,
-    skill_ids: parseSkillIDs(values.skill_ids_text),
+    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
   };
 }
 
-function mapFormToUpdatePayload(values: PlayerFormValues): AdminUpdatePlayerPayload {
+function mapFormToUpdatePayload(values: PlayerFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePlayerPayload {
   return {
     name: values.name.trim(),
     level: values.level,
@@ -600,15 +566,8 @@ function mapFormToUpdatePayload(values: PlayerFormValues): AdminUpdatePlayerPayl
     spd: values.spd,
     mana: values.mana,
     status: values.status,
-    skill_ids: parseSkillIDs(values.skill_ids_text),
+    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
   };
-}
-
-function parseSkillIDs(value: string): number[] {
-  return value
-    .split(',')
-    .map((item) => Number(item.trim()))
-    .filter((item) => Number.isFinite(item) && item > 0);
 }
 
 function formatDateTime(value: string | null | undefined): string {

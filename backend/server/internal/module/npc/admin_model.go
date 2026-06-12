@@ -128,9 +128,10 @@ type AdminCreateMenuEntryInput struct {
 	State            string `json:"state"`
 	Priority         uint32 `json:"priority"`
 	SortOrder        uint32 `json:"sort_order"`
-	ActionResultType string `json:"action_result_type"`
-	ActionNotice     string `json:"action_notice"`
-	Status           uint32 `json:"status"`
+	ActionResultType        string `json:"action_result_type"`
+	ActionNotice            string `json:"action_notice"`
+	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
+	Status                  uint32 `json:"status"`
 }
 
 func (input AdminCreateMenuEntryInput) Normalize() AdminCreateMenuEntryInput {
@@ -143,6 +144,20 @@ func (input AdminCreateMenuEntryInput) Normalize() AdminCreateMenuEntryInput {
 	input.ActionNotice = strings.TrimSpace(input.ActionNotice)
 	if input.State == "" {
 		input.State = "available"
+	}
+	if input.EntryType == "battle" || input.ActionResultType == "battle" {
+		if input.EntryType == "" {
+			input.EntryType = "battle"
+		}
+		if input.ActionResultType == "" {
+			input.ActionResultType = "battle"
+		}
+		if input.Title == "" {
+			input.Title = "挑战"
+		}
+		if input.BattleEncounterEntityID == 0 {
+			input.BattleEncounterEntityID = input.EntityID
+		}
 	}
 	if input.ActionResultType == "" {
 		input.ActionResultType = "notice"
@@ -162,9 +177,10 @@ type AdminUpdateMenuEntryInput struct {
 	State            string `json:"state"`
 	Priority         uint32 `json:"priority"`
 	SortOrder        uint32 `json:"sort_order"`
-	ActionResultType string `json:"action_result_type"`
-	ActionNotice     string `json:"action_notice"`
-	Status           uint32 `json:"status"`
+	ActionResultType        string `json:"action_result_type"`
+	ActionNotice            string `json:"action_notice"`
+	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
+	Status                  uint32 `json:"status"`
 }
 
 func (input AdminUpdateMenuEntryInput) Normalize() AdminUpdateMenuEntryInput {
@@ -176,6 +192,20 @@ func (input AdminUpdateMenuEntryInput) Normalize() AdminUpdateMenuEntryInput {
 	input.ActionNotice = strings.TrimSpace(input.ActionNotice)
 	if input.State == "" {
 		input.State = "available"
+	}
+	if input.EntryType == "battle" || input.ActionResultType == "battle" {
+		if input.EntryType == "" {
+			input.EntryType = "battle"
+		}
+		if input.ActionResultType == "" {
+			input.ActionResultType = "battle"
+		}
+		if input.Title == "" {
+			input.Title = "挑战"
+		}
+		if input.BattleEncounterEntityID == 0 {
+			input.BattleEncounterEntityID = input.EntityID
+		}
 	}
 	if input.ActionResultType == "" {
 		input.ActionResultType = "notice"
@@ -234,8 +264,9 @@ type AdminMenuEntrySummary struct {
 	State            string    `json:"state"`
 	Priority         uint32    `json:"priority"`
 	SortOrder        uint32    `json:"sort_order"`
-	ActionResultType string    `json:"action_result_type"`
-	Status           uint32    `json:"status"`
+	ActionResultType        string    `json:"action_result_type"`
+	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
+	Status                  uint32    `json:"status"`
 	StatusText       string    `json:"status_text"`
 	UpdatedAt        time.Time `json:"updated_at"`
 	CreatedAt        time.Time `json:"created_at"`
@@ -257,9 +288,10 @@ type AdminMenuEntryDetail struct {
 	State            string    `json:"state"`
 	Priority         uint32    `json:"priority"`
 	SortOrder        uint32    `json:"sort_order"`
-	ActionResultType string    `json:"action_result_type"`
-	ActionNotice     string    `json:"action_notice"`
-	Status           uint32    `json:"status"`
+	ActionResultType        string    `json:"action_result_type"`
+	ActionNotice            string    `json:"action_notice"`
+	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
+	Status                  uint32    `json:"status"`
 	StatusText       string    `json:"status_text"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`

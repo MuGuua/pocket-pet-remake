@@ -138,6 +138,53 @@ func set_pet_lineup(pet_uids: Array[int]) -> void:
 func request_bag_list() -> int:
     return _send_command(CommandIds.BAG_LIST_REQ, {})
 
+# 请求刷新指定容器的完整快照；当前主要用于仓库等非随身容器。
+func request_container_list(container_type: String) -> int:
+    return _send_command(
+        CommandIds.CONTAINER_LIST_REQ,
+        {
+            "container_type": container_type,
+        }
+    )
+
+# 请求刷新当前玩家的钱包快照。
+func request_wallet() -> int:
+    return _send_command(CommandIds.WALLET_QUERY_REQ, {})
+
+# 请求主动使用当前容器格子中的物品。
+# 当前第一版主要供扩容券等功能道具复用，后续治疗类和礼包类效果也继续走同一条服务端权威链路。
+func request_use_item(container_type: String, slot_index: int, quantity: int = 1) -> int:
+    return _send_command(
+        CommandIds.USE_ITEM_REQ,
+        {
+            "container_type": container_type,
+            "slot_index": slot_index,
+            "quantity": quantity,
+        }
+    )
+
+# 请求把背包指定格子的部分或全部物品存入仓库。
+func request_bag_to_warehouse(entity_id: int, from_slot_index: int, quantity: int) -> int:
+    return _send_command(
+        CommandIds.BAG_TO_WAREHOUSE_REQ,
+        {
+            "entity_id": entity_id,
+            "from_slot_index": from_slot_index,
+            "quantity": quantity,
+        }
+    )
+
+# 请求把仓库指定格子的部分或全部物品取回背包。
+func request_warehouse_to_bag(entity_id: int, from_slot_index: int, quantity: int) -> int:
+    return _send_command(
+        CommandIds.WAREHOUSE_TO_BAG_REQ,
+        {
+            "entity_id": entity_id,
+            "from_slot_index": from_slot_index,
+            "quantity": quantity,
+        }
+    )
+
 # 请求刷新当前玩家的任务列表。
 func request_quest_list() -> int:
     return _send_command(CommandIds.QUEST_LIST_REQ, {})
@@ -160,6 +207,16 @@ func request_interact(entity_id: int) -> void:
         CommandIds.INTERACT_REQ,
         {
             "entity_id": entity_id,
+        }
+    )
+
+# 客户端本地判定暗雷触发后，向服务端上报并请求权威开战。
+func request_wild_encounter(scene_id: int, move_seq: int) -> void:
+    _send_command(
+        CommandIds.WILD_ENCOUNTER_REQ,
+        {
+            "scene_id": scene_id,
+            "move_seq": move_seq,
         }
     )
 
@@ -296,6 +353,7 @@ func _on_reconnect_response(payload: Dictionary) -> void:
     # 成长与任务进度只停留在本地旧缓存。
     request_pet_list()
     request_bag_list()
+    request_wallet()
     request_quest_list()
 
 # 处理心跳回包，当前仅用于维持链路，无额外业务逻辑。
@@ -392,6 +450,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
             return CommandIds.MOVE_INTENT_REQ
         CommandIds.INTERACT_RESP:
             return CommandIds.INTERACT_REQ
+        CommandIds.WILD_ENCOUNTER_RESP:
+            return CommandIds.WILD_ENCOUNTER_REQ
         CommandIds.NPC_ACTION_RESP:
             return CommandIds.NPC_ACTION_REQ
         CommandIds.PET_LIST_RESP:
@@ -406,6 +466,14 @@ func _request_cmd_for_response(response_cmd: int) -> int:
             return CommandIds.PVP_CHALLENGE_REPLY_REQ
         CommandIds.BAG_LIST_RESP:
             return CommandIds.BAG_LIST_REQ
+        CommandIds.CONTAINER_LIST_RESP:
+            return CommandIds.CONTAINER_LIST_REQ
+        CommandIds.BAG_TO_WAREHOUSE_RESP:
+            return CommandIds.BAG_TO_WAREHOUSE_REQ
+        CommandIds.WAREHOUSE_TO_BAG_RESP:
+            return CommandIds.WAREHOUSE_TO_BAG_REQ
+        CommandIds.WALLET_QUERY_RESP:
+            return CommandIds.WALLET_QUERY_REQ
         CommandIds.QUEST_LIST_RESP:
             return CommandIds.QUEST_LIST_REQ
         CommandIds.QUEST_ACCEPT_RESP:

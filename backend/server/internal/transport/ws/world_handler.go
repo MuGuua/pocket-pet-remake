@@ -2,11 +2,14 @@ package wstransport
 
 import (
 	"context"
+	"errors"
 
+	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
 	"pocket-pet-remake/server/internal/protocol"
@@ -23,16 +26,20 @@ type WorldHandler struct {
 	playerService  *player.Service
 	petService     *pet.Service
 	questService   *quest.Service
+	walletService  *wallet.Service
 	worldService   *world.Service
+	monsterService *monster.Service
 }
 
-func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, worldService *world.Service) *WorldHandler {
+func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service) *WorldHandler {
 	return &WorldHandler{
 		sessionService: sessionService,
 		playerService:  playerService,
 		petService:     petService,
 		questService:   questService,
+		walletService:  walletService,
 		worldService:   worldService,
+		monsterService: monsterService,
 	}
 }
 
@@ -49,6 +56,32 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 	}
 	snapshot, err := h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
 	if err != nil {
+		// 当玩家档案中的 scene_id 已失效时，服务端直接把人物修正到默认市场，
+		// 避免客户端因为拿不到世界快照而一直停留在 ERROR_PUSH。
+		if errors.Is(err, world.ErrSnapshotUnavailable) {
+			fallbackPos := world.FallbackSpawnPos()
+			if updateErr := h.playerService.UpdatePosition(ctx, playerID, world.FallbackSceneID, fallbackPos.X, fallbackPos.Y); updateErr != nil {
+				return nil, updateErr
+			}
+			profile.SceneID = world.FallbackSceneID
+			profile.PosX = fallbackPos.X
+			profile.PosY = fallbackPos.Y
+			snapshot, err = h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, fallbackPos)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	legacyGold := profile.Gold
+	if h.walletService != nil {
+		walletSnapshot, err := h.walletService.GetRuntimeWallet(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		legacyGold = legacyGoldFromWalletSnapshot(walletSnapshot)
+	}
+	wildEncounter, err := h.loadWildEncounterConfig(ctx, snapshot.SceneID)
+	if err != nil {
 		return nil, err
 	}
 	return &protocol.EnterWorldResp{
@@ -62,7 +95,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 			Name:               profile.Name,
 			Level:              profile.Level,
 			Exp:                profile.Exp,
-			Gold:               profile.Gold,
+			Gold:               legacyGold,
 			HP:                 profile.HP,
 			HPMax:              profile.HPMax,
 			Energy:             profile.Energy,
@@ -95,7 +128,8 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 		SceneVersion:   snapshot.SceneVersion,
 		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
 		Lineup:         toProtocolLineup(lineup),
-		Gold:           profile.Gold,
+		Gold:           legacyGold,
+		WildEncounter:  wildEncounter,
 	}, nil
 }
 
@@ -281,15 +315,44 @@ func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPo
 	if err != nil {
 		return sendError(conn, 0, errcode.WSCodeWorldMoveFailed, "load scene snapshot failed")
 	}
+	wildEncounter, err := h.loadWildEncounterConfig(context.Background(), snapshot.SceneID)
+	if err != nil {
+		return sendError(conn, 0, errcode.WSCodeWorldMoveFailed, "load wild encounter config failed")
+	}
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdWorldResyncPush, 0, errcode.WSCodeSuccess, protocol.WorldResyncPush{
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
 		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
+		WildEncounter:  wildEncounter,
 	})
 	if err != nil {
 		return err
 	}
 	return conn.SendPacket(packet)
+}
+
+func (h *WorldHandler) loadWildEncounterConfig(ctx context.Context, sceneID uint32) (protocol.WildEncounterConfig, error) {
+	if h.monsterService == nil || sceneID == 0 {
+		return protocol.WildEncounterConfig{SceneID: sceneID}, nil
+	}
+	config, err := h.monsterService.BuildWildEncounterConfig(ctx, sceneID)
+	if err != nil {
+		return protocol.WildEncounterConfig{}, err
+	}
+	return toProtocolWildEncounterConfig(config), nil
+}
+
+func toProtocolWildEncounterConfig(config *monster.RuntimeWildEncounterConfig) protocol.WildEncounterConfig {
+	if config == nil {
+		return protocol.WildEncounterConfig{}
+	}
+	spawnMonsterIDs := append([]uint32{}, config.SpawnMonsterIDs...)
+	return protocol.WildEncounterConfig{
+		Enabled:         config.Enabled,
+		SceneID:         config.SceneID,
+		EncounterRate:   config.EncounterRate,
+		SpawnMonsterIDs: spawnMonsterIDs,
+	}
 }
