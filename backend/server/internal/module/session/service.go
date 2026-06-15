@@ -45,6 +45,25 @@ func (s *Service) HeartbeatInterval() time.Duration {
 	return s.heartbeatInterval
 }
 
+// CountOnlinePlayers 统计当前仍保持有效 WebSocket 心跳的在线玩家数。
+func (s *Service) CountOnlinePlayers() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := s.now()
+	var count uint32
+	for _, current := range s.sessionsByID {
+		if current.ConnID == "" || current.Conn == nil {
+			continue
+		}
+		if now.Sub(current.LastHeartbeat) > s.heartbeatTimeout {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
 func (s *Service) IsAuthenticated(connID string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

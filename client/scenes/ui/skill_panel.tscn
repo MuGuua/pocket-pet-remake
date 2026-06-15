@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_r8swt"]
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_inner"]
-[ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/战斗箭头.png" id="4_arrow"]
+[ext_resource type="Texture2D" uid="uid://34am3ixgoon0" path="res://asset/分类/ui/战斗箭头.png" id="4_arrow"]
 [ext_resource type="Script" uid="uid://ba7clguer5xy6" path="res://scripts/ui/skill_panel.gd" id="5_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_outer"]

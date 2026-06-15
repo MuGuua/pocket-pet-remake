@@ -93,6 +93,7 @@ type PlayerSnapshot struct {
 	MercenaryResistPct uint32   `json:"mercenary_resist_pct"`
 	GenericShieldPct   uint32   `json:"generic_shield_pct"`
 	SkillIDs           []uint32 `json:"skill_ids"`
+	SkinID             string   `json:"skin_id"`
 }
 
 type EntityBrief struct {
@@ -296,6 +297,7 @@ type BattleActorSnapshot struct {
 	PetUID        uint64                `json:"pet_uid"`
 	PetID         uint32                `json:"pet_id"`
 	Name          string                `json:"name"`
+	SkinID        string                `json:"skin_id"`
 	HP            uint32                `json:"hp"`
 	HPMax         uint32                `json:"hp_max"`
 	ATK           uint32                `json:"atk"`
@@ -312,8 +314,9 @@ type BattleSkillSnapshot struct {
 	Name         string `json:"name"`
 	TargetType   string `json:"target_type"`
 	TargetCount  uint32 `json:"target_count"`
-	AnimationKey string `json:"animation_key"`
-	CastColor    string `json:"cast_color"`
+	AnimationKey  string `json:"animation_key"`
+	SkillVisualID string `json:"skill_visual_id"`
+	CastColor     string `json:"cast_color"`
 	ImpactColor  string `json:"impact_color"`
 	Projectile   bool   `json:"projectile"`
 }

@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -22,7 +21,9 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { createAdminItem, deleteAdminItem, fetchAdminItemDetail, fetchAdminItems, updateAdminItem } from '../../services/item';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary, AdminUpsertItemPayload } from '../../types/item';
+import { formatDisplayLabel, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
 
 interface ItemFormValues extends AdminUpsertItemPayload {}
 
@@ -138,7 +139,7 @@ export function ItemDefinitionPage() {
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 110, fixed: 'left' },
       { title: '编码', dataIndex: 'item_code', key: 'item_code', width: 150 },
       { title: '名称', dataIndex: 'item_name', key: 'item_name', width: 160 },
-      { title: '分类', dataIndex: 'item_type', key: 'item_type', width: 120, render: (value: string) => <Tag color="blue">{value}</Tag> },
+      { title: '分类', dataIndex: 'item_type', key: 'item_type', width: 120, render: (value: string) => <Tag color="blue">{formatDisplayLabel(ITEM_TYPE_LABELS, value)}</Tag> },
       { title: '子类', dataIndex: 'item_sub_type', key: 'item_sub_type', width: 120 },
       { title: '品质', dataIndex: 'quality', key: 'quality', width: 90 },
       { title: '堆叠上限', dataIndex: 'max_stack', key: 'max_stack', width: 110 },
@@ -146,14 +147,20 @@ export function ItemDefinitionPage() {
       { title: '卖价(铜)', dataIndex: 'sell_price_copper', key: 'sell_price_copper', width: 120 },
       { title: '启用', dataIndex: 'is_enabled', key: 'is_enabled', width: 90, render: (value: boolean) => value ? <Tag color="green">启用</Tag> : <Tag>停用</Tag> },
       {
-        title: '操作', key: 'actions', width: 220, fixed: 'right', render: (_value, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.item_id)}>查看</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.item_id)}>编辑</Button>
-            <Popconfirm title="确认删除这个物品模板吗？" onConfirm={() => void handleDelete(record.item_id)} okText="确认删除" cancelText="取消">
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-          </Space>
+        title: '操作', key: 'actions', width: 100, fixed: 'right', render: (_value, record) => (
+          <TableActionDropdown
+            actions={[
+              { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.item_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.item_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这个物品模板吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => void handleDelete(record.item_id),
+              },
+            ]}
+          />
         ),
       },
     ],
@@ -214,7 +221,7 @@ export function ItemDefinitionPage() {
             <Descriptions.Item label="物品ID">{detail.item_id}</Descriptions.Item>
             <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
             <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
-            <Descriptions.Item label="分类">{detail.item_type}</Descriptions.Item>
+            <Descriptions.Item label="分类">{formatDisplayLabel(ITEM_TYPE_LABELS, detail.item_type)}</Descriptions.Item>
             <Descriptions.Item label="子类">{detail.item_sub_type || '-'}</Descriptions.Item>
             <Descriptions.Item label="品质 / 稀有度">{detail.quality} / {detail.rarity}</Descriptions.Item>
             <Descriptions.Item label="堆叠上限">{detail.max_stack}</Descriptions.Item>

@@ -22,14 +22,14 @@ func NewMonsterRepository(db DBTX) *MonsterRepository {
 }
 
 const adminMonsterDefinitionListQuery = `
-SELECT monster_id, monster_name, level, quality, status, updated_at, created_at
+SELECT monster_id, monster_name, level, quality, status, skin_id, updated_at, created_at
 FROM monster_definition
 `
 
 const adminMonsterDefinitionDetailQuery = `
 SELECT monster_id, monster_name, description, level, quality, hp, hp_max, atk, def, spd, mana, skill_ids,
        is_capturable, capture_pet_id, capture_rate_base, capture_min_hp_pct, capture_item_ids,
-       status, created_at, updated_at
+       status, skin_id, created_at, updated_at
 FROM monster_definition
 WHERE monster_id = $1
 LIMIT 1
@@ -38,8 +38,8 @@ LIMIT 1
 const insertMonsterDefinitionQuery = `
 INSERT INTO monster_definition (
   monster_id, monster_name, description, level, quality, hp, hp_max, atk, def, spd, mana, skill_ids,
-  is_capturable, capture_pet_id, capture_rate_base, capture_min_hp_pct, capture_item_ids, status
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17::jsonb,$18)
+  is_capturable, capture_pet_id, capture_rate_base, capture_min_hp_pct, capture_item_ids, status, skin_id
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17::jsonb,$18,$19)
 `
 
 const updateMonsterDefinitionQuery = `
@@ -47,7 +47,7 @@ UPDATE monster_definition
 SET monster_name = $2, description = $3, level = $4, quality = $5, hp = $6, hp_max = $7,
     atk = $8, def = $9, spd = $10, mana = $11, skill_ids = $12::jsonb,
     is_capturable = $13, capture_pet_id = $14, capture_rate_base = $15, capture_min_hp_pct = $16,
-    capture_item_ids = $17::jsonb, status = $18
+    capture_item_ids = $17::jsonb, status = $18, skin_id = $19
 WHERE monster_id = $1
 `
 
@@ -79,7 +79,7 @@ WHERE entity_id = $1
 const deleteMonsterEncounterQuery = `DELETE FROM monster_encounter WHERE entity_id = $1`
 
 const runtimeMonsterDefinitionQuery = `
-SELECT monster_id, monster_name, level, quality, hp, hp_max, atk, def, spd, mana, skill_ids
+SELECT monster_id, monster_name, level, quality, hp, hp_max, atk, def, spd, mana, skill_ids, skin_id
 FROM monster_definition
 WHERE monster_id = $1 AND status = 1
 LIMIT 1
@@ -199,7 +199,7 @@ func (r *MonsterRepository) CreateDefinitionForAdmin(ctx context.Context, input 
 		return nil, err
 	}
 	status := statusFromEnabled(input.IsEnabled)
-	if _, err := r.db.ExecContext(ctx, insertMonsterDefinitionQuery, input.MonsterID, input.MonsterName, input.Description, input.Level, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON, boolToInt(input.IsCapturable), input.CapturePetID, input.CaptureRateBase, input.CaptureMinHPPct, captureItemIDsJSON, status); err != nil {
+	if _, err := r.db.ExecContext(ctx, insertMonsterDefinitionQuery, input.MonsterID, input.MonsterName, input.Description, input.Level, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON, boolToInt(input.IsCapturable), input.CapturePetID, input.CaptureRateBase, input.CaptureMinHPPct, captureItemIDsJSON, status, input.SkinID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, monster.ErrMonsterDefinitionConflict
@@ -218,7 +218,7 @@ func (r *MonsterRepository) UpdateDefinitionForAdmin(ctx context.Context, monste
 	if err != nil {
 		return nil, err
 	}
-	result, err := r.db.ExecContext(ctx, updateMonsterDefinitionQuery, monsterID, input.MonsterName, input.Description, input.Level, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON, boolToInt(input.IsCapturable), input.CapturePetID, input.CaptureRateBase, input.CaptureMinHPPct, captureItemIDsJSON, statusFromEnabled(input.IsEnabled))
+	result, err := r.db.ExecContext(ctx, updateMonsterDefinitionQuery, monsterID, input.MonsterName, input.Description, input.Level, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON, boolToInt(input.IsCapturable), input.CapturePetID, input.CaptureRateBase, input.CaptureMinHPPct, captureItemIDsJSON, statusFromEnabled(input.IsEnabled), input.SkinID)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +522,7 @@ func (r *MonsterRepository) buildRuntimeEncounterSlots(ctx context.Context, spaw
 			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName,
 			Level: definition.Level, HP: definition.HP, HPMax: definition.HPMax,
 			ATK: definition.ATK, DEF: definition.DEF, SPD: definition.SPD, MANA: definition.MANA,
-			SkillIDs: skillIDs,
+			SkillIDs: skillIDs, SkinID: definition.SkinID,
 		})
 	}
 	return slots, nil
@@ -661,7 +661,7 @@ func uniqueUint32(values []uint32) []uint32 {
 func scanAdminMonsterDefinitionSummary(rows *sql.Rows) (monster.AdminDefinitionSummary, error) {
 	var item monster.AdminDefinitionSummary
 	var monsterID, level, quality, status int64
-	if err := rows.Scan(&monsterID, &item.MonsterName, &level, &quality, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
+	if err := rows.Scan(&monsterID, &item.MonsterName, &level, &quality, &status, &item.SkinID, &item.UpdatedAt, &item.CreatedAt); err != nil {
 		return monster.AdminDefinitionSummary{}, err
 	}
 	item.MonsterID = uint32(monsterID)
@@ -681,7 +681,7 @@ func scanAdminMonsterDefinitionDetail(row *sql.Row) (*monster.AdminDefinitionDet
 	if err := row.Scan(
 		&monsterID, &detail.MonsterName, &detail.Description, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
 		&isCapturable, &capturePetID, &captureRateBase, &captureMinHPPct, &captureItemIDsJSON,
-		&status, &detail.CreatedAt, &detail.UpdatedAt,
+		&status, &detail.SkinID, &detail.CreatedAt, &detail.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -719,7 +719,7 @@ func scanRuntimeMonsterDefinition(row *sql.Row) (*monster.RuntimeDefinition, err
 	var definition monster.RuntimeDefinition
 	var monsterID, level, quality, hp, hpMax, atk, def, spd, mana int64
 	var skillIDsJSON []byte
-	if err := row.Scan(&monsterID, &definition.MonsterName, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON); err != nil {
+	if err := row.Scan(&monsterID, &definition.MonsterName, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON, &definition.SkinID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}

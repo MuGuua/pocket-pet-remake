@@ -78,6 +78,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	worldService := world.NewService(repos.World)
 	monsterService := monster.NewService(repos.Monsters, skillService, petService)
 	battleService := battle.NewService(monsterService)
+	battle.SetPetSkinResolver(petService.ResolveSkinID)
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
@@ -90,7 +91,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, bagHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
-	adminHandlers := httptransport.NewAdminHandlers(adminService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
+	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
 	httpHandler := buildHTTPHandler(loginHandler, adminHandlers, wsHub)
 
 	server := &http.Server{

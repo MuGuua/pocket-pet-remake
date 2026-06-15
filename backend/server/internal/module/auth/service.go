@@ -63,6 +63,9 @@ func (s *Service) Login(ctx context.Context, accountName, password, deviceID str
 	}); err != nil {
 		return nil, err
 	}
+	if err := s.accounts.TouchLastLoginAt(ctx, account.AccountID); err != nil {
+		return nil, err
+	}
 
 	return &LoginResult{
 		PlayerID:   account.PlayerID,
@@ -85,6 +88,14 @@ func (s *Service) ConsumeWSToken(ctx context.Context, token, deviceID string) (*
 		return nil, ErrInvalidWSToken
 	}
 	return &SessionPrincipal{PlayerID: record.PlayerID}, nil
+}
+
+// GetDashboardAccountMetrics 读取账号侧控制台指标，供后台首页展示日活等数据。
+func (s *Service) GetDashboardAccountMetrics(ctx context.Context, dayStart, dayEnd time.Time) (*AccountDashboardMetrics, error) {
+	if s.accounts == nil {
+		return &AccountDashboardMetrics{}, nil
+	}
+	return s.accounts.GetDashboardAccountMetrics(ctx, dayStart, dayEnd)
 }
 
 func HashPassword(raw string) string {

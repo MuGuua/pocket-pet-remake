@@ -2,6 +2,8 @@ package pet
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/skill"
@@ -340,6 +342,18 @@ func (s *Service) DeleteAdminPetDefinition(ctx context.Context, petID uint32) er
 	return s.repo.DeletePetDefinitionForAdmin(ctx, petID)
 }
 
+// ResolveSkinID 按宠物模板 ID 返回战斗外观资源 ID，供战斗快照推送使用。
+func (s *Service) ResolveSkinID(petID uint32) string {
+	if petID == 0 {
+		return ""
+	}
+	skinID, err := s.repo.FindPetSkinID(context.Background(), petID)
+	if err != nil {
+		return ""
+	}
+	return skinID
+}
+
 func (s *Service) applyUsableFlags(ctx context.Context, pets []Pet) error {
 	if len(pets) == 0 {
 		return nil
@@ -366,6 +380,9 @@ func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error
 }
 
 func (s *Service) validateAdminPetDefinitionInput(input AdminUpsertPetDefinitionInput) error {
+	if input.IsEnabled && strings.TrimSpace(input.SkinID) == "" {
+		return fmt.Errorf("%w: skin_id required", ErrInvalidAdminPetDefinitionInput)
+	}
 	if !IsWildCaptureAcquireMethod(input.AcquireMethod) {
 		return nil
 	}

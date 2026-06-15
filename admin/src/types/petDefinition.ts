@@ -6,6 +6,7 @@ export interface AdminPetDefinitionSummary {
   acquire_method: string;
   is_enabled: boolean;
   status_text: string;
+  skin_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +57,7 @@ export interface AdminPetDefinitionDetail {
   acquire_method: string;
   is_enabled: boolean;
   status_text: string;
+  skin_id: string;
   base_stats: AdminPetDefinitionBaseStats;
   growth_aptitudes: AdminPetDefinitionGrowthAptitudes;
   aptitude_roll_ranges: AdminPetDefinitionAptitudeRollRanges;
@@ -76,6 +78,7 @@ export interface AdminUpsertPetDefinitionPayload {
   description: string;
   acquire_method: string;
   is_enabled: boolean;
+  skin_id: string;
   level: number;
   quality: number;
   hp: number;

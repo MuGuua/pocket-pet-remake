@@ -170,7 +170,7 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 			CurseChancePct: input.CurseChancePct, CurseRounds: input.CurseRounds, CurseDamage: input.CurseDamage, CurseManaPct: input.CurseManaPct,
 			ControlChancePct: input.ControlChancePct, ControlRounds: input.ControlRounds, ControlStatusID: input.ControlStatusID,
 		},
-		Presentation: skill.AdminPresentation{AnimationKey: input.AnimationKey, CastColor: input.CastColor, ImpactColor: input.ImpactColor, Projectile: input.Projectile},
+		Presentation: skill.AdminPresentation{AnimationKey: input.AnimationKey, SkillVisualID: input.SkillVisualID, CastColor: input.CastColor, ImpactColor: input.ImpactColor, Projectile: input.Projectile},
 		CreatedAt: createdAt, UpdatedAt: time.Now(),
 	}
 }
@@ -188,7 +188,7 @@ func runtimeFromSkillDetail(detail skill.AdminDetail) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
 		SkillID: detail.SkillID, SkillName: detail.SkillName,
 		TargetType: detail.TargetRule.TargetType, TargetCount: detail.TargetRule.TargetCount, PreferredTargetHP: detail.TargetRule.PreferredTargetHP,
-		AnimationKey: detail.Presentation.AnimationKey, CastColor: detail.Presentation.CastColor, ImpactColor: detail.Presentation.ImpactColor, Projectile: detail.Presentation.Projectile,
+		AnimationKey: detail.Presentation.AnimationKey, SkillVisualID: detail.Presentation.SkillVisualID, CastColor: detail.Presentation.CastColor, ImpactColor: detail.Presentation.ImpactColor, Projectile: detail.Presentation.Projectile,
 		IsSkillAttack: detail.Formula.IsSkillAttack, EnergyCost: detail.Formula.EnergyCost,
 		AttackPct: detail.Formula.AttackPct, ManaPct: detail.Formula.ManaPct, DefensePct: detail.Formula.DefensePct, SpeedPct: detail.Formula.SpeedPct,
 		TargetCurrentHPPct: detail.Formula.TargetCurrentHPPct, FixedDamage: detail.Formula.FixedDamage, HealPct: detail.Formula.HealPct, FixedHeal: detail.Formula.FixedHeal,

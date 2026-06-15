@@ -61,7 +61,8 @@ SELECT
   pet_resist_pct,
   mercenary_resist_pct,
   generic_shield_pct,
-  skill_ids
+  skill_ids,
+  skin_id
 FROM player
 WHERE id = $1 AND status = 1
 LIMIT 1
@@ -120,6 +121,7 @@ SELECT
   p.mercenary_resist_pct,
   p.generic_shield_pct,
   p.skill_ids,
+  p.skin_id,
   a.last_login_at,
   p.created_at,
   p.updated_at
@@ -157,9 +159,10 @@ INSERT INTO player (
   def,
   spd,
   mana,
-  skill_ids
+  skill_ids,
+  skin_id
 ) VALUES (
-  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 )
 RETURNING id
 `
@@ -182,9 +185,10 @@ INSERT INTO player (
   atk,
   def,
   spd,
-  mana
+  mana,
+  skin_id
 ) VALUES (
-  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 RETURNING id
 `
@@ -207,7 +211,8 @@ SET name = $2,
     spd = $15,
     mana = $16,
     status = $17,
-    skill_ids = $18
+    skin_id = $18,
+    skill_ids = $19
 WHERE id = $1
 `
 
@@ -245,6 +250,7 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		curseResistPct, critResistPct, critDmgResistPct                        int64
 		characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct int64
 		skillIDsJSON                                                           []byte
+		skinID                                                                 string
 	)
 
 	err := r.db.QueryRowContext(ctx, findPlayerByIDQuery, playerID).Scan(
@@ -282,6 +288,7 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		&mercenaryResistPct,
 		&genericShieldPct,
 		&skillIDsJSON,
+		&skinID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -322,6 +329,7 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 	profile.PetResistPct = uint32(petResistPct)
 	profile.MercenaryResistPct = uint32(mercenaryResistPct)
 	profile.GenericShieldPct = uint32(genericShieldPct)
+	profile.SkinID = strings.TrimSpace(skinID)
 	if len(skillIDsJSON) > 0 {
 		// 人物技能配置和宠物技能一样从数据库权威读取，避免人物参战时再回退到硬编码列表。
 		if err := json.Unmarshal(skillIDsJSON, &profile.SkillIDs); err != nil {
@@ -503,6 +511,7 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		&mercenaryResistPct,
 		&genericShieldPct,
 		&skillIDsJSON,
+		&detail.SkinID,
 		&lastLoginAt,
 		&detail.CreatedAt,
 		&detail.UpdatedAt,
@@ -553,6 +562,7 @@ func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.Admi
 			input.SPD,
 			input.MANA,
 			skillIDsJSON,
+			resolveAdminPlayerSkinID(input.SkinID),
 		).Scan(&playerID); err != nil {
 			return nil, mapPlayerPersistenceError(err)
 		}
@@ -574,6 +584,7 @@ func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.Admi
 			input.DEF,
 			input.SPD,
 			input.MANA,
+			resolveAdminPlayerSkinID(input.SkinID),
 		).Scan(&playerID); err != nil {
 			return nil, mapPlayerPersistenceError(err)
 		}
@@ -608,6 +619,7 @@ func (r *PlayerRepository) UpdateForAdmin(ctx context.Context, playerID uint64, 
 		input.SPD,
 		input.MANA,
 		input.Status,
+		resolveAdminPlayerSkinID(input.SkinID),
 		skillIDsJSON,
 	)
 	if err != nil {
@@ -746,6 +758,7 @@ func buildAdminPlayerDetail(
 	detail.PetResistPct = uint32(petResistPct)
 	detail.MercenaryResistPct = uint32(mercenaryResistPct)
 	detail.GenericShieldPct = uint32(genericShieldPct)
+	detail.SkinID = strings.TrimSpace(detail.SkinID)
 	if lastLoginAt.Valid {
 		value := lastLoginAt.Time
 		detail.LastLoginAt = &value
@@ -757,6 +770,28 @@ func buildAdminPlayerDetail(
 		}
 	}
 	return detail, nil
+}
+
+func resolveAdminPlayerSkinID(skinID string) string {
+	skinID = strings.TrimSpace(skinID)
+	if skinID == "" {
+		return player.DefaultPlayerSkinID
+	}
+	return skinID
+}
+
+const countActivePlayersQuery = `
+SELECT COUNT(1)
+FROM player
+WHERE status = 1
+`
+
+func (r *PlayerRepository) CountActivePlayers(ctx context.Context) (uint64, error) {
+	var total int64
+	if err := r.db.QueryRowContext(ctx, countActivePlayersQuery).Scan(&total); err != nil {
+		return 0, err
+	}
+	return uint64(total), nil
 }
 
 func mapPlayerPersistenceError(err error) error {

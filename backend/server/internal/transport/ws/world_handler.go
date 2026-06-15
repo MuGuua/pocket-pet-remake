@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/pet"
@@ -122,6 +123,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 			MercenaryResistPct: profile.MercenaryResistPct,
 			GenericShieldPct:   profile.GenericShieldPct,
 			SkillIDs:           append([]uint32{}, profile.SkillIDs...),
+			SkinID:             strings.TrimSpace(profile.SkinID),
 		},
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},

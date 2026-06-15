@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,7 @@ type actorRuntime struct {
 	petUID        uint64
 	petID         uint32
 	lineupIndex   uint32
+	skinID        string
 	name          string
 	level         uint32
 	hp            uint32
@@ -1048,11 +1050,16 @@ func buildPlayerCharacterActor(profile *player.Profile, actorType uint32) *actor
 		return nil
 	}
 	attributes, resistances := combatTemplateFromProfile(profile)
+	skinID := strings.TrimSpace(profile.SkinID)
+	if skinID == "" {
+		skinID = player.DefaultPlayerSkinID
+	}
 	actor := &actorRuntime{
 		actorID:       profile.PlayerID,
 		actorType:     actorType,
 		unitClass:     ActorUnitClassCharacter,
 		ownerPlayerID: profile.PlayerID,
+		skinID:        skinID,
 		name:          profile.Name,
 		level:         maxUint32(profile.Level, 1),
 		// 人物技能优先从持久化玩家档案读取；只有旧数据尚未迁移时才回退到默认模板。
@@ -1154,6 +1161,7 @@ func (s *Service) buildEnemyTeamFromSlots(ctx context.Context, profile *player.P
 			ownerPlayerID: 0,
 			petUID:        0,
 			petID:         slot.MonsterID,
+			skinID:        slot.SkinID,
 			lineupIndex:   uint32(index),
 			name:          enemyName,
 			level:         enemyLevel,
@@ -2278,26 +2286,28 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 	for _, skillID := range a.skillIDs {
 		if def, ok := getSkillDef(skillID); ok {
 			skillSnapshots = append(skillSnapshots, SkillSnapshot{
-				SkillID:      skillID,
-				Name:         def.Name,
-				TargetType:   def.TargetRule.protocolName(),
-				TargetCount:  def.TargetCount,
-				AnimationKey: def.AnimationKey,
-				CastColor:    def.CastColor,
-				ImpactColor:  def.ImpactColor,
-				Projectile:   def.Projectile,
+				SkillID:       skillID,
+				Name:          def.Name,
+				TargetType:    def.TargetRule.protocolName(),
+				TargetCount:   def.TargetCount,
+				AnimationKey:  def.AnimationKey,
+				SkillVisualID: def.SkillVisualID,
+				CastColor:     def.CastColor,
+				ImpactColor:   def.ImpactColor,
+				Projectile:    def.Projectile,
 			})
 			continue
 		}
 		skillSnapshots = append(skillSnapshots, SkillSnapshot{
-			SkillID:      skillID,
-			Name:         fmt.Sprintf("技能%d", skillID),
-			TargetType:   targetEnemySingle.protocolName(),
-			TargetCount:  1,
-			AnimationKey: "slash",
-			CastColor:    "#EBEBF5",
-			ImpactColor:  "#FFF2F2",
-			Projectile:   false,
+			SkillID:       skillID,
+			Name:          fmt.Sprintf("技能%d", skillID),
+			TargetType:    targetEnemySingle.protocolName(),
+			TargetCount:   1,
+			AnimationKey:  "slash",
+			SkillVisualID: "",
+			CastColor:     "#EBEBF5",
+			ImpactColor:   "#FFF2F2",
+			Projectile:    false,
 		})
 	}
 	return ActorSnapshot{
@@ -2308,6 +2318,7 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 		PetUID:             a.petUID,
 		PetID:              a.petID,
 		Name:               a.name,
+		SkinID:             resolveActorSkinID(a),
 		HP:                 a.hp,
 		HPMax:              a.hpMax,
 		Energy:             a.energy,

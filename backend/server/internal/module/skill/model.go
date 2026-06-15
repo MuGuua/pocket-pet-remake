@@ -122,8 +122,9 @@ type AdminStatusEffects struct {
 
 // AdminPresentation 描述客户端战斗表现层使用的展示参数。
 type AdminPresentation struct {
-	AnimationKey string `json:"animation_key"`
-	CastColor    string `json:"cast_color"`
+	AnimationKey  string `json:"animation_key"`
+	SkillVisualID string `json:"skill_visual_id"`
+	CastColor     string `json:"cast_color"`
 	ImpactColor  string `json:"impact_color"`
 	Projectile   bool   `json:"projectile"`
 }
@@ -164,8 +165,9 @@ type AdminUpsertInput struct {
 	TargetType        string `json:"target_type"`
 	TargetCount       uint32 `json:"target_count"`
 	PreferredTargetHP string `json:"preferred_target_hp"`
-	AnimationKey string `json:"animation_key"`
-	CastColor    string `json:"cast_color"`
+	AnimationKey  string `json:"animation_key"`
+	SkillVisualID string `json:"skill_visual_id"`
+	CastColor     string `json:"cast_color"`
 	ImpactColor  string `json:"impact_color"`
 	Projectile   bool   `json:"projectile"`
 	IsSkillAttack     bool   `json:"is_skill_attack"`
@@ -251,6 +253,7 @@ type RuntimeDefinition struct {
 	TargetCount            uint32
 	PreferredTargetHP      string
 	AnimationKey           string
+	SkillVisualID          string
 	CastColor              string
 	ImpactColor            string
 	Projectile             bool

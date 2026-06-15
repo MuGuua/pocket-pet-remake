@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bn067bvbimtqm" path="res://scripts/feature/world/world_controller.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="2_player"]
-[ext_resource type="Texture2D" uid="uid://b51n5el6b7x4a" path="res://asset/星空背景.png" id="3_bg"]
+[ext_resource type="Texture2D" uid="uid://b51n5el6b7x4a" path="res://asset/分类/ui/星空背景.png" id="3_bg"]
 
 [node name="WorldScene" type="Control"]
 layout_mode = 3
@@ -35,7 +35,7 @@ stretch = true
 [node name="GameViewport" type="SubViewport" parent="GameShell/GameViewportContainer"]
 unique_name_in_owner = true
 handle_input_locally = false
-size = Vector2i(360, 640)
+size = Vector2i(360, 480)
 render_target_update_mode = 4
 
 [node name="BackgroundFill" type="Sprite2D" parent="GameShell/GameViewportContainer/GameViewport"]

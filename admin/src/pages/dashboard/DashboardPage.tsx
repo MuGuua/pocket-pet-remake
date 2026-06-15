@@ -1,45 +1,88 @@
-import { Card, Col, List, Progress, Row, Space, Tag, Typography } from 'antd';
+import { Button, Card, Col, Row, Space, Spin, Statistic, Typography, message } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { fetchAdminDashboardOverview } from '../../services/dashboard';
+import type { AdminDashboardOverview } from '../../types/dashboard';
 
-const statCards = [
-  { title: '后台鉴权', value: '已接通', tag: 'DONE', percent: 100 },
-  { title: '玩家管理', value: 'CRUD 已就绪', tag: 'PHASE B', percent: 100 },
-  { title: '宠物管理', value: '待接下一阶段', tag: 'NEXT', percent: 30 },
-  { title: '审计日志', value: '建议尽快补齐', tag: 'TODO', percent: 20 },
-];
+const REFRESH_INTERVAL_MS = 30000;
 
-const todoItems = [
-  '按相同 CRUD 模式接入宠物管理：列表、详情、新增、编辑、删除',
-  '给高风险操作补后台审计日志入库与操作原因字段',
-  '给玩家、宠物、任务模块增加批量导出与权限细分',
-  '补移动窄屏下的筛选区折叠与表格卡片视图',
-];
-
+// 控制台首页展示服务端权威统计：在线人数、日活与账号规模。
 export function DashboardPage() {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
+
+  const loadOverview = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+    try {
+      setOverview(await fetchAdminDashboardOverview());
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载控制台数据失败');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOverview(true);
+    const timer = window.setInterval(() => {
+      void loadOverview(false);
+    }, REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [loadOverview]);
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Row gutter={[16, 16]}>
-        {statCards.map((item) => (
-          <Col xs={24} sm={12} xl={6} key={item.title}>
+      <Card>
+        <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+          <div>
+            <Typography.Title level={4} style={{ margin: 0 }}>业务概览</Typography.Title>
+            <Typography.Text type="secondary">
+              统计日：{overview?.stat_date ?? '-'}（{overview?.timezone ?? 'Asia/Shanghai'}）
+            </Typography.Text>
+          </div>
+          <Button onClick={() => void loadOverview(true)} loading={loading}>
+            刷新
+          </Button>
+        </Space>
+      </Card>
+
+      <Spin spinning={loading && overview == null}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} xl={6}>
             <Card>
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-                  <Typography.Text type="secondary">{item.title}</Typography.Text>
-                  <Tag color={item.percent >= 100 ? 'green' : 'gold'}>{item.tag}</Tag>
-                </Space>
-                <Typography.Title level={3} style={{ margin: 0 }}>
-                  {item.value}
-                </Typography.Title>
-                <Progress percent={item.percent} showInfo={false} strokeColor="#2f5d50" />
-              </Space>
+              <Statistic title="当前在线玩家" value={overview?.online_player_count ?? 0} suffix="人" />
+              <Typography.Text type="secondary">基于有效 WebSocket 会话统计</Typography.Text>
             </Card>
           </Col>
-        ))}
-        <Col span={24}>
-          <Card title="当前待办" extra={<Typography.Text type="secondary">下一步建议先复制玩家 CRUD 模式到宠物与任务模块</Typography.Text>}>
-            <List dataSource={todoItems} renderItem={(item) => <List.Item>{item}</List.Item>} />
-          </Card>
-        </Col>
-      </Row>
+          <Col xs={24} sm={12} xl={6}>
+            <Card>
+              <Statistic title="今日日活" value={overview?.daily_active_accounts ?? 0} suffix="账号" />
+              <Typography.Text type="secondary">按账号最近登录时间统计</Typography.Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card>
+              <Statistic title="启用账号总数" value={overview?.total_accounts ?? 0} suffix="个" />
+              <Typography.Text type="secondary">启用状态的账号数量</Typography.Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card>
+              <Statistic title="启用玩家总数" value={overview?.total_players ?? 0} suffix="人" />
+              <Typography.Text type="secondary">启用状态的角色数量</Typography.Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card>
+              <Statistic title="今日新增账号" value={overview?.new_accounts_today ?? 0} suffix="个" />
+              <Typography.Text type="secondary">按账号 created_at 统计</Typography.Text>
+            </Card>
+          </Col>
+        </Row>
+      </Spin>
     </Space>
   );
 }

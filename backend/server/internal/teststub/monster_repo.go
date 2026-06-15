@@ -18,8 +18,8 @@ func NewMonsterRepository() *MonsterRepository {
 		encounters:  make(map[uint64]monster.AdminEncounterDetail, 8),
 	}
 	definitionSeeds := []monster.AdminUpsertDefinitionInput{
-		{MonsterID: 9001, MonsterName: "野生怪物", Description: "默认野外战斗怪物模板", IsEnabled: true, Level: 1, Quality: 1, HP: 22, HPMax: 22, ATK: 12, DEF: 9, SPD: 8, MANA: 9, SkillIDs: []uint32{90001, 90002}},
-		{MonsterID: 9002, MonsterName: "野性支援", Description: "带治疗技能的怪物模板", IsEnabled: true, Level: 1, Quality: 1, HP: 20, HPMax: 20, ATK: 11, DEF: 10, SPD: 9, MANA: 12, SkillIDs: []uint32{90002, 90003}},
+		{MonsterID: 9001, MonsterName: "野生怪物", Description: "默认野外战斗怪物模板", IsEnabled: true, SkinID: "史莱姆_001", Level: 1, Quality: 1, HP: 22, HPMax: 22, ATK: 12, DEF: 9, SPD: 8, MANA: 9, SkillIDs: []uint32{90001, 90002}},
+		{MonsterID: 9002, MonsterName: "野性支援", Description: "带治疗技能的怪物模板", IsEnabled: true, SkinID: "史莱姆_001", Level: 1, Quality: 1, HP: 20, HPMax: 20, ATK: 11, DEF: 10, SPD: 9, MANA: 12, SkillIDs: []uint32{90002, 90003}},
 	}
 	for _, seed := range definitionSeeds {
 		repo.definitions[seed.MonsterID] = buildStubMonsterDefinitionDetail(seed.Normalize(), now)
@@ -237,7 +237,7 @@ func (r *MonsterRepository) FindRuntimeEncounter(_ context.Context, entityID uin
 			continue
 		}
 		slots = append(slots, monster.RuntimeEncounterSlot{
-			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName,
+			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName, SkinID: definition.SkinID,
 			Level: definition.BaseStats.Level, HP: definition.BaseStats.HP, HPMax: definition.BaseStats.HPMax,
 			ATK: definition.BaseStats.ATK, DEF: definition.BaseStats.DEF, SPD: definition.BaseStats.SPD, MANA: definition.BaseStats.MANA,
 			SkillIDs: append([]uint32{}, definition.SkillIDs...),
@@ -278,7 +278,7 @@ func (r *MonsterRepository) FindRuntimeWildEncounter(_ context.Context, sceneID 
 			continue
 		}
 		slots = append(slots, monster.RuntimeEncounterSlot{
-			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName,
+			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName, SkinID: definition.SkinID,
 			Level: definition.BaseStats.Level, HP: definition.BaseStats.HP, HPMax: definition.BaseStats.HPMax,
 			ATK: definition.BaseStats.ATK, DEF: definition.BaseStats.DEF, SPD: definition.BaseStats.SPD, MANA: definition.BaseStats.MANA,
 			SkillIDs: append([]uint32{}, definition.SkillIDs...),
@@ -389,7 +389,7 @@ func buildStubMonsterDefinitionDetail(input monster.AdminUpsertDefinitionInput, 
 	skillIDs := append([]uint32{}, input.SkillIDs...)
 	return monster.AdminDefinitionDetail{
 		MonsterID: input.MonsterID, MonsterName: input.MonsterName, Description: input.Description,
-		IsEnabled: input.IsEnabled, StatusText: statusText,
+		IsEnabled: input.IsEnabled, StatusText: statusText, SkinID: input.SkinID,
 		BaseStats: monster.AdminDefinitionBaseStats{
 			Level: input.Level, Quality: input.Quality, HP: input.HP, HPMax: input.HPMax,
 			ATK: input.ATK, DEF: input.DEF, SPD: input.SPD, MANA: input.MANA,
@@ -408,7 +408,7 @@ func adminMonsterSummaryFromDetail(detail monster.AdminDefinitionDetail) monster
 	return monster.AdminDefinitionSummary{
 		MonsterID: detail.MonsterID, MonsterName: detail.MonsterName,
 		Level: detail.BaseStats.Level, Quality: detail.BaseStats.Quality,
-		IsEnabled: detail.IsEnabled, StatusText: detail.StatusText,
+		IsEnabled: detail.IsEnabled, StatusText: detail.StatusText, SkinID: detail.SkinID,
 		CreatedAt: detail.CreatedAt, UpdatedAt: detail.UpdatedAt,
 	}
 }

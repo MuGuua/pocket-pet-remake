@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -34,6 +33,7 @@ import type {
   AdminNPCEntitySummary,
   AdminUpdateNPCEntityPayload,
 } from '../../types/npc';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { NPCMenuEntryDrawer } from './NPCMenuEntryDrawer';
 
 interface EntityFormValues {
@@ -206,21 +206,27 @@ function MapNPCPanel() {
     {
       title: '操作',
       key: 'actions',
-      width: 300,
+      width: 100,
       fixed: 'right',
       render: (_value, record) => (
-        <Space size="small" wrap>
-          <Button type="link" onClick={() => void handleViewDetail(record.entity_id)}>查看</Button>
-          <Button type="link" onClick={() => void handleOpenEditor('edit', record.entity_id)}>编辑</Button>
-          <Button type="link" onClick={() => handleOpenMenuDrawer(record.entity_id, record.display_name)}>菜单配置</Button>
-          <Popconfirm
-            title="确认删除这个地图 NPC 吗？"
-            description="删除后，该 NPC 下的所有菜单配置也会一并删除。"
-            onConfirm={() => void handleDelete(record.entity_id)}
-          >
-            <Button type="link" danger loading={deletingID === record.entity_id}>删除</Button>
-          </Popconfirm>
-        </Space>
+        <TableActionDropdown
+          loading={deletingID === record.entity_id}
+          actions={[
+            { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.entity_id) },
+            { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.entity_id) },
+            { key: 'menu', label: '菜单配置', onClick: () => handleOpenMenuDrawer(record.entity_id, record.display_name) },
+            {
+              key: 'delete',
+              label: '删除',
+              danger: true,
+              confirm: {
+                title: '确认删除这个地图 NPC 吗？',
+                description: '删除后，该 NPC 下的所有菜单配置也会一并删除。',
+              },
+              onClick: () => void handleDelete(record.entity_id),
+            },
+          ]}
+        />
       ),
     },
   ], [deletingID]);
@@ -297,9 +303,12 @@ function MapNPCPanel() {
         onClose={() => setDetailOpen(false)}
         destroyOnClose
         extra={detail ? (
-          <Button type="primary" onClick={() => handleOpenMenuDrawer(detail.entity_id, detail.display_name)}>
-            菜单配置
-          </Button>
+          <TableActionDropdown
+            buttonType="default"
+            actions={[
+              { key: 'menu', label: '菜单配置', onClick: () => handleOpenMenuDrawer(detail.entity_id, detail.display_name) },
+            ]}
+          />
         ) : null}
       >
         {detailLoading ? (

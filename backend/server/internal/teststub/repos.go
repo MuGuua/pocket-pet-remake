@@ -62,6 +62,7 @@ func battleRecordKey(battleID uint64, playerID uint64) string {
 // tests. It mirrors the seeded demo account so auth tests stay independent from
 // a live PostgreSQL/Redis environment.
 func NewAccountRepository() *AccountRepository {
+	now := time.Now()
 	return &AccountRepository{
 		accounts: map[string]auth.Account{
 			DemoAccountName: {
@@ -81,12 +82,21 @@ func NewAccountRepository() *AccountRepository {
 				PlayerLevel:  1,
 			},
 		},
+		lastLoginAt: map[uint64]time.Time{
+			DemoAccountID: now,
+		},
+		createdAt: map[uint64]time.Time{
+			DemoAccountID:  now.Add(-48 * time.Hour),
+			RivalAccountID: now,
+		},
 	}
 }
 
 type AccountRepository struct {
-	mu       sync.RWMutex
-	accounts map[string]auth.Account
+	mu            sync.RWMutex
+	accounts      map[string]auth.Account
+	lastLoginAt   map[uint64]time.Time
+	createdAt     map[uint64]time.Time
 }
 
 func (r *AccountRepository) FindByAccountName(_ context.Context, accountName string) (*auth.Account, error) {
@@ -99,6 +109,33 @@ func (r *AccountRepository) FindByAccountName(_ context.Context, accountName str
 	}
 	copied := account
 	return &copied, nil
+}
+
+func (r *AccountRepository) TouchLastLoginAt(_ context.Context, accountID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.lastLoginAt == nil {
+		r.lastLoginAt = make(map[uint64]time.Time)
+	}
+	r.lastLoginAt[accountID] = time.Now()
+	return nil
+}
+
+func (r *AccountRepository) GetDashboardAccountMetrics(_ context.Context, dayStart, dayEnd time.Time) (*auth.AccountDashboardMetrics, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	metrics := &auth.AccountDashboardMetrics{}
+	for _, account := range r.accounts {
+		metrics.TotalAccounts++
+		if lastLogin, ok := r.lastLoginAt[account.AccountID]; ok && !lastLogin.Before(dayStart) && lastLogin.Before(dayEnd) {
+			metrics.DailyActiveAccounts++
+		}
+		if created, ok := r.createdAt[account.AccountID]; ok && !created.Before(dayStart) && created.Before(dayEnd) {
+			metrics.NewAccountsToday++
+		}
+	}
+	return metrics, nil
 }
 
 // NewWSTokenRepository returns a test-only token store so auth and HTTP tests
@@ -178,6 +215,7 @@ func NewPlayerRepository() *PlayerRepository {
 				PetResistPct:       4,
 				GenericShieldPct:   2,
 				SkillIDs:           []uint32{1101, 1001},
+				SkinID:             player.DefaultPlayerSkinID,
 			},
 			RivalPlayerID: {
 				PlayerID:           RivalPlayerID,
@@ -212,6 +250,7 @@ func NewPlayerRepository() *PlayerRepository {
 				PetResistPct:       4,
 				GenericShieldPct:   2,
 				SkillIDs:           []uint32{1101, 1001},
+				SkinID:             player.DefaultPlayerSkinID,
 			},
 		},
 	}
@@ -323,6 +362,7 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(_ context.Context, playerID
 		MercenaryResistPct: profile.MercenaryResistPct,
 		GenericShieldPct:   profile.GenericShieldPct,
 		SkillIDs:           append([]uint32{}, profile.SkillIDs...),
+		SkinID:             profile.SkinID,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
 	}, nil
@@ -358,6 +398,7 @@ func (r *PlayerRepository) CreateForAdmin(_ context.Context, input player.AdminC
 		SPD:       input.SPD,
 		MANA:      input.MANA,
 		SkillIDs:  append([]uint32{}, input.SkillIDs...),
+		SkinID:    resolveTeststubPlayerSkinID(input.SkinID),
 	}
 	profile := r.players[playerID]
 	return &player.AdminPlayerDetail{
@@ -381,9 +422,18 @@ func (r *PlayerRepository) CreateForAdmin(_ context.Context, input player.AdminC
 		SPD:         profile.SPD,
 		MANA:        profile.MANA,
 		SkillIDs:    append([]uint32{}, profile.SkillIDs...),
+		SkinID:      profile.SkinID,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}, nil
+}
+
+func resolveTeststubPlayerSkinID(skinID string) string {
+	skinID = strings.TrimSpace(skinID)
+	if skinID == "" {
+		return player.DefaultPlayerSkinID
+	}
+	return skinID
 }
 
 func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, input player.AdminUpdatePlayerInput) (*player.AdminPlayerDetail, error) {
@@ -411,6 +461,7 @@ func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, in
 	current.SPD = input.SPD
 	current.MANA = input.MANA
 	current.SkillIDs = append([]uint32{}, input.SkillIDs...)
+	current.SkinID = resolveTeststubPlayerSkinID(input.SkinID)
 	r.players[playerID] = current
 	return &player.AdminPlayerDetail{
 		PlayerID:           current.PlayerID,
@@ -451,6 +502,7 @@ func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, in
 		MercenaryResistPct: current.MercenaryResistPct,
 		GenericShieldPct:   current.GenericShieldPct,
 		SkillIDs:           append([]uint32{}, current.SkillIDs...),
+		SkinID:             current.SkinID,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
 	}, nil
@@ -465,6 +517,12 @@ func (r *PlayerRepository) DeleteForAdmin(_ context.Context, playerID uint64) er
 	}
 	delete(r.players, playerID)
 	return nil
+}
+
+func (r *PlayerRepository) CountActivePlayers(_ context.Context) (uint64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return uint64(len(r.players)), nil
 }
 
 func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sceneID uint32, posX, posY int32) error {
@@ -504,7 +562,7 @@ func NewPetRepository() *PetRepository {
 		definitions: map[uint32]pet.AdminPetDefinitionDetail{
 			101: {
 				PetID: 101, PetName: "小火龙", Description: "初始火系宠物", AcquireMethod: "新手赠送",
-				IsEnabled: true, StatusText: "启用",
+				IsEnabled: true, StatusText: "启用", SkinID: "嫩叶犬_001",
 				BaseStats:       pet.AdminPetDefinitionBaseStats{Level: 1, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16},
 				GrowthAptitudes: pet.AdminPetDefinitionGrowthAptitudes{HPApt: 12, ATKApt: 11, DEFApt: 10, SPDApt: 10, MANAApt: 9},
 				SkillIDs:        []uint32{1001, 1002},
@@ -513,7 +571,7 @@ func NewPetRepository() *PetRepository {
 			},
 			102: {
 				PetID: 102, PetName: "小水龟", Description: "初始水系宠物", AcquireMethod: "新手赠送",
-				IsEnabled: true, StatusText: "启用",
+				IsEnabled: true, StatusText: "启用", SkinID: "潮汐狐_001",
 				BaseStats:       pet.AdminPetDefinitionBaseStats{Level: 1, Quality: 1, HP: 30, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20},
 				GrowthAptitudes: pet.AdminPetDefinitionGrowthAptitudes{HPApt: 11, ATKApt: 9, DEFApt: 12, SPDApt: 8, MANAApt: 13},
 				SkillIDs:        []uint32{1001, 1003},
@@ -974,6 +1032,7 @@ func (r *PetRepository) ListPetDefinitionsForAdmin(_ context.Context, query pet.
 			AcquireMethod: current.AcquireMethod,
 			IsEnabled:     current.IsEnabled,
 			StatusText:    current.StatusText,
+			SkinID:        current.SkinID,
 			CreatedAt:     current.CreatedAt,
 			UpdatedAt:     current.UpdatedAt,
 		})
@@ -1049,6 +1108,17 @@ func (r *PetRepository) MapUsablePetDefinitionIDs(_ context.Context, petIDs []ui
 	return result, nil
 }
 
+func (r *PetRepository) FindPetSkinID(_ context.Context, petID uint32) (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	current, ok := r.definitions[petID]
+	if !ok || !current.IsEnabled {
+		return "", nil
+	}
+	return current.SkinID, nil
+}
+
 func (r *PetRepository) findPetDefinitionLocked(petID uint32) (*pet.AdminPetDefinitionDetail, error) {
 	current, ok := r.definitions[petID]
 	if !ok {
@@ -1074,6 +1144,7 @@ func buildStubPetDefinitionDetail(input pet.AdminUpsertPetDefinitionInput, creat
 		AcquireMethod: input.AcquireMethod,
 		IsEnabled:     input.IsEnabled,
 		StatusText:    statusText,
+		SkinID:        input.SkinID,
 		BaseStats: pet.AdminPetDefinitionBaseStats{
 			Level: input.Level, Quality: input.Quality, HP: input.HP, HPMax: input.HPMax,
 			ATK: input.ATK, DEF: input.DEF, SPD: input.SPD, MANA: input.MANA,

@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" load_steps=8 format=3 uid="uid://bim5k08dg4nnt"]
+
+[ext_resource type="Script" uid="uid://clb8mic8fam2i" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://b0e0q7k13k6yo" path="res://assets/特效/顺序播放特效/1001.png" id="2_blade"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8wtnj"]
+atlas = ExtResource("2_blade")
+region = Rect2(0, 0, 64, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_u6a01"]
+atlas = ExtResource("2_blade")
+region = Rect2(64, 0, 64, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_x7bs5"]
+atlas = ExtResource("2_blade")
+region = Rect2(128, 0, 64, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kwwcl"]
+atlas = ExtResource("2_blade")
+region = Rect2(192, 0, 64, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_blade"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8wtnj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_u6a01")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_x7bs5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kwwcl")
+}],
+"loop": false,
+"name": &"默认",
+"speed": 14.0
+}]
+
+[resource]
+script = ExtResource("1")
+skill_visual_id = "刃光斩_一级"
+animation_key = "刃光斩"
+action_type = "skill"
+effect_id = "刃光斩_特效"
+effect_frames = SubResource("SpriteFrames_blade")
+effect_tint = Color(1, 0.831373, 0.937255, 1)
+effect_player_animation = "冲击"

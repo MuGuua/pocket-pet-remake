@@ -54,6 +54,7 @@ type AdminPetDefinitionSummary struct {
 	AcquireMethod string    `json:"acquire_method"`
 	IsEnabled     bool      `json:"is_enabled"`
 	StatusText    string    `json:"status_text"`
+	SkinID        string    `json:"skin_id"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	CreatedAt     time.Time `json:"created_at"`
 }
@@ -113,6 +114,7 @@ type AdminPetDefinitionDetail struct {
 	GrowthAptitudes      AdminPetDefinitionGrowthAptitudes    `json:"growth_aptitudes"`
 	AptitudeRollRanges   AdminPetDefinitionAptitudeRollRanges `json:"aptitude_roll_ranges"`
 	SkillIDs             []uint32                             `json:"skill_ids"`
+	SkinID               string                               `json:"skin_id"`
 	CreatedAt       time.Time                       `json:"created_at"`
 	UpdatedAt       time.Time                       `json:"updated_at"`
 }
@@ -148,6 +150,7 @@ type AdminUpsertPetDefinitionInput struct {
 	MANAAptRollMin uint32  `json:"mana_apt_roll_min"`
 	MANAAptRollMax uint32  `json:"mana_apt_roll_max"`
 	SkillIDs      []uint32 `json:"skill_ids"`
+	SkinID        string   `json:"skin_id"`
 }
 
 // Normalize 补齐模板字段默认值，避免运营漏填导致发放链路异常。
@@ -194,5 +197,6 @@ func (input AdminUpsertPetDefinitionInput) Normalize() AdminUpsertPetDefinitionI
 	if input.SkillIDs == nil {
 		input.SkillIDs = []uint32{}
 	}
+	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input
 }

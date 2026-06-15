@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" load_steps=8 format=3 uid="uid://dsxckuw2t0iu1"]
+
+[ext_resource type="Script" uid="uid://clb8mic8fam2i" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://c2rj3k4c0802y" path="res://assets/特效/顺序播放特效/1048.png" id="2_fallback"]
+[ext_resource type="Texture2D" uid="uid://bec52gpexx752" path="res://assets/特效/顺序播放特效/1050.png" id="3_acid"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e2try"]
+atlas = ExtResource("3_acid")
+region = Rect2(0, 0, 61, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ijsvi"]
+atlas = ExtResource("3_acid")
+region = Rect2(61, 0, 61, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sdfmy"]
+atlas = ExtResource("3_acid")
+region = Rect2(122, 0, 61, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_acid"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e2try")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ijsvi")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sdfmy")
+}],
+"loop": false,
+"name": &"默认",
+"speed": 14.0
+}]
+
+[resource]
+script = ExtResource("1")
+skill_visual_id = "酸液喷射_一级"
+animation_key = "酸液喷射"
+action_type = "skill"
+effect_id = "酸液喷射_特效"
+effect_frames = SubResource("SpriteFrames_acid")
+effect_texture = ExtResource("2_fallback")
+effect_offset = Vector2(0, -6)
+effect_scale = Vector2(0.8, 0.8)
+effect_tint = Color(0.643137, 0.956863, 0.552941, 1)
+effect_player_animation = "爆发"

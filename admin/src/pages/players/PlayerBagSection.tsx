@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -20,6 +19,7 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { useEffect, useMemo, useState } from 'react';
 import {
   createAdminBagItem,
@@ -34,6 +34,8 @@ import type {
   AdminCreateBagPayload,
   AdminUpdateBagPayload,
 } from '../../types/bag';
+import { CONTAINER_TYPE_LABELS, formatDisplayLabel } from '../../utils/displayLabels';
+import { formatDateTime } from '../../utils/formatDateTime';
 
 interface BagFormValues extends AdminCreateBagPayload {}
 
@@ -170,7 +172,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
   const columns = useMemo<ColumnsType<AdminBagSummary>>(
     () => [
       { title: '记录ID', dataIndex: 'record_id', key: 'record_id', width: 90 },
-      { title: '容器', dataIndex: 'container_type', key: 'container_type', width: 90 },
+      { title: '容器', dataIndex: 'container_type', key: 'container_type', width: 90, render: (value: string) => formatDisplayLabel(CONTAINER_TYPE_LABELS, value) },
       { title: '格子', dataIndex: 'slot_index', key: 'slot_index', width: 70 },
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 90 },
       { title: '物品名', dataIndex: 'item_name', key: 'item_name', width: 140 },
@@ -180,15 +182,24 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       {
         title: '操作',
         key: 'actions',
-        width: 160,
+        width: 100,
         render: (_value, record) => (
-          <Space size="small" onClick={(event) => event.stopPropagation()}>
-            <Button type="link" onClick={() => void handleViewDetail(record.record_id)}>查看</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.record_id)}>编辑</Button>
-            <Popconfirm title="确认删除这条容器记录吗？" onConfirm={() => void handleDelete(record.record_id)}>
-              <Button type="link" danger loading={deletingID === record.record_id}>删除</Button>
-            </Popconfirm>
-          </Space>
+          <span onClick={(event) => event.stopPropagation()}>
+            <TableActionDropdown
+              loading={deletingID === record.record_id}
+              actions={[
+                { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.record_id) },
+                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.record_id) },
+                {
+                  key: 'delete',
+                  label: '删除',
+                  danger: true,
+                  confirm: { title: '确认删除这条容器记录吗？' },
+                  onClick: () => void handleDelete(record.record_id),
+                },
+              ]}
+            />
+          </span>
         ),
       },
     ],
@@ -240,12 +251,20 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
         onClose={() => setBagDetailOpen(false)}
         destroyOnClose
         extra={bagDetail ? (
-          <Space>
-            <Button onClick={() => void handleOpenEditor('edit', bagDetail.record_id)}>编辑</Button>
-            <Popconfirm title="确认删除这条容器记录吗？" onConfirm={() => void handleDelete(bagDetail.record_id)}>
-              <Button danger loading={deletingID === bagDetail.record_id}>删除</Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            buttonType="default"
+            loading={deletingID === bagDetail.record_id}
+            actions={[
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', bagDetail.record_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这条容器记录吗？' },
+                onClick: () => void handleDelete(bagDetail.record_id),
+              },
+            ]}
+          />
         ) : null}
       >
         {bagDetailLoading ? (
@@ -257,7 +276,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
             <Descriptions.Item label="记录ID">{bagDetail.record_id}</Descriptions.Item>
             <Descriptions.Item label="玩家ID">{bagDetail.player_id}</Descriptions.Item>
             <Descriptions.Item label="玩家名">{bagDetail.player_name}</Descriptions.Item>
-            <Descriptions.Item label="容器类型">{bagDetail.container_type}</Descriptions.Item>
+            <Descriptions.Item label="容器类型">{formatDisplayLabel(CONTAINER_TYPE_LABELS, bagDetail.container_type)}</Descriptions.Item>
             <Descriptions.Item label="格子号">{bagDetail.slot_index}</Descriptions.Item>
             <Descriptions.Item label="物品ID">{bagDetail.item_id}</Descriptions.Item>
             <Descriptions.Item label="物品名">{bagDetail.item_name || '-'}</Descriptions.Item>
@@ -361,15 +380,4 @@ function mapFormToCreatePayload(values: BagFormValues): AdminCreateBagPayload {
 
 function mapFormToUpdatePayload(values: BagFormValues): AdminUpdateBagPayload {
   return { ...values };
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString('zh-CN', { hour12: false });
 }

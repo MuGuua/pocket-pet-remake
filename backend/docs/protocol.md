@@ -985,14 +985,15 @@
       "pet_uid": 0,
       "pet_id": 0,
       "name": "DemoTrainer",
+      "skin_id": "决斗者_001",
       "hp": 120,
       "hp_max": 120,
       "atk": 24,
       "def": 12,
       "spd": 18,
       "skills": [
-        {"skill_id": 1101, "name": "裂空斩", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#8FD6FF", "impact_color": "#BDE9FF", "projectile": true},
-        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false}
+        {"skill_id": 1101, "name": "裂空斩", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "skill_visual_id": "", "cast_color": "#8FD6FF", "impact_color": "#BDE9FF", "projectile": true},
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "skill_visual_id": "", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false}
       ],
       "skill_ids": [1101, 1001],
       "status_ids": [],
@@ -1005,14 +1006,15 @@
       "pet_uid": 20001,
       "pet_id": 101,
       "name": "DemoTrainer 的1号宠物",
+      "skin_id": "嫩叶犬_001",
       "hp": 32,
       "hp_max": 32,
       "atk": 14,
       "def": 10,
       "spd": 12,
       "skills": [
-        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false},
-        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_all", "target_count": 0, "animation_key": "burst", "cast_color": "#FFAA5C", "impact_color": "#FFD46B", "projectile": true}
+        {"skill_id": 1001, "name": "普通攻击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "skill_visual_id": "", "cast_color": "#EBEBF5", "impact_color": "#FFF2F2", "projectile": false},
+        {"skill_id": 1002, "name": "火花冲击", "target_type": "enemy_all", "target_count": 0, "animation_key": "burst", "skill_visual_id": "", "cast_color": "#FFAA5C", "impact_color": "#FFD46B", "projectile": true}
       ],
       "skill_ids": [1001, 1002],
       "status_ids": [],
@@ -1026,14 +1028,15 @@
       "pet_uid": 0,
       "pet_id": 9001,
       "name": "GuideNPC",
+      "skin_id": "史莱姆_001",
       "hp": 22,
       "hp_max": 22,
       "atk": 12,
       "def": 9,
       "spd": 8,
       "skills": [
-        {"skill_id": 90001, "name": "野性撞击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "cast_color": "#FFB88F", "impact_color": "#FFDDD1", "projectile": false},
-        {"skill_id": 90002, "name": "利爪突袭", "target_type": "enemy_single", "target_count": 1, "animation_key": "volley", "cast_color": "#FF9E85", "impact_color": "#FFC7BA", "projectile": true}
+        {"skill_id": 90001, "name": "野性撞击", "target_type": "enemy_single", "target_count": 1, "animation_key": "slash", "skill_visual_id": "", "cast_color": "#FFB88F", "impact_color": "#FFDDD1", "projectile": false},
+        {"skill_id": 90002, "name": "利爪突袭", "target_type": "enemy_single", "target_count": 1, "animation_key": "volley", "skill_visual_id": "", "cast_color": "#FF9E85", "impact_color": "#FFC7BA", "projectile": true}
       ],
       "skill_ids": [90001, 90002],
       "status_ids": [],

@@ -17,6 +17,7 @@ type Repository interface {
 	DeleteForAdmin(ctx context.Context, petUID uint64) error
 	ListPetDefinitionsForAdmin(ctx context.Context, query AdminPetDefinitionListQuery) (*AdminPetDefinitionList, error)
 	FindPetDefinitionForAdmin(ctx context.Context, petID uint32) (*AdminPetDefinitionDetail, error)
+	FindPetSkinID(ctx context.Context, petID uint32) (string, error)
 	CreatePetDefinitionForAdmin(ctx context.Context, input AdminUpsertPetDefinitionInput) (*AdminPetDefinitionDetail, error)
 	UpdatePetDefinitionForAdmin(ctx context.Context, petID uint32, input AdminUpsertPetDefinitionInput) (*AdminPetDefinitionDetail, error)
 	DeletePetDefinitionForAdmin(ctx context.Context, petID uint32) error

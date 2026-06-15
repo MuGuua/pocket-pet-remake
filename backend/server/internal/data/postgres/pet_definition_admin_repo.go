@@ -21,6 +21,7 @@ SELECT
   level,
   acquire_method,
   status,
+  skin_id,
   updated_at,
   created_at
 FROM pet_definition
@@ -57,6 +58,7 @@ SELECT
   mana_apt_roll_min,
   mana_apt_roll_max,
   skill_ids,
+  skin_id,
   created_at,
   updated_at
 FROM pet_definition
@@ -94,9 +96,10 @@ INSERT INTO pet_definition (
   spd_apt_roll_max,
   mana_apt_roll_min,
   mana_apt_roll_max,
-  skill_ids
+  skill_ids,
+  skin_id
 ) VALUES (
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb,$30
 )
 `
 
@@ -129,13 +132,21 @@ SET pet_name = $2,
     spd_apt_roll_max = $26,
     mana_apt_roll_min = $27,
     mana_apt_roll_max = $28,
-    skill_ids = $29::jsonb
+    skill_ids = $29::jsonb,
+    skin_id = $30
 WHERE pet_id = $1
 `
 
 const deleteAdminPetDefinitionQuery = `
 DELETE FROM pet_definition
 WHERE pet_id = $1
+`
+
+const findPetSkinIDQuery = `
+SELECT skin_id
+FROM pet_definition
+WHERE pet_id = $1 AND status = 1
+LIMIT 1
 `
 
 // ListPetDefinitionsForAdmin 返回系统宠物模板分页列表。
@@ -249,6 +260,7 @@ func (r *PetRepository) CreatePetDefinitionForAdmin(ctx context.Context, input p
 		input.MANAAptRollMin,
 		input.MANAAptRollMax,
 		skillIDsJSON,
+		input.SkinID,
 	); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -301,6 +313,7 @@ func (r *PetRepository) UpdatePetDefinitionForAdmin(ctx context.Context, petID u
 		input.MANAAptRollMin,
 		input.MANAAptRollMax,
 		skillIDsJSON,
+		input.SkinID,
 	)
 	if err != nil {
 		return nil, err
@@ -377,7 +390,7 @@ func (r *PetRepository) MapUsablePetDefinitionIDs(ctx context.Context, petIDs []
 func scanAdminPetDefinitionSummaryRow(rows *sql.Rows) (pet.AdminPetDefinitionSummary, error) {
 	var item pet.AdminPetDefinitionSummary
 	var petID, quality, level, status int64
-	if err := rows.Scan(&petID, &item.PetName, &quality, &level, &item.AcquireMethod, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
+	if err := rows.Scan(&petID, &item.PetName, &quality, &level, &item.AcquireMethod, &status, &item.SkinID, &item.UpdatedAt, &item.CreatedAt); err != nil {
 		return pet.AdminPetDefinitionSummary{}, err
 	}
 	item.PetID = uint32(petID)
@@ -390,6 +403,19 @@ func scanAdminPetDefinitionSummaryRow(rows *sql.Rows) (pet.AdminPetDefinitionSum
 		item.StatusText = "停用"
 	}
 	return item, nil
+}
+
+// FindPetSkinID 读取启用中的宠物模板战斗外观 ID。
+func (r *PetRepository) FindPetSkinID(ctx context.Context, petID uint32) (string, error) {
+	var skinID string
+	err := r.db.QueryRowContext(ctx, findPetSkinIDQuery, petID).Scan(&skinID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(skinID), nil
 }
 
 func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetail, error) {
@@ -452,6 +478,7 @@ func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetai
 		&manaAptRollMin,
 		&manaAptRollMax,
 		&skillIDsJSON,
+		&detail.SkinID,
 		&detail.CreatedAt,
 		&detail.UpdatedAt,
 	); err != nil {

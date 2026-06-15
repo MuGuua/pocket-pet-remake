@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -20,6 +19,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminNPCMenuEntry,
   deleteAdminNPCMenuEntry,
@@ -36,6 +36,12 @@ import type {
   AdminNPCMenuEntrySummary,
   AdminUpdateNPCMenuEntryPayload,
 } from '../../types/npc';
+import {
+  buildSelectOptions,
+  formatDisplayLabel,
+  NPC_ACTION_RESULT_LABELS,
+  NPC_ENTRY_TYPE_LABELS,
+} from '../../utils/displayLabels';
 
 interface MenuEntryFormValues {
   entity_id: number;
@@ -70,19 +76,9 @@ const editableStatusOptions = [
   { label: '停用', value: 0 },
 ];
 
-const entryTypeOptions = [
-  { label: 'dialog', value: 'dialog' },
-  { label: 'shop', value: 'shop' },
-  { label: 'quest', value: 'quest' },
-  { label: '挑战 (battle)', value: 'battle' },
-];
+const entryTypeOptions = buildSelectOptions(NPC_ENTRY_TYPE_LABELS);
 
-const actionResultTypeOptions = [
-  { label: 'notice', value: 'notice' },
-  { label: 'dialog', value: 'dialog' },
-  { label: 'shop', value: 'shop' },
-  { label: 'battle（直接开战）', value: 'battle' },
-];
+const actionResultTypeOptions = buildSelectOptions(NPC_ACTION_RESULT_LABELS);
 
 // 单个地图 NPC 的菜单配置抽屉：从实体编辑页进入，只维护当前 entity_id 下的菜单项。
 export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCMenuEntryDrawerProps) {
@@ -266,7 +262,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
 
   const columns = useMemo<ColumnsType<AdminNPCMenuEntrySummary>>(() => [
     { title: '入口ID', dataIndex: 'entry_id', key: 'entry_id', width: 160, fixed: 'left' },
-    { title: '入口类型', dataIndex: 'entry_type', key: 'entry_type', width: 120 },
+    { title: '入口类型', dataIndex: 'entry_type', key: 'entry_type', width: 120, render: (value: string) => formatDisplayLabel(NPC_ENTRY_TYPE_LABELS, value) },
     { title: '标题', dataIndex: 'title', key: 'title', width: 180 },
     {
       title: '状态',
@@ -276,7 +272,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
       render: (value: string) => <Tag color={value === '启用' ? 'green' : 'default'}>{value}</Tag>,
     },
     { title: '优先级/排序', key: 'sort', width: 120, render: (_value, record) => `${record.priority}/${record.sort_order}` },
-    { title: '动作类型', dataIndex: 'action_result_type', key: 'action_result_type', width: 120 },
+    { title: '动作类型', dataIndex: 'action_result_type', key: 'action_result_type', width: 120, render: (value: string) => formatDisplayLabel(NPC_ACTION_RESULT_LABELS, value) },
     {
       title: '固定战',
       dataIndex: 'battle_encounter_entity_id',
@@ -287,16 +283,23 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     {
       title: '操作',
       key: 'actions',
-      width: 220,
+      width: 100,
       fixed: 'right',
       render: (_value, record) => (
-        <Space size="small">
-          <Button type="link" onClick={() => void handleViewDetail(record.entry_id)}>查看</Button>
-          <Button type="link" onClick={() => void handleOpenEditor('edit', record.entry_id)}>编辑</Button>
-          <Popconfirm title="确认删除这条菜单配置吗？" onConfirm={() => void handleDelete(record.entry_id)}>
-            <Button type="link" danger loading={deletingKey === `${record.entity_id}:${record.entry_id}`}>删除</Button>
-          </Popconfirm>
-        </Space>
+        <TableActionDropdown
+          loading={deletingKey === `${record.entity_id}:${record.entry_id}`}
+          actions={[
+            { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.entry_id) },
+            { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.entry_id) },
+            {
+              key: 'delete',
+              label: '删除',
+              danger: true,
+              confirm: { title: '确认删除这条菜单配置吗？' },
+              onClick: () => void handleDelete(record.entry_id),
+            },
+          ]}
+        />
       ),
     },
   ], [deletingKey, entityId]);
@@ -387,8 +390,9 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
             <Descriptions.Item label="入口ID">{detail.entry_id}</Descriptions.Item>
             <Descriptions.Item label="标题">{detail.title}</Descriptions.Item>
             <Descriptions.Item label="副标题">{detail.subtitle}</Descriptions.Item>
-            <Descriptions.Item label="动作类型">{detail.action_result_type}</Descriptions.Item>
-            <Descriptions.Item label="固定战 entity_id">{detail.battle_encounter_entity_id || '-'}</Descriptions.Item>
+            <Descriptions.Item label="入口类型">{formatDisplayLabel(NPC_ENTRY_TYPE_LABELS, detail.entry_type)}</Descriptions.Item>
+            <Descriptions.Item label="动作类型">{formatDisplayLabel(NPC_ACTION_RESULT_LABELS, detail.action_result_type)}</Descriptions.Item>
+            <Descriptions.Item label="固定战实体ID">{detail.battle_encounter_entity_id || '-'}</Descriptions.Item>
             <Descriptions.Item label="提示文案">{detail.action_notice || '-'}</Descriptions.Item>
           </Descriptions>
         ) : null}
@@ -461,13 +465,13 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
                 <Form.Item
                   label="绑定 NPC 固定战"
                   name="battle_encounter_entity_id"
-                  extra="选择 monster_encounter 配置；留空时保存后会默认使用当前 NPC 的 entity_id"
+                  extra="选择怪物固定战遭遇配置；留空时保存后会默认使用当前 NPC 的实体 ID"
                   rules={[{ required: true, message: '请选择要绑定的固定战遭遇' }]}
                 >
                   <Select
                     showSearch
                     optionFilterProp="label"
-                    placeholder="选择固定战遭遇 entity_id"
+                    placeholder="选择固定战遭遇"
                     options={encounterOptions}
                   />
                 </Form.Item>

@@ -58,6 +58,9 @@ func (s *Service) CreateAdminPlayer(ctx context.Context, input AdminCreatePlayer
 	if input.AccountName == "" || input.Password == "" || input.Name == "" {
 		return nil, ErrInvalidAdminInput
 	}
+	if err := s.validateSkinID(input.SkinID); err != nil {
+		return nil, err
+	}
 	return s.repo.CreateForAdmin(ctx, input)
 }
 
@@ -66,6 +69,9 @@ func (s *Service) UpdateAdminPlayer(ctx context.Context, playerID uint64, input 
 	input = input.Normalize()
 	if input.Name == "" {
 		return nil, ErrInvalidAdminInput
+	}
+	if err := s.validateSkinID(input.SkinID); err != nil {
+		return nil, err
 	}
 	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
 		return nil, err
@@ -100,4 +106,19 @@ func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error
 		return nil
 	}
 	return s.skillService.ValidateEnabledSkillIDs(ctx, skillIDs)
+}
+
+func (s *Service) validateSkinID(skinID string) error {
+	if len(skinID) > 64 {
+		return ErrInvalidAdminInput
+	}
+	return nil
+}
+
+// CountActivePlayers 统计启用中的玩家角色总数，供后台控制台展示。
+func (s *Service) CountActivePlayers(ctx context.Context) (uint64, error) {
+	if s.repo == nil {
+		return 0, nil
+	}
+	return s.repo.CountActivePlayers(ctx)
 }

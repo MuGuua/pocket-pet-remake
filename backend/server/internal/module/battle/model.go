@@ -82,6 +82,7 @@ type ActorSnapshot struct {
 	PetUID             uint64
 	PetID              uint32
 	Name               string
+	SkinID             string
 	HP                 uint32
 	HPMax              uint32
 	Energy             uint32
@@ -118,8 +119,9 @@ type SkillSnapshot struct {
 	Name         string
 	TargetType   string
 	TargetCount  uint32
-	AnimationKey string
-	CastColor    string
+	AnimationKey  string
+	SkillVisualID string
+	CastColor     string
 	ImpactColor  string
 	Projectile   bool
 }

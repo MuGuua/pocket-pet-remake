@@ -7,7 +7,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Switch,
@@ -18,6 +17,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminMonsterEncounter,
   deleteAdminMonsterEncounter,
@@ -159,16 +159,22 @@ export function NpcFixedEncounterPanel() {
       {
         title: '操作',
         key: 'actions',
-        width: 220,
+        width: 100,
         fixed: 'right',
         render: (_value, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.entity_id)}>详情</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.entity_id)}>编辑</Button>
-            <Popconfirm title="确认删除这条怪物遭遇配置吗？" onConfirm={() => void handleDelete(record.entity_id)} okText="确认删除" cancelText="取消">
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            actions={[
+              { key: 'view', label: '详情', onClick: () => void handleViewDetail(record.entity_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.entity_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这条怪物遭遇配置吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => void handleDelete(record.entity_id),
+              },
+            ]}
+          />
         ),
       },
     ],
@@ -179,7 +185,7 @@ export function NpcFixedEncounterPanel() {
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Form form={filterForm} layout="inline" onFinish={(values) => { setPage(1); setFilters(values); }} style={{ marginBottom: 16 }}>
           <Form.Item name="entity_id" label="实体ID">
-            <Input allowClear placeholder="entity_id" style={{ width: 120 }} />
+            <Input allowClear placeholder="实体ID" style={{ width: 120 }} />
           </Form.Item>
           <Form.Item name="name" label="名称">
             <Input allowClear placeholder="遭遇名称" style={{ width: 140 }} />
@@ -240,7 +246,7 @@ export function NpcFixedEncounterPanel() {
         cancelText="取消"
       >
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
-          <Form.Item label="世界实体ID" name="entity_id" rules={[{ required: true, message: '请输入 entity_id' }]}>
+          <Form.Item label="世界实体ID" name="entity_id" rules={[{ required: true, message: '请输入实体 ID' }]}>
             <InputNumber min={1} disabled={Boolean(editingRecord)} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="遭遇名称" name="encounter_name" rules={[{ required: true, message: '请输入遭遇名称' }]}>

@@ -1,8 +1,8 @@
 [gd_scene load_steps=0 format=3 uid="uid://ouqflhaorqka"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_u1nl1"]
-[ext_resource type="Texture2D" uid="uid://ie2ma6nit4uj" path="res://asset/Border All 6.png" id="2_xxc0b"]
-[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/pixel items0.png" id="3_81d2i"]
+[ext_resource type="Texture2D" uid="uid://ie2ma6nit4uj" path="res://asset/分类/ui/Border All 6.png" id="2_xxc0b"]
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/分类/武器/pixel items0.png" id="3_81d2i"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_rw5t8"]
 texture = ExtResource("1_u1nl1")

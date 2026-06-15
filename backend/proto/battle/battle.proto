@@ -66,6 +66,7 @@ message BattleActorSnapshot {
   repeated uint32 skill_ids = 14;
   repeated uint32 status_ids = 15;
   uint32 lineup_index = 16;
+  string skin_id = 17;
 }
 
 message BattleSkillSnapshot {
@@ -77,6 +78,7 @@ message BattleSkillSnapshot {
   string cast_color = 6;
   string impact_color = 7;
   bool projectile = 8;
+  string skill_visual_id = 9;
 }
 
 message BattleActionReq {

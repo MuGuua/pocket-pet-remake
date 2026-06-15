@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -37,7 +36,11 @@ import type {
   AdminUpdatePlayerPayload,
 } from '../../types/player';
 import { PlayerPetSection } from './PlayerPetSection';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { PlayerBagSection } from './PlayerBagSection';
+import { PlayerWalletSection } from './PlayerWalletSection';
+import { formatDisplayLabel, PLAYER_STATUS_LABELS } from '../../utils/displayLabels';
+import { formatDateTime } from '../../utils/formatDateTime';
 import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
 
 interface PlayerFormValues {
@@ -60,6 +63,7 @@ interface PlayerFormValues {
   mana: number;
   status: number;
   skill_names_text: string;
+  skin_id: string;
 }
 
 const statusOptions = [
@@ -208,7 +212,9 @@ export function PlayerListPage() {
         dataIndex: 'status_text',
         key: 'status_text',
         width: 120,
-        render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+        render: (value: string) => (
+          <Tag color={statusColor(value)}>{formatDisplayLabel(PLAYER_STATUS_LABELS, value)}</Tag>
+        ),
       },
       { title: '场景', dataIndex: 'scene_id', key: 'scene_id', width: 90 },
       {
@@ -227,28 +233,28 @@ export function PlayerListPage() {
       {
         title: '操作',
         key: 'actions',
-        width: 220,
+        width: 100,
         fixed: 'right',
         render: (_value, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.player_id)}>
-              查看
-            </Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.player_id)}>
-              编辑
-            </Button>
-            <Popconfirm
-              title="确认删除这个玩家吗？"
-              description="删除会把账号与人物都软删除，不会物理清库。"
-              okText="确认删除"
-              cancelText="取消"
-              onConfirm={() => void handleDelete(record.player_id)}
-            >
-              <Button type="link" danger loading={deletingID === record.player_id}>
-                删除
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            loading={deletingID === record.player_id}
+            actions={[
+              { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.player_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.player_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: {
+                  title: '确认删除这个玩家吗？',
+                  description: '删除会把账号与人物都软删除，不会物理清库。',
+                  okText: '确认删除',
+                  cancelText: '取消',
+                },
+                onClick: () => void handleDelete(record.player_id),
+              },
+            ]}
+          />
         ),
       },
     ],
@@ -326,20 +332,25 @@ export function PlayerListPage() {
         destroyOnClose
         extra={
           detail ? (
-            <Space>
-              <Button onClick={() => void handleOpenEditor('edit', detail.player_id)}>编辑</Button>
-              <Popconfirm
-                title="确认删除这个玩家吗？"
-                description="删除会把账号与人物都软删除。"
-                okText="确认删除"
-                cancelText="取消"
-                onConfirm={() => void handleDelete(detail.player_id)}
-              >
-                <Button danger loading={deletingID === detail.player_id}>
-                  删除
-                </Button>
-              </Popconfirm>
-            </Space>
+            <TableActionDropdown
+              buttonType="default"
+              loading={deletingID === detail.player_id}
+              actions={[
+                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', detail.player_id) },
+                {
+                  key: 'delete',
+                  label: '删除',
+                  danger: true,
+                  confirm: {
+                    title: '确认删除这个玩家吗？',
+                    description: '删除会把账号与人物都软删除。',
+                    okText: '确认删除',
+                    cancelText: '取消',
+                  },
+                  onClick: () => void handleDelete(detail.player_id),
+                },
+              ]}
+            />
           ) : null
         }
       >
@@ -354,9 +365,12 @@ export function PlayerListPage() {
               <Descriptions.Item label="账号ID">{detail.account_id}</Descriptions.Item>
               <Descriptions.Item label="账号名">{detail.account_name}</Descriptions.Item>
               <Descriptions.Item label="状态">
-                <Tag color={statusColor(detail.status_text)}>{detail.status_text}</Tag>
+                <Tag color={statusColor(detail.status_text)}>
+                  {formatDisplayLabel(PLAYER_STATUS_LABELS, detail.status_text)}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="昵称">{detail.name}</Descriptions.Item>
+              <Descriptions.Item label="当前形象ID">{detail.skin_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="等级">{detail.level}</Descriptions.Item>
               <Descriptions.Item label="经验">{detail.exp}</Descriptions.Item>
               <Descriptions.Item label="金币">{detail.gold}</Descriptions.Item>
@@ -398,6 +412,7 @@ export function PlayerListPage() {
                 <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
               </Descriptions.Item>
             </Descriptions>
+            <PlayerWalletSection playerId={detail.player_id} playerName={detail.name} />
             <PlayerPetSection playerId={detail.player_id} playerName={detail.name} />
             <PlayerBagSection playerId={detail.player_id} playerName={detail.name} />
           </Space>
@@ -459,6 +474,15 @@ export function PlayerListPage() {
             <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="当前形象ID"
+                name="skin_id"
+                extra="对应客户端 unit_skins/{skin_id}.tres，例如 初始形象男_001"
+              >
+                <Input placeholder="初始形象男_001" />
+              </Form.Item>
+            </Col>
             <Col span={24}>
               <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 裂空斩,普通攻击">
                 <Input placeholder="裂空斩,普通攻击" />
@@ -468,7 +492,10 @@ export function PlayerListPage() {
         </Form>
         {editingRecord ? (
           <div style={{ marginTop: 24 }}>
-            <PlayerPetSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
+            <PlayerWalletSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
+            <div style={{ marginTop: 16 }}>
+              <PlayerPetSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
+            </div>
             <div style={{ marginTop: 16 }}>
               <PlayerBagSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
             </div>
@@ -500,6 +527,7 @@ function defaultCreateValues(): PlayerFormValues {
     mana: 20,
     status: 1,
     skill_names_text: '裂空斩,普通攻击',
+    skin_id: '初始形象男_001',
   };
 }
 
@@ -522,6 +550,7 @@ function mapDetailToForm(detail: AdminPlayerDetail, skillReferenceMap: SkillRefe
     mana: detail.mana,
     status: detail.status,
     skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    skin_id: detail.skin_id,
   };
 }
 
@@ -545,6 +574,7 @@ function mapFormToCreatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     mana: values.mana,
     status: values.status,
     skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skin_id: values.skin_id?.trim() ?? '',
   };
 }
 
@@ -567,18 +597,8 @@ function mapFormToUpdatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     mana: values.mana,
     status: values.status,
     skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skin_id: values.skin_id?.trim() ?? '',
   };
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 function statusColor(statusText: string): string {

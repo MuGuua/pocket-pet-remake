@@ -70,6 +70,7 @@ export interface AdminSkillStatusEffects {
 
 export interface AdminSkillPresentation {
   animation_key: string;
+  skill_visual_id: string;
   cast_color: string;
   impact_color: string;
   projectile: boolean;
@@ -118,6 +119,7 @@ export interface AdminUpsertSkillPayload {
   target_count: number;
   preferred_target_hp: string;
   animation_key: string;
+  skill_visual_id: string;
   cast_color: string;
   impact_color: string;
   projectile: boolean;

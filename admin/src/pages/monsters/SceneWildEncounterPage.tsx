@@ -7,7 +7,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Switch,
@@ -18,6 +17,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminSceneWildEncounter,
   deleteAdminSceneWildEncounter,
@@ -168,16 +168,22 @@ export function SceneWildEncounterPanel() {
       {
         title: '操作',
         key: 'actions',
-        width: 220,
+        width: 100,
         fixed: 'right',
         render: (_value, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.scene_id)}>详情</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.scene_id)}>编辑</Button>
-            <Popconfirm title="确认删除这条地图暗雷配置吗？" onConfirm={() => void handleDelete(record.scene_id)} okText="确认删除" cancelText="取消">
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            actions={[
+              { key: 'view', label: '详情', onClick: () => void handleViewDetail(record.scene_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.scene_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这条地图暗雷配置吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => void handleDelete(record.scene_id),
+              },
+            ]}
+          />
         ),
       },
     ],

@@ -1,6 +1,8 @@
 class_name player
 extends CharacterBody2D
 
+const CharacterVisualScene: PackedScene = preload("res://scenes/character/character_visual.tscn")
+
 # 角色待机状态标识。
 const STATE_IDLE := "idle"
 # 角色行走状态标识。
@@ -32,13 +34,29 @@ var _auto_move_stop_tolerance: float = 3.0
 
 # 负责播放角色动画的动画播放器节点。
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
+@onready var legacy_sprite: Sprite2D = $Sprite2D
 @onready var camera_node: Camera2D = $Camera2D
+@onready var body_collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var click_collision_shape: CollisionShape2D = $Area2D/CollisionShape2D
+
+const LEGACY_COLLISION_OFFSET := Vector2(13.0, -7.0)
+
+var _character_visual: CharacterVisual = null
+var _uses_character_visual: bool = false
 
 func _ready() -> void:
 	if camera_node != null:
 		camera_node.make_current()
 	_apply_camera_zoom()
 	_apply_camera_offset()
+	_setup_character_visual()
+	if not GameState.world_snapshot_changed.is_connected(_on_world_snapshot_changed):
+		GameState.world_snapshot_changed.connect(_on_world_snapshot_changed)
+	_sync_skin_from_snapshot()
+
+func _exit_tree() -> void:
+	if GameState.world_snapshot_changed.is_connected(_on_world_snapshot_changed):
+		GameState.world_snapshot_changed.disconnect(_on_world_snapshot_changed)
 
 # 每帧读取输入并更新角色状态与动画。
 func _process(_delta: float) -> void:
@@ -175,6 +193,12 @@ func _resolve_state() -> String:
 
 # 按当前状态与朝向播放对应动画。
 func _update_animation() -> void:
+	if _uses_character_visual and _character_visual != null:
+		var world_state: String = state
+		if world_state == STATE_BATTLE:
+			world_state = STATE_IDLE
+		_character_visual.play_world(world_state, _direction_suffix())
+		return
 	if animation_player == null:
 		return
 
@@ -224,6 +248,59 @@ func _direction_suffix() -> String:
 # 判断当前角色是否处于不可移动状态。
 func _is_movement_locked() -> bool:
 	return _scene_transition_locked or _battle_locked
+
+func _setup_character_visual() -> void:
+	if _character_visual != null:
+		return
+	_character_visual = CharacterVisualScene.instantiate() as CharacterVisual
+	if _character_visual == null:
+		return
+	# 新方案约定：Player 根节点即脚底锚点，形象向上绘制，碰撞圆贴在脚下。
+	_character_visual.position = Vector2.ZERO
+	add_child(_character_visual)
+	_character_visual.visible = false
+
+func _on_world_snapshot_changed() -> void:
+	_sync_skin_from_snapshot()
+
+func _sync_skin_from_snapshot() -> void:
+	if _character_visual == null:
+		return
+	var skin_id: String = str(GameState.player_snapshot.get("skin_id", ""))
+	if skin_id.is_empty():
+		_uses_character_visual = false
+		_character_visual.visible = false
+		if legacy_sprite != null:
+			legacy_sprite.visible = true
+		_sync_collision_anchor()
+		_update_animation()
+		return
+	if _character_visual.apply_skin_id(skin_id):
+		_uses_character_visual = true
+		_character_visual.visible = true
+		if legacy_sprite != null:
+			legacy_sprite.visible = false
+		if animation_player != null:
+			animation_player.stop()
+		_sync_collision_anchor()
+		_update_animation()
+		return
+	_uses_character_visual = false
+	_character_visual.visible = false
+	if legacy_sprite != null:
+		legacy_sprite.visible = true
+	_sync_collision_anchor()
+	_update_animation()
+
+func _sync_collision_anchor() -> void:
+	var collision_offset: Vector2 = LEGACY_COLLISION_OFFSET
+	if _uses_character_visual and _character_visual != null:
+		collision_offset = _character_visual.position + _character_visual.get_feet_local_position()
+		collision_offset += _character_visual.get_world_collision_offset()
+	if body_collision_shape != null:
+		body_collision_shape.position = collision_offset
+	if click_collision_shape != null:
+		click_collision_shape.position = collision_offset
 
 # 沿当前自动寻路路径计算本帧移动方向，并在到达节点后切换到下一个节点。
 func _update_auto_move_direction() -> void:

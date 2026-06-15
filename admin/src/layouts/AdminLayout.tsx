@@ -29,7 +29,7 @@ export function AdminLayout({ profile }: AdminLayoutProps) {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider width={220} theme="light">
-        <div style={{ padding: 20, fontWeight: 700 }}>Pocket Pet Admin</div>
+        <div style={{ padding: 20, fontWeight: 700 }}>口袋宠物运营后台</div>
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}

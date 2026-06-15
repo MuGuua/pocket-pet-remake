@@ -11,4 +11,5 @@ type Repository interface {
 	DeleteForAdmin(ctx context.Context, playerID uint64) error
 	UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX, posY int32) error
 	AddExp(ctx context.Context, playerID uint64, exp uint64) (*Profile, error)
+	CountActivePlayers(ctx context.Context) (uint64, error)
 }

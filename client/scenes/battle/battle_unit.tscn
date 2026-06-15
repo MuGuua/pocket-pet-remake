@@ -1,0 +1,138 @@
+[gd_scene load_steps=14 format=3 uid="uid://dcq0v6mibiqva"]
+
+[ext_resource type="Script" uid="uid://ba801osq37gfc" path="res://scripts/feature/battle/battle_unit.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://c30ik2o46quif" path="res://asset/分类/宠物/两图宠物/440.png" id="2_b86jy"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+radius = 4.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lp05i"]
+atlas = ExtResource("2_b86jy")
+region = Rect2(0, 0, 60, 74)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_x2q7m"]
+atlas = ExtResource("2_b86jy")
+region = Rect2(60, 0, 60, 74)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_7x877"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lp05i")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_x2q7m")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_b86jy"]
+load_path = "res://.godot/imported/战斗箭头.png-3593a8b346561b105ec1be43dba1dc12.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7x877"]
+atlas = SubResource("CompressedTexture2D_b86jy")
+region = Rect2(15, 0, 15, 11)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_4estc"]
+load_path = "res://.godot/imported/战斗箭头.png-3593a8b346561b105ec1be43dba1dc12.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_i1hm4"]
+atlas = SubResource("CompressedTexture2D_4estc")
+region = Rect2(0, 0, 15, 11)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_b86jy"]
+bg_color = Color(0.40784314, 0.12941177, 0.23137255, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lp05i"]
+bg_color = Color(0.9490196, 0.6666667, 0.32941177, 1)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_click"]
+size = Vector2(33, 37)
+
+[node name="BattleUnit" type="CharacterBody2D"]
+position = Vector2(0, -21)
+collision_layer = 0
+collision_mask = 0
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_1")
+disabled = true
+
+[node name="CharacterSprite" type="AnimatedSprite2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(0, -6)
+scale = Vector2(0.85, 0.85)
+sprite_frames = SubResource("SpriteFrames_7x877")
+frame_progress = 0.72327393
+
+[node name="TargetArrow" type="Sprite2D" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 4
+position = Vector2(-42, 4)
+scale = Vector2(1.5, 1.5)
+texture = SubResource("AtlasTexture_7x877")
+
+[node name="AllyTargetArrow" type="Sprite2D" parent="."]
+unique_name_in_owner = true
+visible = false
+position = Vector2(43, 4)
+scale = Vector2(1.5, 1.5)
+texture = SubResource("AtlasTexture_i1hm4")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+unique_name_in_owner = true
+
+[node name="StatusRoot" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -32.0
+offset_top = 26.5
+offset_right = 32.0
+offset_bottom = 29.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HpBar" type="ProgressBar" parent="StatusRoot"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(64, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -32.0
+offset_top = -1.5
+offset_right = 32.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_b86jy")
+theme_override_styles/fill = SubResource("StyleBoxFlat_lp05i")
+value = 100.0
+show_percentage = false
+
+[node name="ClickArea" type="Area2D" parent="."]
+z_index = 1
+position = Vector2(0, -6)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ClickArea"]
+visible = false
+position = Vector2(0.5, 8.5)
+shape = SubResource("RectangleShape2D_click")

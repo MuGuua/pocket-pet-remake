@@ -5,6 +5,7 @@ export interface AdminMonsterDefinitionSummary {
   quality: number;
   is_enabled: boolean;
   status_text: string;
+  skin_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +34,7 @@ export interface AdminMonsterDefinitionDetail {
   description: string;
   is_enabled: boolean;
   status_text: string;
+  skin_id: string;
   base_stats: AdminMonsterDefinitionBaseStats;
   skill_ids: number[];
   is_capturable: boolean;
@@ -55,6 +57,7 @@ export interface AdminUpsertMonsterDefinitionPayload {
   monster_name: string;
   description: string;
   is_enabled: boolean;
+  skin_id: string;
   level: number;
   quality: number;
   hp: number;

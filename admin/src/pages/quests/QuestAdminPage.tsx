@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -23,6 +22,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminPlayerQuest,
   createAdminQuestTemplate,
@@ -49,6 +49,15 @@ import type {
   AdminUpdatePlayerQuestPayload,
   AdminUpdateQuestTemplatePayload,
 } from '../../types/quest';
+import {
+  buildFilterSelectOptions,
+  buildSelectOptions,
+  formatDisplayLabel,
+  QUEST_MODE_LABELS,
+  QUEST_STATE_LABELS,
+  QUEST_TYPE_LABELS,
+} from '../../utils/displayLabels';
+import { formatDateTime } from '../../utils/formatDateTime';
 
 interface TemplateFormValues {
   quest_id?: number;
@@ -89,22 +98,13 @@ const editableTemplateStatusOptions = [
   { label: '停用', value: 0 },
 ];
 
-const questTypeOptions = [
-  { label: 'MAIN', value: 'MAIN' },
-  { label: 'SIDE', value: 'SIDE' },
-  { label: 'DAILY', value: 'DAILY' },
-];
+const questTypeOptions = buildSelectOptions(QUEST_TYPE_LABELS);
 
-const questStateOptions = [
-  { label: '全部状态', value: '' },
-  { label: 'LOCKED', value: 'LOCKED' },
-  { label: 'AVAILABLE', value: 'AVAILABLE' },
-  { label: 'ACCEPTED', value: 'ACCEPTED' },
-  { label: 'READY_TO_SUBMIT', value: 'READY_TO_SUBMIT' },
-  { label: 'COMPLETED', value: 'COMPLETED' },
-];
+const questStateOptions = buildFilterSelectOptions(QUEST_STATE_LABELS, '全部状态');
 
-const editableQuestStateOptions = questStateOptions.filter((item) => item.value !== '');
+const editableQuestStateOptions = buildSelectOptions(QUEST_STATE_LABELS);
+
+const questModeOptions = buildSelectOptions(QUEST_MODE_LABELS);
 
 // 任务管理页把模板管理和玩家任务修正放到同一个页面，方便策划和运营在一个入口完成模板配置与进度排障。
 export function QuestAdminPage() {
@@ -240,21 +240,38 @@ function QuestTemplatePanel() {
       { title: '任务ID', dataIndex: 'quest_id', key: 'quest_id', width: 110, fixed: 'left' },
       { title: '模板名', dataIndex: 'name', key: 'name', width: 160 },
       { title: '标题', dataIndex: 'title', key: 'title', width: 180 },
-      { title: '类型', dataIndex: 'quest_type', key: 'quest_type', width: 100 },
+      { title: '类型', dataIndex: 'quest_type', key: 'quest_type', width: 100, render: (value: string) => formatDisplayLabel(QUEST_TYPE_LABELS, value) },
       { title: '章节/排序', key: 'sort', width: 120, render: (_v, record) => `${record.chapter}/${record.sort_order}` },
-      { title: '接/交模式', key: 'mode', width: 140, render: (_v, record) => `${record.accept_mode}/${record.submit_mode}` },
+      {
+        title: '接/交模式',
+        key: 'mode',
+        width: 140,
+        render: (_v, record) => `${formatDisplayLabel(QUEST_MODE_LABELS, record.accept_mode)}/${formatDisplayLabel(QUEST_MODE_LABELS, record.submit_mode)}`,
+      },
       { title: '自动追踪', dataIndex: 'auto_track', key: 'auto_track', width: 100, render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '是' : '否'}</Tag> },
       { title: '状态', dataIndex: 'status_text', key: 'status_text', width: 100, render: (value: string) => <Tag color={value === '启用' ? 'blue' : 'default'}>{value}</Tag> },
       {
-        title: '操作', key: 'actions', width: 220, fixed: 'right', render: (_v, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.quest_id)}>查看</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.quest_id)}>编辑</Button>
-            <Popconfirm title="确认停用这个任务模板吗？" description="这里会把模板状态改成停用，不直接物理删除。" onConfirm={() => void handleDelete(record.quest_id)} okText="确认停用" cancelText="取消">
-              <Button type="link" danger loading={deletingID === record.quest_id}>删除</Button>
-            </Popconfirm>
-          </Space>
-        )
+        title: '操作', key: 'actions', width: 100, fixed: 'right', render: (_v, record) => (
+          <TableActionDropdown
+            loading={deletingID === record.quest_id}
+            actions={[
+              { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.quest_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.quest_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: {
+                  title: '确认停用这个任务模板吗？',
+                  description: '这里会把模板状态改成停用，不直接物理删除。',
+                  okText: '确认停用',
+                  cancelText: '取消',
+                },
+                onClick: () => void handleDelete(record.quest_id),
+              },
+            ]}
+          />
+        ),
       },
     ],
     [deletingID],
@@ -296,10 +313,10 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="任务ID">{detail.quest_id}</Descriptions.Item>
             <Descriptions.Item label="模板名">{detail.name}</Descriptions.Item>
             <Descriptions.Item label="标题" span={2}>{detail.title}</Descriptions.Item>
-            <Descriptions.Item label="类型">{detail.quest_type}</Descriptions.Item>
+            <Descriptions.Item label="类型">{formatDisplayLabel(QUEST_TYPE_LABELS, detail.quest_type)}</Descriptions.Item>
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
-            <Descriptions.Item label="接取方式">{detail.accept_mode}</Descriptions.Item>
-            <Descriptions.Item label="提交方式">{detail.submit_mode}</Descriptions.Item>
+            <Descriptions.Item label="接取方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.accept_mode)}</Descriptions.Item>
+            <Descriptions.Item label="提交方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.submit_mode)}</Descriptions.Item>
             <Descriptions.Item label="起始 NPC">{detail.start_npc_id}</Descriptions.Item>
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
             <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
@@ -317,8 +334,8 @@ function QuestTemplatePanel() {
             <Col span={24}><Form.Item label="描述" name="description"><Input.TextArea rows={3} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="章节" name="chapter"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={[{ label: 'AUTO', value: 'AUTO' }, { label: 'NPC', value: 'NPC' }]} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={[{ label: 'AUTO', value: 'AUTO' }, { label: 'NPC', value: 'NPC' }]} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={questModeOptions} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="提交 NPC" name="submit_npc_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
@@ -452,19 +469,34 @@ function PlayerQuestPanel() {
       { title: '玩家名', dataIndex: 'player_name', key: 'player_name', width: 140 },
       { title: '任务ID', dataIndex: 'quest_id', key: 'quest_id', width: 110 },
       { title: '任务标题', dataIndex: 'quest_title', key: 'quest_title', width: 180 },
-      { title: '状态', dataIndex: 'state', key: 'state', width: 150, render: (value: string) => <Tag color={value === 'COMPLETED' ? 'green' : 'blue'}>{value}</Tag> },
+      {
+        title: '状态',
+        dataIndex: 'state',
+        key: 'state',
+        width: 150,
+        render: (value: string) => (
+          <Tag color={value === 'COMPLETED' ? 'green' : 'blue'}>{formatDisplayLabel(QUEST_STATE_LABELS, value)}</Tag>
+        ),
+      },
       { title: '追踪', dataIndex: 'tracked', key: 'tracked', width: 90, render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '是' : '否'}</Tag> },
       { title: '已领奖', dataIndex: 'reward_claimed', key: 'reward_claimed', width: 100, render: (value: boolean) => <Tag color={value ? 'gold' : 'default'}>{value ? '是' : '否'}</Tag> },
       {
-        title: '操作', key: 'actions', width: 220, fixed: 'right', render: (_v, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.record_id)}>查看</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.record_id)}>编辑</Button>
-            <Popconfirm title="确认删除这条玩家任务记录吗？" onConfirm={() => void handleDelete(record.record_id)} okText="确认删除" cancelText="取消">
-              <Button type="link" danger loading={deletingID === record.record_id}>删除</Button>
-            </Popconfirm>
-          </Space>
-        )
+        title: '操作', key: 'actions', width: 100, fixed: 'right', render: (_v, record) => (
+          <TableActionDropdown
+            loading={deletingID === record.record_id}
+            actions={[
+              { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.record_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.record_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这条玩家任务记录吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => void handleDelete(record.record_id),
+              },
+            ]}
+          />
+        ),
       },
     ],
     [deletingID],
@@ -511,7 +543,7 @@ function PlayerQuestPanel() {
             <Descriptions.Item label="玩家名">{detail.player_name}</Descriptions.Item>
             <Descriptions.Item label="任务ID">{detail.quest_id}</Descriptions.Item>
             <Descriptions.Item label="任务标题" span={2}>{detail.quest_title}</Descriptions.Item>
-            <Descriptions.Item label="状态">{detail.state}</Descriptions.Item>
+            <Descriptions.Item label="状态">{formatDisplayLabel(QUEST_STATE_LABELS, detail.state)}</Descriptions.Item>
             <Descriptions.Item label="追踪">{detail.tracked ? '是' : '否'}</Descriptions.Item>
             <Descriptions.Item label="已领奖">{detail.reward_claimed ? '是' : '否'}</Descriptions.Item>
             <Descriptions.Item label="接受时间">{formatDateTime(detail.accepted_at)}</Descriptions.Item>
@@ -648,13 +680,6 @@ function parseJSONArray<T>(text: string, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 const jsonBlockStyle: CSSProperties = {

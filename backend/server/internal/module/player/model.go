@@ -13,6 +13,9 @@ var (
 	ErrInvalidAdminInput     = errors.New("invalid admin player input")
 )
 
+// DefaultPlayerSkinID 是玩家尚未配置形象时的服务端默认资源 ID。
+const DefaultPlayerSkinID = "初始形象男_001"
+
 type Profile struct {
 	PlayerID           uint64
 	Name               string
@@ -48,6 +51,8 @@ type Profile struct {
 	MercenaryResistPct uint32
 	GenericShieldPct   uint32
 	SkillIDs           []uint32
+	// SkinID 是当前玩家形象资源 ID，世界与战斗表现层共用。
+	SkinID string
 }
 
 // AdminListQuery 描述后台玩家列表检索条件。
@@ -97,6 +102,7 @@ type AdminCreatePlayerInput struct {
 	MANA        uint32   `json:"mana"`
 	Status      uint32   `json:"status"`
 	SkillIDs    []uint32 `json:"skill_ids"`
+	SkinID      string   `json:"skin_id"`
 }
 
 // Normalize 会为后台创建玩家补齐服务端默认值，避免前端遗漏字段导致落库残缺。
@@ -122,6 +128,7 @@ func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
 	if input.EnergyMax == 0 {
 		input.EnergyMax = input.Energy
 	}
+	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input
 }
 
@@ -145,6 +152,7 @@ type AdminUpdatePlayerInput struct {
 	MANA      uint32   `json:"mana"`
 	Status    uint32   `json:"status"`
 	SkillIDs  []uint32 `json:"skill_ids"`
+	SkinID    string   `json:"skin_id"`
 }
 
 func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
@@ -161,6 +169,7 @@ func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
 	if input.EnergyMax == 0 {
 		input.EnergyMax = input.Energy
 	}
+	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input
 }
 
@@ -233,6 +242,7 @@ type AdminPlayerDetail struct {
 	MercenaryResistPct uint32     `json:"mercenary_resist_pct"`
 	GenericShieldPct   uint32     `json:"generic_shield_pct"`
 	SkillIDs           []uint32   `json:"skill_ids"`
+	SkinID             string     `json:"skin_id"`
 	LastLoginAt        *time.Time `json:"last_login_at"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`

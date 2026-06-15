@@ -58,6 +58,7 @@ type AdminDefinitionSummary struct {
 	Quality     uint32    `json:"quality"`
 	IsEnabled   bool      `json:"is_enabled"`
 	StatusText  string    `json:"status_text"`
+	SkinID      string    `json:"skin_id"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedAt   time.Time `json:"created_at"`
 }
@@ -88,6 +89,7 @@ type AdminDefinitionDetail struct {
 	StatusText      string                   `json:"status_text"`
 	BaseStats       AdminDefinitionBaseStats `json:"base_stats"`
 	SkillIDs        []uint32                 `json:"skill_ids"`
+	SkinID          string                   `json:"skin_id"`
 	IsCapturable    bool                     `json:"is_capturable"`
 	CapturePetID    uint32                   `json:"capture_pet_id"`
 	CaptureRateBase uint32                   `json:"capture_rate_base"`
@@ -111,6 +113,7 @@ type AdminUpsertDefinitionInput struct {
 	SPD             uint32   `json:"spd"`
 	MANA            uint32   `json:"mana"`
 	SkillIDs        []uint32 `json:"skill_ids"`
+	SkinID          string   `json:"skin_id"`
 	IsCapturable    bool     `json:"is_capturable"`
 	CapturePetID    uint32   `json:"capture_pet_id"`
 	CaptureRateBase uint32   `json:"capture_rate_base"`
@@ -148,6 +151,7 @@ func (input AdminUpsertDefinitionInput) Normalize() AdminUpsertDefinitionInput {
 	if input.CaptureItemIDs == nil {
 		input.CaptureItemIDs = []uint32{}
 	}
+	input.SkinID = strings.TrimSpace(input.SkinID)
 	if !input.IsCapturable {
 		input.CapturePetID = 0
 	}
@@ -310,6 +314,7 @@ type RuntimeDefinition struct {
 	SPD         uint32
 	MANA        uint32
 	SkillIDs    []uint32
+	SkinID      string
 }
 
 // RuntimeEncounterSlot 描述一次遭遇中的一个怪物槽位。
@@ -324,6 +329,7 @@ type RuntimeEncounterSlot struct {
 	SPD         uint32
 	MANA        uint32
 	SkillIDs    []uint32
+	SkinID      string
 }
 
 // RuntimeEncounter 是按 entity_id 解析后的完整遭遇。

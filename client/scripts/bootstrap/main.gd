@@ -4,6 +4,7 @@ const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 # 世界场景资源的预加载引用。
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
+const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/player_panel.tscn")
 const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
@@ -14,6 +15,8 @@ const GENERIC_NPC_DIALOGUE_PATH := "res://dialogue/测试1.dialogue"
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 # 场景切换遮罩淡入淡出的持续时间。
 const TRANSITION_DURATION := 0.18
+# 进入战斗时黑色遮罩的渐入渐出时长，略长于普通场景切换以掩盖加载过程。
+const BATTLE_TRANSITION_DURATION := 0.28
 # 当前客户端默认只允许从附近玩家列表中发起 PVP 挑战，避免没有明确目标时误发请求。
 const PLAYER_ENTITY_TYPE: int = 1
 
@@ -36,6 +39,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 
 # 当前挂载的世界控制器实例引用。
 var _world_controller: Node
+# 战斗表现场景实例；非战斗态时为 null。
+var _battle_scene: Control = null
 # 标记当前是否正在跳回登录页，避免重复切场景。
 var _redirecting_to_login: bool = false
 var _main_menu: CanvasLayer
@@ -367,16 +372,30 @@ func _on_interact_responded(accepted: bool, reason: String) -> void:
 func _on_action_responded(accepted: bool, reason: String) -> void:
 	_append_log("战斗动作结果: %s (%s)" % ["accepted" if accepted else "rejected", reason])
 
-# 处理战斗开始事件；当前已移除独立战斗场景，仅保留运行态日志与头部状态提示。
+# 处理战斗开始事件，挂载战斗表现场景。
 func _on_battle_started(payload: Dictionary) -> void:
 	_append_log("收到战斗开始事件。")
 	_close_runtime_menus()
 	if payload.has("battle_id"):
 		_append_log("战斗ID: %s" % str(payload.get("battle_id", "")))
+	await _enter_battle_with_transition(payload)
 	_refresh_view()
 
-# 处理战斗结束事件，并回到普通世界 HUD 展示。
+## 黑色渐入 → 加载战斗场景与数据 → 渐出，掩盖世界到战斗的切换过程。
+func _enter_battle_with_transition(payload: Dictionary) -> void:
+	if transition_overlay == null:
+		await _mount_battle_scene(payload)
+		return
+	transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	await _fade_overlay(1.0, BATTLE_TRANSITION_DURATION)
+	await _mount_battle_scene(payload)
+	await get_tree().process_frame
+	await _fade_overlay(0.0, BATTLE_TRANSITION_DURATION)
+	transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+# 处理战斗结束事件，卸载战斗场景并回到世界 HUD。
 func _on_battle_finished(payload: Dictionary) -> void:
+	_unmount_battle_scene()
 	var reward_gold := int(payload.get("reward_gold", 0))
 	var reward_player_exp := int(payload.get("reward_player_exp", 0))
 	var drop_texts_variant: Variant = payload.get("drop_texts", [])
@@ -391,6 +410,45 @@ func _on_battle_finished(payload: Dictionary) -> void:
 			_append_log(drop_text)
 	App.request_quest_list()
 	_refresh_view()
+
+func _mount_battle_scene(payload: Dictionary) -> void:
+	var map_snapshot: Texture2D = await _capture_world_map_snapshot()
+	if _battle_scene != null:
+		if map_snapshot != null and _battle_scene.has_method("apply_background_texture"):
+			_battle_scene.call("apply_background_texture", map_snapshot)
+		if _battle_scene.has_method("_on_battle_started"):
+			_battle_scene.call("_on_battle_started", payload)
+		return
+	_battle_scene = BATTLE_SCENE.instantiate() as Control
+	if _battle_scene == null:
+		return
+	gameplay_area.add_child(_battle_scene)
+	_battle_scene.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_battle_scene.z_index = 10
+	if _battle_scene.has_method("bind_battle_controller"):
+		_battle_scene.call("bind_battle_controller", battle_controller)
+	if map_snapshot != null and _battle_scene.has_method("apply_background_texture"):
+		_battle_scene.call("apply_background_texture", map_snapshot)
+	if _battle_scene.has_method("_on_battle_started"):
+		_battle_scene.call("_on_battle_started", payload)
+	if world_mount != null:
+		world_mount.visible = false
+
+func _capture_world_map_snapshot() -> Texture2D:
+	if _world_controller == null:
+		return null
+	if _world_controller.has_method("capture_current_map_snapshot_async"):
+		return await _world_controller.capture_current_map_snapshot_async() as Texture2D
+	if _world_controller.has_method("capture_current_map_snapshot"):
+		return _world_controller.capture_current_map_snapshot() as Texture2D
+	return null
+
+func _unmount_battle_scene() -> void:
+	if _battle_scene != null:
+		_battle_scene.queue_free()
+		_battle_scene = null
+	if world_mount != null:
+		world_mount.visible = true
 
 # 处理底层 WebSocket 关闭事件，并在需要时跳回登录页。
 func _on_websocket_closed(code: int, reason: String) -> void:
@@ -775,10 +833,10 @@ func _play_fade_in() -> void:
 	transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 # 把遮罩透明度过渡到指定目标值。
-func _fade_overlay(target_alpha: float) -> void:
+func _fade_overlay(target_alpha: float, duration: float = TRANSITION_DURATION) -> void:
 	# 创建当前使用的过渡补间动画。
 	var tween := create_tween()
-	tween.tween_property(transition_overlay, "color:a", target_alpha, TRANSITION_DURATION)
+	tween.tween_property(transition_overlay, "color:a", target_alpha, duration)
 	await tween.finished
 
 # 对令牌做简化展示，避免完整内容直接显示在界面上。

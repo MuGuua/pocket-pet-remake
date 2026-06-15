@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -23,6 +22,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminMonsterDefinition,
   deleteAdminMonsterDefinition,
@@ -176,6 +176,7 @@ export function MonsterDefinitionPage() {
       { title: '名称', dataIndex: 'monster_name', key: 'monster_name', width: 160 },
       { title: '等级', dataIndex: 'level', key: 'level', width: 90 },
       { title: '品质', dataIndex: 'quality', key: 'quality', width: 90 },
+      { title: '战斗外观ID', dataIndex: 'skin_id', key: 'skin_id', width: 140, ellipsis: true },
       {
         title: '启用',
         dataIndex: 'is_enabled',
@@ -186,16 +187,22 @@ export function MonsterDefinitionPage() {
       {
         title: '操作',
         key: 'actions',
-        width: 220,
+        width: 100,
         fixed: 'right',
         render: (_value, record) => (
-          <Space size="small">
-            <Button type="link" onClick={() => void handleViewDetail(record.monster_id)}>详情</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.monster_id)}>编辑</Button>
-            <Popconfirm title="确认删除这个系统怪物模板吗？" onConfirm={() => void handleDelete(record.monster_id)} okText="确认删除" cancelText="取消">
-              <Button type="link" danger>删除</Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            actions={[
+              { key: 'view', label: '详情', onClick: () => void handleViewDetail(record.monster_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.monster_id) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这个系统怪物模板吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => void handleDelete(record.monster_id),
+              },
+            ]}
+          />
         ),
       },
     ],
@@ -256,6 +263,7 @@ export function MonsterDefinitionPage() {
             <Descriptions bordered column={2} size="small" title="基础信息">
               <Descriptions.Item label="怪物ID">{detail.monster_id}</Descriptions.Item>
               <Descriptions.Item label="名称">{detail.monster_name}</Descriptions.Item>
+              <Descriptions.Item label="战斗外观ID">{detail.skin_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
               <Descriptions.Item label="描述" span={2}>{detail.description || '-'}</Descriptions.Item>
             </Descriptions>
@@ -299,6 +307,27 @@ export function MonsterDefinitionPage() {
           <Row gutter={16}>
             <Col xs={24} md={8}><Form.Item label="怪物ID" name="monster_id" rules={[{ required: true, message: '请输入怪物ID' }]}><InputNumber min={1} disabled={Boolean(editingRecord)} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="怪物名称" name="monster_name" rules={[{ required: true, message: '请输入怪物名称' }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="战斗外观ID"
+                name="skin_id"
+                extra="对应客户端 unit_skins/{skin_id}.tres；启用模板时必填"
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator: async (_rule, value: string | undefined) => {
+                      if (!getFieldValue('is_enabled')) {
+                        return;
+                      }
+                      if (!value || !value.trim()) {
+                        throw new Error('启用模板时必须填写战斗外观ID');
+                      }
+                    },
+                  }),
+                ]}
+              >
+                <Input placeholder="例如：史莱姆_001" />
+              </Form.Item>
+            </Col>
             <Col span={24}><Form.Item label="描述" name="description"><Input.TextArea rows={2} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
@@ -339,6 +368,7 @@ function defaultMonsterDefinitionValues(): MonsterDefinitionFormValues {
     monster_name: '新系统怪物',
     description: '',
     is_enabled: true,
+    skin_id: '',
     level: 1,
     quality: 1,
     hp: 20,
@@ -364,6 +394,7 @@ function mapDetailToFormValues(detail: AdminMonsterDefinitionDetail, skillRefere
     monster_name: detail.monster_name,
     description: detail.description,
     is_enabled: detail.is_enabled,
+    skin_id: detail.skin_id,
     level: detail.base_stats.level,
     quality: detail.base_stats.quality,
     hp: detail.base_stats.hp,
@@ -391,6 +422,7 @@ function buildPayloadFromForm(values: MonsterDefinitionFormValues, skillReferenc
     monster_name: values.monster_name.trim(),
     description: values.description?.trim() ?? '',
     is_enabled: Boolean(values.is_enabled),
+    skin_id: values.skin_id?.trim() ?? '',
     level: Number(values.level),
     quality: Number(values.quality),
     hp: Number(values.hp),

@@ -35,6 +35,7 @@ const skillDefinitionSelectColumns = `
   target_count,
   preferred_target_hp,
   animation_key,
+  skill_visual_id,
   cast_color,
   impact_color,
   projectile,
@@ -100,7 +101,7 @@ FROM skill_definition
 const skillDefinitionInsertColumns = `
   skill_id, skill_code, skill_name, skill_category, skill_type, description, acquire_method,
   target_type, target_count, preferred_target_hp,
-  animation_key, cast_color, impact_color, projectile,
+  animation_key, skill_visual_id, cast_color, impact_color, projectile,
   is_skill_attack, is_basic_attack, energy_cost, allow_crit, ignore_defense,
   attack_pct, mana_pct, defense_pct, speed_pct, target_current_hp_pct, fixed_damage, heal_pct, fixed_heal,
   armor_break_pct, vulnerability_pct,
@@ -116,7 +117,7 @@ const skillDefinitionInsertColumns = `
 `
 
 const skillDefinitionInsertPlaceholders = `
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54
 `
 
 const insertSkillDefinitionQuery = `
@@ -136,48 +137,49 @@ SET skill_code = $2,
     target_count = $9,
     preferred_target_hp = $10,
     animation_key = $11,
-    cast_color = $12,
-    impact_color = $13,
-    projectile = $14,
-    is_skill_attack = $15,
-    is_basic_attack = $16,
-    energy_cost = $17,
-    allow_crit = $18,
-    ignore_defense = $19,
-    attack_pct = $20,
-    mana_pct = $21,
-    defense_pct = $22,
-    speed_pct = $23,
-    target_current_hp_pct = $24,
-    fixed_damage = $25,
-    heal_pct = $26,
-    fixed_heal = $27,
-    armor_break_pct = $28,
-    vulnerability_pct = $29,
-    bleed_chance_pct = $30,
-    bleed_rounds = $31,
-    bleed_damage = $32,
-    seal_chance_pct = $33,
-    seal_rounds = $34,
-    vulnerability_chance_pct = $35,
-    vulnerability_rounds = $36,
-    vulnerability_apply_pct = $37,
-    armor_break_chance_pct = $38,
-    armor_break_rounds = $39,
-    slow_chance_pct = $40,
-    slow_rounds = $41,
-    slow_multiplier_pct = $42,
-    crit_boost_rounds = $43,
-    crit_boost_pct = $44,
-    curse_chance_pct = $45,
-    curse_rounds = $46,
-    curse_damage = $47,
-    curse_mana_pct = $48,
-    control_chance_pct = $49,
-    control_rounds = $50,
-    control_status_id = $51,
-    sort_weight = $52,
-    status = $53
+    skill_visual_id = $12,
+    cast_color = $13,
+    impact_color = $14,
+    projectile = $15,
+    is_skill_attack = $16,
+    is_basic_attack = $17,
+    energy_cost = $18,
+    allow_crit = $19,
+    ignore_defense = $20,
+    attack_pct = $21,
+    mana_pct = $22,
+    defense_pct = $23,
+    speed_pct = $24,
+    target_current_hp_pct = $25,
+    fixed_damage = $26,
+    heal_pct = $27,
+    fixed_heal = $28,
+    armor_break_pct = $29,
+    vulnerability_pct = $30,
+    bleed_chance_pct = $31,
+    bleed_rounds = $32,
+    bleed_damage = $33,
+    seal_chance_pct = $34,
+    seal_rounds = $35,
+    vulnerability_chance_pct = $36,
+    vulnerability_rounds = $37,
+    vulnerability_apply_pct = $38,
+    armor_break_chance_pct = $39,
+    armor_break_rounds = $40,
+    slow_chance_pct = $41,
+    slow_rounds = $42,
+    slow_multiplier_pct = $43,
+    crit_boost_rounds = $44,
+    crit_boost_pct = $45,
+    curse_chance_pct = $46,
+    curse_rounds = $47,
+    curse_damage = $48,
+    curse_mana_pct = $49,
+    control_chance_pct = $50,
+    control_rounds = $51,
+    control_status_id = $52,
+    sort_weight = $53,
+    status = $54
 WHERE skill_id = $1
 `
 
@@ -365,7 +367,7 @@ func skillUpsertArgs(skillID uint32, input skill.AdminUpsertInput, status int64)
 	return []any{
 		skillID, input.SkillCode, input.SkillName, input.SkillCategory, input.SkillType, input.Description, input.AcquireMethod,
 		input.TargetType, input.TargetCount, input.PreferredTargetHP,
-		input.AnimationKey, input.CastColor, input.ImpactColor, input.Projectile,
+		input.AnimationKey, input.SkillVisualID, input.CastColor, input.ImpactColor, input.Projectile,
 		input.IsSkillAttack, input.IsBasicAttack, input.EnergyCost, input.AllowCrit, input.IgnoreDefense,
 		input.AttackPct, input.ManaPct, input.DefensePct, input.SpeedPct, input.TargetCurrentHPPct, input.FixedDamage, input.HealPct, input.FixedHeal,
 		input.ArmorBreakPct, input.VulnerabilityPct,
@@ -412,6 +414,7 @@ type skillDefinitionRow struct {
 	targetCount   int64
 	preferredHP   string
 	animationKey  string
+	skillVisualID string
 	castColor     string
 	impactColor   string
 	projectile    bool
@@ -465,7 +468,7 @@ func scanSkillDefinitionRow(scanner interface {
 	err := scanner.Scan(
 		&row.skillID, &row.skillCode, &row.skillName, &row.skillCategory, &row.skillType, &row.description, &row.acquireMethod,
 		&row.targetType, &row.targetCount, &row.preferredHP,
-		&row.animationKey, &row.castColor, &row.impactColor, &row.projectile,
+		&row.animationKey, &row.skillVisualID, &row.castColor, &row.impactColor, &row.projectile,
 		&row.isSkillAttack, &row.isBasicAttack, &row.energyCost, &row.allowCrit, &row.ignoreDefense,
 		&row.attackPct, &row.manaPct, &row.defensePct, &row.speedPct, &row.targetHPPct, &row.fixedDamage, &row.healPct, &row.fixedHeal,
 		&row.armorBreakPct, &row.vulnPct,
@@ -556,8 +559,9 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 			ControlStatusID:        uint32(raw.controlStatus),
 		},
 		Presentation: skill.AdminPresentation{
-			AnimationKey: raw.animationKey,
-			CastColor:    raw.castColor,
+			AnimationKey:  raw.animationKey,
+			SkillVisualID: raw.skillVisualID,
+			CastColor:     raw.castColor,
 			ImpactColor:  raw.impactColor,
 			Projectile:   raw.projectile,
 		},
@@ -580,6 +584,7 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		TargetCount:            uint32(raw.targetCount),
 		PreferredTargetHP:      raw.preferredHP,
 		AnimationKey:           raw.animationKey,
+		SkillVisualID:          raw.skillVisualID,
 		CastColor:              raw.castColor,
 		ImpactColor:            raw.impactColor,
 		Projectile:             raw.projectile,

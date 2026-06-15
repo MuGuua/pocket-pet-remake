@@ -226,6 +226,35 @@ func set_render_frame_size(size: Vector2) -> void:
 	_render_frame_size = size
 	_refresh_game_layout()
 
+## 截取当前世界地图视口画面，供战斗场景作为背景使用。
+func capture_current_map_snapshot() -> Texture2D:
+	if game_viewport == null:
+		return null
+	var viewport_texture: ViewportTexture = game_viewport.get_texture()
+	if viewport_texture == null:
+		return null
+	var snapshot_image: Image = viewport_texture.get_image()
+	if snapshot_image == null or snapshot_image.is_empty():
+		return null
+	return ImageTexture.create_from_image(snapshot_image)
+
+## 异步截取世界地图：先隐藏玩家与点击标记，等待一帧渲染后再读取视口。
+func capture_current_map_snapshot_async() -> Texture2D:
+	if game_viewport == null:
+		return null
+	var hidden_nodes: Array[CanvasItem] = []
+	if player_node != null and player_node.visible:
+		player_node.visible = false
+		hidden_nodes.append(player_node)
+	if _click_destination_marker_root != null and _click_destination_marker_root.visible:
+		_click_destination_marker_root.visible = false
+		hidden_nodes.append(_click_destination_marker_root)
+	await get_tree().process_frame
+	var snapshot: Texture2D = capture_current_map_snapshot()
+	for node: CanvasItem in hidden_nodes:
+		node.visible = true
+	return snapshot
+
 func load_level(scene_path: String) -> void:
 	if scene_path.is_empty():
 		push_warning("Level scene path is empty.")

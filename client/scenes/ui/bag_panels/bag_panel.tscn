@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_wxjm4"]
 [ext_resource type="Texture2D" uid="uid://lw14leuar8qe" path="res://asset/分类/ui/精灵-0007.png" id="3_bu7xo"]
 [ext_resource type="PackedScene" uid="uid://cy7ymccdw2m71" path="res://scenes/ui/slot.tscn" id="4_krklo"]
-[ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/战斗箭头.png" id="5_cw7q7"]
+[ext_resource type="Texture2D" uid="uid://34am3ixgoon0" path="res://asset/分类/ui/战斗箭头.png" id="5_cw7q7"]
 [ext_resource type="Script" uid="uid://dmrggypy3lmki" path="res://scripts/ui/bag_panel.gd" id="6_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_wxjm4"]

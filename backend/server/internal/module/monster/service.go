@@ -3,6 +3,7 @@ package monster
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"pocket-pet-remake/server/internal/module/skill"
 )
@@ -113,6 +114,9 @@ func (s *Service) CreateAdminMonsterDefinition(ctx context.Context, input AdminU
 	if input.MonsterID == 0 || input.MonsterName == "" {
 		return nil, ErrInvalidAdminMonsterDefinitionInput
 	}
+	if input.IsEnabled && strings.TrimSpace(input.SkinID) == "" {
+		return nil, ErrInvalidAdminMonsterDefinitionInput
+	}
 	if err := s.validateCaptureConfig(ctx, input); err != nil {
 		return nil, err
 	}
@@ -125,6 +129,9 @@ func (s *Service) CreateAdminMonsterDefinition(ctx context.Context, input AdminU
 func (s *Service) UpdateAdminMonsterDefinition(ctx context.Context, monsterID uint32, input AdminUpsertDefinitionInput) (*AdminDefinitionDetail, error) {
 	input = input.Normalize()
 	if monsterID == 0 || input.MonsterName == "" {
+		return nil, ErrInvalidAdminMonsterDefinitionInput
+	}
+	if input.IsEnabled && strings.TrimSpace(input.SkinID) == "" {
 		return nil, ErrInvalidAdminMonsterDefinitionInput
 	}
 	if err := s.validateCaptureConfig(ctx, input); err != nil {

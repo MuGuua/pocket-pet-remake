@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Row,
   Space,
   Spin,
@@ -21,6 +20,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
@@ -187,15 +187,24 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
       {
         title: '操作',
         key: 'actions',
-        width: 160,
+        width: 100,
         render: (_value, record) => (
-          <Space size="small" onClick={(event) => event.stopPropagation()}>
-            <Button type="link" onClick={() => void handleViewDetail(record.pet_uid)}>查看</Button>
-            <Button type="link" onClick={() => void handleOpenEditor('edit', record.pet_uid)}>编辑</Button>
-            <Popconfirm title="确认删除这个宠物吗？" onConfirm={() => void handleDelete(record.pet_uid)}>
-              <Button type="link" danger loading={deletingID === record.pet_uid}>删除</Button>
-            </Popconfirm>
-          </Space>
+          <span onClick={(event) => event.stopPropagation()}>
+            <TableActionDropdown
+              loading={deletingID === record.pet_uid}
+              actions={[
+                { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.pet_uid) },
+                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.pet_uid) },
+                {
+                  key: 'delete',
+                  label: '删除',
+                  danger: true,
+                  confirm: { title: '确认删除这个宠物吗？' },
+                  onClick: () => void handleDelete(record.pet_uid),
+                },
+              ]}
+            />
+          </span>
         ),
       },
     ],
@@ -239,12 +248,20 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         onClose={() => setPetDetailOpen(false)}
         destroyOnClose
         extra={petDetail ? (
-          <Space>
-            <Button onClick={() => void handleOpenEditor('edit', petDetail.pet_uid)}>编辑</Button>
-            <Popconfirm title="确认删除这个宠物吗？" onConfirm={() => void handleDelete(petDetail.pet_uid)}>
-              <Button danger loading={deletingID === petDetail.pet_uid}>删除</Button>
-            </Popconfirm>
-          </Space>
+          <TableActionDropdown
+            buttonType="default"
+            loading={deletingID === petDetail.pet_uid}
+            actions={[
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', petDetail.pet_uid) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这个宠物吗？' },
+                onClick: () => void handleDelete(petDetail.pet_uid),
+              },
+            ]}
+          />
         ) : null}
       >
         {petDetailLoading ? (

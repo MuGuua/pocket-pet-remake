@@ -1066,14 +1066,15 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 		skillSnapshots := make([]protocol.BattleSkillSnapshot, 0, len(actor.Skills))
 		for _, skill := range actor.Skills {
 			skillSnapshots = append(skillSnapshots, protocol.BattleSkillSnapshot{
-				SkillID:      skill.SkillID,
-				Name:         skill.Name,
-				TargetType:   skill.TargetType,
-				TargetCount:  skill.TargetCount,
-				AnimationKey: skill.AnimationKey,
-				CastColor:    skill.CastColor,
-				ImpactColor:  skill.ImpactColor,
-				Projectile:   skill.Projectile,
+				SkillID:       skill.SkillID,
+				Name:          skill.Name,
+				TargetType:    skill.TargetType,
+				TargetCount:   skill.TargetCount,
+				AnimationKey:  skill.AnimationKey,
+				SkillVisualID: skill.SkillVisualID,
+				CastColor:     skill.CastColor,
+				ImpactColor:   skill.ImpactColor,
+				Projectile:    skill.Projectile,
 			})
 		}
 		result = append(result, protocol.BattleActorSnapshot{
@@ -1084,6 +1085,7 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 			PetUID:        actor.PetUID,
 			PetID:         actor.PetID,
 			Name:          actor.Name,
+			SkinID:        actor.SkinID,
 			HP:            actor.HP,
 			HPMax:         actor.HPMax,
 			ATK:           actor.ATK,

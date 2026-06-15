@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/admin"
+	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/monster"
@@ -18,6 +19,7 @@ import (
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 )
@@ -41,6 +43,7 @@ type AdminHandlers struct {
 	MonsterDefinitions     http.Handler
 	MonsterEncounters      http.Handler
 	SceneWildEncounters    http.Handler
+	Dashboard              http.Handler
 }
 
 type AdminLoginHandler struct {
@@ -77,12 +80,13 @@ type adminLoginRequest struct {
 	Password string `json:"password"`
 }
 
-func NewAdminHandlers(adminService *admin.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service) AdminHandlers {
+func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service) AdminHandlers {
 	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
 		Login:              &AdminLoginHandler{service: adminService},
 		Me:                 http.HandlerFunc(handleAdminMe(adminService)),
 		Health:             http.HandlerFunc(handleAdminHealth),
+		Dashboard:          &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
 		Players:            &AdminPlayerHandler{adminService: adminService, playerService: playerService},
 		Pets:               &AdminPetHandler{adminService: adminService, petService: petService},
 		Bags:               &AdminBagHandler{adminService: adminService, bagService: bagService},

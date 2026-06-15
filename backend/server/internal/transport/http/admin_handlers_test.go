@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"pocket-pet-remake/server/internal/module/admin"
+	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/monster"
@@ -20,6 +21,7 @@ import (
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/teststub"
@@ -54,7 +56,7 @@ func (r *adminRepoStub) TouchLastLoginAt(_ context.Context, adminUserID uint64) 
 }
 
 func TestAdminHealthHandler(t *testing.T) {
-	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -446,7 +448,7 @@ func TestAdminPetDefinitionCRUDHandler(t *testing.T) {
 
 	createBody := marshalJSON(t, pet.AdminUpsertPetDefinitionInput{
 		PetID: 99001, PetName: "后台测试宠物", Description: "用于后台 CRUD 测试", AcquireMethod: "运营发放",
-		IsEnabled: true, Level: 1, Quality: 1, HP: 20, HPMax: 20, ATK: 10, DEF: 8, SPD: 9, MANA: 12,
+		IsEnabled: true, SkinID: "测试宠物_001", Level: 1, Quality: 1, HP: 20, HPMax: 20, ATK: 10, DEF: 8, SPD: 9, MANA: 12,
 		HPApt: 10, ATKApt: 10, DEFApt: 10, SPDApt: 10, MANAApt: 10, SkillIDs: []uint32{1001},
 	})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/pet-definitions", bytes.NewReader(createBody))
@@ -521,7 +523,7 @@ func TestAdminMonsterDefinitionCRUDHandler(t *testing.T) {
 	token := issueAdminTokenForTest(t)
 
 	createBody := marshalJSON(t, monster.AdminUpsertDefinitionInput{
-		MonsterID: 88001, MonsterName: "后台测试怪物", Description: "测试怪物模板", IsEnabled: true,
+		MonsterID: 88001, MonsterName: "后台测试怪物", Description: "测试怪物模板", IsEnabled: true, SkinID: "测试怪物_001",
 		Level: 3, Quality: 1, HP: 30, HPMax: 30, ATK: 14, DEF: 10, SPD: 9, MANA: 8, SkillIDs: []uint32{90001, 90002},
 	})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/monster-definitions", bytes.NewReader(createBody))
@@ -625,10 +627,34 @@ func TestAdminSceneWildEncounterCRUDHandler(t *testing.T) {
 	}
 }
 
+func TestAdminDashboardOverviewHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/dashboard/overview", nil)
+	request.Header.Set("Authorization", "Bearer "+issueAdminTokenForTest(t))
+	response := httptest.NewRecorder()
+
+	handlers.Dashboard.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("response.Code = %d, want %d, body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+	var envelope struct {
+		Data admin.DashboardOverview `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if envelope.Data.TotalAccounts == 0 {
+		t.Fatalf("envelope.Data.TotalAccounts = 0, want > 0")
+	}
+}
+
 func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	t.Helper()
-	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"players:view", "players:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
+	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
 	adminService := admin.NewService(adminRepo, admin.NewHMACSigner("test-secret", time.Hour))
+	authService := auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), auth.NewHMACSigner("test-secret", time.Hour), time.Minute)
+	sessionService := session.NewService(nil, time.Second, time.Minute)
 	skillRepo := teststub.NewSkillRepository()
 	skillService := skill.NewService(skillRepo)
 	if err := skillService.RefreshRuntimeCache(context.Background()); err != nil {
@@ -645,7 +671,7 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
-	return NewAdminHandlers(adminService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
+	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
 }
 
 func issueAdminTokenForTest(t *testing.T) string {

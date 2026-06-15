@@ -14,6 +14,7 @@ type skillDef struct {
 	Name                   string
 	TargetRule             skillTargetRule
 	AnimationKey           string
+	SkillVisualID          string
 	CastColor              string
 	ImpactColor            string
 	Projectile             bool

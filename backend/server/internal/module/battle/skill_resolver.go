@@ -26,6 +26,7 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		Name:                   item.SkillName,
 		TargetRule:             targetRuleFromProtocolName(item.TargetType),
 		AnimationKey:           item.AnimationKey,
+		SkillVisualID:          item.SkillVisualID,
 		CastColor:              item.CastColor,
 		ImpactColor:            item.ImpactColor,
 		Projectile:             item.Projectile,

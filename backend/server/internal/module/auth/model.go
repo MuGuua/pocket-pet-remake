@@ -37,3 +37,10 @@ type LoginResult struct {
 type SessionPrincipal struct {
 	PlayerID uint64
 }
+
+// AccountDashboardMetrics 汇总账号侧控制台指标，日活按 account.last_login_at 统计。
+type AccountDashboardMetrics struct {
+	TotalAccounts       uint64
+	DailyActiveAccounts uint64
+	NewAccountsToday    uint64
+}

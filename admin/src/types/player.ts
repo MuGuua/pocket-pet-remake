@@ -62,6 +62,7 @@ export interface AdminPlayerDetail {
   mercenary_resist_pct: number;
   generic_shield_pct: number;
   skill_ids: number[];
+  skin_id: string;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -92,6 +93,7 @@ export interface AdminCreatePlayerPayload {
   mana: number;
   status: number;
   skill_ids: number[];
+  skin_id: string;
 }
 
 export interface AdminUpdatePlayerPayload {
@@ -112,4 +114,5 @@ export interface AdminUpdatePlayerPayload {
   mana: number;
   status: number;
   skill_ids: number[];
+  skin_id: string;
 }
