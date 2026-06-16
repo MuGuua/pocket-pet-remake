@@ -141,7 +141,8 @@ func (s *Service) applyRewardEntry(ctx context.Context, input GrantInput, result
 		if s.walletService == nil || rewardEntry.Value == 0 {
 			return nil
 		}
-		changeTotalCopper := int64(rewardEntry.Value) * int64(wallet.CopperPerGold)
+		// 统一奖励里的 gold 表示铜币数量，直接累加到钱包总铜币真值。
+		changeTotalCopper := int64(rewardEntry.Value)
 		adjusted, err := s.walletService.AdjustRuntimeWallet(ctx, input.PlayerID, wallet.RuntimeAdjustInput{
 			ChangeTotalCopper: changeTotalCopper,
 			ReasonType:        input.ReasonType,
@@ -161,11 +162,14 @@ func (s *Service) applyRewardEntry(ctx context.Context, input GrantInput, result
 		if s.playerService == nil || rewardEntry.Value == 0 {
 			return nil
 		}
-		updatedProfile, err := s.playerService.AddExp(ctx, input.PlayerID, rewardEntry.Value)
+		grantResult, err := s.playerService.AddExp(ctx, input.PlayerID, rewardEntry.Value)
 		if err != nil {
 			return err
 		}
-		result.PlayerProfile = updatedProfile
+		result.PlayerProfile = grantResult.Profile
+		result.LevelUpCount += grantResult.LevelUpCount
+		result.AttrPointsGained += grantResult.AttrPointsGained
+		result.CombatBonusGain = result.CombatBonusGain.Add(grantResult.CombatBonusGain)
 		result.Granted = append(result.Granted, rewardEntry)
 		return nil
 	case "item":

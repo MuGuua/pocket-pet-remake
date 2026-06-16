@@ -21,9 +21,28 @@ func get_round() -> int:
 func get_phase() -> String:
 	return str(get_battle_state().get("phase", ""))
 
+## 返回当前帧序号，用于避免重复播放同一批事件。
+func get_frame() -> int:
+	return int(get_battle_state().get("frame", 0))
+
 ## 是否开启自动战斗。
 func is_auto_battle_enabled() -> bool:
 	return bool(get_battle_state().get("auto_battle_enabled", false))
+
+## 返回服务端下发的命令阶段截止时间（Unix 毫秒）。
+func get_command_deadline_ms() -> int:
+	return int(get_battle_state().get("command_deadline_ms", 0))
+
+## 返回距离命令截止还剩多少秒；无截止时间时返回 0。
+func get_command_remaining_seconds() -> int:
+	var deadline_ms: int = get_command_deadline_ms()
+	if deadline_ms <= 0:
+		return 0
+	var now_ms: int = int(Time.get_unix_time_from_system()) * 1000
+	var remain_ms: int = deadline_ms - now_ms
+	if remain_ms <= 0:
+		return 0
+	return int(ceil(float(remain_ms) / 1000.0))
 
 ## 返回待提交动作的己方 actor_id 列表。
 func get_pending_actor_ids() -> Array[int]:

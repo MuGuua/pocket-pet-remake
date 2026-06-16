@@ -30,7 +30,7 @@ class_name SkillVisualConfig
 ## 特效相对角色锚点的偏移
 @export var effect_offset: Vector2 = Vector2.ZERO
 
-## 特效缩放
+## 特效整体缩放，作用于序列帧节点；冲击/爆发等内置动画只叠加在 MotionRoot 上。
 @export var effect_scale: Vector2 = Vector2.ONE
 
 ## 特效染色

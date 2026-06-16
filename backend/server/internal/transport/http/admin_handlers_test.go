@@ -18,6 +18,7 @@ import (
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/skill"
@@ -56,7 +57,7 @@ func (r *adminRepoStub) TouchLastLoginAt(_ context.Context, adminUserID uint64) 
 }
 
 func TestAdminHealthHandler(t *testing.T) {
-	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -84,7 +85,7 @@ func TestAdminPlayerCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, player.AdminCreatePlayerInput{AccountName: "ops_user_1", Password: "ops123456", Name: "OpsTrainer", Level: 5, Gold: 999, SceneID: 2, HP: 180, HPMax: 180, Energy: 120, EnergyMax: 120, ATK: 30, DEF: 18, SPD: 22, MANA: 25, SkillIDs: []uint32{1101, 1001}})
+	createBody := marshalJSON(t, player.AdminCreatePlayerInput{AccountName: "ops_user_1", Password: "ops123456", Name: "OpsTrainer", Level: 5, Gold: 999, SceneID: 2, HP: 180, HPMax: 180, Vigor: 120, VigorMax: 120, Spirit: 40, SpiritMax: 40, ATK: 30, DEF: 18, SPD: 22, MANA: 25, SkillIDs: []uint32{1101, 1001}})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/players", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -100,7 +101,7 @@ func TestAdminPlayerCRUDHandler(t *testing.T) {
 		t.Fatalf("json.Unmarshal(create) error = %v", err)
 	}
 
-	updateBody := marshalJSON(t, player.AdminUpdatePlayerInput{Name: "OpsTrainerUpdated", Level: 8, Exp: 500, Gold: 1200, SceneID: 3, PosX: 11, PosY: 9, HP: 220, HPMax: 220, Energy: 140, EnergyMax: 140, ATK: 35, DEF: 21, SPD: 24, MANA: 28, Status: 1, SkillIDs: []uint32{1101}})
+	updateBody := marshalJSON(t, player.AdminUpdatePlayerInput{Name: "OpsTrainerUpdated", Level: 8, Exp: 500, Gold: 1200, SceneID: 3, PosX: 11, PosY: 9, HP: 220, HPMax: 220, Vigor: 140, VigorMax: 140, Spirit: 40, SpiritMax: 40, ATK: 35, DEF: 21, SPD: 24, MANA: 28, Status: 1, SkillIDs: []uint32{1101}})
 	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/players/"+strconv.FormatUint(createPayload.Data.PlayerID, 10), bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
@@ -166,6 +167,59 @@ func TestAdminPetCRUDHandler(t *testing.T) {
 	handlers.Pets.ServeHTTP(deleteResponse, deleteRequest)
 	if deleteResponse.Code != http.StatusOK {
 		t.Fatalf("delete pet response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminPlayerPetLineupHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+	playerPath := "/api/admin/players/" + strconv.FormatUint(teststub.DemoPlayerID, 10) + "/pet-lineup"
+
+	setBody := marshalJSON(t, pet.AdminSetPetLineupInput{PetUIDs: []uint64{20001}})
+	setRequest := httptest.NewRequest(http.MethodPut, playerPath, bytes.NewReader(setBody))
+	setRequest.Header.Set("Authorization", "Bearer "+token)
+	setResponse := httptest.NewRecorder()
+	handlers.Players.ServeHTTP(setResponse, setRequest)
+	if setResponse.Code != http.StatusOK {
+		t.Fatalf("set pet lineup response.Code = %d, want %d, body=%s", setResponse.Code, http.StatusOK, setResponse.Body.String())
+	}
+
+	var setPayload struct {
+		Data pet.AdminSetPetLineupResult `json:"data"`
+	}
+	if err := json.Unmarshal(setResponse.Body.Bytes(), &setPayload); err != nil {
+		t.Fatalf("json.Unmarshal(set pet lineup) error = %v", err)
+	}
+	if len(setPayload.Data.PetUIDs) != 1 || setPayload.Data.PetUIDs[0] != 20001 {
+		t.Fatalf("setPayload.Data.PetUIDs = %#v, want [20001]", setPayload.Data.PetUIDs)
+	}
+
+	clearBody := marshalJSON(t, pet.AdminSetPetLineupInput{PetUIDs: []uint64{}})
+	clearRequest := httptest.NewRequest(http.MethodPut, playerPath, bytes.NewReader(clearBody))
+	clearRequest.Header.Set("Authorization", "Bearer "+token)
+	clearResponse := httptest.NewRecorder()
+	handlers.Players.ServeHTTP(clearResponse, clearRequest)
+	if clearResponse.Code != http.StatusOK {
+		t.Fatalf("clear pet lineup response.Code = %d, want %d, body=%s", clearResponse.Code, http.StatusOK, clearResponse.Body.String())
+	}
+
+	var clearPayload struct {
+		Data pet.AdminSetPetLineupResult `json:"data"`
+	}
+	if err := json.Unmarshal(clearResponse.Body.Bytes(), &clearPayload); err != nil {
+		t.Fatalf("json.Unmarshal(clear pet lineup) error = %v", err)
+	}
+	if len(clearPayload.Data.PetUIDs) != 0 {
+		t.Fatalf("len(clearPayload.Data.PetUIDs) = %d, want 0", len(clearPayload.Data.PetUIDs))
+	}
+
+	invalidBody := marshalJSON(t, pet.AdminSetPetLineupInput{PetUIDs: []uint64{20001, 20002}})
+	invalidRequest := httptest.NewRequest(http.MethodPut, playerPath, bytes.NewReader(invalidBody))
+	invalidRequest.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handlers.Players.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid pet lineup response.Code = %d, want %d, body=%s", invalidResponse.Code, http.StatusBadRequest, invalidResponse.Body.String())
 	}
 }
 
@@ -651,7 +705,7 @@ func TestAdminDashboardOverviewHandler(t *testing.T) {
 
 func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	t.Helper()
-	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
+	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "player_progression:view", "player_progression:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
 	adminService := admin.NewService(adminRepo, admin.NewHMACSigner("test-secret", time.Hour))
 	authService := auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), auth.NewHMACSigner("test-secret", time.Hour), time.Minute)
 	sessionService := session.NewService(nil, time.Second, time.Minute)
@@ -664,14 +718,20 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	petRepo := teststub.NewPetRepository()
 	petService := pet.NewService(petRepo, skillService, monsterRepo)
 	monsterService := monster.NewService(monsterRepo, skillService, petService)
-	playerService := player.NewService(teststub.NewPlayerRepository(), skillService)
+	playerRepo := teststub.NewPlayerRepository()
+	progressionRepo := teststub.NewProgressionRepository(playerRepo)
+	progressionService := progression.NewService(progressionRepo)
+	if err := progressionService.RefreshRuntimeCache(context.Background()); err != nil {
+		t.Fatalf("RefreshRuntimeCache() error = %v", err)
+	}
+	playerService := player.NewService(playerRepo, skillService, progressionService)
 	bagService := bag.NewService(teststub.NewBagRepository())
 	itemService := item.NewService(teststub.NewItemRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
-	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
+	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService, progressionService)
 }
 
 func issueAdminTokenForTest(t *testing.T) string {

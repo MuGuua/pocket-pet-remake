@@ -49,6 +49,7 @@ SELECT
   status,
   pre_quest_ids,
   objectives_json,
+  rewards_json,
   created_at,
   updated_at
 FROM quest_template
@@ -73,9 +74,10 @@ INSERT INTO quest_template (
   min_player_level,
   pre_quest_ids,
   objectives_json,
+  rewards_json,
   status
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 `
 
@@ -95,7 +97,8 @@ SET quest_type = $2,
     min_player_level = $13,
     pre_quest_ids = $14,
     objectives_json = $15,
-    status = $16
+    rewards_json = $16,
+    status = $17
 WHERE quest_id = $1
 `
 
@@ -294,10 +297,14 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 	if err != nil {
 		return nil, err
 	}
+	rewardsJSON, err := marshalAdminQuestRewards(input.Rewards)
+	if err != nil {
+		return nil, err
+	}
 	_, err = r.db.ExecContext(ctx, insertAdminQuestTemplateQuery,
 		input.QuestID, input.QuestType, input.Name, input.Title, input.Description,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
-		input.StartNPCID, input.SubmitNPCID, input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, input.Status,
+		input.StartNPCID, input.SubmitNPCID, input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -317,10 +324,14 @@ func (r *QuestRepository) UpdateTemplateForAdmin(ctx context.Context, questID ui
 	if err != nil {
 		return nil, err
 	}
+	rewardsJSON, err := marshalAdminQuestRewards(input.Rewards)
+	if err != nil {
+		return nil, err
+	}
 	result, err := r.db.ExecContext(ctx, updateAdminQuestTemplateQuery,
 		questID, input.QuestType, input.Name, input.Title, input.Description,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
-		input.StartNPCID, input.SubmitNPCID, input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, input.Status,
+		input.StartNPCID, input.SubmitNPCID, input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
 	)
 	if err != nil {
 		return nil, err
@@ -720,8 +731,9 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 		status        int64
 		preQuestRaw   []byte
 		objectivesRaw []byte
+		rewardsRaw    []byte
 	)
-	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.StartNPCID, &item.SubmitNPCID, &minLevel, &status, &preQuestRaw, &objectivesRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.StartNPCID, &item.SubmitNPCID, &minLevel, &status, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Chapter = uint32(chapter)
@@ -739,6 +751,11 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 		return nil, err
 	}
 	item.Objectives = objectives
+	rewards, err := unmarshalAdminQuestRewards(rewardsRaw)
+	if err != nil {
+		return nil, err
+	}
+	item.Rewards = rewards
 	return &item, nil
 }
 
@@ -797,6 +814,46 @@ func unmarshalAdminQuestObjectives(raw []byte) ([]quest.AdminObjectiveInput, err
 			TargetValue:    item.Target,
 			TargetSelector: item.TargetSelector,
 		})
+	}
+	return result, nil
+}
+
+func marshalAdminQuestRewards(input []quest.AdminRewardInput) ([]byte, error) {
+	payload := make([]quest.AdminRewardInput, 0, len(input))
+	for _, item := range input {
+		normalized := item.Normalize()
+		if normalized.Type != "exp" && normalized.Type != "item" && normalized.Type != "gold" {
+			continue
+		}
+		if normalized.Type == "exp" && normalized.Value == 0 {
+			continue
+		}
+		if normalized.Type == "gold" && normalized.Value == 0 {
+			continue
+		}
+		if normalized.Type == "item" && (normalized.ItemID == 0 || normalized.Count == 0) {
+			continue
+		}
+		payload = append(payload, normalized)
+	}
+	return json.Marshal(payload)
+}
+
+func unmarshalAdminQuestRewards(raw []byte) ([]quest.AdminRewardInput, error) {
+	if len(raw) == 0 {
+		return []quest.AdminRewardInput{}, nil
+	}
+	var payload []quest.AdminRewardInput
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+	result := make([]quest.AdminRewardInput, 0, len(payload))
+	for _, item := range payload {
+		normalized := item.Normalize()
+		if normalized.Type != "exp" && normalized.Type != "item" && normalized.Type != "gold" {
+			continue
+		}
+		result = append(result, normalized)
 	}
 	return result, nil
 }

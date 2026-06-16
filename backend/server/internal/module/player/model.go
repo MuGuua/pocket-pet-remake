@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"pocket-pet-remake/server/internal/module/progression"
 )
 
 var (
@@ -16,19 +18,71 @@ var (
 // DefaultPlayerSkinID 是玩家尚未配置形象时的服务端默认资源 ID。
 const DefaultPlayerSkinID = "初始形象男_001"
 
+// StarterProfile 描述新注册玩家的服务端权威初始战斗属性与背包容量。
+// 所有创建玩家入口都应复用这份配置，避免后台、仓储与数据库默认值各自维护一套口径。
+type StarterProfile struct {
+	ATK            uint32
+	HPMax          uint32
+	SPD            uint32
+	MANA           uint32
+	DEF            uint32
+	Vigor          uint32
+	VigorMax       uint32
+	Spirit         uint32
+	SpiritMax      uint32
+	HitPct         uint32
+	DodgePct       uint32
+	CritRatePct    uint32
+	CritDmgPct     uint32
+	BagCapacity    uint32
+	BagMaxCapacity uint32
+	SkillIDs       []uint32
+}
+
+// DefaultStarterProfile 返回当前版本的新玩家初始属性。
+func DefaultStarterProfile() StarterProfile {
+	return StarterProfile{
+		ATK:            42,
+		HPMax:          148,
+		SPD:            11,
+		MANA:           30,
+		DEF:            15,
+		Vigor:          100,
+		VigorMax:       100,
+		Spirit:         40,
+		SpiritMax:      40,
+		HitPct:         95,
+		DodgePct:       3,
+		CritRatePct:    7,
+		CritDmgPct:     150,
+		BagCapacity:    50,
+		BagMaxCapacity: 50,
+		SkillIDs:       []uint32{1101, 1001},
+	}
+}
+
 type Profile struct {
 	PlayerID           uint64
 	Name               string
 	Level              uint32
 	Exp                uint64
+	// ExpToNext 表示当前等级距离下一级还需要的经验，满级时为 0。
+	ExpToNext          uint64
+	FreeAttrPoints     uint32
+	Strength           uint32
+	Vitality           uint32
+	Agility            uint32
+	Mind               uint32
 	Gold               uint32
 	SceneID            uint32
 	PosX               int32
 	PosY               int32
 	HP                 uint32
 	HPMax              uint32
-	Energy             uint32
-	EnergyMax          uint32
+	Vigor              uint32
+	VigorMax           uint32
+	Spirit             uint32
+	SpiritMax          uint32
 	ATK                uint32
 	DEF                uint32
 	SPD                uint32
@@ -53,6 +107,22 @@ type Profile struct {
 	SkillIDs           []uint32
 	// SkinID 是当前玩家形象资源 ID，世界与战斗表现层共用。
 	SkinID string
+	// BaseHPMax 等字段保存裸装基础战斗属性，加点加成会叠加在其上。
+	BaseHPMax    uint32
+	BaseATK      uint32
+	BaseDEF      uint32
+	BaseSPD      uint32
+	BaseMANA     uint32
+	BaseHitPct   uint32
+	BaseDodgePct uint32
+}
+
+// ExpGrantResult 描述一次经验发放后的玩家档案与升级摘要。
+type ExpGrantResult struct {
+	Profile          *Profile
+	LevelUpCount     uint32
+	AttrPointsGained uint32
+	CombatBonusGain  progression.LevelUpCombatBonus
 }
 
 // AdminListQuery 描述后台玩家列表检索条件。
@@ -94,8 +164,10 @@ type AdminCreatePlayerInput struct {
 	PosY        int32    `json:"pos_y"`
 	HP          uint32   `json:"hp"`
 	HPMax       uint32   `json:"hp_max"`
-	Energy      uint32   `json:"energy"`
-	EnergyMax   uint32   `json:"energy_max"`
+	Vigor       uint32   `json:"vigor"`
+	VigorMax    uint32   `json:"vigor_max"`
+	Spirit      uint32   `json:"spirit"`
+	SpiritMax   uint32   `json:"spirit_max"`
 	ATK         uint32   `json:"atk"`
 	DEF         uint32   `json:"def"`
 	SPD         uint32   `json:"spd"`
@@ -107,6 +179,7 @@ type AdminCreatePlayerInput struct {
 
 // Normalize 会为后台创建玩家补齐服务端默认值，避免前端遗漏字段导致落库残缺。
 func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
+	starter := DefaultStarterProfile()
 	input.AccountName = strings.TrimSpace(input.AccountName)
 	input.Password = strings.TrimSpace(input.Password)
 	input.Name = strings.TrimSpace(input.Name)
@@ -116,43 +189,123 @@ func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
 	if input.SceneID == 0 {
 		input.SceneID = 1
 	}
-	if input.HP == 0 {
-		input.HP = 100
-	}
 	if input.HPMax == 0 {
-		input.HPMax = input.HP
+		input.HPMax = starter.HPMax
 	}
-	if input.Energy == 0 {
-		input.Energy = 100
+	if input.HP == 0 {
+		input.HP = input.HPMax
 	}
-	if input.EnergyMax == 0 {
-		input.EnergyMax = input.Energy
+	if input.VigorMax == 0 {
+		input.VigorMax = starter.VigorMax
+	}
+	if input.Vigor == 0 {
+		input.Vigor = input.VigorMax
+	}
+	if input.SpiritMax == 0 {
+		input.SpiritMax = starter.SpiritMax
+	}
+	if input.Spirit == 0 {
+		input.Spirit = input.SpiritMax
+	}
+	if input.ATK == 0 {
+		input.ATK = starter.ATK
+	}
+	if input.DEF == 0 {
+		input.DEF = starter.DEF
+	}
+	if input.SPD == 0 {
+		input.SPD = starter.SPD
+	}
+	if input.MANA == 0 {
+		input.MANA = starter.MANA
+	}
+	if len(input.SkillIDs) == 0 {
+		input.SkillIDs = append([]uint32{}, starter.SkillIDs...)
+	}
+	if input.Status == 0 {
+		input.Status = 1
 	}
 	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input
 }
 
+// ResolvedCreateStats 是创建玩家时最终落库的战斗属性快照。
+type ResolvedCreateStats struct {
+	HP           uint32
+	HPMax        uint32
+	Vigor        uint32
+	VigorMax     uint32
+	Spirit       uint32
+	SpiritMax    uint32
+	ATK          uint32
+	DEF          uint32
+	SPD          uint32
+	MANA         uint32
+	HitPct       uint32
+	DodgePct     uint32
+	CritRatePct  uint32
+	CritDmgPct   uint32
+	BaseHPMax    uint32
+	BaseATK      uint32
+	BaseDEF      uint32
+	BaseSPD      uint32
+	BaseMANA     uint32
+	BaseHitPct   uint32
+	BaseDodgePct uint32
+}
+
+// ResolveCreateStats 把后台输入与新手初始模板合并成创建玩家时的权威属性。
+func (input AdminCreatePlayerInput) ResolveCreateStats() ResolvedCreateStats {
+	normalized := input.Normalize()
+	starter := DefaultStarterProfile()
+	return ResolvedCreateStats{
+		HP:           normalized.HP,
+		HPMax:        normalized.HPMax,
+		Vigor:        normalized.Vigor,
+		VigorMax:     normalized.VigorMax,
+		Spirit:       normalized.Spirit,
+		SpiritMax:    normalized.SpiritMax,
+		ATK:          normalized.ATK,
+		DEF:          normalized.DEF,
+		SPD:          normalized.SPD,
+		MANA:         normalized.MANA,
+		HitPct:       starter.HitPct,
+		DodgePct:     starter.DodgePct,
+		CritRatePct:  starter.CritRatePct,
+		CritDmgPct:   starter.CritDmgPct,
+		BaseHPMax:    normalized.HPMax,
+		BaseATK:      normalized.ATK,
+		BaseDEF:      normalized.DEF,
+		BaseSPD:      normalized.SPD,
+		BaseMANA:     normalized.MANA,
+		BaseHitPct:   starter.HitPct,
+		BaseDodgePct: starter.DodgePct,
+	}
+}
+
 // AdminUpdatePlayerInput 描述后台编辑玩家时允许修改的持久化字段。
 // 编辑接口要求传完整快照，减少部分字段漏传后出现新旧值混杂的问题。
 type AdminUpdatePlayerInput struct {
-	Name      string   `json:"name"`
-	Level     uint32   `json:"level"`
-	Exp       uint64   `json:"exp"`
-	Gold      uint64   `json:"gold"`
-	SceneID   uint32   `json:"scene_id"`
-	PosX      int32    `json:"pos_x"`
-	PosY      int32    `json:"pos_y"`
-	HP        uint32   `json:"hp"`
-	HPMax     uint32   `json:"hp_max"`
-	Energy    uint32   `json:"energy"`
-	EnergyMax uint32   `json:"energy_max"`
-	ATK       uint32   `json:"atk"`
-	DEF       uint32   `json:"def"`
-	SPD       uint32   `json:"spd"`
-	MANA      uint32   `json:"mana"`
-	Status    uint32   `json:"status"`
-	SkillIDs  []uint32 `json:"skill_ids"`
-	SkinID    string   `json:"skin_id"`
+	Name       string   `json:"name"`
+	Level      uint32   `json:"level"`
+	Exp        uint64   `json:"exp"`
+	Gold       uint64   `json:"gold"`
+	SceneID    uint32   `json:"scene_id"`
+	PosX       int32    `json:"pos_x"`
+	PosY       int32    `json:"pos_y"`
+	HP         uint32   `json:"hp"`
+	HPMax      uint32   `json:"hp_max"`
+	Vigor      uint32   `json:"vigor"`
+	VigorMax   uint32   `json:"vigor_max"`
+	Spirit     uint32   `json:"spirit"`
+	SpiritMax  uint32   `json:"spirit_max"`
+	ATK        uint32   `json:"atk"`
+	DEF        uint32   `json:"def"`
+	SPD        uint32   `json:"spd"`
+	MANA       uint32   `json:"mana"`
+	Status     uint32   `json:"status"`
+	SkillIDs   []uint32 `json:"skill_ids"`
+	SkinID     string   `json:"skin_id"`
 }
 
 func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
@@ -166,8 +319,11 @@ func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
 	if input.HPMax == 0 {
 		input.HPMax = input.HP
 	}
-	if input.EnergyMax == 0 {
-		input.EnergyMax = input.Energy
+	if input.VigorMax == 0 {
+		input.VigorMax = input.Vigor
+	}
+	if input.SpiritMax == 0 {
+		input.SpiritMax = input.Spirit
 	}
 	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input
@@ -186,8 +342,10 @@ type AdminPlayerSummary struct {
 	SceneID     uint32     `json:"scene_id"`
 	HP          uint32     `json:"hp"`
 	HPMax       uint32     `json:"hp_max"`
-	Energy      uint32     `json:"energy"`
-	EnergyMax   uint32     `json:"energy_max"`
+	Vigor       uint32     `json:"vigor"`
+	VigorMax    uint32     `json:"vigor_max"`
+	Spirit      uint32     `json:"spirit"`
+	SpiritMax   uint32     `json:"spirit_max"`
 	LastLoginAt *time.Time `json:"last_login_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -210,6 +368,11 @@ type AdminPlayerDetail struct {
 	Name               string     `json:"name"`
 	Level              uint32     `json:"level"`
 	Exp                uint64     `json:"exp"`
+	FreeAttrPoints     uint32     `json:"free_attr_points"`
+	Strength           uint32     `json:"strength"`
+	Vitality           uint32     `json:"vitality"`
+	Agility            uint32     `json:"agility"`
+	Mind               uint32     `json:"mind"`
 	Gold               uint64     `json:"gold"`
 	Status             uint32     `json:"status"`
 	StatusText         string     `json:"status_text"`
@@ -218,8 +381,10 @@ type AdminPlayerDetail struct {
 	PosY               int32      `json:"pos_y"`
 	HP                 uint32     `json:"hp"`
 	HPMax              uint32     `json:"hp_max"`
-	Energy             uint32     `json:"energy"`
-	EnergyMax          uint32     `json:"energy_max"`
+	Vigor              uint32     `json:"vigor"`
+	VigorMax           uint32     `json:"vigor_max"`
+	Spirit             uint32     `json:"spirit"`
+	SpiritMax          uint32     `json:"spirit_max"`
 	ATK                uint32     `json:"atk"`
 	DEF                uint32     `json:"def"`
 	SPD                uint32     `json:"spd"`

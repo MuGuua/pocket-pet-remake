@@ -9,6 +9,10 @@ const STATE_IDLE := "idle"
 const STATE_WALK := "walk"
 # 角色战斗锁定状态标识。
 const STATE_BATTLE := "battle"
+# 无 skin_id 时使用的默认战斗待机动画名，对应 player.tscn 中的 battle_pose（第 12 帧）。
+const LEGACY_BATTLE_ANIMATION := "battle_pose"
+# 世界场景进入战斗后统一替换的形象资源 ID，对应 resources/battle/unit_skins/战斗待机_004.tres。
+const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
@@ -43,6 +47,8 @@ const LEGACY_COLLISION_OFFSET := Vector2(13.0, -7.0)
 
 var _character_visual: CharacterVisual = null
 var _uses_character_visual: bool = false
+# 标记当前是否正在使用战斗专用形象覆盖正常 skin_id。
+var _battle_skin_override_active: bool = false
 
 func _ready() -> void:
 	if camera_node != null:
@@ -147,15 +153,18 @@ func set_scene_transition_locked(locked: bool) -> void:
 		if _update_state():
 			_update_animation()
 
-# 设置战斗期间的移动锁定状态。
+# 设置战斗期间的移动锁定状态，并切换到战斗专用形象。
 func set_battle_active(active: bool) -> void:
 	_battle_locked = active
 	if active:
 		_clear_auto_move_path()
 		velocity = Vector2.ZERO
 		direction = Vector2.ZERO
-	if _update_state():
-		_update_animation()
+		_apply_world_battle_skin()
+	else:
+		_restore_normal_skin()
+	_update_state()
+	_update_animation()
 
 # 写入一条新的自动寻路路径，路径点使用玩家父节点本地坐标。
 func set_auto_move_path(path_points: Array[Vector2]) -> void:
@@ -194,25 +203,24 @@ func _resolve_state() -> String:
 # 按当前状态与朝向播放对应动画。
 func _update_animation() -> void:
 	if _uses_character_visual and _character_visual != null:
-		var world_state: String = state
-		if world_state == STATE_BATTLE:
-			world_state = STATE_IDLE
-		_character_visual.play_world(world_state, _direction_suffix())
+		_character_visual.play_world(state, _direction_suffix())
 		return
 	if animation_player == null:
 		return
+
+	if state == STATE_BATTLE:
+		if animation_player.has_animation(LEGACY_BATTLE_ANIMATION):
+			animation_player.play(LEGACY_BATTLE_ANIMATION)
+			return
+		var battle_direction_animation: String = STATE_BATTLE + "_" + _direction_suffix()
+		if animation_player.has_animation(battle_direction_animation):
+			animation_player.play(battle_direction_animation)
+			return
 
 	# 组合当前状态和朝向后缀得到目标动画名。
 	var animation_name := state + "_" + _direction_suffix()
 	if animation_player.has_animation(animation_name):
 		animation_player.play(animation_name)
-	elif state == STATE_BATTLE:
-		# 战斗态没有独立动画时回退到同朝向待机动画。
-		var fallback_animation := STATE_IDLE + "_" + _direction_suffix()
-		if animation_player.has_animation(fallback_animation):
-			animation_player.play(fallback_animation)
-		elif animation_player.has_animation(STATE_IDLE):
-			animation_player.play(STATE_IDLE)
 	elif animation_player.has_animation(state):
 		animation_player.play(state)
 
@@ -261,6 +269,33 @@ func _setup_character_visual() -> void:
 	_character_visual.visible = false
 
 func _on_world_snapshot_changed() -> void:
+	# 战斗形象覆盖期间忽略快照刷新，避免把战斗待机形象提前切回日常皮肤。
+	if _battle_skin_override_active:
+		return
+	_sync_skin_from_snapshot()
+
+## 进入战斗时把世界玩家形象替换为战斗待机专用皮肤，并播放其待机动画。
+func _apply_world_battle_skin() -> void:
+	_setup_character_visual()
+	if _character_visual == null:
+		return
+	if _character_visual.apply_skin_id(WORLD_BATTLE_SKIN_ID):
+		_battle_skin_override_active = true
+		_uses_character_visual = true
+		_character_visual.visible = true
+		if legacy_sprite != null:
+			legacy_sprite.visible = false
+		if animation_player != null:
+			animation_player.stop()
+		_sync_collision_anchor()
+		return
+	push_warning("找不到世界战斗待机形象: %s" % WORLD_BATTLE_SKIN_ID)
+
+## 退出战斗后恢复服务端下发的正常 skin_id 形象。
+func _restore_normal_skin() -> void:
+	if not _battle_skin_override_active:
+		return
+	_battle_skin_override_active = false
 	_sync_skin_from_snapshot()
 
 func _sync_skin_from_snapshot() -> void:

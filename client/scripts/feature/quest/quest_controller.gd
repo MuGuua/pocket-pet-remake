@@ -1,5 +1,8 @@
 extends Node
 
+# 任务结算弹窗请求：由主场景按“先升级、后奖励”顺序展示。
+signal quest_settlement_popup_requested(payload: Dictionary)
+
 # 任务列表或追踪状态刷新后向外广播当前任务总数。
 signal quests_updated(count: int)
 
@@ -40,6 +43,11 @@ func handle_quest_submit_response(payload: Dictionary) -> void:
 		handle_quest_update(payload)
 	elif payload.has("quests"):
 		handle_quest_list(payload)
+	var rewards_variant: Variant = payload.get("rewards", [])
+	var rewards: Array = rewards_variant if rewards_variant is Array else []
+	var level_up_count: int = int(payload.get("level_up_count", 0))
+	if level_up_count > 0 or not rewards.is_empty():
+		quest_settlement_popup_requested.emit(payload)
 	App.request_quest_list()
 
 # 处理任务追踪响应；成功时切换本地追踪状态。

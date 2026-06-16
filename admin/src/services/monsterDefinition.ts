@@ -3,6 +3,8 @@ import type {
   AdminMonsterDefinitionDetail,
   AdminMonsterDefinitionListFilters,
   AdminMonsterDefinitionListResult,
+  AdminMonsterBattleRewardEntry,
+  AdminReplaceMonsterBattleRewardsPayload,
   AdminUpsertMonsterDefinitionPayload,
 } from '../types/monsterDefinition';
 
@@ -34,4 +36,24 @@ export async function updateAdminMonsterDefinition(monsterID: number, payload: A
 
 export async function deleteAdminMonsterDefinition(monsterID: number): Promise<{ monster_id: number; deleted: boolean }> {
   return requestJSON<{ monster_id: number; deleted: boolean }>({ url: `/api/admin/monster-definitions/${monsterID}`, method: 'DELETE' });
+}
+
+export async function fetchAdminMonsterBattleRewards(monsterID: number): Promise<AdminMonsterBattleRewardEntry[]> {
+  const result = await requestJSON<{ items: AdminMonsterBattleRewardEntry[] }>({
+    url: `/api/admin/monster-definitions/${monsterID}/battle-rewards`,
+    method: 'GET',
+  });
+  return result.items ?? [];
+}
+
+export async function updateAdminMonsterBattleRewards(
+  monsterID: number,
+  payload: AdminReplaceMonsterBattleRewardsPayload,
+): Promise<AdminMonsterBattleRewardEntry[]> {
+  const result = await requestJSON<{ items: AdminMonsterBattleRewardEntry[] }>({
+    url: `/api/admin/monster-definitions/${monsterID}/battle-rewards`,
+    method: 'PUT',
+    data: payload,
+  });
+  return result.items ?? [];
 }

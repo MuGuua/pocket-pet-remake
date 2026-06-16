@@ -60,3 +60,24 @@ export async function deleteAdminPlayer(playerID: number): Promise<{ player_id: 
     method: 'DELETE',
   });
 }
+
+export interface AdminSetPetLineupPayload {
+  pet_uids: number[];
+}
+
+export interface AdminSetPetLineupResult {
+  player_id: number;
+  pet_uids: number[];
+}
+
+// 运营后台设置玩家出战宠物，最多 1 只，传空数组表示全部不出战。
+export async function updateAdminPlayerPetLineup(
+  playerID: number,
+  payload: AdminSetPetLineupPayload,
+): Promise<AdminSetPetLineupResult> {
+  return requestJSON<AdminSetPetLineupResult>({
+    url: `/api/admin/players/${playerID}/pet-lineup`,
+    method: 'PUT',
+    data: payload,
+  });
+}

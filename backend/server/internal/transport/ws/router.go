@@ -14,17 +14,19 @@ type Router struct {
 	authHandler    *AuthHandler
 	worldHandler   *WorldHandler
 	petHandler     *PetHandler
+	playerHandler  *PlayerHandler
 	battleHandler  *BattleHandler
 	bagHandler     *BagHandler
 	questHandler   *QuestHandler
 	sessionService *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, playerHandler *PlayerHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
 	return &Router{
 		authHandler:    authHandler,
 		worldHandler:   worldHandler,
 		petHandler:     petHandler,
+		playerHandler:  playerHandler,
 		battleHandler:  battleHandler,
 		bagHandler:     bagHandler,
 		questHandler:   questHandler,
@@ -174,6 +176,14 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleWildEncounter(conn, packet)
+	case protocol.CmdPlayerAllocateAttrReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.playerHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "player handler unavailable")
+		}
+		return r.playerHandler.HandleAllocateAttr(conn, packet)
 	case protocol.CmdBattleActionReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -222,6 +232,7 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid reconnect body")
 	}
+	logBattlePacket("req", conn.ID(), 0, protocol.CmdReconnectReq, packet.Seq, request)
 	sess, err := r.sessionService.Reconnect(request.ReconnectToken, conn)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "reconnect token invalid")
@@ -245,7 +256,7 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 		}
 	}
 
-	responsePacket, err := protocol.NewJSONPacket(protocol.CmdReconnectResp, packet.Seq, errcode.WSCodeSuccess, protocol.ReconnectResp{
+	reconnectResp := protocol.ReconnectResp{
 		PlayerID:           sess.PlayerID,
 		SessionID:          sess.ID,
 		ReconnectToken:     sess.ReconnectToken,
@@ -256,7 +267,9 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 		BattleState:        battleState,
 		BattleResult:       battleResult,
 		BattleReplayStates: battleReplayStates,
-	})
+	}
+	logBattlePacket("resp", conn.ID(), sess.PlayerID, protocol.CmdReconnectResp, packet.Seq, reconnectResp)
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdReconnectResp, packet.Seq, errcode.WSCodeSuccess, reconnectResp)
 	if err != nil {
 		return err
 	}

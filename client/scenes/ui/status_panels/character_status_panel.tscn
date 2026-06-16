@@ -82,13 +82,33 @@ text = "🪄"
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 2
-text = "精力:"
+text = "活力:"
 
 [node name="EnergyValue" type="Label" parent="BodyMargin/BodyVBox/EnergyRow" unique_id=351987616]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 2
-text = "125 / 125"
+text = "100 / 100"
+
+[node name="SpiritRow" type="HBoxContainer" parent="BodyMargin/BodyVBox" unique_id=1536011312]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SpiritIcon" type="Label" parent="BodyMargin/BodyVBox/SpiritRow" unique_id=1556981952]
+layout_mode = 2
+text = "✨"
+
+[node name="SpiritKey" type="Label" parent="BodyMargin/BodyVBox/SpiritRow" unique_id=1111141846]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "精力:"
+
+[node name="SpiritValue" type="Label" parent="BodyMargin/BodyVBox/SpiritRow" unique_id=351987617]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 2
+text = "40 / 40"
 
 [node name="ExpGuardGrid" type="GridContainer" parent="BodyMargin/BodyVBox" unique_id=1441547452]
 layout_mode = 2

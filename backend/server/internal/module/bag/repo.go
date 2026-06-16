@@ -17,4 +17,8 @@ type Repository interface {
 	GrantRuntimeItem(ctx context.Context, playerID uint64, containerType string, itemID uint64, quantity uint64, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*RuntimeGrantResult, error)
 	UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*RuntimeUseResult, error)
 	ConsumeRuntimeItemStack(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, reasonType string, reasonRefID uint64) (*RuntimeContainerSnapshot, error)
+	// PlayerHasEverOwnedItem 判断玩家是否已获得过指定道具，供唯一战斗掉落去重。
+	PlayerHasEverOwnedItem(ctx context.Context, playerID uint64, itemID uint64) (bool, error)
+	// RecordUniqueItemObtained 记录玩家首次获得唯一道具，重复写入会被忽略。
+	RecordUniqueItemObtained(ctx context.Context, playerID uint64, itemID uint64, reasonType string, reasonRefID uint64) error
 }

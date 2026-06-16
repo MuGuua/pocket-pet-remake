@@ -1,23 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=9 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
+[ext_resource type="Script" uid="uid://bo4aqel6xovgg" path="res://scripts/feature/player/player_controller.gd" id="2_player"]
 [ext_resource type="Script" uid="uid://dxguvvrut6615" path="res://scripts/feature/battle/battle_controller.gd" id="3"]
 [ext_resource type="Script" uid="uid://bm8lcpfwls80c" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/feature/quest/quest_controller.gd" id="5"]
-[ext_resource type="Script" uid="uid://d3hmloxpx6m5l" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top_panel"]
-bg_color = Color(0.0627451, 0.0941176, 0.14902, 0.78)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.631373, 0.819608, 0.980392, 0.35)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+[ext_resource type="Script" uid="uid://e4qhgh866py3" path="res://scripts/feature/quest/quest_controller.gd" id="5"]
+[ext_resource type="Script" uid="uid://fth187sgihde" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/ui/player_status_hud.tscn" id="7_player_hud"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -26,6 +16,7 @@ script = ExtResource("1")
 unique_name_in_owner = true
 clip_contents = true
 layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
@@ -56,6 +47,10 @@ mouse_filter = 2
 unique_name_in_owner = true
 script = ExtResource("2")
 
+[node name="PlayerController" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_player")
+
 [node name="BattleController" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("3")
@@ -72,42 +67,22 @@ script = ExtResource("5")
 
 [node name="HudRoot" type="Control" parent="UiLayer"]
 unique_name_in_owner = true
-layout_mode = 1
+layout_mode = 3
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 38.0
+offset_bottom = 104.0
 grow_horizontal = 2
 script = ExtResource("6")
 
-[node name="TopPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
+[node name="PlayerStatusHud" parent="UiLayer/HudRoot" instance=ExtResource("7_player_hud")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 0
 offset_left = 6.0
 offset_top = 4.0
-offset_right = -6.0
-offset_bottom = 34.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_top_panel")
-
-[node name="VBox" type="VBoxContainer" parent="UiLayer/HudRoot/TopPanel"]
-layout_mode = 2
-theme_override_constants/separation = 0
-
-[node name="StatusLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "连接状态: idle"
-
-[node name="SceneLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "场景: 未进入"
-
-[node name="PlayerLabel" type="Label" parent="UiLayer/HudRoot/TopPanel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "玩家: 未登录"
+offset_right = 230.0
+offset_bottom = 96.0
+scale = Vector2(0.6, 0.6)
 
 [node name="BottomPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
 visible = false

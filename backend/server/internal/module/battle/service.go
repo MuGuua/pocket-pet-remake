@@ -57,6 +57,7 @@ type activeBattle struct {
 	autoBattleEnabled    bool
 	commandDeadline      time.Time
 	stateHistory         []StateSnapshot
+	monsterService       *monster.Service
 }
 
 type actorRuntime struct {
@@ -72,8 +73,10 @@ type actorRuntime struct {
 	level         uint32
 	hp            uint32
 	hpMax         uint32
-	energy        uint32
-	energyMax     uint32
+	vigor         uint32
+	vigorMax      uint32
+	spirit        uint32
+	spiritMax     uint32
 	atk           uint32
 	def           uint32
 	spd           uint32
@@ -141,7 +144,8 @@ type statusRuntime struct {
 // future DB/config loading can fill the same shape without rewriting builders.
 type combatAttributeTemplate struct {
 	HP          uint32
-	Energy      uint32
+	Vigor       uint32
+	Spirit      uint32
 	Attack      uint32
 	Defense     uint32
 	Speed       uint32
@@ -176,7 +180,7 @@ type turnDecision struct {
 	tie    int64
 }
 
-const commandTimeout = 15 * time.Second
+const commandTimeout = 25 * time.Second
 const battleReplayHistoryLimit = 12
 
 func NewService(monsterService *monster.Service) *Service {
@@ -187,6 +191,24 @@ func NewService(monsterService *monster.Service) *Service {
 		pendingChallenges: make(map[uint64]PVPChallenge),
 		monsterService:    monsterService,
 	}
+}
+
+// EnsureNextBattleID 在进程启动时把内存战斗 ID 游标推进到 battle_record 已占用的最大值之后，
+// 避免服务重启后复用旧 battle_id 触发防重记录，导致新战斗无法发奖。
+func (s *Service) EnsureNextBattleID(ctx context.Context, repo Repository) error {
+	if s == nil || repo == nil {
+		return nil
+	}
+	maxBattleID, err := repo.MaxRewardBattleID(ctx)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	if maxBattleID > s.nextBattleID {
+		s.nextBattleID = maxBattleID
+	}
+	s.mu.Unlock()
+	return nil
 }
 
 const pvpChallengeTimeout = 30 * time.Second
@@ -220,6 +242,7 @@ func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup 
 		allies:      buildSoloPVEAllies(profile, lineup),
 		enemies:     s.buildEnemyTeam(ctx, profile, enemy),
 		plannedActs: make(map[uint64]ActionRequest),
+		monsterService: s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
 	battle.resetCommandDeadline()
@@ -265,6 +288,7 @@ func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Pro
 		allies:               buildSoloPVEAllies(profile, lineup),
 		enemies:              s.buildEnemyTeamFromSlots(ctx, profile, virtualEnemy, encounter.Slots),
 		plannedActs:          make(map[uint64]ActionRequest),
+		monsterService:       s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
 	battle.resetCommandDeadline()
@@ -324,6 +348,7 @@ func (s *Service) StartPVP(_ context.Context, challenger *player.Profile, challe
 		allies:               buildPlayerTeam(challenger, challengerLineup, PlayerActorType),
 		enemies:              buildPlayerTeam(defender, defenderLineup, EnemyActorType),
 		plannedActs:          make(map[uint64]ActionRequest),
+		monsterService:       s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
 	battle.resetCommandDeadline()
@@ -444,6 +469,9 @@ func (s *Service) ProgressAuto(_ context.Context, playerID uint64) (*ActionOutco
 	if !battle.shouldAutoResolve(time.Now()) {
 		return nil, nil
 	}
+	if !battle.autoBattleEnabled {
+		battle.autoBattleEnabled = true
+	}
 	state, result := s.autoResolvePendingLocked(playerID, battle)
 	return &ActionOutcome{
 		Response: BattleActionResponse{Accepted: true, Reason: "server auto resolved pending actions"},
@@ -533,6 +561,9 @@ func (s *Service) ProgressAutoAll(_ context.Context) []AutoProgressOutcome {
 	for playerID, battle := range s.activeByPlayer {
 		if battle.phase != PhaseCommand || !battle.shouldAutoResolve(now) {
 			continue
+		}
+		if !battle.autoBattleEnabled {
+			battle.autoBattleEnabled = true
 		}
 		state, result := s.autoResolvePendingLocked(playerID, battle)
 		outcomes = append(outcomes, AutoProgressOutcome{
@@ -780,7 +811,8 @@ func (s *Service) removeBattleLocked(current *activeBattle) {
 func defaultPlayerCharacterTemplate() (combatAttributeTemplate, resistanceTemplate) {
 	return combatAttributeTemplate{
 			HP:          120,
-			Energy:      100,
+			Vigor:       100,
+			Spirit:      40,
 			Attack:      24,
 			Defense:     12,
 			Speed:       18,
@@ -815,7 +847,8 @@ func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate
 	}
 	attributes := combatAttributeTemplate{
 		HP:          profile.HP,
-		Energy:      profile.Energy,
+		Vigor:       profile.Vigor,
+		Spirit:      profile.Spirit,
 		Attack:      profile.ATK,
 		Defense:     profile.DEF,
 		Speed:       profile.SPD,
@@ -846,8 +879,11 @@ func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate
 	if profile.HPMax > 0 && profile.HPMax > attributes.HP {
 		attributes.HP = profile.HPMax
 	}
-	if attributes.Energy == 0 {
-		attributes.Energy = maxUint32(profile.EnergyMax, defaultAttributes.Energy)
+	if attributes.Vigor == 0 {
+		attributes.Vigor = maxUint32(profile.VigorMax, defaultAttributes.Vigor)
+	}
+	if attributes.Spirit == 0 {
+		attributes.Spirit = maxUint32(profile.SpiritMax, defaultAttributes.Spirit)
 	}
 	if attributes.Attack == 0 {
 		attributes.Attack = defaultAttributes.Attack
@@ -914,7 +950,8 @@ func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate
 func defaultPetTemplate(item pet.LineupPet) (combatAttributeTemplate, resistanceTemplate) {
 	return combatAttributeTemplate{
 			HP:          item.HPMax,
-			Energy:      100,
+			Vigor:       100,
+			Spirit:      40,
 			Attack:      item.ATK,
 			Defense:     item.DEF,
 			Speed:       item.SPD,
@@ -956,7 +993,8 @@ func defaultEnemyTemplate(profile *player.Profile, enemy world.Entity, index int
 	}
 	base := combatAttributeTemplate{
 		HP:          baseHP + uint32(index*4),
-		Energy:      100,
+		Vigor:       100,
+		Spirit:      40,
 		Attack:      baseAttack + uint32(index*2),
 		Defense:     baseDefense + uint32(index),
 		Speed:       baseSpeed + uint32(index),
@@ -999,8 +1037,10 @@ func (a *actorRuntime) applyCombatTemplate(template combatAttributeTemplate) {
 	}
 	a.hp = template.HP
 	a.hpMax = template.HP
-	a.energy = template.Energy
-	a.energyMax = template.Energy
+	a.vigor = template.Vigor
+	a.vigorMax = template.Vigor
+	a.spirit = template.Spirit
+	a.spiritMax = template.Spirit
 	a.atk = template.Attack
 	a.def = template.Defense
 	a.spd = template.Speed
@@ -1073,11 +1113,17 @@ func buildPlayerCharacterActor(profile *player.Profile, actorType uint32) *actor
 	if profile.HPMax > 0 {
 		actor.hpMax = profile.HPMax
 	}
-	if profile.Energy > 0 {
-		actor.energy = profile.Energy
+	if profile.Vigor > 0 {
+		actor.vigor = profile.Vigor
 	}
-	if profile.EnergyMax > 0 {
-		actor.energyMax = profile.EnergyMax
+	if profile.VigorMax > 0 {
+		actor.vigorMax = profile.VigorMax
+	}
+	if profile.Spirit > 0 {
+		actor.spirit = profile.Spirit
+	}
+	if profile.SpiritMax > 0 {
+		actor.spiritMax = profile.SpiritMax
 	}
 	actor.applyResistanceTemplate(resistances)
 	return actor
@@ -1347,7 +1393,7 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skillID = DefaultAttackSkillID
 		skill, _ = getSkillDef(skillID)
 	}
-	if skill.EnergyCost > 0 && !actor.canSpendEnergy(skill.EnergyCost) {
+	if skill.EnergyCost > 0 && !actor.canSpendSpirit(skill.EnergyCost) {
 		skillID = DefaultAttackSkillID
 		skill, _ = getSkillDef(skillID)
 	}
@@ -1356,7 +1402,7 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		return nil
 	}
 	if skill.EnergyCost > 0 {
-		actor.spendEnergy(skill.EnergyCost)
+		actor.spendSpirit(skill.EnergyCost)
 	}
 
 	primaryTargetID := uint64(0)
@@ -1729,70 +1775,33 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 	}
 }
 
-// buildPVERewards keeps the first reward formula deliberately simple and fully
-// server-authored: enemy lineup size and level determine stable gold / exp
-// payouts, while each participating ally receives the same pet exp packet.
+// buildPVERewards 按怪物战斗奖励配置汇总 PVE 奖励，包含铜币、经验与物品。
 func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []DropReward, []string) {
-	totalGold := uint32(0)
+	totalGold := uint64(0)
 	totalPlayerExp := uint64(0)
 	totalPetExp := uint64(0)
-	dropItems := make([]DropReward, 0, len(b.enemies))
-	dropTexts := make([]string, 0, len(b.enemies))
+	dropItems := make([]DropReward, 0)
+	dropTexts := make([]string, 0)
+	if b.monsterService == nil {
+		return 0, totalPlayerExp, totalPetExp, dropItems, dropTexts
+	}
 	for _, enemy := range b.enemies {
-		baseGold := enemy.level*6 + 12
-		baseExp := uint64(enemy.level)*10 + 18
-		if enemy.petID >= 9002 {
-			baseGold += 6
-			baseExp += 8
+		if enemy == nil || enemy.petID == 0 {
+			continue
 		}
-		totalGold += baseGold
-		totalPlayerExp += baseExp
-		totalPetExp += baseExp
-		if dropReward, ok := buildEnemyDropReward(enemy); ok {
-			dropItems = append(dropItems, dropReward)
-			dropTexts = append(dropTexts, buildEnemyDropText(enemy))
+		bundle := b.monsterService.ResolvePVERewardBundle(enemy.petID)
+		totalGold += bundle.Gold
+		totalPlayerExp += bundle.PlayerExp
+		totalPetExp += bundle.PetExp
+		for _, item := range bundle.Items {
+			dropItems = append(dropItems, DropReward{
+				ItemID:    item.ItemID,
+				Quantity:  item.Quantity,
+				GrantOnce: item.GrantOnce,
+			})
 		}
 	}
-	return totalGold, totalPlayerExp, totalPetExp, dropItems, dropTexts
-}
-
-// buildEnemyDropReward 先为当前 MVP 提供稳定的掉落物品主键与数量。
-// 当前掉落表还没有完全数据化，因此这里暂时按敌方模板做最小映射，
-// 后续应继续迁移到数据库配置或共享掉落表。
-func buildEnemyDropReward(enemy *actorRuntime) (DropReward, bool) {
-	if enemy == nil {
-		return DropReward{}, false
-	}
-	switch enemy.petID {
-	case 9001:
-		return DropReward{ItemID: 3101, Quantity: 1}, true
-	case 9002:
-		return DropReward{ItemID: 3102, Quantity: 1}, true
-	default:
-		if enemy.level >= 4 {
-			return DropReward{ItemID: 3103, Quantity: 1}, true
-		}
-		return DropReward{ItemID: 3104, Quantity: 1}, true
-	}
-}
-
-// buildEnemyDropText gives the current MVP a deterministic text-only loot
-// preview. BattleHandler 在真正发奖成功后会再用数据库模板名称覆盖这里的文本。
-func buildEnemyDropText(enemy *actorRuntime) string {
-	if enemy == nil {
-		return ""
-	}
-	switch enemy.petID {
-	case 9001:
-		return "掉落: 野性毛皮 x1"
-	case 9002:
-		return "掉落: 锋爪碎片 x1"
-	default:
-		if enemy.level >= 4 {
-			return "掉落: 训练徽记 x1"
-		}
-		return "掉落: 治愈草叶 x1"
-	}
+	return uint32(totalGold), totalPlayerExp, totalPetExp, dropItems, dropTexts
 }
 
 func (b *activeBattle) toStartSnapshot() *StartSnapshot {
@@ -1874,8 +1883,10 @@ func (b *activeBattle) snapshotActorStates() []ActorState {
 			ActorID:    actor.actorID,
 			HP:         actor.hp,
 			HPMax:      actor.hpMax,
-			Energy:     actor.energy,
-			EnergyMax:  actor.energyMax,
+			Vigor:      actor.vigor,
+			VigorMax:   actor.vigorMax,
+			Spirit:     actor.spirit,
+			SpiritMax:  actor.spiritMax,
 			Dead:       actor.isDead(),
 			CanAct:     !actor.isDead() && !actor.isActionBlocked(),
 			StatusIDs:  actor.statusIDs(),
@@ -1938,7 +1949,7 @@ func (b *activeBattle) defaultSkillIDFor(actor *actorRuntime) uint32 {
 				continue
 			}
 			skill, ok := getSkillDef(skillID)
-			if ok && actor.canSpendEnergy(skill.EnergyCost) {
+			if ok && actor.canSpendSpirit(skill.EnergyCost) {
 				return skillID
 			}
 		}
@@ -2321,8 +2332,10 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 		SkinID:             resolveActorSkinID(a),
 		HP:                 a.hp,
 		HPMax:              a.hpMax,
-		Energy:             a.energy,
-		EnergyMax:          a.energyMax,
+		Vigor:              a.vigor,
+		VigorMax:           a.vigorMax,
+		Spirit:             a.spirit,
+		SpiritMax:          a.spiritMax,
 		ATK:                a.atk,
 		DEF:                a.def,
 		SPD:                a.spd,
@@ -2427,21 +2440,21 @@ func (a *actorRuntime) restoreFromRevive(amount int32) int32 {
 	return amount
 }
 
-func (a *actorRuntime) canSpendEnergy(cost uint32) bool {
+func (a *actorRuntime) canSpendSpirit(cost uint32) bool {
 	if a == nil {
 		return false
 	}
-	return cost == 0 || a.energy >= cost
+	return cost == 0 || a.spirit >= cost
 }
 
-func (a *actorRuntime) spendEnergy(cost uint32) uint32 {
+func (a *actorRuntime) spendSpirit(cost uint32) uint32 {
 	if a == nil || cost == 0 {
 		return 0
 	}
-	if cost > a.energy {
-		cost = a.energy
+	if cost > a.spirit {
+		cost = a.spirit
 	}
-	a.energy -= cost
+	a.spirit -= cost
 	return cost
 }
 

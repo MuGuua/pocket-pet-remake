@@ -54,6 +54,25 @@ func (r *BattleRepository) CreateRewardRecord(_ context.Context, record battle.R
 	return true, nil
 }
 
+func (r *BattleRepository) DeleteRewardRecord(_ context.Context, battleID uint64, playerID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.records, battleRecordKey(battleID, playerID))
+	return nil
+}
+
+func (r *BattleRepository) MaxRewardBattleID(_ context.Context) (uint64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var maxBattleID uint64
+	for _, record := range r.records {
+		if record.BattleID > maxBattleID {
+			maxBattleID = record.BattleID
+		}
+	}
+	return maxBattleID, nil
+}
+
 func battleRecordKey(battleID uint64, playerID uint64) string {
 	return fmt.Sprintf("%d:%d", battleID, playerID)
 }
@@ -193,14 +212,23 @@ func NewPlayerRepository() *PlayerRepository {
 				PosY:               6,
 				HP:                 120,
 				HPMax:              120,
-				Energy:             100,
-				EnergyMax:          100,
+				BaseHPMax:          120,
+				Vigor:              100,
+				VigorMax:           100,
+				Spirit:             40,
+				SpiritMax:          40,
 				ATK:                24,
+				BaseATK:            24,
 				DEF:                12,
+				BaseDEF:            12,
 				SPD:                18,
+				BaseSPD:            18,
 				MANA:               20,
+				BaseMANA:           20,
 				HitPct:             10,
+				BaseHitPct:         10,
 				DodgePct:           6,
+				BaseDodgePct:       6,
 				CritRatePct:        10,
 				CritDmgPct:         155,
 				PhysicalResistPct:  6,
@@ -228,14 +256,23 @@ func NewPlayerRepository() *PlayerRepository {
 				PosY:               6,
 				HP:                 110,
 				HPMax:              110,
-				Energy:             100,
-				EnergyMax:          100,
+				BaseHPMax:          110,
+				Vigor:              100,
+				VigorMax:           100,
+				Spirit:             40,
+				SpiritMax:          40,
 				ATK:                23,
+				BaseATK:            23,
 				DEF:                11,
+				BaseDEF:            11,
 				SPD:                17,
+				BaseSPD:            17,
 				MANA:               18,
+				BaseMANA:           18,
 				HitPct:             10,
+				BaseHitPct:         10,
 				DodgePct:           6,
+				BaseDodgePct:       6,
 				CritRatePct:        10,
 				CritDmgPct:         155,
 				PhysicalResistPct:  6,
@@ -301,8 +338,10 @@ func (r *PlayerRepository) ListForAdmin(_ context.Context, query player.AdminLis
 			SceneID:     profile.SceneID,
 			HP:          profile.HP,
 			HPMax:       profile.HPMax,
-			Energy:      profile.Energy,
-			EnergyMax:   profile.EnergyMax,
+			Vigor:       profile.Vigor,
+			VigorMax:    profile.VigorMax,
+			Spirit:      profile.Spirit,
+			SpiritMax:   profile.SpiritMax,
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		})
@@ -338,8 +377,10 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(_ context.Context, playerID
 		PosY:               profile.PosY,
 		HP:                 profile.HP,
 		HPMax:              profile.HPMax,
-		Energy:             profile.Energy,
-		EnergyMax:          profile.EnergyMax,
+		Vigor:              profile.Vigor,
+		VigorMax:           profile.VigorMax,
+		Spirit:             profile.Spirit,
+		SpiritMax:          profile.SpiritMax,
 		ATK:                profile.ATK,
 		DEF:                profile.DEF,
 		SPD:                profile.SPD,
@@ -379,26 +420,40 @@ func (r *PlayerRepository) CreateForAdmin(_ context.Context, input player.AdminC
 	}
 
 	input = input.Normalize()
+	stats := input.ResolveCreateStats()
 	playerID := r.nextID
 	r.nextID++
 	r.players[playerID] = player.Profile{
-		PlayerID:  playerID,
-		Name:      input.Name,
-		Level:     input.Level,
-		Gold:      uint32(input.Gold),
-		SceneID:   input.SceneID,
-		PosX:      input.PosX,
-		PosY:      input.PosY,
-		HP:        input.HP,
-		HPMax:     input.HPMax,
-		Energy:    input.Energy,
-		EnergyMax: input.EnergyMax,
-		ATK:       input.ATK,
-		DEF:       input.DEF,
-		SPD:       input.SPD,
-		MANA:      input.MANA,
-		SkillIDs:  append([]uint32{}, input.SkillIDs...),
-		SkinID:    resolveTeststubPlayerSkinID(input.SkinID),
+		PlayerID:     playerID,
+		Name:         input.Name,
+		Level:        input.Level,
+		Gold:         uint32(input.Gold),
+		SceneID:      input.SceneID,
+		PosX:         input.PosX,
+		PosY:         input.PosY,
+		HP:           stats.HP,
+		HPMax:        stats.HPMax,
+		BaseHPMax:    stats.BaseHPMax,
+		Vigor:        stats.Vigor,
+		VigorMax:     stats.VigorMax,
+		Spirit:       stats.Spirit,
+		SpiritMax:    stats.SpiritMax,
+		ATK:          stats.ATK,
+		BaseATK:      stats.BaseATK,
+		DEF:          stats.DEF,
+		BaseDEF:      stats.BaseDEF,
+		SPD:          stats.SPD,
+		BaseSPD:      stats.BaseSPD,
+		MANA:         stats.MANA,
+		BaseMANA:     stats.BaseMANA,
+		HitPct:       stats.HitPct,
+		BaseHitPct:   stats.BaseHitPct,
+		DodgePct:     stats.DodgePct,
+		BaseDodgePct: stats.BaseDodgePct,
+		CritRatePct:  stats.CritRatePct,
+		CritDmgPct:   stats.CritDmgPct,
+		SkillIDs:     append([]uint32{}, input.SkillIDs...),
+		SkinID:       resolveTeststubPlayerSkinID(input.SkinID),
 	}
 	profile := r.players[playerID]
 	return &player.AdminPlayerDetail{
@@ -415,12 +470,18 @@ func (r *PlayerRepository) CreateForAdmin(_ context.Context, input player.AdminC
 		PosY:        profile.PosY,
 		HP:          profile.HP,
 		HPMax:       profile.HPMax,
-		Energy:      profile.Energy,
-		EnergyMax:   profile.EnergyMax,
+		Vigor:       profile.Vigor,
+		VigorMax:    profile.VigorMax,
+		Spirit:      profile.Spirit,
+		SpiritMax:   profile.SpiritMax,
 		ATK:         profile.ATK,
 		DEF:         profile.DEF,
 		SPD:         profile.SPD,
 		MANA:        profile.MANA,
+		HitPct:      profile.HitPct,
+		DodgePct:    profile.DodgePct,
+		CritRatePct: profile.CritRatePct,
+		CritDmgPct:  profile.CritDmgPct,
 		SkillIDs:    append([]uint32{}, profile.SkillIDs...),
 		SkinID:      profile.SkinID,
 		CreatedAt:   time.Now(),
@@ -454,8 +515,10 @@ func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, in
 	current.PosY = input.PosY
 	current.HP = input.HP
 	current.HPMax = input.HPMax
-	current.Energy = input.Energy
-	current.EnergyMax = input.EnergyMax
+	current.Vigor = input.Vigor
+	current.VigorMax = input.VigorMax
+	current.Spirit = input.Spirit
+	current.SpiritMax = input.SpiritMax
 	current.ATK = input.ATK
 	current.DEF = input.DEF
 	current.SPD = input.SPD
@@ -478,8 +541,10 @@ func (r *PlayerRepository) UpdateForAdmin(_ context.Context, playerID uint64, in
 		PosY:               current.PosY,
 		HP:                 current.HP,
 		HPMax:              current.HPMax,
-		Energy:             current.Energy,
-		EnergyMax:          current.EnergyMax,
+		Vigor:              current.Vigor,
+		VigorMax:           current.VigorMax,
+		Spirit:             current.Spirit,
+		SpiritMax:          current.SpiritMax,
 		ATK:                current.ATK,
 		DEF:                current.DEF,
 		SPD:                current.SPD,
@@ -538,20 +603,6 @@ func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sc
 	current.PosY = posY
 	r.players[playerID] = current
 	return nil
-}
-
-func (r *PlayerRepository) AddExp(_ context.Context, playerID uint64, exp uint64) (*player.Profile, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	current, ok := r.players[playerID]
-	if !ok {
-		return nil, player.ErrPlayerNotFound
-	}
-	current.Exp += exp
-	r.players[playerID] = current
-	copied := current
-	return &copied, nil
 }
 
 // NewPetRepository returns the fixed starter pets used by battle, pet list,
@@ -1174,6 +1225,7 @@ func NewBagRepository() *BagRepository {
 			DemoPlayerID:  {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
 			RivalPlayerID: {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
 		},
+		uniqueObtained: map[string]struct{}{},
 		items: map[uint64]bag.AdminItemDetail{
 			30001: {RecordID: 30001, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 1, ItemID: 3003, ItemName: "宠物治疗药剂", ItemType: "consumable", Quantity: 3, CreatedAt: now, UpdatedAt: now},
 			30004: {RecordID: 30004, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 4, ItemID: 3004, ItemName: "新手补给礼包", ItemType: "box", Quantity: 1, CreatedAt: now, UpdatedAt: now},
@@ -1184,11 +1236,12 @@ func NewBagRepository() *BagRepository {
 }
 
 type BagRepository struct {
-	mu         sync.RWMutex
-	capacities map[uint64]map[string]uint32
-	items      map[uint64]bag.AdminItemDetail
-	petRepo    *PetRepository
-	nextID     uint64
+	mu              sync.RWMutex
+	capacities      map[uint64]map[string]uint32
+	items           map[uint64]bag.AdminItemDetail
+	uniqueObtained  map[string]struct{}
+	petRepo         *PetRepository
+	nextID          uint64
 }
 
 // BindPetRepository 让背包道具使用和宠物查询共用同一份内存宠物状态。
@@ -1858,6 +1911,36 @@ func (r *BagRepository) containerCapacity(playerID uint64, containerType string)
 	return 30
 }
 
+func uniqueItemObtainedKey(playerID uint64, itemID uint64) string {
+	return fmt.Sprintf("%d:%d", playerID, itemID)
+}
+
+func (r *BagRepository) PlayerHasEverOwnedItem(_ context.Context, playerID uint64, itemID uint64) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.uniqueObtained != nil {
+		if _, ok := r.uniqueObtained[uniqueItemObtainedKey(playerID, itemID)]; ok {
+			return true, nil
+		}
+	}
+	for _, current := range r.items {
+		if current.PlayerID == playerID && current.ItemID == itemID && current.Quantity > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *BagRepository) RecordUniqueItemObtained(_ context.Context, playerID uint64, itemID uint64, _ string, _ uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.uniqueObtained == nil {
+		r.uniqueObtained = map[string]struct{}{}
+	}
+	r.uniqueObtained[uniqueItemObtainedKey(playerID, itemID)] = struct{}{}
+	return nil
+}
+
 // NewItemRepository 提供后台物品模板 CRUD 的内存桩。
 func NewItemRepository() *ItemRepository {
 	now := time.Now()
@@ -2244,6 +2327,7 @@ func (r *QuestRepository) FindAdminTemplateDetailByQuestID(_ context.Context, qu
 		StatusText:     quest.AdminQuestTemplateStatusText(1),
 		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
 		Objectives:     objectives,
+		Rewards:        runtimeRewardsToAdmin(template.Rewards),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}, nil
@@ -2267,6 +2351,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		SubmitNPCID: input.SubmitNPCID,
 		AutoTrack:   input.AutoTrack,
 		PreQuestIDs: append([]uint64{}, input.PreQuestIDs...),
+		Rewards:     adminRewardsToRuntime(input.Rewards),
 	}
 	for _, objective := range input.Objectives {
 		template.Objectives = append(template.Objectives, quest.ObjectiveTemplate{
@@ -2298,9 +2383,44 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
 		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
 		Objectives:     objectives,
+		Rewards:        append([]quest.AdminRewardInput{}, input.Rewards...),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}, nil
+}
+
+func adminRewardsToRuntime(inputs []quest.AdminRewardInput) []quest.Reward {
+	result := make([]quest.Reward, 0, len(inputs))
+	for _, item := range inputs {
+		normalized := item.Normalize()
+		if normalized.Type != "exp" && normalized.Type != "item" && normalized.Type != "gold" {
+			continue
+		}
+		result = append(result, quest.Reward{
+			Type:   normalized.Type,
+			Value:  normalized.Value,
+			ItemID: normalized.ItemID,
+			Count:  normalized.Count,
+		})
+	}
+	return result
+}
+
+func runtimeRewardsToAdmin(values []quest.Reward) []quest.AdminRewardInput {
+	result := make([]quest.AdminRewardInput, 0, len(values))
+	for _, value := range values {
+		rewardType := strings.ToLower(strings.TrimSpace(value.Type))
+		if rewardType != "exp" && rewardType != "item" && rewardType != "gold" {
+			continue
+		}
+		result = append(result, quest.AdminRewardInput{
+			Type:   rewardType,
+			Value:  value.Value,
+			ItemID: value.ItemID,
+			Count:  value.Count,
+		})
+	}
+	return result
 }
 
 func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint64, input quest.AdminUpdateTemplateInput) (*quest.AdminTemplateDetail, error) {
@@ -2320,6 +2440,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 	template.SubmitNPCID = input.SubmitNPCID
 	template.AutoTrack = input.AutoTrack
 	template.PreQuestIDs = append([]uint64{}, input.PreQuestIDs...)
+	template.Rewards = adminRewardsToRuntime(input.Rewards)
 	template.Objectives = []quest.ObjectiveTemplate{}
 	for _, objective := range input.Objectives {
 		template.Objectives = append(template.Objectives, quest.ObjectiveTemplate{
@@ -2351,6 +2472,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
 		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
 		Objectives:     objectives,
+		Rewards:        append([]quest.AdminRewardInput{}, input.Rewards...),
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}, nil

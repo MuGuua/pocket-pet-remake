@@ -3,11 +3,13 @@ package reward
 import (
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/wallet"
 )
 
 // Entry 描述一条可以走统一发奖服务的正式奖励。
 // 当前先覆盖 quest、battle、后台补发第一阶段会共用的几种基础奖励。
+// Type=gold 时 Value 表示铜币数量，会按 1:1 写入 player_wallet.currency_copper_total。
 type Entry struct {
 	Type     string `json:"type"`
 	Value    uint64 `json:"value"`
@@ -31,9 +33,12 @@ type GrantInput struct {
 // GrantResult 返回统一发奖已经正式生效后的聚合结果。
 // Handler 只需要消费这里的权威结果做推送，不再自己重复判断奖励是否成功。
 type GrantResult struct {
-	Granted       []Entry          `json:"granted"`
-	BagUpdated    bool             `json:"bag_updated"`
-	GrantedPets   []pet.Pet        `json:"granted_pets"`
-	Wallet        *wallet.Snapshot `json:"wallet,omitempty"`
-	PlayerProfile *player.Profile  `json:"player_profile,omitempty"`
+	Granted          []Entry          `json:"granted"`
+	BagUpdated       bool             `json:"bag_updated"`
+	GrantedPets      []pet.Pet        `json:"granted_pets"`
+	Wallet           *wallet.Snapshot `json:"wallet,omitempty"`
+	PlayerProfile    *player.Profile              `json:"player_profile,omitempty"`
+	LevelUpCount     uint32                       `json:"level_up_count"`
+	AttrPointsGained uint32                       `json:"attr_points_gained"`
+	CombatBonusGain  progression.LevelUpCombatBonus `json:"level_up_bonus,omitempty"`
 }

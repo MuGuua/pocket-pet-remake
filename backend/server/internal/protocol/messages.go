@@ -66,11 +66,19 @@ type PlayerSnapshot struct {
 	Name               string   `json:"name"`
 	Level              uint32   `json:"level"`
 	Exp                uint64   `json:"exp"`
+	ExpToNext          uint64   `json:"exp_to_next"`
+	FreeAttrPoints     uint32   `json:"free_attr_points"`
+	Strength           uint32   `json:"strength"`
+	Vitality           uint32   `json:"vitality"`
+	Agility            uint32   `json:"agility"`
+	Mind               uint32   `json:"mind"`
 	Gold               uint32   `json:"gold"`
 	HP                 uint32   `json:"hp"`
 	HPMax              uint32   `json:"hp_max"`
-	Energy             uint32   `json:"energy"`
-	EnergyMax          uint32   `json:"energy_max"`
+	Vigor              uint32   `json:"vigor"`
+	VigorMax           uint32   `json:"vigor_max"`
+	Spirit             uint32   `json:"spirit"`
+	SpiritMax          uint32   `json:"spirit_max"`
 	ATK                uint32   `json:"atk"`
 	DEF                uint32   `json:"def"`
 	SPD                uint32   `json:"spd"`
@@ -289,6 +297,17 @@ type WildEncounterResp struct {
 	Reason   string `json:"reason"`
 }
 
+type PlayerAllocateAttrReq struct {
+	Strength uint32 `json:"strength"`
+	Vitality uint32 `json:"vitality"`
+	Agility  uint32 `json:"agility"`
+	Mind     uint32 `json:"mind"`
+}
+
+type PlayerAllocateAttrResp struct {
+	Player PlayerSnapshot `json:"player"`
+}
+
 type BattleActorSnapshot struct {
 	ActorID       uint64                `json:"actor_id"`
 	ActorType     uint32                `json:"actor_type"`
@@ -397,6 +416,14 @@ type BattleStatePush struct {
 	ControllableActorIDs []uint64           `json:"controllable_actor_ids"`
 }
 
+// LevelUpBonus 描述一次升级后累加的裸装战斗属性加成，供客户端弹窗展示。
+type LevelUpBonus struct {
+	HPMax uint32 `json:"hp_max"`
+	ATK   uint32 `json:"atk"`
+	SPD   uint32 `json:"spd"`
+	MANA  uint32 `json:"mana"`
+}
+
 type BattleResultPush struct {
 	BattleID         uint64            `json:"battle_id"`
 	Win              bool              `json:"win"`
@@ -407,7 +434,14 @@ type BattleResultPush struct {
 	RewardPlayerExp  uint64            `json:"reward_player_exp"`
 	PlayerGold       uint32            `json:"player_gold"`
 	PlayerExp        uint64            `json:"player_exp"`
+	PlayerLevel      uint32            `json:"player_level"`
+	LevelUpCount     uint32            `json:"level_up_count"`
+	AttrPointsGained uint32            `json:"attr_points_gained"`
+	LevelUpBonus     *LevelUpBonus     `json:"level_up_bonus,omitempty"`
+	FreeAttrPoints   uint32            `json:"free_attr_points"`
+	ExpToNext        uint64            `json:"exp_to_next"`
 	PetRewards       []BattlePetReward `json:"pet_rewards"`
+	Rewards          []QuestReward     `json:"rewards,omitempty"`
 	DropTexts        []string          `json:"drop_texts"`
 	CaptureSuccess   bool              `json:"capture_success,omitempty"`
 	CaptureMonsterID uint32            `json:"capture_monster_id,omitempty"`
@@ -616,11 +650,12 @@ type QuestObjectiveState struct {
 }
 
 type QuestReward struct {
-	Type   string `json:"type"`
-	Value  uint64 `json:"value"`
-	ItemID uint64 `json:"item_id"`
-	Count  uint64 `json:"count"`
-	PetID  uint64 `json:"pet_id"`
+	Type     string `json:"type"`
+	Value    uint64 `json:"value"`
+	ItemID   uint64 `json:"item_id"`
+	ItemName string `json:"item_name,omitempty"`
+	Count    uint64 `json:"count"`
+	PetID    uint64 `json:"pet_id"`
 }
 
 type QuestSummary struct {
@@ -666,10 +701,14 @@ type QuestSubmitReq struct {
 }
 
 type QuestSubmitResp struct {
-	Accepted bool          `json:"accepted"`
-	Reason   string        `json:"reason"`
-	Quest    QuestSummary  `json:"quest"`
-	Rewards  []QuestReward `json:"rewards"`
+	Accepted         bool          `json:"accepted"`
+	Reason           string        `json:"reason"`
+	Quest            QuestSummary  `json:"quest"`
+	Rewards          []QuestReward `json:"rewards"`
+	PlayerLevel      uint32        `json:"player_level,omitempty"`
+	LevelUpCount     uint32        `json:"level_up_count,omitempty"`
+	AttrPointsGained uint32        `json:"attr_points_gained,omitempty"`
+	LevelUpBonus     *LevelUpBonus `json:"level_up_bonus,omitempty"`
 }
 
 type QuestTrackReq struct {

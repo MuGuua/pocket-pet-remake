@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=3 uid="uid://dkt0436ylg1yv"]
+
+[ext_resource type="Script" uid="uid://djdu4t1jvf3ve" path="res://scripts/ui/grid_spread.gd" id="1_gt0ii"]
+[ext_resource type="Texture2D" uid="uid://tarrpasf6e7c" path="res://asset/分类/ui/ball.png" id="2_mumys"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_1o2q4"]
+size = Vector2(50, 50)
+
+[sub_resource type="MultiMesh" id="MultiMesh_pvhfj"]
+mesh = SubResource("QuadMesh_1o2q4")
+
+[node name="GridSpread" type="ColorRect"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+script = ExtResource("1_gt0ii")
+
+[node name="MultiMeshInstance2D" type="MultiMeshInstance2D" parent="."]
+unique_name_in_owner = true
+modulate = Color(0, 0, 0, 1)
+multimesh = SubResource("MultiMesh_pvhfj")
+texture = ExtResource("2_mumys")

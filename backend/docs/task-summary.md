@@ -528,3 +528,15 @@
 - 人物 actor 默认使用数据库中的技能顺序；当前人物起手技能为人物专属主动技 `1101: 裂空斩`，服务端自动托管与超时补行动作也会优先选择人物主动技能，精力不足时再权威回退到普通攻击
 - `EnterWorldResp` 新增完整 `player` 快照，客户端 `player_snapshot` 现在可以直接读取人物的生命、精力、攻击、防御、速度、法力、命中、闪避、暴击与技能列表；战斗 actor 快照也新增 `unit_class`，客户端可以区分人物 / 宠物 / 怪物
 - 战斗结算已改为只回写真实宠物的 HP / 经验，避免把人物 actor 误当成 `pet_uid=0` 的宠物持久化
+
+## 2026-06-15 玩家成长与属性加点第一版
+
+本次补充聚焦把玩家角色从“有经验字段”推进到“可升级、可加点、可后台配表”的完整闭环（宠物升级留二期）：
+- 新增迁移 `035_player_level_progression.sql`：引入 `player_level_config`、`player_attr_convert_config`、`player_attr_allocate_log`，并为 `player` 扩展 `free_attr_points`、四维已分配点数与 `base_*` 裸装战斗值
+- 新增迁移 `036_admin_player_progression_permissions.sql`：补充 `player_progression:view/edit` 后台权限
+- 新增 `module/progression` 领域模块：服务端权威处理经验连升、溢出结转、升级发点、加点校验与战斗属性重算；配置表变更后自动刷新运行时缓存
+- `player.AddExp` 与 `reward` 发经验链路已统一委托 `progression.ApplyExp`；升级只增加 `free_attr_points`，不直接改 `atk/def/...`
+- 新增 WebSocket `PLAYER_ALLOCATE_ATTR_REQ/RESP (2061/2062)`；`PlayerSnapshot` 扩展 `exp_to_next`、`free_attr_points` 与四维属性；`BATTLE_RESULT_PUSH` 扩展 `level_up_count`、`attr_points_gained`、`free_attr_points`、`exp_to_next`
+- 后台新增 `/api/admin/player-progression/...` 等级经验与转化率配置接口，前端页面 `/player-progression`；玩家详情页展示自由属性点与四维分配值
+- 客户端状态面板与加点页已对接真实快照；`points_status_panel.gd` 加点请求走通用 loading 遮罩，响应后通过 `GameState.merge_player_snapshot()` 刷新 UI
+- 设计说明见 `backend/docs/player-progression.md`；需本地执行迁移 `035`、`036`、`037` 后重启服务

@@ -14,8 +14,9 @@ import (
 func NewMonsterRepository() *MonsterRepository {
 	now := time.Now()
 	repo := &MonsterRepository{
-		definitions: make(map[uint32]monster.AdminDefinitionDetail, 4),
-		encounters:  make(map[uint64]monster.AdminEncounterDetail, 8),
+		definitions:   make(map[uint32]monster.AdminDefinitionDetail, 4),
+		encounters:    make(map[uint64]monster.AdminEncounterDetail, 8),
+		battleRewards: defaultStubBattleRewards(),
 	}
 	definitionSeeds := []monster.AdminUpsertDefinitionInput{
 		{MonsterID: 9001, MonsterName: "野生怪物", Description: "默认野外战斗怪物模板", IsEnabled: true, SkinID: "史莱姆_001", Level: 1, Quality: 1, HP: 22, HPMax: 22, ATK: 12, DEF: 9, SPD: 8, MANA: 9, SkillIDs: []uint32{90001, 90002}},
@@ -48,6 +49,8 @@ type MonsterRepository struct {
 	definitions          map[uint32]monster.AdminDefinitionDetail
 	encounters           map[uint64]monster.AdminEncounterDetail
 	wildEncounterDetails map[uint32]monster.AdminWildEncounterDetail
+	battleRewards        map[uint32][]monster.BattleRewardEntry
+	nextBattleRewardID   uint64
 }
 
 func (r *MonsterRepository) ListDefinitionsForAdmin(_ context.Context, query monster.AdminDefinitionListQuery) (*monster.AdminDefinitionList, error) {
@@ -456,3 +459,67 @@ func adminWildEncounterSummaryFromDetail(detail monster.AdminWildEncounterDetail
 		CreatedAt: detail.CreatedAt, UpdatedAt: detail.UpdatedAt,
 	}
 }
+
+func defaultStubBattleRewards() map[uint32][]monster.BattleRewardEntry {
+	return map[uint32][]monster.BattleRewardEntry{
+		9001: {
+			{ID: 1, MonsterID: 9001, RewardType: monster.RewardTypeExp, ExpTarget: monster.ExpTargetPlayer, ExpValue: 28, SortOrder: 1, Status: 1},
+			{ID: 2, MonsterID: 9001, RewardType: monster.RewardTypeExp, ExpTarget: monster.ExpTargetPet, ExpValue: 28, SortOrder: 2, Status: 1},
+			{ID: 3, MonsterID: 9001, RewardType: monster.RewardTypeItem, ItemID: 3101, Quantity: 1, SortOrder: 3, Status: 1},
+		},
+		9002: {
+			{ID: 4, MonsterID: 9002, RewardType: monster.RewardTypeExp, ExpTarget: monster.ExpTargetPlayer, ExpValue: 36, SortOrder: 1, Status: 1},
+			{ID: 5, MonsterID: 9002, RewardType: monster.RewardTypeExp, ExpTarget: monster.ExpTargetPet, ExpValue: 36, SortOrder: 2, Status: 1},
+			{ID: 6, MonsterID: 9002, RewardType: monster.RewardTypeItem, ItemID: 3102, Quantity: 1, SortOrder: 3, Status: 1},
+		},
+	}
+}
+
+func (r *MonsterRepository) ListBattleRewards(_ context.Context) ([]monster.BattleRewardEntry, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]monster.BattleRewardEntry, 0)
+	for _, entries := range r.battleRewards {
+		result = append(result, entries...)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].MonsterID == result[j].MonsterID {
+			return result[i].SortOrder < result[j].SortOrder
+		}
+		return result[i].MonsterID < result[j].MonsterID
+	})
+	return result, nil
+}
+
+func (r *MonsterRepository) ListBattleRewardsByMonsterID(_ context.Context, monsterID uint32) ([]monster.BattleRewardEntry, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]monster.BattleRewardEntry(nil), r.battleRewards[monsterID]...), nil
+}
+
+func (r *MonsterRepository) ReplaceBattleRewardsForMonster(_ context.Context, monsterID uint32, rewards []monster.AdminBattleRewardInput) ([]monster.BattleRewardEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entries := make([]monster.BattleRewardEntry, 0, len(rewards))
+	for index, reward := range rewards {
+		r.nextBattleRewardID++
+		entries = append(entries, monster.BattleRewardEntry{
+			ID:         r.nextBattleRewardID,
+			MonsterID:  monsterID,
+			RewardType: reward.RewardType,
+			ExpTarget:  reward.ExpTarget,
+			ItemID:     reward.ItemID,
+			Quantity:   reward.Quantity,
+			ExpValue:   reward.ExpValue,
+			SortOrder:  reward.SortOrder,
+			Status:     reward.Status,
+			GrantOnce:  reward.GrantOnce,
+		})
+		if entries[len(entries)-1].SortOrder == 0 {
+			entries[len(entries)-1].SortOrder = uint32(index + 1)
+		}
+	}
+	r.battleRewards[monsterID] = entries
+	return append([]monster.BattleRewardEntry(nil), entries...), nil
+}
+

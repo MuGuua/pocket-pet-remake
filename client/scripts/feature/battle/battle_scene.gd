@@ -2,10 +2,18 @@ extends Control
 
 @onready var _director: BattleDirector = $BattleDirector
 @onready var _network_provider: BattleNetworkProvider = %BattleNetworkProvider
-@onready var _bg_texture: TextureRect = $Bg/TextureRect
 
 var _battle_controller: Node = null
 var _initialized_battle_id: int = 0
+var _state_update_running: bool = false
+var _state_update_queued: bool = false
+var _request_loading: BattleRequestLoading = null
+
+func _ready() -> void:
+	_request_loading = BattleRequestLoading.new()
+	_request_loading.name = "BattleRequestLoading"
+	_request_loading.z_index = 120
+	add_child(_request_loading)
 
 ## 绑定主场景里的战斗控制器并订阅信号。
 func bind_battle_controller(battle_controller: Node) -> void:
@@ -43,16 +51,6 @@ func _disconnect_battle_controller() -> void:
 		_battle_controller.action_responded.disconnect(_on_action_responded)
 	_battle_controller = null
 
-## 用世界地图截图替换战斗背景；为空时保留场景内默认贴图。
-func apply_background_texture(texture: Texture2D) -> void:
-	if _bg_texture == null:
-		return
-	if texture == null:
-		return
-	_bg_texture.texture = texture
-	_bg_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_bg_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-
 func _on_battle_started(payload: Dictionary) -> void:
 	var battle_id: int = int(payload.get("battle_id", 0))
 	if battle_id <= 0:
@@ -66,22 +64,37 @@ func _on_battle_started(payload: Dictionary) -> void:
 func _on_battle_updated(payload: Dictionary) -> void:
 	if payload.is_empty():
 		return
+	if _request_loading != null:
+		_request_loading.hide_waiting()
 	call_deferred("_run_state_update")
 
-func _on_battle_finished(payload: Dictionary) -> void:
-	var summary: String = "战斗结束"
-	if bool(payload.get("win", false)):
-		summary = "战斗胜利"
-	else:
-		summary = "战斗失败"
+func _on_battle_finished(_payload: Dictionary) -> void:
+	# 结算演出与卸载由 main 调用 wait_for_presentation_complete 统一收尾。
+	pass
+
+## 播放剩余事件并短暂停留结算文案，供主场景在卸载前等待。
+func wait_for_presentation_complete(payload: Dictionary) -> void:
+	await _run_state_update()
+	while _director.is_playing_events():
+		await get_tree().process_frame
+	var summary: String = "战斗胜利" if bool(payload.get("win", false)) else "战斗失败"
 	_director.handle_battle_finished(summary)
+	await get_tree().create_timer(0.8).timeout
+	if _request_loading != null:
+		_request_loading.hide_waiting()
 	_initialized_battle_id = 0
 
-func _on_action_responded(accepted: bool, _reason: String) -> void:
+func _on_action_responded(accepted: bool, reason: String) -> void:
+	if not accepted and _request_loading != null:
+		_request_loading.hide_waiting()
 	if accepted:
-		_director.handle_action_accepted()
+		_director.mark_action_accepted()
+	else:
+		_director.handle_action_rejected(reason)
 
 func _on_action_requested(actor_id: int, action_type: int, skill_id: int, target_id: int) -> void:
+	if _request_loading != null:
+		_request_loading.show_waiting()
 	App.submit_battle_action(
 		_network_provider.get_battle_id(),
 		_network_provider.get_round(),
@@ -92,4 +105,13 @@ func _on_action_requested(actor_id: int, action_type: int, skill_id: int, target
 	)
 
 func _run_state_update() -> void:
-	await _director.handle_battle_state_update()
+	if _state_update_running:
+		_state_update_queued = true
+		return
+	_state_update_running = true
+	while true:
+		_state_update_queued = false
+		await _director.handle_battle_state_update()
+		if not _state_update_queued:
+			break
+	_state_update_running = false

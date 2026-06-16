@@ -7,7 +7,8 @@ var _default_data: Dictionary = {}
 
 @onready var hp_value: Label = $BodyMargin/BodyVBox/HpRow/HpValue
 @onready var element_value: Label = $BodyMargin/BodyVBox/ElementRow/ElementValue
-@onready var energy_value: Label = $BodyMargin/BodyVBox/EnergyRow/EnergyValue
+@onready var vigor_value: Label = $BodyMargin/BodyVBox/EnergyRow/EnergyValue
+@onready var spirit_value: Label = $BodyMargin/BodyVBox/SpiritRow/SpiritValue
 @onready var exp_value: Label = $BodyMargin/BodyVBox/ExpGuardGrid/ExpBox/ExpValue
 @onready var guard_value: Label = $BodyMargin/BodyVBox/ExpGuardGrid/GuardBox/GuardValue
 @onready var fly_value: Label = $BodyMargin/BodyVBox/FlyAscendRow/FlyAscendValue
@@ -36,7 +37,8 @@ func apply_data(data: Dictionary) -> void:
 
 	hp_value.text = UiFormat.value_to_text(resolved.get("hp", ""))
 	element_value.text = UiFormat.value_to_text(resolved.get("element", ""))
-	energy_value.text = UiFormat.value_to_text(resolved.get("energy", ""))
+	vigor_value.text = UiFormat.value_to_text(resolved.get("vigor", ""))
+	spirit_value.text = UiFormat.value_to_text(resolved.get("spirit", ""))
 	exp_value.text = UiFormat.value_to_text(resolved.get("exp", ""))
 	guard_value.text = UiFormat.value_to_text(resolved.get("guard_level", ""))
 	fly_value.text = UiFormat.value_to_text(resolved.get("fly_value", ""))

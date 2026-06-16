@@ -30,6 +30,13 @@ export interface AdminQuestObjectiveInput {
   target_selector: Record<string, unknown>;
 }
 
+export interface AdminQuestRewardInput {
+  type: 'exp' | 'item' | 'gold';
+  value: number;
+  item_id: number;
+  count: number;
+}
+
 export interface AdminQuestTemplateDetail {
   quest_id: number;
   name: string;
@@ -48,6 +55,7 @@ export interface AdminQuestTemplateDetail {
   status_text: string;
   pre_quest_ids: number[];
   objectives: AdminQuestObjectiveInput[];
+  rewards: AdminQuestRewardInput[];
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +84,7 @@ export interface AdminCreateQuestTemplatePayload {
   status: number;
   pre_quest_ids: number[];
   objectives: AdminQuestObjectiveInput[];
+  rewards: AdminQuestRewardInput[];
 }
 
 export interface AdminUpdateQuestTemplatePayload extends Omit<AdminCreateQuestTemplatePayload, 'quest_id'> {}

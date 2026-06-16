@@ -85,8 +85,10 @@ type ActorSnapshot struct {
 	SkinID             string
 	HP                 uint32
 	HPMax              uint32
-	Energy             uint32
-	EnergyMax          uint32
+	Vigor              uint32
+	VigorMax           uint32
+	Spirit             uint32
+	SpiritMax          uint32
 	ATK                uint32
 	DEF                uint32
 	SPD                uint32
@@ -158,8 +160,10 @@ type ActorState struct {
 	ActorID    uint64
 	HP         uint32
 	HPMax      uint32
-	Energy     uint32
-	EnergyMax  uint32
+	Vigor      uint32
+	VigorMax   uint32
+	Spirit     uint32
+	SpiritMax  uint32
 	Dead       bool
 	CanAct     bool
 	StatusIDs  []uint32
@@ -190,10 +194,11 @@ type PetResult struct {
 }
 
 // DropReward 描述一条服务端权威掉落结果。
-// 当前先只保留 item_id 与数量，掉落名称统一以后续数据库模板或发奖结果为准。
+// GrantOnce 为 true 时，若玩家此前已获得该物品，则本场战斗不再重复发放。
 type DropReward struct {
-	ItemID   uint64
-	Quantity uint64
+	ItemID    uint64
+	Quantity  uint64
+	GrantOnce bool
 }
 
 type ResultSnapshot struct {

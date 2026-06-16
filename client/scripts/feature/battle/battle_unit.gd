@@ -89,7 +89,7 @@ func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
 			items.append(item_value as Dictionary)
 	_apply_skin(skin)
 	_refresh_hp_display()
-	_set_hp_bar_visible(false)
+	_set_hp_bar_visible(true)
 	_update_dead_visual()
 	set_selection_arrow(SELECTION_ARROW_NONE)
 	_play_idle_animation()
@@ -113,8 +113,8 @@ func play_attack(target_position: Vector2, skill_visual: SkillVisualConfig, fall
 
 func play_result(result: Dictionary) -> void:
 	var result_type: String = str(result.get("result_type", "damage"))
-	var target_hp: int = clamp(int(result.get("hp_after", current_hp)), 0, max_hp)
 	var previous_hp: int = current_hp
+	var target_hp: int = _resolve_target_hp_after(result, result_type, previous_hp)
 	current_hp = target_hp
 	var should_die: bool = current_hp <= 0 and not is_dead
 	if result_type == "heal":
@@ -127,7 +127,11 @@ func play_result(result: Dictionary) -> void:
 		_prepare_hp_bar(previous_hp)
 		_play_animation("受击")
 		await _animate_hp_bar_to(current_hp, FloatingText.DISPLAY_DURATION)
-		_set_hp_bar_visible(false)
+	elif result_type == "defeat":
+		if not is_dead:
+			current_hp = 0
+			await play_death()
+		return
 	else:
 		await _play_animation("受击")
 		_refresh_hp_display()
@@ -324,6 +328,20 @@ func _set_hp_bar_visible(visible: bool) -> void:
 	_ensure_scene_nodes()
 	if _status_root != null:
 		_status_root.visible = visible
+	if _hp_bar != null:
+		_hp_bar.visible = visible
+
+## 按事件 value 推算受击后的 HP，保证血条能按段落下动画。
+func _resolve_target_hp_after(result: Dictionary, result_type: String, previous_hp: int) -> int:
+	match result_type:
+		"damage":
+			return maxi(0, previous_hp - int(result.get("value", 0)))
+		"heal":
+			return mini(max_hp, previous_hp + int(result.get("value", 0)))
+		"defeat":
+			return 0
+		_:
+			return clampi(int(result.get("hp_after", previous_hp)), 0, max_hp)
 
 ## 用服务端 actors 快照校准本地演出 HP。
 func apply_runtime_snapshot(runtime_actor: Dictionary) -> void:
@@ -331,9 +349,13 @@ func apply_runtime_snapshot(runtime_actor: Dictionary) -> void:
 	current_hp = clamp(int(runtime_actor.get("hp", current_hp)), 0, max_hp)
 	is_dead = bool(runtime_actor.get("dead", current_hp <= 0))
 	_refresh_hp_display()
+	_set_hp_bar_visible(true)
 	_update_dead_visual()
 
 func _refresh_hp_display() -> void:
+	_ensure_scene_nodes()
+	if _hp_bar == null:
+		return
 	_hp_bar.max_value = max_hp
 	_hp_bar.value = current_hp
 

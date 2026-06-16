@@ -1,0 +1,101 @@
+[gd_scene load_steps=5 format=3 uid="uid://lr72pvud288e"]
+
+[ext_resource type="Script" uid="uid://kc7fqd51ejar" path="res://scripts/ui/level_up_popup.gd" id="1_script"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="3_x6nhv"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_x6nhv"]
+texture = ExtResource("3_x6nhv")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[node name="LevelUpPopup" type="CanvasLayer"]
+layer = 131
+script = ExtResource("1_script")
+
+[node name="DimLayer" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.04, 0.08, 0.14, 0.72)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ContentVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LevelLabel" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 18
+text = "恭喜你升到了1级"
+horizontal_alignment = 1
+
+[node name="HpGainLabel" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 18
+text = "最大生命值增加：0"
+horizontal_alignment = 1
+
+[node name="AtkGainLabel" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 18
+text = "攻击力增加：0"
+horizontal_alignment = 1
+
+[node name="ManaGainLabel" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 18
+text = "法力增加：0"
+horizontal_alignment = 1
+
+[node name="SpdGainLabel" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 18
+text = "速度增加：0"
+horizontal_alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/normal = SubResource("StyleBoxTexture_x6nhv")
+text = "确定"

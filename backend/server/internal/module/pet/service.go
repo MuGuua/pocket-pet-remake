@@ -66,9 +66,35 @@ func (s *Service) ListLineup(ctx context.Context, playerID uint64) ([]LineupPet,
 	return lineup, nil
 }
 
+// SetAdminPetLineup 复用游戏内编队校验，供运营后台调整玩家出战宠物。
+func (s *Service) SetAdminPetLineup(ctx context.Context, playerID uint64, input AdminSetPetLineupInput) (*AdminSetPetLineupResult, error) {
+	if playerID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	lineup, err := s.SetLineup(ctx, playerID, input.PetUIDs)
+	if err != nil {
+		return nil, err
+	}
+	resultPetUIDs := make([]uint64, 0, len(lineup))
+	for _, item := range lineup {
+		resultPetUIDs = append(resultPetUIDs, item.PetUID)
+	}
+	return &AdminSetPetLineupResult{
+		PlayerID: playerID,
+		PetUIDs:  resultPetUIDs,
+	}, nil
+}
+
 func (s *Service) SetLineup(ctx context.Context, playerID uint64, petUIDs []uint64) ([]LineupPet, error) {
-	if len(petUIDs) == 0 {
+	// 当前玩法允许空编队，且同时最多只能出战 1 只宠物。
+	if len(petUIDs) > 1 {
 		return nil, ErrInvalidLineup
+	}
+	if len(petUIDs) == 0 {
+		if err := s.repo.SetLineupByPlayerID(ctx, playerID, nil); err != nil {
+			return nil, err
+		}
+		return []LineupPet{}, nil
 	}
 
 	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)

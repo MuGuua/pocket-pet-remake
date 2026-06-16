@@ -15,6 +15,7 @@ import (
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
@@ -29,9 +30,10 @@ type Bundle struct {
 	Bags     bag.Repository
 	Items    item.Repository
 	Monsters monster.Repository
-	Skills   skill.Repository
-	Players  player.Repository
-	Pets     pet.Repository
+	Skills      skill.Repository
+	Players     player.Repository
+	Progression progression.Repository
+	Pets        pet.Repository
 	Quests   quest.Repository
 	Unlocks  unlock.Repository
 	NPCs     npc.Repository
@@ -60,9 +62,10 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 		Bags:     pgrepo.NewBagRepository(deps.Postgres),
 		Items:    pgrepo.NewItemRepository(deps.Postgres),
 		Monsters: pgrepo.NewMonsterRepository(deps.Postgres),
-		Skills:   pgrepo.NewSkillRepository(deps.Postgres),
-		Players:  pgrepo.NewPlayerRepository(deps.Postgres),
-		Pets:     pgrepo.NewPetRepository(deps.Postgres),
+		Skills:      pgrepo.NewSkillRepository(deps.Postgres),
+		Players:     pgrepo.NewPlayerRepository(deps.Postgres),
+		Progression: pgrepo.NewProgressionRepository(deps.Postgres),
+		Pets:        pgrepo.NewPetRepository(deps.Postgres),
 		Quests:   pgrepo.NewQuestRepository(deps.Postgres),
 		Unlocks:  pgrepo.NewUnlockRepository(deps.Postgres),
 		NPCs:     pgrepo.NewNPCRepository(deps.Postgres),

@@ -18,10 +18,16 @@ type Service struct {
 	repo                Repository
 	skillService        *skill.Service
 	capturePetValidator CapturePetValidator
+	battleRewardCache   *battleRewardCache
 }
 
 func NewService(repo Repository, skillService *skill.Service, capturePetValidator CapturePetValidator) *Service {
-	return &Service{repo: repo, skillService: skillService, capturePetValidator: capturePetValidator}
+	return &Service{
+		repo:                repo,
+		skillService:        skillService,
+		capturePetValidator: capturePetValidator,
+		battleRewardCache:   newBattleRewardCache(),
+	}
 }
 
 func (s *Service) ValidateEnabledSkillIDs(ctx context.Context, skillIDs []uint32) error {

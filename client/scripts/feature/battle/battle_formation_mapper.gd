@@ -5,6 +5,10 @@ class_name BattleFormationMapper
 
 const ALLY_SLOT_PREFIXES: Array[String] = ["left_front", "left_back"]
 const ENEMY_SLOT_PREFIXES: Array[String] = ["right_front", "right_back"]
+const ALLY_FRONT_X: float = 88.0
+const ENEMY_FRONT_X: float = 272.0
+## 左右对阵分界线：右侧单位命中左侧目标时，客户端镜像技能特效。
+const BATTLEFIELD_SPLIT_X: float = (ALLY_FRONT_X + ENEMY_FRONT_X) * 0.5
 
 # 与 battle_scene.tscn -> Bg/PanelContainer/TextureRect2 魔法阵贴图区域保持一致。
 const MAGIC_CIRCLE_TOP_Y: float = 165.0

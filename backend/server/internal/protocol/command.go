@@ -22,6 +22,8 @@ const (
 	CmdWildEncounterReq      uint16 = 2035
 	CmdWildEncounterResp     uint16 = 2036
 	CmdEncounterPush         uint16 = 2041
+	CmdPlayerAllocateAttrReq uint16 = 2061
+	CmdPlayerAllocateAttrResp uint16 = 2062
 	CmdPetListReq            uint16 = 3001
 	CmdPetListResp           uint16 = 3002
 	CmdPetUpdatePush         uint16 = 3011

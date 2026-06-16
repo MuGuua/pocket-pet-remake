@@ -26,12 +26,15 @@ import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminMonsterDefinition,
   deleteAdminMonsterDefinition,
+  fetchAdminMonsterBattleRewards,
   fetchAdminMonsterDefinitionDetail,
   fetchAdminMonsterDefinitions,
+  updateAdminMonsterBattleRewards,
   updateAdminMonsterDefinition,
 } from '../../services/monsterDefinition';
 import { fetchAdminPetDefinitions } from '../../services/petDefinition';
 import type {
+  AdminMonsterBattleRewardEntry,
   AdminMonsterDefinitionDetail,
   AdminMonsterDefinitionListFilters,
   AdminMonsterDefinitionSummary,
@@ -43,6 +46,10 @@ import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenc
 interface MonsterDefinitionFormValues extends AdminUpsertMonsterDefinitionPayload {
   skill_names_text?: string;
   capture_item_ids_text?: string;
+}
+
+interface MonsterBattleRewardFormValues {
+  rewards: AdminMonsterBattleRewardEntry[];
 }
 
 // 系统怪物模板页维护 PVE 战斗怪物白名单；遭遇配置通过 monster_id 引用这里的模板。
@@ -63,6 +70,12 @@ export function MonsterDefinitionPage() {
   const [editingRecord, setEditingRecord] = useState<AdminMonsterDefinitionDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [wildCapturePetOptions, setWildCapturePetOptions] = useState<AdminPetDefinitionSummary[]>([]);
+  const [rewardEditorOpen, setRewardEditorOpen] = useState(false);
+  const [rewardMonsterID, setRewardMonsterID] = useState<number | null>(null);
+  const [rewardMonsterName, setRewardMonsterName] = useState('');
+  const [rewardSaving, setRewardSaving] = useState(false);
+  const [rewardLoading, setRewardLoading] = useState(false);
+  const [rewardForm] = Form.useForm<MonsterBattleRewardFormValues>();
   const isCapturable = Form.useWatch('is_capturable', editorForm);
 
   useEffect(() => {
@@ -170,6 +183,40 @@ export function MonsterDefinitionPage() {
     }
   }
 
+  async function handleOpenBattleRewards(record: AdminMonsterDefinitionSummary) {
+    setRewardEditorOpen(true);
+    setRewardMonsterID(record.monster_id);
+    setRewardMonsterName(record.monster_name);
+    rewardForm.resetFields();
+    setRewardLoading(true);
+    try {
+      const items = await fetchAdminMonsterBattleRewards(record.monster_id);
+      rewardForm.setFieldsValue({ rewards: items.length > 0 ? items : [defaultMonsterBattleRewardRow()] });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载战斗奖励配置失败');
+      setRewardEditorOpen(false);
+    } finally {
+      setRewardLoading(false);
+    }
+  }
+
+  async function handleSubmitBattleRewards(values: MonsterBattleRewardFormValues) {
+    if (rewardMonsterID == null) {
+      return;
+    }
+    setRewardSaving(true);
+    try {
+      const rewards = (values.rewards ?? []).map((item, index) => mapMonsterBattleRewardPayload(item, index));
+      await updateAdminMonsterBattleRewards(rewardMonsterID, { rewards });
+      message.success('战斗奖励配置已保存');
+      setRewardEditorOpen(false);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '保存战斗奖励配置失败');
+    } finally {
+      setRewardSaving(false);
+    }
+  }
+
   const columns = useMemo<ColumnsType<AdminMonsterDefinitionSummary>>(
     () => [
       { title: '怪物ID', dataIndex: 'monster_id', key: 'monster_id', width: 100, fixed: 'left' },
@@ -194,6 +241,7 @@ export function MonsterDefinitionPage() {
             actions={[
               { key: 'view', label: '详情', onClick: () => void handleViewDetail(record.monster_id) },
               { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.monster_id) },
+              { key: 'rewards', label: '战斗奖励', onClick: () => void handleOpenBattleRewards(record) },
               {
                 key: 'delete',
                 label: '删除',
@@ -288,6 +336,9 @@ export function MonsterDefinitionPage() {
               <Descriptions.Item label="最低生命百分比">{detail.is_capturable ? `${detail.capture_min_hp_pct}%` : '-'}</Descriptions.Item>
               <Descriptions.Item label="允许道具" span={2}>{detail.is_capturable ? detail.capture_item_ids.join(', ') || '-' : '-'}</Descriptions.Item>
             </Descriptions>
+            <Button type="primary" onClick={() => void handleOpenBattleRewards({ monster_id: detail.monster_id, monster_name: detail.monster_name } as AdminMonsterDefinitionSummary)}>
+              配置战斗奖励
+            </Button>
           </Space>
         )}
       </Drawer>
@@ -358,8 +409,164 @@ export function MonsterDefinitionPage() {
           </Row>
         </Form>
       </Modal>
+
+      <Modal
+        title={rewardMonsterID ? `战斗奖励 · ${rewardMonsterName} (#${rewardMonsterID})` : '战斗奖励'}
+        open={rewardEditorOpen}
+        onCancel={() => setRewardEditorOpen(false)}
+        onOk={() => rewardForm.submit()}
+        confirmLoading={rewardSaving}
+        destroyOnClose
+        width={900}
+        okText="保存奖励"
+        cancelText="取消"
+      >
+        {rewardLoading ? (
+          <Typography.Text type="secondary">正在加载战斗奖励配置...</Typography.Text>
+        ) : (
+          <Form form={rewardForm} layout="vertical" onFinish={(values) => void handleSubmitBattleRewards(values)}>
+            <Typography.Paragraph type="secondary">
+              支持经验、铜币与物品奖励，保存后将覆盖该怪物全部战斗奖励配置。
+            </Typography.Paragraph>
+            <Form.List name="rewards">
+              {(fields, { add, remove }) => (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  {fields.map((field, index) => (
+                    <Card
+                      key={field.key}
+                      size="small"
+                      title={`奖励 ${index + 1}`}
+                      extra={<Button type="link" danger onClick={() => remove(field.name)}>删除</Button>}
+                    >
+                      <Row gutter={12}>
+                        <Col xs={24} md={6}>
+                          <Form.Item label="奖励类型" name={[field.name, 'reward_type']} rules={[{ required: true, message: '请选择奖励类型' }]}>
+                            <Select options={[{ label: '经验', value: 'exp' }, { label: '铜币', value: 'gold' }, { label: '物品', value: 'item' }]} />
+                          </Form.Item>
+                        </Col>
+                        <Form.Item noStyle shouldUpdate>
+                          {() => {
+                            const rewardType = rewardForm.getFieldValue(['rewards', field.name, 'reward_type']) as string | undefined;
+                            if (rewardType === 'item') {
+                              return (
+                                <>
+                                  <Col xs={24} md={6}>
+                                    <Form.Item label="物品ID" name={[field.name, 'item_id']} rules={[{ required: true, message: '请输入物品ID' }]}>
+                                      <InputNumber min={1} style={{ width: '100%' }} />
+                                    </Form.Item>
+                                  </Col>
+                                  <Col xs={24} md={6}>
+                                    <Form.Item label="数量" name={[field.name, 'quantity']} rules={[{ required: true, message: '请输入数量' }]}>
+                                      <InputNumber min={1} style={{ width: '100%' }} />
+                                    </Form.Item>
+                                  </Col>
+                                  <Col xs={24} md={6}>
+                                    <Form.Item label="唯一掉落" name={[field.name, 'grant_once']} tooltip="开启后每名玩家仅首次获得该物品，之后战斗不再重复发放。">
+                                      <Select options={[{ label: '否', value: 0 }, { label: '是', value: 1 }]} />
+                                    </Form.Item>
+                                  </Col>
+                                </>
+                              );
+                            }
+                            if (rewardType === 'gold') {
+                              return (
+                                <Col xs={24} md={6}>
+                                  <Form.Item label="铜币数量" name={[field.name, 'exp_value']} rules={[{ required: true, message: '请输入铜币数量' }]}>
+                                    <InputNumber min={1} style={{ width: '100%' }} />
+                                  </Form.Item>
+                                </Col>
+                              );
+                            }
+                            return (
+                              <>
+                                <Col xs={24} md={6}>
+                                  <Form.Item label="经验目标" name={[field.name, 'exp_target']} rules={[{ required: true, message: '请选择经验目标' }]}>
+                                    <Select options={[{ label: '角色', value: 'player' }, { label: '宠物', value: 'pet' }]} />
+                                  </Form.Item>
+                                </Col>
+                                <Col xs={24} md={6}>
+                                  <Form.Item label="经验值" name={[field.name, 'exp_value']} rules={[{ required: true, message: '请输入经验值' }]}>
+                                    <InputNumber min={1} style={{ width: '100%' }} />
+                                  </Form.Item>
+                                </Col>
+                              </>
+                            );
+                          }}
+                        </Form.Item>
+                        <Col xs={12} md={4}>
+                          <Form.Item label="排序" name={[field.name, 'sort_order']}>
+                            <InputNumber min={1} style={{ width: '100%' }} />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={12} md={4}>
+                          <Form.Item label="状态" name={[field.name, 'status']}>
+                            <Select options={[{ label: '启用', value: 1 }, { label: '停用', value: 0 }]} />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    </Card>
+                  ))}
+                  <Button type="dashed" block onClick={() => add(defaultMonsterBattleRewardRow())}>
+                    新增奖励
+                  </Button>
+                </Space>
+              )}
+            </Form.List>
+          </Form>
+        )}
+      </Modal>
     </Space>
   );
+}
+
+function mapMonsterBattleRewardPayload(item: AdminMonsterBattleRewardEntry, index: number): AdminMonsterBattleRewardEntry {
+  const sortOrder: number = item.sort_order > 0 ? item.sort_order : index + 1;
+  const status: number = item.status ?? 1;
+  if (item.reward_type === 'item') {
+    return {
+      reward_type: 'item',
+      exp_target: 'player',
+      item_id: Number(item.item_id ?? 0),
+      quantity: Number(item.quantity ?? 0),
+      exp_value: 0,
+      sort_order: sortOrder,
+      status,
+      grant_once: Number(item.grant_once ?? 0) > 0 ? 1 : 0,
+    };
+  }
+  if (item.reward_type === 'gold') {
+    return {
+      reward_type: 'gold',
+      exp_target: 'player',
+      item_id: 0,
+      quantity: 0,
+      exp_value: Number(item.exp_value ?? 0),
+      sort_order: sortOrder,
+      status,
+    };
+  }
+  return {
+    reward_type: 'exp',
+    exp_target: item.exp_target || 'player',
+    item_id: 0,
+    quantity: 0,
+    exp_value: Number(item.exp_value ?? 0),
+    sort_order: sortOrder,
+    status,
+  };
+}
+
+function defaultMonsterBattleRewardRow(): AdminMonsterBattleRewardEntry {
+  return {
+    reward_type: 'exp',
+    exp_target: 'player',
+    item_id: 0,
+    quantity: 0,
+    exp_value: 10,
+    sort_order: 1,
+    status: 1,
+    grant_once: 0,
+  };
 }
 
 function defaultMonsterDefinitionValues(): MonsterDefinitionFormValues {

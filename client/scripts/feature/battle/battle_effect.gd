@@ -6,22 +6,34 @@ class_name BattleEffect
 @onready var _debug_label: Label = %DebugLabel
 @onready var _animation_player: AnimationPlayer = %AnimationPlayer
 
+var _motion_root: Node2D = null
+
 func _ready() -> void:
+	_ensure_motion_root()
 	_ensure_builtin_animations()
 
-func play_from_config(skill_visual: SkillVisualConfig, fallback_name: String = "") -> void:
+func _ensure_motion_root() -> void:
+	if _motion_root != null:
+		return
+	_motion_root = Node2D.new()
+	_motion_root.name = "MotionRoot"
+	_pivot.add_child(_motion_root)
+	if _effect_sprite.get_parent() == _pivot:
+		_pivot.remove_child(_effect_sprite)
+		_motion_root.add_child(_effect_sprite)
+
+func play_from_config(skill_visual: SkillVisualConfig, fallback_name: String = "", flip_horizontal: bool = false) -> void:
 	if not is_node_ready():
 		await ready
-	var effect_name: String = fallback_name
 	var sprite_animation_name: String = "默认"
 	if skill_visual != null:
 		_apply_visual(skill_visual)
-		effect_name = _resolve_effect_name(skill_visual, fallback_name)
 		sprite_animation_name = _resolve_sprite_animation(skill_visual)
 	else:
 		_apply_fallback_visual(fallback_name)
 
-	_debug_label.text = effect_name
+	scale.x = -1.0 if flip_horizontal else 1.0
+	_debug_label.visible = false
 	var player_animation_name: String = _resolve_player_animation(skill_visual)
 	var sprite_duration: float = _play_sprite_animation(sprite_animation_name)
 	var player_duration: float = _play_player_animation(player_animation_name)
@@ -32,25 +44,33 @@ func play_from_config(skill_visual: SkillVisualConfig, fallback_name: String = "
 	queue_free()
 
 func _apply_visual(skill_visual: SkillVisualConfig) -> void:
+	_ensure_motion_root()
 	_pivot.position = skill_visual.effect_offset
-	_pivot.scale = skill_visual.effect_scale
+	_pivot.scale = Vector2.ONE
 	_effect_sprite.sprite_frames = _resolve_effect_frames(skill_visual)
 	_effect_sprite.frame = 0
 	_effect_sprite.animation = &"默认"
 	_effect_sprite.modulate = skill_visual.effect_tint
-	_effect_sprite.visible = _effect_sprite.sprite_frames != null
-	_debug_label.modulate = skill_visual.effect_tint
-	_debug_label.visible = _effect_sprite.sprite_frames == null
+	var has_sprite_frames: bool = _effect_sprite.sprite_frames != null
+	_effect_sprite.visible = has_sprite_frames
+	if has_sprite_frames:
+		_effect_sprite.scale = skill_visual.effect_scale
+		_motion_root.scale = Vector2.ONE
+	else:
+		_effect_sprite.scale = Vector2.ONE
+		_motion_root.scale = skill_visual.effect_scale
+	_debug_label.visible = false
 
-func _apply_fallback_visual(effect_name: String) -> void:
+func _apply_fallback_visual(_effect_name: String) -> void:
+	_ensure_motion_root()
 	_pivot.position = Vector2.ZERO
 	_pivot.scale = Vector2.ONE
+	_motion_root.scale = Vector2.ONE
+	_effect_sprite.scale = Vector2.ONE
 	_effect_sprite.sprite_frames = null
 	_effect_sprite.modulate = Color.WHITE
 	_effect_sprite.visible = false
-	_debug_label.modulate = Color("#ffe6a6")
-	_debug_label.visible = true
-	_debug_label.text = effect_name
+	_debug_label.visible = false
 
 func _resolve_effect_frames(skill_visual: SkillVisualConfig) -> SpriteFrames:
 	if skill_visual == null:
@@ -78,15 +98,6 @@ func _play_player_animation(animation_name: String) -> float:
 	_animation_player.play(animation_name)
 	return _animation_player.get_animation(animation_name).length
 
-func _resolve_effect_name(skill_visual: SkillVisualConfig, fallback_name: String) -> String:
-	if skill_visual == null:
-		return fallback_name
-	if not skill_visual.effect_id.is_empty():
-		return skill_visual.effect_id
-	if not skill_visual.skill_visual_id.is_empty():
-		return skill_visual.skill_visual_id
-	return fallback_name
-
 func _resolve_player_animation(skill_visual: SkillVisualConfig) -> String:
 	if skill_visual != null:
 		var direct_name: String = skill_visual.effect_player_animation.strip_edges()
@@ -111,11 +122,13 @@ func _get_default_animation_library() -> AnimationLibrary:
 		_animation_player.add_animation_library("", AnimationLibrary.new())
 	return _animation_player.get_animation_library("")
 
+const MOTION_SCALE_TRACK_PATH: String = "Pivot/MotionRoot:scale"
+
 func _build_default_animation() -> Animation:
 	var animation: Animation = Animation.new()
 	animation.length = 0.38
 	var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-	animation.track_set_path(scale_track, NodePath("Pivot:scale"))
+	animation.track_set_path(scale_track, NodePath(MOTION_SCALE_TRACK_PATH))
 	animation.track_insert_key(scale_track, 0.0, Vector2(0.74, 0.74))
 	animation.track_insert_key(scale_track, 0.16, Vector2(1.1, 1.1))
 	animation.track_insert_key(scale_track, 0.38, Vector2(1.18, 1.18))
@@ -134,7 +147,7 @@ func _build_impact_animation() -> Animation:
 	var animation: Animation = Animation.new()
 	animation.length = 0.26
 	var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-	animation.track_set_path(scale_track, NodePath("Pivot:scale"))
+	animation.track_set_path(scale_track, NodePath(MOTION_SCALE_TRACK_PATH))
 	animation.track_insert_key(scale_track, 0.0, Vector2(0.42, 0.42))
 	animation.track_insert_key(scale_track, 0.08, Vector2(1.26, 1.26))
 	animation.track_insert_key(scale_track, 0.26, Vector2(0.92, 0.92))
@@ -154,7 +167,7 @@ func _build_heal_animation() -> Animation:
 	var animation: Animation = Animation.new()
 	animation.length = 0.5
 	var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-	animation.track_set_path(scale_track, NodePath("Pivot:scale"))
+	animation.track_set_path(scale_track, NodePath(MOTION_SCALE_TRACK_PATH))
 	animation.track_insert_key(scale_track, 0.0, Vector2(0.6, 0.6))
 	animation.track_insert_key(scale_track, 0.18, Vector2(1.0, 1.0))
 	animation.track_insert_key(scale_track, 0.5, Vector2(1.2, 1.2))
@@ -173,7 +186,7 @@ func _build_status_animation() -> Animation:
 	var animation: Animation = Animation.new()
 	animation.length = 0.42
 	var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-	animation.track_set_path(scale_track, NodePath("Pivot:scale"))
+	animation.track_set_path(scale_track, NodePath(MOTION_SCALE_TRACK_PATH))
 	animation.track_insert_key(scale_track, 0.0, Vector2(0.84, 0.84))
 	animation.track_insert_key(scale_track, 0.2, Vector2(1.08, 1.08))
 	animation.track_insert_key(scale_track, 0.42, Vector2(1.0, 1.0))
@@ -193,7 +206,7 @@ func _build_burst_animation() -> Animation:
 	var animation: Animation = Animation.new()
 	animation.length = 0.32
 	var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-	animation.track_set_path(scale_track, NodePath("Pivot:scale"))
+	animation.track_set_path(scale_track, NodePath(MOTION_SCALE_TRACK_PATH))
 	animation.track_insert_key(scale_track, 0.0, Vector2(0.58, 0.58))
 	animation.track_insert_key(scale_track, 0.12, Vector2(1.34, 1.0))
 	animation.track_insert_key(scale_track, 0.32, Vector2(1.0, 0.92))

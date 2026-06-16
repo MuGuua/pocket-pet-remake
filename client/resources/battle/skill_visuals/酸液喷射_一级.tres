@@ -1,37 +1,39 @@
 [gd_resource type="Resource" script_class="SkillVisualConfig" load_steps=8 format=3 uid="uid://dsxckuw2t0iu1"]
 
-[ext_resource type="Script" uid="uid://clb8mic8fam2i" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://c2rj3k4c0802y" path="res://assets/特效/顺序播放特效/1048.png" id="2_fallback"]
-[ext_resource type="Texture2D" uid="uid://bec52gpexx752" path="res://assets/特效/顺序播放特效/1050.png" id="3_acid"]
+[ext_resource type="Script" uid="uid://dr0rih5va8au0" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://cae7b2nafi3wu" path="res://asset/分类/特效/顺序播放特效/2021.png" id="1_yyoda"]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_e2try"]
-atlas = ExtResource("3_acid")
-region = Rect2(0, 0, 61, 64)
+[sub_resource type="AtlasTexture" id="AtlasTexture_jm1a2"]
+atlas = ExtResource("1_yyoda")
+region = Rect2(0, 0, 32, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ijsvi"]
-atlas = ExtResource("3_acid")
-region = Rect2(61, 0, 61, 64)
+[sub_resource type="AtlasTexture" id="AtlasTexture_2uuy5"]
+atlas = ExtResource("1_yyoda")
+region = Rect2(32, 0, 32, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_sdfmy"]
-atlas = ExtResource("3_acid")
-region = Rect2(122, 0, 61, 64)
+[sub_resource type="AtlasTexture" id="AtlasTexture_r3t7n"]
+atlas = ExtResource("1_yyoda")
+region = Rect2(64, 0, 32, 32)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_acid"]
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_e2try")
+"texture": SubResource("AtlasTexture_jm1a2")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_ijsvi")
+"texture": SubResource("AtlasTexture_2uuy5")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_sdfmy")
+"texture": SubResource("AtlasTexture_r3t7n")
 }],
 "loop": false,
 "name": &"默认",
 "speed": 14.0
 }]
+
+[sub_resource type="Resource" id="Resource_oh105"]
+metadata/__load_path__ = "res://assets/特效/顺序播放特效/1048.png"
 
 [resource]
 script = ExtResource("1")
@@ -40,7 +42,7 @@ animation_key = "酸液喷射"
 action_type = "skill"
 effect_id = "酸液喷射_特效"
 effect_frames = SubResource("SpriteFrames_acid")
-effect_texture = ExtResource("2_fallback")
+effect_texture = SubResource("Resource_oh105")
 effect_offset = Vector2(0, -6)
 effect_scale = Vector2(0.8, 0.8)
 effect_tint = Color(0.643137, 0.956863, 0.552941, 1)

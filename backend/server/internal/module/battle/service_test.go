@@ -240,6 +240,9 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	if timeoutOutcome == nil || timeoutOutcome.State == nil {
 		t.Fatalf("timeoutOutcome = %#v, want resolved state", timeoutOutcome)
 	}
+	if !timeoutOutcome.State.AutoBattleEnabled {
+		t.Fatal("timeoutOutcome.State.AutoBattleEnabled = false, want true after command timeout")
+	}
 	if timeoutOutcome.State.Frame <= firstOutcome.State.Frame {
 		t.Fatalf("timeoutOutcome.State.Frame = %d, want progress beyond queued frame %d", timeoutOutcome.State.Frame, firstOutcome.State.Frame)
 	}
@@ -327,8 +330,8 @@ func TestBuildPlayerCharacterActorIncludesRequestedAttributes(t *testing.T) {
 	if actor.unitClass != ActorUnitClassCharacter {
 		t.Fatalf("actor.unitClass = %d, want %d", actor.unitClass, ActorUnitClassCharacter)
 	}
-	if actor.hp == 0 || actor.energy == 0 || actor.hitPct == 0 || actor.critRatePct == 0 {
-		t.Fatalf("actor core stats = %#v, want non-zero hp/energy/hit/crit", actor)
+	if actor.hp == 0 || actor.spirit == 0 || actor.hitPct == 0 || actor.critRatePct == 0 {
+		t.Fatalf("actor core stats = %#v, want non-zero hp/spirit/hit/crit", actor)
 	}
 	if actor.physicalResistPct == 0 || actor.skillResistPct == 0 || actor.sleepResistPct == 0 || actor.critDmgResistPct == 0 {
 		t.Fatalf("actor resistances = %#v, want seeded character resistances", actor)
@@ -338,7 +341,7 @@ func TestBuildPlayerCharacterActorIncludesRequestedAttributes(t *testing.T) {
 	}
 }
 
-func TestExecuteDecisionFallsBackWhenEnergyInsufficient(t *testing.T) {
+func TestExecuteDecisionFallsBackWhenSpiritInsufficient(t *testing.T) {
 	actor := &actorRuntime{
 		actorID:              1,
 		actorType:            PlayerActorType,
@@ -347,8 +350,8 @@ func TestExecuteDecisionFallsBackWhenEnergyInsufficient(t *testing.T) {
 		name:                 "SoloHero",
 		hp:                   100,
 		hpMax:                100,
-		energy:               0,
-		energyMax:            100,
+		spirit:               0,
+		spiritMax:            100,
 		atk:                  20,
 		def:                  10,
 		spd:                  12,
@@ -371,8 +374,8 @@ func TestExecuteDecisionFallsBackWhenEnergyInsufficient(t *testing.T) {
 		name:                 "Training Dummy",
 		hp:                   100,
 		hpMax:                100,
-		energy:               100,
-		energyMax:            100,
+		spirit:               100,
+		spiritMax:            100,
 		def:                  8,
 		spd:                  6,
 		statuses:             map[uint32]*statusRuntime{},
@@ -402,8 +405,8 @@ func TestExecuteDecisionFallsBackWhenEnergyInsufficient(t *testing.T) {
 	if events[0].SkillID != DefaultAttackSkillID {
 		t.Fatalf("events[0].SkillID = %d, want fallback default attack", events[0].SkillID)
 	}
-	if actor.energy != 0 {
-		t.Fatalf("actor.energy = %d, want unchanged 0 after fallback", actor.energy)
+	if actor.spirit != 0 {
+		t.Fatalf("actor.spirit = %d, want unchanged 0 after fallback", actor.spirit)
 	}
 }
 

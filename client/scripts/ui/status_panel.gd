@@ -160,6 +160,7 @@ func _build_runtime_panel_data() -> Dictionary:
 	var header: Dictionary = data.get("header", {}).duplicate(true)
 	var character: Dictionary = data.get("character", {}).duplicate(true)
 	var pet: Dictionary = data.get("pet", {}).duplicate(true)
+	var points: Dictionary = data.get("points", {}).duplicate(true)
 	var default_title: String = str(header.get("title", "称号"))
 	var player_title: String = default_title
 	if SomeGlobal != null:
@@ -175,13 +176,25 @@ func _build_runtime_panel_data() -> Dictionary:
 			UiFormat.value_to_text(GameState.player_snapshot.get("hp", 0)),
 			UiFormat.value_to_text(GameState.player_snapshot.get("hp_max", 0)),
 		]
-	if GameState.player_snapshot.has("energy") and GameState.player_snapshot.has("energy_max"):
-		character["energy"] = "%s / %s" % [
-			UiFormat.value_to_text(GameState.player_snapshot.get("energy", 0)),
-			UiFormat.value_to_text(GameState.player_snapshot.get("energy_max", 0)),
+	if GameState.player_snapshot.has("vigor") and GameState.player_snapshot.has("vigor_max"):
+		character["vigor"] = "%s / %s" % [
+			UiFormat.value_to_text(GameState.player_snapshot.get("vigor", 0)),
+			UiFormat.value_to_text(GameState.player_snapshot.get("vigor_max", 0)),
+		]
+	if GameState.player_snapshot.has("spirit") and GameState.player_snapshot.has("spirit_max"):
+		character["spirit"] = "%s / %s" % [
+			UiFormat.value_to_text(GameState.player_snapshot.get("spirit", 0)),
+			UiFormat.value_to_text(GameState.player_snapshot.get("spirit_max", 0)),
 		]
 	if GameState.player_snapshot.has("exp"):
-		character["exp"] = UiFormat.value_to_text(GameState.player_snapshot.get("exp", 0))
+		var exp_value: int = int(GameState.player_snapshot.get("exp", 0))
+		var exp_to_next: int = int(GameState.player_snapshot.get("exp_to_next", 0))
+		if exp_to_next > 0:
+			character["exp"] = "%s / %s" % [UiFormat.value_to_text(exp_value), UiFormat.value_to_text(exp_to_next)]
+		elif int(GameState.player_snapshot.get("level", 0)) >= 100:
+			character["exp"] = "满级"
+		else:
+			character["exp"] = UiFormat.value_to_text(exp_value)
 	if GameState.player_snapshot.has("atk"):
 		character["attack"] = UiFormat.value_to_text(GameState.player_snapshot.get("atk", 0))
 	if GameState.player_snapshot.has("def"):
@@ -215,7 +228,15 @@ func _build_runtime_panel_data() -> Dictionary:
 					UiFormat.value_to_text(first_pet.get("mp_max", 0)),
 				]
 
+	points["free_points"] = UiFormat.value_to_text(GameState.player_snapshot.get("free_attr_points", 0))
+	points["strength"] = UiFormat.value_to_text(GameState.player_snapshot.get("strength", 0))
+	points["vitality"] = UiFormat.value_to_text(GameState.player_snapshot.get("vitality", 0))
+	points["agility"] = UiFormat.value_to_text(GameState.player_snapshot.get("agility", 0))
+	points["mind"] = UiFormat.value_to_text(GameState.player_snapshot.get("mind", 0))
+	points["hint"] = "点击 +1 分配自由属性点，战力由服务端按配置转化。"
+
 	data["header"] = header
 	data["character"] = character
 	data["pet"] = pet
+	data["points"] = points
 	return data

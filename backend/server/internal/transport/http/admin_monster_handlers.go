@@ -30,7 +30,8 @@ func (h *AdminMonsterDefinitionHandler) ServeHTTP(w http.ResponseWriter, r *http
 		return
 	}
 	path := strings.TrimSpace(strings.TrimPrefix(r.URL.Path, "/api/admin/monster-definitions"))
-	if path == "" || path == "/" {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segments) == 0 || segments[0] == "" {
 		switch r.Method {
 		case http.MethodGet:
 			h.handleList(w, r)
@@ -41,12 +42,20 @@ func (h *AdminMonsterDefinitionHandler) ServeHTTP(w http.ResponseWriter, r *http
 		}
 		return
 	}
-	monsterIDValue, err := parseUintPathID(path)
-	if err != nil || monsterIDValue == 0 || monsterIDValue > uint64(^uint32(0)) {
+	monsterIDValue, err := strconv.ParseUint(segments[0], 10, 32)
+	if err != nil || monsterIDValue == 0 {
 		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid monster_id", nil)
 		return
 	}
 	monsterID := uint32(monsterIDValue)
+	if len(segments) >= 2 && segments[1] == "battle-rewards" {
+		h.handleBattleRewards(w, r, monsterID)
+		return
+	}
+	if len(segments) != 1 {
+		writeJSON(w, http.StatusNotFound, http.StatusNotFound, "monster definition route not found", nil)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		h.handleDetail(w, r, monsterID)
@@ -54,6 +63,37 @@ func (h *AdminMonsterDefinitionHandler) ServeHTTP(w http.ResponseWriter, r *http
 		h.handleUpdate(w, r, monsterID)
 	case http.MethodDelete:
 		h.handleDelete(w, r, monsterID)
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+	}
+}
+
+func (h *AdminMonsterDefinitionHandler) handleBattleRewards(w http.ResponseWriter, r *http.Request, monsterID uint32) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.monsterService.ListAdminBattleRewards(r.Context(), monsterID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load monster battle rewards failed", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": items})
+	case http.MethodPut:
+		defer r.Body.Close()
+		var request monster.AdminReplaceBattleRewardsInput
+		if err := decodeJSONBody(w, r, &request); err != nil {
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		updated, err := h.monsterService.ReplaceAdminBattleRewards(r.Context(), monsterID, request)
+		if err != nil {
+			if errors.Is(err, monster.ErrInvalidBattleRewardInput) {
+				writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "update monster battle rewards failed", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": updated})
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
 	}

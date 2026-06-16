@@ -27,6 +27,16 @@ INSERT INTO battle_record (
 ON CONFLICT (battle_id, player_id) DO NOTHING
 `
 
+const deleteBattleRewardRecordQuery = `
+DELETE FROM battle_record
+WHERE battle_id = $1 AND player_id = $2
+`
+
+const maxBattleRewardBattleIDQuery = `
+SELECT COALESCE(MAX(battle_id), 0)
+FROM battle_record
+`
+
 func (r *BattleRepository) CreateRewardRecord(ctx context.Context, record battle.RewardRecord) (bool, error) {
 	result, err := r.db.ExecContext(
 		ctx,
@@ -47,4 +57,24 @@ func (r *BattleRepository) CreateRewardRecord(ctx context.Context, record battle
 		return false, err
 	}
 	return rowsAffected > 0, nil
+}
+
+func (r *BattleRepository) DeleteRewardRecord(ctx context.Context, battleID uint64, playerID uint64) error {
+	if battleID == 0 || playerID == 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, deleteBattleRewardRecordQuery, battleID, playerID)
+	return err
+}
+
+func (r *BattleRepository) MaxRewardBattleID(ctx context.Context) (uint64, error) {
+	var maxBattleID int64
+	err := r.db.QueryRowContext(ctx, maxBattleRewardBattleIDQuery).Scan(&maxBattleID)
+	if err != nil {
+		return 0, err
+	}
+	if maxBattleID < 0 {
+		return 0, nil
+	}
+	return uint64(maxBattleID), nil
 }

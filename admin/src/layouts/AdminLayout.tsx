@@ -8,6 +8,7 @@ const { Header, Sider, Content } = Layout;
 const menuItems = [
   { key: '/dashboard', label: '控制台' },
   { key: '/players', label: '玩家管理' },
+  { key: '/player-progression', label: '玩家成长配置' },
   { key: '/pet-definitions', label: '系统宠物管理' },
   { key: '/skill-definitions', label: '系统技能管理' },
   { key: '/monster-definitions', label: '系统怪物管理' },

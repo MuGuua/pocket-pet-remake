@@ -48,6 +48,10 @@ const WILD_ENCOUNTER_REQ: int = 2035
 const WILD_ENCOUNTER_RESP: int = 2036
 # 遭遇战触发推送消息号。
 const ENCOUNTER_PUSH: int = 2041
+# 玩家分配属性点请求消息号。
+const PLAYER_ALLOCATE_ATTR_REQ: int = 2061
+# 玩家分配属性点响应消息号。
+const PLAYER_ALLOCATE_ATTR_RESP: int = 2062
 
 # 宠物列表请求消息号。
 const PET_LIST_REQ: int = 3001
@@ -190,6 +194,10 @@ static func name_of(cmd: int) -> String:
 			return "WILD_ENCOUNTER_RESP"
 		ENCOUNTER_PUSH:
 			return "ENCOUNTER_PUSH"
+		PLAYER_ALLOCATE_ATTR_REQ:
+			return "PLAYER_ALLOCATE_ATTR_REQ"
+		PLAYER_ALLOCATE_ATTR_RESP:
+			return "PLAYER_ALLOCATE_ATTR_RESP"
 		PET_LIST_REQ:
 			return "PET_LIST_REQ"
 		PET_LIST_RESP:
@@ -283,3 +291,20 @@ static func name_of(cmd: int) -> String:
 # 判断当前消息是否值得打印到请求结果日志中；默认跳过高频心跳，避免刷屏。
 static func should_log_result(cmd: int) -> bool:
 	return cmd != HEARTBEAT_RESP
+
+
+# 判断消息是否属于战斗链路（开战入口、回合动作、状态推送、PVP 与重连恢复）。
+static func is_battle_related(cmd: int) -> bool:
+	match cmd:
+		INTERACT_REQ, INTERACT_RESP, \
+		NPC_ACTION_REQ, NPC_ACTION_RESP, \
+		WILD_ENCOUNTER_REQ, WILD_ENCOUNTER_RESP, \
+		BATTLE_ACTION_REQ, BATTLE_ACTION_RESP, \
+		BATTLE_START_PUSH, BATTLE_STATE_PUSH, BATTLE_RESULT_PUSH, \
+		BATTLE_EXIT_REQ, BATTLE_EXIT_RESP, \
+		PVP_CHALLENGE_REQ, PVP_CHALLENGE_RESP, PVP_CHALLENGE_PUSH, \
+		PVP_CHALLENGE_REPLY_REQ, PVP_CHALLENGE_REPLY_RESP, \
+		RECONNECT_REQ, RECONNECT_RESP:
+			return true
+		_:
+			return false

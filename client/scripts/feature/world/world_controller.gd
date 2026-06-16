@@ -94,6 +94,10 @@ var _pending_player_spawn_position: Vector2 = Vector2.ZERO
 var _pending_player_spawn_requested: bool = false
 var _pending_player_facing_direction: Vector2 = Vector2.ZERO
 var _pending_player_facing_requested: bool = false
+## 地图转场视觉锁：过渡前半段为 true，推迟实际换图直到中点。
+var _scene_visual_apply_locked: bool = false
+## 视觉锁期间收到的 WORLD_RESYNC 是否待在中点应用。
+var _deferred_scene_apply_pending: bool = false
 var _last_loaded_scene_id: int = 0
 var _loaded_scene_id: int = 0
 var _portal_cooldown_until_ms: int = 0
@@ -114,6 +118,8 @@ var _click_destination_marker_cross: Line2D
 var _click_destination_marker_tween: Tween
 var _last_wild_encounter_nav_cell: Vector2i = INVALID_NAVIGATION_CELL
 var _wild_encounter_request_pending: bool = false
+# 战斗弹窗仍可见时由主场景置位，避免结算演出阶段提前切回 idle 动画。
+var _force_battle_pose_active: bool = false
 
 func _process(_delta: float) -> void:
 	_report_player_position_if_changed()
@@ -135,10 +141,15 @@ func _ready() -> void:
 	_sync_local_player_battle_state()
 
 func handle_enter_world(payload: Dictionary) -> void:
-	_use_scene_login_spawn_on_next_snapshot = true
-	_pending_player_facing_requested = true
-	_pending_player_facing_direction = Vector2.DOWN
+	var already_in_world: bool = int(GameState.scene_snapshot.get("scene_id", 0)) > 0
+	if not already_in_world:
+		_use_scene_login_spawn_on_next_snapshot = true
+		_pending_player_facing_requested = true
+		_pending_player_facing_direction = Vector2.DOWN
 	GameState.set_world_snapshot(payload)
+	if already_in_world:
+		# 人物面板等场景只会刷新属性，不应重置当前地图站位。
+		return
 	_apply_authoritative_snapshot()
 	_emit_scene_loaded_if_changed(true)
 
@@ -176,6 +187,9 @@ func handle_move_intent_response(payload: Dictionary) -> void:
 
 func handle_world_resync(payload: Dictionary) -> void:
 	GameState.set_world_snapshot(payload)
+	if _scene_visual_apply_locked:
+		_deferred_scene_apply_pending = true
+		return
 	_apply_authoritative_snapshot()
 	_emit_scene_loaded_if_changed(false)
 
@@ -219,6 +233,32 @@ func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_d
 			"portal_id": portal_id,
 		}
 	)
+
+## 主场景在地图过渡开始时加锁，避免新地图在渐入前半段就渲染到视口。
+func set_scene_visual_apply_locked(locked: bool) -> void:
+	_scene_visual_apply_locked = locked
+	if not locked:
+		_flush_deferred_scene_apply()
+
+
+## 过渡动画到达中点时应用已缓存的世界快照，并触发 scene_loaded。
+func flush_deferred_scene_apply_at_midpoint() -> void:
+	_scene_visual_apply_locked = false
+	_flush_deferred_scene_apply()
+
+
+## 切图失败或过渡中断时清理视觉锁，丢弃尚未应用的延迟快照。
+func cancel_scene_visual_apply_lock() -> void:
+	_scene_visual_apply_locked = false
+	_deferred_scene_apply_pending = false
+
+
+func _flush_deferred_scene_apply() -> void:
+	if not _deferred_scene_apply_pending:
+		return
+	_deferred_scene_apply_pending = false
+	_apply_authoritative_snapshot()
+	_emit_scene_loaded_if_changed(false)
 
 func set_render_frame_size(size: Vector2) -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
@@ -989,8 +1029,18 @@ func _is_navigation_cell_valid(cell: Vector2i) -> bool:
 	return cell != INVALID_NAVIGATION_CELL and _is_navigation_cell_in_bounds(cell)
 
 func _sync_local_player_battle_state() -> void:
-	if player_node != null and player_node.has_method("set_battle_active"):
-		player_node.call("set_battle_active", GameState.is_in_battle)
+	_apply_local_player_battle_pose()
+
+## 由主场景在战斗弹窗显示/隐藏时调用，保证结算演出期间仍保持战斗待机动画。
+func set_local_player_battle_pose_active(active: bool) -> void:
+	_force_battle_pose_active = active
+	_apply_local_player_battle_pose()
+
+func _apply_local_player_battle_pose() -> void:
+	if player_node == null or not player_node.has_method("set_battle_active"):
+		return
+	var battle_pose_active: bool = GameState.is_in_battle or _force_battle_pose_active
+	player_node.call("set_battle_active", battle_pose_active)
 
 func _on_battle_state_changed() -> void:
 	if GameState.is_in_battle:
@@ -1016,8 +1066,8 @@ func set_runtime_input_locked(locked: bool) -> void:
 		_unlock_local_player()
 
 func _set_transition_loading(active: bool) -> void:
-	if map_loading_overlay != null:
-		map_loading_overlay.visible = active
+	# 地图切换改由主场景黑色遮罩过渡负责，不再显示本地加载层。
+	pass
 
 func _take_next_op_id() -> int:
 	var op_id := _next_op_id

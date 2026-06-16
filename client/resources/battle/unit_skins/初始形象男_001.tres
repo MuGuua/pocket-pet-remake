@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="UnitSkin" load_steps=26 format=3 uid="uid://dp4e0611d8e1v"]
+[gd_resource type="Resource" script_class="UnitSkin" load_steps=29 format=3 uid="uid://dp4e0611d8e1v"]
 
 [ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_xqfvm"]
 [ext_resource type="Texture2D" uid="uid://dghfuqxnmkrj0" path="res://asset/分类/小部件/默认角色/男/53.png" id="2_oam4l"]
+[ext_resource type="Texture2D" uid="uid://bk8q51m03gusi" path="res://asset/分类/小部件/默认角色/男/男攻击.png" id="3_43hlp"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xe484"]
 atlas = ExtResource("2_oam4l")
@@ -84,12 +85,20 @@ atlas = ExtResource("2_oam4l")
 region = Rect2(338, 0, 26, 39)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_duk2i"]
-atlas = ExtResource("2_oam4l")
-region = Rect2(312, 0, 26, 39)
+atlas = ExtResource("3_43hlp")
+region = Rect2(0, 0, 34, 39)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_kwdul"]
-atlas = ExtResource("2_oam4l")
-region = Rect2(338, 0, 26, 39)
+atlas = ExtResource("3_43hlp")
+region = Rect2(34, 0, 34, 39)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3jnk8"]
+atlas = ExtResource("3_43hlp")
+region = Rect2(68, 0, 34, 39)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wt4rf"]
+atlas = ExtResource("3_43hlp")
+region = Rect2(102, 0, 34, 39)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_duelist"]
 animations = [{
@@ -209,6 +218,12 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_kwdul")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3jnk8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wt4rf")
 }],
 "loop": false,
 "name": &"普攻",
@@ -228,7 +243,7 @@ animation_map = {
 animation_flip_h = {
 "战斗待机": true,
 "技能": true,
-"普攻": true
+"普攻": false
 }
 world_animation_map = {
 "idle_down": "待机下",
@@ -240,5 +255,6 @@ world_animation_map = {
 "walk_right": "向右走",
 "walk_up": "向上走"
 }
+world_battle_animation = "战斗待机"
 sprite_offset = Vector2(-13, 7)
 sprite_scale = Vector2(1, 1)

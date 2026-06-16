@@ -43,6 +43,7 @@ import type {
   AdminPlayerQuestObjectiveInput,
   AdminPlayerQuestSummary,
   AdminQuestObjectiveInput,
+  AdminQuestRewardInput,
   AdminQuestTemplateDetail,
   AdminQuestTemplateFilters,
   AdminQuestTemplateSummary,
@@ -76,6 +77,7 @@ interface TemplateFormValues {
   status: number;
   pre_quest_ids_text: string;
   objectives_text: string;
+  rewards_text: string;
 }
 
 interface PlayerQuestFormValues {
@@ -321,6 +323,7 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
             <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
             <Descriptions.Item label="目标定义" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(detail.objectives, null, 2)}</pre></Descriptions.Item>
+            <Descriptions.Item label="奖励配置" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(detail.rewards ?? [], null, 2)}</pre></Descriptions.Item>
           </Descriptions>
         ) : null}
       </Drawer>
@@ -343,6 +346,7 @@ function QuestTemplatePanel() {
             <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked"><Switch /></Form.Item></Col>
             <Col span={24}><Form.Item label="前置任务 ID JSON" name="pre_quest_ids_text" extra='示例: [1001,1002]'><Input.TextArea rows={2} /></Form.Item></Col>
             <Col span={24}><Form.Item label="目标定义 JSON" name="objectives_text" extra='示例: [{"objective_id":1,"event_type":"ENTER_SCENE","description":"进入场景","target_value":1,"target_selector":{"scene_id":2}}]'><Input.TextArea rows={8} /></Form.Item></Col>
+            <Col span={24}><Form.Item label="奖励配置 JSON" name="rewards_text" extra='支持经验、铜币与物品。示例: [{"type":"exp","value":100,"item_id":0,"count":0},{"type":"gold","value":50,"item_id":0,"count":0},{"type":"item","value":0,"item_id":2001,"count":2}]'><Input.TextArea rows={6} /></Form.Item></Col>
           </Row>
         </Form>
       </Modal>
@@ -587,6 +591,7 @@ function defaultTemplateValues(): TemplateFormValues {
     status: 1,
     pre_quest_ids_text: '[]',
     objectives_text: JSON.stringify([{ objective_id: 1, event_type: 'ENTER_SCENE', description: '进入测试场景', target_value: 1, target_selector: { scene_id: 99 } }], null, 2),
+    rewards_text: JSON.stringify([{ type: 'exp', value: 50, item_id: 0, count: 0 }], null, 2),
   };
 }
 
@@ -619,6 +624,7 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     status: detail.status,
     pre_quest_ids_text: JSON.stringify(detail.pre_quest_ids, null, 2),
     objectives_text: JSON.stringify(detail.objectives, null, 2),
+    rewards_text: JSON.stringify(detail.rewards ?? [], null, 2),
   };
 }
 
@@ -651,6 +657,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     status: values.status,
     pre_quest_ids: parseJSONArray<number[]>(values.pre_quest_ids_text, []),
     objectives: parseJSONArray<AdminQuestObjectiveInput[]>(values.objectives_text, []),
+    rewards: parseJSONArray<AdminQuestRewardInput[]>(values.rewards_text, []),
   };
 }
 

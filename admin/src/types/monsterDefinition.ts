@@ -73,3 +73,20 @@ export interface AdminUpsertMonsterDefinitionPayload {
   capture_min_hp_pct: number;
   capture_item_ids: number[];
 }
+
+export interface AdminMonsterBattleRewardEntry {
+  id?: number;
+  monster_id?: number;
+  reward_type: 'exp' | 'item' | 'gold';
+  exp_target: 'player' | 'pet';
+  item_id: number;
+  quantity: number;
+  exp_value: number;
+  sort_order: number;
+  status: number;
+  grant_once?: number;
+}
+
+export interface AdminReplaceMonsterBattleRewardsPayload {
+  rewards: AdminMonsterBattleRewardEntry[];
+}

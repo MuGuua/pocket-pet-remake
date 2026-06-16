@@ -26,4 +26,8 @@ type Repository interface {
 	CreateWildEncounterForAdmin(ctx context.Context, input AdminUpsertWildEncounterInput) (*AdminWildEncounterDetail, error)
 	UpdateWildEncounterForAdmin(ctx context.Context, sceneID uint32, input AdminUpsertWildEncounterInput) (*AdminWildEncounterDetail, error)
 	DeleteWildEncounterForAdmin(ctx context.Context, sceneID uint32) error
+
+	ListBattleRewards(ctx context.Context) ([]BattleRewardEntry, error)
+	ListBattleRewardsByMonsterID(ctx context.Context, monsterID uint32) ([]BattleRewardEntry, error)
+	ReplaceBattleRewardsForMonster(ctx context.Context, monsterID uint32, rewards []AdminBattleRewardInput) ([]BattleRewardEntry, error)
 }

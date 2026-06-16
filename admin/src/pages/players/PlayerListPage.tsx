@@ -55,8 +55,10 @@ interface PlayerFormValues {
   pos_y: number;
   hp: number;
   hp_max: number;
-  energy: number;
-  energy_max: number;
+  vigor: number;
+  vigor_max: number;
+  spirit: number;
+  spirit_max: number;
   atk: number;
   def: number;
   spd: number;
@@ -218,10 +220,10 @@ export function PlayerListPage() {
       },
       { title: '场景', dataIndex: 'scene_id', key: 'scene_id', width: 90 },
       {
-        title: '生命 / 体力',
+        title: '生命 / 活力 / 精力',
         key: 'stats',
-        width: 180,
-        render: (_value, record) => `${record.hp}/${record.hp_max} · ${record.energy}/${record.energy_max}`,
+        width: 240,
+        render: (_value, record) => `${record.hp}/${record.hp_max} · ${record.vigor}/${record.vigor_max} · ${record.spirit}/${record.spirit_max}`,
       },
       {
         title: '最近登录',
@@ -373,6 +375,11 @@ export function PlayerListPage() {
               <Descriptions.Item label="当前形象ID">{detail.skin_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="等级">{detail.level}</Descriptions.Item>
               <Descriptions.Item label="经验">{detail.exp}</Descriptions.Item>
+              <Descriptions.Item label="自由属性点">{detail.free_attr_points ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="力量">{detail.strength ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="体质">{detail.vitality ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="敏捷">{detail.agility ?? 0}</Descriptions.Item>
+              <Descriptions.Item label="灵力">{detail.mind ?? 0}</Descriptions.Item>
               <Descriptions.Item label="金币">{detail.gold}</Descriptions.Item>
               <Descriptions.Item label="场景ID">{detail.scene_id}</Descriptions.Item>
               <Descriptions.Item label="坐标">{`${detail.pos_x}, ${detail.pos_y}`}</Descriptions.Item>
@@ -384,7 +391,8 @@ export function PlayerListPage() {
             </Descriptions>
             <Descriptions bordered column={2} size="small" title="战斗属性">
               <Descriptions.Item label="生命">{`${detail.hp}/${detail.hp_max}`}</Descriptions.Item>
-              <Descriptions.Item label="体力">{`${detail.energy}/${detail.energy_max}`}</Descriptions.Item>
+              <Descriptions.Item label="活力">{`${detail.vigor}/${detail.vigor_max}`}</Descriptions.Item>
+              <Descriptions.Item label="精力">{`${detail.spirit}/${detail.spirit_max}`}</Descriptions.Item>
               <Descriptions.Item label="攻击">{detail.atk}</Descriptions.Item>
               <Descriptions.Item label="防御">{detail.def}</Descriptions.Item>
               <Descriptions.Item label="速度">{detail.spd}</Descriptions.Item>
@@ -468,8 +476,10 @@ export function PlayerListPage() {
             <Col xs={12} md={6}><Form.Item label="Y 坐标" name="pos_y"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="生命" name="hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="生命上限" name="hp_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="体力" name="energy"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="体力上限" name="energy_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="活力" name="vigor"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="活力上限" name="vigor_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="精力" name="spirit"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="精力上限" name="spirit_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="攻击" name="atk"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
@@ -517,14 +527,16 @@ function defaultCreateValues(): PlayerFormValues {
     scene_id: 1,
     pos_x: 0,
     pos_y: 0,
-    hp: 100,
-    hp_max: 100,
-    energy: 100,
-    energy_max: 100,
-    atk: 24,
-    def: 12,
-    spd: 18,
-    mana: 20,
+    hp: 148,
+    hp_max: 148,
+    vigor: 100,
+    vigor_max: 100,
+    spirit: 40,
+    spirit_max: 40,
+    atk: 42,
+    def: 15,
+    spd: 11,
+    mana: 30,
     status: 1,
     skill_names_text: '裂空斩,普通攻击',
     skin_id: '初始形象男_001',
@@ -542,8 +554,10 @@ function mapDetailToForm(detail: AdminPlayerDetail, skillReferenceMap: SkillRefe
     pos_y: detail.pos_y,
     hp: detail.hp,
     hp_max: detail.hp_max,
-    energy: detail.energy,
-    energy_max: detail.energy_max,
+    vigor: detail.vigor,
+    vigor_max: detail.vigor_max,
+    spirit: detail.spirit,
+    spirit_max: detail.spirit_max,
     atk: detail.atk,
     def: detail.def,
     spd: detail.spd,
@@ -566,8 +580,10 @@ function mapFormToCreatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     pos_y: values.pos_y,
     hp: values.hp,
     hp_max: values.hp_max,
-    energy: values.energy,
-    energy_max: values.energy_max,
+    vigor: values.vigor,
+    vigor_max: values.vigor_max,
+    spirit: values.spirit,
+    spirit_max: values.spirit_max,
     atk: values.atk,
     def: values.def,
     spd: values.spd,
@@ -589,8 +605,10 @@ function mapFormToUpdatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     pos_y: values.pos_y,
     hp: values.hp,
     hp_max: values.hp_max,
-    energy: values.energy,
-    energy_max: values.energy_max,
+    vigor: values.vigor,
+    vigor_max: values.vigor_max,
+    spirit: values.spirit,
+    spirit_max: values.spirit_max,
     atk: values.atk,
     def: values.def,
     spd: values.spd,

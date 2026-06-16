@@ -168,3 +168,20 @@ func (s *Service) ConsumeRuntimeItemStack(ctx context.Context, playerID uint64, 
 	}
 	return s.repo.ConsumeRuntimeItemStack(ctx, playerID, normalizedContainerType, slotIndex, quantity, reasonType, reasonRefID)
 }
+
+// PlayerHasEverOwnedItem 判断玩家是否已获得过指定道具。
+// 唯一战斗掉落会结合历史获得记录与当前背包/仓库持有量做去重。
+func (s *Service) PlayerHasEverOwnedItem(ctx context.Context, playerID uint64, itemID uint64) (bool, error) {
+	if s == nil || s.repo == nil || playerID == 0 || itemID == 0 {
+		return false, nil
+	}
+	return s.repo.PlayerHasEverOwnedItem(ctx, playerID, itemID)
+}
+
+// RecordUniqueItemObtained 记录玩家首次获得唯一道具。
+func (s *Service) RecordUniqueItemObtained(ctx context.Context, playerID uint64, itemID uint64, reasonType string, reasonRefID uint64) error {
+	if s == nil || s.repo == nil || playerID == 0 || itemID == 0 {
+		return nil
+	}
+	return s.repo.RecordUniqueItemObtained(ctx, playerID, itemID, reasonType, reasonRefID)
+}

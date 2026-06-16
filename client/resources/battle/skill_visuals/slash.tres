@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" load_steps=6 format=3 uid="uid://c3l27v2l1gttb"]
+
+[ext_resource type="Script" uid="uid://dr0rih5va8au0" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dgpu784qrux6a" path="res://asset/分类/特效/新技能特效/Water Effect and Bullet 16x16.png" id="1_bh8e6"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6p1dx"]
+atlas = ExtResource("1_bh8e6")
+region = Rect2(112, 144, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6hnda"]
+atlas = ExtResource("1_bh8e6")
+region = Rect2(128, 144, 16, 16)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_slash"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6p1dx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6hnda")
+}],
+"loop": false,
+"name": &"默认",
+"speed": 60.0
+}]
+
+[resource]
+script = ExtResource("1")
+skill_visual_id = "slash"
+animation_key = "slash"
+action_type = "attack"
+effect_id = "slash_hit"
+effect_frames = SubResource("SpriteFrames_slash")
+effect_offset = Vector2(0, -8)
+effect_scale = Vector2(3, 3)
+effect_tint = Color(0.921569, 0.921569, 0.960784, 1)
+effect_player_animation = "冲击"

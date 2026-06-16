@@ -114,14 +114,18 @@ static func _append_target_result(
 	var result_type: String = "heal" if event_type == EVENT_HEAL else "damage"
 	if event_type == EVENT_DEFEAT:
 		hp_after = 0
-		result_type = "damage"
+		result_type = "defeat"
+	var label_text: String = str(event.get("label", ""))
+	var is_crit: bool = label_text.find("暴击") != -1
 	var targets: Array = action.get("targets", []) as Array
 	targets.append({
 		"target_id": target_id,
 		"result_type": result_type,
 		"value": value,
 		"hp_after": hp_after,
-		"log_text": str(event.get("label", "")),
+		"log_text": label_text,
+		"is_crit": is_crit,
+		"hit_type": "crit" if is_crit else "normal",
 	})
 	action["targets"] = targets
 

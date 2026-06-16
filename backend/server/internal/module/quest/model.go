@@ -165,6 +165,19 @@ type AdminObjectiveInput struct {
 	TargetSelector map[string]any `json:"target_selector"`
 }
 
+// AdminRewardInput 描述后台可配置的任务奖励，当前仅支持经验与物品。
+type AdminRewardInput struct {
+	Type   string `json:"type"`
+	Value  uint64 `json:"value"`
+	ItemID uint64 `json:"item_id"`
+	Count  uint64 `json:"count"`
+}
+
+func (input AdminRewardInput) Normalize() AdminRewardInput {
+	input.Type = strings.ToLower(strings.TrimSpace(input.Type))
+	return input
+}
+
 // AdminCreateTemplateInput 描述后台新增任务模板时允许写入的持久化字段。
 type AdminCreateTemplateInput struct {
 	QuestID        uint64                `json:"quest_id"`
@@ -183,6 +196,7 @@ type AdminCreateTemplateInput struct {
 	Status         uint32                `json:"status"`
 	PreQuestIDs    []uint64              `json:"pre_quest_ids"`
 	Objectives     []AdminObjectiveInput `json:"objectives"`
+	Rewards        []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
@@ -227,6 +241,7 @@ type AdminUpdateTemplateInput struct {
 	Status         uint32                `json:"status"`
 	PreQuestIDs    []uint64              `json:"pre_quest_ids"`
 	Objectives     []AdminObjectiveInput `json:"objectives"`
+	Rewards        []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
@@ -296,6 +311,7 @@ type AdminTemplateDetail struct {
 	StatusText     string                `json:"status_text"`
 	PreQuestIDs    []uint64              `json:"pre_quest_ids"`
 	Objectives     []AdminObjectiveInput `json:"objectives"`
+	Rewards        []AdminRewardInput    `json:"rewards"`
 	CreatedAt      time.Time             `json:"created_at"`
 	UpdatedAt      time.Time             `json:"updated_at"`
 }

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bwrv35al3b303"
-path="res://.godot/imported/a53.png-cd6be7c22342f58751129bd631215790.ctex"
+uid="uid://dmd1jmhderspw"
+path="res://.godot/imported/Fire Effect and Bullet 16x16.png-bf75916822f951aa5e4dc3c5c902872e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://asset/分类/小部件/默认角色/男/a53.png"
-dest_files=["res://.godot/imported/a53.png-cd6be7c22342f58751129bd631215790.ctex"]
+source_file="res://asset/分类/特效/新技能特效/Fire Effect and Bullet 16x16.png"
+dest_files=["res://.godot/imported/Fire Effect and Bullet 16x16.png-bf75916822f951aa5e4dc3c5c902872e.ctex"]
 
 [params]
 

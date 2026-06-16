@@ -14,6 +14,7 @@ import { PetDefinitionPage } from '../pages/pets/PetDefinitionPage';
 import { SkillDefinitionPage } from '../pages/skills/SkillDefinitionPage';
 import { MonsterDefinitionPage } from '../pages/monsters/MonsterDefinitionPage';
 import { EncounterConfigPage } from '../pages/monsters/EncounterConfigPage';
+import { PlayerProgressionPage } from '../pages/progression/PlayerProgressionPage';
 import { PlayerListPage } from '../pages/players/PlayerListPage';
 
 function RequireAdminAuth() {
@@ -76,6 +77,7 @@ export function AppRouter() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="players" element={<PlayerListPage />} />
+        <Route path="player-progression" element={<PlayerProgressionPage />} />
         <Route path="pet-definitions" element={<PetDefinitionPage />} />
         <Route path="skill-definitions" element={<SkillDefinitionPage />} />
         <Route path="monster-definitions" element={<MonsterDefinitionPage />} />

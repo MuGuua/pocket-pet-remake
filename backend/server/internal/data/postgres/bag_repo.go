@@ -1892,3 +1892,47 @@ func minUint64(left uint64, right uint64) uint64 {
 	}
 	return right
 }
+
+const playerHasEverOwnedItemQuery = `
+SELECT EXISTS (
+  SELECT 1
+  FROM player_unique_item_obtained
+  WHERE player_id = $1 AND item_id = $2
+)
+OR EXISTS (
+  SELECT 1
+  FROM player_container_item
+  WHERE player_id = $1 AND item_id = $2
+)
+`
+
+const insertPlayerUniqueItemObtainedQuery = `
+INSERT INTO player_unique_item_obtained (
+  player_id,
+  item_id,
+  first_reason_type,
+  first_reason_ref_id
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (player_id, item_id) DO NOTHING
+`
+
+// PlayerHasEverOwnedItem 判断玩家是否已获得过指定道具。
+func (r *BagRepository) PlayerHasEverOwnedItem(ctx context.Context, playerID uint64, itemID uint64) (bool, error) {
+	if playerID == 0 || itemID == 0 {
+		return false, nil
+	}
+	var owned bool
+	if err := r.db.QueryRowContext(ctx, playerHasEverOwnedItemQuery, playerID, itemID).Scan(&owned); err != nil {
+		return false, err
+	}
+	return owned, nil
+}
+
+// RecordUniqueItemObtained 记录玩家首次获得唯一道具。
+func (r *BagRepository) RecordUniqueItemObtained(ctx context.Context, playerID uint64, itemID uint64, reasonType string, reasonRefID uint64) error {
+	if playerID == 0 || itemID == 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, insertPlayerUniqueItemObtainedQuery, playerID, itemID, reasonType, reasonRefID)
+	return err
+}

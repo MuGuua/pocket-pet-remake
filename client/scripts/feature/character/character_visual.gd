@@ -56,6 +56,7 @@ func _apply_skin(skin: UnitSkin) -> void:
 	_sprite.position = _skin.sprite_offset
 	_sprite.scale = _skin.sprite_scale
 	_sprite.modulate = _skin.tint
+	_sprite.flip_h = false
 	_align_sprite_to_ground()
 	var bootstrap_animation: String = _skin.resolve_world_bootstrap_animation()
 	if not bootstrap_animation.is_empty():
@@ -81,6 +82,8 @@ func _play_animation(animation_name: String) -> void:
 		return
 	if not _sprite.sprite_frames.has_animation(animation_name):
 		return
+	# 每次切动画先清零翻转，避免战斗待机 flip_h 残留到日常左右走帧。
+	_sprite.flip_h = false
 	if _skin != null:
 		var flip_h_value: Variant = _skin.animation_flip_h.get(animation_name, null)
 		if flip_h_value != null:

@@ -1,58 +1,56 @@
 [gd_resource type="Resource" script_class="UnitSkin" load_steps=14 format=3 uid="uid://blhpgoe1a17qj"]
 
 [ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_8tuxm"]
+[ext_resource type="Texture2D" uid="uid://dq4qbwrpqb46r" path="res://asset/分类/宠物/单图野宠/116.png" id="2_jrn15"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_jrn15"]
-load_path = "res://.godot/imported/196.png-1e50a668af3d8b6613d47da5bc03bf1c.ctex"
+[sub_resource type="AtlasTexture" id="AtlasTexture_uiyyh"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(0, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_0vndo"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(0, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_6ybe3"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(37, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_nhw5i"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(43, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_ff4bv"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(0, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_16sdh"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(0, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_wtklv"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(37, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_47hno"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(43, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_h3pva"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(0, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_c34d7"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(0, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_51yiv"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(37, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_68eip"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(43, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_4c8do"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(0, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_wcb6f"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(0, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_aoyqp"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(37, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_wi2ox"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(43, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_erpip"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(0, 0, 37, 32)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_5wbco"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(0, 0, 43, 67)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_vm4pt"]
-atlas = SubResource("CompressedTexture2D_jrn15")
-region = Rect2(43, 0, 43, 67)
+[sub_resource type="AtlasTexture" id="AtlasTexture_mnexo"]
+atlas = ExtResource("2_jrn15")
+region = Rect2(37, 0, 37, 32)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_slime"]
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_0vndo")
+"texture": SubResource("AtlasTexture_uiyyh")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_nhw5i")
+"texture": SubResource("AtlasTexture_6ybe3")
 }],
 "loop": false,
 "name": &"受击",
@@ -60,10 +58,10 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_16sdh")
+"texture": SubResource("AtlasTexture_ff4bv")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_47hno")
+"texture": SubResource("AtlasTexture_wtklv")
 }],
 "loop": true,
 "name": &"待机",
@@ -71,10 +69,10 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_c34d7")
+"texture": SubResource("AtlasTexture_h3pva")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_68eip")
+"texture": SubResource("AtlasTexture_51yiv")
 }],
 "loop": false,
 "name": &"技能",
@@ -82,10 +80,10 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_wcb6f")
+"texture": SubResource("AtlasTexture_4c8do")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_wi2ox")
+"texture": SubResource("AtlasTexture_aoyqp")
 }],
 "loop": false,
 "name": &"普攻",
@@ -93,10 +91,10 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_5wbco")
+"texture": SubResource("AtlasTexture_erpip")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_vm4pt")
+"texture": SubResource("AtlasTexture_mnexo")
 }],
 "loop": false,
 "name": &"死亡",

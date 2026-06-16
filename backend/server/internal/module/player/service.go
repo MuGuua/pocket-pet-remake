@@ -3,16 +3,22 @@ package player
 import (
 	"context"
 
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/skill"
 )
 
 type Service struct {
-	repo         Repository
-	skillService *skill.Service
+	repo                Repository
+	skillService        *skill.Service
+	progressionService  *progression.Service
 }
 
-func NewService(repo Repository, skillService *skill.Service) *Service {
-	return &Service{repo: repo, skillService: skillService}
+func NewService(repo Repository, skillService *skill.Service, progressionService *progression.Service) *Service {
+	return &Service{
+		repo:               repo,
+		skillService:       skillService,
+		progressionService: progressionService,
+	}
 }
 
 func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, error) {
@@ -23,6 +29,7 @@ func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, er
 	if profile == nil {
 		return nil, ErrPlayerNotFound
 	}
+	s.fillExpToNext(profile)
 	return profile, nil
 }
 
@@ -95,10 +102,43 @@ func (s *Service) UpdatePosition(ctx context.Context, playerID uint64, sceneID u
 	return s.repo.UpdatePosition(ctx, playerID, sceneID, posX, posY)
 }
 
-// AddExp 只增加角色经验，供新钱包体系下的战斗奖励复用。
-// 货币奖励已经迁移到 wallet 模块，这里保留玩家成长字段的最小更新职责。
-func (s *Service) AddExp(ctx context.Context, playerID uint64, exp uint64) (*Profile, error) {
-	return s.repo.AddExp(ctx, playerID, exp)
+// AddExp 增加角色经验并在服务端处理升级、溢出结转与属性点发放。
+func (s *Service) AddExp(ctx context.Context, playerID uint64, exp uint64) (*ExpGrantResult, error) {
+	if s.progressionService == nil {
+		return nil, ErrPlayerNotFound
+	}
+	applyResult, err := s.progressionService.ApplyExp(ctx, playerID, exp)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := s.GetProfile(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	return &ExpGrantResult{
+		Profile:          profile,
+		LevelUpCount:     applyResult.LevelUpCount,
+		AttrPointsGained: applyResult.AttrPointsGained,
+		CombatBonusGain:  applyResult.CombatBonusGain,
+	}, nil
+}
+
+// AllocateAttrPoints 处理玩家主动分配自由属性点。
+func (s *Service) AllocateAttrPoints(ctx context.Context, playerID uint64, delta progression.AttrAllocationDelta) (*Profile, error) {
+	if s.progressionService == nil {
+		return nil, ErrPlayerNotFound
+	}
+	if err := s.progressionService.AllocateAttrPoints(ctx, playerID, delta); err != nil {
+		return nil, err
+	}
+	return s.GetProfile(ctx, playerID)
+}
+
+func (s *Service) fillExpToNext(profile *Profile) {
+	if profile == nil || s.progressionService == nil {
+		return
+	}
+	profile.ExpToNext = s.progressionService.ExpToNext(profile.Level, profile.Exp)
 }
 
 func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error {

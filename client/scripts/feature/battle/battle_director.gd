@@ -4,6 +4,7 @@ class_name BattleDirector
 const BattleUnitScene: PackedScene = preload("res://scenes/battle/battle_unit.tscn")
 const BattleEffectScene: PackedScene = preload("res://scenes/battle/battle_effect.tscn")
 const FloatingTextScript: GDScript = preload("res://scripts/feature/battle/floating_text.gd")
+const BattleDigitFloatScript: GDScript = preload("res://scripts/feature/battle/battle_digit_float.gd")
 
 const STATE_INIT: String = "init"
 const STATE_WAITING_INPUT: String = "waiting_input"
@@ -36,12 +37,16 @@ var _target_arrow_unit_id: int = 0
 @onready var _battlefield_root: Control = %BattlefieldRoot
 @onready var _action_panel: ActionPanel = %ActionPanel
 @onready var _action_log_panel: ActionLogPanel = %ActionLogPanel
+@onready var _command_status: PanelContainer = %CommandStatusBar
 
 signal parallel_group_finished
 signal action_requested(actor_id: int, action_type: int, skill_id: int, target_id: int)
+signal interaction_locked_changed(locked: bool, tip: String)
 
 var _initialized: bool = false
 var _is_playing_events: bool = false
+var _last_played_frame: int = 0
+var _interaction_locked: bool = false
 
 func _ready() -> void:
 	_slot_positions = BattleFormationMapper.build_slot_positions()
@@ -53,12 +58,15 @@ func _ready() -> void:
 	_action_panel.target_selection_confirmed.connect(_on_target_selection_confirmed)
 	if _action_panel.has_node("%ItemButton"):
 		_action_panel.get_node("%ItemButton").visible = false
+	if _command_status != null and _command_status.has_signal("request_auto_timeout"):
+		_command_status.request_auto_timeout.connect(_on_command_timeout_auto_request)
 
 ## 战斗场景挂载后，根据 4011 快照初始化单位与指令阶段。
 func initialize_battle() -> void:
 	if _initialized:
 		return
 	_initialized = true
+	_last_played_frame = _network.get_frame()
 	_current_round = _network.get_round()
 	_bootstrap_units()
 	_action_log_panel.clear_logs()
@@ -68,27 +76,74 @@ func initialize_battle() -> void:
 ## 收到 4012/4013 后由 battle_scene 转发。
 func handle_battle_state_update() -> void:
 	_current_round = _network.get_round()
+	var frame: int = _network.get_frame()
 	var events: Array[Dictionary] = _network.get_events()
-	if not events.is_empty() and not _is_playing_events:
+	if not events.is_empty() and not _is_playing_events and frame > _last_played_frame:
+		print("[BattleScene][PLAY_EVENTS] frame=%d events=%d phase=%s" % [frame, events.size(), _network.get_phase()])
+		_lock_interaction("正在播放战斗演出")
 		await _play_state_events()
+		_last_played_frame = frame
 	_sync_runtime_actors()
 	if _network.get_phase() == "command":
-		_refresh_command_phase()
+		var pending_actor_ids: Array[int] = _network.get_pending_actor_ids()
+		if not pending_actor_ids.is_empty():
+			_unlock_interaction()
+			_refresh_command_phase()
+		else:
+			_lock_interaction("正在等待回合结算")
+	elif _network.get_phase() == "finished":
+		_lock_interaction("战斗结算中")
 
-## 动作回执被接受后恢复选招面板。
-func handle_action_accepted() -> void:
+## 服务端已受理动作，但尚未收到带演出事件的 4012，此时继续保持锁定。
+func mark_action_accepted() -> void:
 	if _state == STATE_SUBMITTING:
 		_state = STATE_WAITING_INPUT
+	_lock_interaction("正在等待服务端结算")
+
+## 动作被拒绝时回滚当前选择并恢复可操作状态。
+func handle_action_rejected(reason: String) -> void:
+	_selection_index = maxi(0, _selection_index - 1)
+	_state = STATE_WAITING_INPUT
+	_unlock_interaction()
 	_refresh_command_phase()
+	if not reason.is_empty():
+		_action_log_panel.append_log(reason)
+
+## 是否正在播放事件时间轴。
+func is_playing_events() -> bool:
+	return _is_playing_events
 
 ## 战斗结束时锁定面板。
 func handle_battle_finished(summary: String = "战斗结束") -> void:
+	_lock_interaction("战斗结束")
 	_finish_battle(summary)
 
-func _refresh_command_phase() -> void:
+## 锁定战斗交互并禁用操作按钮；自动战斗开启时仍保留自动按钮可点。
+func _lock_interaction(tip: String) -> void:
+	if _interaction_locked and tip.is_empty():
+		return
+	_interaction_locked = true
 	if _network.is_auto_battle_enabled():
+		_action_panel.set_auto_mode_active(true)
+	else:
 		_action_panel.set_buttons_disabled(true)
-		_action_log_panel.append_log("自动战斗中...")
+	interaction_locked_changed.emit(true, tip)
+
+## 解除战斗交互锁定，允许继续选招或点选目标。
+func _unlock_interaction() -> void:
+	if not _interaction_locked:
+		return
+	_interaction_locked = false
+	interaction_locked_changed.emit(false, "")
+
+func is_interaction_locked() -> bool:
+	return _interaction_locked
+
+func _refresh_command_phase() -> void:
+	if _interaction_locked:
+		return
+	if _network.is_auto_battle_enabled():
+		_action_panel.set_auto_mode_active(true)
 		return
 	_selection_order = _network.get_pending_actor_ids()
 	_selection_index = 0
@@ -100,6 +155,8 @@ func _refresh_command_phase() -> void:
 	_begin_next_ally_selection()
 
 func _input(event: InputEvent) -> void:
+	if _interaction_locked:
+		return
 	if _state != STATE_SELECTING_TARGET:
 		return
 	if event is InputEventMouseButton:
@@ -153,6 +210,12 @@ func _begin_next_ally_selection() -> void:
 	_action_panel.set_buttons_disabled(false)
 
 func _on_action_selected(action_type: String) -> void:
+	if action_type == "auto":
+		if _network.is_auto_battle_enabled():
+			_submit_auto_toggle(false)
+		elif _state == STATE_WAITING_INPUT:
+			_submit_auto_toggle(true)
+		return
 	if _state == STATE_SELECTING_TARGET and action_type in ["escape", "cancel_target"]:
 		_cancel_target_selection()
 		return
@@ -171,8 +234,6 @@ func _on_action_selected(action_type: String) -> void:
 			_begin_skill_selection(unit)
 		"item":
 			pass
-		"auto":
-			_submit_auto_toggle(true)
 		"escape":
 			_resolve_action_selection(_build_escape_selection())
 		_:
@@ -387,7 +448,7 @@ func _cancel_target_selection() -> void:
 	_action_panel.set_target_selection_mode(false)
 	_pending_selection.clear()
 	_state = STATE_WAITING_INPUT
-	if _planning_unit != null:
+	if _planning_unit != null and not _interaction_locked:
 		_action_panel.set_buttons_disabled(false)
 
 func _commit_unit_selection(selection: Dictionary) -> void:
@@ -400,13 +461,23 @@ func _commit_unit_selection(selection: Dictionary) -> void:
 		target_id = int(target_ids[0])
 	var action_type: int = _map_action_type(action_type_name)
 	_state = STATE_SUBMITTING
-	_action_panel.set_buttons_disabled(true)
+	_lock_interaction("正在提交战斗指令")
 	action_requested.emit(actor_id, action_type, skill_id, target_id)
 	_selection_index += 1
 
 func _submit_auto_toggle(enabled: bool) -> void:
+	_lock_interaction("正在切换自动战斗")
 	App.set_battle_auto(_network.get_battle_id(), _network.get_round(), enabled)
-	_action_panel.set_buttons_disabled(true)
+
+
+func _on_command_timeout_auto_request() -> void:
+	if _network.is_auto_battle_enabled():
+		return
+	if _network.get_phase() != "command":
+		return
+	if _network.get_pending_actor_ids().is_empty():
+		return
+	_submit_auto_toggle(true)
 
 func _map_action_type(action_type_name: String) -> int:
 	match action_type_name:
@@ -640,6 +711,7 @@ func _play_action(action: Dictionary) -> void:
 	var actor_name: String = actor.unit_name if actor != null else str(action.get("actor_id", ""))
 	_action_log_panel.append_action_log(actor_name, str(action.get("log_text", display_name)))
 	if actor != null:
+		_show_caster_action_name(actor, _resolve_caster_action_label(action))
 		await actor.play_attack(
 			target_position,
 			skill_visual,
@@ -648,7 +720,12 @@ func _play_action(action: Dictionary) -> void:
 			_resolve_action_type(action, skill_visual),
 			str(action.get("animation", ""))
 		)
-	await _show_effect(skill_visual, effect_name, target_position)
+	await _show_effect(
+		skill_visual,
+		effect_name,
+		target_position,
+		_should_mirror_skill_effect_at_target(actor, target_position)
+	)
 	var target_results: Array = action.get("targets", []) as Array
 	for target_result_value: Variant in target_results:
 		if target_result_value is Dictionary:
@@ -677,6 +754,7 @@ func _play_combo(combo_entry: Dictionary) -> void:
 	var actor_name: String = actor.unit_name if actor != null else str(combo_entry.get("actor_id", ""))
 	_action_log_panel.append_action_log(actor_name, str(combo_entry.get("log_text", display_name)))
 	if actor != null and target != null:
+		_show_caster_action_name(actor, _resolve_caster_action_label(combo_entry))
 		await actor.play_attack(
 			target.base_position,
 			skill_visual,
@@ -686,7 +764,12 @@ func _play_combo(combo_entry: Dictionary) -> void:
 			str(combo_entry.get("animation", ""))
 		)
 	if target != null:
-		await _show_effect(skill_visual, effect_name, target.base_position)
+		await _show_effect(
+			skill_visual,
+			effect_name,
+			target.base_position,
+			_should_mirror_skill_effect_at_target(actor, target.base_position)
+		)
 		var result: Dictionary = {
 			"target_id": int(combo_entry.get("target_id", 0)),
 			"result_type": str(combo_entry.get("result_type", "damage")),
@@ -703,12 +786,15 @@ func _apply_target_result(target_result: Dictionary) -> void:
 		return
 	var result_type: String = str(target_result.get("result_type", "damage"))
 	var floating_text: String = str(target_result.get("floating_text", ""))
-	if floating_text.is_empty():
-		var sign: String = "-"
-		if result_type == "heal":
-			sign = "+"
-		floating_text = "%s%d" % [sign, int(target_result.get("value", 0))]
-	_start_floating_text(target.base_position + Vector2(20.0, -20.0), floating_text, result_type)
+	if floating_text.is_empty() and result_type != "defeat":
+		var damage_value: int = int(target_result.get("value", 0))
+		if result_type == "heal" or damage_value > 0:
+			var sign: String = "-"
+			if result_type == "heal":
+				sign = "+"
+			floating_text = "%s%d" % [sign, damage_value]
+	if not floating_text.is_empty():
+		_start_floating_number(target.base_position + Vector2(20.0, -20.0), floating_text, result_type)
 	if _should_shake_for_crit(target_result):
 		await _shake_battlefield()
 	await target.play_result(target_result)
@@ -758,13 +844,62 @@ func _shake_battlefield() -> void:
 		tween.tween_property(_battlefield_root, "position", base_position + offset, 0.05)
 		await tween.finished
 
-func _show_effect(skill_visual: SkillVisualConfig, effect_name: String, world_position: Vector2) -> void:
+func _show_effect(
+	skill_visual: SkillVisualConfig,
+	effect_name: String,
+	world_position: Vector2,
+	flip_horizontal: bool = false
+) -> void:
 	if skill_visual == null and effect_name.is_empty():
 		return
 	var effect: BattleEffect = BattleEffectScene.instantiate() as BattleEffect
 	effect.position = world_position + Vector2(0.0, 0.0)
 	_effect_layer.add_child(effect)
-	await effect.play_from_config(skill_visual, effect_name)
+	await effect.play_from_config(skill_visual, effect_name, flip_horizontal)
+
+## 右侧站位攻击左侧目标时镜像命中特效，适配当前左右对阵布局。
+func _should_mirror_skill_effect_at_target(actor: BattleUnit, target_position: Vector2) -> bool:
+	if actor == null:
+		return false
+	return (
+		actor.base_position.x > BattleFormationMapper.BATTLEFIELD_SPLIT_X
+		and target_position.x < BattleFormationMapper.BATTLEFIELD_SPLIT_X
+	)
+
+func _show_caster_action_name(actor: BattleUnit, action_name: String) -> void:
+	if actor == null or action_name.is_empty():
+		return
+	var anchor: Vector2 = actor.base_position + Vector2(0.0, -76.0)
+	var label: FloatingText = FloatingTextScript.new() as FloatingText
+	label.text = action_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 15)
+	label.reset_size()
+	label.position = anchor - Vector2(label.size.x * 0.5, 0.0)
+	_floating_layer.add_child(label)
+	label.play(action_name, _resolve_floating_text_color("action_name"))
+
+## 取施法者头顶展示用的技能名；优先 display_name，普攻会显示「普通攻击」。
+func _resolve_caster_action_label(action: Dictionary) -> String:
+	var display_name: String = str(action.get("display_name", "")).strip_edges()
+	if not display_name.is_empty():
+		return display_name
+	var action_type: String = str(action.get("action_type", ""))
+	return _display_action_name(action_type)
+
+func _start_floating_number(world_position: Vector2, value_text: String, result_type: String) -> void:
+	var digit_float: BattleDigitFloat = BattleDigitFloatScript.new() as BattleDigitFloat
+	digit_float.position = world_position
+	_floating_layer.add_child(digit_float)
+	digit_float.play(value_text, _resolve_digit_float_color(result_type))
+
+func _resolve_digit_float_color(result_type: String) -> Color:
+	# 位图数字本身带描边与渐变，默认保持原色，治疗只做轻微偏绿。
+	match result_type:
+		"heal":
+			return Color(0.92, 1.0, 0.92, 1.0)
+		_:
+			return Color.WHITE
 
 func _start_floating_text(world_position: Vector2, value: String, result_type: String) -> void:
 	var label: FloatingText = _create_floating_text(world_position)
@@ -782,6 +917,8 @@ func _resolve_floating_text_color(result_type: String) -> Color:
 			return Color("#d7ffd9")
 		"buff":
 			return Color("#fff59d")
+		"action_name":
+			return Color("#fff4b8")
 		_:
 			return Color("#ffede7")
 

@@ -120,29 +120,39 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 	if err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)
 	}
-	rewardSummary, bagUpdated, grantedPets, walletSnapshot, err := h.grantQuestRewards(ctx, playerID, request.QuestID, result.Rewards)
+	grantResult, err := h.grantQuestRewards(ctx, playerID, request.QuestID, result.Rewards)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "grant quest rewards failed", err)
 	}
 
-	responsePacket, err := protocol.NewJSONPacket(protocol.CmdQuestSubmitResp, packet.Seq, errcode.WSCodeSuccess, protocol.QuestSubmitResp{
+	submitResp := protocol.QuestSubmitResp{
 		Accepted: true,
 		Reason:   "quest submitted",
 		Quest:    toProtocolQuestSummary(result.Summary),
-		Rewards:  toProtocolQuestRewards(rewardSummary),
-	})
+		Rewards:  toProtocolPopupRewards(grantResult.Granted),
+	}
+	if grantResult != nil {
+		submitResp.LevelUpCount = grantResult.LevelUpCount
+		submitResp.AttrPointsGained = grantResult.AttrPointsGained
+		submitResp.LevelUpBonus = toProtocolLevelUpBonus(grantResult.LevelUpCount, grantResult.CombatBonusGain)
+		if grantResult.PlayerProfile != nil {
+			submitResp.PlayerLevel = grantResult.PlayerProfile.Level
+		}
+	}
+
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdQuestSubmitResp, packet.Seq, errcode.WSCodeSuccess, submitResp)
 	if err != nil {
 		return err
 	}
 	if err := conn.SendPacket(responsePacket); err != nil {
 		return err
 	}
-	if walletSnapshot != nil {
-		if err := pushWalletUpdatePacket(conn, *walletSnapshot, "quest_reward", request.QuestID); err != nil {
+	if grantResult != nil && grantResult.Wallet != nil {
+		if err := pushWalletUpdatePacket(conn, *grantResult.Wallet, "quest_reward", request.QuestID); err != nil {
 			return err
 		}
 	}
-	if bagUpdated && h.bagService != nil {
+	if grantResult != nil && grantResult.BagUpdated && h.bagService != nil {
 		bagSnapshot, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
 		if err != nil {
 			return sendError(conn, packet.Seq, errcode.WSCodeBagListFailed, "load bag snapshot after quest reward failed", err)
@@ -153,11 +163,13 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 			}
 		}
 	}
-	for _, grantedPet := range grantedPets {
-		if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
-			Pet: toProtocolPetDetail(grantedPet),
-		})); err != nil {
-			return err
+	if grantResult != nil {
+		for _, grantedPet := range grantResult.GrantedPets {
+			if err := conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+				Pet: toProtocolPetDetail(grantedPet),
+			})); err != nil {
+				return err
+			}
 		}
 	}
 	return pushQuestDiff(ctx, conn, h.questService, playerID, before)
@@ -228,11 +240,11 @@ func (h *QuestHandler) sendQuestDomainError(conn packetSender, seq uint32, err e
 	return conn.SendPacket(packet)
 }
 
-func (h *QuestHandler) grantQuestRewards(ctx context.Context, playerID uint64, questID uint64, rewards []quest.Reward) ([]quest.Reward, bool, []pet.Pet, *wallet.Snapshot, error) {
+func (h *QuestHandler) grantQuestRewards(ctx context.Context, playerID uint64, questID uint64, rewards []quest.Reward) (*reward.GrantResult, error) {
 	if h.rewardService == nil {
-		return []quest.Reward{}, false, []pet.Pet{}, nil, nil
+		return &reward.GrantResult{}, nil
 	}
-	grantResult, err := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
+	return h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
 		PlayerID:     playerID,
 		ReasonType:   "quest_reward",
 		ReasonRefID:  questID,
@@ -240,10 +252,6 @@ func (h *QuestHandler) grantQuestRewards(ctx context.Context, playerID uint64, q
 		OperatorID:   playerID,
 		Rewards:      toRuntimeRewardEntries(rewards),
 	})
-	if err != nil {
-		return nil, false, nil, nil, err
-	}
-	return toQuestRewards(grantResult.Granted), grantResult.BagUpdated, append([]pet.Pet{}, grantResult.GrantedPets...), grantResult.Wallet, nil
 }
 
 // toRuntimeRewardEntries 把任务奖励模板转成统一发奖服务可以消费的结构。

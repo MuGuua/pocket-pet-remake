@@ -32,14 +32,21 @@ SELECT
   name,
   level,
   exp,
+  free_attr_points,
+  strength,
+  vitality,
+  agility,
+  mind,
   gold,
   scene_id,
   pos_x,
   pos_y,
   hp,
   hp_max,
-  energy,
-  energy_max,
+  vigor,
+  vigor_max,
+  spirit,
+  spirit_max,
   atk,
   def,
   spd,
@@ -76,12 +83,6 @@ SET scene_id = $2,
 WHERE id = $1
 `
 
-const addPlayerExpQuery = `
-UPDATE player
-SET exp = exp + $2
-WHERE id = $1
-`
-
 const findAdminPlayerDetailByIDQuery = `
 SELECT
   p.id,
@@ -90,6 +91,11 @@ SELECT
   p.name,
   p.level,
   p.exp,
+  p.free_attr_points,
+  p.strength,
+  p.vitality,
+  p.agility,
+  p.mind,
   p.gold,
   p.status,
   p.scene_id,
@@ -97,8 +103,10 @@ SELECT
   p.pos_y,
   p.hp,
   p.hp_max,
-  p.energy,
-  p.energy_max,
+  p.vigor,
+  p.vigor_max,
+  p.spirit,
+  p.spirit_max,
   p.atk,
   p.def,
   p.spd,
@@ -140,7 +148,7 @@ INSERT INTO account (
 RETURNING id
 `
 
-const insertAdminPlayerWithSkillsQuery = `
+const insertStarterPlayerQuery = `
 INSERT INTO player (
   account_id,
   name,
@@ -153,44 +161,50 @@ INSERT INTO player (
   hp,
   hp_max,
   status,
-  energy,
-  energy_max,
+  vigor,
+  vigor_max,
+  spirit,
+  spirit_max,
   atk,
   def,
   spd,
   mana,
+  hit_pct,
+  dodge_pct,
+  crit_rate_pct,
+  crit_dmg_pct,
+  base_hp_max,
+  base_atk,
+  base_def,
+  base_spd,
+  base_mana,
+  base_hit_pct,
+  base_dodge_pct,
   skill_ids,
   skin_id
 ) VALUES (
-  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+  $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
 )
 RETURNING id
 `
 
-const insertAdminPlayerQuery = `
-INSERT INTO player (
-  account_id,
-  name,
-  level,
-  exp,
-  gold,
-  scene_id,
-  pos_x,
-  pos_y,
-  hp,
-  hp_max,
-  status,
-  energy,
-  energy_max,
-  atk,
-  def,
-  spd,
-  mana,
-  skin_id
-) VALUES (
-  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-)
-RETURNING id
+const insertStarterPlayerBagContainerQuery = `
+INSERT INTO player_container (player_id, container_type, capacity, max_capacity)
+VALUES ($1, 'bag', $2, $3)
+ON CONFLICT (player_id, container_type) DO NOTHING
+`
+
+const insertStarterPlayerWarehouseContainerQuery = `
+INSERT INTO player_container (player_id, container_type, capacity, max_capacity)
+VALUES ($1, 'warehouse', 30, 300)
+ON CONFLICT (player_id, container_type) DO NOTHING
+`
+
+const insertStarterPlayerWalletQuery = `
+INSERT INTO player_wallet (player_id, currency_copper_total)
+VALUES ($1, 0)
+ON CONFLICT (player_id) DO NOTHING
 `
 
 const updateAdminPlayerQuery = `
@@ -204,15 +218,17 @@ SET name = $2,
     pos_y = $8,
     hp = $9,
     hp_max = $10,
-    energy = $11,
-    energy_max = $12,
-    atk = $13,
-    def = $14,
-    spd = $15,
-    mana = $16,
-    status = $17,
-    skin_id = $18,
-    skill_ids = $19
+    vigor = $11,
+    vigor_max = $12,
+    spirit = $13,
+    spirit_max = $14,
+    atk = $15,
+    def = $16,
+    spd = $17,
+    mana = $18,
+    status = $19,
+    skin_id = $20,
+    skill_ids = $21
 WHERE id = $1
 `
 
@@ -236,11 +252,14 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		profileID                                                              int64
 		level                                                                  int64
 		exp                                                                    int64
+		freeAttrPoints                                                         int64
+		strength, vitality, agility, mind                                      int64
 		gold                                                                   int64
 		sceneID                                                                int64
 		posX, posY                                                             int64
 		hp, hpMax                                                              int64
-		energy, energyMax                                                      int64
+		vigor, vigorMax                                                      int64
+		spirit, spiritMax                                                    int64
 		atk, def, spd, mana                                                    int64
 		hitPct, dodgePct                                                       int64
 		critRatePct, critDmgPct                                                int64
@@ -258,14 +277,21 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		&profile.Name,
 		&level,
 		&exp,
+		&freeAttrPoints,
+		&strength,
+		&vitality,
+		&agility,
+		&mind,
 		&gold,
 		&sceneID,
 		&posX,
 		&posY,
 		&hp,
 		&hpMax,
-		&energy,
-		&energyMax,
+		&vigor,
+		&vigorMax,
+		&spirit,
+		&spiritMax,
 		&atk,
 		&def,
 		&spd,
@@ -300,14 +326,21 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 	profile.PlayerID = uint64(profileID)
 	profile.Level = uint32(level)
 	profile.Exp = uint64(exp)
+	profile.FreeAttrPoints = uint32(freeAttrPoints)
+	profile.Strength = uint32(strength)
+	profile.Vitality = uint32(vitality)
+	profile.Agility = uint32(agility)
+	profile.Mind = uint32(mind)
 	profile.Gold = uint32(gold)
 	profile.SceneID = uint32(sceneID)
 	profile.PosX = int32(posX)
 	profile.PosY = int32(posY)
 	profile.HP = uint32(hp)
 	profile.HPMax = uint32(hpMax)
-	profile.Energy = uint32(energy)
-	profile.EnergyMax = uint32(energyMax)
+	profile.Vigor = uint32(vigor)
+	profile.VigorMax = uint32(vigorMax)
+	profile.Spirit = uint32(spirit)
+	profile.SpiritMax = uint32(spiritMax)
 	profile.ATK = uint32(atk)
 	profile.DEF = uint32(def)
 	profile.SPD = uint32(spd)
@@ -386,8 +419,10 @@ SELECT
   p.scene_id,
   p.hp,
   p.hp_max,
-  p.energy,
-  p.energy_max,
+  p.vigor,
+  p.vigor_max,
+  p.spirit,
+  p.spirit_max,
   a.last_login_at,
   p.updated_at,
   p.created_at
@@ -409,7 +444,7 @@ OFFSET ` + nextArg((query.Page-1)*query.PageSize)
 		var (
 			item                                   player.AdminPlayerSummary
 			playerID, level, gold, status, sceneID int64
-			hp, hpMax, energy, energyMax           int64
+			hp, hpMax, vigor, vigorMax, spirit, spiritMax int64
 			lastLoginAt                            sql.NullTime
 		)
 		if err := rows.Scan(
@@ -422,8 +457,10 @@ OFFSET ` + nextArg((query.Page-1)*query.PageSize)
 			&sceneID,
 			&hp,
 			&hpMax,
-			&energy,
-			&energyMax,
+			&vigor,
+			&vigorMax,
+			&spirit,
+			&spiritMax,
 			&lastLoginAt,
 			&item.UpdatedAt,
 			&item.CreatedAt,
@@ -438,8 +475,10 @@ OFFSET ` + nextArg((query.Page-1)*query.PageSize)
 		item.SceneID = uint32(sceneID)
 		item.HP = uint32(hp)
 		item.HPMax = uint32(hpMax)
-		item.Energy = uint32(energy)
-		item.EnergyMax = uint32(energyMax)
+		item.Vigor = uint32(vigor)
+		item.VigorMax = uint32(vigorMax)
+		item.Spirit = uint32(spirit)
+		item.SpiritMax = uint32(spiritMax)
 		if lastLoginAt.Valid {
 			value := lastLoginAt.Time
 			item.LastLoginAt = &value
@@ -457,10 +496,13 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 	var (
 		detail                                                                 player.AdminPlayerDetail
 		accountID, detailPlayerID                                              int64
-		level, exp, gold, status, sceneID                                      int64
+		level, exp, freeAttrPoints                                             int64
+		strength, vitality, agility, mind                                      int64
+		gold, status, sceneID                                                  int64
 		posX, posY                                                             int64
 		hp, hpMax                                                              int64
-		energy, energyMax                                                      int64
+		vigor, vigorMax                                                      int64
+		spirit, spiritMax                                                    int64
 		atk, def, spd, mana                                                    int64
 		hitPct, dodgePct                                                       int64
 		critRatePct, critDmgPct                                                int64
@@ -480,6 +522,11 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		&detail.Name,
 		&level,
 		&exp,
+		&freeAttrPoints,
+		&strength,
+		&vitality,
+		&agility,
+		&mind,
 		&gold,
 		&status,
 		&sceneID,
@@ -487,8 +534,10 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		&posY,
 		&hp,
 		&hpMax,
-		&energy,
-		&energyMax,
+		&vigor,
+		&vigorMax,
+		&spirit,
+		&spiritMax,
 		&atk,
 		&def,
 		&spd,
@@ -523,10 +572,17 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		return nil, err
 	}
 
-	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, gold, status, sceneID, posX, posY, hp, hpMax, energy, energyMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, skillIDsJSON, lastLoginAt)
+	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, freeAttrPoints, strength, vitality, agility, mind, gold, status, sceneID, posX, posY, hp, hpMax, vigor, vigorMax, spirit, spiritMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, skillIDsJSON, lastLoginAt)
 }
 
 func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.AdminCreatePlayerInput) (*player.AdminPlayerDetail, error) {
+	input = input.Normalize()
+	stats := input.ResolveCreateStats()
+	starter := player.DefaultStarterProfile()
+	status := input.Status
+	if status == 0 {
+		status = 1
+	}
 	tx, err := r.beginTx(ctx)
 	if err != nil {
 		return nil, err
@@ -538,56 +594,56 @@ func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.Admi
 		return nil, mapPlayerPersistenceError(err)
 	}
 
+	skillIDsJSON, err := json.Marshal(input.SkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admin player skill ids: %w", err)
+	}
+
 	var playerID int64
-	if len(input.SkillIDs) > 0 {
-		skillIDsJSON, err := json.Marshal(input.SkillIDs)
-		if err != nil {
-			return nil, fmt.Errorf("marshal admin player skill ids: %w", err)
-		}
-		if err := tx.QueryRowContext(ctx, insertAdminPlayerWithSkillsQuery,
-			accountID,
-			input.Name,
-			input.Level,
-			input.Gold,
-			input.SceneID,
-			input.PosX,
-			input.PosY,
-			input.HP,
-			input.HPMax,
-			input.Status,
-			input.Energy,
-			input.EnergyMax,
-			input.ATK,
-			input.DEF,
-			input.SPD,
-			input.MANA,
-			skillIDsJSON,
-			resolveAdminPlayerSkinID(input.SkinID),
-		).Scan(&playerID); err != nil {
-			return nil, mapPlayerPersistenceError(err)
-		}
-	} else {
-		if err := tx.QueryRowContext(ctx, insertAdminPlayerQuery,
-			accountID,
-			input.Name,
-			input.Level,
-			input.Gold,
-			input.SceneID,
-			input.PosX,
-			input.PosY,
-			input.HP,
-			input.HPMax,
-			input.Status,
-			input.Energy,
-			input.EnergyMax,
-			input.ATK,
-			input.DEF,
-			input.SPD,
-			input.MANA,
-			resolveAdminPlayerSkinID(input.SkinID),
-		).Scan(&playerID); err != nil {
-			return nil, mapPlayerPersistenceError(err)
-		}
+	if err := tx.QueryRowContext(ctx, insertStarterPlayerQuery,
+		accountID,
+		input.Name,
+		input.Level,
+		input.Gold,
+		input.SceneID,
+		input.PosX,
+		input.PosY,
+		stats.HP,
+		stats.HPMax,
+		status,
+		stats.Vigor,
+		stats.VigorMax,
+		stats.Spirit,
+		stats.SpiritMax,
+		stats.ATK,
+		stats.DEF,
+		stats.SPD,
+		stats.MANA,
+		stats.HitPct,
+		stats.DodgePct,
+		stats.CritRatePct,
+		stats.CritDmgPct,
+		stats.BaseHPMax,
+		stats.BaseATK,
+		stats.BaseDEF,
+		stats.BaseSPD,
+		stats.BaseMANA,
+		stats.BaseHitPct,
+		stats.BaseDodgePct,
+		skillIDsJSON,
+		resolveAdminPlayerSkinID(input.SkinID),
+	).Scan(&playerID); err != nil {
+		return nil, mapPlayerPersistenceError(err)
+	}
+
+	if _, err := tx.ExecContext(ctx, insertStarterPlayerBagContainerQuery, playerID, starter.BagCapacity, starter.BagMaxCapacity); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, insertStarterPlayerWarehouseContainerQuery, playerID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, insertStarterPlayerWalletQuery, playerID); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -612,8 +668,10 @@ func (r *PlayerRepository) UpdateForAdmin(ctx context.Context, playerID uint64, 
 		input.PosY,
 		input.HP,
 		input.HPMax,
-		input.Energy,
-		input.EnergyMax,
+		input.Vigor,
+		input.VigorMax,
+		input.Spirit,
+		input.SpiritMax,
 		input.ATK,
 		input.DEF,
 		input.SPD,
@@ -675,21 +733,6 @@ func (r *PlayerRepository) UpdatePosition(ctx context.Context, playerID uint64, 
 	return nil
 }
 
-func (r *PlayerRepository) AddExp(ctx context.Context, playerID uint64, exp uint64) (*player.Profile, error) {
-	result, err := r.db.ExecContext(ctx, addPlayerExpQuery, playerID, exp)
-	if err != nil {
-		return nil, err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-	if rowsAffected == 0 {
-		return nil, player.ErrPlayerNotFound
-	}
-	return r.FindByPlayerID(ctx, playerID)
-}
-
 func (r *PlayerRepository) beginTx(ctx context.Context) (*sql.Tx, error) {
 	beginner, ok := r.db.(txBeginner)
 	if !ok {
@@ -708,10 +751,12 @@ func buildAdminPlayerDetail(
 	detail *player.AdminPlayerDetail,
 	accountID int64,
 	detailPlayerID int64,
-	level, exp, gold, status, sceneID int64,
+	level, exp, freeAttrPoints int64,
+	strength, vitality, agility, mind int64,
+	gold, status, sceneID int64,
 	posX, posY int64,
 	hp, hpMax int64,
-	energy, energyMax int64,
+	vigor, vigorMax, spirit, spiritMax int64,
 	atk, def, spd, mana int64,
 	hitPct, dodgePct int64,
 	critRatePct, critDmgPct int64,
@@ -727,6 +772,11 @@ func buildAdminPlayerDetail(
 	detail.AccountID = uint64(accountID)
 	detail.Level = uint32(level)
 	detail.Exp = uint64(exp)
+	detail.FreeAttrPoints = uint32(freeAttrPoints)
+	detail.Strength = uint32(strength)
+	detail.Vitality = uint32(vitality)
+	detail.Agility = uint32(agility)
+	detail.Mind = uint32(mind)
 	detail.Gold = uint64(gold)
 	detail.Status = uint32(status)
 	detail.StatusText = player.AdminPlayerStatusText(detail.Status)
@@ -735,8 +785,10 @@ func buildAdminPlayerDetail(
 	detail.PosY = int32(posY)
 	detail.HP = uint32(hp)
 	detail.HPMax = uint32(hpMax)
-	detail.Energy = uint32(energy)
-	detail.EnergyMax = uint32(energyMax)
+	detail.Vigor = uint32(vigor)
+	detail.VigorMax = uint32(vigorMax)
+	detail.Spirit = uint32(spirit)
+	detail.SpiritMax = uint32(spiritMax)
 	detail.ATK = uint32(atk)
 	detail.DEF = uint32(def)
 	detail.SPD = uint32(spd)

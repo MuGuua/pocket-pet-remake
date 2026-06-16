@@ -26,6 +26,9 @@ class_name UnitSkin
 ## 世界场景状态+朝向到 SpriteFrames 动画名的映射，例如 {"idle_down": "idle_down"}。
 @export var world_animation_map: Dictionary = {}
 
+## 进入战斗后在世界场景播放的专用动画名，例如 "战斗待机"；留空时回退到 battle_朝向 或同朝向 idle。
+@export var world_battle_animation: String = ""
+
 ## 世界场景碰撞圆相对脚底锚点的微调偏移。
 @export var world_collision_offset: Vector2 = Vector2.ZERO
 
@@ -57,8 +60,26 @@ func resolve_animation(logical_name: String) -> String:
 		return default_animation
 	return logical_name
 
+## 解析世界场景战斗态动画名；优先 battle_朝向 映射，其次 world_battle_animation。
+func resolve_world_battle_animation(direction_suffix: String) -> String:
+	var direction_key: String = "battle_%s" % direction_suffix
+	if world_animation_map.has(direction_key):
+		var mapped_name: String = str(world_animation_map[direction_key])
+		if has_animation(mapped_name):
+			return mapped_name
+	if not world_battle_animation.is_empty() and has_animation(world_battle_animation):
+		return world_battle_animation
+	var idle_key: String = "idle_%s" % direction_suffix
+	if world_animation_map.has(idle_key):
+		var idle_animation: String = str(world_animation_map[idle_key])
+		if has_animation(idle_animation):
+			return idle_animation
+	return resolve_world_bootstrap_animation()
+
 ## 解析世界场景动画名；缺少专用行走帧时回退到同朝向 idle，不再使用战斗 default_animation。
 func resolve_world_animation(state: String, direction_suffix: String) -> String:
+	if state == "battle":
+		return resolve_world_battle_animation(direction_suffix)
 	var composed_key: String = "%s_%s" % [state, direction_suffix]
 	if world_animation_map.has(composed_key):
 		return str(world_animation_map[composed_key])

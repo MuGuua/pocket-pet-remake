@@ -54,6 +54,18 @@ func set_buttons_disabled(disabled: bool) -> void:
 	if disabled and not _target_selection_active:
 		close_choice_list()
 
+
+## 自动战斗开启后仅保留“自动”按钮可点，便于再次点击关闭托管。
+func set_auto_mode_active(active: bool) -> void:
+	if not active:
+		return
+	close_choice_list()
+	set_target_selection_mode(false)
+	for button: Button in _buttons:
+		var is_auto_button: bool = button == %AutoButton
+		button.disabled = not is_auto_button
+		button.modulate = Color.WHITE if is_auto_button else Color(1, 1, 1, 0.55)
+
 func set_target_selection_mode(enabled: bool) -> void:
 	_target_selection_active = enabled
 	set_buttons_disabled(enabled)

@@ -7,8 +7,8 @@ const LINE_HEIGHT: float = 12.0
 
 @onready var _lines_root: VBoxContainer = %LogLinesRoot
 
-@export var log_font_size: int = 14
-@export var line_height: float = 16.0  # 建议略大于字号
+@export var log_font_size: int = 16
+@export var line_height: float = 18.0  # 建议略大于字号
 
 var _line_timers: Dictionary = {}
 

@@ -1170,8 +1170,8 @@
 
 说明：
 
-- `reward_gold` / `reward_player_exp` 表示本场战斗实际发放的金币与角色经验；失败或逃跑时通常为 `0`
-- `reward_gold` 当前会按 `1 金币 = 1,000,000 铜币` 写入 `player_wallet.currency_copper_total`
+- `reward_gold` / `reward_player_exp` 表示本场战斗实际发放的铜币与角色经验；失败或逃跑时通常为 `0`
+- `reward_gold` 会按 `1 铜币 = 1` 写入 `player_wallet.currency_copper_total`；钱包推送里的 `gold/silver/copper` 只是总铜币的展示拆分
 - `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要；其中 `player_gold` 是从钱包快照映射出的兼容字段
 - 成功发放货币后，当前连接还会额外收到 `5091 WALLET_UPDATE_PUSH`，用于刷新 HUD / 背包面板里的钱包展示
 - `drop_texts` 表示本场战斗的文本掉落提示，当前只用于展示，不会写入背包

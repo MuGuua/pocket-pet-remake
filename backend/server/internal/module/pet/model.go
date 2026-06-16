@@ -141,6 +141,17 @@ func (input AdminUpdatePetInput) Normalize() AdminUpdatePetInput {
 	return input
 }
 
+// AdminSetPetLineupInput 供运营后台提交玩家出战宠物，最多 1 只，也可为空。
+type AdminSetPetLineupInput struct {
+	PetUIDs []uint64 `json:"pet_uids"`
+}
+
+// AdminSetPetLineupResult 返回写入后的玩家 ID 与出战宠物 UID 列表。
+type AdminSetPetLineupResult struct {
+	PlayerID uint64   `json:"player_id"`
+	PetUIDs  []uint64 `json:"pet_uids"`
+}
+
 type AdminPetSummary struct {
 	PetUID     uint64    `json:"pet_uid"`
 	PlayerID   uint64    `json:"player_id"`

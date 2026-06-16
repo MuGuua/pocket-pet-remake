@@ -13,6 +13,7 @@ import (
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/session"
@@ -63,6 +64,7 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid interact body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdInteractReq, packet.Seq, request)
 
 	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
@@ -92,7 +94,7 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	if err := h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: true, Reason: "battle started", ResponseType: "battle", EntityID: target.EntityID, NPCName: target.Name}); err != nil {
 		return err
 	}
-	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, protocol.BattleStartPush{
+	startPayload := protocol.BattleStartPush{
 		BattleID:             startSnapshot.BattleID,
 		BattleType:           startSnapshot.BattleType,
 		BattleVersion:        startSnapshot.BattleVersion,
@@ -108,7 +110,9 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 		AutoBattleEnabled:    startSnapshot.AutoBattleEnabled,
 		PendingActorIDs:      append([]uint64{}, startSnapshot.PendingActorIDs...),
 		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
-	}))
+	}
+	logBattlePacket("push", conn.ID(), sess.PlayerID, protocol.CmdBattleStartPush, 0, startPayload)
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, startPayload))
 }
 
 const wildEncounterCooldown = 2 * time.Second
@@ -118,6 +122,7 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid wild encounter body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdWildEncounterReq, packet.Seq, request)
 
 	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
@@ -148,7 +153,7 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 	if err := h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: true, Reason: "battle started"}); err != nil {
 		return err
 	}
-	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, protocol.BattleStartPush{
+	startPayload := protocol.BattleStartPush{
 		BattleID:             startSnapshot.BattleID,
 		BattleType:           startSnapshot.BattleType,
 		BattleVersion:        startSnapshot.BattleVersion,
@@ -164,7 +169,9 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 		AutoBattleEnabled:    startSnapshot.AutoBattleEnabled,
 		PendingActorIDs:      append([]uint64{}, startSnapshot.PendingActorIDs...),
 		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
-	}))
+	}
+	logBattlePacket("push", conn.ID(), sess.PlayerID, protocol.CmdBattleStartPush, 0, startPayload)
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, startPayload))
 }
 
 func (h *BattleHandler) allowWildEncounterReport(playerID uint64) bool {
@@ -184,6 +191,7 @@ func (h *BattleHandler) markWildEncounterReport(playerID uint64) {
 }
 
 func (h *BattleHandler) sendWildEncounterResponse(conn packetSender, seq uint32, response protocol.WildEncounterResp) error {
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdWildEncounterResp, seq, response)
 	packet, err := protocol.NewJSONPacket(protocol.CmdWildEncounterResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
@@ -196,6 +204,7 @@ func (h *BattleHandler) HandleBattleAction(conn packetSender, packet *protocol.P
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid battle action body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleActionReq, packet.Seq, request)
 
 	sess, err := h.sessionService.GetByConnID(conn.ID())
 	if err != nil {
@@ -260,6 +269,7 @@ func (h *BattleHandler) HandlePVPChallenge(conn packetSender, packet *protocol.P
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid pvp challenge body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdPVPChallengeReq, packet.Seq, request)
 	sess, err := h.sessionService.GetByConnID(conn.ID())
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
@@ -288,7 +298,7 @@ func (h *BattleHandler) HandlePVPChallenge(conn packetSender, packet *protocol.P
 	if targetSession.Conn == nil {
 		return nil
 	}
-	return targetSession.Conn.SendPacket(mustJSONPacket(protocol.CmdPVPChallengePush, 0, protocol.PVPChallengePush{
+	pushPayload := protocol.PVPChallengePush{
 		ChallengeID: challenge.ChallengeID,
 		Challenger: protocol.PlayerBrief{
 			PlayerID: challengerProfile.PlayerID,
@@ -296,7 +306,9 @@ func (h *BattleHandler) HandlePVPChallenge(conn packetSender, packet *protocol.P
 			Level:    challengerProfile.Level,
 		},
 		ExpiresAtMS: challenge.ExpiresAt.UnixMilli(),
-	}))
+	}
+	logBattlePacket("push", targetSession.Conn.ID(), request.TargetPlayerID, protocol.CmdPVPChallengePush, 0, pushPayload)
+	return targetSession.Conn.SendPacket(mustJSONPacket(protocol.CmdPVPChallengePush, 0, pushPayload))
 }
 
 func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *protocol.Packet) error {
@@ -304,6 +316,7 @@ func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *proto
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid pvp challenge reply body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdPVPChallengeReplyReq, packet.Seq, request)
 	sess, err := h.sessionService.GetByConnID(conn.ID())
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
@@ -541,7 +554,7 @@ func (h *BattleHandler) pushBattleStatePacket(conn packetSender, state *battle.S
 	if conn == nil || state == nil {
 		return nil
 	}
-	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStatePush, 0, protocol.BattleStatePush{
+	payload := protocol.BattleStatePush{
 		BattleID:             state.BattleID,
 		BattleVersion:        state.BattleVersion,
 		Frame:                state.Frame,
@@ -556,7 +569,9 @@ func (h *BattleHandler) pushBattleStatePacket(conn packetSender, state *battle.S
 		AutoBattleEnabled:    state.AutoBattleEnabled,
 		PendingActorIDs:      append([]uint64{}, state.PendingActorIDs...),
 		ControllableActorIDs: append([]uint64{}, state.ControllableActorIDs...),
-	}))
+	}
+	logBattlePacket("push", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleStatePush, 0, payload)
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStatePush, 0, payload))
 }
 
 func (h *BattleHandler) pushBattleStateToParticipants(state *battle.StateSnapshot) error {
@@ -572,21 +587,29 @@ func (h *BattleHandler) pushBattleStateToParticipants(state *battle.StateSnapsho
 }
 
 type battleSettlement struct {
-	PlayerProfile *player.Profile
-	BagSnapshot   *bag.RuntimeContainerSnapshot
-	Wallet        *wallet.Snapshot
-	WalletReason  string
-	WalletRefID   uint64
-	Pets          []pet.Pet
-	CapturedPet   *pet.Pet
-	questBefore   []quest.Summary
+	PlayerProfile    *player.Profile
+	LevelUpCount     uint32
+	AttrPointsGained uint32
+	CombatBonusGain  progression.LevelUpCombatBonus
+	BagSnapshot      *bag.RuntimeContainerSnapshot
+	Wallet           *wallet.Snapshot
+	WalletReason     string
+	WalletRefID      uint64
+	Pets             []pet.Pet
+	CapturedPet      *pet.Pet
+	questBefore      []quest.Summary
+	GrantedRewards   []reward.Entry
+	// rewardsAlreadyGranted 表示本场战斗奖励已在更早的结算链路中落库，当前包只做同步展示。
+	rewardsAlreadyGranted bool
 }
 
 func (h *BattleHandler) pushBattleResultPacket(conn packetSender, result *battle.ResultSnapshot, settlement *battleSettlement) error {
 	if conn == nil || result == nil {
 		return nil
 	}
-	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, h.buildBattleResultPayload(result, settlement)))
+	payload := h.buildBattleResultPayload(result, settlement)
+	logBattlePacket("push", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleResultPush, 0, payload)
+	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, payload))
 }
 
 func (h *BattleHandler) pushBattleResultToParticipants(result *battle.ResultSnapshot, settlement *battleSettlement) error {
@@ -595,6 +618,7 @@ func (h *BattleHandler) pushBattleResultToParticipants(result *battle.ResultSnap
 	}
 	payload := h.buildBattleResultPayload(result, settlement)
 	for _, conn := range h.participantConns(result.ParticipantPlayerIDs) {
+		logBattlePacket("push", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleResultPush, 0, payload)
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleResultPush, 0, payload)); err != nil {
 			return err
 		}
@@ -605,9 +629,21 @@ func (h *BattleHandler) pushBattleResultToParticipants(result *battle.ResultSnap
 func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, settlement *battleSettlement) protocol.BattleResultPush {
 	playerGold := uint32(0)
 	playerExp := uint64(0)
+	playerLevel := uint32(0)
+	levelUpCount := uint32(0)
+	attrPointsGained := uint32(0)
+	var levelUpBonus *protocol.LevelUpBonus
+	freeAttrPoints := uint32(0)
+	expToNext := uint64(0)
 	petRewards := make([]protocol.BattlePetReward, 0, len(result.PetResults))
 	if settlement != nil && settlement.PlayerProfile != nil {
 		playerExp = settlement.PlayerProfile.Exp
+		playerLevel = settlement.PlayerProfile.Level
+		expToNext = settlement.PlayerProfile.ExpToNext
+		freeAttrPoints = settlement.PlayerProfile.FreeAttrPoints
+		levelUpCount = settlement.LevelUpCount
+		attrPointsGained = settlement.AttrPointsGained
+		levelUpBonus = toProtocolLevelUpBonus(settlement.LevelUpCount, settlement.CombatBonusGain)
 	}
 	if settlement != nil && settlement.Wallet != nil {
 		playerGold = legacyGoldFromWalletSnapshot(settlement.Wallet)
@@ -631,13 +667,76 @@ func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, 
 		RewardPlayerExp:  result.RewardPlayerExp,
 		PlayerGold:       playerGold,
 		PlayerExp:        playerExp,
+		PlayerLevel:      playerLevel,
+		LevelUpCount:     levelUpCount,
+		AttrPointsGained: attrPointsGained,
+		LevelUpBonus:     levelUpBonus,
+		FreeAttrPoints:   freeAttrPoints,
+		ExpToNext:        expToNext,
 		PetRewards:       petRewards,
+		Rewards:          battlePopupRewardsFromResult(result, settlement),
 		DropTexts:        append([]string{}, result.DropTexts...),
 		CaptureSuccess:   result.CaptureSuccess,
 		CaptureMonsterID: result.CaptureMonsterID,
 		CapturedPetID:    result.CapturedPetID,
 		CapturedPetUID:   capturedPetUIDFromSettlement(settlement),
 	}
+}
+
+func battlePopupRewardsFromSettlement(settlement *battleSettlement) []protocol.QuestReward {
+	if settlement == nil || len(settlement.GrantedRewards) == 0 {
+		return nil
+	}
+	return toProtocolPopupRewards(settlement.GrantedRewards)
+}
+
+// battlePopupRewardsFromResult 优先使用发奖服务回写的 rewards。
+// 仅当本场奖励已确认落库（首次发奖成功或命中 battle_record 去重后的同步包）时，
+// 才允许回退到战斗快照字段，避免“弹窗有奖励但账户未变更”的假象。
+func battlePopupRewardsFromResult(result *battle.ResultSnapshot, settlement *battleSettlement) []protocol.QuestReward {
+	rewards := battlePopupRewardsFromSettlement(settlement)
+	if len(rewards) > 0 {
+		return rewards
+	}
+	if result == nil || !result.Win || settlement == nil {
+		return nil
+	}
+	if len(settlement.GrantedRewards) == 0 && !settlement.rewardsAlreadyGranted {
+		return nil
+	}
+	// 去重同步包只展示发奖服务实际带回的奖励，避免用战斗快照伪造“已到账”弹窗。
+	if settlement.rewardsAlreadyGranted {
+		return nil
+	}
+	return popupRewardsFromBattleResultSnapshot(result)
+}
+
+// popupRewardsFromBattleResultSnapshot 把战斗结果里的奖励摘要转成弹窗展示结构。
+func popupRewardsFromBattleResultSnapshot(result *battle.ResultSnapshot) []protocol.QuestReward {
+	if result == nil || !result.Win {
+		return nil
+	}
+	fallback := make([]protocol.QuestReward, 0, len(result.DropItems)+2)
+	if result.RewardPlayerExp > 0 {
+		fallback = append(fallback, protocol.QuestReward{Type: "exp", Value: result.RewardPlayerExp})
+	}
+	if result.RewardGold > 0 {
+		fallback = append(fallback, protocol.QuestReward{Type: "gold", Value: uint64(result.RewardGold)})
+	}
+	for _, item := range result.DropItems {
+		if item.ItemID == 0 || item.Quantity == 0 {
+			continue
+		}
+		fallback = append(fallback, protocol.QuestReward{
+			Type:   "item",
+			ItemID: item.ItemID,
+			Count:  item.Quantity,
+		})
+	}
+	if len(fallback) == 0 {
+		return nil
+	}
+	return fallback
 }
 
 func capturedPetUIDFromSettlement(settlement *battleSettlement) uint64 {
@@ -718,8 +817,15 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		return nil, err
 	}
 	if !inserted {
-		return nil, nil
+		return h.loadBattleSettlementSync(ctx, playerID, result)
 	}
+	// 发奖占位记录写在奖励真正落库之前；若后续任一步失败，需要删除记录以便重试。
+	commitRewardRecord := false
+	defer func() {
+		if !commitRewardRecord {
+			h.rollbackBattleRewardGrantRecord(ctx, result.BattleID, playerID)
+		}
+	}()
 	settlement := &battleSettlement{}
 	if preConsumedBag != nil {
 		settlement.BagSnapshot = preConsumedBag
@@ -735,6 +841,7 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 				settlement.CapturedPet = &captured
 			}
 		}
+		commitRewardRecord = true
 		return settlement, nil
 	}
 	var questBefore []quest.Summary
@@ -749,19 +856,28 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 			},
 		})
 	}
-	if h.rewardService != nil {
+	if h.rewardService != nil && result.Win {
+		grantEntries, grantEntryErr := h.buildBattleGrantEntries(ctx, playerID, result)
+		if grantEntryErr != nil {
+			return nil, grantEntryErr
+		}
 		grantResult, err := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
 			PlayerID:     playerID,
 			ReasonType:   "battle_reward",
 			ReasonRefID:  result.BattleID,
 			OperatorType: "system",
 			OperatorID:   playerID,
-			Rewards:      toBattleRewardEntries(result),
+			Rewards:      grantEntries,
 		})
 		if err != nil {
 			return nil, err
 		}
-		settlement.PlayerProfile = grantResult.PlayerProfile
+		if recordErr := h.recordGrantedUniqueBattleItems(ctx, playerID, result, grantResult); recordErr != nil {
+			return nil, recordErr
+		}
+		settlement.LevelUpCount = grantResult.LevelUpCount
+		settlement.AttrPointsGained = grantResult.AttrPointsGained
+		settlement.CombatBonusGain = grantResult.CombatBonusGain
 		settlement.Wallet = grantResult.Wallet
 		if grantResult.Wallet != nil {
 			settlement.WalletReason = "battle_reward"
@@ -776,9 +892,11 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		}
 		if len(grantResult.Granted) > 0 {
 			result.DropTexts = battleDropTextsFromGrantedRewards(grantResult.Granted)
+			settlement.GrantedRewards = append([]reward.Entry{}, grantResult.Granted...)
 		}
 	}
-	if (result.RewardGold > 0 || result.RewardPlayerExp > 0) && settlement.PlayerProfile == nil && h.playerService != nil {
+	// 战斗胜利后始终以数据库最新档案回填结算包，避免发奖服务未带回 PlayerProfile 时客户端经验停留在 0。
+	if result.Win && h.playerService != nil {
 		currentProfile, err := h.playerService.GetProfile(ctx, playerID)
 		if err != nil {
 			return nil, err
@@ -802,6 +920,48 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		}
 	}
 	settlement.questBefore = questBefore
+	commitRewardRecord = true
+	return settlement, nil
+}
+
+// rollbackBattleRewardGrantRecord 回滚尚未完成发奖的 battle_record 占位，避免后续重试被误判为重复结算。
+func (h *BattleHandler) rollbackBattleRewardGrantRecord(ctx context.Context, battleID uint64, playerID uint64) {
+	if h == nil || h.battleRepo == nil || battleID == 0 || playerID == 0 {
+		return
+	}
+	_ = h.battleRepo.DeleteRewardRecord(ctx, battleID, playerID)
+}
+
+// loadBattleSettlementSync 在 battle_record 已存在时加载当前权威档案用于客户端同步。
+// 这里不会重复发奖，但会带回最新玩家/钱包快照，避免重复结算包把客户端状态写回 0。
+func (h *BattleHandler) loadBattleSettlementSync(ctx context.Context, playerID uint64, result *battle.ResultSnapshot) (*battleSettlement, error) {
+	if result == nil {
+		return nil, nil
+	}
+	settlement := &battleSettlement{rewardsAlreadyGranted: true}
+	if h.playerService != nil {
+		currentProfile, err := h.playerService.GetProfile(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		settlement.PlayerProfile = currentProfile
+	}
+	if h.walletService != nil {
+		currentWallet, err := h.walletService.GetRuntimeWallet(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		settlement.Wallet = currentWallet
+		settlement.WalletReason = "battle_reward_sync"
+		settlement.WalletRefID = result.BattleID
+	}
+	if h.bagService != nil {
+		bagSnapshot, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
+		if err != nil {
+			return nil, err
+		}
+		settlement.BagSnapshot = bagSnapshot
+	}
 	return settlement, nil
 }
 
@@ -828,6 +988,65 @@ func toBattleRewardEntries(result *battle.ResultSnapshot) []reward.Entry {
 		})
 	}
 	return entries
+}
+
+// buildBattleGrantEntries 在真正发奖前过滤掉玩家已获得的唯一物品，经验与货币始终发放。
+func (h *BattleHandler) buildBattleGrantEntries(ctx context.Context, playerID uint64, result *battle.ResultSnapshot) ([]reward.Entry, error) {
+	if result == nil {
+		return nil, nil
+	}
+	entries := make([]reward.Entry, 0, len(result.DropItems)+2)
+	if result.RewardGold > 0 {
+		entries = append(entries, reward.Entry{Type: "gold", Value: uint64(result.RewardGold)})
+	}
+	if result.RewardPlayerExp > 0 {
+		entries = append(entries, reward.Entry{Type: "exp", Value: result.RewardPlayerExp})
+	}
+	for _, dropItem := range result.DropItems {
+		if dropItem.ItemID == 0 || dropItem.Quantity == 0 {
+			continue
+		}
+		if dropItem.GrantOnce && h.bagService != nil {
+			owned, err := h.bagService.PlayerHasEverOwnedItem(ctx, playerID, dropItem.ItemID)
+			if err != nil {
+				return nil, err
+			}
+			if owned {
+				continue
+			}
+		}
+		entries = append(entries, reward.Entry{
+			Type:   "item",
+			ItemID: dropItem.ItemID,
+			Count:  dropItem.Quantity,
+		})
+	}
+	return entries, nil
+}
+
+// recordGrantedUniqueBattleItems 在唯一物品首次发放成功后写入获得记录，供后续战斗去重。
+func (h *BattleHandler) recordGrantedUniqueBattleItems(ctx context.Context, playerID uint64, result *battle.ResultSnapshot, grantResult *reward.GrantResult) error {
+	if h == nil || h.bagService == nil || result == nil || grantResult == nil || len(grantResult.Granted) == 0 {
+		return nil
+	}
+	grantOnceItems := make(map[uint64]struct{})
+	for _, dropItem := range result.DropItems {
+		if dropItem.GrantOnce && dropItem.ItemID > 0 {
+			grantOnceItems[dropItem.ItemID] = struct{}{}
+		}
+	}
+	for _, grantedEntry := range grantResult.Granted {
+		if grantedEntry.Type != "item" || grantedEntry.ItemID == 0 {
+			continue
+		}
+		if _, ok := grantOnceItems[grantedEntry.ItemID]; !ok {
+			continue
+		}
+		if err := h.bagService.RecordUniqueItemObtained(ctx, playerID, grantedEntry.ItemID, "battle_reward", result.BattleID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // battleDropTextsFromGrantedRewards 用统一发奖服务成功发放后的奖励结果重建掉落文本。
@@ -938,6 +1157,7 @@ func (h *BattleHandler) handleContextError(conn packetSender, seq uint32, err er
 }
 
 func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, response protocol.InteractResp) error {
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdInteractResp, seq, response)
 	packet, err := protocol.NewJSONPacket(protocol.CmdInteractResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
@@ -946,12 +1166,14 @@ func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, resp
 }
 
 func (h *BattleHandler) sendPVPChallengeResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64, targetPlayerID uint64) error {
-	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeResp, seq, errcode.WSCodeSuccess, protocol.PVPChallengeResp{
+	response := protocol.PVPChallengeResp{
 		Accepted:       accepted,
 		Reason:         reason,
 		ChallengeID:    challengeID,
 		TargetPlayerID: targetPlayerID,
-	})
+	}
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdPVPChallengeResp, seq, response)
+	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
 	}
@@ -959,11 +1181,13 @@ func (h *BattleHandler) sendPVPChallengeResponse(conn packetSender, seq uint32, 
 }
 
 func (h *BattleHandler) sendPVPChallengeReplyResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64) error {
-	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeReplyResp, seq, errcode.WSCodeSuccess, protocol.PVPChallengeReplyResp{
+	response := protocol.PVPChallengeReplyResp{
 		Accepted:    accepted,
 		Reason:      reason,
 		ChallengeID: challengeID,
-	})
+	}
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdPVPChallengeReplyResp, seq, response)
+	packet, err := protocol.NewJSONPacket(protocol.CmdPVPChallengeReplyResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
 	}
@@ -1000,11 +1224,13 @@ func (h *BattleHandler) validateCaptureBagItem(ctx context.Context, playerID uin
 }
 
 func (h *BattleHandler) sendBattleActionResponse(conn packetSender, seq uint32, accepted bool, reason string, captureSuccess bool) error {
-	packet, err := protocol.NewJSONPacket(protocol.CmdBattleActionResp, seq, errcode.WSCodeSuccess, protocol.BattleActionResp{
+	response := protocol.BattleActionResp{
 		Accepted:       accepted,
 		Reason:         reason,
 		CaptureSuccess: captureSuccess,
-	})
+	}
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleActionResp, seq, response)
+	packet, err := protocol.NewJSONPacket(protocol.CmdBattleActionResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err
 	}
@@ -1033,6 +1259,7 @@ func (h *BattleHandler) pushBattleStartToParticipants(startSnapshot *battle.Star
 		ControllableActorIDs: append([]uint64{}, startSnapshot.ControllableActorIDs...),
 	}
 	for _, conn := range h.participantConns(startSnapshot.ParticipantPlayerIDs) {
+		logBattlePacket("push", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdBattleStartPush, 0, payload)
 		if err := conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, payload)); err != nil {
 			return err
 		}
@@ -1171,6 +1398,7 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc action body")
 	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCActionReq, packet.Seq, request)
 
 	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
@@ -1279,7 +1507,20 @@ func (h *BattleHandler) requirePlayerID(connID string) (uint64, error) {
 	return sess.PlayerID, nil
 }
 
+// playerIDByConn 根据连接标识读取玩家 ID，日志里用于定位是哪一位玩家触发了战斗请求。
+func (h *BattleHandler) playerIDByConn(connID string) uint64 {
+	if h == nil || h.sessionService == nil || connID == "" {
+		return 0
+	}
+	playerID, err := h.requirePlayerID(connID)
+	if err != nil {
+		return 0
+	}
+	return playerID
+}
+
 func (h *BattleHandler) sendNPCActionResponse(conn packetSender, seq uint32, response protocol.NPCActionResp) error {
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCActionResp, seq, response)
 	packet, err := protocol.NewJSONPacket(protocol.CmdNPCActionResp, seq, errcode.WSCodeSuccess, response)
 	if err != nil {
 		return err

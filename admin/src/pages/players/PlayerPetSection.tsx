@@ -14,7 +14,6 @@ import {
   Spin,
   Switch,
   Table,
-  Tag,
   Typography,
   message,
 } from 'antd';
@@ -30,6 +29,7 @@ import {
   fetchAdminPets,
   updateAdminPet,
 } from '../../services/pet';
+import { updateAdminPlayerPetLineup } from '../../services/player';
 import type {
   AdminCreatePetPayload,
   AdminPetDetail,
@@ -71,6 +71,7 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
   const [editingRecord, setEditingRecord] = useState<AdminPetDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
+  const [lineupUpdatingUID, setLineupUpdatingUID] = useState<number | null>(null);
 
   useEffect(() => {
     void loadPets();
@@ -152,6 +153,30 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
     }
   }
 
+  async function handleToggleLineup(record: AdminPetSummary, checked: boolean) {
+    let nextLineup: number[] = [];
+    if (checked) {
+      if (record.in_lineup) {
+        return;
+      }
+      // 同时只能出战一只，开启新宠物会替换当前出战宠物。
+      nextLineup = [record.pet_uid];
+    }
+    setLineupUpdatingUID(record.pet_uid);
+    try {
+      await updateAdminPlayerPetLineup(playerId, { pet_uids: nextLineup });
+      message.success(checked ? '已设为出战宠物' : '已取消出战');
+      await loadPets();
+      if (petDetail?.pet_uid === record.pet_uid) {
+        setPetDetail(await fetchAdminPetDetail(record.pet_uid));
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '更新出战状态失败');
+    } finally {
+      setLineupUpdatingUID(null);
+    }
+  }
+
   async function handleDelete(petUID: number) {
     setDeletingID(petUID);
     try {
@@ -181,8 +206,18 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         title: '出战',
         dataIndex: 'in_lineup',
         key: 'in_lineup',
-        width: 70,
-        render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '是' : '否'}</Tag>,
+        width: 90,
+        render: (value: boolean, record) => (
+          <span onClick={(event) => event.stopPropagation()}>
+            <Switch
+              checked={value}
+              loading={lineupUpdatingUID === record.pet_uid}
+              checkedChildren="是"
+              unCheckedChildren="否"
+              onChange={(checked) => void handleToggleLineup(record, checked)}
+            />
+          </span>
+        ),
       },
       {
         title: '操作',
@@ -208,7 +243,7 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         ),
       },
     ],
-    [deletingID],
+    [deletingID, lineupUpdatingUID, rows],
   );
 
   return (
@@ -237,7 +272,7 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
           })}
         />
         <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-          点击表格行可快速查看宠物详情。
+          点击表格行可查看详情；「出战」开关会立即写入服务端，同时只能出战 1 只，也可全部不出战。
         </Typography.Text>
       </Card>
 
@@ -277,7 +312,15 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
             <Descriptions.Item label="等级">{petDetail.level}</Descriptions.Item>
             <Descriptions.Item label="经验">{petDetail.exp}</Descriptions.Item>
             <Descriptions.Item label="品质">{petDetail.quality}</Descriptions.Item>
-            <Descriptions.Item label="出战"><Switch checked={petDetail.in_lineup} disabled /></Descriptions.Item>
+            <Descriptions.Item label="出战">
+              <Switch
+                checked={petDetail.in_lineup}
+                loading={lineupUpdatingUID === petDetail.pet_uid}
+                checkedChildren="是"
+                unCheckedChildren="否"
+                onChange={(checked) => void handleToggleLineup(petDetail, checked)}
+              />
+            </Descriptions.Item>
             <Descriptions.Item label="生命">{`${petDetail.hp}/${petDetail.hp_max}`}</Descriptions.Item>
             <Descriptions.Item label="攻/防/速">{`${petDetail.atk}/${petDetail.def}/${petDetail.spd}`}</Descriptions.Item>
             <Descriptions.Item label="法力">{petDetail.mana}</Descriptions.Item>

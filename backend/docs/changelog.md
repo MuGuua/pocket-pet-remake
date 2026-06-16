@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-06-15
+- 新增玩家成长体系第一版：迁移 `035_player_level_progression.sql`、`036_admin_player_progression_permissions.sql`，引入等级经验表、属性转化率表、玩家自由属性点与 `base_*` 裸装战斗值
+- 新增 `module/progression` 领域模块，统一承接经验连升、升级发点、加点校验与战斗属性重算；`player.AddExp`、战斗结算发经验、任务发经验均走该模块
+- 新增 WebSocket `PLAYER_ALLOCATE_ATTR_REQ/RESP (2061/2062)`；`PlayerSnapshot` 与 `BattleResultPush` 扩展成长相关字段
+- 后台新增 `/player-progression` 页面与 `/api/admin/player-progression/...` 配置接口；玩家详情页展示自由属性点与四维分配值
+- 客户端状态面板与加点页已对接服务端权威快照，加点请求带 loading 遮罩
+- 设计文档：`backend/docs/player-progression.md`
+
 ## 2026-06-11
 - 新增迁移 `backend/server/migrations/010_add_player_pet_mana.sql`，为 `player_pet` 表补齐 `mana` 字段，并同步回填演示宠物初始法力，修复 PostgreSQL 模式下进入世界/读取编队时因 `pp.mana` 缺列导致的失败
 - 服务端配置加载方式已从 `config.env` 环境变量文件切换为单一 YAML 配置文件：`backend/server/cmd/game-server/main.go` 现在会优先解析 `backend/server/configs/config.yaml`

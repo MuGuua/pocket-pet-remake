@@ -20,6 +20,7 @@ import (
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/skill"
@@ -69,7 +70,11 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 		return nil, fmt.Errorf("load skill runtime cache: %w", err)
 	}
 	battle.SetRuntimeSkillResolver(skillService.BattleResolver())
-	playerService := player.NewService(repos.Players, skillService)
+	progressionService := progression.NewService(repos.Progression)
+	if err := progressionService.RefreshRuntimeCache(context.Background()); err != nil {
+		return nil, fmt.Errorf("load player progression runtime cache: %w", err)
+	}
+	playerService := player.NewService(repos.Players, skillService, progressionService)
 	petService := pet.NewService(repos.Pets, skillService, repos.Monsters)
 	questService := quest.NewService(repos.Quests)
 	unlockService := unlock.NewService(repos.Unlocks)
@@ -77,21 +82,28 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	walletService := wallet.NewService(repos.Wallets)
 	worldService := world.NewService(repos.World)
 	monsterService := monster.NewService(repos.Monsters, skillService, petService)
+	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
+		return nil, fmt.Errorf("load monster battle reward cache: %w", err)
+	}
 	battleService := battle.NewService(monsterService)
+	if err := battleService.EnsureNextBattleID(context.Background(), repos.Battles); err != nil {
+		return nil, fmt.Errorf("sync battle id cursor: %w", err)
+	}
 	battle.SetPetSkinResolver(petService.ResolveSkinID)
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService)
 	petHandler := wstransport.NewPetHandler(sessionService, petService)
+	playerHandler := wstransport.NewPlayerHandler(sessionService, playerService)
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battleService, repos.Battles)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)
-	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, battleHandler, bagHandler, questHandler, sessionService)
+	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, playerHandler, battleHandler, bagHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
-	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService)
+	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService, progressionService)
 	httpHandler := buildHTTPHandler(loginHandler, adminHandlers, wsHub)
 
 	server := &http.Server{

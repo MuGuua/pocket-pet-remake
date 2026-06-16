@@ -77,6 +77,36 @@ func TestGrantRuntimeRewardsRollsBackItemsWhenWalletGrantFails(t *testing.T) {
 	}
 }
 
+func TestGrantRuntimeRewardsGoldValueMeansCopper(t *testing.T) {
+	t.Parallel()
+
+	walletRepo := &rewardTestWalletRepo{totalCopper: 100}
+	service := NewService(nil, nil, nil, nil, wallet.NewService(walletRepo))
+
+	result, err := service.GrantRuntimeRewards(context.Background(), GrantInput{
+		PlayerID:     10001,
+		ReasonType:   "battle_reward",
+		ReasonRefID:  42,
+		OperatorType: "system",
+		OperatorID:   10001,
+		Rewards: []Entry{
+			{Type: "gold", Value: 20},
+		},
+	})
+	if err != nil {
+		t.Fatalf("GrantRuntimeRewards() error = %v", err)
+	}
+	if result == nil || result.Wallet == nil {
+		t.Fatal("result wallet = nil, want granted wallet snapshot")
+	}
+	if result.Wallet.TotalCopper != 120 {
+		t.Fatalf("result.Wallet.TotalCopper = %d, want 120", result.Wallet.TotalCopper)
+	}
+	if walletRepo.lastChangeCopper != 20 {
+		t.Fatalf("walletRepo.lastChangeCopper = %d, want 20", walletRepo.lastChangeCopper)
+	}
+}
+
 type rewardTestBagRepo struct {
 	grantCalls      int
 	failGrantOnCall int
@@ -150,11 +180,20 @@ func (r *rewardTestBagRepo) ConsumeRuntimeItemStack(_ context.Context, _ uint64,
 	return &bag.RuntimeContainerSnapshot{ContainerType: bag.ContainerTypeBag}, nil
 }
 
+func (r *rewardTestBagRepo) PlayerHasEverOwnedItem(context.Context, uint64, uint64) (bool, error) {
+	return false, nil
+}
+
+func (r *rewardTestBagRepo) RecordUniqueItemObtained(context.Context, uint64, uint64, string, uint64) error {
+	return nil
+}
+
 var errRewardTestWalletAdjustFailed = errors.New("wallet adjust failed")
 
 type rewardTestWalletRepo struct {
 	totalCopper        uint64
 	adjustCalls        int
+	lastChangeCopper   int64
 	failPositiveAdjust bool
 }
 
@@ -172,6 +211,7 @@ func (r *rewardTestWalletRepo) AdjustForAdmin(context.Context, uint64, wallet.Ad
 
 func (r *rewardTestWalletRepo) AdjustRuntime(_ context.Context, _ uint64, input wallet.RuntimeAdjustInput) (*wallet.RuntimeAdjustResult, error) {
 	r.adjustCalls++
+	r.lastChangeCopper = input.ChangeTotalCopper
 	if input.ChangeTotalCopper > 0 && r.failPositiveAdjust {
 		return nil, errRewardTestWalletAdjustFailed
 	}

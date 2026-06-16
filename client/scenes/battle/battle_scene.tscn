@@ -1,14 +1,27 @@
-[gd_scene load_steps=13 format=3 uid="uid://uwvv5qh86u3g"]
+[gd_scene load_steps=33 format=3 uid="uid://uwvv5qh86u3g"]
 
 [ext_resource type="Script" uid="uid://fsyqvf70tmac" path="res://scripts/feature/battle/battle_scene.gd" id="0_scene"]
 [ext_resource type="Script" uid="uid://dsevvt38eprmg" path="res://scripts/feature/battle/battle_network_provider.gd" id="1"]
 [ext_resource type="Script" uid="uid://cvrgwv6hpiugx" path="res://scripts/feature/battle/battle_director.gd" id="2"]
 [ext_resource type="Texture2D" uid="uid://ceg8aw0vrel1o" path="res://asset/分类/ui/魔法阵.png" id="2_2wmvw"]
 [ext_resource type="Script" uid="uid://b00opfh4jeevx" path="res://scripts/feature/battle/action_panel.gd" id="3"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="3_2wmvw"]
 [ext_resource type="Script" uid="uid://by565b7rmy27i" path="res://scripts/feature/battle/action_log_panel.gd" id="4"]
 [ext_resource type="Script" uid="uid://bbqpe23lupqrj" path="res://scripts/feature/battle/battle_content_registry.gd" id="5"]
+[ext_resource type="Script" uid="uid://bik067xn4swgh" path="res://scripts/feature/battle/battle_command_status.gd" id="6"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ww1p6"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ww1p6"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o3k7m"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cywj5"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cywj5"]
 load_path = "res://.godot/imported/战斗ui.png-f7a2ba29e01312959ce37627cae81b29.ctex"
@@ -19,6 +32,16 @@ region = Rect2(0, 0, 172, 32)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7hnyd"]
 texture = SubResource("AtlasTexture_ww1p6")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7hnyd"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_dddu7"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_3511k"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_puhd7"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_mpswg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_choice_popup"]
 content_margin_left = 4.0
@@ -35,6 +58,56 @@ corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_te27b"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7i1my"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_2wmvw"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_dddu7"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7s01p"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_tc5fe"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_tpsmh"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_3511k"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_puhd7"]
+texture = ExtResource("3_2wmvw")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_43ebt"]
 
 [node name="BattleScene" type="Control"]
 layout_mode = 3
@@ -81,6 +154,7 @@ layout_mode = 0
 offset_right = 360.0
 offset_bottom = 480.0
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_ww1p6")
 
 [node name="BattlefieldRoot" type="Control" parent="."]
 unique_name_in_owner = true
@@ -110,6 +184,35 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="CommandStatusBar" type="PanelContainer" parent="UILayer"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 6.0
+offset_right = -12.0
+offset_bottom = 34.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_ww1p6")
+script = ExtResource("6")
+
+[node name="StatusMargin" type="MarginContainer" parent="UILayer/CommandStatusBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 4
+
+[node name="StatusLabel" type="Label" parent="UILayer/CommandStatusBar/StatusMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "请选择操作：25秒"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ActionLogPanel" type="PanelContainer" parent="UILayer"]
 unique_name_in_owner = true
 layout_mode = 1
@@ -117,17 +220,17 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 3.0
+offset_left = 14.0
 offset_top = -182.0
-offset_right = -3.0
+offset_right = -15.0
 offset_bottom = -114.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_o3k7m")
 script = ExtResource("4")
-log_font_size = 8
-line_height = 8.0
+log_font_size = 10
+line_height = 12.0
 
 [node name="LogMargin" type="MarginContainer" parent="UILayer/ActionLogPanel"]
 layout_mode = 2
@@ -166,6 +269,7 @@ offset_right = -3.0
 offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxEmpty_cywj5")
 script = ExtResource("3")
 
 [node name="ActionMargin" type="MarginContainer" parent="UILayer/ActionPanel"]
@@ -194,26 +298,31 @@ theme_override_constants/separation = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_7hnyd")
 
 [node name="SkillButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_dddu7")
 
 [node name="ItemButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_3511k")
 
 [node name="AutoButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_puhd7")
 
 [node name="EscapeButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_mpswg")
 
 [node name="SelectionOverlay" type="Control" parent="UILayer"]
 unique_name_in_owner = true
@@ -228,7 +337,6 @@ mouse_filter = 2
 
 [node name="ChoiceBackdrop" type="ColorRect" parent="UILayer/SelectionOverlay"]
 unique_name_in_owner = true
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -307,9 +415,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -176.0
-offset_top = 90.0
+offset_top = 100.0
 offset_right = 177.0
-offset_bottom = 122.0
+offset_bottom = 132.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -320,6 +428,11 @@ alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 28)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_te27b")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_7i1my")
+theme_override_styles/hover = SubResource("StyleBoxTexture_2wmvw")
+theme_override_styles/hover_pressed = SubResource("StyleBoxTexture_dddu7")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_7s01p")
 text = "确定"
 
 [node name="Control" type="Control" parent="UILayer/SelectionOverlay/TargetCancelBar"]
@@ -331,6 +444,11 @@ size_flags_horizontal = 4
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 28)
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_tc5fe")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_tpsmh")
+theme_override_styles/hover = SubResource("StyleBoxTexture_3511k")
+theme_override_styles/hover_pressed = SubResource("StyleBoxTexture_puhd7")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_43ebt")
 text = "取消"
 
 [node name="BattleNetworkProvider" type="Node" parent="."]

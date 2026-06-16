@@ -80,5 +80,6 @@ animation_flip_h = {
 "技能": true,
 "普攻": true
 }
+world_battle_animation = "待机"
 sprite_scale = Vector2(0.22, 0.22)
 tint = Color(1, 0.772549, 0.847059, 1)

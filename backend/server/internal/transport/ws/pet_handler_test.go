@@ -50,7 +50,7 @@ func TestRouterHandlePetLineupSet(t *testing.T) {
 
 	body, err := protocol.MarshalBody(protocol.PetLineupSetReq{
 		OpID:    1,
-		PetUIDs: []uint64{20003, 20001},
+		PetUIDs: []uint64{20003},
 	})
 	if err != nil {
 		t.Fatalf("MarshalBody() error = %v", err)
@@ -80,8 +80,8 @@ func TestRouterHandlePetLineupSet(t *testing.T) {
 	if !payload.Accepted {
 		t.Fatalf("payload.Accepted = false, want true")
 	}
-	if len(payload.Lineup) != 2 {
-		t.Fatalf("len(payload.Lineup) = %d, want 2", len(payload.Lineup))
+	if len(payload.Lineup) != 1 {
+		t.Fatalf("len(payload.Lineup) = %d, want 1", len(payload.Lineup))
 	}
 	if payload.Lineup[0].PetUID != 20003 {
 		t.Fatalf("payload.Lineup[0].PetUID = %d, want 20003", payload.Lineup[0].PetUID)

@@ -16,6 +16,7 @@ import (
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
 	"pocket-pet-remake/server/internal/module/skill"
@@ -43,6 +44,7 @@ type AdminHandlers struct {
 	MonsterDefinitions     http.Handler
 	MonsterEncounters      http.Handler
 	SceneWildEncounters    http.Handler
+	PlayerProgression    http.Handler
 	Dashboard              http.Handler
 }
 
@@ -53,6 +55,7 @@ type AdminLoginHandler struct {
 type AdminPlayerHandler struct {
 	adminService  *admin.Service
 	playerService *player.Service
+	petService    *pet.Service
 }
 
 type AdminPetHandler struct {
@@ -80,14 +83,14 @@ type adminLoginRequest struct {
 	Password string `json:"password"`
 }
 
-func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service) AdminHandlers {
+func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service) AdminHandlers {
 	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
 		Login:              &AdminLoginHandler{service: adminService},
 		Me:                 http.HandlerFunc(handleAdminMe(adminService)),
 		Health:             http.HandlerFunc(handleAdminHealth),
 		Dashboard:          &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
-		Players:            &AdminPlayerHandler{adminService: adminService, playerService: playerService},
+		Players:            &AdminPlayerHandler{adminService: adminService, playerService: playerService, petService: petService},
 		Pets:               &AdminPetHandler{adminService: adminService, petService: petService},
 		Bags:               &AdminBagHandler{adminService: adminService, bagService: bagService},
 		Items:              &AdminItemHandler{adminService: adminService, itemService: itemService},
@@ -100,6 +103,7 @@ func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, se
 		MonsterDefinitions:  &AdminMonsterDefinitionHandler{adminService: adminService, monsterService: monsterService},
 		MonsterEncounters:   &AdminMonsterEncounterHandler{adminService: adminService, monsterService: monsterService},
 		SceneWildEncounters: &AdminSceneWildEncounterHandler{adminService: adminService, monsterService: monsterService},
+		PlayerProgression:   &AdminPlayerProgressionHandler{adminService: adminService, progressionService: progressionService},
 	}
 }
 
@@ -157,6 +161,22 @@ func (h *AdminPlayerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
 		}
+		return
+	}
+
+	trimmedPath := strings.Trim(path, "/")
+	segments := strings.Split(trimmedPath, "/")
+	if len(segments) == 2 && segments[1] == "pet-lineup" {
+		playerID, err := parseUintPathID(segments[0])
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid player_id", nil)
+			return
+		}
+		if r.Method != http.MethodPut {
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+			return
+		}
+		h.handleSetPetLineup(w, r, playerID)
 		return
 	}
 
@@ -474,6 +494,36 @@ func (h *AdminPlayerHandler) handleUpdate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", updated)
+}
+
+func (h *AdminPlayerHandler) handleSetPetLineup(w http.ResponseWriter, r *http.Request, playerID uint64) {
+	if h.petService == nil {
+		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "admin pet service is unavailable", nil)
+		return
+	}
+	defer r.Body.Close()
+	var request pet.AdminSetPetLineupInput
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	result, err := h.petService.SetAdminPetLineup(r.Context(), playerID, request)
+	if err != nil {
+		switch {
+		case errors.Is(err, pet.ErrInvalidAdminPetInput), errors.Is(err, pet.ErrInvalidLineup):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid pet lineup payload", nil)
+		case errors.Is(err, pet.ErrPetNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "pet not found", nil)
+		case errors.Is(err, pet.ErrDuplicateLineup):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "duplicate lineup pet", nil)
+		case errors.Is(err, pet.ErrPetUnusable):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "pet definition unavailable", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "set admin pet lineup failed", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", result)
 }
 
 func (h *AdminPlayerHandler) handleDelete(w http.ResponseWriter, r *http.Request, playerID uint64) {

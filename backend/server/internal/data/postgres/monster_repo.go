@@ -837,3 +837,138 @@ func statusTextFromEnabled(enabled bool) string {
 	}
 	return "停用"
 }
+
+const listMonsterBattleRewardsQuery = `
+SELECT id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
+FROM monster_battle_reward
+ORDER BY monster_id ASC, sort_order ASC, id ASC
+`
+
+const listMonsterBattleRewardsByMonsterIDQuery = `
+SELECT id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
+FROM monster_battle_reward
+WHERE monster_id = $1
+ORDER BY sort_order ASC, id ASC
+`
+
+const deleteMonsterBattleRewardsByMonsterIDQuery = `
+DELETE FROM monster_battle_reward
+WHERE monster_id = $1
+`
+
+const insertMonsterBattleRewardQuery = `
+INSERT INTO monster_battle_reward (
+  monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
+`
+
+func (r *MonsterRepository) ListBattleRewards(ctx context.Context) ([]monster.BattleRewardEntry, error) {
+	rows, err := r.db.QueryContext(ctx, listMonsterBattleRewardsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMonsterBattleRewardRows(rows)
+}
+
+func (r *MonsterRepository) ListBattleRewardsByMonsterID(ctx context.Context, monsterID uint32) ([]monster.BattleRewardEntry, error) {
+	rows, err := r.db.QueryContext(ctx, listMonsterBattleRewardsByMonsterIDQuery, monsterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMonsterBattleRewardRows(rows)
+}
+
+func (r *MonsterRepository) ReplaceBattleRewardsForMonster(ctx context.Context, monsterID uint32, rewards []monster.AdminBattleRewardInput) ([]monster.BattleRewardEntry, error) {
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("monster repository transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if _, err := tx.ExecContext(ctx, deleteMonsterBattleRewardsByMonsterIDQuery, monsterID); err != nil {
+		return nil, err
+	}
+	result := make([]monster.BattleRewardEntry, 0, len(rewards))
+	for _, reward := range rewards {
+		row := tx.QueryRowContext(
+			ctx,
+			insertMonsterBattleRewardQuery,
+			monsterID,
+			reward.RewardType,
+			reward.ExpTarget,
+			reward.ItemID,
+			reward.Quantity,
+			reward.ExpValue,
+			reward.SortOrder,
+			reward.Status,
+			reward.GrantOnce,
+		)
+		entry, err := scanMonsterBattleRewardRow(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, entry)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func scanMonsterBattleRewardRows(rows *sql.Rows) ([]monster.BattleRewardEntry, error) {
+	result := make([]monster.BattleRewardEntry, 0)
+	for rows.Next() {
+		entry, err := scanMonsterBattleRewardFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func scanMonsterBattleRewardRow(row *sql.Row) (monster.BattleRewardEntry, error) {
+	var entry monster.BattleRewardEntry
+	var monsterID, sortOrder, status, grantOnce int64
+	var itemID, quantity, expValue int64
+	if err := row.Scan(&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue, &sortOrder, &status, &grantOnce); err != nil {
+		return monster.BattleRewardEntry{}, err
+	}
+	entry.MonsterID = uint32(monsterID)
+	entry.ItemID = uint64(itemID)
+	entry.Quantity = uint64(quantity)
+	entry.ExpValue = uint64(expValue)
+	entry.SortOrder = uint32(sortOrder)
+	entry.Status = uint32(status)
+	entry.GrantOnce = uint32(grantOnce)
+	return entry, nil
+}
+
+func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry, error) {
+	var entry monster.BattleRewardEntry
+	var monsterID, sortOrder, status, grantOnce int64
+	var itemID, quantity, expValue int64
+	if err := rows.Scan(&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue, &sortOrder, &status, &grantOnce); err != nil {
+		return monster.BattleRewardEntry{}, err
+	}
+	entry.MonsterID = uint32(monsterID)
+	entry.ItemID = uint64(itemID)
+	entry.Quantity = uint64(quantity)
+	entry.ExpValue = uint64(expValue)
+	entry.SortOrder = uint32(sortOrder)
+	entry.Status = uint32(status)
+	entry.GrantOnce = uint32(grantOnce)
+	return entry, nil
+}
+
