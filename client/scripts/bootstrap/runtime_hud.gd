@@ -6,6 +6,8 @@ const MAX_LOG_LINES: int = 120
 
 ## 左上角玩家头像与属性条 HUD。
 @onready var player_status_hud: PanelContainer = %PlayerStatusHud
+## 右上角当前场景名称标签。
+@onready var scene_name_label: Label = %SceneNameLabel
 @onready var log_output: RichTextLabel = %LogOutput
 
 ## 头像被点击时向外转发，供主场景打开人物面板。
@@ -33,6 +35,15 @@ func set_local_coordinates(local_position: Vector2) -> void:
 func set_player_status_visible(visible: bool) -> void:
 	if player_status_hud != null:
 		player_status_hud.visible = visible
+
+
+## 更新右上角当前场景名称；名称由当前地图场景脚本导出配置。
+func set_scene_name(scene_name: String) -> void:
+	if scene_name_label == null:
+		return
+	var display_name: String = scene_name.strip_edges()
+	scene_name_label.text = UiFormat.normalize_text(display_name)
+	scene_name_label.visible = not display_name.is_empty()
 
 
 func _on_player_status_avatar_pressed() -> void:

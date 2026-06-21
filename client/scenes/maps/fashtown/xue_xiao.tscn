@@ -1,7 +1,7 @@
 [gd_scene load_steps=11 format=4 uid="uid://mb8t47j50d1y"]
 
 [ext_resource type="Texture2D" uid="uid://djamvhle22k" path="res://asset/generated_maps/maps/sgz/xuexiao/full_frames/sheet.png" id="1_mgmkr"]
-[ext_resource type="Script" uid="uid://bsdhe1w1dlii1" path="res://scripts/feature/world/scene_levels/xue_xiao_level.gd" id="1_sb05u"]
+[ext_resource type="Script" uid="uid://cl34td8i4mx77" path="res://scripts/feature/world/scene_levels/xue_xiao_level.gd" id="1_sb05u"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_dvo12"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_sb05u"]
@@ -2047,8 +2047,10 @@ size = Vector2(48, 9)
 [node name="XueXiao" type="Node2D"]
 position = Vector2(4, 4)
 script = ExtResource("1_sb05u")
-up_door_spawn_position = Vector2(82, 319)
-down_door_spawn_position = Vector2(132, 44)
+scene_display_name = "宠物学校"
+inbound_from_market_scene_position = Vector2(12, 3)
+inbound_from_da_guai_qu_scene_position = Vector2(6, 11)
+login_spawn_position = Vector2(11, 5)
 
 [node name="Collision" type="TileMapLayer" parent="."]
 position = Vector2(4, 4)

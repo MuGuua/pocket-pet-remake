@@ -23,6 +23,8 @@ type sceneData struct {
 }
 
 var worldScenes = map[uint32]sceneData{
+	// 坐标统一采用“场景内坐标 = 服务端世界坐标”的口径：每张地图左上角为 (0,0)，
+	// 客户端只负责把该格子坐标按地图像素倍率渲染，不能再维护一套独立本地落点。
 	1: {
 		spawnPos: world.Vec2i{X: 8, Y: 6},
 		entries: map[uint32]world.Vec2i{

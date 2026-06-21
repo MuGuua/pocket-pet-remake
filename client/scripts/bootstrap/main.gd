@@ -417,7 +417,11 @@ func _on_connection_state_changed(state: String) -> void:
 
 # 处理世界场景装载完成事件，并在首次进入世界后拉取基础摘要数据。
 func _on_world_scene_loaded(scene_id: String) -> void:
-	_append_log("已进入场景: %s" % scene_id)
+	var scene_display_name: String = scene_id
+	if _world_controller != null and _world_controller.has_method("get_current_scene_display_name"):
+		scene_display_name = str(_world_controller.call("get_current_scene_display_name"))
+	hud_root.set_scene_name(scene_display_name)
+	_append_log("已进入场景: %s" % scene_display_name)
 	if _scene_map_transition_active:
 		_scene_map_new_scene_ready = true
 	if not _runtime_data_requested:

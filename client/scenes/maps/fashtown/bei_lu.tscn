@@ -1287,6 +1287,9 @@ sources/1 = SubResource("TileSetAtlasSource_qomb7")
 [node name="BeiLu" type="Node2D"]
 position = Vector2(39, 56)
 script = ExtResource("1_rrpla")
+scene_display_name = "市场北路"
+inbound_from_market_scene_position = Vector2(4, 10)
+login_spawn_position = Vector2(4, 7)
 
 [node name="DownDoor" type="Area2D" parent="."]
 

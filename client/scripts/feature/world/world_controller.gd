@@ -22,61 +22,27 @@ const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
 const SCENE_CONFIGS: Dictionary = {
 	1: {
 		"scene_path": "res://scenes/maps/fashtown/roxus_house.tscn",
-		"world_anchor": Vector2(8.0, 12.0),
-		"local_anchor": Vector2(113.0, 223.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			2001: Vector2(113.0, 223.0),
-		},
 	},
 	2: {
 		"scene_path": "res://scenes/maps/fashtown/east_road_of_shanguang_town.tscn",
-		"world_anchor": Vector2(4.0, 1.0),
-		"local_anchor": Vector2(103.0, 37.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			1001: Vector2(103.0, 37.0),
-			3001: Vector2(24.0, 85.0),
-		},
 	},
 	3: {
 		"scene_path": "res://scenes/maps/fashtown/radiant_market.tscn",
-		"world_anchor": Vector2(12.0, 10.0),
-		"local_anchor": Vector2(296.0, 282.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			2002: Vector2(296.0, 282.0),
-			4001: Vector2(120.0, 37.0),
-			5001: Vector2(96.0, 299.0),
-		},
 	},
 	4: {
 		"scene_path": "res://scenes/maps/fashtown/bei_lu.tscn",
-		"world_anchor": Vector2(2.0, 8.0),
-		"local_anchor": Vector2(85.0, 217.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			3002: Vector2(85.0, 217.0),
-		},
 	},
 	5: {
 		"scene_path": "res://scenes/maps/fashtown/xue_xiao.tscn",
-		"world_anchor": Vector2(11.0, 2.0),
-		"local_anchor": Vector2(268.0, 58.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			3003: Vector2(268.0, 58.0),
-			6001: Vector2(141.0, 263.0),
-		},
 	},
 	6: {
 		"scene_path": "res://scenes/maps/fashtown/da_guai_qu.tscn",
-		"world_anchor": Vector2(6.0, 10.0),
-		"local_anchor": Vector2(144.0, 41.0),
 		"grid_to_pixels": 24.0,
-		"incoming_portal_local_positions": {
-			5002: Vector2(144.0, 41.0),
-		},
 	},
 }
 
@@ -107,6 +73,8 @@ var _render_frame_size: Vector2 = DEFAULT_RENDER_FRAME_SIZE
 var _use_scene_login_spawn_on_next_snapshot: bool = false
 var _last_reported_player_position: Vector2 = Vector2.INF
 var _current_level: Node2D
+## 当前地图左上角在地图根节点本地坐标中的位置，用于把服务端场景坐标映射到地图实际像素。
+var _current_level_scene_origin_pixels: Vector2 = Vector2.ZERO
 var _current_interactable_entity_id: int = 0
 var _current_interactable_npc_name: String = ""
 var _current_interactable_requested: bool = false
@@ -331,6 +299,7 @@ func mount_level(level_scene: PackedScene) -> void:
 
 	_current_level = level_instance as Node2D
 	game_root.add_child(_current_level)
+	_normalize_current_level_origin()
 	_bind_level_signals(_current_level)
 	_bind_interactive_npcs(_current_level)
 	_refresh_background_fill()
@@ -353,6 +322,7 @@ func unmount_current_level() -> void:
 	_detach_pet_follower_from_current_level()
 	var level_to_free := _current_level
 	_current_level = null
+	_current_level_scene_origin_pixels = Vector2.ZERO
 	if level_to_free.get_parent() == game_root:
 		game_root.remove_child(level_to_free)
 	level_to_free.queue_free()
@@ -618,6 +588,15 @@ func _emit_scene_loaded_if_changed(force_emit: bool) -> void:
 		_last_loaded_scene_id = scene_id
 		scene_loaded.emit(str(scene_id))
 
+## 返回当前已加载场景导出的展示名称；没有配置时回退为 scene_id，避免 HUD 空白。
+func get_current_scene_display_name() -> String:
+	if _current_level != null and _current_level.has_method("get_scene_display_name"):
+		var scene_name_value: Variant = _current_level.call("get_scene_display_name")
+		var scene_name: String = str(scene_name_value).strip_edges()
+		if not scene_name.is_empty():
+			return scene_name
+	return str(_current_scene_id())
+
 func _current_scene_id() -> int:
 	return int(GameState.scene_snapshot.get("scene_id", 0))
 
@@ -628,44 +607,76 @@ func _scene_config(scene_id: int) -> Dictionary:
 	var scene_config_variant: Variant = SCENE_CONFIGS.get(scene_id, {})
 	return scene_config_variant if scene_config_variant is Dictionary else {}
 
+## 把服务端权威场景坐标转换成 Godot 渲染像素坐标。
+## 参数 scene_id 表示当前场景 ID；server_position 是以地图左上角为 (0,0) 的格子坐标；返回值是玩家父节点内的像素坐标。
 func _server_to_local_position(scene_id: int, server_position: Vector2) -> Vector2:
-	var scene_config := _scene_config(scene_id)
-	if scene_config.is_empty():
-		return Vector2.ZERO
-	var world_anchor: Vector2 = scene_config.get("world_anchor", Vector2.ZERO)
-	var local_anchor: Vector2 = scene_config.get("local_anchor", Vector2.ZERO)
-	var grid_to_pixels: float = float(scene_config.get("grid_to_pixels", DEFAULT_GRID_TO_PIXELS))
-	return local_anchor + (server_position - world_anchor) * grid_to_pixels
+	return _scene_coordinate_to_local_pixels(scene_id, server_position)
 
+## 根据当前快照解析出生点；首次进场使用登录出生中心，传送门切图使用目标场景 portal 场景坐标。
+## 参数 scene_id 表示当前场景 ID；server_position 是服务端持久化坐标，仅在目标场景没有客户端 portal 配置时兜底使用；返回值是实际摆放角色的像素坐标。
 func _resolve_snapshot_spawn_position(scene_id: int, server_position: Vector2) -> Vector2:
-	var portal_spawn_position: Vector2 = _resolve_pending_portal_spawn_position(scene_id)
-	if portal_spawn_position != Vector2.ZERO:
-		return portal_spawn_position
 	if _use_scene_login_spawn_on_next_snapshot:
 		_use_scene_login_spawn_on_next_snapshot = false
-		var level_spawn_position: Vector2 = _resolve_level_login_spawn_position()
-		if level_spawn_position != Vector2.ZERO:
-			return level_spawn_position
+		var login_spawn_scene_position: Vector2 = _resolve_client_login_spawn_scene_position()
+		if login_spawn_scene_position != Vector2.INF:
+			return _scene_coordinate_to_local_pixels(scene_id, login_spawn_scene_position)
+
+	_use_scene_login_spawn_on_next_snapshot = false
+	var portal_spawn_scene_position: Vector2 = _resolve_client_portal_spawn_scene_position()
+	if portal_spawn_scene_position != Vector2.INF:
+		return _scene_coordinate_to_local_pixels(scene_id, portal_spawn_scene_position)
 	return _server_to_local_position(scene_id, server_position)
 
-func _resolve_level_login_spawn_position() -> Vector2:
-	if _current_level != null and _current_level.has_method("get_login_spawn_position"):
-		var spawn_position_value: Variant = _current_level.call("get_login_spawn_position")
-		if spawn_position_value is Vector2:
-			return spawn_position_value as Vector2
-	return Vector2.ZERO
+## 读取当前场景导出的默认出生中心场景坐标；首次进入世界时优先使用该坐标摆放玩家。
+## 返回值为场景坐标；若当前场景没有提供登录出生点，则返回 Vector2.INF 交给服务端坐标兜底。
+func _resolve_client_login_spawn_scene_position() -> Vector2:
+	if _current_level == null:
+		return Vector2.INF
+	if not _current_level.has_method("get_login_spawn_position"):
+		return Vector2.INF
 
-func _resolve_pending_portal_spawn_position(scene_id: int) -> Vector2:
-	if _pending_portal_id == 0:
-		return Vector2.ZERO
-	var scene_config := _scene_config(scene_id)
-	var portal_positions_value: Variant = scene_config.get("incoming_portal_local_positions", {})
-	if portal_positions_value is Dictionary:
-		var portal_positions := portal_positions_value as Dictionary
-		var spawn_position_value: Variant = portal_positions.get(_pending_portal_id, Vector2.ZERO)
-		if spawn_position_value is Vector2:
-			return spawn_position_value as Vector2
-	return Vector2.ZERO
+	var spawn_position_value: Variant = _current_level.call("get_login_spawn_position")
+	if spawn_position_value is Vector2:
+		return spawn_position_value as Vector2
+	if spawn_position_value is Vector2i:
+		var grid_position: Vector2i = spawn_position_value as Vector2i
+		return Vector2(float(grid_position.x), float(grid_position.y))
+	return Vector2.INF
+
+## 读取当前已加载目标场景的 portal_id 场景坐标配置；这样每张场景只维护“别人传进来后站第几格”。
+## 返回值为场景坐标；若没有 pending portal 或目标场景未配置，则返回 Vector2.INF 交给服务端坐标兜底。
+func _resolve_client_portal_spawn_scene_position() -> Vector2:
+	if _pending_portal_id <= 0 or _current_level == null:
+		return Vector2.INF
+	if not _current_level.has_method("get_portal_spawn_scene_position"):
+		return Vector2.INF
+
+	var spawn_position_value: Variant = _current_level.call("get_portal_spawn_scene_position", _pending_portal_id)
+	if spawn_position_value is Vector2:
+		return spawn_position_value as Vector2
+	if spawn_position_value is Vector2i:
+		var grid_position: Vector2i = spawn_position_value as Vector2i
+		return Vector2(float(grid_position.x), float(grid_position.y))
+	return Vector2.INF
+
+## 读取当前场景的单格像素大小，统一服务端格子坐标与客户端渲染坐标的换算倍率。
+## 参数 scene_id 表示当前场景 ID；返回值是每 1 个服务端坐标单位对应的像素长度。
+func _grid_to_pixels_for_scene(scene_id: int) -> float:
+	var scene_config: Dictionary = _scene_config(scene_id)
+	var grid_to_pixels: float = float(scene_config.get("grid_to_pixels", DEFAULT_GRID_TO_PIXELS))
+	return maxf(grid_to_pixels, 1.0)
+
+## 把统一场景坐标换算为渲染像素坐标；地图左上角 (0,0) 对应像素原点。
+## 参数 scene_id 表示当前场景 ID；scene_position 是服务端/场景统一坐标；返回值是 Godot 像素坐标。
+func _scene_coordinate_to_local_pixels(scene_id: int, scene_position: Vector2) -> Vector2:
+	var grid_to_pixels: float = _grid_to_pixels_for_scene(scene_id)
+	return _current_level_scene_origin_pixels + scene_position * grid_to_pixels
+
+## 把玩家当前像素坐标换算回统一场景坐标，供 HUD 和调试日志展示。
+## 参数 scene_id 表示当前场景 ID；local_pixels 是地图内像素坐标；返回值与服务端 self_pos 使用同一坐标系。
+func _local_pixels_to_scene_coordinate(scene_id: int, local_pixels: Vector2) -> Vector2:
+	var grid_to_pixels: float = _grid_to_pixels_for_scene(scene_id)
+	return (local_pixels - _current_level_scene_origin_pixels) / grid_to_pixels
 
 
 func _stage_pending_player_transition(change_request: Dictionary) -> void:
@@ -888,6 +899,19 @@ func _get_camera_limit_layer(level: Node2D) -> TileMapLayer:
 		if layer != null:
 			return layer
 	return null
+
+## 将加载后的地图整体平移，使可用地图矩形的左上角落在世界原点 (0,0)。
+## 该方法只移动当前地图根节点，不改写 .tscn 资源，避免批量重写地图文件。
+func _normalize_current_level_origin() -> void:
+	_current_level_scene_origin_pixels = Vector2.ZERO
+	if _current_level == null:
+		return
+	var level_rect: Rect2 = _resolve_level_world_rect(_current_level)
+	if not level_rect.has_area():
+		return
+	if not level_rect.position.is_equal_approx(Vector2.ZERO):
+		_current_level.global_position -= level_rect.position
+	_current_level_scene_origin_pixels = _current_level.to_local(Vector2.ZERO)
 
 func _resolve_level_world_rect(level: Node2D) -> Rect2:
 	if level == null:
@@ -1160,9 +1184,11 @@ func _current_player_global_position() -> Vector2:
 func _current_player_scene_position() -> Vector2:
 	if player_node == null or not is_instance_valid(player_node):
 		return Vector2.ZERO
+	var scene_id: int = _current_scene_id()
+	var local_pixels: Vector2 = player_node.position
 	if _current_level != null and is_instance_valid(_current_level):
-		return _current_level.to_local(player_node.global_position)
-	return player_node.position
+		local_pixels = _current_level.to_local(player_node.global_position)
+	return _local_pixels_to_scene_coordinate(scene_id, local_pixels)
 
 func _report_player_position_if_changed() -> void:
 	if player_node == null or not is_instance_valid(player_node):

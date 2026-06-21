@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cqqey00iokxxb" path="res://scripts/feature/world/scene_levels/roxus_house_level.gd" id="1_2dwht"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_j816w"]
 [ext_resource type="Texture2D" uid="uid://13ul8gddpxfm" path="res://asset/generated_maps/maps/sgz/cunzhangjia/full_frames/sheet.png" id="2_s32ju"]
-[ext_resource type="PackedScene" path="res://npc/cangku/aqing.tscn" id="3_aqing"]
+[ext_resource type="PackedScene" uid="uid://bqtjrmev5uvay" path="res://npc/cangku/aqing.tscn" id="3_aqing"]
 [ext_resource type="PackedScene" uid="uid://dw5q5nbmn1th3" path="res://npc/cangku/luosi.tscn" id="4_877fa"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_mmkxe"]
@@ -1948,6 +1948,9 @@ size = Vector2(47, 9)
 [node name="roxus_house" type="Node2D"]
 position = Vector2(15, 76)
 script = ExtResource("1_2dwht")
+scene_display_name = "罗克萨斯家"
+inbound_from_east_road_scene_position = Vector2(5, 13)
+login_spawn_position = Vector2(5, 10)
 
 [node name="Collision" type="TileMapLayer" parent="."]
 position = Vector2(1, -4)

@@ -1301,6 +1301,9 @@ light_mask = 7
 position = Vector2(12, 92)
 scale = Vector2(1, 1.002)
 script = ExtResource("1_xbsme")
+inbound_from_roxus_scene_position = Vector2(4, 4)
+inbound_from_market_scene_position = Vector2(1, 7)
+login_spawn_position = Vector2(4, 5)
 
 [node name="Collision" type="TileMapLayer" parent="."]
 position = Vector2(-4, -3.9920044)
