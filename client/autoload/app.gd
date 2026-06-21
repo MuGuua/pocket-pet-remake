@@ -25,6 +25,8 @@ const DEFAULT_ACCOUNT: String = "demo"
 const DEFAULT_PASSWORD: String = "demo123"
 # 默认战斗动作使用的技能标识。
 const DEFAULT_BATTLE_SKILL_ID: int = 1001
+# 普攻固定绑定的 slash.tres 视觉资源标识。
+const DEFAULT_BATTLE_SKILL_VISUAL_ID: String = "slash"
 
 # 标记当前单例是否已经完成初始化绑定。
 var _bootstrapped: bool = false
@@ -136,6 +138,27 @@ func request_allocate_attr_points(strength: int = 0, vitality: int = 0, agility:
 		}
 	)
 
+# 提交单只宠物的自由属性点分配请求。
+func request_pet_allocate_attr_points(
+	pet_uid: int,
+	hp: int = 0,
+	atk: int = 0,
+	spd: int = 0,
+	mana: int = 0,
+	def_value: int = 0
+) -> int:
+	return _send_command(
+		CommandIds.PET_ALLOCATE_ATTR_REQ,
+		{
+			"pet_uid": pet_uid,
+			"hp": hp,
+			"atk": atk,
+			"spd": spd,
+			"mana": mana,
+			"def": def_value,
+		}
+	)
+
 # 提交完整编队宠物唯一标识列表。
 func set_pet_lineup(pet_uids: Array[int]) -> void:
 	_send_command(
@@ -143,6 +166,70 @@ func set_pet_lineup(pet_uids: Array[int]) -> void:
 		{
 			"op_id": _take_battle_op_id(),
 			"pet_uids": pet_uids,
+		}
+	)
+
+# 拉取单只宠物完整技能分槽（含法宝技 skill_id）。
+func request_pet_skill_detail(pet_uid: int) -> int:
+	return _send_command(
+		CommandIds.PET_SKILL_DETAIL_REQ,
+		{
+			"pet_uid": pet_uid,
+		}
+	)
+
+# 从背包装备法宝到宠物指定法宝槽。
+func request_pet_artifact_equip(pet_uid: int, slot_index: int, bag_slot_index: int) -> int:
+	return _send_command(
+		CommandIds.PET_ARTIFACT_EQUIP_REQ,
+		{
+			"pet_uid": pet_uid,
+			"slot_index": slot_index,
+			"container_type": "bag",
+			"bag_slot_index": bag_slot_index,
+		}
+	)
+
+# 卸下宠物指定法宝槽上的技能。
+func request_pet_artifact_unequip(pet_uid: int, slot_index: int) -> int:
+	return _send_command(
+		CommandIds.PET_ARTIFACT_UNEQUIP_REQ,
+		{
+			"pet_uid": pet_uid,
+			"slot_index": slot_index,
+		}
+	)
+
+# 拉取当前人物已佩戴装备列表。
+func request_player_equipment_list() -> int:
+	return _send_command(CommandIds.PLAYER_EQUIPMENT_LIST_REQ, {})
+
+# 从背包指定格子佩戴人物装备。
+func request_player_equip(bag_slot_index: int, container_type: String = "bag") -> int:
+	return _send_command(
+		CommandIds.PLAYER_EQUIP_REQ,
+		{
+			"container_type": container_type,
+			"bag_slot_index": bag_slot_index,
+		}
+	)
+
+# 卸下人物指定槽位装备。
+func request_player_unequip(equip_slot: String, container_type: String = "bag") -> int:
+	return _send_command(
+		CommandIds.PLAYER_UNEQUIP_REQ,
+		{
+			"equip_slot": equip_slot,
+			"container_type": container_type,
+		}
+	)
+
+# 强化指定 item_uid 的人物装备实例。
+func request_player_equipment_enhance(item_uid: String) -> int:
+	return _send_command(
+		CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ,
+		{
+			"item_uid": item_uid,
 		}
 	)
 
@@ -164,16 +251,16 @@ func request_wallet() -> int:
 	return _send_command(CommandIds.WALLET_QUERY_REQ, {})
 
 # 请求主动使用当前容器格子中的物品。
-# 当前第一版主要供扩容券等功能道具复用，后续治疗类和礼包类效果也继续走同一条服务端权威链路。
-func request_use_item(container_type: String, slot_index: int, quantity: int = 1) -> int:
-	return _send_command(
-		CommandIds.USE_ITEM_REQ,
-		{
-			"container_type": container_type,
-			"slot_index": slot_index,
-			"quantity": quantity,
-		}
-	)
+# target_pet_uid 在 target_type=pet_single 的道具（治疗、神符解锁等）上必填。
+func request_use_item(container_type: String, slot_index: int, quantity: int = 1, target_pet_uid: int = 0) -> int:
+	var payload: Dictionary = {
+		"container_type": container_type,
+		"slot_index": slot_index,
+		"quantity": quantity,
+	}
+	if target_pet_uid > 0:
+		payload["target_pet_uid"] = target_pet_uid
+	return _send_command(CommandIds.USE_ITEM_REQ, payload)
 
 # 请求把背包指定格子的部分或全部物品存入仓库。
 func request_bag_to_warehouse(entity_id: int, from_slot_index: int, quantity: int) -> int:
@@ -214,8 +301,8 @@ func track_quest(quest_id: int) -> void:
 	_send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
 
 # 向服务端提交与指定实体的交互意图。
-func request_interact(entity_id: int) -> void:
-	_send_command(
+func request_interact(entity_id: int) -> int:
+	return _send_command(
 		CommandIds.INTERACT_REQ,
 		{
 			"entity_id": entity_id,
@@ -232,13 +319,57 @@ func request_wild_encounter(scene_id: int, move_seq: int) -> void:
 		}
 	)
 
+# 向服务端提交 NPC 菜单拉取请求。
+func request_npc_menu(entity_id: int) -> int:
+	return _send_command(
+		CommandIds.NPC_MENU_REQ,
+		{
+			"entity_id": entity_id,
+		}
+	)
+
 # 向服务端提交 NPC 菜单项执行请求。
-func request_npc_action(entity_id: int, entry_id: String) -> void:
-	_send_command(
+func request_npc_action(entity_id: int, entry_id: String) -> int:
+	return _send_command(
 		CommandIds.NPC_ACTION_REQ,
 		{
 			"entity_id": entity_id,
 			"entry_id": entry_id,
+		}
+	)
+
+# 向服务端提交“继续当前 NPC 剧情”的请求。
+func request_npc_dialogue_next(entity_id: int, dialogue_id: int, node_id: String) -> int:
+	return _send_command(
+		CommandIds.NPC_DIALOGUE_NEXT_REQ,
+		{
+			"entity_id": entity_id,
+			"dialogue_id": dialogue_id,
+			"node_id": node_id,
+		}
+	)
+
+# 向服务端提交“选择当前 NPC 剧情分支”的请求。
+func request_npc_dialogue_choose(entity_id: int, dialogue_id: int, node_id: String, option_id: String) -> int:
+	return _send_command(
+		CommandIds.NPC_DIALOGUE_CHOOSE_REQ,
+		{
+			"entity_id": entity_id,
+			"dialogue_id": dialogue_id,
+			"node_id": node_id,
+			"option_id": option_id,
+		}
+	)
+
+# 向服务端提交商店购买请求；shop_id 当前等同于商店 NPC 的 entity_id。
+func request_buy_item(shop_id: int, item_id: int, quantity: int = 1) -> int:
+	return _send_command(
+		CommandIds.BUY_ITEM_REQ,
+		{
+			"shop_id": shop_id,
+			"goods_id": item_id,
+			"item_id": item_id,
+			"quantity": quantity,
 		}
 	)
 
@@ -304,6 +435,7 @@ func set_battle_auto(battle_id: int, battle_round: int, enabled: bool) -> void:
 func _on_dev_message_received(cmd: int, seq: int, _code: int, payload: Dictionary) -> void:
 	if CommandIds.should_log_result(cmd):
 		_emit_server_result_log(cmd, _format_ws_result_log(cmd, payload))
+		_log_battle_payload_debug(cmd, payload)
 	_resolve_request_completion(cmd, seq, payload)
 	MessageRouter.route_message(cmd, payload)
 
@@ -420,6 +552,7 @@ func _emit_server_result_log(cmd: int, message: String) -> void:
 func _send_command(cmd: int, payload: Dictionary) -> int:
 	if CommandIds.should_log_result(cmd):
 		_emit_server_result_log(cmd, _format_ws_request_log(cmd, payload))
+		_log_battle_payload_debug(cmd, payload)
 	var seq := NetClient.send_command(cmd, payload)
 	if seq > 0:
 		_pending_request_cmds_by_seq[seq] = cmd
@@ -440,6 +573,11 @@ func _resolve_request_completion(cmd: int, seq: int, payload: Dictionary) -> voi
 		return
 
 	var request_cmd := _request_cmd_for_response(cmd)
+	if cmd == CommandIds.NPC_DIALOGUE_RESP:
+		if _pending_request_seqs_by_cmd.has(CommandIds.NPC_DIALOGUE_NEXT_REQ):
+			request_cmd = CommandIds.NPC_DIALOGUE_NEXT_REQ
+		elif _pending_request_seqs_by_cmd.has(CommandIds.NPC_DIALOGUE_CHOOSE_REQ):
+			request_cmd = CommandIds.NPC_DIALOGUE_CHOOSE_REQ
 	if request_cmd == 0:
 		return
 
@@ -467,12 +605,32 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.WILD_ENCOUNTER_REQ
 		CommandIds.NPC_ACTION_RESP:
 			return CommandIds.NPC_ACTION_REQ
+		CommandIds.NPC_MENU_RESP:
+			return CommandIds.NPC_MENU_REQ
 		CommandIds.PET_LIST_RESP:
 			return CommandIds.PET_LIST_REQ
 		CommandIds.PET_LINEUP_SET_RESP:
 			return CommandIds.PET_LINEUP_SET_REQ
 		CommandIds.PLAYER_ALLOCATE_ATTR_RESP:
 			return CommandIds.PLAYER_ALLOCATE_ATTR_REQ
+		CommandIds.PET_ALLOCATE_ATTR_RESP:
+			return CommandIds.PET_ALLOCATE_ATTR_REQ
+		CommandIds.PLAYER_EQUIPMENT_LIST_RESP:
+			return CommandIds.PLAYER_EQUIPMENT_LIST_REQ
+		CommandIds.PLAYER_EQUIP_RESP:
+			return CommandIds.PLAYER_EQUIP_REQ
+		CommandIds.PLAYER_UNEQUIP_RESP:
+			return CommandIds.PLAYER_UNEQUIP_REQ
+		CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP:
+			return CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ
+		CommandIds.PET_ARTIFACT_EQUIP_RESP:
+			return CommandIds.PET_ARTIFACT_EQUIP_REQ
+		CommandIds.PET_ARTIFACT_UNEQUIP_RESP:
+			return CommandIds.PET_ARTIFACT_UNEQUIP_REQ
+		CommandIds.PET_SKILL_DETAIL_RESP:
+			return CommandIds.PET_SKILL_DETAIL_REQ
+		CommandIds.USE_ITEM_RESP:
+			return CommandIds.USE_ITEM_REQ
 		CommandIds.BATTLE_ACTION_RESP:
 			return CommandIds.BATTLE_ACTION_REQ
 		CommandIds.PVP_CHALLENGE_RESP:
@@ -489,6 +647,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.WAREHOUSE_TO_BAG_REQ
 		CommandIds.WALLET_QUERY_RESP:
 			return CommandIds.WALLET_QUERY_REQ
+		CommandIds.BUY_ITEM_RESP:
+			return CommandIds.BUY_ITEM_REQ
 		CommandIds.QUEST_LIST_RESP:
 			return CommandIds.QUEST_LIST_REQ
 		CommandIds.QUEST_ACCEPT_RESP:
@@ -549,12 +709,21 @@ func _format_http_result_log(path: String, response: Dictionary) -> String:
 	return summary
 
 
-# 把战斗相关载荷序列化成 JSON，便于在控制台完整核对请求/响应字段。
+# 把战斗相关载荷序列化成 JSON，便于在调试构建下核对字段。
 func _format_battle_payload_json(payload: Dictionary) -> String:
 	return JSON.stringify(payload, "\t")
 
 
-# 组装 WebSocket 请求结果日志；战斗链路会附带完整 JSON，其它消息仍只保留摘要字段。
+# 调试构建下把战斗载荷完整 JSON 输出到控制台；不进入 HUD，避免 RichTextLabel 内存膨胀。
+func _log_battle_payload_debug(cmd: int, payload: Dictionary) -> void:
+	if not OS.is_debug_build():
+		return
+	if not CommandIds.is_battle_related(cmd):
+		return
+	print("[BattleNet][DEBUG_PAYLOAD][%s]\n%s" % [CommandIds.name_of(cmd), _format_battle_payload_json(payload)])
+
+
+# 组装 WebSocket 请求结果日志；只保留摘要字段，完整 JSON 见 _log_battle_payload_debug。
 func _format_ws_result_log(cmd: int, payload: Dictionary) -> String:
 	var summary := "%s" % CommandIds.name_of(cmd)
 
@@ -593,12 +762,16 @@ func _format_ws_result_log(cmd: int, payload: Dictionary) -> String:
 		var events_variant: Variant = payload.get("events", [])
 		if events_variant is Array:
 			summary += " events=%d" % events_variant.size()
-	if CommandIds.is_battle_related(cmd):
-		summary += "\n[BattleNet][RESP_PAYLOAD]\n%s" % _format_battle_payload_json(payload)
+	if payload.has("frame"):
+		summary += " frame=%s" % str(payload.get("frame", 0))
+	if payload.has("round"):
+		summary += " round=%s" % str(payload.get("round", 0))
+	if payload.has("phase"):
+		summary += " phase=%s" % str(payload.get("phase", ""))
 	return summary
 
 
-# 组装客户端发出的请求日志；战斗链路会附带完整 JSON，其它消息仍只保留关键标识。
+# 组装客户端发出的请求日志；只保留关键标识，完整 JSON 见 _log_battle_payload_debug。
 func _format_ws_request_log(cmd: int, payload: Dictionary) -> String:
 	var summary := "REQ %s" % CommandIds.name_of(cmd)
 	if payload.has("entity_id"):
@@ -615,8 +788,6 @@ func _format_ws_request_log(cmd: int, payload: Dictionary) -> String:
 		var pet_uids_variant: Variant = payload.get("pet_uids", [])
 		if pet_uids_variant is Array:
 			summary += " pet_uids=%d" % pet_uids_variant.size()
-	if CommandIds.is_battle_related(cmd):
-		summary += "\n[BattleNet][REQ_PAYLOAD]\n%s" % _format_battle_payload_json(payload)
 	return summary
 
 func _should_try_reconnect() -> bool:

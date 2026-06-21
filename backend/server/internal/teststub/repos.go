@@ -13,6 +13,7 @@ import (
 	"pocket-pet-remake/server/internal/module/battle"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
@@ -112,10 +113,10 @@ func NewAccountRepository() *AccountRepository {
 }
 
 type AccountRepository struct {
-	mu            sync.RWMutex
-	accounts      map[string]auth.Account
-	lastLoginAt   map[uint64]time.Time
-	createdAt     map[uint64]time.Time
+	mu          sync.RWMutex
+	accounts    map[string]auth.Account
+	lastLoginAt map[uint64]time.Time
+	createdAt   map[uint64]time.Time
 }
 
 func (r *AccountRepository) FindByAccountName(_ context.Context, accountName string) (*auth.Account, error) {
@@ -715,18 +716,7 @@ func (r *PetRepository) SetLineupByPlayerID(_ context.Context, playerID uint64, 
 		if !exists {
 			return pet.ErrPetNotFound
 		}
-		nextLineup = append(nextLineup, pet.LineupPet{
-			PetUID:   item.PetUID,
-			PetID:    item.PetID,
-			Level:    item.Level,
-			HP:       item.HP,
-			HPMax:    item.HPMax,
-			ATK:      item.ATK,
-			DEF:      item.DEF,
-			SPD:      item.SPD,
-			MANA:     item.MANA,
-			SkillIDs: append([]uint32{}, item.SkillIDs...),
-		})
+		nextLineup = append(nextLineup, pet.ToLineupPet(item))
 	}
 
 	r.lineup[playerID] = nextLineup
@@ -767,6 +757,27 @@ func (r *PetRepository) UpdatePetHPByUID(_ context.Context, playerID uint64, pet
 		return updated, nil
 	}
 
+	return pet.Pet{}, pet.ErrPetNotFound
+}
+
+func (r *PetRepository) FindPetByUID(_ context.Context, playerID uint64, petUID uint64) (pet.Pet, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	petsForPlayer, ok := r.pets[playerID]
+	if !ok {
+		return pet.Pet{}, pet.ErrPetNotFound
+	}
+	for _, item := range petsForPlayer {
+		if item.PetUID != petUID {
+			continue
+		}
+		updated := item
+		if len(updated.SkillIDs) > 0 {
+			updated.SkillIDs = append([]uint32{}, updated.SkillIDs...)
+		}
+		return updated, nil
+	}
 	return pet.Pet{}, pet.ErrPetNotFound
 }
 
@@ -942,6 +953,12 @@ func (r *PetRepository) FindAdminDetailByPetUID(_ context.Context, petUID uint64
 				InLineup:   item.InLineup,
 				CreatedAt:  time.Now(),
 				UpdatedAt:  time.Now(),
+				AdminPetCombatStats: pet.AdminPetCombatStats{
+					Spirit:    item.Spirit,
+					SpiritMax: item.SpiritMax,
+					HitPct:    item.HitPct,
+					DodgePct:  item.DodgePct,
+				},
 			}, nil
 		}
 	}
@@ -966,6 +983,10 @@ func (r *PetRepository) CreateForAdmin(_ context.Context, input pet.AdminCreateP
 		SPD:      input.SPD,
 		MANA:     input.MANA,
 		SkillIDs: append([]uint32{}, input.SkillIDs...),
+		Spirit:   input.Spirit,
+		SpiritMax: input.SpiritMax,
+		HitPct:   input.HitPct,
+		DodgePct: input.DodgePct,
 	}
 	r.nextID++
 	r.pets[input.PlayerID] = append(r.pets[input.PlayerID], item)
@@ -986,6 +1007,7 @@ func (r *PetRepository) CreateForAdmin(_ context.Context, input pet.AdminCreateP
 		SkillIDs:   append([]uint32{}, item.SkillIDs...),
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
+		AdminPetCombatStats: input.AdminPetCombatStats,
 	}, nil
 }
 
@@ -1010,6 +1032,10 @@ func (r *PetRepository) UpdateForAdmin(_ context.Context, petUID uint64, input p
 			petsForPlayer[index].SPD = input.SPD
 			petsForPlayer[index].MANA = input.MANA
 			petsForPlayer[index].SkillIDs = append([]uint32{}, input.SkillIDs...)
+			petsForPlayer[index].Spirit = input.Spirit
+			petsForPlayer[index].SpiritMax = input.SpiritMax
+			petsForPlayer[index].HitPct = input.HitPct
+			petsForPlayer[index].DodgePct = input.DodgePct
 			r.pets[playerID] = petsForPlayer
 			item := petsForPlayer[index]
 			return &pet.AdminPetDetail{
@@ -1029,6 +1055,7 @@ func (r *PetRepository) UpdateForAdmin(_ context.Context, petUID uint64, input p
 				SkillIDs:   append([]uint32{}, item.SkillIDs...),
 				CreatedAt:  time.Now(),
 				UpdatedAt:  time.Now(),
+				AdminPetCombatStats: input.AdminPetCombatStats,
 			}, nil
 		}
 	}
@@ -1159,6 +1186,56 @@ func (r *PetRepository) MapUsablePetDefinitionIDs(_ context.Context, petIDs []ui
 	return result, nil
 }
 
+func (r *PetRepository) EquipArtifactFromBagSlot(_ context.Context, _ uint64, _ uint64, _ uint32, _ string, _ uint32) (pet.Pet, error) {
+	return pet.Pet{}, pet.ErrInvalidArtifactItem
+}
+
+func (r *PetRepository) UnequipArtifact(_ context.Context, _ uint64, _ uint64, _ uint32) (pet.Pet, error) {
+	return pet.Pet{}, pet.ErrArtifactSlotEmpty
+}
+
+func (r *PetRepository) ListAdminPetSkillSlotUnlockItems(_ context.Context) ([]pet.AdminPetSkillSlotUnlockItem, error) {
+	return []pet.AdminPetSkillSlotUnlockItem{}, nil
+}
+
+func (r *PetRepository) FindAdminPetSkillSlotUnlockItem(_ context.Context, _ string) (*pet.AdminPetSkillSlotUnlockItem, error) {
+	return nil, nil
+}
+
+func (r *PetRepository) CreateAdminPetSkillSlotUnlockItem(_ context.Context, _ pet.AdminUpsertPetSkillSlotUnlockInput) (*pet.AdminPetSkillSlotUnlockItem, error) {
+	return nil, pet.ErrInvalidPetSkillSlotUnlockInput
+}
+
+func (r *PetRepository) UpdateAdminPetSkillSlotUnlockItem(_ context.Context, _ string, _ pet.AdminUpsertPetSkillSlotUnlockInput) (*pet.AdminPetSkillSlotUnlockItem, error) {
+	return nil, pet.ErrPetSkillSlotUnlockNotFound
+}
+
+func (r *PetRepository) DeleteAdminPetSkillSlotUnlockItem(_ context.Context, _ string) error {
+	return pet.ErrPetSkillSlotUnlockNotFound
+}
+
+func (r *PetRepository) ListAdminPetCombatStatCaps(_ context.Context) ([]pet.AdminPetCombatStatCap, error) {
+	return []pet.AdminPetCombatStatCap{}, nil
+}
+
+func (r *PetRepository) FindAdminPetCombatStatCap(_ context.Context, _ string) (*pet.AdminPetCombatStatCap, error) {
+	return nil, nil
+}
+
+func (r *PetRepository) UpdateAdminPetCombatStatCap(_ context.Context, statKey string, input pet.AdminUpsertPetCombatStatCapInput) (*pet.AdminPetCombatStatCap, error) {
+	return &pet.AdminPetCombatStatCap{
+		StatKey:     statKey,
+		CapValue:    input.CapValue,
+		Description: input.Description,
+		Status:      input.Status,
+		StatusText:  "启用",
+	}, nil
+}
+
+func (r *PetRepository) LoadCombatStatCaps(_ context.Context) (pet.CombatStatCaps, error) {
+	return pet.DefaultCombatStatCaps(), nil
+}
+
 func (r *PetRepository) FindPetSkinID(_ context.Context, petID uint32) (string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -1236,12 +1313,12 @@ func NewBagRepository() *BagRepository {
 }
 
 type BagRepository struct {
-	mu              sync.RWMutex
-	capacities      map[uint64]map[string]uint32
-	items           map[uint64]bag.AdminItemDetail
-	uniqueObtained  map[string]struct{}
-	petRepo         *PetRepository
-	nextID          uint64
+	mu             sync.RWMutex
+	capacities     map[uint64]map[string]uint32
+	items          map[uint64]bag.AdminItemDetail
+	uniqueObtained map[string]struct{}
+	petRepo        *PetRepository
+	nextID         uint64
 }
 
 // BindPetRepository 让背包道具使用和宠物查询共用同一份内存宠物状态。
@@ -1950,8 +2027,8 @@ func NewItemRepository() *ItemRepository {
 			1001: {ItemID: 1001, ItemCode: "hp_potion_small", ItemName: "小型生命药剂", ItemType: "consumable", ItemSubType: "hp_potion", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, CanSell: true, CanDrop: true, CanStore: true, PriceType: "base_coin", BuyPriceCopper: 500, SellPriceCopper: 100, EffectParamsJSON: "{}", BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
 			2002: {ItemID: 2002, ItemCode: "training_bracer", ItemName: "训练护腕", ItemType: "equipment", ItemSubType: "armor", Quality: 2, Rarity: 2, MaxStack: 1, OccupySlots: 1, AutoMerge: false, CanSell: true, CanDrop: false, CanStore: true, PriceType: "base_coin", SellPriceCopper: 1200, EffectParamsJSON: "{}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
 			3001: {ItemID: 3001, ItemCode: "bag_expand_ticket_small", ItemName: "背包扩容券", ItemType: "functional", ItemSubType: "expand", Quality: 2, Rarity: 2, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, CanSell: false, CanDrop: false, CanStore: true, EffectType: "bag_expand", EffectParamsJSON: "{\"expand_target\":\"bag\",\"expand_slots\":5}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
-			3003: {ItemID: 3003, ItemCode: "pet_hp_potion_small", ItemName: "宠物治疗药剂", ItemType: "consumable", ItemSubType: "pet_restore", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "pet_single", CanSell: true, CanDrop: true, CanStore: true, EffectType: "pet_hp_restore", EffectValue: 10, EffectParamsJSON: "{\"restore_type\":\"flat\"}", BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
-			3004: {ItemID: 3004, ItemCode: "starter_reward_box", ItemName: "新手补给礼包", ItemType: "box", ItemSubType: "reward_box", Quality: 2, Rarity: 2, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "self", CanSell: false, CanDrop: false, CanStore: true, EffectType: "reward_box", EffectParamsJSON: "{\"rewards\":[{\"type\":\"gold\",\"value\":2},{\"type\":\"item\",\"item_id\":2001,\"item_name\":\"新手精灵球\",\"count\":1}]}", BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			3003: {ItemID: 3003, ItemCode: "pet_hp_potion_small", ItemName: "宠物治疗药剂", ItemType: "consumable", ItemSubType: "pet_restore", Quality: 1, Rarity: 1, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "pet_single", CanSell: true, CanDrop: true, CanStore: true, EffectType: "pet_hp_restore", EffectValue: 10, EffectParamsJSON: "{\"restore_type\":\"flat\"}", PriceType: "base_coin", BuyPriceCopper: 800, SellPriceCopper: 160, BindType: "none", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
+			3004: {ItemID: 3004, ItemCode: "starter_reward_box", ItemName: "新手补给礼包", ItemType: "box", ItemSubType: "reward_box", Quality: 2, Rarity: 2, MaxStack: 99, OccupySlots: 1, AutoMerge: true, Usable: true, UseScope: "world", TargetType: "self", CanSell: false, CanDrop: false, CanStore: true, EffectType: "reward_box", EffectParamsJSON: "{\"rewards\":[{\"type\":\"gold\",\"value\":2},{\"type\":\"item\",\"item_id\":2001,\"item_name\":\"新手精灵球\",\"count\":1}]}", PriceType: "base_coin", BuyPriceCopper: 1500, SellPriceCopper: 0, BindType: "pickup_bind", IsEnabled: true, CreatedAt: now, UpdatedAt: now},
 		},
 	}
 }
@@ -2778,22 +2855,37 @@ func parseAdminPlayerQuestRecordID(recordID uint64) (uint64, uint64, bool) {
 func NewNPCRepository() *NPCRepository {
 	return &NPCRepository{
 		entities: map[uint64]npc.AdminEntityDetail{
-			91001: {EntityID: 91001, EntityCode: "warehouse_luosi", DisplayName: "罗思", EntityType: 2, SceneID: 1, PosX: 6, PosY: 6, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
-			93001: {EntityID: 93001, EntityCode: "radiant_market_limeng", DisplayName: "市场理萌", EntityType: 2, SceneID: 3, PosX: 13, PosY: 8, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
-			93002: {EntityID: 93002, EntityCode: "radiant_market_luoge", DisplayName: "市场罗格", EntityType: 2, SceneID: 3, PosX: 14, PosY: 6, Dir: 2, Speed: 0, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			91001: {EntityID: 91001, EntityCode: "warehouse_luosi", DisplayName: "罗思", EntityType: 2, SceneID: 1, SceneName: "洛克斯小屋", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			93001: {EntityID: 93001, EntityCode: "radiant_market_limeng", DisplayName: "市场理萌", EntityType: 2, SceneID: 3, SceneName: "闪光市场", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			93002: {EntityID: 93002, EntityCode: "radiant_market_luoge", DisplayName: "市场罗格", EntityType: 2, SceneID: 3, SceneName: "闪光市场", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		},
 		menuEntries: map[uint64]map[string]npc.AdminMenuEntryDetail{
 			91001: {
 				"dialog_warehouse_intro": {EntityID: 91001, EntryID: "dialog_warehouse_intro", EntryType: "dialog", Title: "仓库介绍", Subtitle: "问问仓库平时负责什么", State: "available", Priority: 80, SortOrder: 10, ActionResultType: "notice", ActionNotice: "罗思说：这里负责保管训练家暂时寄存的物资。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 			},
 			93001: {
-				"dialog_market_news": {EntityID: 93001, EntryID: "dialog_market_news", EntryType: "dialog", Title: "打听消息", Subtitle: "问问市场最近的新鲜事", State: "available", Priority: 80, SortOrder: 10, ActionResultType: "notice", ActionNotice: "理萌说：最近市场新开了几家铺子。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"dialog_market_news":  {EntityID: 93001, EntryID: "dialog_market_news", EntryType: "dialog", Title: "打听消息", Subtitle: "问问市场最近的新鲜事", State: "available", Priority: 80, SortOrder: 10, ActionResultType: "notice", ActionNotice: "理萌说：最近市场新开了几家铺子。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"dialog_market_intro": {EntityID: 93001, EntryID: "dialog_market_intro", EntryType: "dialog", Title: "让个路", Subtitle: "看看市场理萌的轻剧情演出", State: "available", Priority: 90, SortOrder: 5, ActionResultType: "dialogue", ActionNotice: "", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 			},
 			93002: {
-				"shop_open_market": {EntityID: 93002, EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品（占位）", State: "available", Priority: 100, SortOrder: 10, ActionResultType: "notice", ActionNotice: "商店面板待接入，当前先返回占位提示。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
-				"dialog_trade_tip": {EntityID: 93002, EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70, SortOrder: 20, ActionResultType: "notice", ActionNotice: "罗格说：买卖讲究货比三家。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"shop_open_market":    {EntityID: 93002, EntryID: "shop_open_market", EntryType: "shop", Title: "打开商店", Subtitle: "浏览基础商品", State: "available", Priority: 100, SortOrder: 10, ActionResultType: "shop", ActionNotice: "", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				"dialog_trade_tip":    {EntityID: 93002, EntryID: "dialog_trade_tip", EntryType: "dialog", Title: "讨价还价", Subtitle: "听听老商贩的经验", State: "available", Priority: 70, SortOrder: 20, ActionResultType: "notice", ActionNotice: "罗格说：买卖讲究货比三家。", Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 				"battle_market_guard": {EntityID: 93002, EntryID: "battle_market_guard", EntryType: "battle", Title: "挑战", Subtitle: "与市场守卫切磋", State: "available", Priority: 90, SortOrder: 15, ActionResultType: "battle", ActionNotice: "", BattleEncounterEntityID: 90002, Status: 1, StatusText: npc.AdminNPCStatusText(1), CreatedAt: time.Now(), UpdatedAt: time.Now()},
 			},
+		},
+		shopGoods: map[uint64][]npc.ShopGood{
+			93002: {
+				{ItemID: 1001, ItemName: "小型生命药剂", BuyPriceCopper: 500, SortOrder: 10},
+				{ItemID: 2001, ItemName: "新手精灵球", BuyPriceCopper: 1000, SortOrder: 20},
+			},
+		},
+		scenes: []npc.AdminWorldSceneSummary{
+			{SceneID: 1, SceneCode: "roxus_house", SceneName: "洛克斯小屋", Status: 1},
+			{SceneID: 2, SceneCode: "east_road_of_shanguang_town", SceneName: "闪光镇东路", Status: 1},
+			{SceneID: 3, SceneCode: "radiant_market", SceneName: "闪光市场", Status: 1},
+			{SceneID: 4, SceneCode: "bei_lu", SceneName: "北路", Status: 1},
+			{SceneID: 5, SceneCode: "xue_xiao", SceneName: "学校", Status: 1},
+			{SceneID: 6, SceneCode: "da_guai_qu", SceneName: "打怪区", Status: 1},
 		},
 	}
 }
@@ -2802,6 +2894,24 @@ type NPCRepository struct {
 	mu          sync.RWMutex
 	entities    map[uint64]npc.AdminEntityDetail
 	menuEntries map[uint64]map[string]npc.AdminMenuEntryDetail
+	shopGoods   map[uint64][]npc.ShopGood
+	scenes      []npc.AdminWorldSceneSummary
+}
+
+func (r *NPCRepository) ListWorldScenesForAdmin(_ context.Context) ([]npc.AdminWorldSceneSummary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return append([]npc.AdminWorldSceneSummary(nil), r.scenes...), nil
+}
+
+func (r *NPCRepository) sceneNameByID(sceneID uint32) string {
+	for _, scene := range r.scenes {
+		if scene.SceneID == sceneID {
+			return scene.SceneName
+		}
+	}
+	return ""
 }
 
 func (r *NPCRepository) ListMenuEntriesByEntityID(_ context.Context, entityID uint64) ([]npc.MenuEntry, error) {
@@ -2818,8 +2928,16 @@ func (r *NPCRepository) ListMenuEntriesByEntityID(_ context.Context, entityID ui
 			EntityID: entry.EntityID, EntryID: entry.EntryID, EntryType: entry.EntryType, Title: entry.Title,
 			Subtitle: entry.Subtitle, State: entry.State, Priority: entry.Priority, ActionResultType: entry.ActionResultType, ActionNotice: entry.ActionNotice,
 			BattleEncounterEntityID: entry.BattleEncounterEntityID,
+			ConditionsJSON:          npcdialogue.EncodeAdminConditionsJSON(entry.Conditions),
+			LinkedQuestID:           entry.LinkedQuestID,
 		})
 	}
+	sort.Slice(result, func(i int, j int) bool {
+		if result[i].Priority != result[j].Priority {
+			return result[i].Priority > result[j].Priority
+		}
+		return result[i].EntryID < result[j].EntryID
+	})
 	return result, nil
 }
 
@@ -2833,9 +2951,42 @@ func (r *NPCRepository) FindActionResult(_ context.Context, entityID uint64, ent
 	}
 	entry, ok := entries[entryID]
 	if ok {
-		return &npc.ActionResult{EntityID: entityID, EntryID: entryID, ResultType: entry.ActionResultType, Notice: entry.ActionNotice, BattleEncounterEntityID: entry.BattleEncounterEntityID}, nil
+		return &npc.ActionResult{EntityID: entityID, EntryID: entryID, ResultType: entry.ActionResultType, Notice: entry.ActionNotice, BattleEncounterEntityID: entry.BattleEncounterEntityID, LinkedQuestID: entry.LinkedQuestID}, nil
 	}
 	return nil, nil
+}
+
+func (r *NPCRepository) ListShopGoodsByEntityID(_ context.Context, entityID uint64) ([]npc.ShopGood, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	goods, ok := r.shopGoods[entityID]
+	if !ok {
+		return nil, nil
+	}
+	result := make([]npc.ShopGood, 0, len(goods))
+	result = append(result, goods...)
+	sort.Slice(result, func(i int, j int) bool {
+		if result[i].SortOrder != result[j].SortOrder {
+			return result[i].SortOrder < result[j].SortOrder
+		}
+		return result[i].ItemID < result[j].ItemID
+	})
+	return result, nil
+}
+
+func (r *NPCRepository) ShopGoodExists(_ context.Context, entityID uint64, itemID uint64) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	goods, ok := r.shopGoods[entityID]
+	if !ok {
+		return false, nil
+	}
+	for _, good := range goods {
+		if good.ItemID == itemID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *NPCRepository) ListEntitiesForAdmin(_ context.Context, query npc.AdminEntityListQuery) (*npc.AdminEntityList, error) {
@@ -2862,7 +3013,7 @@ func (r *NPCRepository) ListEntitiesForAdmin(_ context.Context, query npc.AdminE
 		}
 		items = append(items, npc.AdminEntitySummary{
 			EntityID: current.EntityID, EntityCode: current.EntityCode, DisplayName: current.DisplayName, EntityType: current.EntityType,
-			SceneID: current.SceneID, PosX: current.PosX, PosY: current.PosY, Dir: current.Dir, Speed: current.Speed,
+			SceneID: current.SceneID, SceneName: current.SceneName,
 			Status: current.Status, StatusText: current.StatusText, CreatedAt: current.CreatedAt, UpdatedAt: current.UpdatedAt,
 		})
 	}
@@ -2891,7 +3042,7 @@ func (r *NPCRepository) CreateEntityForAdmin(_ context.Context, input npc.AdminC
 	now := time.Now()
 	detail := npc.AdminEntityDetail{
 		EntityID: input.EntityID, EntityCode: input.EntityCode, DisplayName: input.DisplayName, EntityType: input.EntityType,
-		SceneID: input.SceneID, PosX: input.PosX, PosY: input.PosY, Dir: input.Dir, Speed: input.Speed,
+		SceneID: input.SceneID, SceneName: r.sceneNameByID(input.SceneID),
 		Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
 	}
 	r.entities[input.EntityID] = detail
@@ -2910,10 +3061,7 @@ func (r *NPCRepository) UpdateEntityForAdmin(_ context.Context, entityID uint64,
 	current.DisplayName = input.DisplayName
 	current.EntityType = input.EntityType
 	current.SceneID = input.SceneID
-	current.PosX = input.PosX
-	current.PosY = input.PosY
-	current.Dir = input.Dir
-	current.Speed = input.Speed
+	current.SceneName = r.sceneNameByID(input.SceneID)
 	current.Status = input.Status
 	current.StatusText = npc.AdminNPCStatusText(input.Status)
 	current.UpdatedAt = time.Now()
@@ -2995,7 +3143,8 @@ func (r *NPCRepository) CreateMenuEntryForAdmin(_ context.Context, input npc.Adm
 	detail := npc.AdminMenuEntryDetail{
 		EntityID: input.EntityID, EntryID: input.EntryID, EntryType: input.EntryType, Title: input.Title, Subtitle: input.Subtitle,
 		State: input.State, Priority: input.Priority, SortOrder: input.SortOrder, ActionResultType: input.ActionResultType,
-		ActionNotice: input.ActionNotice, BattleEncounterEntityID: input.BattleEncounterEntityID, Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
+		ActionNotice: input.ActionNotice, BattleEncounterEntityID: input.BattleEncounterEntityID, LinkedQuestID: input.LinkedQuestID,
+		Conditions: input.Conditions, Status: input.Status, StatusText: npc.AdminNPCStatusText(input.Status), CreatedAt: now, UpdatedAt: now,
 	}
 	r.menuEntries[input.EntityID][input.EntryID] = detail
 	return &detail, nil
@@ -3030,6 +3179,8 @@ func (r *NPCRepository) UpdateMenuEntryForAdmin(_ context.Context, entityID uint
 	current.ActionResultType = input.ActionResultType
 	current.ActionNotice = input.ActionNotice
 	current.BattleEncounterEntityID = input.BattleEncounterEntityID
+	current.LinkedQuestID = input.LinkedQuestID
+	current.Conditions = input.Conditions
 	current.Status = input.Status
 	current.StatusText = npc.AdminNPCStatusText(input.Status)
 	current.UpdatedAt = time.Now()

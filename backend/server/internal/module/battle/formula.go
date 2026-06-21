@@ -2,74 +2,60 @@ package battle
 
 import "math"
 
-// The current pet demo data still uses two-digit stats, so we keep the
-// original "def/(def+K)" formula shape from the design doc but temporarily use
-// a smaller balance scale. This preserves the intended curve while keeping
-// visible damage in the current MVP environment.
-const defenseReductionScale = 1000.0
+// pocketDamageInput 对应《口袋伤害计算新表》中的进攻/防守参数。
+type pocketDamageInput struct {
+	AttackerPanel        int64
+	DefenderPanel        int64
+	SkillMult            uint32
+	AttackScalePct       int32
+	CritDmg              uint32
+	SkillCritAdd         uint32
+	AntiCrit             uint32
+	RevSkill             uint32
+	SkillRes             uint32
+	Guard                uint32
+	TalentDmgPct         uint32
+	TalentReducePct      uint32
+	ElementAdvPct        uint32
+	ElementPenaltyPct    uint32
+	AntiClassPct         uint32
+	IsAOE                bool
+	ElementAdvantaged    bool
+	ElementDisadvantaged bool
+}
 
-// The design doc suggests explicit upper bounds for crit-related values so one
-// malformed data row cannot create runaway numbers in battle resolution.
-const (
-	maxCritRatePct     = 100
-	maxCritDmgPct      = 2000
-	maxDamageResistPct = 95
-)
-
-// effectiveStats is the normalized combat stat snapshot used by the formula
-// layer. Keeping it separate from actorRuntime makes future temporary buffs,
-// passives, and state-derived overrides easier to plug in without rewriting the
-// whole battle actor model.
+// effectiveStats 是公式层与部分战斗分支共用的快照；伤害面板取 Attack 字段。
 type effectiveStats struct {
-	UnitClass        uint32
-	Attack           int32
-	Defense          int32
-	Speed            int32
-	Mana             int32
-	CurrentHP        int32
-	MaxHP            int32
-	HitPct           uint32
-	DodgePct         uint32
-	CritRatePct      uint32
-	CritDmgPct       uint32
-	CritResistPct    uint32
-	CritDmgResistPct uint32
-	ArmorBroken      bool
-
-	// The current MVP only needs a small subset of the future buff/debuff model,
-	// but keeping these formula-facing fields explicit lets status and passive
-	// systems plug into damage math without changing every call site again.
-	VulnerabilityPct   uint32
-	PhysicalResistPct  uint32
-	SkillResistPct     uint32
-	GenericShieldPct   uint32
-	CharacterResistPct uint32
-	PetResistPct       uint32
-	MercenaryResistPct uint32
-}
-
-// baseDamageBreakdown records each formula contribution separately so tests and
-// future battle logs can inspect where the final value came from.
-type baseDamageBreakdown struct {
-	AttackPart    int32
-	ManaPart      int32
-	DefensePart   int32
-	SpeedPart     int32
-	CurrentHPPart int32
-	FixedPart     int32
-	Total         int32
-}
-
-// allowsCriticalHit reports whether the skill's damage payload should enter the
-// crit branch. Pure fixed-damage skills stay non-crit by default, matching the
-// current design document and keeping future "true damage" style skills stable.
-func (b baseDamageBreakdown) allowsCriticalHit() bool {
-	return b.AttackPart > 0 || b.ManaPart > 0 || b.DefensePart > 0 || b.SpeedPart > 0 || b.CurrentHPPart > 0
+	UnitClass            uint32
+	Attack               int32
+	Defense              int32
+	Speed                int32
+	Mana                 int32
+	CurrentHP            int32
+	MaxHP                int32
+	HitPct               uint32
+	DodgePct             uint32
+	CritRatePct          uint32
+	CritDmgPct           uint32
+	CritResistPct        uint32
+	CritDmgResistPct     uint32
+	ArmorBroken          bool
+	VulnerabilityPct     uint32
+	PhysicalResistPct    uint32
+	SkillResistPct       uint32
+	ReverseSkillResistPct uint32
+	GenericShieldPct     uint32
+	CharacterResistPct   uint32
+	PetResistPct         uint32
+	MercenaryResistPct   uint32
+	Guard                uint32
+	TalentDmgPct         uint32
+	TalentReducePct      uint32
+	ElementAdvPct        uint32
+	ElementPenaltyPct    uint32
 }
 
 func (a *actorRuntime) effectiveStats() effectiveStats {
-	// We normalize runtime values here so later status/passive work only needs to
-	// modify actorRuntime modifiers instead of every individual battle formula.
 	attack := applyPercentModifier(int32(a.atk)+a.attackFlatBonus, a.attackMultiplierPct, a.globalMultiplierPct)
 	defense := applyPercentModifier(int32(a.def)+a.defenseFlatBonus, a.defenseMultiplierPct, a.globalMultiplierPct)
 	speedMultiplierPct := a.speedMultiplierPct
@@ -81,106 +67,149 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 	}
 	speed := applyPercentModifier(int32(a.spd)+a.speedFlatBonus, speedMultiplierPct, a.globalMultiplierPct)
 	mana := applyPercentModifier(int32(a.mana)+a.manaFlatBonus, a.manaMultiplierPct, a.globalMultiplierPct)
+	guard := a.guard
+	if guard == 0 {
+		guard = uint32(maxInt32(defense, 0))
+	}
 	return effectiveStats{
-		UnitClass:        a.unitClass,
-		Attack:           attack,
-		Defense:          defense,
-		Speed:            speed,
-		Mana:             mana,
-		CurrentHP:        int32(a.hp),
-		MaxHP:            int32(a.hpMax),
-		HitPct:           a.hitPct,
-		DodgePct:         a.dodgeRatePct,
-		CritRatePct:      a.critRatePct + a.statusCritRateBonusPct,
-		CritDmgPct:       a.critDmgPct,
-		CritResistPct:    a.critResistPct,
-		CritDmgResistPct: a.critDmgResistPct,
-		ArmorBroken:      a.statusArmorBroken,
-
-		VulnerabilityPct:   a.statusVulnerabilityPct,
-		PhysicalResistPct:  a.physicalResistPct,
-		SkillResistPct:     a.skillResistPct,
-		GenericShieldPct:   a.genericShieldPct,
-		CharacterResistPct: a.characterResistPct,
-		PetResistPct:       a.petResistPct,
-		MercenaryResistPct: a.mercenaryResistPct,
+		UnitClass:             a.unitClass,
+		Attack:                attack,
+		Defense:               defense,
+		Speed:                 speed,
+		Mana:                  mana,
+		CurrentHP:             int32(a.hp),
+		MaxHP:                 int32(a.hpMax),
+		HitPct:                a.hitPct,
+		DodgePct:              a.dodgeRatePct,
+		CritRatePct:           a.critRatePct + a.statusCritRateBonusPct,
+		CritDmgPct:            a.critDmgPct,
+		CritResistPct:         a.critResistPct,
+		CritDmgResistPct:      a.critDmgResistPct,
+		ArmorBroken:           a.statusArmorBroken,
+		VulnerabilityPct:      a.statusVulnerabilityPct,
+		PhysicalResistPct:     a.physicalResistPct,
+		SkillResistPct:        a.skillResistPct,
+		ReverseSkillResistPct: a.reverseSkillResistPct,
+		GenericShieldPct:      a.genericShieldPct,
+		CharacterResistPct:    a.characterResistPct,
+		PetResistPct:          a.petResistPct,
+		MercenaryResistPct:    a.mercenaryResistPct,
+		Guard:                 guard,
+		TalentDmgPct:          a.talentDmgPct,
+		TalentReducePct:       a.talentReducePct,
+		ElementAdvPct:         a.elementAdvPct,
+		ElementPenaltyPct:     a.elementPenaltyPct,
 	}
 }
 
-// calculateBaseDamage mirrors the design doc's "multiple stat coefficients are
-// summed first" rule. Even if some coefficients are unused in the current
-// skills, keeping them in one place avoids another refactor when richer skills
-// land later.
-func calculateBaseDamage(attacker effectiveStats, target effectiveStats, skill skillDef) baseDamageBreakdown {
-	breakdown := baseDamageBreakdown{
-		AttackPart:    attacker.Attack * skill.AttackPct / 100,
-		ManaPart:      attacker.Mana * skill.ManaPct / 100,
-		DefensePart:   attacker.Defense * skill.DefensePct / 100,
-		SpeedPart:     attacker.Speed * skill.SpeedPct / 100,
-		CurrentHPPart: target.CurrentHP * skill.TargetCurrentHPPct / 100,
-		FixedPart:     skill.FixedDamage,
-	}
-	breakdown.Total = breakdown.AttackPart + breakdown.ManaPart + breakdown.DefensePart + breakdown.SpeedPart + breakdown.CurrentHPPart + breakdown.FixedPart
-	if breakdown.Total < 1 {
-		breakdown.Total = 1
-	}
-	return breakdown
-}
-
-// calculateDefenseReduction keeps the doc's recommended curve and 90% cap.
-// Future armor break / vulnerability effects can be wired into the same entry
-// point without touching the damage call sites again.
-func calculateDefenseReduction(target effectiveStats, skill skillDef) float64 {
-	if skill.IgnoreDefense {
-		return 0.0
-	}
-	effectiveDefense := float64(target.Defense)
-	if target.ArmorBroken {
-		effectiveDefense = 0
-	}
-	if effectiveDefense < 0 {
-		effectiveDefense = 0
-	}
-	if skill.ArmorBreakPct > 0 {
-		effectiveDefense *= 1.0 - float64(skill.ArmorBreakPct)/100.0
-	}
-	reduction := effectiveDefense / (effectiveDefense + defenseReductionScale)
-	reduction -= float64(skill.VulnerabilityPct+target.VulnerabilityPct) / 100.0
-	reduction = math.Max(0.0, reduction)
-	return math.Min(reduction, 0.90)
-}
-
-func calculateBlockReduction(attacker effectiveStats, target effectiveStats, skill skillDef) float64 {
-	// The new resistance model combines three independent dimensions:
-	// generic shield-style mitigation, attack-category mitigation, and source-
-	// class mitigation. We sum them and clamp the total so one malformed row
-	// still cannot create true invulnerability.
-	totalResistPct := target.GenericShieldPct
-	if skill.IsSkillAttack {
-		totalResistPct += target.SkillResistPct
-	} else {
-		totalResistPct += target.PhysicalResistPct
-	}
-	switch attacker.UnitClass {
+func buildPocketDamageInput(attacker *actorRuntime, target *actorRuntime, skill skillDef) pocketDamageInput {
+	attackerStats := attacker.effectiveStats()
+	targetStats := target.effectiveStats()
+	antiClassPct := target.petResistPct
+	switch attacker.unitClass {
 	case ActorUnitClassCharacter:
-		totalResistPct += target.CharacterResistPct
-	case ActorUnitClassPet:
-		totalResistPct += target.PetResistPct
+		antiClassPct = target.characterResistPct
 	case ActorUnitClassMercenary:
-		totalResistPct += target.MercenaryResistPct
+		antiClassPct = target.mercenaryResistPct
+	case ActorUnitClassPet:
+		antiClassPct = target.petResistPct
 	}
-	if totalResistPct > maxDamageResistPct {
-		totalResistPct = maxDamageResistPct
+	talentReducePct := target.talentReducePct
+	if talentReducePct == 0 {
+		talentReducePct = target.genericShieldPct
 	}
-	return float64(totalResistPct) / 100.0
+	elementAdvantaged := attackerStats.ElementAdvPct > 0
+	elementDisadvantaged := !elementAdvantaged && targetStats.ElementPenaltyPct > 0
+	isAOE := skill.TargetRule == targetEnemyAll || skill.TargetRule == targetEnemyMulti
+	return pocketDamageInput{
+		AttackerPanel:        int64(attackerStats.Attack),
+		DefenderPanel:        int64(targetStats.Defense),
+		SkillMult:            skill.SkillMult,
+		AttackScalePct:       skill.AttackPct,
+		CritDmg:              attackerStats.CritDmgPct,
+		SkillCritAdd:         skill.SkillCritAdd,
+		AntiCrit:             target.critDmgResistPct,
+		RevSkill:             attackerStats.ReverseSkillResistPct,
+		SkillRes:             target.skillResistPct,
+		Guard:                targetStats.Guard,
+		TalentDmgPct:         attackerStats.TalentDmgPct,
+		TalentReducePct:      talentReducePct,
+		ElementAdvPct:        attackerStats.ElementAdvPct,
+		ElementPenaltyPct:    targetStats.ElementPenaltyPct,
+		AntiClassPct:         antiClassPct,
+		IsAOE:                isAOE,
+		ElementAdvantaged:    elementAdvantaged,
+		ElementDisadvantaged: elementDisadvantaged,
+	}
 }
 
-func calculateFinalDamage(baseDamage int32, defenseReduction float64, blockReduction float64) int32 {
-	damage := int32(math.Round(float64(baseDamage) * (1.0 - defenseReduction) * (1.0 - blockReduction)))
+func (skill skillDef) usesPocketPanelScaling() bool {
+	return skill.SkillMult > 0 || skill.AttackPct > 0
+}
+
+func scaledPanelBase(input pocketDamageInput) int64 {
+	if input.SkillMult > 0 {
+		return input.AttackerPanel * int64(input.SkillMult)
+	}
+	if input.AttackScalePct > 0 {
+		return input.AttackerPanel * int64(input.AttackScalePct) / 100
+	}
+	return 0
+}
+
+func calculatePocketDamageNumerator(input pocketDamageInput) int64 {
+	panelBase := scaledPanelBase(input)
+	if panelBase <= 0 {
+		return 0
+	}
+	critChain := int64(input.CritDmg) + int64(input.SkillCritAdd) - int64(input.AntiCrit)
+	skillResFactor := int64(100) - (int64(input.SkillRes) - int64(input.RevSkill))
+	return panelBase*critChain/100*skillResFactor/100 - input.DefenderPanel
+}
+
+func calculatePocketDamageDenominator(guard uint32, isAOE bool) float64 {
+	if isAOE {
+		return float64(guard)*0.01 + 1.0
+	}
+	return float64(guard)*0.001 + 1.0
+}
+
+func calculatePocketDamageMultiplier(input pocketDamageInput) float64 {
+	talentReduce := float64(input.TalentReducePct) / 100.0
+	if talentReduce > 1 {
+		talentReduce = 1
+	}
+	multiplier := (1.0 + float64(input.TalentDmgPct)/100.0) * (1.0 - talentReduce)
+	switch {
+	case input.ElementAdvantaged:
+		multiplier *= 1.0 + float64(input.ElementAdvPct)/100.0
+	case input.ElementDisadvantaged:
+		penalty := float64(input.ElementPenaltyPct) / 100.0
+		if penalty > 1 {
+			penalty = 1
+		}
+		multiplier *= 1.0 - penalty
+	}
+	antiClass := float64(input.AntiClassPct) / 100.0
+	if antiClass > 1 {
+		antiClass = 1
+	}
+	multiplier *= 1.0 - antiClass
+	return multiplier * 0.5
+}
+
+func calculatePocketDamage(input pocketDamageInput) int32 {
+	numerator := calculatePocketDamageNumerator(input)
+	if numerator <= 0 {
+		return 1
+	}
+	denominator := calculatePocketDamageDenominator(input.Guard, input.IsAOE)
+	multiplier := calculatePocketDamageMultiplier(input)
+	damage := int64(math.Round(float64(numerator) / denominator * multiplier))
 	if damage < 1 {
 		return 1
 	}
-	return damage
+	return int32(damage)
 }
 
 func applyPercentModifier(base int32, specificMultiplierPct uint32, globalMultiplierPct uint32) int32 {
@@ -200,8 +229,8 @@ func applyPercentModifier(base int32, specificMultiplierPct uint32, globalMultip
 }
 
 func clampCritRatePct(critRatePct uint32) uint32 {
-	if critRatePct > maxCritRatePct {
-		return maxCritRatePct
+	if critRatePct > 100 {
+		return 100
 	}
 	return critRatePct
 }
@@ -210,8 +239,8 @@ func clampCritDmgPct(critDmgPct uint32) uint32 {
 	if critDmgPct < 100 {
 		return 100
 	}
-	if critDmgPct > maxCritDmgPct {
-		return maxCritDmgPct
+	if critDmgPct > 2000 {
+		return 2000
 	}
 	return critDmgPct
 }
@@ -221,13 +250,6 @@ func maxUint32(left uint32, right uint32) uint32 {
 		return left
 	}
 	return right
-}
-
-func saturatingSubUint32(left uint32, right uint32) uint32 {
-	if right >= left {
-		return 0
-	}
-	return left - right
 }
 
 func calculateHealAmount(caster effectiveStats, skill skillDef) int32 {

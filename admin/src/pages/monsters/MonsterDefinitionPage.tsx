@@ -42,6 +42,7 @@ import type {
 } from '../../types/monsterDefinition';
 import type { AdminPetDefinitionSummary } from '../../types/petDefinition';
 import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface MonsterDefinitionFormValues extends AdminUpsertMonsterDefinitionPayload {
   skill_names_text?: string;
@@ -323,6 +324,11 @@ export function MonsterDefinitionPage() {
               <Descriptions.Item label="防御">{detail.base_stats.def}</Descriptions.Item>
               <Descriptions.Item label="速度">{detail.base_stats.spd}</Descriptions.Item>
               <Descriptions.Item label="法力">{detail.base_stats.mana}</Descriptions.Item>
+              <Descriptions.Item label="守护">{detail.base_stats.guard || '（回退防御）'}</Descriptions.Item>
+              <Descriptions.Item label="天赋增伤%">{detail.base_stats.talent_dmg_pct}</Descriptions.Item>
+              <Descriptions.Item label="天赋减伤%">{detail.base_stats.talent_reduce_pct}</Descriptions.Item>
+              <Descriptions.Item label="元素克制%">{detail.base_stats.element_adv_pct}</Descriptions.Item>
+              <Descriptions.Item label="元素被克%">{detail.base_stats.element_penalty_pct}</Descriptions.Item>
             </Descriptions>
             <Descriptions bordered column={1} size="small" title="技能">
               <Descriptions.Item label="技能名称">
@@ -351,6 +357,8 @@ export function MonsterDefinitionPage() {
         confirmLoading={saving}
         destroyOnClose
         width={760}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText={editingRecord ? '保存修改' : '创建模板'}
         cancelText="取消"
       >
@@ -388,6 +396,11 @@ export function MonsterDefinitionPage() {
             <Col xs={24} md={6}><Form.Item label="防御" name="def"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="速度" name="spd"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item label="守护" name="guard" tooltip="0 表示战斗时回退为防御"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item label="天赋增伤%" name="talent_dmg_pct"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item label="天赋减伤%" name="talent_reduce_pct"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item label="元素克制%" name="element_adv_pct"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item label="元素被克%" name="element_penalty_pct"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
             <Col span={24}><Form.Item label="技能" name="skill_names_text" extra="填写已启用的系统技能名称，多个用英文逗号分隔"><Input placeholder="野性撞击,利爪突袭" /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="可捕捉" name="is_capturable" valuePropName="checked"><Switch /></Form.Item></Col>
             {isCapturable ? (
@@ -418,6 +431,8 @@ export function MonsterDefinitionPage() {
         confirmLoading={rewardSaving}
         destroyOnClose
         width={900}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText="保存奖励"
         cancelText="取消"
       >
@@ -584,6 +599,11 @@ function defaultMonsterDefinitionValues(): MonsterDefinitionFormValues {
     def: 8,
     spd: 9,
     mana: 8,
+    guard: 0,
+    talent_dmg_pct: 0,
+    talent_reduce_pct: 0,
+    element_adv_pct: 0,
+    element_penalty_pct: 0,
     skill_ids: [],
     skill_names_text: '野性撞击,利爪突袭',
     is_capturable: false,
@@ -610,6 +630,11 @@ function mapDetailToFormValues(detail: AdminMonsterDefinitionDetail, skillRefere
     def: detail.base_stats.def,
     spd: detail.base_stats.spd,
     mana: detail.base_stats.mana,
+    guard: detail.base_stats.guard,
+    talent_dmg_pct: detail.base_stats.talent_dmg_pct,
+    talent_reduce_pct: detail.base_stats.talent_reduce_pct,
+    element_adv_pct: detail.base_stats.element_adv_pct,
+    element_penalty_pct: detail.base_stats.element_penalty_pct,
     skill_ids: detail.skill_ids,
     skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
     is_capturable: detail.is_capturable,
@@ -638,6 +663,11 @@ function buildPayloadFromForm(values: MonsterDefinitionFormValues, skillReferenc
     def: Number(values.def),
     spd: Number(values.spd),
     mana: Number(values.mana),
+    guard: Number(values.guard || 0),
+    talent_dmg_pct: Number(values.talent_dmg_pct || 0),
+    talent_reduce_pct: Number(values.talent_reduce_pct || 0),
+    element_adv_pct: Number(values.element_adv_pct || 0),
+    element_penalty_pct: Number(values.element_penalty_pct || 0),
     skill_ids: skillIDs,
     is_capturable: Boolean(values.is_capturable),
     capture_pet_id: values.is_capturable ? Number(values.capture_pet_id) : 0,

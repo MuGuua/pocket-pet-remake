@@ -13,16 +13,19 @@ import (
 	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 	"pocket-pet-remake/server/internal/module/pet"
+	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
-	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/teststub"
@@ -57,7 +60,7 @@ func (r *adminRepoStub) TouchLastLoginAt(_ context.Context, adminUserID uint64) 
 }
 
 func TestAdminHealthHandler(t *testing.T) {
-	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -362,7 +365,7 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, npc.AdminCreateEntityInput{EntityID: 99001, EntityCode: "ops_npc", DisplayName: "后台测试 NPC", EntityType: 2, SceneID: 7, PosX: 5, PosY: 9, Dir: 2, Speed: 0, Status: 1})
+	createBody := marshalJSON(t, npc.AdminCreateEntityInput{EntityID: 99001, EntityCode: "ops_npc", DisplayName: "后台测试 NPC", EntityType: 2, SceneID: 3, Status: 1})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/npcs/entities", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -371,7 +374,7 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 		t.Fatalf("create npc entity response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
 	}
 
-	updateBody := marshalJSON(t, npc.AdminUpdateEntityInput{EntityCode: "ops_npc_updated", DisplayName: "后台测试 NPC 已更新", EntityType: 2, SceneID: 8, PosX: 6, PosY: 10, Dir: 1, Speed: 0, Status: 1})
+	updateBody := marshalJSON(t, npc.AdminUpdateEntityInput{EntityCode: "ops_npc_updated", DisplayName: "后台测试 NPC 已更新", EntityType: 2, SceneID: 4, Status: 1})
 	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/npcs/entities/99001", bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
@@ -417,6 +420,136 @@ func TestAdminNPCMenuEntryCRUDHandler(t *testing.T) {
 	handlers.NPCs.ServeHTTP(deleteResponse, deleteRequest)
 	if deleteResponse.Code != http.StatusOK {
 		t.Fatalf("delete npc menu entry response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminNPCDialogueCRUDHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, npcdialogue.AdminCreateDialogueInput{
+		EntityID:     93001,
+		EntryID:      "dialog_branch_test",
+		DialogueCode: "ops_branch_test",
+		Title:        "后台剧情测试",
+		StartNodeID:  "start",
+		Version:      1,
+		Status:       1,
+		Nodes: []npcdialogue.AdminDialogueNodeInput{
+			{NodeID: "start", NodeType: npcdialogue.NodeTypeLine, Speaker: "测试员", Content: "先看一段开场。", ContentFormat: "plain", NextNodeID: "choice", SortOrder: 1, Effects: npcdialogue.AdminDialogueEffects{Notice: "开场提示", QuestEvent: "TALK_TO_NPC"}},
+			{NodeID: "choice", NodeType: npcdialogue.NodeTypeChoice, Speaker: "测试员", Content: "要继续吗？", ContentFormat: "plain", SortOrder: 2, Options: []npcdialogue.AdminDialogueOptionInput{
+				{OptionID: "yes", OptionText: "继续", OptionFormat: "plain", NextNodeID: "end", SortOrder: 1},
+			}},
+			{NodeID: "end", NodeType: npcdialogue.NodeTypeEnd, SortOrder: 3},
+		},
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/npcs/dialogues", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("create npc dialogue response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+
+	detailRequest := httptest.NewRequest(http.MethodGet, "/api/admin/npcs/dialogues/93001/dialog_branch_test", nil)
+	detailRequest.Header.Set("Authorization", "Bearer "+token)
+	detailResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(detailResponse, detailRequest)
+	if detailResponse.Code != http.StatusOK {
+		t.Fatalf("detail npc dialogue response.Code = %d, want %d, body=%s", detailResponse.Code, http.StatusOK, detailResponse.Body.String())
+	}
+
+	var detailPayload struct {
+		Data npcdialogue.AdminDialogueDetail `json:"data"`
+	}
+	if err := json.Unmarshal(detailResponse.Body.Bytes(), &detailPayload); err != nil {
+		t.Fatalf("json.Unmarshal(detail npc dialogue) error = %v", err)
+	}
+	if detailPayload.Data.EntryID != "dialog_branch_test" {
+		t.Fatalf("detailPayload.Data.EntryID = %q, want %q", detailPayload.Data.EntryID, "dialog_branch_test")
+	}
+	if len(detailPayload.Data.Nodes) == 0 || detailPayload.Data.Nodes[0].Effects.Notice != "开场提示" || detailPayload.Data.Nodes[0].Effects.QuestEvent != "TALK_TO_NPC" {
+		t.Fatalf("detailPayload.Data.Nodes[0].Effects = %#v, want notice=开场提示 quest_event=TALK_TO_NPC", detailPayload.Data.Nodes[0].Effects)
+	}
+
+	updateBody := marshalJSON(t, npcdialogue.AdminUpdateDialogueInput{
+		EntityID:     93001,
+		DialogueCode: "ops_branch_test_v2",
+		Title:        "后台剧情测试更新",
+		StartNodeID:  "start",
+		Version:      2,
+		Status:       1,
+		Nodes: []npcdialogue.AdminDialogueNodeInput{
+			{NodeID: "start", NodeType: npcdialogue.NodeTypeLine, Speaker: "测试员", Content: "现在是更新后的开场。", ContentFormat: "plain", NextNodeID: "action", SortOrder: 1, Effects: npcdialogue.AdminDialogueEffects{Notice: "更新后的提示"}},
+			{NodeID: "action", NodeType: npcdialogue.NodeTypeAction, ClientAnimationKey: "ops_step_forward", ClientAnimationBlock: true, NextNodeID: "end", SortOrder: 2},
+			{NodeID: "end", NodeType: npcdialogue.NodeTypeEnd, SortOrder: 3},
+		},
+	})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/npcs/dialogues/93001/dialog_branch_test", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update npc dialogue response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+
+	updatedDetailRequest := httptest.NewRequest(http.MethodGet, "/api/admin/npcs/dialogues/93001/dialog_branch_test", nil)
+	updatedDetailRequest.Header.Set("Authorization", "Bearer "+token)
+	updatedDetailResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(updatedDetailResponse, updatedDetailRequest)
+	if updatedDetailResponse.Code != http.StatusOK {
+		t.Fatalf("updated detail npc dialogue response.Code = %d, want %d, body=%s", updatedDetailResponse.Code, http.StatusOK, updatedDetailResponse.Body.String())
+	}
+	var updatedDetailPayload struct {
+		Data npcdialogue.AdminDialogueDetail `json:"data"`
+	}
+	if err := json.Unmarshal(updatedDetailResponse.Body.Bytes(), &updatedDetailPayload); err != nil {
+		t.Fatalf("json.Unmarshal(updated detail npc dialogue) error = %v", err)
+	}
+	if len(updatedDetailPayload.Data.Nodes) == 0 || updatedDetailPayload.Data.Nodes[0].Effects.Notice != "更新后的提示" || updatedDetailPayload.Data.Nodes[0].Effects.QuestEvent != "" {
+		t.Fatalf("updated detailPayload.Data.Nodes[0].Effects = %#v, want notice=更新后的提示", updatedDetailPayload.Data.Nodes[0].Effects)
+	}
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/admin/npcs/dialogues?entity_id=93001&entry_id=dialog_branch_test&page=1&page_size=20", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+token)
+	listResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list npc dialogue response.Code = %d, want %d, body=%s", listResponse.Code, http.StatusOK, listResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/npcs/dialogues/93001/dialog_branch_test", nil)
+	deleteRequest.Header.Set("Authorization", "Bearer "+token)
+	deleteResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("delete npc dialogue response.Code = %d, want %d, body=%s", deleteResponse.Code, http.StatusOK, deleteResponse.Body.String())
+	}
+}
+
+func TestAdminNPCDialogueCreateRequiresMenuEntry(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, npcdialogue.AdminCreateDialogueInput{
+		EntityID:     93001,
+		EntryID:      "dialog_missing_menu",
+		DialogueCode: "ops_missing_menu",
+		Title:        "缺失菜单项剧情",
+		StartNodeID:  "start",
+		Version:      1,
+		Status:       1,
+		Nodes: []npcdialogue.AdminDialogueNodeInput{
+			{NodeID: "start", NodeType: npcdialogue.NodeTypeLine, Speaker: "测试员", Content: "没有菜单项时不应允许保存。", ContentFormat: "plain", NextNodeID: "end", SortOrder: 1},
+			{NodeID: "end", NodeType: npcdialogue.NodeTypeEnd, SortOrder: 2},
+		},
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/npcs/dialogues", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusNotFound {
+		t.Fatalf("create missing menu dialogue response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusNotFound, createResponse.Body.String())
 	}
 }
 
@@ -705,7 +838,7 @@ func TestAdminDashboardOverviewHandler(t *testing.T) {
 
 func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	t.Helper()
-	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "player_progression:view", "player_progression:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
+	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "player_progression:view", "player_progression:edit", "pet_progression:view", "pet_progression:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
 	adminService := admin.NewService(adminRepo, admin.NewHMACSigner("test-secret", time.Hour))
 	authService := auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), auth.NewHMACSigner("test-secret", time.Hour), time.Minute)
 	sessionService := session.NewService(nil, time.Second, time.Minute)
@@ -716,7 +849,7 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	}
 	monsterRepo := teststub.NewMonsterRepository()
 	petRepo := teststub.NewPetRepository()
-	petService := pet.NewService(petRepo, skillService, monsterRepo)
+	petService := pet.NewService(petRepo, skillService, monsterRepo, nil)
 	monsterService := monster.NewService(monsterRepo, skillService, petService)
 	playerRepo := teststub.NewPlayerRepository()
 	progressionRepo := teststub.NewProgressionRepository(playerRepo)
@@ -727,11 +860,13 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	playerService := player.NewService(playerRepo, skillService, progressionService)
 	bagService := bag.NewService(teststub.NewBagRepository())
 	itemService := item.NewService(teststub.NewItemRepository())
+	equipmentService := equipment.NewService(teststub.NewEquipmentRepository(), progressionService, playerRepo, teststub.NewPetRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
+	npcDialogueService := npcdialogue.NewService(teststub.NewNPCDialogueRepository(), nil)
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
-	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, skillService, monsterService, questService, npcService, walletService, unlockService, progressionService)
+	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petprogression.NewService(teststub.NewPetProgressionRepository()))
 }
 
 func issueAdminTokenForTest(t *testing.T) string {

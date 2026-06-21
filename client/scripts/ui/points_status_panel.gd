@@ -1,7 +1,6 @@
 extends PanelContainer
 
 const StatusPanelDataProvider = preload("res://scripts/data/status_panel_data_provider.gd")
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 const LOADING_DISPLAY_DELAY_SEC: float = 1.0
 const LOADING_FRAME_INTERVAL_SEC: float = 0.2

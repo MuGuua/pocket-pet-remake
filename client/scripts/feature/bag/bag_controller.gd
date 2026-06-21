@@ -2,6 +2,8 @@ extends Node
 
 # 背包数据刷新后向外广播当前物品总数。
 signal bag_updated(count: int)
+# 商店购买回包到达后向外广播完整载荷。
+signal buy_item_responded(payload: Dictionary)
 
 # 处理背包列表响应，并把物品数组写入全局状态。
 func handle_bag_list(payload: Dictionary) -> void:
@@ -41,6 +43,11 @@ func handle_wallet_query(payload: Dictionary) -> void:
 # 处理钱包增量更新推送。
 func handle_wallet_update(payload: Dictionary) -> void:
     _apply_wallet_payload(payload)
+
+# 处理购买物品响应，并同步钱包快照。
+func handle_buy_item_response(payload: Dictionary) -> void:
+    _apply_wallet_payload(payload)
+    buy_item_responded.emit(payload)
 
 func _apply_container_payload(payload: Dictionary) -> void:
     var container_variant: Variant = payload.get("container", {})

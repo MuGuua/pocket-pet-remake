@@ -51,6 +51,8 @@ type AdminItemSummary struct {
 	ItemType        string    `json:"item_type"`
 	ItemSubType     string    `json:"item_sub_type"`
 	Quality         uint32    `json:"quality"`
+	Icon            string    `json:"icon"`
+	Desc            string    `json:"desc"`
 	MaxStack        uint32    `json:"max_stack"`
 	BuyPriceCopper  uint64    `json:"buy_price_copper"`
 	SellPriceCopper uint64    `json:"sell_price_copper"`

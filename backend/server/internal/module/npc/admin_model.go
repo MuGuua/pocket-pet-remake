@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 )
 
 var (
@@ -66,18 +68,22 @@ func (q AdminMenuEntryListQuery) Normalize() AdminMenuEntryListQuery {
 	return q
 }
 
+// AdminWorldSceneSummary 描述后台可选地图场景；坐标由客户端场景资源维护，这里只提供 scene_id 与展示名。
+type AdminWorldSceneSummary struct {
+	SceneID   uint32 `json:"scene_id"`
+	SceneCode string `json:"scene_code"`
+	SceneName string `json:"scene_name"`
+	Status    uint32 `json:"status"`
+}
+
 // AdminCreateEntityInput 描述后台新增 NPC/世界实体时允许维护的字段。
-// 它直接对应 world_entity_definition，保证地图实体分布由数据库持久化驱动。
+// 坐标与朝向由客户端场景资源维护，服务端只记录 entity 归属 scene_id。
 type AdminCreateEntityInput struct {
 	EntityID    uint64 `json:"entity_id"`
 	EntityCode  string `json:"entity_code"`
 	DisplayName string `json:"display_name"`
 	EntityType  uint32 `json:"entity_type"`
 	SceneID     uint32 `json:"scene_id"`
-	PosX        int32  `json:"pos_x"`
-	PosY        int32  `json:"pos_y"`
-	Dir         uint32 `json:"dir"`
-	Speed       uint32 `json:"speed"`
 	Status      uint32 `json:"status"`
 }
 
@@ -99,10 +105,6 @@ type AdminUpdateEntityInput struct {
 	DisplayName string `json:"display_name"`
 	EntityType  uint32 `json:"entity_type"`
 	SceneID     uint32 `json:"scene_id"`
-	PosX        int32  `json:"pos_x"`
-	PosY        int32  `json:"pos_y"`
-	Dir         uint32 `json:"dir"`
-	Speed       uint32 `json:"speed"`
 	Status      uint32 `json:"status"`
 }
 
@@ -131,6 +133,8 @@ type AdminCreateMenuEntryInput struct {
 	ActionResultType        string `json:"action_result_type"`
 	ActionNotice            string `json:"action_notice"`
 	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64 `json:"linked_quest_id"`
+	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
 	Status                  uint32 `json:"status"`
 }
 
@@ -145,20 +149,8 @@ func (input AdminCreateMenuEntryInput) Normalize() AdminCreateMenuEntryInput {
 	if input.State == "" {
 		input.State = "available"
 	}
-	if input.EntryType == "battle" || input.ActionResultType == "battle" {
-		if input.EntryType == "" {
-			input.EntryType = "battle"
-		}
-		if input.ActionResultType == "" {
-			input.ActionResultType = "battle"
-		}
-		if input.Title == "" {
-			input.Title = "挑战"
-		}
-		if input.BattleEncounterEntityID == 0 {
-			input.BattleEncounterEntityID = input.EntityID
-		}
-	}
+	normalizeMenuEntryTypeDefaults(&input.EntryType, &input.ActionResultType, &input.Title, input.EntityID, &input.BattleEncounterEntityID)
+	input.Conditions = input.Conditions.Normalize()
 	if input.ActionResultType == "" {
 		input.ActionResultType = "notice"
 	}
@@ -180,6 +172,8 @@ type AdminUpdateMenuEntryInput struct {
 	ActionResultType        string `json:"action_result_type"`
 	ActionNotice            string `json:"action_notice"`
 	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64 `json:"linked_quest_id"`
+	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
 	Status                  uint32 `json:"status"`
 }
 
@@ -193,20 +187,8 @@ func (input AdminUpdateMenuEntryInput) Normalize() AdminUpdateMenuEntryInput {
 	if input.State == "" {
 		input.State = "available"
 	}
-	if input.EntryType == "battle" || input.ActionResultType == "battle" {
-		if input.EntryType == "" {
-			input.EntryType = "battle"
-		}
-		if input.ActionResultType == "" {
-			input.ActionResultType = "battle"
-		}
-		if input.Title == "" {
-			input.Title = "挑战"
-		}
-		if input.BattleEncounterEntityID == 0 {
-			input.BattleEncounterEntityID = input.EntityID
-		}
-	}
+	normalizeMenuEntryTypeDefaults(&input.EntryType, &input.ActionResultType, &input.Title, input.EntityID, &input.BattleEncounterEntityID)
+	input.Conditions = input.Conditions.Normalize()
 	if input.ActionResultType == "" {
 		input.ActionResultType = "notice"
 	}
@@ -216,16 +198,46 @@ func (input AdminUpdateMenuEntryInput) Normalize() AdminUpdateMenuEntryInput {
 	return input
 }
 
+// normalizeMenuEntryTypeDefaults 根据入口类型补齐默认动作类型与战斗绑定。
+func normalizeMenuEntryTypeDefaults(entryType *string, actionResultType *string, title *string, entityID uint64, battleEncounterEntityID *uint64) {
+	if *entryType == "battle" || *actionResultType == "battle" {
+		if *entryType == "" {
+			*entryType = "battle"
+		}
+		if *actionResultType == "" {
+			*actionResultType = "battle"
+		}
+		if *title == "" {
+			*title = "挑战"
+		}
+		if *battleEncounterEntityID == 0 {
+			*battleEncounterEntityID = entityID
+		}
+	}
+	if *entryType == "dialog" {
+		if *actionResultType == "" || *actionResultType == "dialog" {
+			*actionResultType = "dialogue"
+		}
+	}
+	if *entryType == "shop" {
+		if *actionResultType == "" {
+			*actionResultType = "shop"
+		}
+	}
+	if *entryType == "quest" {
+		if *actionResultType == "" {
+			*actionResultType = "quest_accept"
+		}
+	}
+}
+
 type AdminEntitySummary struct {
 	EntityID    uint64    `json:"entity_id"`
 	EntityCode  string    `json:"entity_code"`
 	DisplayName string    `json:"display_name"`
 	EntityType  uint32    `json:"entity_type"`
 	SceneID     uint32    `json:"scene_id"`
-	PosX        int32     `json:"pos_x"`
-	PosY        int32     `json:"pos_y"`
-	Dir         uint32    `json:"dir"`
-	Speed       uint32    `json:"speed"`
+	SceneName   string    `json:"scene_name"`
 	Status      uint32    `json:"status"`
 	StatusText  string    `json:"status_text"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -245,10 +257,7 @@ type AdminEntityDetail struct {
 	DisplayName string    `json:"display_name"`
 	EntityType  uint32    `json:"entity_type"`
 	SceneID     uint32    `json:"scene_id"`
-	PosX        int32     `json:"pos_x"`
-	PosY        int32     `json:"pos_y"`
-	Dir         uint32    `json:"dir"`
-	Speed       uint32    `json:"speed"`
+	SceneName   string    `json:"scene_name"`
 	Status      uint32    `json:"status"`
 	StatusText  string    `json:"status_text"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -266,6 +275,7 @@ type AdminMenuEntrySummary struct {
 	SortOrder        uint32    `json:"sort_order"`
 	ActionResultType        string    `json:"action_result_type"`
 	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64    `json:"linked_quest_id"`
 	Status                  uint32    `json:"status"`
 	StatusText       string    `json:"status_text"`
 	UpdatedAt        time.Time `json:"updated_at"`
@@ -291,6 +301,8 @@ type AdminMenuEntryDetail struct {
 	ActionResultType        string    `json:"action_result_type"`
 	ActionNotice            string    `json:"action_notice"`
 	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64    `json:"linked_quest_id"`
+	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
 	Status                  uint32    `json:"status"`
 	StatusText       string    `json:"status_text"`
 	CreatedAt        time.Time `json:"created_at"`

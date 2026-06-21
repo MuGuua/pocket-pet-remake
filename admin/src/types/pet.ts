@@ -1,3 +1,5 @@
+import type { AdminPetCombatStats } from './petCombatStats';
+
 export interface AdminPetSummary {
   pet_uid: number;
   player_id: number;
@@ -23,7 +25,7 @@ export interface AdminPetListResult {
   page_size: number;
 }
 
-export interface AdminPetDetail {
+export interface AdminPetDetail extends AdminPetCombatStats {
   pet_uid: number;
   player_id: number;
   player_name: string;
@@ -49,7 +51,7 @@ export interface AdminPetListFilters {
   pet_id?: string;
 }
 
-export interface AdminCreatePetPayload {
+export interface AdminCreatePetPayload extends AdminPetCombatStats {
   player_id: number;
   pet_id: number;
   level: number;
@@ -64,7 +66,7 @@ export interface AdminCreatePetPayload {
   skill_ids: number[];
 }
 
-export interface AdminUpdatePetPayload {
+export interface AdminUpdatePetPayload extends AdminPetCombatStats {
   pet_id: number;
   level: number;
   exp: number;

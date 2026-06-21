@@ -11,26 +11,28 @@ import (
 )
 
 type Router struct {
-	authHandler    *AuthHandler
-	worldHandler   *WorldHandler
-	petHandler     *PetHandler
-	playerHandler  *PlayerHandler
-	battleHandler  *BattleHandler
-	bagHandler     *BagHandler
-	questHandler   *QuestHandler
-	sessionService *session.Service
+	authHandler       *AuthHandler
+	worldHandler      *WorldHandler
+	petHandler        *PetHandler
+	playerHandler     *PlayerHandler
+	equipmentHandler  *EquipmentHandler
+	battleHandler     *BattleHandler
+	bagHandler        *BagHandler
+	questHandler      *QuestHandler
+	sessionService    *session.Service
 }
 
-func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, playerHandler *PlayerHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
+func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, playerHandler *PlayerHandler, equipmentHandler *EquipmentHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
 	return &Router{
-		authHandler:    authHandler,
-		worldHandler:   worldHandler,
-		petHandler:     petHandler,
-		playerHandler:  playerHandler,
-		battleHandler:  battleHandler,
-		bagHandler:     bagHandler,
-		questHandler:   questHandler,
-		sessionService: sessionService,
+		authHandler:      authHandler,
+		worldHandler:     worldHandler,
+		petHandler:       petHandler,
+		playerHandler:    playerHandler,
+		equipmentHandler: equipmentHandler,
+		battleHandler:    battleHandler,
+		bagHandler:       bagHandler,
+		questHandler:     questHandler,
+		sessionService:   sessionService,
 	}
 }
 
@@ -89,6 +91,21 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleNPCAction(conn, packet)
+	case protocol.CmdNPCMenuReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleNPCMenu(conn, packet)
+	case protocol.CmdNPCDialogueNextReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleNPCDialogueNext(conn, packet)
+	case protocol.CmdNPCDialogueChooseReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleNPCDialogueChoose(conn, packet)
 	case protocol.CmdPetListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -99,6 +116,38 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.petHandler.HandleLineupSet(conn, packet)
+	case protocol.CmdPetAllocateAttrReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.petHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "pet handler unavailable")
+		}
+		return r.petHandler.HandleAllocateAttr(conn, packet)
+	case protocol.CmdPetArtifactEquipReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.petHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "pet handler unavailable")
+		}
+		return r.petHandler.HandleArtifactEquip(conn, packet)
+	case protocol.CmdPetArtifactUnequipReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.petHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "pet handler unavailable")
+		}
+		return r.petHandler.HandleArtifactUnequip(conn, packet)
+	case protocol.CmdPetSkillDetailReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.petHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "pet handler unavailable")
+		}
+		return r.petHandler.HandleSkillDetail(conn, packet)
 	case protocol.CmdBagListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -184,6 +233,38 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "player handler unavailable")
 		}
 		return r.playerHandler.HandleAllocateAttr(conn, packet)
+	case protocol.CmdPlayerEquipmentListReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.equipmentHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
+		}
+		return r.equipmentHandler.HandleList(conn, packet)
+	case protocol.CmdPlayerEquipReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.equipmentHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
+		}
+		return r.equipmentHandler.HandleEquip(conn, packet)
+	case protocol.CmdPlayerUnequipReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.equipmentHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
+		}
+		return r.equipmentHandler.HandleUnequip(conn, packet)
+	case protocol.CmdPlayerEquipmentEnhanceReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.equipmentHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
+		}
+		return r.equipmentHandler.HandleEnhance(conn, packet)
 	case protocol.CmdBattleActionReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -255,6 +336,13 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 			return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "load reconnect battle snapshot failed")
 		}
 	}
+	var activeDialogue *protocol.ActiveDialogue
+	if r.battleHandler != nil {
+		activeDialogue, err = r.battleHandler.BuildActiveDialogueReconnect(context.Background(), sess.PlayerID)
+		if err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load reconnect dialogue snapshot failed")
+		}
+	}
 
 	reconnectResp := protocol.ReconnectResp{
 		PlayerID:           sess.PlayerID,
@@ -267,6 +355,7 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 		BattleState:        battleState,
 		BattleResult:       battleResult,
 		BattleReplayStates: battleReplayStates,
+		ActiveDialogue:     activeDialogue,
 	}
 	logBattlePacket("resp", conn.ID(), sess.PlayerID, protocol.CmdReconnectResp, packet.Seq, reconnectResp)
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdReconnectResp, packet.Seq, errcode.WSCodeSuccess, reconnectResp)

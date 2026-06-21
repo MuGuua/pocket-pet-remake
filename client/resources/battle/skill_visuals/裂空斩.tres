@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" load_steps=8 format=3 uid="uid://bim5k08dg4nnt"]
+
+[ext_resource type="Texture2D" uid="uid://ct2m5wrsjk0gf" path="res://asset/分类/特效/顺序播放特效/1046.png" id="1_jfycm"]
+[ext_resource type="Script" uid="uid://dr0rih5va8au0" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="2_8c5x3"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ycgla"]
+atlas = ExtResource("1_jfycm")
+region = Rect2(0, 0, 53, 51)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yu6ie"]
+atlas = ExtResource("1_jfycm")
+region = Rect2(53, 0, 53, 51)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_886j7"]
+atlas = ExtResource("1_jfycm")
+region = Rect2(106, 0, 53, 51)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jroay"]
+atlas = ExtResource("1_jfycm")
+region = Rect2(159, 0, 53, 51)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_blade"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ycgla")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yu6ie")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_886j7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jroay")
+}],
+"loop": false,
+"name": &"默认",
+"speed": 14.0
+}]
+
+[resource]
+script = ExtResource("2_8c5x3")
+skill_visual_id = "裂空斩"
+animation_key = "裂空斩"
+action_type = "skill"
+effect_id = "裂空斩"
+effect_frames = SubResource("SpriteFrames_blade")
+effect_tint = Color(1, 0.831373, 0.937255, 1)
+effect_player_animation = "冲击"

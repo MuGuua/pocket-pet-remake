@@ -94,7 +94,7 @@ var worldScenes = map[uint32]sceneData{
 }
 
 const listSceneEntitiesQuery = `
-SELECT entity_id, entity_type, pos_x, pos_y, dir, speed, display_name
+SELECT entity_id, entity_type, display_name
 FROM world_entity_definition
 WHERE scene_id = $1 AND status = 1
 ORDER BY entity_id ASC
@@ -121,14 +121,14 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, _ uint64, sceneI
 		if err := rows.Scan(
 			&value.EntityID,
 			&value.EntityType,
-			&value.Pos.X,
-			&value.Pos.Y,
-			&value.Dir,
-			&value.Speed,
 			&value.Name,
 		); err != nil {
 			return nil, err
 		}
+		// NPC 坐标由客户端场景资源维护；服务端快照只保留 entity_id/name 供交互与附近列表使用。
+		value.Pos = world.Vec2i{}
+		value.Dir = 0
+		value.Speed = 0
 		// The current table does not yet store a dedicated player_id column for
 		// scene avatars, so we mirror entity_id for player entities to keep the
 		// client-side PVP targeting contract explicit and stable.

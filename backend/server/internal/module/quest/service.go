@@ -506,11 +506,17 @@ func applyEventToObjectives(template Template, objectives []PlayerObjective, eve
 	for _, objective := range template.Objectives {
 		templateObjectiveMap[objective.ObjectiveID] = objective
 	}
+	// 多阶段任务按 objective_id 从小到大顺序推进，避免玩家跳过前置阶段直接完成后续目标。
+	activeStageID, hasActiveStage := firstIncompleteObjectiveID(objectives)
 
 	nextObjectives := make([]PlayerObjective, 0, len(objectives))
 	for _, current := range objectives {
 		templateObjective, ok := templateObjectiveMap[current.ObjectiveID]
 		if !ok || current.Completed {
+			nextObjectives = append(nextObjectives, current)
+			continue
+		}
+		if hasActiveStage && current.ObjectiveID != activeStageID {
 			nextObjectives = append(nextObjectives, current)
 			continue
 		}
@@ -527,6 +533,23 @@ func applyEventToObjectives(template Template, objectives []PlayerObjective, eve
 		nextObjectives = append(nextObjectives, current)
 	}
 	return nextObjectives, changed
+}
+
+// firstIncompleteObjectiveID 返回当前尚未完成的最早阶段 ID。
+// 若全部完成则返回 false，表示没有可推进的阶段。
+func firstIncompleteObjectiveID(objectives []PlayerObjective) (uint64, bool) {
+	var stageID uint64
+	found := false
+	for _, objective := range objectives {
+		if objective.Completed {
+			continue
+		}
+		if !found || objective.ObjectiveID < stageID {
+			stageID = objective.ObjectiveID
+			found = true
+		}
+	}
+	return stageID, found
 }
 
 func eventMatchesObjective(event Event, objective ObjectiveTemplate) bool {

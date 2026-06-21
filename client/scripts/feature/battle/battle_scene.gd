@@ -66,6 +66,7 @@ func _on_battle_updated(payload: Dictionary) -> void:
 		return
 	if _request_loading != null:
 		_request_loading.hide_waiting()
+	_director.ingest_state_push(payload)
 	call_deferred("_run_state_update")
 
 func _on_battle_finished(_payload: Dictionary) -> void:
@@ -74,15 +75,33 @@ func _on_battle_finished(_payload: Dictionary) -> void:
 
 ## 播放剩余事件并短暂停留结算文案，供主场景在卸载前等待。
 func wait_for_presentation_complete(payload: Dictionary) -> void:
-	await _run_state_update()
-	while _director.is_playing_events():
-		await get_tree().process_frame
+	await _wait_for_presentation_idle()
 	var summary: String = "战斗胜利" if bool(payload.get("win", false)) else "战斗失败"
 	_director.handle_battle_finished(summary)
 	await get_tree().create_timer(0.8).timeout
 	if _request_loading != null:
 		_request_loading.hide_waiting()
 	_initialized_battle_id = 0
+
+## 等待所有排队的状态更新与事件演出结束，避免结算包先到导致提前卸载战斗场景。
+func _wait_for_presentation_idle() -> void:
+	while true:
+		while (
+			_state_update_running
+			or _state_update_queued
+			or _director.has_pending_presentations()
+		):
+			if not _state_update_running:
+				await _run_state_update()
+			await get_tree().process_frame
+		await _director.wait_for_post_presentation_settle()
+		if (
+			not _state_update_running
+			and not _state_update_queued
+			and not _director.has_pending_presentations()
+		):
+			break
+		await get_tree().process_frame
 
 func _on_action_responded(accepted: bool, reason: String) -> void:
 	if not accepted and _request_loading != null:
@@ -108,6 +127,10 @@ func _run_state_update() -> void:
 	if _state_update_running:
 		_state_update_queued = true
 		return
+	await _run_state_update_loop()
+
+## 串行消费 battle_updated 触发的状态更新，直到当前队列排空。
+func _run_state_update_loop() -> void:
 	_state_update_running = true
 	while true:
 		_state_update_queued = false

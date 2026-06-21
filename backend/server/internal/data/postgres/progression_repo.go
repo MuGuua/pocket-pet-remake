@@ -102,7 +102,9 @@ SET level = $2,
     spd = $12,
     mana = $13,
     hit_pct = $14,
-    dodge_pct = $15
+    dodge_pct = $15,
+    hp = CASE WHEN $16 > 0 THEN $9 ELSE hp END,
+    vigor = CASE WHEN $16 > 0 THEN vigor_max ELSE vigor END
 WHERE id = $1 AND status = 1
 `
 
@@ -342,6 +344,7 @@ func (r *ProgressionRepository) LoadProgressionState(ctx context.Context, player
 	return &state, nil
 }
 
+// SaveExpProgression 持久化经验结算结果；若本次发生升级，则同步补满 hp 与 vigor。
 func (r *ProgressionRepository) SaveExpProgression(
 	ctx context.Context,
 	playerID uint64,
@@ -375,6 +378,7 @@ func (r *ProgressionRepository) SaveExpProgression(
 		finalMANA,
 		finalHitPct,
 		finalDodgePct,
+		result.LevelUpCount,
 	)
 	if err != nil {
 		return err

@@ -68,6 +68,11 @@ SELECT
   pet_resist_pct,
   mercenary_resist_pct,
   generic_shield_pct,
+  guard,
+  talent_dmg_pct,
+  talent_reduce_pct,
+  element_adv_pct,
+  element_penalty_pct,
   skill_ids,
   skin_id
 FROM player
@@ -128,6 +133,11 @@ SELECT
   p.pet_resist_pct,
   p.mercenary_resist_pct,
   p.generic_shield_pct,
+  p.guard,
+  p.talent_dmg_pct,
+  p.talent_reduce_pct,
+  p.element_adv_pct,
+  p.element_penalty_pct,
   p.skill_ids,
   p.skin_id,
   a.last_login_at,
@@ -268,6 +278,7 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		paralysisResistPct, sealResistPct                                      int64
 		curseResistPct, critResistPct, critDmgResistPct                        int64
 		characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct int64
+		guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
 		skillIDsJSON                                                           []byte
 		skinID                                                                 string
 	)
@@ -313,6 +324,11 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		&petResistPct,
 		&mercenaryResistPct,
 		&genericShieldPct,
+		&guard,
+		&talentDmgPct,
+		&talentReducePct,
+		&elementAdvPct,
+		&elementPenaltyPct,
 		&skillIDsJSON,
 		&skinID,
 	)
@@ -362,6 +378,11 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 	profile.PetResistPct = uint32(petResistPct)
 	profile.MercenaryResistPct = uint32(mercenaryResistPct)
 	profile.GenericShieldPct = uint32(genericShieldPct)
+	profile.Guard = uint32(guard)
+	profile.TalentDmgPct = uint32(talentDmgPct)
+	profile.TalentReducePct = uint32(talentReducePct)
+	profile.ElementAdvPct = uint32(elementAdvPct)
+	profile.ElementPenaltyPct = uint32(elementPenaltyPct)
 	profile.SkinID = strings.TrimSpace(skinID)
 	if len(skillIDsJSON) > 0 {
 		// 人物技能配置和宠物技能一样从数据库权威读取，避免人物参战时再回退到硬编码列表。
@@ -511,6 +532,7 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		paralysisResistPct, sealResistPct                                      int64
 		curseResistPct, critResistPct, critDmgResistPct                        int64
 		characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct int64
+		guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
 		skillIDsJSON                                                           []byte
 		lastLoginAt                                                            sql.NullTime
 	)
@@ -559,6 +581,11 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		&petResistPct,
 		&mercenaryResistPct,
 		&genericShieldPct,
+		&guard,
+		&talentDmgPct,
+		&talentReducePct,
+		&elementAdvPct,
+		&elementPenaltyPct,
 		&skillIDsJSON,
 		&detail.SkinID,
 		&lastLoginAt,
@@ -572,7 +599,7 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		return nil, err
 	}
 
-	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, freeAttrPoints, strength, vitality, agility, mind, gold, status, sceneID, posX, posY, hp, hpMax, vigor, vigorMax, spirit, spiritMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, skillIDsJSON, lastLoginAt)
+	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, freeAttrPoints, strength, vitality, agility, mind, gold, status, sceneID, posX, posY, hp, hpMax, vigor, vigorMax, spirit, spiritMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct, skillIDsJSON, lastLoginAt)
 }
 
 func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.AdminCreatePlayerInput) (*player.AdminPlayerDetail, error) {
@@ -765,6 +792,7 @@ func buildAdminPlayerDetail(
 	paralysisResistPct, sealResistPct int64,
 	curseResistPct, critResistPct, critDmgResistPct int64,
 	characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct int64,
+	guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64,
 	skillIDsJSON []byte,
 	lastLoginAt sql.NullTime,
 ) (*player.AdminPlayerDetail, error) {
@@ -810,6 +838,11 @@ func buildAdminPlayerDetail(
 	detail.PetResistPct = uint32(petResistPct)
 	detail.MercenaryResistPct = uint32(mercenaryResistPct)
 	detail.GenericShieldPct = uint32(genericShieldPct)
+	detail.Guard = uint32(guard)
+	detail.TalentDmgPct = uint32(talentDmgPct)
+	detail.TalentReducePct = uint32(talentReducePct)
+	detail.ElementAdvPct = uint32(elementAdvPct)
+	detail.ElementPenaltyPct = uint32(elementPenaltyPct)
 	detail.SkinID = strings.TrimSpace(detail.SkinID)
 	if lastLoginAt.Valid {
 		value := lastLoginAt.Time

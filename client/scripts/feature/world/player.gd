@@ -11,7 +11,7 @@ const STATE_WALK := "walk"
 const STATE_BATTLE := "battle"
 # 无 skin_id 时使用的默认战斗待机动画名，对应 player.tscn 中的 battle_pose（第 12 帧）。
 const LEGACY_BATTLE_ANIMATION := "battle_pose"
-# 世界场景进入战斗后统一替换的形象资源 ID，对应 resources/battle/unit_skins/战斗待机_004.tres。
+# 世界场景进入战斗后统一替换的形象资源 ID，对应 resources/battle/unit_skins/其他/战斗待机_004.tres。
 const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 
 # 本地角色移动速度。
@@ -100,6 +100,18 @@ func _process(_delta: float) -> void:
 # 在物理帧中执行角色移动。
 func _physics_process(_delta: float) -> void:
 	move_and_slide()
+
+## 返回当前四方向朝向，供宠物跟随等世界表现层读取。
+func get_cardinal_direction() -> Vector2:
+	return cardinal_direction
+
+## 返回当前是否正在行走（非锁定且有移动输入或自动寻路）。
+func is_walking() -> bool:
+	return not _is_movement_locked() and direction != Vector2.ZERO
+
+## 返回当前移动速度（像素/秒）。
+func get_move_speed() -> float:
+	return move_speed
 
 # 把服务端权威坐标直接应用到当前角色显示位置。
 func apply_authoritative_position(local_position: Vector2) -> void:
@@ -288,6 +300,7 @@ func _apply_world_battle_skin() -> void:
 		if animation_player != null:
 			animation_player.stop()
 		_sync_collision_anchor()
+		_update_animation()
 		return
 	push_warning("找不到世界战斗待机形象: %s" % WORLD_BATTLE_SKIN_ID)
 
@@ -299,7 +312,10 @@ func _restore_normal_skin() -> void:
 	_sync_skin_from_snapshot()
 
 func _sync_skin_from_snapshot() -> void:
+	_setup_character_visual()
 	if _character_visual == null:
+		if legacy_sprite != null:
+			legacy_sprite.visible = true
 		return
 	var skin_id: String = str(GameState.player_snapshot.get("skin_id", ""))
 	if skin_id.is_empty():

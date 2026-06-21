@@ -28,6 +28,7 @@
 2. 若 `exp + gain >= exp_required`，则扣除 `exp_required`、`level++`，发放 `attr_points` 到 `free_attr_points`，并将当前等级行的 `bonus_atk/bonus_hp_max/bonus_spd/bonus_mana` 累加到 `base_*`。
 3. 循环直到经验不足升级或达到 100 级。
 4. 100 级时 `exp_required = 0`，不再升级；多余经验保留在 `exp` 字段中。
+5. 每次实际升级后，服务端会把 `hp` 补至新的 `hp_max`，并把 `vigor` 补至当前 `vigor_max`。
 
 ### 2.2 加点规则
 
@@ -275,10 +276,8 @@ PostgreSQL 实现：`data/postgres/progression_repo.go`
 
 ## 9. 二期范围（当前未做）
 
-- 宠物等级上限、宠物升级曲线、宠物自由属性点
-- 洗点、重置属性、批量加点
-- 升级推送独立消息（当前通过战斗结算字段或 `EnterWorld` 快照同步）
-- 后台直接给玩家加减自由属性点（需另补审计接口）
+- 玩家侧：洗点、重置属性、批量加点；升级推送独立消息；后台直接加减自由属性点。
+- **宠物成长与加点**：见 **`backend/docs/pet-progression.md`**（公式、迁移、协议与 Admin 已落地；执行 `051`/`052` 迁移后可用）。
 
 ## 10. 部署与验证
 

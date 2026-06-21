@@ -69,9 +69,22 @@
 - `2022 MOVE_INTENT_RESP`（已实现）
 - `2031 INTERACT_REQ`
 - `2032 INTERACT_RESP`
+- `2033 NPC_ACTION_REQ`（已实现）
+- `2034 NPC_ACTION_RESP`（已实现）
+- `2042 NPC_MENU_REQ`（已实现）
+- `2043 NPC_MENU_RESP`（已实现）
+- `2037 NPC_DIALOGUE_NEXT_REQ`（已实现）
+- `2038 NPC_DIALOGUE_RESP`（已实现）
+- `2039 NPC_DIALOGUE_CHOOSE_REQ`（已实现）
 - `2035 WILD_ENCOUNTER_REQ`（已实现）
 - `2036 WILD_ENCOUNTER_RESP`（已实现）
 - `2041 ENCOUNTER_PUSH`（预留，暗雷改由客户端上报 + `4011 BATTLE_START_PUSH`）
+
+### 2060-2069 玩家 / 宠物成长
+- `2061 PLAYER_ALLOCATE_ATTR_REQ`
+- `2062 PLAYER_ALLOCATE_ATTR_RESP`
+- `2063 PET_ALLOCATE_ATTR_REQ`
+- `2064 PET_ALLOCATE_ATTR_RESP`
 
 ### 3000-3099 宠物 / 编队
 - `3001 PET_LIST_REQ`
@@ -320,6 +333,25 @@
     "drop_texts": [
       "掉落: 野性毛皮 x1"
     ]
+  },
+  "active_dialogue": {
+    "entity_id": 93001,
+    "npc_name": "市场理萌",
+    "node": {
+      "dialogue_id": 1,
+      "node_id": "start",
+      "node_type": "line",
+      "speaker": "市场理萌",
+      "is_player_speaker": false,
+      "content": "你先稍等一下，我把前面的货箱挪开。",
+      "content_format": "plain",
+      "portrait_key": "npc_limeng_normal",
+      "client_animation_key": "",
+      "client_animation_block": false,
+      "options": [],
+      "is_end": false,
+      "effect_notice": ""
+    }
   }
 }
 ```
@@ -327,6 +359,7 @@
 说明：
 
 - `world` 为断线恢复后的最新世界全量快照，客户端可按 `ENTER_WORLD_RESP/WORLD_RESYNC_PUSH` 的同等结构重建世界态
+- `active_dialogue` 仅在玩家断线前仍有未结束的 NPC 结构化剧情时返回；客户端应直接恢复对话面板，而不是重新发起 `NPC_ACTION_REQ`
 - `battle_start` / `battle_state` 仅在玩家重连时仍处于活动战斗中时返回；客户端应按正常战斗进入流程恢复界面
 - `battle_replay_states` 表示服务端保留的最近若干帧战斗状态；当客户端上报的 `last_frame` 落后但仍在缓存窗口内时，可先按顺序回放这些状态，再与当前状态对齐
 - `battle_result` 仅在断线期间战斗已经由服务端托管结束、但客户端还没收到结算时返回；客户端应按正常 `BATTLE_RESULT_PUSH` 的处理链路展示奖励并退出战斗界面
@@ -491,7 +524,7 @@
 
 ### 2031 INTERACT_REQ
 
-当前最小战斗入口使用“与附近 NPC 交互”触发：
+当前用于**无 NPC 菜单**的附近实体交互，例如直接触发 PvE 固定战：
 
 ```json
 {
@@ -499,14 +532,197 @@
 }
 ```
 
+若目标 NPC 配置了菜单项，服务端会拒绝本次交互并提示改用 `2042 NPC_MENU_REQ`：
+
+```json
+{
+  "accepted": false,
+  "reason": "use npc menu request",
+  "entity_id": 93001,
+  "npc_name": "市场理萌"
+}
+```
+
 ### 2032 INTERACT_RESP
+
+战斗交互成功时返回：
 
 ```json
 {
   "accepted": true,
-  "reason": "battle started"
+  "reason": "battle started",
+  "response_type": "battle",
+  "entity_id": 90001,
+  "npc_name": "引导NPC"
 }
 ```
+
+### 2042 NPC_MENU_REQ
+
+拉取指定 NPC 的动态菜单列表；客户端点击附近 NPC 时应优先走该协议，而不是 `2031 INTERACT_REQ`：
+
+```json
+{
+  "entity_id": 93001
+}
+```
+
+### 2043 NPC_MENU_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "menu loaded",
+  "entity_id": 93001,
+  "npc_name": "市场理萌",
+  "menu_entries": [
+    {
+      "entry_id": "dialog_market_intro",
+      "entry_type": "dialog",
+      "title": "让个路",
+      "subtitle": "看看市场理萌的轻剧情演出",
+      "state": "available",
+      "priority": 90
+    }
+  ]
+}
+```
+
+### 2033 NPC_ACTION_REQ
+
+执行某个 NPC 菜单项：
+
+```json
+{
+  "entity_id": 93001,
+  "entry_id": "dialog_market_intro"
+}
+```
+
+### 2034 NPC_ACTION_RESP
+
+当菜单项 `action_result_type=dialogue` 时，会在同一条响应里直接返回首个剧情节点：
+
+```json
+{
+  "accepted": true,
+  "reason": "dialogue started",
+  "entity_id": 93001,
+  "entry_id": "dialog_market_intro",
+  "result_type": "dialogue",
+  "npc_name": "市场理萌",
+  "dialogue": {
+    "dialogue_id": 1,
+    "node_id": "start",
+    "node_type": "line",
+    "speaker": "市场理萌",
+    "content": "你先稍等一下，我把前面的货箱挪开。",
+    "content_format": "plain",
+    "portrait_key": "npc_limeng_normal",
+    "client_animation_key": "",
+    "client_animation_block": false,
+    "options": [],
+    "mentioned_items": [
+      {
+        "item_id": 1001,
+        "item_name": "新手药水",
+        "icon": "res://asset/icons/items/potion.png"
+      }
+    ],
+    "is_end": false,
+    "effect_notice": ""
+  }
+}
+```
+
+剧情节点 `content` 支持服务端渲染占位符：
+
+- `{player_name}`：替换为当前玩家名。
+- `{player_id}`：替换为当前玩家 ID。
+- `{item:物品ID}`：替换为 `item_definition.item_name`，并在 `mentioned_items` 中返回物品 ID、名称与 icon，客户端用于展示物品图标。
+
+剧情节点 `speaker` / `portrait_key` 由服务端在下发前统一解析：
+
+- 后台可配置 `@player`、`$player`、`玩家` 或 `{player_name}` 表示玩家说话。
+- 服务端会把上述占位符替换成当前玩家展示名，并在 `is_player_speaker=true` 时默认补齐 `portrait_key=player_default`。
+- 客户端应优先读取 `is_player_speaker` 决定角标显示在右上（玩家）还是左上（NPC）。
+
+其它结果类型：
+
+- `result_type=notice`：仅返回 `notice` 文案
+- `result_type=shop`：返回 `shop.goods` 商品列表与 `shop.wallet` 钱包快照
+- `result_type=battle`：返回战斗开始，并推送 `4011 BATTLE_START_PUSH`
+
+`shop` 载荷示例：
+
+```json
+{
+  "accepted": true,
+  "reason": "shop opened",
+  "entity_id": 93002,
+  "entry_id": "shop_open_market",
+  "result_type": "shop",
+  "npc_name": "市场罗格",
+  "shop": {
+    "goods": [
+      { "item_id": 3003, "item_name": "宠物治疗药剂", "price_copper": 800 }
+    ],
+    "wallet": {
+      "total_copper": 1200,
+      "gold": 0,
+      "silver": 12,
+      "copper": 0
+    }
+  }
+}
+```
+
+### 2037 NPC_DIALOGUE_NEXT_REQ
+
+客户端点击“继续”或本地剧情动画结束后，请求推进到当前节点的下一节点：
+
+```json
+{
+  "entity_id": 93001,
+  "dialogue_id": 1,
+  "node_id": "start"
+}
+```
+
+### 2038 NPC_DIALOGUE_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "dialogue advanced",
+  "entity_id": 93001,
+  "node": {
+    "dialogue_id": 1,
+    "node_id": "move_aside",
+    "node_type": "action",
+    "client_animation_key": "market_limeng_step_aside",
+    "client_animation_block": true,
+    "is_end": false
+  }
+}
+```
+
+### 2039 NPC_DIALOGUE_CHOOSE_REQ
+
+```json
+{
+  "entity_id": 93001,
+  "dialogue_id": 1,
+  "node_id": "after_move",
+  "option_id": "news"
+}
+```
+
+说明：
+
+- 剧情节点与会话位置由服务端权威维护，客户端必须原样回传 `dialogue_id/node_id`
+- `node_type` 支持 `line/choice/action/end`
+- 节点 `effects_json.notice` 会通过 `effect_notice` 字段同步给客户端展示
 
 ### 3001 PET_LIST_REQ
 
@@ -524,14 +740,55 @@
       "pet_id": 101,
       "level": 5,
       "exp": 120,
+      "exp_to_next": 800,
       "quality": 1,
       "hp": 32,
       "hp_max": 32,
       "atk": 14,
       "def": 10,
       "spd": 12,
+      "mana": 16,
       "skill_ids": [1001, 1002],
-      "in_lineup": true
+      "skill_slots": {
+        "innate": [{"slot_index": 0, "skill_id": 1001}],
+        "active_talisman": {"slot_index": 0, "skill_id": 0, "enabled": false},
+        "talisman_hero": {"slot_index": 0, "skill_id": 0, "enabled": false},
+        "talisman_1": {"slot_index": 0, "skill_id": 0, "enabled": false},
+        "talisman_2": {"slot_index": 0, "skill_id": 0, "enabled": false},
+        "talisman_3": {"slot_index": 0, "skill_id": 0, "enabled": false},
+        "normal": [
+          {"slot_index": 0, "skill_id": 1001, "enabled": true},
+          {"slot_index": 1, "skill_id": 1002, "enabled": true},
+          {"slot_index": 2, "skill_id": 0, "enabled": true}
+        ],
+        "artifact": [
+          {"slot_index": 0, "skill_id": 0},
+          {"slot_index": 1, "skill_id": 0},
+          {"slot_index": 2, "skill_id": 0}
+        ]
+      },
+      "in_lineup": true,
+      "is_usable": true,
+      "free_attr_points": 3,
+      "alloc_hp_points": 10,
+      "alloc_atk_points": 25,
+      "alloc_spd_points": 0,
+      "alloc_mana_points": 0,
+      "alloc_def_points": 0,
+      "base_hp_apt": 12,
+      "extra_hp_apt": 0,
+      "growth_aptitudes": {
+        "hp_apt": 12,
+        "atk_apt": 11,
+        "def_apt": 10,
+        "spd_apt": 9,
+        "mana_apt": 8
+      },
+      "auto_hp_points": 4,
+      "auto_atk_points": 4,
+      "auto_spd_points": 4,
+      "auto_mana_points": 4,
+      "auto_def_points": 4
     }
   ],
   "lineup": [
@@ -540,7 +797,8 @@
       "pet_id": 101,
       "level": 5,
       "hp": 32,
-      "hp_max": 32
+      "hp_max": 32,
+      "skin_id": "嫩叶犬_001"
     }
   ]
 }
@@ -551,6 +809,36 @@
 - `pets` 返回玩家拥有的完整宠物实例列表
 - `lineup` 返回当前编队摘要和顺序
 - `in_lineup` 仅用于客户端展示，不替代 `lineup` 顺序本身
+- `exp_to_next` / `free_attr_points` / `alloc_*_points` / `growth_aptitudes` / `auto_*_points` 由服务端权威计算下发，客户端只展示
+- `skill_ids` 为战斗合并后的扁平技能列表；`skill_slots` 为分槽视图。`3002` 列表中 `artifact` 槽 `skill_id` 为 0；单宠详情/加点/推送响应会填充法宝技
+- 战斗五维 `hp_max/atk/spd/mana/def` 已是公式重算后的最终值
+
+### 2063 PET_ALLOCATE_ATTR_REQ
+
+```json
+{
+  "pet_uid": 20001,
+  "hp": 0,
+  "atk": 1,
+  "spd": 0,
+  "mana": 0,
+  "def": 0
+}
+```
+
+### 2064 PET_ALLOCATE_ATTR_RESP
+
+```json
+{
+  "pet": { }
+}
+```
+
+说明：
+
+- 至少一项增量大于 0，且总和不超过 `free_attr_points`
+- 成功后 `pet` 结构与 `3002` 单条 `PetDetail` 一致
+- 错误：`pet not found` / `insufficient attr points` / `invalid allocate attr input`
 
 ### 3011 PET_UPDATE_PUSH
 
@@ -619,6 +907,46 @@
   "reason": "lineup updated"
 }
 ```
+
+### 3031 PET_ARTIFACT_EQUIP_REQ / 3032 PET_ARTIFACT_EQUIP_RESP
+
+从背包装备法宝到宠物法宝槽（消耗 1 个物品）。
+
+```json
+{
+  "pet_uid": 20001,
+  "slot_index": 0,
+  "container_type": "bag",
+  "bag_slot_index": 3
+}
+```
+
+物品模板要求：`effect_type=pet_artifact`，`effect_params.skill_id` 或 `effect_value` 为镶嵌技能 ID。响应 `pet` 含完整 `skill_slots.artifact`。
+
+### 3033 PET_ARTIFACT_UNEQUIP_REQ / 3034 PET_ARTIFACT_UNEQUIP_RESP
+
+```json
+{
+  "pet_uid": 20001,
+  "slot_index": 0
+}
+```
+
+### 3035 PET_SKILL_DETAIL_REQ / 3036 PET_SKILL_DETAIL_RESP
+
+拉取单只宠物完整 `skill_slots`（含法宝槽真实 `skill_id`；列表接口 `3002` 中法宝槽 `skill_id` 为 0）。
+
+```json
+{
+  "pet_uid": 20001
+}
+```
+
+响应 `pet` 结构与 `PetDetail` 一致，`skill_slots.artifact` 填充完整技能 ID。
+
+### 5021 神符槽道具解锁
+
+物品 `effect_type=pet_talisman_slot_unlock`，并在 `pet_skill_slot_unlock_item` 配置 `item_id → slot_key`；请求需带 `target_pet_uid`。成功时 `result.unlocked_talisman_slot` 返回槽位键，并推送 `3011`。
 
 ## 背包扩展协议规划
 
@@ -1158,11 +1486,19 @@
   "pet_rewards": [
     {
       "pet_uid": 20001,
-      "exp": 28
+      "pet_id": 1001,
+      "level": 6,
+      "exp": 28,
+      "exp_gained": 28,
+      "level_up_count": 1,
+      "attr_points_gained": 1,
+      "free_attr_points": 4,
+      "exp_to_next": 800
     },
     {
       "pet_uid": 20002,
-      "exp": 28
+      "exp": 28,
+      "exp_gained": 28
     }
   ]
 }
@@ -1175,5 +1511,6 @@
 - `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要；其中 `player_gold` 是从钱包快照映射出的兼容字段
 - 成功发放货币后，当前连接还会额外收到 `5091 WALLET_UPDATE_PUSH`，用于刷新 HUD / 背包面板里的钱包展示
 - `drop_texts` 表示本场战斗的文本掉落提示，当前只用于展示，不会写入背包
-- `pet_rewards` 表示本场战斗中各参战宠物获得的经验摘要；宠物最终 HP / EXP 明细仍以随后逐条推送的 `3011 PET_UPDATE_PUSH` 为准
+- `pet_rewards` 表示本场战斗中各参战宠物的经验与升级摘要；`exp` 与 `exp_gained` 同值，保留兼容
+- 宠物完整 HP / 等级 / 战斗属性仍以战斗结束后 `request_pet_list()` 或 `3011 PET_UPDATE_PUSH` 为准
 - 当前最小 PVE 奖励闭环已覆盖金币、角色经验、宠物经验、文本掉落展示和 `battle_record` 防重记录；真实物品掉落与背包落库仍待后续扩展

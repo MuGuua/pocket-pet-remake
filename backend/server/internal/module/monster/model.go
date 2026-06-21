@@ -71,14 +71,19 @@ type AdminDefinitionList struct {
 }
 
 type AdminDefinitionBaseStats struct {
-	Level   uint32 `json:"level"`
-	Quality uint32 `json:"quality"`
-	HP      uint32 `json:"hp"`
-	HPMax   uint32 `json:"hp_max"`
-	ATK     uint32 `json:"atk"`
-	DEF     uint32 `json:"def"`
-	SPD     uint32 `json:"spd"`
-	MANA    uint32 `json:"mana"`
+	Level             uint32 `json:"level"`
+	Quality           uint32 `json:"quality"`
+	HP                uint32 `json:"hp"`
+	HPMax             uint32 `json:"hp_max"`
+	ATK               uint32 `json:"atk"`
+	DEF               uint32 `json:"def"`
+	SPD               uint32 `json:"spd"`
+	MANA              uint32 `json:"mana"`
+	Guard             uint32 `json:"guard"`
+	TalentDmgPct      uint32 `json:"talent_dmg_pct"`
+	TalentReducePct   uint32 `json:"talent_reduce_pct"`
+	ElementAdvPct     uint32 `json:"element_adv_pct"`
+	ElementPenaltyPct uint32 `json:"element_penalty_pct"`
 }
 
 type AdminDefinitionDetail struct {
@@ -112,6 +117,11 @@ type AdminUpsertDefinitionInput struct {
 	DEF             uint32   `json:"def"`
 	SPD             uint32   `json:"spd"`
 	MANA            uint32   `json:"mana"`
+	Guard           uint32   `json:"guard"`
+	TalentDmgPct    uint32   `json:"talent_dmg_pct"`
+	TalentReducePct uint32   `json:"talent_reduce_pct"`
+	ElementAdvPct   uint32   `json:"element_adv_pct"`
+	ElementPenaltyPct uint32 `json:"element_penalty_pct"`
 	SkillIDs        []uint32 `json:"skill_ids"`
 	SkinID          string   `json:"skin_id"`
 	IsCapturable    bool     `json:"is_capturable"`
@@ -303,18 +313,23 @@ func (input AdminUpsertWildEncounterInput) Normalize() AdminUpsertWildEncounterI
 
 // RuntimeDefinition 是战斗运行时读取的怪物模板。
 type RuntimeDefinition struct {
-	MonsterID   uint32
-	MonsterName string
-	Level       uint32
-	Quality     uint32
-	HP          uint32
-	HPMax       uint32
-	ATK         uint32
-	DEF         uint32
-	SPD         uint32
-	MANA        uint32
-	SkillIDs    []uint32
-	SkinID      string
+	MonsterID         uint32
+	MonsterName       string
+	Level             uint32
+	Quality           uint32
+	HP                uint32
+	HPMax             uint32
+	ATK               uint32
+	DEF               uint32
+	SPD               uint32
+	MANA              uint32
+	SkillIDs          []uint32
+	SkinID            string
+	Guard             uint32
+	TalentDmgPct      uint32
+	TalentReducePct   uint32
+	ElementAdvPct     uint32
+	ElementPenaltyPct uint32
 }
 
 // RuntimeEncounterSlot 描述一次遭遇中的一个怪物槽位。
@@ -330,6 +345,11 @@ type RuntimeEncounterSlot struct {
 	MANA        uint32
 	SkillIDs    []uint32
 	SkinID      string
+	Guard             uint32
+	TalentDmgPct      uint32
+	TalentReducePct   uint32
+	ElementAdvPct     uint32
+	ElementPenaltyPct uint32
 }
 
 // RuntimeEncounter 是按 entity_id 解析后的完整遭遇。

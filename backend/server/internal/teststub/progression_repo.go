@@ -119,7 +119,7 @@ func (r *ProgressionRepository) LoadProgressionState(_ context.Context, playerID
 }
 
 func (r *ProgressionRepository) SaveExpProgression(_ context.Context, playerID uint64, result progression.ExpApplyResult, baseCombat progression.BaseCombatStats, combatBonus progression.CombatBonus) error {
-	return r.savePlayerProgression(playerID, result.Level, result.Exp, result.FreeAttrPoints, nil, baseCombat, combatBonus)
+	return r.savePlayerProgression(playerID, result.Level, result.Exp, result.FreeAttrPoints, result.LevelUpCount, nil, baseCombat, combatBonus)
 }
 
 func (r *ProgressionRepository) SaveAttrAllocation(_ context.Context, playerID uint64, delta progression.AttrAllocationDelta, _ uint32, freeAfter uint32, combatBonus progression.CombatBonus) error {
@@ -134,7 +134,7 @@ func (r *ProgressionRepository) SaveAttrAllocation(_ context.Context, playerID u
 		}
 		r.players.mu.RUnlock()
 	}
-	return r.savePlayerProgression(playerID, 0, 0, freeAfter, &delta, baseCombat, combatBonus)
+	return r.savePlayerProgression(playerID, 0, 0, freeAfter, 0, &delta, baseCombat, combatBonus)
 }
 
 func (r *ProgressionRepository) savePlayerProgression(
@@ -142,6 +142,7 @@ func (r *ProgressionRepository) savePlayerProgression(
 	level uint32,
 	exp uint64,
 	freeAttrPoints uint32,
+	levelUpCount uint32,
 	delta *progression.AttrAllocationDelta,
 	baseCombat progression.BaseCombatStats,
 	combatBonus progression.CombatBonus,
@@ -180,6 +181,11 @@ func (r *ProgressionRepository) savePlayerProgression(
 	current.MANA = progression.FinalCombatValue(current.BaseMANA, combatBonus.MANA)
 	current.HitPct = progression.FinalCombatValue(current.BaseHitPct, combatBonus.HitPct)
 	current.DodgePct = progression.FinalCombatValue(current.BaseDodgePct, combatBonus.DodgePct)
+	// 升级后按新的 hp_max 与当前 vigor_max 补满血量和精力。
+	if levelUpCount > 0 {
+		current.HP = current.HPMax
+		current.Vigor = current.VigorMax
+	}
 	r.players.players[playerID] = current
 	return nil
 }

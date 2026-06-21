@@ -3,6 +3,7 @@ import {
   Card,
   Col,
   Descriptions,
+  Divider,
   Drawer,
   Empty,
   Form,
@@ -14,12 +15,15 @@ import {
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
+  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { NPCDialogueConfigDrawer } from './NPCDialogueConfigDrawer';
 import {
   createAdminNPCMenuEntry,
   deleteAdminNPCMenuEntry,
@@ -31,16 +35,18 @@ import { fetchAdminMonsterEncounters } from '../../services/monsterEncounter';
 import type { AdminMonsterEncounterSummary } from '../../types/monsterEncounter';
 import type {
   AdminCreateNPCMenuEntryPayload,
+  AdminDialogueConditions,
   AdminNPCMenuEntryDetail,
-  AdminNPCMenuEntryFilters,
   AdminNPCMenuEntrySummary,
   AdminUpdateNPCMenuEntryPayload,
 } from '../../types/npc';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 import {
   buildSelectOptions,
   formatDisplayLabel,
   NPC_ACTION_RESULT_LABELS,
   NPC_ENTRY_TYPE_LABELS,
+  NPC_MENU_STATE_LABELS,
 } from '../../utils/displayLabels';
 
 interface MenuEntryFormValues {
@@ -55,6 +61,8 @@ interface MenuEntryFormValues {
   action_result_type: string;
   action_notice: string;
   battle_encounter_entity_id: number;
+  linked_quest_id: number;
+  conditions: AdminDialogueConditions;
   status: number;
 }
 
@@ -65,12 +73,6 @@ interface NPCMenuEntryDrawerProps {
   onClose: () => void;
 }
 
-const statusOptions = [
-  { label: '全部状态', value: '' },
-  { label: '启用', value: '1' },
-  { label: '停用', value: '0' },
-];
-
 const editableStatusOptions = [
   { label: '启用', value: 1 },
   { label: '停用', value: 0 },
@@ -80,11 +82,27 @@ const entryTypeOptions = buildSelectOptions(NPC_ENTRY_TYPE_LABELS);
 
 const actionResultTypeOptions = buildSelectOptions(NPC_ACTION_RESULT_LABELS);
 
-// 单个地图 NPC 的菜单配置抽屉：从实体编辑页进入，只维护当前 entity_id 下的菜单项。
+const menuStateOptions = buildSelectOptions(NPC_MENU_STATE_LABELS);
+
+const questVisibilityStateOptions: Array<{ label: string; value: string }> = [
+  { label: '不限制', value: '' },
+  { label: '可接取 AVAILABLE', value: 'AVAILABLE' },
+  { label: '进行中 ACCEPTED', value: 'ACCEPTED' },
+  { label: '可提交 READY_TO_SUBMIT', value: 'READY_TO_SUBMIT' },
+  { label: '已完成 COMPLETED', value: 'COMPLETED' },
+];
+
+const menuObjectiveCompletedOptions: Array<{ label: string; value: string }> = [
+  { label: '不限制', value: '' },
+  { label: '要求目标已完成', value: 'true' },
+  { label: '要求目标未完成', value: 'false' },
+];
+
+const NPC_DIALOGUE_EMBEDDED_FORM_ID = 'npc-dialogue-embedded-editor-form';
+
+// 单个地图 NPC 的菜单与剧情统一配置抽屉。
 export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCMenuEntryDrawerProps) {
-  const [filterForm] = Form.useForm<Pick<AdminNPCMenuEntryFilters, 'entry_id' | 'status'>>();
   const [editorForm] = Form.useForm<MenuEntryFormValues>();
-  const [filters, setFilters] = useState<Pick<AdminNPCMenuEntryFilters, 'entry_id' | 'status'>>({ status: '1' });
   const [rows, setRows] = useState<AdminNPCMenuEntrySummary[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -98,9 +116,16 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
   const [saving, setSaving] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [encounterOptions, setEncounterOptions] = useState<{ label: string; value: number }[]>([]);
+  const [editorTab, setEditorTab] = useState<string>('menu');
+  const [dialogueEditing, setDialogueEditing] = useState(false);
   const watchedEntryType = Form.useWatch('entry_type', editorForm);
   const watchedActionResultType = Form.useWatch('action_result_type', editorForm);
+  const watchedEntryID = Form.useWatch('entry_id', editorForm);
   const isBattleEntry = watchedEntryType === 'battle' || watchedActionResultType === 'battle';
+  const isDialogEntry = watchedEntryType === 'dialog' || watchedActionResultType === 'dialogue' || watchedActionResultType === 'dialog';
+  const isQuestEntry = watchedEntryType === 'quest' || watchedActionResultType === 'quest_accept' || watchedActionResultType === 'quest_submit';
+  const isShopEntry = watchedEntryType === 'shop' || watchedActionResultType === 'shop';
+  const dialogueEntryID: string = editingRecord?.entry_id ?? watchedEntryID ?? '';
 
   useEffect(() => {
     if (!open) {
@@ -113,10 +138,8 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     if (!open || !entityId) {
       return;
     }
-    filterForm.setFieldsValue({ status: '1' });
-    setFilters({ status: '1' });
     setPage(1);
-  }, [open, entityId, filterForm]);
+  }, [open, entityId]);
 
   async function loadEncounterOptions() {
     try {
@@ -134,12 +157,11 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     if (!open || !entityId) {
       return;
     }
-    void loadRows(entityId, filters, page, pageSize);
-  }, [open, entityId, filters, page, pageSize]);
+    void loadRows(entityId, page, pageSize);
+  }, [open, entityId, page, pageSize]);
 
   async function loadRows(
     currentEntityId: number,
-    nextFilters: Pick<AdminNPCMenuEntryFilters, 'entry_id' | 'status'>,
     nextPage: number,
     nextPageSize: number,
   ) {
@@ -148,8 +170,6 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
       const result = await fetchAdminNPCMenuEntries({
         filters: {
           entity_id: String(currentEntityId),
-          entry_id: nextFilters.entry_id,
-          status: nextFilters.status,
         },
         page: nextPage,
         pageSize: nextPageSize,
@@ -184,11 +204,12 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     }
   }
 
-  async function handleOpenEditor(mode: 'create' | 'edit', entryID?: string) {
+  async function handleOpenEditor(mode: 'create' | 'edit', entryID?: string, initialTab: string = 'menu') {
     if (!entityId) {
       return;
     }
     setEditorOpen(true);
+    setEditorTab(initialTab);
     if (mode === 'create') {
       setEditingRecord(null);
       editorForm.resetFields();
@@ -225,13 +246,23 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
         );
         message.success('NPC 菜单更新成功');
       } else {
+        const createdEntryID: string = values.entry_id ?? '';
         await createAdminNPCMenuEntry(mapMenuEntryFormToCreatePayload(values));
         message.success('NPC 菜单创建成功');
+        if (createdEntryID && menuEntryUsesDialogue(values)) {
+          const createdDetail: AdminNPCMenuEntryDetail = await fetchAdminNPCMenuEntryDetail(entityId, createdEntryID);
+          setEditingRecord(createdDetail);
+          editorForm.setFieldsValue(mapMenuEntryDetailToForm(createdDetail));
+          setEditorTab('dialogue');
+          await loadRows(entityId, page, pageSize);
+          return;
+        }
       }
       setEditorOpen(false);
       setEditingRecord(null);
+      setEditorTab('menu');
       editorForm.resetFields();
-      await loadRows(entityId, filters, page, pageSize);
+      await loadRows(entityId, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存 NPC 菜单失败');
     } finally {
@@ -252,13 +283,23 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
         setDetailOpen(false);
         setDetail(null);
       }
-      await loadRows(entityId, filters, page, pageSize);
+      await loadRows(entityId, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '删除 NPC 菜单失败');
     } finally {
       setDeletingKey(null);
     }
   }
+
+  function handleCloseEditor() {
+    setEditorOpen(false);
+    setEditingRecord(null);
+    setEditorTab('menu');
+    setDialogueEditing(false);
+    editorForm.resetFields();
+  }
+
+  const dialogueEntryTitle: string = editingRecord?.title ?? editorForm.getFieldValue('title') ?? '';
 
   const columns = useMemo<ColumnsType<AdminNPCMenuEntrySummary>>(() => [
     { title: '入口ID', dataIndex: 'entry_id', key: 'entry_id', width: 160, fixed: 'left' },
@@ -290,7 +331,12 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
           loading={deletingKey === `${record.entity_id}:${record.entry_id}`}
           actions={[
             { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.entry_id) },
-            { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.entry_id) },
+            { key: 'edit', label: '菜单与剧情', onClick: () => void handleOpenEditor('edit', record.entry_id) },
+            ...((record.entry_type === 'dialog' || record.action_result_type === 'dialog' || record.action_result_type === 'dialogue') ? [{
+              key: 'dialogue',
+              label: '剧情配置',
+              onClick: () => void handleOpenEditor('edit', record.entry_id, 'dialogue'),
+            }] : []),
             {
               key: 'delete',
               label: '删除',
@@ -307,49 +353,14 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
   return (
     <>
       <Drawer
-        title={entityId ? `菜单配置 · ${entityName}（${entityId}）` : '菜单配置'}
+        title={entityId ? `NPC菜单配置 · ${entityName}（${entityId}）` : 'NPC菜单配置'}
         width={960}
         open={open}
         onClose={onClose}
         destroyOnClose
       >
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Card
-            title="菜单筛选"
-            extra={<Button type="primary" onClick={() => void handleOpenEditor('create')}>新增菜单项</Button>}
-          >
-            <Form
-              form={filterForm}
-              layout="vertical"
-              onFinish={(values) => {
-                setPage(1);
-                setFilters(values);
-              }}
-            >
-              <Row gutter={16}>
-                <Col xs={24} md={12}>
-                  <Form.Item label="入口ID" name="entry_id"><Input allowClear /></Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item label="状态" name="status"><Select options={statusOptions} /></Form.Item>
-                </Col>
-              </Row>
-              <Space>
-                <Button type="primary" htmlType="submit" loading={loading}>查询</Button>
-                <Button
-                  onClick={() => {
-                    filterForm.resetFields();
-                    filterForm.setFieldsValue({ status: '1' });
-                    setPage(1);
-                    setFilters({ status: '1' });
-                  }}
-                >
-                  重置
-                </Button>
-              </Space>
-            </Form>
-          </Card>
-          <Card title="菜单列表">
+          <Card title="菜单列表" extra={<Button type="primary" onClick={() => void handleOpenEditor('create')}>新增菜单项</Button>}>
             <Table
               columns={columns}
               dataSource={rows}
@@ -391,6 +402,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
             <Descriptions.Item label="标题">{detail.title}</Descriptions.Item>
             <Descriptions.Item label="副标题">{detail.subtitle}</Descriptions.Item>
             <Descriptions.Item label="入口类型">{formatDisplayLabel(NPC_ENTRY_TYPE_LABELS, detail.entry_type)}</Descriptions.Item>
+            <Descriptions.Item label="菜单状态">{formatDisplayLabel(NPC_MENU_STATE_LABELS, detail.state)}</Descriptions.Item>
             <Descriptions.Item label="动作类型">{formatDisplayLabel(NPC_ACTION_RESULT_LABELS, detail.action_result_type)}</Descriptions.Item>
             <Descriptions.Item label="固定战实体ID">{detail.battle_encounter_entity_id || '-'}</Descriptions.Item>
             <Descriptions.Item label="提示文案">{detail.action_notice || '-'}</Descriptions.Item>
@@ -399,98 +411,224 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
       </Drawer>
 
       <Modal
-        title={editingRecord ? `编辑菜单项 · ${editingRecord.entry_id}` : '新增菜单项'}
+        title={editingRecord ? `菜单与剧情 · ${editingRecord.entry_id}` : '新增菜单项'}
         open={editorOpen}
-        onCancel={() => {
-          setEditorOpen(false);
-          setEditingRecord(null);
-          editorForm.resetFields();
+        onCancel={handleCloseEditor}
+        onOk={() => {
+          if (editorTab === 'menu') {
+            editorForm.submit();
+          }
         }}
-        onOk={() => editorForm.submit()}
-        confirmLoading={saving}
+        confirmLoading={saving && editorTab === 'menu'}
         destroyOnClose
-        width={760}
-        okText={editingRecord ? '保存修改' : '创建菜单项'}
-        cancelText="取消"
+        width={1080}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
+        okText={editorTab === 'menu' ? (editingRecord ? '保存菜单' : '创建菜单项') : undefined}
+        cancelText="关闭"
+        footer={editorTab === 'dialogue' ? [
+          <Button
+            key="save-dialogue"
+            type="primary"
+            htmlType="submit"
+            form={NPC_DIALOGUE_EMBEDDED_FORM_ID}
+            disabled={!dialogueEditing}
+          >
+            保存剧情
+          </Button>,
+          <Button key="close" onClick={handleCloseEditor}>关闭</Button>,
+        ] : undefined}
       >
-        <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item label="实体ID" name="entity_id">
-                <InputNumber min={1} style={{ width: '100%' }} disabled />
-              </Form.Item>
-            </Col>
-            {!editingRecord ? (
-              <Col xs={24} md={12}>
-                <Form.Item label="入口ID" name="entry_id" rules={[{ required: true, message: '请输入入口ID' }]}>
-                  <Input />
-                </Form.Item>
-              </Col>
-            ) : null}
-            <Col xs={24} md={12}>
-              <Form.Item label="入口类型" name="entry_type">
-                <Select
-                  options={entryTypeOptions}
-                  onChange={(value) => {
-                    if (value === 'battle') {
-                      editorForm.setFieldsValue({
-                        action_result_type: 'battle',
-                        title: editorForm.getFieldValue('title') || '挑战',
-                      });
-                    }
-                  }}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="标题" name="title"><Input /></Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="副标题" name="subtitle"><Input /></Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="状态 key" name="state"><Input /></Form.Item>
-            </Col>
-            <Col xs={12} md={6}>
-              <Form.Item label="优先级" name="priority"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-            </Col>
-            <Col xs={12} md={6}>
-              <Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-            </Col>
-            <Col xs={12} md={6}>
-              <Form.Item label="动作类型" name="action_result_type"><Select options={actionResultTypeOptions} /></Form.Item>
-            </Col>
-            {isBattleEntry ? (
-              <Col span={24}>
-                <Form.Item
-                  label="绑定 NPC 固定战"
-                  name="battle_encounter_entity_id"
-                  extra="选择怪物固定战遭遇配置；留空时保存后会默认使用当前 NPC 的实体 ID"
-                  rules={[{ required: true, message: '请选择要绑定的固定战遭遇' }]}
-                >
-                  <Select
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="选择固定战遭遇"
-                    options={encounterOptions}
+        <Tabs
+          activeKey={editorTab}
+          onChange={(nextTab) => {
+            setEditorTab(nextTab);
+            if (nextTab !== 'dialogue') {
+              setDialogueEditing(false);
+            }
+          }}
+          items={[
+            {
+              key: 'menu',
+              label: '菜单配置',
+              children: (
+                <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+                  <Typography.Paragraph type="secondary">
+                    支持对话、任务、商店、挑战四类入口；可通过可见条件按任务状态或分阶段目标控制菜单显示。
+                  </Typography.Paragraph>
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="实体ID" name="entity_id">
+                        <InputNumber min={1} style={{ width: '100%' }} disabled />
+                      </Form.Item>
+                    </Col>
+                    {!editingRecord ? (
+                      <Col xs={24} md={12}>
+                        <Form.Item label="入口ID" name="entry_id" rules={[{ required: true, message: '请输入入口ID' }]}>
+                          <Input />
+                        </Form.Item>
+                      </Col>
+                    ) : null}
+                    <Col xs={24} md={12}>
+                      <Form.Item label="入口类型" name="entry_type">
+                        <Select
+                          showSearch
+                          optionFilterProp="label"
+                          options={entryTypeOptions}
+                          onChange={(value) => {
+                            if (value === 'battle') {
+                              editorForm.setFieldsValue({
+                                action_result_type: 'battle',
+                                title: editorForm.getFieldValue('title') || '挑战',
+                              });
+                            }
+                            if (value === 'dialog') {
+                              editorForm.setFieldsValue({ action_result_type: 'dialogue' });
+                            }
+                            if (value === 'shop') {
+                              editorForm.setFieldsValue({
+                                action_result_type: 'shop',
+                                title: editorForm.getFieldValue('title') || '商店',
+                              });
+                            }
+                            if (value === 'quest') {
+                              editorForm.setFieldsValue({
+                                action_result_type: 'quest_accept',
+                                title: editorForm.getFieldValue('title') || '任务',
+                              });
+                            }
+                            if (value === 'warehouse') {
+                              editorForm.setFieldsValue({
+                                action_result_type: 'panel',
+                                title: editorForm.getFieldValue('title') || '打开仓库',
+                              });
+                            }
+                          }}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="标题" name="title"><Input /></Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="副标题" name="subtitle"><Input /></Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item
+                        label="菜单状态"
+                        name="state"
+                        tooltip="写入 state 字段；多数菜单使用「可用」。若数据库中有未收录的状态值，下拉会保留原值。"
+                      >
+                        <Select showSearch optionFilterProp="label" options={menuStateOptions} />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Item label="优先级" name="priority"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Item label="动作类型" name="action_result_type">
+                        <Select showSearch optionFilterProp="label" options={actionResultTypeOptions} />
+                      </Form.Item>
+                    </Col>
+                    {isBattleEntry ? (
+                      <Col span={24}>
+                        <Form.Item
+                          label="绑定 NPC 固定战"
+                          name="battle_encounter_entity_id"
+                          extra="选择怪物固定战遭遇配置；留空时保存后会默认使用当前 NPC 的实体 ID"
+                          rules={[{ required: true, message: '请选择要绑定的固定战遭遇' }]}
+                        >
+                          <Select showSearch optionFilterProp="label" placeholder="选择固定战遭遇" options={encounterOptions} />
+                        </Form.Item>
+                      </Col>
+                    ) : null}
+                    {isQuestEntry ? (
+                      <Col xs={24} md={12}>
+                        <Form.Item label="关联任务ID" name="linked_quest_id" extra="任务类菜单接取/提交时使用">
+                          <InputNumber min={0} style={{ width: '100%' }} placeholder="0 表示不绑定" />
+                        </Form.Item>
+                      </Col>
+                    ) : null}
+                    <Col xs={12} md={6}>
+                      <Form.Item label="状态" name="status"><Select options={editableStatusOptions} /></Form.Item>
+                    </Col>
+                    {!isBattleEntry ? (
+                      <Col span={24}>
+                        <Form.Item label="提示文案" name="action_notice"><Input.TextArea rows={3} /></Form.Item>
+                      </Col>
+                    ) : (
+                      <Col span={24}>
+                        <Form.Item label="提示文案（可选）" name="action_notice"><Input.TextArea rows={2} placeholder="挑战菜单通常无需提示文案" /></Form.Item>
+                      </Col>
+                    )}
+                  </Row>
+
+                  <Divider orientation="left">可见条件（可选）</Divider>
+                  <Row gutter={16}>
+                    <Col xs={24} md={6}>
+                      <Form.Item label="任务ID" name={['conditions', 'quest_id']} tooltip="玩家拥有该任务时才显示此菜单">
+                        <InputNumber min={0} style={{ width: '100%' }} placeholder="0 表示不限制" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={6}>
+                      <Form.Item label="任务状态" name={['conditions', 'quest_state']}>
+                        <Select options={questVisibilityStateOptions} placeholder="留空表示不限制" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={6}>
+                      <Form.Item label="目标ID" name={['conditions', 'objective_id']} tooltip="分阶段任务填写 objective_id">
+                        <InputNumber min={0} style={{ width: '100%' }} placeholder="0 表示不限制" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={6}>
+                      <Form.Item
+                        label="目标完成状态"
+                        name={['conditions', 'objective_completed']}
+                        getValueProps={(value: boolean | undefined) => ({
+                          value: value === true ? 'true' : value === false ? 'false' : '',
+                        })}
+                        normalize={(value: string) => {
+                          if (value === 'true') {
+                            return true;
+                          }
+                          if (value === 'false') {
+                            return false;
+                          }
+                          return undefined;
+                        }}
+                      >
+                        <Select options={menuObjectiveCompletedOptions} placeholder="留空表示不限制" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Form>
+              ),
+            },
+            {
+              key: 'dialogue',
+              label: '剧情配置',
+              disabled: !dialogueEntryID || !isDialogEntry,
+              children: (
+                <div style={{ maxHeight: '62vh', overflow: 'auto', paddingRight: 8 }}>
+                  <NPCDialogueConfigDrawer
+                    embedded
+                    open={editorOpen && editorTab === 'dialogue'}
+                    entityId={entityId}
+                    entryId={dialogueEntryID}
+                    entryTitle={dialogueEntryTitle}
+                    npcName={entityName}
+                    embeddedFormId={NPC_DIALOGUE_EMBEDDED_FORM_ID}
+                    onEmbeddedEditingChange={setDialogueEditing}
+                    onClose={handleCloseEditor}
                   />
-                </Form.Item>
-              </Col>
-            ) : null}
-            <Col xs={12} md={6}>
-              <Form.Item label="状态" name="status"><Select options={editableStatusOptions} /></Form.Item>
-            </Col>
-            {!isBattleEntry ? (
-              <Col span={24}>
-                <Form.Item label="提示文案" name="action_notice"><Input.TextArea rows={4} /></Form.Item>
-              </Col>
-            ) : (
-              <Col span={24}>
-                <Form.Item label="提示文案（可选）" name="action_notice"><Input.TextArea rows={2} placeholder="挑战菜单通常无需提示文案，开战由服务端推送" /></Form.Item>
-              </Col>
-            )}
-          </Row>
-        </Form>
+                </div>
+              ),
+            },
+          ]}
+        />
       </Modal>
     </>
   );
@@ -506,9 +644,11 @@ function defaultMenuEntryValues(entityId: number): MenuEntryFormValues {
     state: 'available',
     priority: 100,
     sort_order: 10,
-    action_result_type: 'notice',
+    action_result_type: 'dialogue',
     action_notice: '这是一条后台新增提示。',
     battle_encounter_entity_id: entityId,
+    linked_quest_id: 0,
+    conditions: {},
     status: 1,
   };
 }
@@ -526,24 +666,46 @@ function mapMenuEntryDetailToForm(detail: AdminNPCMenuEntryDetail): MenuEntryFor
     action_result_type: detail.action_result_type,
     action_notice: detail.action_notice,
     battle_encounter_entity_id: detail.battle_encounter_entity_id ?? detail.entity_id,
+    linked_quest_id: detail.linked_quest_id ?? 0,
+    conditions: detail.conditions ?? {},
     status: detail.status,
   };
 }
 
-function mapMenuEntryFormToCreatePayload(values: MenuEntryFormValues): AdminCreateNPCMenuEntryPayload {
+function menuEntryUsesDialogue(values: MenuEntryFormValues): boolean {
+  return values.entry_type === 'dialog' || values.action_result_type === 'dialogue' || values.action_result_type === 'dialog';
+}
+
+function normalizeMenuEntryPayload(values: MenuEntryFormValues): MenuEntryFormValues {
   return {
-    entity_id: values.entity_id,
-    entry_id: values.entry_id ?? '',
-    entry_type: values.entry_type,
-    title: values.title,
-    subtitle: values.subtitle,
-    state: values.state,
-    priority: values.priority,
-    sort_order: values.sort_order,
-    action_result_type: values.action_result_type,
-    action_notice: values.action_notice,
-    battle_encounter_entity_id: values.battle_encounter_entity_id,
-    status: values.status,
+    ...values,
+    linked_quest_id: values.linked_quest_id > 0 ? values.linked_quest_id : 0,
+    conditions: {
+      quest_id: values.conditions?.quest_id ?? 0,
+      quest_state: values.conditions?.quest_state?.trim() ?? '',
+      objective_id: values.conditions?.objective_id ?? 0,
+      objective_completed: values.conditions?.objective_completed,
+    },
+  };
+}
+
+function mapMenuEntryFormToCreatePayload(values: MenuEntryFormValues): AdminCreateNPCMenuEntryPayload {
+  const normalizedValues: MenuEntryFormValues = normalizeMenuEntryPayload(values);
+  return {
+    entity_id: normalizedValues.entity_id,
+    entry_id: normalizedValues.entry_id ?? '',
+    entry_type: normalizedValues.entry_type,
+    title: normalizedValues.title,
+    subtitle: normalizedValues.subtitle,
+    state: normalizedValues.state,
+    priority: normalizedValues.priority,
+    sort_order: normalizedValues.sort_order,
+    action_result_type: normalizedValues.action_result_type,
+    action_notice: normalizedValues.action_notice,
+    battle_encounter_entity_id: normalizedValues.battle_encounter_entity_id,
+    linked_quest_id: normalizedValues.linked_quest_id,
+    conditions: normalizedValues.conditions,
+    status: normalizedValues.status,
   };
 }
 

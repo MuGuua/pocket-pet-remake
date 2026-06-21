@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 import type { AxiosRequestConfig } from 'axios';
 import type { ApiEnvelope } from '../types/http';
 
@@ -12,12 +12,9 @@ export const httpClient = axios.create({
 httpClient.interceptors.request.use((config) => {
   const token = window.localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) {
-    config.headers = config.headers ?? {};
-    if (typeof config.headers.set === 'function') {
-      config.headers.set('Authorization', `Bearer ${token}`);
-    } else {
-      (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
-    }
+    const headers: AxiosHeaders = AxiosHeaders.from(config.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    config.headers = headers;
   }
   return config;
 });

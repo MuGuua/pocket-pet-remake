@@ -20,7 +20,7 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
@@ -42,7 +42,6 @@ import type {
   AdminPlayerQuestFilters,
   AdminPlayerQuestObjectiveInput,
   AdminPlayerQuestSummary,
-  AdminQuestObjectiveInput,
   AdminQuestRewardInput,
   AdminQuestTemplateDetail,
   AdminQuestTemplateFilters,
@@ -50,15 +49,11 @@ import type {
   AdminUpdatePlayerQuestPayload,
   AdminUpdateQuestTemplatePayload,
 } from '../../types/quest';
-import {
-  buildFilterSelectOptions,
-  buildSelectOptions,
-  formatDisplayLabel,
-  QUEST_MODE_LABELS,
-  QUEST_STATE_LABELS,
-  QUEST_TYPE_LABELS,
-} from '../../utils/displayLabels';
+import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, QUEST_EVENT_TYPE_LABELS, QUEST_MODE_LABELS, QUEST_STATE_LABELS, QUEST_TYPE_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
+import { QuestStageEditor } from './QuestStageEditor';
+import { apiObjectivesToStages, createDefaultQuestStages, stagesToApiObjectives, type QuestStageFormItem } from './questStageUtils';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface TemplateFormValues {
   quest_id?: number;
@@ -76,7 +71,7 @@ interface TemplateFormValues {
   min_player_level: number;
   status: number;
   pre_quest_ids_text: string;
-  objectives_text: string;
+  stages: QuestStageFormItem[];
   rewards_text: string;
 }
 
@@ -134,9 +129,12 @@ function QuestTemplatePanel() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<AdminQuestTemplateDetail | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorLoading, setEditorLoading] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminQuestTemplateDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
+  const editingQuestID: number = editingRecord?.quest_id ?? 0;
+  const pendingEditorValuesRef = useRef<TemplateFormValues | null>(null);
 
   useEffect(() => {
     filterForm.setFieldsValue({ status: '1' });
@@ -178,25 +176,40 @@ function QuestTemplatePanel() {
   }
 
   async function handleOpenEditor(mode: 'create' | 'edit', questID?: number) {
-    setEditorOpen(true);
     if (mode === 'create') {
       setEditingRecord(null);
-      editorForm.resetFields();
-      editorForm.setFieldsValue(defaultTemplateValues());
+      pendingEditorValuesRef.current = defaultTemplateValues();
+      setEditorOpen(true);
       return;
     }
-    if (!questID) return;
-    setDetailLoading(true);
+    if (!questID) {
+      return;
+    }
+    setEditorLoading(true);
     try {
       const result = await fetchAdminQuestTemplateDetail(questID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapTemplateDetailToForm(result));
+      pendingEditorValuesRef.current = mapTemplateDetailToForm(result);
+      setEditorOpen(true);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载任务模板编辑数据失败');
-      setEditorOpen(false);
     } finally {
-      setDetailLoading(false);
+      setEditorLoading(false);
     }
+  }
+
+  /** 模板编辑弹窗完全打开后再写入表单，避免 destroyOnClose 导致 setFieldsValue 失效。 */
+  function handleEditorModalAfterOpenChange(open: boolean): void {
+    if (open) {
+      if (pendingEditorValuesRef.current) {
+        editorForm.setFieldsValue(pendingEditorValuesRef.current);
+        pendingEditorValuesRef.current = null;
+      }
+      return;
+    }
+    editorForm.resetFields();
+    setEditingRecord(null);
+    pendingEditorValuesRef.current = null;
   }
 
   async function handleSubmitEditor(values: TemplateFormValues) {
@@ -210,8 +223,6 @@ function QuestTemplatePanel() {
         message.success('任务模板创建成功');
       }
       setEditorOpen(false);
-      setEditingRecord(null);
-      editorForm.resetFields();
       await loadTemplates(filters, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存任务模板失败');
@@ -258,7 +269,7 @@ function QuestTemplatePanel() {
             loading={deletingID === record.quest_id}
             actions={[
               { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.quest_id) },
-              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.quest_id) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.quest_id), disabled: editorLoading },
               {
                 key: 'delete',
                 label: '删除',
@@ -276,7 +287,7 @@ function QuestTemplatePanel() {
         ),
       },
     ],
-    [deletingID],
+    [deletingID, editorLoading],
   );
 
   return (
@@ -322,13 +333,40 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="起始 NPC">{detail.start_npc_id}</Descriptions.Item>
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
             <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
-            <Descriptions.Item label="目标定义" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(detail.objectives, null, 2)}</pre></Descriptions.Item>
+            <Descriptions.Item label="任务阶段" span={2}>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                {detail.objectives.map((stage) => (
+                  <Card key={stage.objective_id} size="small" title={`阶段 ${stage.objective_id} · ${stage.description}`}>
+                    <Descriptions bordered column={2} size="small">
+                      <Descriptions.Item label="事件类型">{formatDisplayLabel(QUEST_EVENT_TYPE_LABELS, stage.event_type)}</Descriptions.Item>
+                      <Descriptions.Item label="目标次数">{stage.target_value}</Descriptions.Item>
+                      <Descriptions.Item label="目标选择器" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(stage.target_selector ?? {}, null, 2)}</pre></Descriptions.Item>
+                      <Descriptions.Item label="引导/绑定" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(stage.guide ?? {}, null, 2)}</pre></Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                ))}
+              </Space>
+            </Descriptions.Item>
             <Descriptions.Item label="奖励配置" span={2}><pre style={jsonBlockStyle}>{JSON.stringify(detail.rewards ?? [], null, 2)}</pre></Descriptions.Item>
           </Descriptions>
         ) : null}
       </Drawer>
-      <Modal title={editingRecord ? `编辑任务模板 · ${editingRecord.quest_id}` : '新增任务模板'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); editorForm.resetFields(); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={820} okText={editingRecord ? '保存修改' : '创建模板'} cancelText="取消">
-        <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+      <Modal
+        title={editingRecord ? `编辑任务模板 · ${editingRecord.quest_id}` : '新增任务模板'}
+        open={editorOpen}
+        afterOpenChange={handleEditorModalAfterOpenChange}
+        onCancel={() => { setEditorOpen(false); }}
+        onOk={() => editorForm.submit()}
+        confirmLoading={saving}
+        destroyOnClose
+        width={820}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
+        okText={editingRecord ? '保存修改' : '创建模板'}
+        cancelText="取消"
+      >
+        <Spin spinning={editorLoading} tip="正在加载任务模板...">
+          <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)} preserve={false}>
           <Row gutter={16}>
             {!editingRecord ? <Col xs={24} md={8}><Form.Item label="任务ID" name="quest_id" rules={[{ required: true, message: '请输入任务ID' }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col> : null}
             <Col xs={24} md={editingRecord ? 12 : 8}><Form.Item label="模板名" name="name" rules={[{ required: true, message: '请输入模板名' }]}><Input /></Form.Item></Col>
@@ -345,10 +383,28 @@ function QuestTemplatePanel() {
             <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked"><Switch /></Form.Item></Col>
             <Col span={24}><Form.Item label="前置任务 ID JSON" name="pre_quest_ids_text" extra='示例: [1001,1002]'><Input.TextArea rows={2} /></Form.Item></Col>
-            <Col span={24}><Form.Item label="目标定义 JSON" name="objectives_text" extra='示例: [{"objective_id":1,"event_type":"ENTER_SCENE","description":"进入场景","target_value":1,"target_selector":{"scene_id":2}}]'><Input.TextArea rows={8} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item
+                label="任务阶段"
+                name="stages"
+                rules={[
+                  {
+                    validator: async (_, stageList: QuestStageFormItem[] | undefined) => {
+                      if (!stageList || stageList.length === 0) {
+                        throw new Error('至少配置一个任务阶段');
+                      }
+                    },
+                  },
+                ]}
+                tooltip="同一任务可配置多个阶段；每阶段可绑定不同 NPC、菜单 entry 与剧情。点击「添加阶段」在弹窗中编辑。"
+              >
+                <QuestStageEditor questID={editingQuestID} />
+              </Form.Item>
+            </Col>
             <Col span={24}><Form.Item label="奖励配置 JSON" name="rewards_text" extra='支持经验、铜币与物品。示例: [{"type":"exp","value":100,"item_id":0,"count":0},{"type":"gold","value":50,"item_id":0,"count":0},{"type":"item","value":0,"item_id":2001,"count":2}]'><Input.TextArea rows={6} /></Form.Item></Col>
           </Row>
-        </Form>
+          </Form>
+        </Spin>
       </Modal>
     </Space>
   );
@@ -557,7 +613,7 @@ function PlayerQuestPanel() {
           </Descriptions>
         ) : null}
       </Drawer>
-      <Modal title={editingRecord ? `编辑玩家任务 · ${editingRecord.record_id}` : '新增玩家任务'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); editorForm.resetFields(); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={760} okText={editingRecord ? '保存修改' : '创建记录'} cancelText="取消">
+      <Modal title={editingRecord ? `编辑玩家任务 · ${editingRecord.record_id}` : '新增玩家任务'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); editorForm.resetFields(); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={760} style={{ top: FIXED_FORM_MODAL_TOP }} styles={FIXED_FORM_MODAL_STYLES} okText={editingRecord ? '保存修改' : '创建记录'} cancelText="取消">
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
           <Row gutter={16}>
             <Col xs={24} md={12}><Form.Item label="玩家ID" name="player_id" rules={[{ required: true, message: '请输入玩家ID' }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
@@ -590,7 +646,7 @@ function defaultTemplateValues(): TemplateFormValues {
     min_player_level: 1,
     status: 1,
     pre_quest_ids_text: '[]',
-    objectives_text: JSON.stringify([{ objective_id: 1, event_type: 'ENTER_SCENE', description: '进入测试场景', target_value: 1, target_selector: { scene_id: 99 } }], null, 2),
+    stages: createDefaultQuestStages(),
     rewards_text: JSON.stringify([{ type: 'exp', value: 50, item_id: 0, count: 0 }], null, 2),
   };
 }
@@ -622,8 +678,8 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     submit_npc_id: detail.submit_npc_id,
     min_player_level: detail.min_player_level,
     status: detail.status,
-    pre_quest_ids_text: JSON.stringify(detail.pre_quest_ids, null, 2),
-    objectives_text: JSON.stringify(detail.objectives, null, 2),
+    pre_quest_ids_text: JSON.stringify(detail.pre_quest_ids ?? [], null, 2),
+    stages: apiObjectivesToStages(detail.objectives),
     rewards_text: JSON.stringify(detail.rewards ?? [], null, 2),
   };
 }
@@ -656,7 +712,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     min_player_level: values.min_player_level,
     status: values.status,
     pre_quest_ids: parseJSONArray<number[]>(values.pre_quest_ids_text, []),
-    objectives: parseJSONArray<AdminQuestObjectiveInput[]>(values.objectives_text, []),
+    objectives: stagesToApiObjectives(values.stages ?? []),
     rewards: parseJSONArray<AdminQuestRewardInput[]>(values.rewards_text, []),
   };
 }

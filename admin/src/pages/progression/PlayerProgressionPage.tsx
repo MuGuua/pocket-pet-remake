@@ -48,6 +48,23 @@ const TARGET_ATTR_OPTIONS = [
   { label: '闪避', value: 'dodge_pct' },
 ];
 
+interface LevelEditorFormValues {
+  exp_required: number;
+  attr_points: number;
+  bonus_atk: number;
+  bonus_hp_max: number;
+  bonus_spd: number;
+  bonus_mana: number;
+  status: boolean;
+}
+
+interface ConvertEditorFormValues {
+  source_attr: string;
+  target_attr: string;
+  convert_rate: number;
+  status: boolean;
+}
+
 function formatSourceAttr(value: string): string {
   return SOURCE_ATTR_LABELS[value] ?? value;
 }
@@ -67,8 +84,8 @@ export function PlayerProgressionPage() {
   const [editingLevel, setEditingLevel] = useState<AdminPlayerLevelConfig | null>(null);
   const [editingConvert, setEditingConvert] = useState<AdminPlayerAttrConvertConfig | null>(null);
   const [saving, setSaving] = useState(false);
-  const [levelForm] = Form.useForm<AdminUpsertPlayerLevelConfigPayload>();
-  const [convertForm] = Form.useForm<AdminUpsertPlayerAttrConvertPayload>();
+  const [levelForm] = Form.useForm<LevelEditorFormValues>();
+  const [convertForm] = Form.useForm<ConvertEditorFormValues>();
 
   useEffect(() => {
     void loadLevelConfigs();
@@ -126,15 +143,7 @@ export function PlayerProgressionPage() {
     setConvertEditorOpen(true);
   }
 
-  async function submitLevelEditor(values: {
-    exp_required: number;
-    attr_points: number;
-    bonus_atk: number;
-    bonus_hp_max: number;
-    bonus_spd: number;
-    bonus_mana: number;
-    status: boolean;
-  }) {
+  async function submitLevelEditor(values: LevelEditorFormValues) {
     if (!editingLevel) return;
     setSaving(true);
     try {
@@ -157,7 +166,7 @@ export function PlayerProgressionPage() {
     }
   }
 
-  async function submitConvertEditor(values: AdminUpsertPlayerAttrConvertPayload & { status: boolean }) {
+  async function submitConvertEditor(values: ConvertEditorFormValues) {
     if (!editingConvert) return;
     setSaving(true);
     try {
@@ -288,7 +297,7 @@ export function PlayerProgressionPage() {
         confirmLoading={saving}
         destroyOnClose
       >
-        <Form form={levelForm} layout="vertical" onFinish={(values) => void submitLevelEditor(values)}>
+        <Form form={levelForm} layout="vertical" onFinish={(values: LevelEditorFormValues) => void submitLevelEditor(values)}>
           <Form.Item name="exp_required" label="升到下一级所需经验" rules={[{ required: true, message: '请输入经验值' }]}>
             <InputNumber min={0} precision={0} style={{ width: '100%' }} />
           </Form.Item>
@@ -321,7 +330,7 @@ export function PlayerProgressionPage() {
         confirmLoading={saving}
         destroyOnClose
       >
-        <Form form={convertForm} layout="vertical" onFinish={(values) => void submitConvertEditor(values)}>
+        <Form form={convertForm} layout="vertical" onFinish={(values: ConvertEditorFormValues) => void submitConvertEditor(values)}>
           <Form.Item name="source_attr" label="基础属性" rules={[{ required: true, message: '请选择基础属性' }]}>
             <Select options={SOURCE_ATTR_OPTIONS} />
           </Form.Item>

@@ -26,6 +26,11 @@ export interface AdminMonsterDefinitionBaseStats {
   def: number;
   spd: number;
   mana: number;
+  guard: number;
+  talent_dmg_pct: number;
+  talent_reduce_pct: number;
+  element_adv_pct: number;
+  element_penalty_pct: number;
 }
 
 export interface AdminMonsterDefinitionDetail {
@@ -66,6 +71,11 @@ export interface AdminUpsertMonsterDefinitionPayload {
   def: number;
   spd: number;
   mana: number;
+  guard: number;
+  talent_dmg_pct: number;
+  talent_reduce_pct: number;
+  element_adv_pct: number;
+  element_penalty_pct: number;
   skill_ids: number[];
   is_capturable: boolean;
   capture_pet_id: number;

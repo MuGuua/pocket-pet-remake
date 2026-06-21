@@ -5,7 +5,10 @@ import "context"
 type Repository interface {
 	ListMenuEntriesByEntityID(ctx context.Context, entityID uint64) ([]MenuEntry, error)
 	FindActionResult(ctx context.Context, entityID uint64, entryID string) (*ActionResult, error)
+	ListShopGoodsByEntityID(ctx context.Context, entityID uint64) ([]ShopGood, error)
+	ShopGoodExists(ctx context.Context, entityID uint64, itemID uint64) (bool, error)
 	ListEntitiesForAdmin(ctx context.Context, query AdminEntityListQuery) (*AdminEntityList, error)
+	ListWorldScenesForAdmin(ctx context.Context) ([]AdminWorldSceneSummary, error)
 	FindAdminEntityDetailByEntityID(ctx context.Context, entityID uint64) (*AdminEntityDetail, error)
 	CreateEntityForAdmin(ctx context.Context, input AdminCreateEntityInput) (*AdminEntityDetail, error)
 	UpdateEntityForAdmin(ctx context.Context, entityID uint64, input AdminUpdateEntityInput) (*AdminEntityDetail, error)

@@ -2,7 +2,6 @@ extends PanelContainer
 
 # 队伍面板直接展示服务端同步下来的编队宠物，不再保留固定文案。
 const MAX_MEMBER_ROWS: int = 4
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 @onready var tips_label: Label = $RootVBox/BodyPanel/BodyVBox/TipsLabel
 @onready var member_labels: Array[Label] = [
@@ -51,11 +50,12 @@ func refresh_panel_data() -> void:
 
 func _format_lineup_pet(index: int, lineup_pet: Dictionary) -> String:
 	var pet_name := _find_pet_name(int(lineup_pet.get("pet_uid", 0)), int(lineup_pet.get("pet_id", 0)))
-	return UiFormat.normalize_text("%s  Lv.%d  HP %d/%d  阵位 %d" % [
+	return UiFormat.normalize_text("%s  Lv.%d  HP %d/%d  自由点 %d  阵位 %d" % [
 		pet_name,
 		int(lineup_pet.get("level", 0)),
 		int(lineup_pet.get("hp", 0)),
 		int(lineup_pet.get("hp_max", 0)),
+		_find_pet_free_points(int(lineup_pet.get("pet_uid", 0))),
 		index + 1,
 	])
 
@@ -65,6 +65,13 @@ func _find_pet_name(pet_uid: int, pet_id: int) -> String:
 		if pet_variant is Dictionary and int(pet_variant.get("pet_uid", 0)) == pet_uid:
 			return str(pet_variant.get("name", "宠物%d" % pet_id))
 	return "宠物%d" % pet_id
+
+
+func _find_pet_free_points(pet_uid: int) -> int:
+	for pet_variant in GameState.pets:
+		if pet_variant is Dictionary and int(pet_variant.get("pet_uid", 0)) == pet_uid:
+			return int(pet_variant.get("free_attr_points", 0))
+	return 0
 
 
 func _build_bottom_summary(lineup: Array) -> String:

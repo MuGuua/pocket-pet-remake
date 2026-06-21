@@ -47,6 +47,10 @@ var _initialized: bool = false
 var _is_playing_events: bool = false
 var _last_played_frame: int = 0
 var _interaction_locked: bool = false
+## 标记当前是否在等待自动战斗开关回执，避免与普通出招提交共用锁定逻辑。
+var _pending_auto_toggle: bool = false
+## 按 frame 缓存服务端推送，避免 GameState 被新帧覆盖后丢失尚未演出的回合。
+var _pending_frame_batches: Array[Dictionary] = []
 
 func _ready() -> void:
 	_slot_positions = BattleFormationMapper.build_slot_positions()
@@ -60,12 +64,15 @@ func _ready() -> void:
 		_action_panel.get_node("%ItemButton").visible = false
 	if _command_status != null and _command_status.has_signal("request_auto_timeout"):
 		_command_status.request_auto_timeout.connect(_on_command_timeout_auto_request)
+	if _command_status != null and _command_status.has_method("bind_director"):
+		_command_status.bind_director(self)
 
 ## 战斗场景挂载后，根据 4011 快照初始化单位与指令阶段。
 func initialize_battle() -> void:
 	if _initialized:
 		return
 	_initialized = true
+	_pending_frame_batches.clear()
 	_last_played_frame = _network.get_frame()
 	_current_round = _network.get_round()
 	_bootstrap_units()
@@ -73,17 +80,74 @@ func initialize_battle() -> void:
 	_action_log_panel.append_log("战斗开始，等待指令。")
 	_refresh_command_phase()
 
+## 缓存一条 4012 状态推送；同 frame 只保留一份，按 frame 升序排队演出。
+func ingest_state_push(state: Dictionary) -> void:
+	if state.is_empty():
+		return
+	var frame: int = int(state.get("frame", 0))
+	if frame <= _last_played_frame:
+		return
+	var events_variant: Variant = state.get("events", [])
+	if not events_variant is Array:
+		return
+	var events: Array[Dictionary] = []
+	for event_variant: Variant in events_variant:
+		if event_variant is Dictionary:
+			events.append((event_variant as Dictionary).duplicate(true))
+	if events.is_empty():
+		return
+	events = BattleEventAdapter.trim_events_after_battle_decided(events, _network)
+	if events.is_empty():
+		return
+	for batch: Dictionary in _pending_frame_batches:
+		if int(batch.get("frame", 0)) == frame:
+			return
+	var runtime_actors: Array[Dictionary] = []
+	var actors_variant: Variant = state.get("actors", [])
+	if actors_variant is Array:
+		for actor_variant: Variant in actors_variant:
+			if actor_variant is Dictionary:
+				runtime_actors.append((actor_variant as Dictionary).duplicate(true))
+	_pending_frame_batches.append({
+		"frame": frame,
+		"events": events,
+		"actors": runtime_actors,
+		"phase": str(state.get("phase", "")),
+	})
+	_pending_frame_batches.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return int(left.get("frame", 0)) < int(right.get("frame", 0))
+	)
+
 ## 收到 4012/4013 后由 battle_scene 转发。
 func handle_battle_state_update() -> void:
 	_current_round = _network.get_round()
-	var frame: int = _network.get_frame()
-	var events: Array[Dictionary] = _network.get_events()
-	if not events.is_empty() and not _is_playing_events and frame > _last_played_frame:
-		print("[BattleScene][PLAY_EVENTS] frame=%d events=%d phase=%s" % [frame, events.size(), _network.get_phase()])
+	while not _pending_frame_batches.is_empty():
+		var batch: Dictionary = _pending_frame_batches[0]
+		var frame: int = int(batch.get("frame", 0))
+		if frame <= _last_played_frame:
+			_pending_frame_batches.pop_front()
+			continue
+		var events: Array[Dictionary] = batch.get("events", []) as Array[Dictionary]
+		var runtime_actors: Array[Dictionary] = batch.get("actors", []) as Array[Dictionary]
+		if OS.is_debug_build():
+			print(
+				"[BattleScene][PLAY_EVENTS] frame=%d events=%d phase=%s" % [
+					frame,
+					events.size(),
+					str(batch.get("phase", _network.get_phase()))
+				]
+			)
 		_lock_interaction("正在播放战斗演出")
-		await _play_state_events()
+		await _play_state_events(events, runtime_actors)
 		_last_played_frame = frame
-	_sync_runtime_actors()
+		_pending_frame_batches.pop_front()
+		# 只以当前正在播放的批次 phase 判断是否结束，避免最新 GameState 已变为 finished 时
+		# 提前清空仍未播放的中间自动战斗帧。
+		if str(batch.get("phase", "")) == "finished":
+			_pending_frame_batches.clear()
+			break
+	if not has_unplayed_state_frames():
+		_sync_runtime_actors()
 	if _network.get_phase() == "command":
 		var pending_actor_ids: Array[int] = _network.get_pending_actor_ids()
 		if not pending_actor_ids.is_empty():
@@ -96,12 +160,26 @@ func handle_battle_state_update() -> void:
 
 ## 服务端已受理动作，但尚未收到带演出事件的 4012，此时继续保持锁定。
 func mark_action_accepted() -> void:
+	if _pending_auto_toggle:
+		_pending_auto_toggle = false
+		return
 	if _state == STATE_SUBMITTING:
 		_state = STATE_WAITING_INPUT
 	_lock_interaction("正在等待服务端结算")
 
 ## 动作被拒绝时回滚当前选择并恢复可操作状态。
 func handle_action_rejected(reason: String) -> void:
+	if _pending_auto_toggle:
+		_pending_auto_toggle = false
+		_sync_auto_button_availability()
+		if not reason.is_empty():
+			_action_log_panel.append_log(reason)
+		return
+	# 战斗已结束或已从服务端移除时，忽略迟到的动作回执，避免重新解锁面板。
+	if _network.get_phase() != "command" or reason == "battle not found":
+		if _network.get_phase() == "finished":
+			_lock_interaction("战斗结算中")
+		return
 	_selection_index = maxi(0, _selection_index - 1)
 	_state = STATE_WAITING_INPUT
 	_unlock_interaction()
@@ -113,21 +191,43 @@ func handle_action_rejected(reason: String) -> void:
 func is_playing_events() -> bool:
 	return _is_playing_events
 
+## 是否仍有比已播放帧更新的状态推送尚未演出。
+func has_unplayed_state_frames() -> bool:
+	return not _pending_frame_batches.is_empty()
+
+## 是否仍有战斗演出（事件时间轴、排队帧或飘字层）未结束。
+func has_pending_presentations() -> bool:
+	if _is_playing_events or has_unplayed_state_frames():
+		return true
+	if _floating_layer != null and _floating_layer.get_child_count() > 0:
+		return true
+	return false
+
+## 等待当前批次演出与飘字层清空，给死亡/受击 tween 留出收尾时间。
+func wait_for_post_presentation_settle() -> void:
+	while _floating_layer != null and _floating_layer.get_child_count() > 0:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.35).timeout
+
 ## 战斗结束时锁定面板。
 func handle_battle_finished(summary: String = "战斗结束") -> void:
 	_lock_interaction("战斗结束")
 	_finish_battle(summary)
 
-## 锁定战斗交互并禁用操作按钮；自动战斗开启时仍保留自动按钮可点。
+## 锁定战斗交互并禁用操作按钮；非结束阶段始终保留自动按钮可点。
 func _lock_interaction(tip: String) -> void:
 	if _interaction_locked and tip.is_empty():
 		return
 	_interaction_locked = true
-	if _network.is_auto_battle_enabled():
-		_action_panel.set_auto_mode_active(true)
-	else:
-		_action_panel.set_buttons_disabled(true)
+	_sync_auto_button_availability()
 	interaction_locked_changed.emit(true, tip)
+
+## 非战斗结束阶段仅保留自动按钮，便于动画播放时也能开关托管。
+func _sync_auto_button_availability() -> void:
+	if _network.get_phase() == "finished":
+		_action_panel.set_buttons_disabled(true)
+	else:
+		_action_panel.set_auto_mode_active(true)
 
 ## 解除战斗交互锁定，允许继续选招或点选目标。
 func _unlock_interaction() -> void:
@@ -141,6 +241,8 @@ func is_interaction_locked() -> bool:
 
 func _refresh_command_phase() -> void:
 	if _interaction_locked:
+		return
+	if _network.get_phase() != "command":
 		return
 	if _network.is_auto_battle_enabled():
 		_action_panel.set_auto_mode_active(true)
@@ -177,8 +279,7 @@ func _bootstrap_units() -> void:
 
 func _spawn_unit(unit_data: Dictionary) -> BattleUnit:
 	var unit: BattleUnit = BattleUnitScene.instantiate() as BattleUnit
-	var position_key: String = str(unit_data.get("position", "left_front"))
-	var slot_position: Vector2 = _get_slot_position(position_key)
+	var slot_position: Vector2 = _resolve_unit_slot_position(unit_data)
 	var resolved_skin: UnitSkin = _content_registry.get_unit_skin(str(unit_data.get("skin_id", "")))
 	var tween: Tween = create_tween()
 	_unit_layer.add_child(unit)
@@ -211,9 +312,11 @@ func _begin_next_ally_selection() -> void:
 
 func _on_action_selected(action_type: String) -> void:
 	if action_type == "auto":
+		if _network.get_phase() == "finished":
+			return
 		if _network.is_auto_battle_enabled():
 			_submit_auto_toggle(false)
-		elif _state == STATE_WAITING_INPUT:
+		else:
 			_submit_auto_toggle(true)
 		return
 	if _state == STATE_SELECTING_TARGET and action_type in ["escape", "cancel_target"]:
@@ -279,7 +382,18 @@ func _on_target_selection_confirmed() -> void:
 	_confirm_target_selection()
 
 func _get_round_available_skills(unit: BattleUnit) -> Array[Dictionary]:
-	return unit.skills.duplicate()
+	var result: Array[Dictionary] = []
+	for skill_data: Dictionary in unit.skills:
+		if _is_basic_attack_skill(skill_data):
+			continue
+		result.append(skill_data.duplicate())
+	return result
+
+## 判断是否为普攻技能；普攻只能通过「攻击」按钮发动，不应出现在技能列表。
+func _is_basic_attack_skill(skill_data: Dictionary) -> bool:
+	if bool(skill_data.get("is_basic_attack", false)):
+		return true
+	return int(skill_data.get("skill_id", 0)) == App.DEFAULT_BATTLE_SKILL_ID
 
 func _handle_target_unit_pressed(unit: BattleUnit) -> void:
 	var target_side: String = str(_pending_selection.get("target_side", "enemy"))
@@ -309,9 +423,6 @@ func _begin_skill_selection(unit: BattleUnit) -> void:
 	if available_skills.is_empty():
 		_action_log_panel.append_log("%s 没有可用技能" % unit.unit_name)
 		return
-	if available_skills.size() == 1:
-		_resolve_action_selection(_build_skill_selection(available_skills[0]))
-		return
 	_pending_skill_choices = available_skills.duplicate()
 	_action_panel.open_choice_list("skill", available_skills)
 
@@ -329,8 +440,9 @@ func _build_attack_selection() -> Dictionary:
 	return {
 		"action_type": "attack",
 		"skill_id": App.DEFAULT_BATTLE_SKILL_ID,
-		"display_name": "普通攻击",
-		"skill_visual_id": "",
+		"display_name": "攻击",
+		"skill_visual_id": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
+		"animation_key": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
 		"target_count": 1,
 		"target_side": "enemy",
 		"target_ids": [],
@@ -376,6 +488,7 @@ func _build_skill_selection(skill_data: Dictionary) -> Dictionary:
 		"skill_id": int(skill_data.get("skill_id", 0)),
 		"display_name": str(skill_data.get("display_name", skill_data.get("skill_id", "技能"))),
 		"skill_visual_id": str(skill_data.get("skill_visual_id", "")),
+		"animation_key": str(skill_data.get("animation_key", "")),
 		"target_count": int(skill_data.get("target_count", 1)),
 		"target_side": str(skill_data.get("target_side", "enemy")),
 		"target_ids": [],
@@ -466,8 +579,11 @@ func _commit_unit_selection(selection: Dictionary) -> void:
 	_selection_index += 1
 
 func _submit_auto_toggle(enabled: bool) -> void:
-	_lock_interaction("正在切换自动战斗")
-	App.set_battle_auto(_network.get_battle_id(), _network.get_round(), enabled)
+	var battle_id: int = _network.get_battle_id()
+	if battle_id <= 0 or _network.get_phase() == "finished":
+		return
+	_pending_auto_toggle = true
+	App.set_battle_auto(battle_id, _network.get_round(), enabled)
 
 
 func _on_command_timeout_auto_request() -> void:
@@ -605,8 +721,7 @@ func _format_selection_summary(selection: Dictionary) -> String:
 		return action_name
 	return "%s → %s" % [action_name, target_text]
 
-func _play_state_events() -> void:
-	var events: Array[Dictionary] = _network.get_events()
+func _play_state_events(events: Array[Dictionary], runtime_actors: Array[Dictionary]) -> void:
 	if events.is_empty():
 		return
 	_is_playing_events = true
@@ -616,7 +731,7 @@ func _play_state_events() -> void:
 	_combos_by_id.clear()
 	var round_data: Dictionary = BattleEventAdapter.build_round_data(
 		events,
-		_network.get_runtime_actors(),
+		runtime_actors,
 		_network
 	)
 	var actions: Array = round_data.get("actions", []) as Array
@@ -770,15 +885,18 @@ func _play_combo(combo_entry: Dictionary) -> void:
 			target.base_position,
 			_should_mirror_skill_effect_at_target(actor, target.base_position)
 		)
-		var result: Dictionary = {
-			"target_id": int(combo_entry.get("target_id", 0)),
-			"result_type": str(combo_entry.get("result_type", "damage")),
-			"value": int(combo_entry.get("value", 0)),
-			"hp_after": int(combo_entry.get("hp_after", 0)),
-			"floating_text": str(combo_entry.get("floating_text", "")),
-			"log_text": ""
-		}
-		await _apply_target_result(result)
+		var result_type: String = str(combo_entry.get("result_type", "none"))
+		if result_type != "none":
+			var result: Dictionary = {
+				"target_id": int(combo_entry.get("target_id", 0)),
+				"result_type": result_type,
+				"value": int(combo_entry.get("value", 0)),
+				"floating_text": str(combo_entry.get("floating_text", "")),
+				"log_text": ""
+			}
+			if combo_entry.has("hp_after"):
+				result["hp_after"] = int(combo_entry.get("hp_after", 0))
+			await _apply_target_result(result)
 
 func _apply_target_result(target_result: Dictionary) -> void:
 	var target: BattleUnit = _get_unit(int(target_result.get("target_id", "")))
@@ -879,7 +997,7 @@ func _show_caster_action_name(actor: BattleUnit, action_name: String) -> void:
 	_floating_layer.add_child(label)
 	label.play(action_name, _resolve_floating_text_color("action_name"))
 
-## 取施法者头顶展示用的技能名；优先 display_name，普攻会显示「普通攻击」。
+## 取施法者头顶展示用的技能名；优先 display_name，普攻会显示「攻击」。
 func _resolve_caster_action_label(action: Dictionary) -> String:
 	var display_name: String = str(action.get("display_name", "")).strip_edges()
 	if not display_name.is_empty():
@@ -945,7 +1063,16 @@ func _get_slot_position(position_key: String) -> Vector2:
 		if slot_position_value is Vector2:
 			return slot_position_value as Vector2
 	push_warning("未找到站位 key: %s，请检查 battle_demo.json 的 formation 配置。" % position_key)
-	return Vector2.ZERO
+	return Vector2(BattleFormationMapper.ALLY_FRONT_X, BattleFormationMapper.MAGIC_CIRCLE_CENTER_Y)
+
+
+## 优先使用 BattleFormationMapper 写入的 slot_position，旧 demo 仍走 key 映射。
+func _resolve_unit_slot_position(unit_data: Dictionary) -> Vector2:
+	var slot_variant: Variant = unit_data.get("slot_position", null)
+	if slot_variant is Vector2:
+		return slot_variant as Vector2
+	var position_key: String = str(unit_data.get("position", "left_front"))
+	return _get_slot_position(position_key)
 
 func _resolve_skill_visual(data: Dictionary) -> SkillVisualConfig:
 	var skill_visual_id: String = str(data.get("skill_visual_id", ""))
@@ -955,6 +1082,8 @@ func _resolve_skill_visual(data: Dictionary) -> SkillVisualConfig:
 			return visual
 	var animation_key: String = str(data.get("animation_key", ""))
 	if animation_key.is_empty():
+		if str(data.get("action_type", "")) == "attack" or int(data.get("skill_id", 0)) == App.DEFAULT_BATTLE_SKILL_ID:
+			return _content_registry.get_skill_visual(App.DEFAULT_BATTLE_SKILL_VISUAL_ID)
 		return null
 	return _content_registry.get_skill_visual(animation_key)
 
@@ -982,7 +1111,7 @@ func _get_unit(actor_id: int) -> BattleUnit:
 func _display_action_name(action_type: String) -> String:
 	match action_type:
 		"attack":
-			return "普通攻击"
+			return "攻击"
 		"skill":
 			return "技能"
 		"item":

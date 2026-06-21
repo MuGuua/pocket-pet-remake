@@ -62,6 +62,8 @@ export interface AdminPetDefinitionDetail {
   growth_aptitudes: AdminPetDefinitionGrowthAptitudes;
   aptitude_roll_ranges: AdminPetDefinitionAptitudeRollRanges;
   skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
   created_at: string;
   updated_at: string;
 }
@@ -103,4 +105,6 @@ export interface AdminUpsertPetDefinitionPayload {
   mana_apt_roll_min: number;
   mana_apt_roll_max: number;
   skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
 }

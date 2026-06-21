@@ -24,6 +24,7 @@ import { createAdminItem, deleteAdminItem, fetchAdminItemDetail, fetchAdminItems
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary, AdminUpsertItemPayload } from '../../types/item';
 import { formatDisplayLabel, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface ItemFormValues extends AdminUpsertItemPayload {}
 
@@ -235,7 +236,7 @@ export function ItemDefinitionPage() {
           </Descriptions>
         )}
       </Drawer>
-      <Modal title={editingRecord ? `编辑模板 · ${editingRecord.item_name}` : '新增物品模板'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={720} okText={editingRecord ? '保存修改' : '创建模板'} cancelText="取消">
+      <Modal title={editingRecord ? `编辑模板 · ${editingRecord.item_name}` : '新增物品模板'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={720} style={{ top: FIXED_FORM_MODAL_TOP }} styles={FIXED_FORM_MODAL_STYLES} okText={editingRecord ? '保存修改' : '创建模板'} cancelText="取消">
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
           <Row gutter={16}>
             <Col xs={24} md={8}><Form.Item label="物品ID" name="item_id" rules={[{ required: true, message: '请输入物品ID' }]}><InputNumber min={1} disabled={Boolean(editingRecord)} style={{ width: '100%' }} /></Form.Item></Col>

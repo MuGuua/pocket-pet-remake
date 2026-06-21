@@ -39,6 +39,8 @@ export interface AdminSkillFormula {
   is_skill_attack: boolean;
   allow_crit: boolean;
   ignore_defense: boolean;
+  skill_mult: number;
+  skill_crit_add: number;
 }
 
 export interface AdminSkillStatusEffects {
@@ -48,6 +50,7 @@ export interface AdminSkillStatusEffects {
   bleed_rounds: number;
   bleed_damage: number;
   seal_chance_pct: number;
+  seal_power: number;
   seal_rounds: number;
   vulnerability_chance_pct: number;
   vulnerability_rounds: number;
@@ -64,6 +67,7 @@ export interface AdminSkillStatusEffects {
   curse_damage: number;
   curse_mana_pct: number;
   control_chance_pct: number;
+  control_power: number;
   control_rounds: number;
   control_status_id: number;
 }
@@ -127,6 +131,8 @@ export interface AdminUpsertSkillPayload {
   energy_cost: number;
   allow_crit: boolean;
   ignore_defense: boolean;
+  skill_mult: number;
+  skill_crit_add: number;
   attack_pct: number;
   mana_pct: number;
   defense_pct: number;
@@ -141,6 +147,7 @@ export interface AdminUpsertSkillPayload {
   bleed_rounds: number;
   bleed_damage: number;
   seal_chance_pct: number;
+  seal_power: number;
   seal_rounds: number;
   vulnerability_chance_pct: number;
   vulnerability_rounds: number;
@@ -157,6 +164,7 @@ export interface AdminUpsertSkillPayload {
   curse_damage: number;
   curse_mana_pct: number;
   control_chance_pct: number;
+  control_power: number;
   control_rounds: number;
   control_status_id: number;
 }

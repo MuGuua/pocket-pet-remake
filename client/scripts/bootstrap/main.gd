@@ -1,6 +1,5 @@
 extends Node
 
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 # 世界场景资源的预加载引用。
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
@@ -9,11 +8,12 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/player_panel.tscn")
 const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
 const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
+const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
+const NPC_SHOP_PANEL_SCENE := preload("res://scenes/ui/npc_shop_panel.tscn")
 const RewardPopupScene := preload("res://scenes/ui/reward_popup.tscn")
 const LevelUpPopupScene := preload("res://scenes/ui/level_up_popup.tscn")
+const PetLevelUpPopupScene := preload("res://scenes/ui/pet_level_up_popup.tscn")
 const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
-const LIMENG_DIALOGUE_PATH := "res://dialogue/untitled.dialogue"
-const GENERIC_NPC_DIALOGUE_PATH := "res://dialogue/测试1.dialogue"
 # 返回登录页时使用的场景路径。
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 # 场景切换遮罩淡入淡出的持续时间。
@@ -52,6 +52,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 var _reward_popup: CanvasLayer = null
 # 升级弹窗实例，经验升级后展示属性加成。
 var _level_up_popup: CanvasLayer = null
+# 宠物升级弹窗实例，战斗结算后逐只展示升级摘要。
+var _pet_level_up_popup: CanvasLayer = null
 # 当前挂载的世界控制器实例引用。
 var _world_controller: Node
 # 战斗表现场景实例；非战斗态时为 null。
@@ -82,8 +84,40 @@ var _pending_pvp_invite: Dictionary = {}
 var _suppress_settlement_input_until_frame: int = -1
 # 结算弹窗流程代次；新战斗开始时会递增，用于打断未关闭的升级/奖励弹窗链路。
 var _popup_flow_generation: int = 0
-# 当前 NPC 对话气球节点，战斗开始时会强制关闭。
-var _active_dialogue_balloon: Node = null
+# 当前运行中的 NPC 结构化剧情面板实例。
+var _npc_dialogue_panel: NPCDialoguePanel = null
+# 当前运行中的 NPC 商店面板实例。
+var _npc_shop_panel: NPCShopPanel = null
+# 当前运行中的客户端剧情动画播放器。
+var _cinematic_player: CinematicPlayer = null
+# 当前等待客户端剧情动画播完后继续推进的 NPC 实体标识。
+var _active_dialogue_entity_id: int = 0
+# 当前等待客户端剧情动画播完后继续推进的剧情实例标识。
+var _active_dialogue_id: int = 0
+# 当前等待客户端剧情动画播完后继续推进的剧情节点标识。
+var _active_dialogue_node_id: String = ""
+# 当前剧情所属 NPC 名称，供动作节点播完后恢复对话面板标题使用。
+var _active_dialogue_npc_name: String = ""
+# NPC 交互/剧情请求的通用 loading 遮罩。
+var _npc_request_loading: RequestLoadingOverlay = null
+# 当前等待 NPC_MENU_RESP 的请求序列号。
+var _pending_npc_menu_seq: int = 0
+# 与 _pending_npc_menu_seq 对应的菜单回包缓存。
+var _pending_npc_menu_payload: Dictionary = {}
+# 当前等待 NPC_ACTION_RESP 的请求序列号。
+var _pending_npc_action_seq: int = 0
+# 与 _pending_npc_action_seq 对应的动作回包缓存。
+var _pending_npc_action_payload: Dictionary = {}
+# 当前等待 NPC_DIALOGUE_RESP 的请求序列号。
+var _pending_dialogue_request_seq: int = 0
+# 与 _pending_dialogue_request_seq 对应的剧情回包缓存。
+var _pending_dialogue_payload: Dictionary = {}
+# 当前打开的商店 NPC 实体 ID。
+var _active_shop_entity_id: int = 0
+# 当前等待 BUY_ITEM_RESP 的请求序列号。
+var _pending_buy_item_seq: int = 0
+# 与 _pending_buy_item_seq 对应的购买回包缓存。
+var _pending_buy_item_payload: Dictionary = {}
 # 标记是否正在播放地图切换的黑色遮罩过渡。
 var _scene_map_transition_active: bool = false
 # 新地图是否已在过渡中点之前加载完成，供中点换图后渐出。
@@ -174,7 +208,9 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.WILD_ENCOUNTER_RESP, Callable(_world_controller, "handle_wild_encounter_response"))
 	MessageRouter.register_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.register_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
+	MessageRouter.register_handler(CommandIds.NPC_MENU_RESP, Callable(battle_controller, "handle_npc_menu_response"))
 	MessageRouter.register_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
+	MessageRouter.register_handler(CommandIds.NPC_DIALOGUE_RESP, Callable(battle_controller, "handle_npc_dialogue_response"))
 	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_RESP, Callable(battle_controller, "handle_pvp_challenge_response"))
 	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_PUSH, Callable(battle_controller, "handle_pvp_challenge_push"))
 	MessageRouter.register_handler(CommandIds.PVP_CHALLENGE_REPLY_RESP, Callable(battle_controller, "handle_pvp_challenge_reply_response"))
@@ -182,8 +218,16 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
 	MessageRouter.register_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
 	MessageRouter.register_handler(CommandIds.PET_LINEUP_SET_RESP, Callable(pet_controller, "handle_lineup_set_response"))
+	MessageRouter.register_handler(CommandIds.PET_ALLOCATE_ATTR_RESP, Callable(pet_controller, "handle_allocate_attr_response"))
+	MessageRouter.register_handler(CommandIds.PET_SKILL_DETAIL_RESP, Callable(pet_controller, "handle_pet_skill_detail_response"))
+	MessageRouter.register_handler(CommandIds.PET_ARTIFACT_EQUIP_RESP, Callable(pet_controller, "handle_pet_artifact_response"))
+	MessageRouter.register_handler(CommandIds.PET_ARTIFACT_UNEQUIP_RESP, Callable(pet_controller, "handle_pet_artifact_response"))
 
 	MessageRouter.register_handler(CommandIds.PLAYER_ALLOCATE_ATTR_RESP, Callable(player_controller, "handle_allocate_attr_response"))
+	MessageRouter.register_handler(CommandIds.PLAYER_EQUIPMENT_LIST_RESP, Callable(player_controller, "handle_equipment_list_response"))
+	MessageRouter.register_handler(CommandIds.PLAYER_EQUIP_RESP, Callable(player_controller, "handle_equip_response"))
+	MessageRouter.register_handler(CommandIds.PLAYER_UNEQUIP_RESP, Callable(player_controller, "handle_unequip_response"))
+	MessageRouter.register_handler(CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP, Callable(player_controller, "handle_enhance_response"))
 
 	MessageRouter.register_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
 	MessageRouter.register_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
@@ -195,7 +239,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.USE_ITEM_RESP, Callable(bag_controller, "handle_use_item_response"))
 	MessageRouter.register_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
 	MessageRouter.register_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
-	MessageRouter.register_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
+	MessageRouter.register_handler(CommandIds.BUY_ITEM_RESP, Callable(bag_controller, "handle_buy_item_response"))
 	MessageRouter.register_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.register_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.register_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -216,14 +260,24 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.WILD_ENCOUNTER_RESP, Callable(_world_controller, "handle_wild_encounter_response"))
 	MessageRouter.unregister_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.unregister_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
+	MessageRouter.unregister_handler(CommandIds.NPC_MENU_RESP, Callable(battle_controller, "handle_npc_menu_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
+	MessageRouter.unregister_handler(CommandIds.NPC_DIALOGUE_RESP, Callable(battle_controller, "handle_npc_dialogue_response"))
 	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_RESP, Callable(battle_controller, "handle_pvp_challenge_response"))
 	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_PUSH, Callable(battle_controller, "handle_pvp_challenge_push"))
 	MessageRouter.unregister_handler(CommandIds.PVP_CHALLENGE_REPLY_RESP, Callable(battle_controller, "handle_pvp_challenge_reply_response"))
 	MessageRouter.unregister_handler(CommandIds.PET_LIST_RESP, Callable(pet_controller, "handle_pet_list"))
 	MessageRouter.unregister_handler(CommandIds.PET_UPDATE_PUSH, Callable(pet_controller, "handle_pet_update"))
 	MessageRouter.unregister_handler(CommandIds.PET_LINEUP_SET_RESP, Callable(pet_controller, "handle_lineup_set_response"))
+	MessageRouter.unregister_handler(CommandIds.PET_ALLOCATE_ATTR_RESP, Callable(pet_controller, "handle_allocate_attr_response"))
+	MessageRouter.unregister_handler(CommandIds.PET_SKILL_DETAIL_RESP, Callable(pet_controller, "handle_pet_skill_detail_response"))
+	MessageRouter.unregister_handler(CommandIds.PET_ARTIFACT_EQUIP_RESP, Callable(pet_controller, "handle_pet_artifact_response"))
+	MessageRouter.unregister_handler(CommandIds.PET_ARTIFACT_UNEQUIP_RESP, Callable(pet_controller, "handle_pet_artifact_response"))
 	MessageRouter.unregister_handler(CommandIds.PLAYER_ALLOCATE_ATTR_RESP, Callable(player_controller, "handle_allocate_attr_response"))
+	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIPMENT_LIST_RESP, Callable(player_controller, "handle_equipment_list_response"))
+	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIP_RESP, Callable(player_controller, "handle_equip_response"))
+	MessageRouter.unregister_handler(CommandIds.PLAYER_UNEQUIP_RESP, Callable(player_controller, "handle_unequip_response"))
+	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP, Callable(player_controller, "handle_enhance_response"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_STATE_PUSH, Callable(battle_controller, "handle_battle_state"))
@@ -234,6 +288,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
 	MessageRouter.unregister_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
 	MessageRouter.unregister_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
+	MessageRouter.unregister_handler(CommandIds.BUY_ITEM_RESP, Callable(bag_controller, "handle_buy_item_response"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -246,6 +301,7 @@ func _connect_signals() -> void:
 	App.notice_received.connect(_on_notice_received)
 	App.kicked.connect(_on_kicked)
 	App.server_result_logged.connect(_on_server_result_logged)
+	App.session_authenticated.connect(_on_session_authenticated)
 	gameplay_area.resized.connect(_sync_world_render_frame)
 
 	if battle_controller.has_signal("interact_responded"):
@@ -254,8 +310,12 @@ func _connect_signals() -> void:
 		battle_controller.connect("action_responded", Callable(self, "_on_action_responded"))
 	if battle_controller.has_signal("interact_payload_received"):
 		battle_controller.connect("interact_payload_received", Callable(self, "_on_interact_payload_received"))
+	if battle_controller.has_signal("npc_menu_payload_received"):
+		battle_controller.connect("npc_menu_payload_received", Callable(self, "_on_npc_menu_payload_received"))
 	if battle_controller.has_signal("npc_action_payload_received"):
 		battle_controller.connect("npc_action_payload_received", Callable(self, "_on_npc_action_payload_received"))
+	if battle_controller.has_signal("npc_dialogue_payload_received"):
+		battle_controller.connect("npc_dialogue_payload_received", Callable(self, "_on_npc_dialogue_payload_received"))
 	if battle_controller.has_signal("pvp_challenge_responded"):
 		battle_controller.connect("pvp_challenge_responded", Callable(self, "_on_pvp_challenge_responded"))
 	if battle_controller.has_signal("pvp_challenge_received"):
@@ -268,6 +328,8 @@ func _connect_signals() -> void:
 		battle_controller.connect("battle_finished", Callable(self, "_on_battle_finished"))
 	if quest_controller.has_signal("quest_settlement_popup_requested"):
 		quest_controller.connect("quest_settlement_popup_requested", Callable(self, "_on_quest_settlement_popup_requested"))
+	if bag_controller.has_signal("buy_item_responded"):
+		bag_controller.connect("buy_item_responded", Callable(self, "_on_buy_item_responded"))
 
 	GameState.session_changed.connect(_refresh_view)
 	GameState.world_snapshot_changed.connect(_refresh_view)
@@ -388,43 +450,33 @@ func _on_scene_transition_failed(reason: String) -> void:
 
 func _on_npc_interaction_requested(entity_id: int, npc_name: String) -> void:
 	_append_log("尝试与 NPC 交互: %s (%d)" % [npc_name, entity_id])
-	App.request_interact(entity_id)
+	_begin_npc_menu_request(entity_id)
 
 func _on_wild_encounter_responded(accepted: bool, reason: String) -> void:
 	_append_log("暗雷遭遇: %s (%s)" % ["accepted" if accepted else "rejected", reason])
 	_refresh_view()
 
-func _on_interact_payload_received(payload: Dictionary) -> void:
-	if str(payload.get("response_type", "")) != "menu":
+func _on_interact_payload_received(_payload: Dictionary) -> void:
+	pass
+
+func _on_npc_menu_payload_received(payload: Dictionary) -> void:
+	if _pending_npc_menu_seq > 0:
+		_pending_npc_menu_payload = payload.duplicate(true)
 		return
-	_append_log("收到 NPC 菜单数据: %s" % str(payload.get("npc_name", "未知 NPC")))
-	if _npc_menu != null:
-		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
-		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
-		_npc_menu.call("open_menu")
-		_set_runtime_menu_locked(true)
+	_open_npc_menu_from_payload(payload)
 
 func _on_npc_action_payload_received(payload: Dictionary) -> void:
-	if str(payload.get("result_type", "")) == "battle":
-		_close_runtime_menus(true)
+	if _pending_npc_action_seq > 0:
+		_pending_npc_action_payload = payload.duplicate(true)
 		return
-	var dialogue_binding := _resolve_npc_dialogue_binding({
-		"entity_id": int(payload.get("entity_id", 0)),
-		"id": str(payload.get("entry_id", "")),
-		"entry_type": "dialog",
-		"npc_name": str(payload.get("npc_name", "NPC")),
-	})
-	if not dialogue_binding.is_empty():
-		_show_npc_dialogue(dialogue_binding, str(payload.get("npc_name", "NPC")))
+	_handle_npc_action_payload(payload)
+
+## 处理 NPC 剧情继续/选项选择后的统一节点回包。
+func _on_npc_dialogue_payload_received(payload: Dictionary) -> void:
+	if _pending_dialogue_request_seq > 0:
+		_pending_dialogue_payload = payload.duplicate(true)
 		return
-	var notice := str(payload.get("notice", payload.get("reason", "")))
-	if not notice.is_empty():
-		_append_log("NPC 操作: %s" % notice)
-	if payload.has("menu_entries") and _npc_menu != null:
-		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
-		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
-		_npc_menu.call("open_menu")
-		_set_runtime_menu_locked(true)
+	_handle_npc_dialogue_payload(payload)
 
 # 处理世界交互回执，并刷新主视图显示。
 func _on_interact_responded(accepted: bool, reason: String) -> void:
@@ -474,13 +526,16 @@ func _on_battle_finished(payload: Dictionary) -> void:
 		await _show_level_up_popup_and_wait(player_level, bonus)
 		if flow_id != _popup_flow_generation:
 			return
-	var popup_rewards: Array = _collect_battle_popup_rewards(payload)
 	var pet_rewards_variant: Variant = payload.get("pet_rewards", [])
 	var pet_rewards: Array = pet_rewards_variant if pet_rewards_variant is Array else []
+	await _show_pet_level_up_popups_and_wait(pet_rewards)
+	if flow_id != _popup_flow_generation:
+		return
+	var popup_rewards: Array = _collect_battle_popup_rewards(payload)
 	if bool(payload.get("win", false)) and (not popup_rewards.is_empty() or not pet_rewards.is_empty()):
 		if flow_id != _popup_flow_generation:
 			return
-		_show_reward_popup("战斗奖励", popup_rewards, pet_rewards)
+		_show_reward_popup("", popup_rewards, pet_rewards)
 	var reward_gold := int(payload.get("reward_gold", 0))
 	var reward_player_exp := int(payload.get("reward_player_exp", 0))
 	var drop_texts_variant: Variant = payload.get("drop_texts", [])
@@ -493,9 +548,11 @@ func _on_battle_finished(payload: Dictionary) -> void:
 		var drop_text := str(drop_text_variant)
 		if not drop_text.is_empty():
 			_append_log(drop_text)
+	_log_pet_level_up_rewards(pet_rewards)
 	App.request_quest_list()
 	if bool(payload.get("win", false)):
 		App.refresh_player_status()
+		App.request_pet_list()
 	_refresh_view()
 
 ## 初始化战斗弹窗层：全屏半透明遮罩 + 居中战斗面板，世界场景保持可见。
@@ -610,9 +667,13 @@ func _create_runtime_ui() -> void:
 	_create_npc_menu()
 	_create_npc_list_menu()
 	_create_pvp_target_menu()
+	_create_npc_dialogue_panel()
+	_create_npc_shop_panel()
 	_create_pvp_invite_dialog()
 	_create_reward_popup()
 	_create_level_up_popup()
+	_create_cinematic_player()
+	_create_npc_request_loading()
 
 
 func _create_level_up_popup() -> void:
@@ -632,6 +693,72 @@ func _show_level_up_popup_and_wait(level: int, bonus: Dictionary) -> void:
 	_level_up_popup.call("show_level_up", level, bonus)
 	if _level_up_popup.has_signal("popup_closed"):
 		await _level_up_popup.popup_closed
+
+
+func _create_pet_level_up_popup() -> void:
+	if _pet_level_up_popup != null:
+		return
+	_pet_level_up_popup = PetLevelUpPopupScene.instantiate() as CanvasLayer
+	if _pet_level_up_popup == null:
+		return
+	_pet_level_up_popup.name = "PetLevelUpPopup"
+	add_child(_pet_level_up_popup)
+
+
+## 逐只展示战斗结算里升级过的宠物摘要；玩家点按关闭后再进入下一项。
+func _show_pet_level_up_popups_and_wait(pet_rewards: Array) -> void:
+	for pet_reward_variant: Variant in pet_rewards:
+		if pet_reward_variant is not Dictionary:
+			continue
+		var pet_reward: Dictionary = pet_reward_variant as Dictionary
+		var level_up_count: int = int(pet_reward.get("level_up_count", 0))
+		if level_up_count <= 0:
+			continue
+		var pet_uid: int = int(pet_reward.get("pet_uid", 0))
+		var pet_id: int = int(pet_reward.get("pet_id", 0))
+		var level: int = int(pet_reward.get("level", 0))
+		var attr_points_gained: int = int(pet_reward.get("attr_points_gained", 0))
+		var free_attr_points: int = int(pet_reward.get("free_attr_points", 0))
+		var pet_name: String = _resolve_pet_display_name(pet_uid, pet_id)
+		_create_pet_level_up_popup()
+		if _pet_level_up_popup == null or not _pet_level_up_popup.has_method("show_pet_level_up"):
+			continue
+		_pet_level_up_popup.call("show_pet_level_up", pet_name, level, attr_points_gained, free_attr_points)
+		if _pet_level_up_popup.has_signal("popup_closed"):
+			await _pet_level_up_popup.popup_closed
+
+
+## 根据本地宠物列表解析展示名；缺失时回退到 pet_id 或 pet_uid。
+func _resolve_pet_display_name(pet_uid: int, pet_id: int = 0) -> String:
+	if pet_uid > 0:
+		for pet_variant: Variant in GameState.pets:
+			if pet_variant is not Dictionary:
+				continue
+			var pet: Dictionary = pet_variant as Dictionary
+			if int(pet.get("pet_uid", 0)) != pet_uid:
+				continue
+			var resolved_pet_id: int = int(pet.get("pet_id", 0))
+			if resolved_pet_id > 0:
+				return "宠物 %d" % resolved_pet_id
+	if pet_id > 0:
+		return "宠物 %d" % pet_id
+	if pet_uid > 0:
+		return "宠物 #%d" % pet_uid
+	return "你的宠物"
+
+
+## 把战斗结算中的宠物升级摘要写入运行日志，便于玩家确认获得自由点。
+func _log_pet_level_up_rewards(pet_rewards: Array) -> void:
+	for pet_reward_variant: Variant in pet_rewards:
+		if pet_reward_variant is not Dictionary:
+			continue
+		var pet_reward: Dictionary = pet_reward_variant as Dictionary
+		var level_up_count: int = int(pet_reward.get("level_up_count", 0))
+		if level_up_count <= 0:
+			continue
+		var pet_uid: int = int(pet_reward.get("pet_uid", 0))
+		var attr_points_gained: int = int(pet_reward.get("attr_points_gained", 0))
+		_append_log("宠物 #%d 升了 %d 级，获得 %d 自由属性点。" % [pet_uid, level_up_count, attr_points_gained])
 
 
 func _create_reward_popup() -> void:
@@ -683,7 +810,7 @@ func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
 	if not rewards.is_empty():
 		if flow_id != _popup_flow_generation:
 			return
-		_show_reward_popup("任务奖励", rewards, [])
+		_show_reward_popup("", rewards, [])
 	if int(payload.get("level_up_count", 0)) > 0:
 		App.refresh_player_status()
 
@@ -751,6 +878,44 @@ func _create_pvp_invite_dialog() -> void:
 	_pvp_invite_dialog.canceled.connect(_on_pvp_invite_canceled)
 	add_child(_pvp_invite_dialog)
 
+## 创建服务端结构化剧情专用的对话面板，并绑定继续/分支按钮回调。
+func _create_npc_dialogue_panel() -> void:
+	if _npc_dialogue_panel != null:
+		return
+	_npc_dialogue_panel = NPC_DIALOGUE_PANEL_SCENE.instantiate() as NPCDialoguePanel
+	if _npc_dialogue_panel == null:
+		return
+	add_child(_npc_dialogue_panel)
+	if _npc_dialogue_panel.has_signal("continue_requested"):
+		_npc_dialogue_panel.connect("continue_requested", Callable(self, "_on_dialogue_continue_requested"))
+	if _npc_dialogue_panel.has_signal("option_selected"):
+		_npc_dialogue_panel.connect("option_selected", Callable(self, "_on_dialogue_option_selected"))
+	if _npc_dialogue_panel.has_signal("panel_closed"):
+		_npc_dialogue_panel.connect("panel_closed", Callable(self, "_on_runtime_menu_closed"))
+
+## 创建 NPC 商店面板，并绑定购买/关闭回调。
+func _create_npc_shop_panel() -> void:
+	if _npc_shop_panel != null:
+		return
+	_npc_shop_panel = NPC_SHOP_PANEL_SCENE.instantiate() as NPCShopPanel
+	if _npc_shop_panel == null:
+		return
+	add_child(_npc_shop_panel)
+	if _npc_shop_panel.has_signal("buy_requested"):
+		_npc_shop_panel.connect("buy_requested", Callable(self, "_on_shop_buy_requested"))
+	if _npc_shop_panel.has_signal("panel_closed"):
+		_npc_shop_panel.connect("panel_closed", Callable(self, "_on_runtime_menu_closed"))
+
+## 创建客户端内置剧情动画播放器，供 action 节点按照 animation_key 拉起本地演出。
+func _create_cinematic_player() -> void:
+	if _cinematic_player != null:
+		return
+	_cinematic_player = CinematicPlayer.new()
+	_cinematic_player.name = "CinematicPlayer"
+	add_child(_cinematic_player)
+	if _cinematic_player.has_signal("cinematic_finished"):
+		_cinematic_player.connect("cinematic_finished", Callable(self, "_on_cinematic_finished"))
+
 func _on_runtime_menu_closed() -> void:
 	_set_runtime_menu_locked(false)
 
@@ -768,7 +933,7 @@ func _on_npc_selected(npc_data: Dictionary) -> void:
 	if _npc_list_menu != null:
 		_npc_list_menu.call("close_menu")
 	_append_log("通过列表选择 NPC: %s (%d)" % [str(npc_data.get("npc_name", "未知 NPC")), entity_id])
-	App.request_interact(entity_id)
+	_begin_npc_menu_request(entity_id)
 
 func _on_pvp_target_selected(target_data: Dictionary) -> void:
 	var target_player_id: int = int(target_data.get("target_player_id", target_data.get("entity_id", 0)))
@@ -805,15 +970,9 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 	if entry_type == "quest" and quest_id > 0:
 		if quest_state == "AVAILABLE":
 			App.accept_quest(quest_id, entity_id)
-			var accept_dialogue := _resolve_quest_dialogue_binding(entity_id, "accept")
-			if not accept_dialogue.is_empty():
-				_show_npc_dialogue(accept_dialogue, str(option.get("npc_name", "NPC")))
 		elif quest_state == "READY_TO_SUBMIT":
 			App.submit_quest(quest_id, entity_id)
-			var submit_dialogue := _resolve_quest_dialogue_binding(entity_id, "submit")
-			if not submit_dialogue.is_empty():
-				_show_npc_dialogue(submit_dialogue, str(option.get("npc_name", "NPC")))
-		App.request_interact(entity_id)
+		_begin_npc_menu_request(entity_id)
 		return
 	if entry_type == "warehouse":
 		_append_log("打开仓库面板: %s (%d)" % [str(option.get("npc_name", "仓库 NPC")), entity_id])
@@ -821,10 +980,7 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 			_player_panel.call("open_warehouse_menu", entity_id)
 			_set_runtime_menu_locked(true)
 		return
-	if entry_type == "battle":
-		App.request_npc_action(entity_id, entry_id)
-		return
-	App.request_npc_action(entity_id, entry_id)
+	_begin_npc_action_request(entity_id, entry_id)
 
 func _on_pvp_challenge_responded(payload: Dictionary) -> void:
 	var accepted: bool = bool(payload.get("accepted", false))
@@ -945,54 +1101,287 @@ func _open_pvp_target_menu() -> void:
 	_pvp_target_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
 
-func _resolve_npc_dialogue_binding(option: Dictionary) -> Dictionary:
-	var entity_id: int = int(option.get("entity_id", 0))
-	var entry_id: String = str(option.get("id", option.get("entry_id", "")))
-	var entry_type: String = str(option.get("entry_type", ""))
-	if entity_id == 93001:
-		if entry_id == "dialog_market_news" or entry_id == "talk" or entry_type == "dialogue":
-			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "talk"}
-	if entity_id == 93002:
-		if entry_id == "dialog_trade_tip" or entry_id == "talk" or entry_type == "dialog":
-			return {"resource_path": GENERIC_NPC_DIALOGUE_PATH, "title": "start"}
-	return {}
-
-func _resolve_quest_dialogue_binding(entity_id: int, action: String) -> Dictionary:
-	if entity_id != 93001:
-		return {}
-	match action:
-		"accept":
-			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "quest_accepted"}
-		"submit":
-			return {"resource_path": LIMENG_DIALOGUE_PATH, "title": "quest_completed"}
-		_:
-			return {}
-
-func _show_npc_dialogue(binding: Dictionary, npc_name: String) -> void:
-	var resource_path: String = str(binding.get("resource_path", ""))
-	var title: String = str(binding.get("title", ""))
-	if resource_path.is_empty():
+## 创建 NPC 请求 loading 遮罩，统一覆盖交互、菜单执行与剧情推进等待态。
+func _create_npc_request_loading() -> void:
+	if _npc_request_loading != null:
 		return
-	var resource_variant: Variant = load(resource_path)
-	if resource_variant is not DialogueResource:
-		_append_log("对话资源加载失败: %s" % resource_path)
-		return
-	var balloon_variant: Variant = DialogueManager.show_dialogue_balloon(resource_variant, title)
-	if balloon_variant is Node:
-		var balloon: Node = balloon_variant
-		balloon.set("npc_portrait", load("res://asset/口袋所有形象/imgs/51.png"))
-		_active_dialogue_balloon = balloon
-		if not balloon.tree_exited.is_connected(_on_dialogue_balloon_tree_exited):
-			balloon.tree_exited.connect(_on_dialogue_balloon_tree_exited.bind(balloon))
-	_append_log("打开对话: %s" % npc_name)
+	_npc_request_loading = RequestLoadingOverlay.new()
+	_npc_request_loading.name = "NpcRequestLoading"
+	add_child(_npc_request_loading)
 
-func _on_dialogue_balloon_tree_exited(balloon: Node) -> void:
-	if _active_dialogue_balloon == balloon:
-		_active_dialogue_balloon = null
+## 展示 NPC 相关请求的 loading 遮罩。
+func _show_npc_request_loading(tip_text: String) -> void:
+	if _npc_request_loading != null:
+		_npc_request_loading.show_waiting(tip_text)
+
+## 隐藏 NPC 相关请求的 loading 遮罩。
+func _hide_npc_request_loading() -> void:
+	if _npc_request_loading != null:
+		_npc_request_loading.hide_overlay()
+
+## 发起 NPC_MENU_REQ，并在回包到达后再打开 NPC 菜单。
+func _begin_npc_menu_request(entity_id: int) -> void:
+	if _pending_npc_menu_seq > 0:
+		return
+	_pending_npc_menu_payload.clear()
+	var request_seq: int = App.request_npc_menu(entity_id)
+	if request_seq <= 0:
+		return
+	_pending_npc_menu_seq = request_seq
+	_show_npc_request_loading("正在获取 NPC 菜单...")
+	call_deferred("_wait_npc_request", request_seq, CommandIds.NPC_MENU_REQ, "_finish_npc_menu_request")
+
+## NPC 菜单回包到达后关闭 loading，并用最新菜单数据打开面板。
+func _finish_npc_menu_request(succeeded: bool) -> void:
+	_hide_npc_request_loading()
+	var payload: Dictionary = _pending_npc_menu_payload.duplicate(true)
+	_pending_npc_menu_seq = 0
+	_pending_npc_menu_payload.clear()
+	if not succeeded or payload.is_empty():
+		return
+	_open_npc_menu_from_payload(payload)
+
+## 发起 NPC_ACTION_REQ，并在回包到达后再执行后续 UI 逻辑。
+func _begin_npc_action_request(entity_id: int, entry_id: String) -> void:
+	if _pending_npc_action_seq > 0:
+		return
+	_pending_npc_action_payload.clear()
+	var request_seq: int = App.request_npc_action(entity_id, entry_id)
+	if request_seq <= 0:
+		return
+	_pending_npc_action_seq = request_seq
+	_show_npc_request_loading("正在执行 NPC 操作...")
+	call_deferred("_wait_npc_request", request_seq, CommandIds.NPC_ACTION_REQ, "_finish_npc_action_request")
+
+## 等待指定 NPC 相关请求完成，再回调 finish_method 处理 UI。
+func _wait_npc_request(expected_seq: int, expected_cmd: int, finish_method: StringName) -> void:
+	while expected_seq > 0:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		var succeeded: bool = bool(result[2])
+		if request_cmd != expected_cmd or seq != expected_seq:
+			continue
+		call(finish_method, succeeded)
+		return
+
+## NPC_ACTION 回包到达后关闭 loading，并分发战斗/剧情/提示结果。
+func _finish_npc_action_request(succeeded: bool) -> void:
+	_hide_npc_request_loading()
+	var payload: Dictionary = _pending_npc_action_payload.duplicate(true)
+	_pending_npc_action_seq = 0
+	_pending_npc_action_payload.clear()
+	if not succeeded or payload.is_empty():
+		return
+	_handle_npc_action_payload(payload)
+
+## 剧情推进回包到达后关闭 loading，并刷新剧情面板。
+func _finish_dialogue_request(succeeded: bool) -> void:
+	_hide_npc_request_loading()
+	var payload: Dictionary = _pending_dialogue_payload.duplicate(true)
+	_pending_dialogue_request_seq = 0
+	_pending_dialogue_payload.clear()
+	if not succeeded or payload.is_empty():
+		if _npc_dialogue_panel != null:
+			_npc_dialogue_panel.show_waiting_state("剧情同步失败")
+		return
+	_handle_npc_dialogue_payload(payload)
+
+## 用 NPC_MENU_RESP 菜单数据打开 NPC 菜单面板。
+func _open_npc_menu_from_payload(payload: Dictionary) -> void:
+	if not bool(payload.get("accepted", false)):
+		var failed_reason: String = str(payload.get("reason", "npc menu request failed"))
+		_append_log("NPC 菜单拉取失败: %s" % failed_reason)
+		return
+	_append_log("收到 NPC 菜单数据: %s" % str(payload.get("npc_name", "未知 NPC")))
+	if _npc_menu == null:
+		return
+	var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+	_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+	_npc_menu.call("open_menu")
+	_set_runtime_menu_locked(true)
+
+## 处理 NPC 菜单项执行后的服务端结果。
+func _handle_npc_action_payload(payload: Dictionary) -> void:
+	if str(payload.get("result_type", "")) == "battle":
+		_close_runtime_menus(true)
+		return
+	if str(payload.get("result_type", "")) == "dialogue":
+		_present_dialogue_node(int(payload.get("entity_id", 0)), str(payload.get("npc_name", "NPC")), payload.get("dialogue", {}))
+		return
+	if str(payload.get("result_type", "")) == "shop":
+		_present_shop_payload(int(payload.get("entity_id", 0)), str(payload.get("npc_name", "NPC")), payload.get("shop", {}))
+		return
+	var notice: String = str(payload.get("notice", payload.get("reason", "")))
+	if not notice.is_empty():
+		_append_log("NPC 操作: %s" % notice)
+	if payload.has("menu_entries") and _npc_menu != null:
+		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+		_npc_menu.call("open_menu")
+		_set_runtime_menu_locked(true)
+
+## 处理 NPC 剧情继续/分支选择后的节点回包。
+func _handle_npc_dialogue_payload(payload: Dictionary) -> void:
+	if not bool(payload.get("accepted", false)):
+		var failed_reason: String = str(payload.get("reason", "dialogue request failed"))
+		_append_log("剧情推进失败: %s" % failed_reason)
+		if _npc_dialogue_panel != null:
+			_npc_dialogue_panel.show_waiting_state(failed_reason)
+		return
+	var effect_notice: String = ""
+	var node_variant: Variant = payload.get("node", {})
+	if node_variant is Dictionary:
+		effect_notice = str((node_variant as Dictionary).get("effect_notice", ""))
+	if not effect_notice.is_empty():
+		_append_log("剧情提示: %s" % effect_notice)
+	_present_dialogue_node(int(payload.get("entity_id", 0)), _active_dialogue_npc_name, payload.get("node", {}))
+
+## 根据服务端返回的结构化剧情节点，决定是展示对话、播放客户端动画还是直接结束剧情。
+func _present_dialogue_node(entity_id: int, npc_name: String, node_variant: Variant) -> void:
+	if node_variant is not Dictionary:
+		return
+	var node_payload: Dictionary = node_variant as Dictionary
+	_active_dialogue_entity_id = entity_id
+	_active_dialogue_id = int(node_payload.get("dialogue_id", 0))
+	_active_dialogue_node_id = str(node_payload.get("node_id", ""))
+	_active_dialogue_npc_name = npc_name
+	if bool(node_payload.get("is_end", false)) or str(node_payload.get("node_type", "")) == "end":
+		_append_log("剧情结束: %s" % npc_name)
+		_active_dialogue_entity_id = 0
+		_active_dialogue_id = 0
+		_active_dialogue_node_id = ""
+		_active_dialogue_npc_name = ""
+		if _npc_dialogue_panel != null:
+			_npc_dialogue_panel.hide_panel()
+		return
+	if str(node_payload.get("node_type", "")) == "action":
+		_play_dialogue_action_node(node_payload)
+		return
+	if _npc_dialogue_panel != null:
+		_npc_dialogue_panel.show_dialogue(npc_name, node_payload)
+	_set_runtime_menu_locked(true)
+	_append_log("打开剧情对话: %s" % npc_name)
+
+## 用服务端返回的商店载荷打开 NPC 商店面板。
+func _present_shop_payload(entity_id: int, npc_name: String, shop_variant: Variant) -> void:
+	if shop_variant is not Dictionary:
+		return
+	var shop_payload: Dictionary = shop_variant as Dictionary
+	_active_shop_entity_id = entity_id
+	if _npc_shop_panel != null:
+		_npc_shop_panel.show_shop(npc_name, entity_id, shop_payload)
+	_set_runtime_menu_locked(true)
+	_append_log("打开商店: %s" % npc_name)
+
+## 断线重连成功后恢复未结束的剧情或刷新全局摘要。
+func _on_session_authenticated(payload: Dictionary) -> void:
+	var active_dialogue_variant: Variant = payload.get("active_dialogue", {})
+	if active_dialogue_variant is Dictionary:
+		var active_dialogue: Dictionary = active_dialogue_variant as Dictionary
+		if not active_dialogue.is_empty():
+			_present_dialogue_node(
+				int(active_dialogue.get("entity_id", 0)),
+				str(active_dialogue.get("npc_name", "NPC")),
+				active_dialogue.get("node", {})
+			)
+
+## 发起 BUY_ITEM 请求，并在回包到达后刷新商店钱包展示。
+func _on_shop_buy_requested(item_id: int, _price_copper: int) -> void:
+	if _active_shop_entity_id <= 0 or item_id <= 0 or _pending_buy_item_seq > 0:
+		return
+	_pending_buy_item_payload.clear()
+	var request_seq: int = App.request_buy_item(_active_shop_entity_id, item_id, 1)
+	if request_seq <= 0:
+		if _npc_shop_panel != null:
+			_npc_shop_panel.show_error_message("购买请求发送失败")
+		return
+	_pending_buy_item_seq = request_seq
+	_show_npc_request_loading("正在购买物品...")
+	call_deferred("_wait_npc_request", request_seq, CommandIds.BUY_ITEM_REQ, "_finish_buy_item_request")
+
+## BUY_ITEM 回包到达后关闭 loading，并更新商店面板状态。
+func _finish_buy_item_request(succeeded: bool) -> void:
+	_hide_npc_request_loading()
+	var payload: Dictionary = _pending_buy_item_payload.duplicate(true)
+	_pending_buy_item_seq = 0
+	_pending_buy_item_payload.clear()
+	if _npc_shop_panel == null:
+		return
+	if not succeeded or payload.is_empty():
+		_npc_shop_panel.show_error_message("购买失败")
+		return
+	_npc_shop_panel.update_wallet(payload.get("wallet", {}))
+
+## 缓存 BUY_ITEM 回包，供 loading 等待完成后消费。
+func _on_buy_item_responded(payload: Dictionary) -> void:
+	if _pending_buy_item_seq > 0:
+		_pending_buy_item_payload = payload.duplicate(true)
+
+## 播放服务端指定的客户端内置剧情动画；阻塞型动画播完后再向服务端请求下一节点。
+func _play_dialogue_action_node(node_payload: Dictionary) -> void:
+	if _npc_dialogue_panel != null:
+		_npc_dialogue_panel.show_waiting_state("剧情演出中...")
+	var animation_key: String = str(node_payload.get("client_animation_key", ""))
+	var must_wait: bool = bool(node_payload.get("client_animation_block", false))
+	if _cinematic_player == null:
+		_request_next_dialogue_node()
+		return
+	_cinematic_player.play_cinematic(animation_key)
+	if not must_wait:
+		_request_next_dialogue_node()
+
+## 使用当前缓存的剧情上下文向服务端请求下一节点，保证推进顺序始终由服务端权威决定。
+func _request_next_dialogue_node() -> void:
+	if _active_dialogue_entity_id <= 0 or _active_dialogue_id <= 0 or _active_dialogue_node_id.is_empty():
+		return
+	if _pending_dialogue_request_seq > 0:
+		return
+	var request_seq: int = App.request_npc_dialogue_next(_active_dialogue_entity_id, _active_dialogue_id, _active_dialogue_node_id)
+	_begin_dialogue_request(CommandIds.NPC_DIALOGUE_NEXT_REQ, request_seq)
+
+## 发起剧情推进请求并进入 loading 等待态。
+func _begin_dialogue_request(request_cmd: int, request_seq: int) -> void:
+	if request_seq <= 0:
+		return
+	_pending_dialogue_request_seq = request_seq
+	_pending_dialogue_payload.clear()
+	_show_npc_request_loading("正在同步剧情...")
+	call_deferred("_wait_npc_request", request_seq, request_cmd, "_finish_dialogue_request")
+
+## 响应对话面板继续按钮点击，先锁住面板输入，再向服务端请求下一节点。
+func _on_dialogue_continue_requested(dialogue_id: int, node_id: String) -> void:
+	_active_dialogue_id = dialogue_id
+	_active_dialogue_node_id = node_id
+	_request_next_dialogue_node()
+
+## 响应对话面板选项按钮点击，分支结果由服务端校验后返回下一个节点。
+func _on_dialogue_option_selected(dialogue_id: int, node_id: String, option_id: String) -> void:
+	if _active_dialogue_entity_id <= 0:
+		return
+	if _pending_dialogue_request_seq > 0:
+		return
+	_active_dialogue_id = dialogue_id
+	_active_dialogue_node_id = node_id
+	var request_seq: int = App.request_npc_dialogue_choose(_active_dialogue_entity_id, dialogue_id, node_id, option_id)
+	_begin_dialogue_request(CommandIds.NPC_DIALOGUE_CHOOSE_REQ, request_seq)
+
+## 客户端内置剧情动画播放完成后，继续向服务端请求下一节点。
+func _on_cinematic_finished(_animation_key: String) -> void:
+	_request_next_dialogue_node()
 
 ## 新战斗开始时关闭所有会挡住战斗的弹窗页面。
 func _close_all_blocking_popups_for_battle() -> void:
 	_popup_flow_generation += 1
+	_pending_npc_menu_seq = 0
+	_pending_npc_action_seq = 0
+	_pending_dialogue_request_seq = 0
+	_pending_npc_menu_payload.clear()
+	_pending_npc_action_payload.clear()
+	_pending_dialogue_payload.clear()
+	_hide_npc_request_loading()
 	_close_runtime_menus(true)
 	_force_close_runtime_modal_popups()
 	_force_close_pvp_invite_dialog()
@@ -1013,11 +1402,12 @@ func _force_close_pvp_invite_dialog() -> void:
 		_pvp_invite_dialog.hide()
 
 func _force_close_dialogue_balloon() -> void:
-	if _active_dialogue_balloon == null:
-		return
-	if is_instance_valid(_active_dialogue_balloon):
-		_active_dialogue_balloon.queue_free()
-	_active_dialogue_balloon = null
+	_active_dialogue_entity_id = 0
+	_active_dialogue_id = 0
+	_active_dialogue_node_id = ""
+	_active_dialogue_npc_name = ""
+	if _npc_dialogue_panel != null:
+		_npc_dialogue_panel.hide_panel(false)
 
 func _set_runtime_menu_locked(locked: bool) -> void:
 	if _world_controller != null and _world_controller.has_method("set_runtime_input_locked"):
@@ -1030,8 +1420,9 @@ func _suppress_settlement_input_leak() -> void:
 ## 判断升级或奖励结算弹窗是否正在展示。
 func _is_settlement_popup_active() -> bool:
 	var level_up_visible: bool = _level_up_popup != null and _level_up_popup.visible
+	var pet_level_up_visible: bool = _pet_level_up_popup != null and _pet_level_up_popup.visible
 	var reward_visible: bool = _reward_popup != null and _reward_popup.visible
-	return level_up_visible or reward_visible
+	return level_up_visible or pet_level_up_visible or reward_visible
 
 ## 判断结算弹窗是否应继续阻断快捷键与底层交互。
 func _is_settlement_input_blocked() -> bool:
@@ -1061,6 +1452,10 @@ func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "pvp_list" and _pvp_target_menu != null and _pvp_target_menu.visible:
 		return true
 	if except != "pvp_invite" and _pvp_invite_dialog != null and _pvp_invite_dialog.visible:
+		return true
+	if except != "npc_shop" and _npc_shop_panel != null and _npc_shop_panel.visible:
+		return true
+	if except != "npc_dialogue" and _npc_dialogue_panel != null and _npc_dialogue_panel.visible:
 		return true
 	if _is_settlement_input_blocked():
 		return true

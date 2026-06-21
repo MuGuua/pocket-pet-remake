@@ -294,3 +294,16 @@ func sourceAttrPoints(allocated AllocatedAttrs, sourceAttr string) uint32 {
 func FinalCombatValue(base uint32, bonus uint32) uint32 {
 	return base + bonus
 }
+
+// LoadProgressionState 读取玩家成长快照，供装备重算等模块复用。
+func (s *Service) LoadProgressionState(ctx context.Context, playerID uint64) (*ProgressionState, error) {
+	if s.repo == nil || playerID == 0 {
+		return nil, ErrInvalidAllocateInput
+	}
+	return s.repo.LoadProgressionState(ctx, playerID)
+}
+
+// CombatBonusForAllocated 根据已分配属性点计算战斗加成。
+func (s *Service) CombatBonusForAllocated(allocated AllocatedAttrs) CombatBonus {
+	return s.calcCombatBonus(allocated)
+}

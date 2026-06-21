@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/pet"
 )
 
 // BagRepository 把后台背包与仓库管理映射到新的 player_container_item 持久化结构。
@@ -133,7 +134,10 @@ SELECT
   COALESCE(idf.item_sub_type, ''),
   COALESCE(idf.quality, 1),
   COALESCE(idf.icon, ''),
-  COALESCE(eq.enhance_level, 0)
+  COALESCE(eq.enhance_level, 0),
+  COALESCE(idf.usable, FALSE),
+  COALESCE(idf.target_type, ''),
+  COALESCE(idf.effect_type, '')
 FROM player_container_item pci
 LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 LEFT JOIN equipment_instance eq ON eq.item_uid = pci.item_uid
@@ -533,6 +537,9 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			&value.Quality,
 			&value.Icon,
 			&value.EnhanceLevel,
+			&value.Usable,
+			&value.TargetType,
+			&value.EffectType,
 		); err != nil {
 			return nil, err
 		}
@@ -1650,6 +1657,8 @@ func applyRuntimeItemEffect(ctx context.Context, tx *sql.Tx, playerID uint64, so
 		return applyRuntimeExpandEffect(ctx, tx, playerID, sourceRow, quantity)
 	case "pet_hp_restore":
 		return applyRuntimePetHPRestoreEffect(ctx, tx, playerID, sourceRow, quantity, targetPetUID, targetPlayerID)
+	case "pet_talisman_slot_unlock":
+		return applyRuntimePetTalismanSlotUnlockEffect(ctx, tx, playerID, sourceRow, targetPetUID, targetPlayerID)
 	case "reward_box", "gift_box", "box_open":
 		return applyRuntimeRewardBoxEffect(sourceRow, quantity)
 	default:
@@ -1801,6 +1810,86 @@ func applyRuntimePetHPRestoreEffect(ctx context.Context, tx *sql.Tx, playerID ui
 			SkillIDs: append([]uint32{}, updatedPet.SkillIDs...),
 			InLineup: updatedPet.InLineup,
 		},
+	}, nil
+}
+
+type runtimeTalismanUnlockParams struct {
+	SkillID uint32 `json:"skill_id"`
+}
+
+func applyRuntimePetTalismanSlotUnlockEffect(ctx context.Context, tx *sql.Tx, playerID uint64, sourceRow *useItemSourceRow, targetPetUID uint64, targetPlayerID uint64) (bag.RuntimeUseEffect, error) {
+	if targetPlayerID != 0 && targetPlayerID != playerID {
+		return bag.RuntimeUseEffect{}, bag.ErrUseTargetNotFound
+	}
+	if targetPetUID == 0 {
+		return bag.RuntimeUseEffect{}, bag.ErrUseTargetRequired
+	}
+	var slotKey string
+	if err := tx.QueryRowContext(ctx, `
+SELECT slot_key
+FROM pet_skill_slot_unlock_item
+WHERE item_id = $1 AND status = 1
+LIMIT 1
+`, sourceRow.ItemID).Scan(&slotKey); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return bag.RuntimeUseEffect{}, bag.ErrUnsupportedItemEffect
+		}
+		return bag.RuntimeUseEffect{}, err
+	}
+	slotKey = strings.TrimSpace(slotKey)
+	columns, err := pet.ResolveTalismanSlotColumns(slotKey)
+	if err != nil {
+		return bag.RuntimeUseEffect{}, bag.ErrUnsupportedItemEffect
+	}
+	loadout, legacySkillIDs, err := loadPetSkillLoadoutInTx(ctx, tx, playerID, targetPetUID)
+	if err != nil {
+		return bag.RuntimeUseEffect{}, err
+	}
+	if loadout == nil {
+		return bag.RuntimeUseEffect{}, bag.ErrUseTargetNotFound
+	}
+	alreadyEnabled, err := pet.IsTalismanSlotEnabled(*loadout, slotKey)
+	if err != nil {
+		return bag.RuntimeUseEffect{}, bag.ErrUnsupportedItemEffect
+	}
+	if alreadyEnabled {
+		return bag.RuntimeUseEffect{}, bag.ErrItemUseNoEffect
+	}
+	skillID := uint32(0)
+	if sourceRow.EffectValue > 0 {
+		skillID = uint32(sourceRow.EffectValue)
+	}
+	if len(sourceRow.EffectParams) > 0 {
+		var params runtimeTalismanUnlockParams
+		if err := json.Unmarshal(sourceRow.EffectParams, &params); err == nil && params.SkillID > 0 {
+			skillID = params.SkillID
+		}
+	}
+	updateQuery := fmt.Sprintf(`
+UPDATE player_pet
+SET %s = TRUE,
+    %s = CASE WHEN $3 > 0 THEN $3 ELSE %s END
+WHERE player_id = $1 AND id = $2 AND %s = FALSE
+`, columns.EnabledColumn, columns.SkillColumn, columns.SkillColumn, columns.EnabledColumn)
+	result, err := tx.ExecContext(ctx, updateQuery, playerID, targetPetUID, skillID)
+	if err != nil {
+		return bag.RuntimeUseEffect{}, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return bag.RuntimeUseEffect{}, err
+	}
+	if rowsAffected == 0 {
+		return bag.RuntimeUseEffect{}, bag.ErrItemUseNoEffect
+	}
+	if err := refreshPlayerPetBattleSkillIDsInTx(ctx, tx, playerID, targetPetUID); err != nil {
+		return bag.RuntimeUseEffect{}, err
+	}
+	_ = legacySkillIDs
+	return bag.RuntimeUseEffect{
+		EffectType:           "pet_talisman_slot_unlock",
+		TargetPetUID:         targetPetUID,
+		UnlockedTalismanSlot: slotKey,
 	}, nil
 }
 

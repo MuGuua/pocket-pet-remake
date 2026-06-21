@@ -1,0 +1,11 @@
+[gd_resource type="StyleBoxTexture" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" uid="uid://b2yrykkl0084p" path="res://asset/分类/ui/xiao_button.png" id="1_texture"]
+
+[resource]
+texture = ExtResource("1_texture")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+modulate_color = Color(1.08, 1.06, 0.98, 1)

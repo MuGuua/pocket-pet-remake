@@ -39,6 +39,7 @@ type ReconnectResp struct {
 	BattleState        *BattleStatePush  `json:"battle_state,omitempty"`
 	BattleResult       *BattleResultPush `json:"battle_result,omitempty"`
 	BattleReplayStates []BattleStatePush `json:"battle_replay_states,omitempty"`
+	ActiveDialogue     *ActiveDialogue   `json:"active_dialogue,omitempty"`
 }
 
 type ForceOfflinePush struct {
@@ -62,46 +63,47 @@ type PlayerBrief struct {
 }
 
 type PlayerSnapshot struct {
-	PlayerID           uint64   `json:"player_id"`
-	Name               string   `json:"name"`
-	Level              uint32   `json:"level"`
-	Exp                uint64   `json:"exp"`
-	ExpToNext          uint64   `json:"exp_to_next"`
-	FreeAttrPoints     uint32   `json:"free_attr_points"`
-	Strength           uint32   `json:"strength"`
-	Vitality           uint32   `json:"vitality"`
-	Agility            uint32   `json:"agility"`
-	Mind               uint32   `json:"mind"`
-	Gold               uint32   `json:"gold"`
-	HP                 uint32   `json:"hp"`
-	HPMax              uint32   `json:"hp_max"`
-	Vigor              uint32   `json:"vigor"`
-	VigorMax           uint32   `json:"vigor_max"`
-	Spirit             uint32   `json:"spirit"`
-	SpiritMax          uint32   `json:"spirit_max"`
-	ATK                uint32   `json:"atk"`
-	DEF                uint32   `json:"def"`
-	SPD                uint32   `json:"spd"`
-	MANA               uint32   `json:"mana"`
-	HitPct             uint32   `json:"hit_pct"`
-	DodgePct           uint32   `json:"dodge_pct"`
-	CritRatePct        uint32   `json:"crit_rate_pct"`
-	CritDmgPct         uint32   `json:"crit_dmg_pct"`
-	PhysicalResistPct  uint32   `json:"physical_resist_pct"`
-	SkillResistPct     uint32   `json:"skill_resist_pct"`
-	ConfusionResistPct uint32   `json:"confusion_resist_pct"`
-	SleepResistPct     uint32   `json:"sleep_resist_pct"`
-	ParalysisResistPct uint32   `json:"paralysis_resist_pct"`
-	SealResistPct      uint32   `json:"seal_resist_pct"`
-	CurseResistPct     uint32   `json:"curse_resist_pct"`
-	CritResistPct      uint32   `json:"crit_resist_pct"`
-	CritDmgResistPct   uint32   `json:"crit_dmg_resist_pct"`
-	CharacterResistPct uint32   `json:"character_resist_pct"`
-	PetResistPct       uint32   `json:"pet_resist_pct"`
-	MercenaryResistPct uint32   `json:"mercenary_resist_pct"`
-	GenericShieldPct   uint32   `json:"generic_shield_pct"`
-	SkillIDs           []uint32 `json:"skill_ids"`
-	SkinID             string   `json:"skin_id"`
+	PlayerID           uint64                       `json:"player_id"`
+	Name               string                       `json:"name"`
+	Level              uint32                       `json:"level"`
+	Exp                uint64                       `json:"exp"`
+	ExpToNext          uint64                       `json:"exp_to_next"`
+	FreeAttrPoints     uint32                       `json:"free_attr_points"`
+	Strength           uint32                       `json:"strength"`
+	Vitality           uint32                       `json:"vitality"`
+	Agility            uint32                       `json:"agility"`
+	Mind               uint32                       `json:"mind"`
+	Gold               uint32                       `json:"gold"`
+	HP                 uint32                       `json:"hp"`
+	HPMax              uint32                       `json:"hp_max"`
+	Vigor              uint32                       `json:"vigor"`
+	VigorMax           uint32                       `json:"vigor_max"`
+	Spirit             uint32                       `json:"spirit"`
+	SpiritMax          uint32                       `json:"spirit_max"`
+	ATK                uint32                       `json:"atk"`
+	DEF                uint32                       `json:"def"`
+	SPD                uint32                       `json:"spd"`
+	MANA               uint32                       `json:"mana"`
+	HitPct             uint32                       `json:"hit_pct"`
+	DodgePct           uint32                       `json:"dodge_pct"`
+	CritRatePct        uint32                       `json:"crit_rate_pct"`
+	CritDmgPct         uint32                       `json:"crit_dmg_pct"`
+	PhysicalResistPct  uint32                       `json:"physical_resist_pct"`
+	SkillResistPct     uint32                       `json:"skill_resist_pct"`
+	ConfusionResistPct uint32                       `json:"confusion_resist_pct"`
+	SleepResistPct     uint32                       `json:"sleep_resist_pct"`
+	ParalysisResistPct uint32                       `json:"paralysis_resist_pct"`
+	SealResistPct      uint32                       `json:"seal_resist_pct"`
+	CurseResistPct     uint32                       `json:"curse_resist_pct"`
+	CritResistPct      uint32                       `json:"crit_resist_pct"`
+	CritDmgResistPct   uint32                       `json:"crit_dmg_resist_pct"`
+	CharacterResistPct uint32                       `json:"character_resist_pct"`
+	PetResistPct       uint32                       `json:"pet_resist_pct"`
+	MercenaryResistPct uint32                       `json:"mercenary_resist_pct"`
+	GenericShieldPct   uint32                       `json:"generic_shield_pct"`
+	SkillIDs           []uint32                     `json:"skill_ids"`
+	SkinID             string                       `json:"skin_id"`
+	EquippedItems      []PlayerEquippedItemSnapshot `json:"equipped_items,omitempty"`
 }
 
 type EntityBrief struct {
@@ -122,6 +124,34 @@ type PetBrief struct {
 	Level  uint32 `json:"level"`
 	HP     uint32 `json:"hp"`
 	HPMax  uint32 `json:"hp_max"`
+	SkinID string `json:"skin_id"`
+}
+
+type PetGrowthAptitudes struct {
+	HPApt   uint32 `json:"hp_apt"`
+	ATKApt  uint32 `json:"atk_apt"`
+	DEFApt  uint32 `json:"def_apt"`
+	SPDApt  uint32 `json:"spd_apt"`
+	MANAApt uint32 `json:"mana_apt"`
+}
+
+// PetSkillSlotEntry 单个技能槽位。
+type PetSkillSlotEntry struct {
+	SlotIndex uint32 `json:"slot_index"`
+	SkillID   uint32 `json:"skill_id"`
+	Enabled   bool   `json:"enabled,omitempty"`
+}
+
+// PetSkillSlots 宠物分分类技能槽；artifact 仅在查看技能详情时填充 skill_id。
+type PetSkillSlots struct {
+	Innate         []PetSkillSlotEntry `json:"innate"`
+	ActiveTalisman PetSkillSlotEntry   `json:"active_talisman"`
+	TalismanHero   PetSkillSlotEntry   `json:"talisman_hero"`
+	Talisman1      PetSkillSlotEntry   `json:"talisman_1"`
+	Talisman2      PetSkillSlotEntry   `json:"talisman_2"`
+	Talisman3      PetSkillSlotEntry   `json:"talisman_3"`
+	Normal         []PetSkillSlotEntry `json:"normal"`
+	Artifact       []PetSkillSlotEntry `json:"artifact"`
 }
 
 type PetDetail struct {
@@ -135,10 +165,68 @@ type PetDetail struct {
 	ATK      uint32   `json:"atk"`
 	DEF      uint32   `json:"def"`
 	SPD      uint32   `json:"spd"`
+	MANA     uint32   `json:"mana,omitempty"`
 	SkillIDs []uint32 `json:"skill_ids"`
-	InLineup bool     `json:"in_lineup"`
+	// SkillSlots 结构化技能槽；列表接口中 artifact 槽 skill_id 为 0。
+	SkillSlots *PetSkillSlots `json:"skill_slots,omitempty"`
+	InLineup   bool           `json:"in_lineup"`
 	// IsUsable 表示该实例对应的 pet_id 是否存在于启用中的系统宠物模板列表。
-	IsUsable bool `json:"is_usable"`
+	IsUsable                 bool               `json:"is_usable"`
+	ExpToNext                uint64             `json:"exp_to_next,omitempty"`
+	FreeAttrPoints           uint32             `json:"free_attr_points,omitempty"`
+	AllocHPPoints            uint32             `json:"alloc_hp_points,omitempty"`
+	AllocATKPoints           uint32             `json:"alloc_atk_points,omitempty"`
+	AllocSPDPoints           uint32             `json:"alloc_spd_points,omitempty"`
+	AllocMANAPoints          uint32             `json:"alloc_mana_points,omitempty"`
+	AllocDEFPoints           uint32             `json:"alloc_def_points,omitempty"`
+	BaseHPApt                uint32             `json:"base_hp_apt,omitempty"`
+	BaseATKApt               uint32             `json:"base_atk_apt,omitempty"`
+	BaseDEFApt               uint32             `json:"base_def_apt,omitempty"`
+	BaseSPDApt               uint32             `json:"base_spd_apt,omitempty"`
+	BaseMANAApt              uint32             `json:"base_mana_apt,omitempty"`
+	ExtraHPApt               uint32             `json:"extra_hp_apt,omitempty"`
+	ExtraATKApt              uint32             `json:"extra_atk_apt,omitempty"`
+	ExtraDEFApt              uint32             `json:"extra_def_apt,omitempty"`
+	ExtraSPDApt              uint32             `json:"extra_spd_apt,omitempty"`
+	ExtraMANAApt             uint32             `json:"extra_mana_apt,omitempty"`
+	GrowthAptitudes          PetGrowthAptitudes `json:"growth_aptitudes,omitempty"`
+	AutoHPPoints             uint32             `json:"auto_hp_points,omitempty"`
+	AutoATKPoints            uint32             `json:"auto_atk_points,omitempty"`
+	AutoSPDPoints            uint32             `json:"auto_spd_points,omitempty"`
+	AutoMANAPoints           uint32             `json:"auto_mana_points,omitempty"`
+	AutoDEFPoints            uint32             `json:"auto_def_points,omitempty"`
+	Spirit                   uint32             `json:"spirit,omitempty"`
+	SpiritMax                uint32             `json:"spirit_max,omitempty"`
+	HitPct                   uint32             `json:"hit_pct,omitempty"`
+	DodgePct                 uint32             `json:"dodge_pct,omitempty"`
+	CritRatePct              uint32             `json:"crit_rate_pct,omitempty"`
+	CritDmgPct               uint32             `json:"crit_dmg_pct,omitempty"`
+	PhysicalResistPct        uint32             `json:"physical_resist_pct,omitempty"`
+	ReversePhysicalResistPct uint32             `json:"reverse_physical_resist_pct,omitempty"`
+	SkillResistPct           uint32             `json:"skill_resist_pct,omitempty"`
+	ReverseSkillResistPct    uint32             `json:"reverse_skill_resist_pct,omitempty"`
+	ConfusionResistPct       uint32             `json:"confusion_resist_pct,omitempty"`
+	SleepResistPct           uint32             `json:"sleep_resist_pct,omitempty"`
+	ParalysisResistPct       uint32             `json:"paralysis_resist_pct,omitempty"`
+	SealResistPct            uint32             `json:"seal_resist_pct,omitempty"`
+	CurseResistPct           uint32             `json:"curse_resist_pct,omitempty"`
+	CritDmgResistPct         uint32             `json:"crit_dmg_resist_pct,omitempty"`
+	CritResistPct            uint32             `json:"crit_resist_pct,omitempty"`
+	CharacterResistPct       uint32             `json:"character_resist_pct,omitempty"`
+	PetResistPct             uint32             `json:"pet_resist_pct,omitempty"`
+}
+
+type PetAllocateAttrReq struct {
+	PetUID uint64 `json:"pet_uid"`
+	HP     uint32 `json:"hp"`
+	ATK    uint32 `json:"atk"`
+	SPD    uint32 `json:"spd"`
+	MANA   uint32 `json:"mana"`
+	DEF    uint32 `json:"def"`
+}
+
+type PetAllocateAttrResp struct {
+	Pet PetDetail `json:"pet"`
 }
 
 type PetListReq struct{}
@@ -161,6 +249,37 @@ type PetLineupSetResp struct {
 	Accepted bool       `json:"accepted"`
 	Lineup   []PetBrief `json:"lineup"`
 	Reason   string     `json:"reason"`
+}
+
+// PetArtifactEquipReq 从背包装备法宝到宠物指定槽位。
+type PetArtifactEquipReq struct {
+	PetUID        uint64 `json:"pet_uid"`
+	SlotIndex     uint32 `json:"slot_index"`
+	ContainerType string `json:"container_type"`
+	BagSlotIndex  uint32 `json:"bag_slot_index"`
+}
+
+type PetArtifactEquipResp struct {
+	Pet PetDetail `json:"pet"`
+}
+
+// PetArtifactUnequipReq 卸下宠物法宝槽技能。
+type PetArtifactUnequipReq struct {
+	PetUID    uint64 `json:"pet_uid"`
+	SlotIndex uint32 `json:"slot_index"`
+}
+
+type PetArtifactUnequipResp struct {
+	Pet PetDetail `json:"pet"`
+}
+
+// PetSkillDetailReq 拉取单宠完整技能分槽（含法宝技）。
+type PetSkillDetailReq struct {
+	PetUID uint64 `json:"pet_uid"`
+}
+
+type PetSkillDetailResp struct {
+	Pet PetDetail `json:"pet"`
 }
 
 type EnterWorldReq struct{}
@@ -217,20 +336,100 @@ type InteractResp struct {
 	MenuEntries  []NpcMenuEntry `json:"menu_entries"`
 }
 
+type NPCMenuReq struct {
+	EntityID uint64 `json:"entity_id"`
+}
+
+type NPCMenuResp struct {
+	Accepted    bool           `json:"accepted"`
+	Reason      string         `json:"reason"`
+	EntityID    uint64         `json:"entity_id"`
+	NPCName     string         `json:"npc_name"`
+	MenuEntries []NpcMenuEntry `json:"menu_entries"`
+}
+
 type NPCActionReq struct {
 	EntityID uint64 `json:"entity_id"`
 	EntryID  string `json:"entry_id"`
 }
 
 type NPCActionResp struct {
-	Accepted    bool           `json:"accepted"`
-	Reason      string         `json:"reason"`
-	EntityID    uint64         `json:"entity_id"`
-	EntryID     string         `json:"entry_id"`
-	ResultType  string         `json:"result_type"`
-	Notice      string         `json:"notice"`
-	NPCName     string         `json:"npc_name"`
-	MenuEntries []NpcMenuEntry `json:"menu_entries"`
+	Accepted    bool             `json:"accepted"`
+	Reason      string           `json:"reason"`
+	EntityID    uint64           `json:"entity_id"`
+	EntryID     string           `json:"entry_id"`
+	ResultType  string           `json:"result_type"`
+	Notice      string           `json:"notice"`
+	NPCName     string           `json:"npc_name"`
+	MenuEntries []NpcMenuEntry   `json:"menu_entries"`
+	Dialogue    *NPCDialogueNode `json:"dialogue"`
+	Shop        *NPCShopPayload  `json:"shop,omitempty"`
+}
+
+type NPCShopGood struct {
+	ItemID      uint64 `json:"item_id"`
+	ItemName    string `json:"item_name"`
+	PriceCopper uint64 `json:"price_copper"`
+}
+
+type NPCShopPayload struct {
+	Goods  []NPCShopGood  `json:"goods"`
+	Wallet WalletSnapshot `json:"wallet"`
+}
+
+type ActiveDialogue struct {
+	EntityID uint64           `json:"entity_id"`
+	NPCName  string           `json:"npc_name"`
+	Node     *NPCDialogueNode `json:"node"`
+}
+
+type NPCDialogueOption struct {
+	OptionID string `json:"option_id"`
+	Text     string `json:"text"`
+	Format   string `json:"format"`
+}
+
+type NPCDialogueNode struct {
+	DialogueID           int64               `json:"dialogue_id"`
+	NodeID               string              `json:"node_id"`
+	NodeType             string              `json:"node_type"`
+	Speaker              string              `json:"speaker"`
+	IsPlayerSpeaker      bool                `json:"is_player_speaker"`
+	Content              string              `json:"content"`
+	ContentFormat        string              `json:"content_format"`
+	PortraitKey          string              `json:"portrait_key"`
+	ClientAnimationKey   string              `json:"client_animation_key"`
+	ClientAnimationBlock bool                `json:"client_animation_block"`
+	Options              []NPCDialogueOption `json:"options"`
+	MentionedItems       []NPCDialogueItem   `json:"mentioned_items"`
+	IsEnd                bool                `json:"is_end"`
+	EffectNotice         string              `json:"effect_notice"`
+}
+
+type NPCDialogueItem struct {
+	ItemID   uint64 `json:"item_id"`
+	ItemName string `json:"item_name"`
+	Icon     string `json:"icon"`
+}
+
+type NPCDialogueNextReq struct {
+	EntityID   uint64 `json:"entity_id"`
+	DialogueID int64  `json:"dialogue_id"`
+	NodeID     string `json:"node_id"`
+}
+
+type NPCDialogueChooseReq struct {
+	EntityID   uint64 `json:"entity_id"`
+	DialogueID int64  `json:"dialogue_id"`
+	NodeID     string `json:"node_id"`
+	OptionID   string `json:"option_id"`
+}
+
+type NPCDialogueResp struct {
+	Accepted bool             `json:"accepted"`
+	Reason   string           `json:"reason"`
+	EntityID uint64           `json:"entity_id"`
+	Node     *NPCDialogueNode `json:"node"`
 }
 
 type PVPChallengeReq struct {
@@ -308,6 +507,89 @@ type PlayerAllocateAttrResp struct {
 	Player PlayerSnapshot `json:"player"`
 }
 
+type PlayerEquipmentBonusSnapshot struct {
+	HPMax                    uint32 `json:"hp_max"`
+	MANA                     uint32 `json:"mana"`
+	ATK                      uint32 `json:"atk"`
+	DEF                      uint32 `json:"def"`
+	SPD                      uint32 `json:"spd"`
+	Spirit                   uint32 `json:"spirit"`
+	SpiritMax                uint32 `json:"spirit_max"`
+	HitPct                   uint32 `json:"hit_pct"`
+	DodgePct                 uint32 `json:"dodge_pct"`
+	CritRatePct              uint32 `json:"crit_rate_pct"`
+	CritDmgPct               uint32 `json:"crit_dmg_pct"`
+	PhysicalResistPct        uint32 `json:"physical_resist_pct"`
+	ReversePhysicalResistPct uint32 `json:"reverse_physical_resist_pct"`
+	SkillResistPct           uint32 `json:"skill_resist_pct"`
+	ReverseSkillResistPct    uint32 `json:"reverse_skill_resist_pct"`
+	ConfusionResistPct       uint32 `json:"confusion_resist_pct"`
+	SleepResistPct           uint32 `json:"sleep_resist_pct"`
+	ParalysisResistPct       uint32 `json:"paralysis_resist_pct"`
+	SealResistPct            uint32 `json:"seal_resist_pct"`
+	CurseResistPct           uint32 `json:"curse_resist_pct"`
+	CritDmgResistPct         uint32 `json:"crit_dmg_resist_pct"`
+	CritResistPct            uint32 `json:"crit_resist_pct"`
+	CharacterResistPct       uint32 `json:"character_resist_pct"`
+	PetResistPct             uint32 `json:"pet_resist_pct"`
+}
+
+type PlayerEquippedItemSnapshot struct {
+	EquipSlot        string                       `json:"equip_slot"`
+	EquipSlotLabel   string                       `json:"equip_slot_label"`
+	ItemUID          string                       `json:"item_uid"`
+	ItemID           uint64                       `json:"item_id"`
+	ItemName         string                       `json:"item_name"`
+	EnhanceLevel     uint32                       `json:"enhance_level"`
+	AppearanceSkinID string                       `json:"appearance_skin_id,omitempty"`
+	AppearanceOnly   bool                         `json:"appearance_only"`
+	Bonus            PlayerEquipmentBonusSnapshot `json:"bonus"`
+}
+
+type PlayerEquipmentListReq struct{}
+
+type PlayerEquipmentListResp struct {
+	Items []PlayerEquippedItemSnapshot `json:"items"`
+}
+
+type PlayerEquipReq struct {
+	ContainerType string `json:"container_type"`
+	BagSlotIndex  uint32 `json:"bag_slot_index"`
+}
+
+type PlayerEquipResp struct {
+	Equipped    PlayerEquippedItemSnapshot   `json:"equipped"`
+	Unequipped  *PlayerEquippedItemSnapshot  `json:"unequipped,omitempty"`
+	AllEquipped []PlayerEquippedItemSnapshot `json:"all_equipped"`
+	Player      PlayerSnapshot               `json:"player"`
+}
+
+type PlayerUnequipReq struct {
+	EquipSlot     string `json:"equip_slot"`
+	ContainerType string `json:"container_type"`
+}
+
+type PlayerUnequipResp struct {
+	Unequipped  PlayerEquippedItemSnapshot   `json:"unequipped"`
+	AllEquipped []PlayerEquippedItemSnapshot `json:"all_equipped"`
+	Player      PlayerSnapshot               `json:"player"`
+}
+
+type PlayerEquipmentEnhanceReq struct {
+	ItemUID string `json:"item_uid"`
+}
+
+type PlayerEquipmentEnhanceResp struct {
+	Success     bool                         `json:"success"`
+	OldLevel    uint32                       `json:"old_level"`
+	NewLevel    uint32                       `json:"new_level"`
+	RatePct     uint32                       `json:"rate_pct"`
+	RollPct     uint32                       `json:"roll_pct"`
+	Item        PlayerEquippedItemSnapshot   `json:"item"`
+	AllEquipped []PlayerEquippedItemSnapshot `json:"all_equipped"`
+	Player      *PlayerSnapshot              `json:"player,omitempty"`
+}
+
 type BattleActorSnapshot struct {
 	ActorID       uint64                `json:"actor_id"`
 	ActorType     uint32                `json:"actor_type"`
@@ -329,15 +611,16 @@ type BattleActorSnapshot struct {
 }
 
 type BattleSkillSnapshot struct {
-	SkillID      uint32 `json:"skill_id"`
-	Name         string `json:"name"`
-	TargetType   string `json:"target_type"`
-	TargetCount  uint32 `json:"target_count"`
+	SkillID       uint32 `json:"skill_id"`
+	Name          string `json:"name"`
+	TargetType    string `json:"target_type"`
+	TargetCount   uint32 `json:"target_count"`
 	AnimationKey  string `json:"animation_key"`
 	SkillVisualID string `json:"skill_visual_id"`
 	CastColor     string `json:"cast_color"`
-	ImpactColor  string `json:"impact_color"`
-	Projectile   bool   `json:"projectile"`
+	ImpactColor   string `json:"impact_color"`
+	Projectile    bool   `json:"projectile"`
+	IsBasicAttack bool   `json:"is_basic_attack"`
 }
 
 type BattleStartPush struct {
@@ -450,8 +733,15 @@ type BattleResultPush struct {
 }
 
 type BattlePetReward struct {
-	PetUID uint64 `json:"pet_uid"`
-	Exp    uint64 `json:"exp"`
+	PetUID           uint64 `json:"pet_uid"`
+	PetID            uint32 `json:"pet_id,omitempty"`
+	Level            uint32 `json:"level,omitempty"`
+	Exp              uint64 `json:"exp"`
+	ExpGained        uint64 `json:"exp_gained,omitempty"`
+	LevelUpCount     uint32 `json:"level_up_count,omitempty"`
+	AttrPointsGained uint32 `json:"attr_points_gained,omitempty"`
+	FreeAttrPoints   uint32 `json:"free_attr_points,omitempty"`
+	ExpToNext        uint64 `json:"exp_to_next,omitempty"`
 }
 
 type BagListReq struct {
@@ -468,14 +758,15 @@ type UseItemReq struct {
 }
 
 type UseItemResult struct {
-	EffectType   string        `json:"effect_type"`
-	ExpandTarget string        `json:"expand_target,omitempty"`
-	ExpandSlots  uint32        `json:"expand_slots,omitempty"`
-	NewCapacity  uint32        `json:"new_capacity,omitempty"`
-	TargetPetUID uint64        `json:"target_pet_uid,omitempty"`
-	RestoredHP   uint32        `json:"restored_hp,omitempty"`
-	NewPetHP     uint32        `json:"new_pet_hp,omitempty"`
-	Rewards      []QuestReward `json:"rewards,omitempty"`
+	EffectType           string        `json:"effect_type"`
+	ExpandTarget         string        `json:"expand_target,omitempty"`
+	ExpandSlots          uint32        `json:"expand_slots,omitempty"`
+	NewCapacity          uint32        `json:"new_capacity,omitempty"`
+	TargetPetUID         uint64        `json:"target_pet_uid,omitempty"`
+	RestoredHP           uint32        `json:"restored_hp,omitempty"`
+	NewPetHP             uint32        `json:"new_pet_hp,omitempty"`
+	UnlockedTalismanSlot string        `json:"unlocked_talisman_slot,omitempty"`
+	Rewards              []QuestReward `json:"rewards,omitempty"`
 }
 
 type UseItemResp struct {
@@ -571,6 +862,9 @@ type ContainerItemSnapshot struct {
 	Quality      uint32 `json:"quality"`
 	Icon         string `json:"icon"`
 	EnhanceLevel uint32 `json:"enhance_level"`
+	Usable       bool   `json:"usable"`
+	TargetType   string `json:"target_type"`
+	EffectType   string `json:"effect_type"`
 }
 
 type ContainerSnapshot struct {

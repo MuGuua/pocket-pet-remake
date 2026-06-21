@@ -1,5 +1,56 @@
 # 最新变更记录
 
+## 2026-06-18
+- 战斗伤害公式切换为《口袋伤害计算新表》链路：分子 `(A×SkillMult)×(爆伤链)/100×(1−技能抗性差/100)−D`、分母 `1+Guard×(0.001|0.01)`、综合乘子含天赋/元素/抗类与全局 0.5；删除旧 `def/(def+K)` 与 block 叠乘逻辑；爆伤链直接进分子（不再独立掷暴击骰）；`skillDef` 新增 `skill_mult`/`skill_crit_add`（缺省 `attack_pct/100`）；`actorRuntime` 新增 `guard`/`talent_dmg_pct`/`talent_reduce_pct`/元素字段
+- 口袋伤害 DB/Admin：迁移 `062_skill_pocket_damage_fields.sql`（`skill_mult`/`skill_crit_add`）、`063_combat_pocket_damage_stats.sql`（player/player_pet/monster 的 guard/天赋/元素 + 宠物封顶）；技能页/怪物页/宠物实例页可配置上述字段
+- 战斗控制双体系：`seal_chance_pct`/`control_chance_pct` 概率无视抗性；`seal_power`/`control_power` 威力对抗控制抗性（差值≥50 稳控，每缩小 1 点降 2%）；迁移 `061_skill_control_power.sql`；文档 `backend/docs/battle-control-effects.md`；Admin 系统技能页「效果」Tab 可配置封印/控制双体系字段
+- 人物装备系统 P2 强化：迁移 `060_player_equipment_enhance_cost.sql`（材料表 + 强化石 3201）；WS `2076/2077`；**仅未佩戴且位于背包**时可强化；扣材料 → 掷骰 → 成功升一级（失败不掉级）；客户端背包「强化」按钮
+- 人物装备系统 P1：运行时佩戴/卸下 WS `2070`–`2075`；`player_equipment_slot` 事务写入；`equipment/stats.go` 属性重算 + `pet_combat_stat_cap` 截断；背包装备无 `item_uid` 时自动创建 `equipment_instance`；客户端背包「穿戴」、状态页「已佩戴装备/卸下」；`EnterWorld.player.equipped_items`
+- 人物装备系统 P0：迁移 `058_player_equipment_foundation.sql`、`059_admin_equipment_permissions.sql`；`module/equipment` Admin CRUD；后台「系统装备管理」页 `/equipment-definitions`
+- 玩家人物装备系统设计文档 `backend/docs/player-equipment-system.md`：13 部位、强化成功率、药囊战后恢复、时装纯外观、镶嵌无损取下、属性全额叠加、与宠物共用 `pet_combat_stat_cap`
+- 宠物战斗属性封顶 Admin：迁移 `057_admin_pet_combat_stat_cap_permissions.sql`；`/api/admin/pet-combat-stat-caps` GET 列表 + PUT 按 stat_key 更新；后台「战斗属性封顶」页 `/pet-combat-stat-caps`
+- 玩家宠物实例独立管理页 `/player-pets`：跨玩家筛选 pet_uid / player_id / pet_id，分页列表 + 详情/编辑/新增/删除/出战开关
+- 宠物技能分槽一期：迁移 `054_pet_skill_slots.sql`（天生/神符/普通/法宝槽 + `pet_artifact_equipment`）；设计文档 `backend/docs/pet-skill-slots.md`
+- 神符槽道具解锁：`5021 USE_ITEM` 扩展 `effect_type=pet_talisman_slot_unlock`，读取 `pet_skill_slot_unlock_item` 配置；迁移 `055_admin_pet_skill_slot_unlock_permissions.sql` 后台权限
+- 法宝装备/卸下 WS：`3031/3032` 装备、`3033/3034` 卸下；技能详情 `3035/3036`；物品 `effect_type=pet_artifact`
+- Admin：神符槽解锁配置页 `/pet-skill-slot-unlock`；宠物模板支持编辑 `innate_skill_ids` / `normal_skill_ids`；玩家宠物编辑支持次要战斗属性（精力/命中/抗性等），保存时服务端封顶截断
+- 客户端：宠物状态页「查看技能」面板（3035）、背包 usable 道具使用 + 选宠物（5021 + `target_pet_uid`）；法宝装备双入口（背包「装备」3031、技能面板空槽「装备」）
+- 可选测试种子：迁移 `056_seed_pet_skill_slot_items.sql`（神符解锁符 3010/3011、法宝 3020/3021）
+- 服务端 `module/pet/skill_slots.go` 合并战斗可用技能；`PetDetail.skill_slots` 协议字段（列表页隐藏法宝技 skill_id）
+- 宠物战斗属性封顶：迁移 `053_pet_combat_stat_caps.sql` 扩展 `player_pet` 次要战斗字段与 `pet_combat_stat_cap` 配置表；服务端读写与公式重算后强制截断
+- 宠物成长一期落地：迁移 `051_pet_progression.sql`、`052_admin_pet_progression_permissions.sql`、`module/petprogression`（经验升级/加点/公式重算）、WS `2063/2064`、Admin `/api/admin/pet-progression/`、后台「宠物成长配置」页
+- 客户端状态面板宠物页支持切换宠物、展示成长字段与 +1 加点；战斗结算 `pet_rewards` 扩展升级摘要；新增宠物升级弹窗
+- Admin 宠物成长页支持「重算全部宠物战斗属性」运维入口（`POST /api/admin/pet-progression/recalculate-combat-stats`）
+- 新增 `backend/docs/pet-progression.md`：基于 `docs/风车做资参考表（v6.2）.xlsx` 反推的宠物升级、自由加点与资质→战斗属性公式
+- `backend/docs/protocol.md` 同步 `PetDetail`、`PET_ALLOCATE_ATTR_*`、`BattlePetReward` 扩展字段
+
+## 2026-06-17
+- 新增 `docs/形象动画配置指南.md`：UnitSkin 全参数、CHJ/PNG 局部覆盖规则、动画帧新建流程与配置示例
+- 客户端 CHJ 战斗待机改为主 CHJ 末尾最后两个动画组合并循环；技能/普攻通过 `UnitSkin.chj_skill_path` 独立 CHJ 补充；`sprite_frames` 可按动画名局部覆盖 CHJ
+- 新增 `ChjSprite`、`ChjWorldRenderer`、`CharacterVisual` 双后端；示例皮肤 `CHJ测试_2057` + `client/asset/chj/2057.chj`
+
+## 2026-06-16
+- 任务模板后台支持多阶段结构化编辑：每阶段可配置事件类型、目标 NPC/场景、菜单 entry_id、剧情 entry_id 与引导文案；详情页以阶段卡片展示
+- 任务运行时按 `objective_id` 顺序推进阶段，未完成前置阶段时不会跳阶段完成后续目标
+- `AdminObjectiveInput` 与 `objectives_json.guide` 扩展 `menu_entry_id`、`dialogue_entry_id` 字段，便于运营绑定 NPC 菜单/剧情
+- 新增结构化 NPC 剧情系统：迁移 `044_npc_dialogue.sql`、`045_npc_dialogue_more_entries.sql`，引入 `npc_dialogue`、`npc_dialogue_node`、`npc_dialogue_option`、`player_npc_dialogue_session` 表
+- 新增 `module/npcdialogue` 领域模块与后台 `/api/admin/npcs/dialogues` CRUD；WebSocket 新增 `2037/2038/2039` 剧情推进协议
+- 客户端新增 `NPCDialoguePanel`、`CinematicPlayer`、`PortraitRegistry`、`RequestLoadingOverlay`；NPC 交互/菜单/剧情请求统一走 loading 遮罩后再开面板
+- 示例剧情：`93001/dialog_market_intro` 含 action 节点 + `market_limeng_step_aside` 客户端演出；`dialog_market_news`、`dialog_warehouse_intro`、`dialog_trade_tip` 已迁入结构化对话
+- 节点 `effects_json` 第一版支持 `notice` 与 `quest_event` 两类服务端副作用
+- 新增迁移 `046_npc_shop_goods.sql`：商店商品表 + 市场罗格 `shop_open_market` 改为 `result_type=shop`；`NPC_ACTION_RESP` 增加 `shop` 载荷，客户端接入 `npc_shop_panel` 与 `5101/5102 BUY_ITEM`
+- 剧情 `conditions_json` 第一版支持 `quest_id + quest_state` 过滤节点/选项；断线重连 `1022 RECONNECT_RESP` 增加 `active_dialogue` 恢复未结束剧情
+- 后台新增 `/npc-dialogues` 独立剧情列表页，复用 `fetchAdminNPCDialogues` 与剧情编辑抽屉
+- 后台剧情编辑抽屉支持节点/选项 `conditions_json`（`quest_id + quest_state`）可视化配置
+- 后台剧情编辑抽屉支持节点 `effects_json`（`notice + quest_event`）可视化配置，修复后台保存时会清空副作用的问题
+- 新增 WebSocket `2042 NPC_MENU_REQ` / `2043 NPC_MENU_RESP`：NPC 菜单拉取与 `2031 INTERACT_REQ` 拆分；对有菜单 NPC 的 INTERACT 请求返回 `use npc menu request`
+- 新增迁移 `047_npc_menu_entry_conditions.sql`：菜单项 `conditions_json` 与 `linked_quest_id`；支持按任务状态/分阶段 `objective_id + objective_completed` 过滤可见菜单
+- 剧情节点 `effects_json` 扩展 `grant_items`（服务端发物品）与 `accept_quest_id`（进入节点自动接任务）；节点/菜单条件扩展 `objective_id + objective_completed`
+- 运行时菜单按玩家任务进度过滤；剧情推进时应用发奖/接任务副作用；菜单动作支持 `quest_accept` / `quest_submit`
+- 后台地图 NPC 菜单编辑改为「菜单配置 | 剧情配置」合并 Tab；移除独立 `/npc-dialogues` 导航（旧路由重定向至 `/npcs`）
+- 后台剧情表单支持发物品、接任务、任务阶段可见条件可视化编辑
+- 新增迁移 `048_npc_scene_only_placement.sql`：`world_entity_definition` 移除坐标/朝向/速度字段，新增 `world_scene_definition` 供后台展示场景中文名；NPC 摆放改由客户端场景资源维护
+
 ## 2026-06-15
 - 新增玩家成长体系第一版：迁移 `035_player_level_progression.sql`、`036_admin_player_progression_permissions.sql`，引入等级经验表、属性转化率表、玩家自由属性点与 `base_*` 裸装战斗值
 - 新增 `module/progression` 领域模块，统一承接经验连升、升级发点、加点校验与战斗属性重算；`player.AddExp`、战斗结算发经验、任务发经验均走该模块

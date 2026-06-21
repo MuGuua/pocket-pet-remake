@@ -12,7 +12,7 @@ import (
 func TestGrantCapturedPetUsesMonsterMappingAndRollsAptitudes(t *testing.T) {
 	monsterRepo := teststub.NewMonsterRepository()
 	petRepo := teststub.NewPetRepository()
-	service := pet.NewService(petRepo, nil, monsterRepo)
+	service := pet.NewService(petRepo, nil, monsterRepo, nil)
 
 	wildPetInput := pet.AdminUpsertPetDefinitionInput{
 		PetID: 103, PetName: "野生幼犬", AcquireMethod: pet.AcquireMethodWildCapture, IsEnabled: true,
@@ -59,7 +59,7 @@ func TestGrantCapturedPetUsesMonsterMappingAndRollsAptitudes(t *testing.T) {
 
 func TestGrantCapturedPetRejectsNonCapturableMonster(t *testing.T) {
 	monsterRepo := teststub.NewMonsterRepository()
-	service := pet.NewService(teststub.NewPetRepository(), nil, monsterRepo)
+	service := pet.NewService(teststub.NewPetRepository(), nil, monsterRepo, nil)
 	_, err := service.GrantCapturedPet(context.Background(), teststub.DemoPlayerID, 9002, "battle_capture", 1)
 	if err == nil {
 		t.Fatal("expected error for non-capturable monster")

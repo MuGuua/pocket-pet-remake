@@ -91,19 +91,28 @@ type actorRuntime struct {
 	// Resistance fields live directly on the authoritative runtime so damage,
 	// status, and crit branches can all consume one shared source-of-truth
 	// instead of rehydrating separate config objects during every action.
-	physicalResistPct  uint32
-	skillResistPct     uint32
-	confusionResistPct uint32
-	sleepResistPct     uint32
-	paralysisResistPct uint32
-	sealResistPct      uint32
-	curseResistPct     uint32
-	critResistPct      uint32
-	critDmgResistPct   uint32
-	characterResistPct uint32
-	petResistPct       uint32
-	mercenaryResistPct uint32
-	genericShieldPct   uint32
+	physicalResistPct        uint32
+	reversePhysicalResistPct uint32
+	skillResistPct           uint32
+	reverseSkillResistPct    uint32
+	confusionResistPct       uint32
+	sleepResistPct           uint32
+	paralysisResistPct       uint32
+	sealResistPct            uint32
+	curseResistPct           uint32
+	critResistPct            uint32
+	critDmgResistPct         uint32
+	characterResistPct       uint32
+	petResistPct             uint32
+	mercenaryResistPct       uint32
+	genericShieldPct         uint32
+	// 守护参与新伤害公式分母；缺省时在 applyCombatTemplate 中回退为防御面板。
+	guard uint32
+	// 法宝天赋增伤/减伤与元素克制字段，对应新伤害表 H/I 列。
+	talentDmgPct      uint32
+	talentReducePct   uint32
+	elementAdvPct     uint32
+	elementPenaltyPct uint32
 
 	// These runtime modifier fields are kept on the actor so future status and
 	// passive systems can change battle math without mutating base pet data.
@@ -143,35 +152,42 @@ type statusRuntime struct {
 // numbers for one actor archetype. We keep it separate from actorRuntime so
 // future DB/config loading can fill the same shape without rewriting builders.
 type combatAttributeTemplate struct {
-	HP          uint32
-	Vigor       uint32
-	Spirit      uint32
-	Attack      uint32
-	Defense     uint32
-	Speed       uint32
-	Mana        uint32
-	HitPct      uint32
-	DodgePct    uint32
-	CritRatePct uint32
-	CritDmgPct  uint32
+	HP                uint32
+	Vigor             uint32
+	Spirit            uint32
+	Attack            uint32
+	Defense           uint32
+	Speed             uint32
+	Mana              uint32
+	HitPct            uint32
+	DodgePct          uint32
+	CritRatePct       uint32
+	CritDmgPct        uint32
+	Guard             uint32
+	TalentDmgPct      uint32
+	TalentReducePct   uint32
+	ElementAdvPct     uint32
+	ElementPenaltyPct uint32
 }
 
 // resistanceTemplate collects all incoming-damage and incoming-status
 // mitigation knobs that the user requested for character and enemy runtimes.
 type resistanceTemplate struct {
-	PhysicalResistPct  uint32
-	SkillResistPct     uint32
-	ConfusionResistPct uint32
-	SleepResistPct     uint32
-	ParalysisResistPct uint32
-	SealResistPct      uint32
-	CurseResistPct     uint32
-	CritResistPct      uint32
-	CritDmgResistPct   uint32
-	CharacterResistPct uint32
-	PetResistPct       uint32
-	MercenaryResistPct uint32
-	GenericShieldPct   uint32
+	PhysicalResistPct        uint32
+	ReversePhysicalResistPct uint32
+	SkillResistPct           uint32
+	ReverseSkillResistPct    uint32
+	ConfusionResistPct       uint32
+	SleepResistPct           uint32
+	ParalysisResistPct       uint32
+	SealResistPct            uint32
+	CurseResistPct           uint32
+	CritResistPct            uint32
+	CritDmgResistPct         uint32
+	CharacterResistPct       uint32
+	PetResistPct             uint32
+	MercenaryResistPct       uint32
+	GenericShieldPct         uint32
 }
 
 type turnDecision struct {
@@ -239,9 +255,9 @@ func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup 
 		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
 		// 单人 PVE 现在始终由人物作为我方权威入口开战，宠物编队再按原顺序追加，
 		// 这样客户端和服务端都能围绕同一个人物 actor 组织后续动作与表现。
-		allies:      buildSoloPVEAllies(profile, lineup),
-		enemies:     s.buildEnemyTeam(ctx, profile, enemy),
-		plannedActs: make(map[uint64]ActionRequest),
+		allies:         buildSoloPVEAllies(profile, lineup),
+		enemies:        s.buildEnemyTeam(ctx, profile, enemy),
+		plannedActs:    make(map[uint64]ActionRequest),
 		monsterService: s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
@@ -435,7 +451,17 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 	if !ok {
 		return nil, ErrBattleNotFound
 	}
-	if battle.battleID != request.BattleID || battle.round != request.Round || battle.phase != PhaseCommand {
+	if battle.battleID != request.BattleID {
+		return nil, ErrInvalidAction
+	}
+	// 自动战斗开关允许在战斗进行中随时切换，不要求仍处于 command 阶段或严格回合号匹配。
+	if request.ActionType == ActionTypeSetAuto {
+		if battle.phase == PhaseFinished {
+			return nil, ErrInvalidAction
+		}
+		return s.setAutoBattleLocked(playerID, battle, request)
+	}
+	if battle.round != request.Round || battle.phase != PhaseCommand {
 		return nil, ErrInvalidAction
 	}
 
@@ -449,8 +475,6 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 			Response: BattleActionResponse{Accepted: true, Reason: "escape accepted"},
 			Result:   result,
 		}, nil
-	case ActionTypeSetAuto:
-		return s.setAutoBattleLocked(playerID, battle, request)
 	case ActionTypeCapture:
 		return s.submitCaptureLocked(playerID, battle, request)
 	default:
@@ -846,17 +870,22 @@ func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate
 		return defaultAttributes, defaultResistances
 	}
 	attributes := combatAttributeTemplate{
-		HP:          profile.HP,
-		Vigor:       profile.Vigor,
-		Spirit:      profile.Spirit,
-		Attack:      profile.ATK,
-		Defense:     profile.DEF,
-		Speed:       profile.SPD,
-		Mana:        profile.MANA,
-		HitPct:      profile.HitPct,
-		DodgePct:    profile.DodgePct,
-		CritRatePct: profile.CritRatePct,
-		CritDmgPct:  profile.CritDmgPct,
+		HP:                profile.HP,
+		Vigor:             profile.Vigor,
+		Spirit:            profile.Spirit,
+		Attack:            profile.ATK,
+		Defense:           profile.DEF,
+		Speed:             profile.SPD,
+		Mana:              profile.MANA,
+		HitPct:            profile.HitPct,
+		DodgePct:          profile.DodgePct,
+		CritRatePct:       profile.CritRatePct,
+		CritDmgPct:        profile.CritDmgPct,
+		Guard:             profile.Guard,
+		TalentDmgPct:      profile.TalentDmgPct,
+		TalentReducePct:   profile.TalentReducePct,
+		ElementAdvPct:     profile.ElementAdvPct,
+		ElementPenaltyPct: profile.ElementPenaltyPct,
 	}
 	resistances := resistanceTemplate{
 		PhysicalResistPct:  profile.PhysicalResistPct,
@@ -948,30 +977,93 @@ func combatTemplateFromProfile(profile *player.Profile) (combatAttributeTemplate
 // defaultPetTemplate keeps the current pet battle flow working while migrating
 // it onto the richer character/enemy attribute model introduced in this task.
 func defaultPetTemplate(item pet.LineupPet) (combatAttributeTemplate, resistanceTemplate) {
-	return combatAttributeTemplate{
-			HP:          item.HPMax,
-			Vigor:       100,
-			Spirit:      40,
-			Attack:      item.ATK,
-			Defense:     item.DEF,
-			Speed:       item.SPD,
-			Mana:        item.MANA,
-			HitPct:      8,
-			DodgePct:    5,
-			CritRatePct: 8,
-			CritDmgPct:  150,
-		}, resistanceTemplate{
-			PhysicalResistPct:  3,
-			SkillResistPct:     2,
-			ConfusionResistPct: 4,
-			SleepResistPct:     4,
-			ParalysisResistPct: 4,
-			SealResistPct:      4,
-			CurseResistPct:     3,
-			CritResistPct:      2,
-			CritDmgResistPct:   8,
-			PetResistPct:       3,
+	caps := pet.DefaultCombatStatCaps()
+	pet.ClampLineupPetCombatStats(&item, caps)
+	attributes := combatAttributeTemplate{
+		HP:                item.HPMax,
+		Spirit:            item.Spirit,
+		Attack:            item.ATK,
+		Defense:           item.DEF,
+		Speed:             item.SPD,
+		Mana:              item.MANA,
+		HitPct:            item.HitPct,
+		DodgePct:          item.DodgePct,
+		CritRatePct:       item.CritRatePct,
+		CritDmgPct:        item.CritDmgPct,
+		Guard:             item.Guard,
+		TalentDmgPct:      item.TalentDmgPct,
+		TalentReducePct:   item.TalentReducePct,
+		ElementAdvPct:     item.ElementAdvPct,
+		ElementPenaltyPct: item.ElementPenaltyPct,
+	}
+	if attributes.Spirit == 0 {
+		attributes.Spirit = 40
+	}
+	if attributes.HitPct == 0 {
+		attributes.HitPct = 8
+	}
+	if attributes.DodgePct == 0 {
+		attributes.DodgePct = 5
+	}
+	if attributes.CritRatePct == 0 {
+		attributes.CritRatePct = 8
+	}
+	if attributes.CritDmgPct == 0 {
+		attributes.CritDmgPct = 150
+	}
+	if item.SpiritMax > 0 {
+		if item.Spirit > 0 {
+			attributes.Spirit = item.Spirit
+		} else {
+			attributes.Spirit = item.SpiritMax
 		}
+	}
+	resistances := resistanceTemplate{
+		PhysicalResistPct:        item.PhysicalResistPct,
+		ReversePhysicalResistPct: item.ReversePhysicalResistPct,
+		SkillResistPct:           item.SkillResistPct,
+		ReverseSkillResistPct:    item.ReverseSkillResistPct,
+		ConfusionResistPct:       item.ConfusionResistPct,
+		SleepResistPct:           item.SleepResistPct,
+		ParalysisResistPct:       item.ParalysisResistPct,
+		SealResistPct:            item.SealResistPct,
+		CurseResistPct:           item.CurseResistPct,
+		CritResistPct:            item.CritResistPct,
+		CritDmgResistPct:         item.CritDmgResistPct,
+		CharacterResistPct:       item.CharacterResistPct,
+		PetResistPct:             item.PetResistPct,
+	}
+	if resistances.PhysicalResistPct == 0 {
+		resistances.PhysicalResistPct = 3
+	}
+	if resistances.SkillResistPct == 0 {
+		resistances.SkillResistPct = 2
+	}
+	if resistances.ConfusionResistPct == 0 {
+		resistances.ConfusionResistPct = 4
+	}
+	if resistances.SleepResistPct == 0 {
+		resistances.SleepResistPct = 4
+	}
+	if resistances.ParalysisResistPct == 0 {
+		resistances.ParalysisResistPct = 4
+	}
+	if resistances.SealResistPct == 0 {
+		resistances.SealResistPct = 4
+	}
+	if resistances.CurseResistPct == 0 {
+		resistances.CurseResistPct = 3
+	}
+	if resistances.CritResistPct == 0 {
+		resistances.CritResistPct = 2
+	}
+	if resistances.CritDmgResistPct == 0 {
+		resistances.CritDmgResistPct = 8
+	}
+	if resistances.PetResistPct == 0 {
+		resistances.PetResistPct = 3
+	}
+	return attributes, resistances
 }
 
 // defaultEnemyTemplate gives monsters the same stat dimensions as characters
@@ -1049,6 +1141,15 @@ func (a *actorRuntime) applyCombatTemplate(template combatAttributeTemplate) {
 	a.dodgeRatePct = template.DodgePct
 	a.critRatePct = template.CritRatePct
 	a.critDmgPct = template.CritDmgPct
+	if template.Guard > 0 {
+		a.guard = template.Guard
+	} else if a.guard == 0 {
+		a.guard = template.Defense
+	}
+	a.talentDmgPct = template.TalentDmgPct
+	a.talentReducePct = template.TalentReducePct
+	a.elementAdvPct = template.ElementAdvPct
+	a.elementPenaltyPct = template.ElementPenaltyPct
 }
 
 func (a *actorRuntime) applyResistanceTemplate(template resistanceTemplate) {
@@ -1056,7 +1157,9 @@ func (a *actorRuntime) applyResistanceTemplate(template resistanceTemplate) {
 		return
 	}
 	a.physicalResistPct = template.PhysicalResistPct
+	a.reversePhysicalResistPct = template.ReversePhysicalResistPct
 	a.skillResistPct = template.SkillResistPct
+	a.reverseSkillResistPct = template.ReverseSkillResistPct
 	a.confusionResistPct = template.ConfusionResistPct
 	a.sleepResistPct = template.SleepResistPct
 	a.paralysisResistPct = template.ParalysisResistPct
@@ -1172,6 +1275,14 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 		if item.HPMax > 0 {
 			actor.hpMax = item.HPMax
 		}
+		if item.SpiritMax > 0 {
+			actor.spiritMax = item.SpiritMax
+			if item.Spirit > 0 {
+				actor.spirit = item.Spirit
+			} else {
+				actor.spirit = item.SpiritMax
+			}
+		}
 		allies = append(allies, actor)
 		configurePassiveProfile(actor)
 	}
@@ -1261,6 +1372,21 @@ func combatTemplateFromMonsterSlot(profile *player.Profile, enemy world.Entity, 
 		base.Speed = slot.SPD + uint32(index)
 		base.Mana = slot.MANA + uint32(index*2)
 	}
+	if slot.Guard > 0 {
+		base.Guard = slot.Guard + uint32(index)
+	}
+	if slot.TalentDmgPct > 0 {
+		base.TalentDmgPct = slot.TalentDmgPct
+	}
+	if slot.TalentReducePct > 0 {
+		base.TalentReducePct = slot.TalentReducePct
+	}
+	if slot.ElementAdvPct > 0 {
+		base.ElementAdvPct = slot.ElementAdvPct
+	}
+	if slot.ElementPenaltyPct > 0 {
+		base.ElementPenaltyPct = slot.ElementPenaltyPct
+	}
 	if slot.Level > 0 {
 		level = slot.Level + uint32(index)
 	}
@@ -1330,15 +1456,20 @@ func (b *activeBattle) resolveRound() (*StateSnapshot, *ResultSnapshot) {
 				StateID:   blockedStatusID,
 				Label:     decision.actor.name + blockedLabel,
 			})
-			continue
+		} else {
+			events = append(events, b.executeDecision(decision)...)
 		}
-		events = append(events, b.executeDecision(decision)...)
+		if b.hasWinner() {
+			break
+		}
+		// 流血、诅咒等被动扣血属于“当前行动单位的回合结束”结算。
+		// 这里不走 resolveDamageSkill，避免被动扣血误触发吸血、反击、连击等命中后被动。
+		events = append(events, b.resolveActorTurnEndStatusTicks(decision.actor)...)
+		b.expireActorStatuses(decision.actor)
 	}
 
-	events = append(events, b.resolveStatusTicks()...)
-	b.expireRoundStatuses()
-	result := b.buildRoundResult()
 	b.plannedActs = make(map[uint64]ActionRequest)
+	result := b.buildRoundResult()
 	if result != nil {
 		b.phase = PhaseFinished
 		b.commandDeadline = time.Time{}
@@ -1382,6 +1513,9 @@ func (b *activeBattle) collectTurnDecisions() []turnDecision {
 }
 
 func (b *activeBattle) executeDecision(decision turnDecision) []Event {
+	if b.hasWinner() {
+		return nil
+	}
 	actor := decision.actor
 	action := decision.action
 	skillID := action.SkillID
@@ -1399,6 +1533,9 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 	}
 	target := b.resolveDecisionTarget(actor, action.TargetID, skill)
 	if target == nil && skill.TargetRule != targetEnemyAll {
+		return nil
+	}
+	if b.hasWinner() {
 		return nil
 	}
 	if skill.EnergyCost > 0 {
@@ -1445,21 +1582,28 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 	}
 	if skill.TargetRule == targetEnemyAll && target == nil {
 		for _, multiTarget := range b.resolveAllEnemyTargets(actor) {
-			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true)...)
+			if b.hasWinner() {
+				break
+			}
+			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true, true)...)
 		}
 		return events
 	}
 	if skill.TargetRule == targetEnemyMulti && target != nil {
 		for _, multiTarget := range b.resolveMultiEnemyTargets(actor, target, skill.TargetCount) {
-			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true)...)
+			if b.hasWinner() {
+				break
+			}
+			events = append(events, b.resolveDamageSkill(actor, multiTarget, skillID, skill, true, true, true)...)
 		}
 		return events
 	}
-	events = append(events, b.resolveDamageSkill(actor, target, skillID, skill, true, true)...)
+	events = append(events, b.resolveDamageSkill(actor, target, skillID, skill, true, true, true)...)
 	return events
 }
 
-func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRuntime, skillID uint32, skill skillDef, allowCounter bool, allowCombo bool) []Event {
+// resolveDamageSkill 结算一次技能/攻击伤害；allowLifesteal 只应在主动出手时为 true，被动状态、反击和连击不触发吸血。
+func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRuntime, skillID uint32, skill skillDef, allowCounter bool, allowCombo bool, allowLifesteal bool) []Event {
 	if actor == nil || target == nil || actor.isDead() || target.isDead() {
 		return nil
 	}
@@ -1489,8 +1633,9 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 		SourceID:  actor.actorID,
 		TargetID:  target.actorID,
 		SkillID:   skillID,
-		Value:     actualDamage,
-		Label:     damageLabel,
+		// Value 传公式结算后的原始伤害，供客户端飘字展示；实际扣血以 applyDamage 结果为准。
+		Value: damage,
+		Label: damageLabel,
 	})
 	if target.isDead() {
 		if b.tryRevive(target, &events, actor.actorID, skillID) {
@@ -1507,7 +1652,7 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 		}
 	}
 
-	if actualDamage > 0 && actor.lifestealPct > 0 && !actor.isDead() {
+	if allowLifesteal && actualDamage > 0 && actor.lifestealPct > 0 && !actor.isDead() {
 		healAmount := maxInt32(int32(actualDamage)*int32(actor.lifestealPct)/100, 1)
 		restored := actor.restoreHP(healAmount)
 		if restored > 0 {
@@ -1535,7 +1680,7 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 			SkillID:   DefaultAttackSkillID,
 			Label:     actor.name + " 触发了连击。",
 		})
-		events = append(events, b.resolveDamageSkill(actor, target, DefaultAttackSkillID, comboSkill, false, false)...)
+		events = append(events, b.resolveDamageSkill(actor, target, DefaultAttackSkillID, comboSkill, false, false, false)...)
 	}
 
 	if allowCounter && actualDamage > 0 && b.canCounter(target) {
@@ -1547,7 +1692,7 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 			SkillID:   DefaultAttackSkillID,
 			Label:     target.name + " 发动了反击。",
 		})
-		events = append(events, b.resolveDamageSkill(target, actor, DefaultAttackSkillID, counterSkill, false, false)...)
+		events = append(events, b.resolveDamageSkill(target, actor, DefaultAttackSkillID, counterSkill, false, false, false)...)
 	}
 
 	return events
@@ -1572,7 +1717,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if chancePct := b.adjustStatusChancePct(skill.SealChancePct, target, StatusSeal); chancePct > 0 && b.rollChance(chancePct, actor.actorID+9, target.actorID+17) {
+	if chancePct := resolveControlApplyChance(skill.SealChancePct, skill.SealPower, target.statusResistPct(StatusSeal)); chancePct > 0 && b.rollChance(chancePct, actor.actorID+9, target.actorID+17) {
 		if target.applyStatus(StatusSeal, skill.SealRounds, 0) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
@@ -1639,7 +1784,7 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if chancePct := b.adjustStatusChancePct(skill.ControlChancePct, target, skill.ControlStatusID); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
+	if chancePct := resolveControlApplyChance(skill.ControlChancePct, skill.ControlPower, target.statusResistPct(skill.ControlStatusID)); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
 		if target.applyStatus(skill.ControlStatusID, skill.ControlRounds, 0) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
@@ -1654,75 +1799,74 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 	return events
 }
 
-func (b *activeBattle) resolveStatusTicks() []Event {
-	events := make([]Event, 0, 8)
-	for _, actor := range b.allActors() {
+func (b *activeBattle) resolveActorTurnEndStatusTicks(actor *actorRuntime) []Event {
+	if actor == nil || actor.isDead() {
+		return nil
+	}
+	events := make([]Event, 0, 2)
+	if bleed := actor.statuses[StatusBleed]; bleed != nil && bleed.remainingRound > 0 {
+		actualDamage := actor.applyDamage(bleed.potency)
+		events = append(events, Event{
+			EventType: EventTypeStatusTick,
+			SourceID:  actor.actorID,
+			TargetID:  actor.actorID,
+			StateID:   StatusBleed,
+			Value:     actualDamage,
+			Label:     fmt.Sprintf("%s 因流血损失 %d 点生命。", actor.name, actualDamage),
+		})
 		if actor.isDead() {
-			continue
-		}
-		if bleed := actor.statuses[StatusBleed]; bleed != nil && bleed.remainingRound > 0 {
-			actualDamage := actor.applyDamage(bleed.potency)
-			events = append(events, Event{
-				EventType: EventTypeStatusTick,
-				SourceID:  actor.actorID,
-				TargetID:  actor.actorID,
-				StateID:   StatusBleed,
-				Value:     actualDamage,
-				Label:     fmt.Sprintf("%s 因流血损失 %d 点生命。", actor.name, actualDamage),
-			})
-			if actor.isDead() {
-				if !b.tryRevive(actor, &events, actor.actorID, 0) {
-					events = append(events, Event{
-						EventType: EventTypeDefeat,
-						SourceID:  actor.actorID,
-						TargetID:  actor.actorID,
-						StateID:   StatusBleed,
-						Label:     actor.name + " 因持续伤害倒下了。",
-					})
-				}
-				continue
+			if !b.tryRevive(actor, &events, actor.actorID, 0) {
+				events = append(events, Event{
+					EventType: EventTypeDefeat,
+					SourceID:  actor.actorID,
+					TargetID:  actor.actorID,
+					StateID:   StatusBleed,
+					Label:     actor.name + " 因持续伤害倒下了。",
+				})
 			}
+			return events
 		}
-		if curse := actor.statuses[StatusCurse]; curse != nil && curse.remainingRound > 0 {
-			actualDamage := actor.applyDamage(curse.potency)
-			events = append(events, Event{
-				EventType: EventTypeStatusTick,
-				SourceID:  actor.actorID,
-				TargetID:  actor.actorID,
-				StateID:   StatusCurse,
-				Value:     actualDamage,
-				Label:     fmt.Sprintf("%s 因诅咒损失 %d 点生命。", actor.name, actualDamage),
-			})
-			if actor.isDead() {
-				if !b.tryRevive(actor, &events, actor.actorID, 0) {
-					events = append(events, Event{
-						EventType: EventTypeDefeat,
-						SourceID:  actor.actorID,
-						TargetID:  actor.actorID,
-						StateID:   StatusCurse,
-						Label:     actor.name + " 因诅咒倒下了。",
-					})
-				}
+	}
+	if curse := actor.statuses[StatusCurse]; curse != nil && curse.remainingRound > 0 {
+		actualDamage := actor.applyDamage(curse.potency)
+		events = append(events, Event{
+			EventType: EventTypeStatusTick,
+			SourceID:  actor.actorID,
+			TargetID:  actor.actorID,
+			StateID:   StatusCurse,
+			Value:     actualDamage,
+			Label:     fmt.Sprintf("%s 因诅咒损失 %d 点生命。", actor.name, actualDamage),
+		})
+		if actor.isDead() {
+			if !b.tryRevive(actor, &events, actor.actorID, 0) {
+				events = append(events, Event{
+					EventType: EventTypeDefeat,
+					SourceID:  actor.actorID,
+					TargetID:  actor.actorID,
+					StateID:   StatusCurse,
+					Label:     actor.name + " 因诅咒倒下了。",
+				})
 			}
 		}
 	}
 	return events
 }
 
-func (b *activeBattle) expireRoundStatuses() {
-	for _, actor := range b.allActors() {
-		for statusID, status := range actor.statuses {
-			if status.remainingRound == 0 {
-				delete(actor.statuses, statusID)
-				continue
-			}
-			status.remainingRound--
-			if status.remainingRound == 0 {
-				delete(actor.statuses, statusID)
-			}
-		}
-		actor.refreshStatusDerivedModifiers()
+func (b *activeBattle) expireActorStatuses(actor *actorRuntime) {
+	if actor == nil {
+		return
 	}
+	for statusID, status := range actor.statuses {
+		if status.remainingRound == 0 {
+			delete(actor.statuses, statusID)
+			continue
+		}
+		status.remainingRound--
+		if status.remainingRound == 0 {
+			delete(actor.statuses, statusID)
+		}
+	}
+	actor.refreshStatusDerivedModifiers()
 }
 
 func (b *activeBattle) buildRoundResult() *ResultSnapshot {
@@ -2202,8 +2346,8 @@ func (b *activeBattle) calculateDodgeChancePct(attacker *actorRuntime, target *a
 	return uint32(finalChance)
 }
 
-// adjustStatusChancePct lets each target consume its own status-specific
-// resistance without changing the rest of the battle pipeline.
+// adjustStatusChancePct 让非控制类状态（如流血、诅咒）按「概率 - 抗性」折算命中。
+// 控制类状态请使用 resolveControlApplyChance（概率无视抗性 / 威力对抗抗性）。
 func (b *activeBattle) adjustStatusChancePct(baseChancePct uint32, target *actorRuntime, statusID uint32) uint32 {
 	if target == nil || baseChancePct == 0 {
 		return 0
@@ -2296,6 +2440,10 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 	skillSnapshots := make([]SkillSnapshot, 0, len(a.skillIDs))
 	for _, skillID := range a.skillIDs {
 		if def, ok := getSkillDef(skillID); ok {
+			// 普攻是全员固有机制，不下发到 skills 快照，避免客户端把它当成可选技能。
+			if def.isBasicAttackSkill() {
+				continue
+			}
 			skillSnapshots = append(skillSnapshots, SkillSnapshot{
 				SkillID:       skillID,
 				Name:          def.Name,
@@ -2306,6 +2454,7 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 				CastColor:     def.CastColor,
 				ImpactColor:   def.ImpactColor,
 				Projectile:    def.Projectile,
+				IsBasicAttack: def.isBasicAttackSkill(),
 			})
 			continue
 		}
@@ -2358,13 +2507,17 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 		MercenaryResistPct: a.mercenaryResistPct,
 		GenericShieldPct:   a.genericShieldPct,
 		Skills:             skillSnapshots,
-		SkillIDs:           append([]uint32{}, a.skillIDs...),
+		SkillIDs:           skillIDsForClientSnapshot(a.skillIDs),
 		StatusIDs:          a.statusIDs(),
 		LineupIndex:        a.lineupIndex,
 	}
 }
 
 func (a *actorRuntime) hasSkill(skillID uint32) bool {
+	// 普攻对所有参战单位默认可用，不要求写入 skill_ids 配置。
+	if skillID == DefaultAttackSkillID {
+		return true
+	}
 	for _, candidate := range a.skillIDs {
 		if candidate == skillID {
 			return true
@@ -2381,24 +2534,16 @@ func (a *actorRuntime) effectiveSpeed() uint32 {
 	return uint32(maxInt32(a.effectiveStats().Speed, 0))
 }
 
-func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, battleID uint64, round uint32) (int32, bool) {
-	attackerStats := a.effectiveStats()
-	targetStats := target.effectiveStats()
-	baseDamage := calculateBaseDamage(attackerStats, targetStats, skill)
-	defenseReduction := calculateDefenseReduction(targetStats, skill)
-	blockReduction := calculateBlockReduction(attackerStats, targetStats, skill)
-	damage := calculateFinalDamage(baseDamage.Total, defenseReduction, blockReduction)
-	crit := false
-	critRatePct := clampCritRatePct(saturatingSubUint32(attackerStats.CritRatePct, targetStats.CritResistPct))
-	critDmgPct := clampCritDmgPct(saturatingSubUint32(attackerStats.CritDmgPct, targetStats.CritDmgResistPct))
-	if skill.AllowCrit && baseDamage.allowsCriticalHit() && critRatePct > 0 {
-		rng := rand.New(rand.NewSource(int64(battleID) + int64(round)*151 + int64(a.actorID) + int64(target.actorID)))
-		crit = uint32(rng.Intn(100)) < critRatePct
-		if crit {
-			damage = damage * int32(critDmgPct) / 100
+func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, _ uint64, _ uint32) (int32, bool) {
+	if !skill.usesPocketPanelScaling() && skill.FixedDamage > 0 {
+		damage := skill.FixedDamage
+		if damage < 1 {
+			damage = 1
 		}
+		return damage, false
 	}
-	return damage, crit
+	input := buildPocketDamageInput(a, target, skill)
+	return calculatePocketDamage(input), false
 }
 
 func (a *actorRuntime) applyDamage(amount int32) int32 {

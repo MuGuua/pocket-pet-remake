@@ -20,7 +20,7 @@ func TestApplyBattleResultSideEffectsSkipsDuplicateGrantButSyncsProfile(t *testi
 
 	playerService := teststub.NewTestPlayerService()
 	battleRepo := teststub.NewBattleRepository()
-	handler := NewBattleHandler(nil, playerService, nil, nil, nil, nil, nil, nil, battle.NewService(nil), battleRepo)
+	handler := NewBattleHandler(nil, playerService, nil, nil, nil, nil, nil, nil, nil, battle.NewService(nil), battleRepo)
 
 	ctx := context.Background()
 	result := &battle.ResultSnapshot{
@@ -99,7 +99,7 @@ func TestBuildBattleGrantEntriesSkipsOwnedUniqueItems(t *testing.T) {
 
 	bagRepo := teststub.NewBagRepository()
 	bagService := bag.NewService(bagRepo)
-	handler := NewBattleHandler(nil, nil, nil, bagService, nil, nil, nil, nil, nil, nil)
+	handler := NewBattleHandler(nil, nil, nil, bagService, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	uniqueItemID := uint64(5101)
@@ -145,7 +145,7 @@ func TestEnsureNextBattleIDAvoidsReusingPersistedBattleID(t *testing.T) {
 	}
 
 	playerService := teststub.NewTestPlayerService()
-	petService := pet.NewService(teststub.NewPetRepository(), nil, teststub.NewMonsterRepository())
+	petService := pet.NewService(teststub.NewPetRepository(), nil, teststub.NewMonsterRepository(), nil)
 	monsterService := monster.NewService(teststub.NewMonsterRepository(), nil, petService)
 	battleService := battle.NewService(monsterService)
 	if err := battleService.EnsureNextBattleID(ctx, battleRepo); err != nil {

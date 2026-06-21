@@ -1,0 +1,63 @@
+package equipment
+
+import "errors"
+
+var (
+	ErrEquipmentEnhanceNotAllowed       = errors.New("equipment cannot be enhanced")
+	ErrEquipmentEnhanceMaxLevel         = errors.New("equipment enhance level already max")
+	ErrEquipmentEnhanceMaterialInsufficient = errors.New("insufficient enhance materials")
+	ErrEquipmentEnhanceConfigMissing    = errors.New("equipment enhance config missing")
+	ErrEquipmentEnhanceEquipped         = errors.New("equipment must be unequipped to enhance")
+)
+
+// EnhanceCost 描述单次强化到目标等级所需的材料消耗。
+type EnhanceCost struct {
+	TargetLevel  uint32
+	CostItemID   uint64
+	CostQuantity uint64
+}
+
+// EnhanceSuccessConfig 描述强化到目标等级的成功概率。
+type EnhanceSuccessConfig struct {
+	TargetLevel    uint32
+	SuccessRatePct uint32
+}
+
+// EnhanceResult 是一次强化尝试的服务端权威结果。
+type EnhanceResult struct {
+	Success     bool                  `json:"success"`
+	OldLevel    uint32                `json:"old_level"`
+	NewLevel    uint32                `json:"new_level"`
+	RatePct     uint32                `json:"rate_pct"`
+	RollPct     uint32                `json:"roll_pct"`
+	Item        RuntimeEquippedItem   `json:"item"`
+	AllEquipped []RuntimeEquippedItem `json:"all_equipped"`
+}
+
+// DefaultEnhanceSuccessRate 返回迁移种子默认成功率；数据库缺失时兜底。
+func DefaultEnhanceSuccessRate(targetLevel uint32) uint32 {
+	switch targetLevel {
+	case 1, 2, 3:
+		return 100
+	case 4, 5, 6:
+		return 90
+	case 7, 8:
+		return 75
+	case 9:
+		return 65
+	case 10:
+		return 55
+	case 11:
+		return 45
+	case 12:
+		return 35
+	case 13:
+		return 25
+	case 14:
+		return 15
+	case 15:
+		return 10
+	default:
+		return 0
+	}
+}

@@ -42,6 +42,16 @@ const INTERACT_RESP: int = 2032
 const NPC_ACTION_REQ: int = 2033
 # NPC 菜单项执行响应消息号。
 const NPC_ACTION_RESP: int = 2034
+# NPC 菜单拉取请求消息号。
+const NPC_MENU_REQ: int = 2042
+# NPC 菜单拉取响应消息号。
+const NPC_MENU_RESP: int = 2043
+# NPC 剧情继续请求消息号。
+const NPC_DIALOGUE_NEXT_REQ: int = 2037
+# NPC 剧情节点响应消息号。
+const NPC_DIALOGUE_RESP: int = 2038
+# NPC 剧情选项选择请求消息号。
+const NPC_DIALOGUE_CHOOSE_REQ: int = 2039
 # 暗雷遭遇上报请求消息号。
 const WILD_ENCOUNTER_REQ: int = 2035
 # 暗雷遭遇上报响应消息号。
@@ -52,6 +62,26 @@ const ENCOUNTER_PUSH: int = 2041
 const PLAYER_ALLOCATE_ATTR_REQ: int = 2061
 # 玩家分配属性点响应消息号。
 const PLAYER_ALLOCATE_ATTR_RESP: int = 2062
+# 宠物分配属性点请求消息号。
+const PET_ALLOCATE_ATTR_REQ: int = 2063
+# 宠物分配属性点响应消息号。
+const PET_ALLOCATE_ATTR_RESP: int = 2064
+# 人物已佩戴装备列表请求消息号。
+const PLAYER_EQUIPMENT_LIST_REQ: int = 2070
+# 人物已佩戴装备列表响应消息号。
+const PLAYER_EQUIPMENT_LIST_RESP: int = 2071
+# 人物佩戴装备请求消息号。
+const PLAYER_EQUIP_REQ: int = 2072
+# 人物佩戴装备响应消息号。
+const PLAYER_EQUIP_RESP: int = 2073
+# 人物卸下装备请求消息号。
+const PLAYER_UNEQUIP_REQ: int = 2074
+# 人物卸下装备响应消息号。
+const PLAYER_UNEQUIP_RESP: int = 2075
+# 人物装备强化请求消息号。
+const PLAYER_EQUIPMENT_ENHANCE_REQ: int = 2076
+# 人物装备强化响应消息号。
+const PLAYER_EQUIPMENT_ENHANCE_RESP: int = 2077
 
 # 宠物列表请求消息号。
 const PET_LIST_REQ: int = 3001
@@ -63,6 +93,18 @@ const PET_UPDATE_PUSH: int = 3011
 const PET_LINEUP_SET_REQ: int = 3021
 # 编队设置响应消息号。
 const PET_LINEUP_SET_RESP: int = 3022
+# 宠物法宝装备请求消息号。
+const PET_ARTIFACT_EQUIP_REQ: int = 3031
+# 宠物法宝装备响应消息号。
+const PET_ARTIFACT_EQUIP_RESP: int = 3032
+# 宠物法宝卸下请求消息号。
+const PET_ARTIFACT_UNEQUIP_REQ: int = 3033
+# 宠物法宝卸下响应消息号。
+const PET_ARTIFACT_UNEQUIP_RESP: int = 3034
+# 宠物技能详情请求消息号（含法宝槽完整 skill_id）。
+const PET_SKILL_DETAIL_REQ: int = 3035
+# 宠物技能详情响应消息号。
+const PET_SKILL_DETAIL_RESP: int = 3036
 
 # 战斗动作请求消息号。
 const BATTLE_ACTION_REQ: int = 4001
@@ -117,6 +159,10 @@ const WALLET_QUERY_REQ: int = 5081
 const WALLET_QUERY_RESP: int = 5082
 # 钱包增量更新推送消息号。
 const WALLET_UPDATE_PUSH: int = 5091
+# 商店购买物品请求消息号。
+const BUY_ITEM_REQ: int = 5101
+# 商店购买物品响应消息号。
+const BUY_ITEM_RESP: int = 5102
 
 # 任务列表请求消息号。
 const QUEST_LIST_REQ: int = 6001
@@ -188,6 +234,16 @@ static func name_of(cmd: int) -> String:
 			return "NPC_ACTION_REQ"
 		NPC_ACTION_RESP:
 			return "NPC_ACTION_RESP"
+		NPC_MENU_REQ:
+			return "NPC_MENU_REQ"
+		NPC_MENU_RESP:
+			return "NPC_MENU_RESP"
+		NPC_DIALOGUE_NEXT_REQ:
+			return "NPC_DIALOGUE_NEXT_REQ"
+		NPC_DIALOGUE_RESP:
+			return "NPC_DIALOGUE_RESP"
+		NPC_DIALOGUE_CHOOSE_REQ:
+			return "NPC_DIALOGUE_CHOOSE_REQ"
 		WILD_ENCOUNTER_REQ:
 			return "WILD_ENCOUNTER_REQ"
 		WILD_ENCOUNTER_RESP:
@@ -198,6 +254,26 @@ static func name_of(cmd: int) -> String:
 			return "PLAYER_ALLOCATE_ATTR_REQ"
 		PLAYER_ALLOCATE_ATTR_RESP:
 			return "PLAYER_ALLOCATE_ATTR_RESP"
+		PET_ALLOCATE_ATTR_REQ:
+			return "PET_ALLOCATE_ATTR_REQ"
+		PET_ALLOCATE_ATTR_RESP:
+			return "PET_ALLOCATE_ATTR_RESP"
+		PLAYER_EQUIPMENT_LIST_REQ:
+			return "PLAYER_EQUIPMENT_LIST_REQ"
+		PLAYER_EQUIPMENT_LIST_RESP:
+			return "PLAYER_EQUIPMENT_LIST_RESP"
+		PLAYER_EQUIP_REQ:
+			return "PLAYER_EQUIP_REQ"
+		PLAYER_EQUIP_RESP:
+			return "PLAYER_EQUIP_RESP"
+		PLAYER_UNEQUIP_REQ:
+			return "PLAYER_UNEQUIP_REQ"
+		PLAYER_UNEQUIP_RESP:
+			return "PLAYER_UNEQUIP_RESP"
+		PLAYER_EQUIPMENT_ENHANCE_REQ:
+			return "PLAYER_EQUIPMENT_ENHANCE_REQ"
+		PLAYER_EQUIPMENT_ENHANCE_RESP:
+			return "PLAYER_EQUIPMENT_ENHANCE_RESP"
 		PET_LIST_REQ:
 			return "PET_LIST_REQ"
 		PET_LIST_RESP:
@@ -208,6 +284,18 @@ static func name_of(cmd: int) -> String:
 			return "PET_LINEUP_SET_REQ"
 		PET_LINEUP_SET_RESP:
 			return "PET_LINEUP_SET_RESP"
+		PET_ARTIFACT_EQUIP_REQ:
+			return "PET_ARTIFACT_EQUIP_REQ"
+		PET_ARTIFACT_EQUIP_RESP:
+			return "PET_ARTIFACT_EQUIP_RESP"
+		PET_ARTIFACT_UNEQUIP_REQ:
+			return "PET_ARTIFACT_UNEQUIP_REQ"
+		PET_ARTIFACT_UNEQUIP_RESP:
+			return "PET_ARTIFACT_UNEQUIP_RESP"
+		PET_SKILL_DETAIL_REQ:
+			return "PET_SKILL_DETAIL_REQ"
+		PET_SKILL_DETAIL_RESP:
+			return "PET_SKILL_DETAIL_RESP"
 		BATTLE_ACTION_REQ:
 			return "BATTLE_ACTION_REQ"
 		BATTLE_ACTION_RESP:
@@ -260,6 +348,10 @@ static func name_of(cmd: int) -> String:
 			return "WALLET_QUERY_RESP"
 		WALLET_UPDATE_PUSH:
 			return "WALLET_UPDATE_PUSH"
+		BUY_ITEM_REQ:
+			return "BUY_ITEM_REQ"
+		BUY_ITEM_RESP:
+			return "BUY_ITEM_RESP"
 		QUEST_LIST_REQ:
 			return "QUEST_LIST_REQ"
 		QUEST_LIST_RESP:
@@ -288,9 +380,13 @@ static func name_of(cmd: int) -> String:
 			return "CMD_%d" % cmd
 
 
-# 判断当前消息是否值得打印到请求结果日志中；默认跳过高频心跳，避免刷屏。
+# 判断当前消息是否值得打印到请求结果日志中；跳过高频心跳与状态同步推送，避免 HUD 与控制台被刷爆。
 static func should_log_result(cmd: int) -> bool:
-	return cmd != HEARTBEAT_RESP
+	match cmd:
+		HEARTBEAT_RESP, BATTLE_STATE_PUSH, ENTITY_MOVE_PUSH:
+			return false
+		_:
+			return true
 
 
 # 判断消息是否属于战斗链路（开战入口、回合动作、状态推送、PVP 与重连恢复）。
@@ -298,6 +394,8 @@ static func is_battle_related(cmd: int) -> bool:
 	match cmd:
 		INTERACT_REQ, INTERACT_RESP, \
 		NPC_ACTION_REQ, NPC_ACTION_RESP, \
+		NPC_MENU_REQ, NPC_MENU_RESP, \
+		NPC_DIALOGUE_NEXT_REQ, NPC_DIALOGUE_RESP, NPC_DIALOGUE_CHOOSE_REQ, \
 		WILD_ENCOUNTER_REQ, WILD_ENCOUNTER_RESP, \
 		BATTLE_ACTION_REQ, BATTLE_ACTION_RESP, \
 		BATTLE_START_PUSH, BATTLE_STATE_PUSH, BATTLE_RESULT_PUSH, \

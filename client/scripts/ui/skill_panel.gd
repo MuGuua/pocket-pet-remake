@@ -2,7 +2,6 @@ extends PanelContainer
 
 # 技能面板当前先展示玩家快照中的服务端 skill_ids，避免继续显示伪造技能名。
 const MAX_VISIBLE_SKILLS: int = 3
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 @onready var skill_labels: Array[Label] = [
 	$RootVBox/BodyPanel/BodyVBox/SkillList/Skill1/HBox/Info,

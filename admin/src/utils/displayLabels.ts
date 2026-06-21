@@ -36,14 +36,35 @@ export const NPC_ENTRY_TYPE_LABELS: Record<string, string> = {
   shop: '商店',
   quest: '任务',
   battle: '挑战',
+  warehouse: '仓库',
 };
 
 /** NPC 菜单动作结果类型 */
 export const NPC_ACTION_RESULT_LABELS: Record<string, string> = {
   notice: '提示',
   dialog: '对话',
+  dialogue: '剧情对话',
   shop: '商店',
   battle: '直接开战',
+  quest_accept: '接取任务',
+  quest_submit: '提交任务',
+  panel: '打开面板',
+};
+
+/** NPC 菜单项运行时状态 key（写入 state 字段，服务端按此判断菜单是否可展示） */
+export const NPC_MENU_STATE_LABELS: Record<string, string> = {
+  available: '可用',
+  unavailable: '不可用',
+  hidden: '隐藏',
+  locked: '锁定',
+  disabled: '停用',
+};
+
+/** 任务目标事件类型 */
+export const QUEST_EVENT_TYPE_LABELS: Record<string, string> = {
+  TALK_TO_NPC: '与 NPC 对话',
+  ENTER_SCENE: '进入场景',
+  WIN_BATTLE: '战斗胜利',
 };
 
 /** 物品大类 */
@@ -87,6 +108,22 @@ export const PREFERRED_TARGET_LABELS: Record<string, string> = {
   lowest: '生命最低',
   highest: '生命最高',
 };
+
+/** 战斗控制状态 ID（与后端 battle.Status* 常量一致） */
+export const BATTLE_CONTROL_STATUS_OPTIONS: Array<{ value: number; label: string }> = [
+  { value: 2, label: '2 · 封印' },
+  { value: 3, label: '3 · 眩晕' },
+  { value: 9, label: '9 · 束缚' },
+  { value: 10, label: '10 · 睡眠' },
+  { value: 11, label: '11 · 麻痹' },
+  { value: 12, label: '12 · 混乱' },
+];
+
+/** 根据控制状态 ID 返回中文名称 */
+export function formatControlStatusLabel(statusID: number): string {
+  const matched = BATTLE_CONTROL_STATUS_OPTIONS.find((item) => item.value === statusID);
+  return matched?.label ?? String(statusID);
+}
 
 /** 背包容器类型 */
 export const CONTAINER_TYPE_LABELS: Record<string, string> = {

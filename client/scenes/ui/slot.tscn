@@ -1,10 +1,9 @@
-[gd_scene format=3 uid="uid://cy7ymccdw2m71"]
+[gd_scene load_steps=2 format=3 uid="uid://cy7ymccdw2m71"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_y7ywj"]
-load_path = "res://.godot/imported/pixel items0.png-7a72b218889f7fd84694845e176587f1.ctex"
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/分类/武器/pixel items0.png" id="1_pixel"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_v67e0"]
-atlas = SubResource("CompressedTexture2D_y7ywj")
+atlas = ExtResource("1_pixel")
 region = Rect2(192, 96, 32, 32)
 
 [node name="Slot" type="Control" unique_id=1508593485]

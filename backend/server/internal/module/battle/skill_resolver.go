@@ -42,12 +42,15 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		FixedHeal:              item.FixedHeal,
 		AllowCrit:              item.AllowCrit,
 		IgnoreDefense:          item.IgnoreDefense,
+		SkillMult:              item.SkillMult,
+		SkillCritAdd:           item.SkillCritAdd,
 		ArmorBreakPct:          item.ArmorBreakPct,
 		VulnerabilityPct:       item.VulnerabilityPct,
 		BleedChancePct:         item.BleedChancePct,
 		BleedRounds:            item.BleedRounds,
 		BleedDamage:            item.BleedDamage,
 		SealChancePct:          item.SealChancePct,
+		SealPower:              item.SealPower,
 		SealRounds:             item.SealRounds,
 		VulnerabilityChancePct: item.VulnerabilityChancePct,
 		VulnerabilityRounds:    item.VulnerabilityRounds,
@@ -64,11 +67,39 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		CurseDamage:            item.CurseDamage,
 		CurseManaPct:           item.CurseManaPct,
 		ControlChancePct:       item.ControlChancePct,
+		ControlPower:           item.ControlPower,
 		ControlRounds:          item.ControlRounds,
 		ControlStatusID:        item.ControlStatusID,
 		PreferredTargetHP:      item.PreferredTargetHP,
 		TargetCount:            item.TargetCount,
+		IsBasicAttack:          item.IsBasicAttack,
 	}
+}
+
+// isBasicAttackSkill 判断该技能是否属于普攻，普攻应走「攻击」按钮而非技能列表。
+func (d skillDef) isBasicAttackSkill() bool {
+	if d.ID == DefaultAttackSkillID {
+		return true
+	}
+	return d.IsBasicAttack
+}
+
+// skillIDsForClientSnapshot 过滤普攻技能 ID，客户端通过「攻击」按钮隐式使用 DefaultAttackSkillID。
+func skillIDsForClientSnapshot(skillIDs []uint32) []uint32 {
+	if len(skillIDs) == 0 {
+		return []uint32{}
+	}
+	filtered := make([]uint32, 0, len(skillIDs))
+	for _, skillID := range skillIDs {
+		if def, ok := getSkillDef(skillID); ok && def.isBasicAttackSkill() {
+			continue
+		}
+		if skillID == DefaultAttackSkillID {
+			continue
+		}
+		filtered = append(filtered, skillID)
+	}
+	return filtered
 }
 
 func targetRuleFromProtocolName(name string) skillTargetRule {

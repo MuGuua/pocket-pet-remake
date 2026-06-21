@@ -12,6 +12,8 @@ func isBattleCmd(cmd uint16) bool {
 	switch cmd {
 	case protocol.CmdInteractReq, protocol.CmdInteractResp,
 		protocol.CmdNPCActionReq, protocol.CmdNPCActionResp,
+		protocol.CmdNPCMenuReq, protocol.CmdNPCMenuResp,
+		protocol.CmdNPCDialogueNextReq, protocol.CmdNPCDialogueResp, protocol.CmdNPCDialogueChooseReq,
 		protocol.CmdWildEncounterReq, protocol.CmdWildEncounterResp,
 		protocol.CmdBattleActionReq, protocol.CmdBattleActionResp,
 		protocol.CmdBattleStartPush, protocol.CmdBattleStatePush, protocol.CmdBattleResultPush,
@@ -36,6 +38,16 @@ func battleCmdName(cmd uint16) string {
 		return "NPC_ACTION_REQ"
 	case protocol.CmdNPCActionResp:
 		return "NPC_ACTION_RESP"
+	case protocol.CmdNPCMenuReq:
+		return "NPC_MENU_REQ"
+	case protocol.CmdNPCMenuResp:
+		return "NPC_MENU_RESP"
+	case protocol.CmdNPCDialogueNextReq:
+		return "NPC_DIALOGUE_NEXT_REQ"
+	case protocol.CmdNPCDialogueResp:
+		return "NPC_DIALOGUE_RESP"
+	case protocol.CmdNPCDialogueChooseReq:
+		return "NPC_DIALOGUE_CHOOSE_REQ"
 	case protocol.CmdWildEncounterReq:
 		return "WILD_ENCOUNTER_REQ"
 	case protocol.CmdWildEncounterResp:

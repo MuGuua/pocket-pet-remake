@@ -1,7 +1,6 @@
 extends PanelContainer
 
 const StatusPanelDataProvider = preload("res://scripts/data/status_panel_data_provider.gd")
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 var _default_data: Dictionary = {}
 

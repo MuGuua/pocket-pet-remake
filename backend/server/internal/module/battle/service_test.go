@@ -21,6 +21,55 @@ func mustFindSnapshotByUnitClass(t *testing.T, actors []ActorSnapshot, unitClass
 	return ActorSnapshot{}
 }
 
+func TestSubmitBasicAttackWithoutLoadoutSkill(t *testing.T) {
+	svc := NewService(nil)
+	ctx := context.Background()
+	profile := &player.Profile{
+		PlayerID: 10001,
+		Name:     "DemoTrainer",
+		Level:    8,
+		SceneID:  1,
+		PosX:     8,
+		PosY:     6,
+		SkillIDs: []uint32{1101},
+	}
+	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, nil, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	character := mustFindSnapshotByUnitClass(t, start.Allies, ActorUnitClassCharacter)
+	if len(character.SkillIDs) != 1 || character.SkillIDs[0] != 1101 {
+		t.Fatalf("character.SkillIDs = %#v, want only character skill 1101", character.SkillIDs)
+	}
+	for _, skill := range character.Skills {
+		if skill.SkillID == DefaultAttackSkillID || skill.IsBasicAttack {
+			t.Fatalf("character.Skills = %#v, want basic attack excluded from snapshot", character.Skills)
+		}
+	}
+	for _, skill := range start.Enemies[0].Skills {
+		if skill.SkillID == DefaultAttackSkillID || skill.IsBasicAttack {
+			t.Fatalf("enemy.Skills = %#v, want basic attack excluded from snapshot", start.Enemies[0].Skills)
+		}
+	}
+
+	outcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    character.ActorID,
+		SkillID:    DefaultAttackSkillID,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(basic attack) error = %v", err)
+	}
+	if !outcome.Response.Accepted {
+		t.Fatalf("outcome.Response = %#v, want accepted basic attack", outcome.Response)
+	}
+}
+
 func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	svc := NewService(nil)
 	ctx := context.Background()
@@ -43,7 +92,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	}
 	healerPet := start.Allies[2]
 	targetActor := start.Allies[0]
-	if len(healerPet.Skills) != 2 || healerPet.Skills[1].TargetType != "ally_single" {
+	if len(healerPet.Skills) != 1 || healerPet.Skills[0].TargetType != "ally_single" {
 		t.Fatalf("healer pet skills = %#v, want heal skill with ally_single target", healerPet.Skills)
 	}
 
@@ -82,7 +131,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 		Round:      start.Round,
 		ActionType: ActionTypeSkill,
 		ActorID:    healerPet.ActorID,
-		SkillID:    healerPet.SkillIDs[1],
+		SkillID:    healerPet.SkillIDs[0],
 		TargetID:   targetActor.ActorID,
 	})
 	if err != nil {
@@ -146,7 +195,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 		Round:      outcomeTwo.State.Round,
 		ActionType: ActionTypeSkill,
 		ActorID:    healerPet.ActorID,
-		SkillID:    healerPet.SkillIDs[1],
+		SkillID:    healerPet.SkillIDs[0],
 		TargetID:   targetActor.ActorID,
 	})
 	if err != nil {
@@ -266,11 +315,11 @@ func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
 		t.Fatalf("len(start.Enemies) = %d, want 2", len(start.Enemies))
 	}
 	damagePet := start.Allies[1]
-	if damagePet.Skills[1].TargetType != "enemy_all" {
-		t.Fatalf("damage pet skills = %#v, want second skill target type enemy_all", damagePet.Skills)
+	if damagePet.Skills[0].TargetType != "enemy_all" {
+		t.Fatalf("damage pet skills = %#v, want burst skill target type enemy_all", damagePet.Skills)
 	}
-	if damagePet.Skills[1].AnimationKey != "burst" || damagePet.Skills[1].CastColor == "" || damagePet.Skills[1].ImpactColor == "" || !damagePet.Skills[1].Projectile {
-		t.Fatalf("damage pet skill visuals = %#v, want burst animation metadata", damagePet.Skills[1])
+	if damagePet.Skills[0].AnimationKey != "burst" || damagePet.Skills[0].CastColor == "" || damagePet.Skills[0].ImpactColor == "" || !damagePet.Skills[0].Projectile {
+		t.Fatalf("damage pet skill visuals = %#v, want burst animation metadata", damagePet.Skills[0])
 	}
 
 	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -413,19 +462,17 @@ func TestExecuteDecisionFallsBackWhenSpiritInsufficient(t *testing.T) {
 func TestAdjustStatusChancePctUsesSpecificResistance(t *testing.T) {
 	battle := &activeBattle{}
 	target := &actorRuntime{
-		confusionResistPct: 15,
-		sealResistPct:      20,
-		curseResistPct:     5,
+		curseResistPct: 5,
 	}
 
-	if got := battle.adjustStatusChancePct(35, target, StatusSeal); got != 15 {
-		t.Fatalf("adjustStatusChancePct(seal) = %d, want 15", got)
-	}
 	if got := battle.adjustStatusChancePct(10, target, StatusCurse); got != 5 {
 		t.Fatalf("adjustStatusChancePct(curse) = %d, want 5", got)
 	}
-	if got := battle.adjustStatusChancePct(10, target, StatusConfusion); got != 0 {
-		t.Fatalf("adjustStatusChancePct(confusion) = %d, want 0 after resist clamp", got)
+	if got := resolveControlApplyChance(35, 0, target.sealResistPct); got != 35 {
+		t.Fatalf("resolveControlApplyChance probability = %d, want 35 ignoring resist", got)
+	}
+	if got := resolveControlApplyChance(0, 350, 300); got != 100 {
+		t.Fatalf("resolveControlApplyChance power = %d, want 100", got)
 	}
 }
 
@@ -449,14 +496,14 @@ func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 		t.Fatalf("len(start.Enemies) = %d, want 2", len(start.Enemies))
 	}
 	multiTargetPet := start.Allies[1]
-	if len(multiTargetPet.Skills) != 2 || multiTargetPet.Skills[1].TargetType != "enemy_multi" {
-		t.Fatalf("pet skills = %#v, want second skill target type enemy_multi", multiTargetPet.Skills)
+	if len(multiTargetPet.Skills) != 1 || multiTargetPet.Skills[0].TargetType != "enemy_multi" {
+		t.Fatalf("pet skills = %#v, want volley skill target type enemy_multi", multiTargetPet.Skills)
 	}
-	if multiTargetPet.Skills[1].TargetCount != 2 {
-		t.Fatalf("multiTargetPet.Skills[1].TargetCount = %d, want 2", multiTargetPet.Skills[1].TargetCount)
+	if multiTargetPet.Skills[0].TargetCount != 2 {
+		t.Fatalf("multiTargetPet.Skills[0].TargetCount = %d, want 2", multiTargetPet.Skills[0].TargetCount)
 	}
-	if multiTargetPet.Skills[1].AnimationKey != "volley" || multiTargetPet.Skills[1].CastColor == "" || multiTargetPet.Skills[1].ImpactColor == "" || !multiTargetPet.Skills[1].Projectile {
-		t.Fatalf("multiTargetPet.Skills[1] visuals = %#v, want volley animation metadata", multiTargetPet.Skills[1])
+	if multiTargetPet.Skills[0].AnimationKey != "volley" || multiTargetPet.Skills[0].CastColor == "" || multiTargetPet.Skills[0].ImpactColor == "" || !multiTargetPet.Skills[0].Projectile {
+		t.Fatalf("multiTargetPet.Skills[0] visuals = %#v, want volley animation metadata", multiTargetPet.Skills[0])
 	}
 
 	_, err = svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -603,5 +650,81 @@ func TestServiceStartPVEIncludesCharacterWithoutLineup(t *testing.T) {
 	}
 	if start.ActivePetUID != 0 {
 		t.Fatalf("start.ActivePetUID = %d, want 0 for character turn", start.ActivePetUID)
+	}
+}
+
+func TestResolveRoundSkipsUnactedAlliesWhenEnemiesEliminated(t *testing.T) {
+	svc := NewService(nil)
+	ctx := context.Background()
+	profile := &player.Profile{
+		PlayerID: 60001,
+		Name:     "BurstHero",
+		Level:    20,
+		SceneID:  1,
+		PosX:     8,
+		PosY:     6,
+		SkillIDs: []uint32{DefaultCharacterSkillID},
+		ATK:      200,
+		SPD:      30,
+	}
+	lineup := []pet.LineupPet{
+		{PetUID: 70001, PetID: 101, Level: 10, HP: 80, HPMax: 80, ATK: 12, DEF: 10, SPD: 5, MANA: 20, SkillIDs: []uint32{1002}},
+	}
+	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "WeakMob"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	if len(start.Allies) != 2 {
+		t.Fatalf("len(start.Allies) = %d, want character + pet", len(start.Allies))
+	}
+	character := mustFindSnapshotByUnitClass(t, start.Allies, ActorUnitClassCharacter)
+	petActor := mustFindSnapshotByUnitClass(t, start.Allies, ActorUnitClassPet)
+
+	outcomeA, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    character.ActorID,
+		SkillID:    DefaultCharacterSkillID,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(character) error = %v", err)
+	}
+	if outcomeA.State == nil || len(outcomeA.State.PendingActorIDs) != 1 {
+		t.Fatalf("outcomeA pending = %#v, want only pet pending", outcomeA.State)
+	}
+
+	outcomeB, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+		BattleID:   start.BattleID,
+		Round:      start.Round,
+		ActionType: ActionTypeSkill,
+		ActorID:    petActor.ActorID,
+		SkillID:    1002,
+		TargetID:   start.Enemies[0].ActorID,
+	})
+	if err != nil {
+		t.Fatalf("SubmitAction(pet) error = %v", err)
+	}
+	if outcomeB.Result == nil || !outcomeB.Result.Win {
+		t.Fatalf("outcomeB.Result = %#v, want immediate win", outcomeB.Result)
+	}
+	if outcomeB.State == nil {
+		t.Fatal("outcomeB.State = nil, want resolved round state")
+	}
+	for _, event := range outcomeB.State.Events {
+		if event.EventType == EventTypeUseSkill && event.SourceID == petActor.ActorID {
+			t.Fatalf("events = %#v, pet should not consume skill after enemies eliminated", outcomeB.State.Events)
+		}
+	}
+	for _, actorState := range outcomeB.State.Actors {
+		if actorState.ActorID != petActor.ActorID {
+			continue
+		}
+		if actorState.Spirit != petActor.Spirit {
+			t.Fatalf("pet spirit = %d, want unchanged %d", actorState.Spirit, petActor.Spirit)
+		}
 	}
 }

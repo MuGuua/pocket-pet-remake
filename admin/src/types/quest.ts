@@ -22,12 +22,21 @@ export interface AdminQuestTemplateListResult {
   page_size: number;
 }
 
+export interface AdminQuestObjectiveGuideInput {
+  scene_id?: number;
+  npc_id?: number;
+  text?: string;
+  menu_entry_id?: number;
+  dialogue_entry_id?: number;
+}
+
 export interface AdminQuestObjectiveInput {
   objective_id: number;
   event_type: string;
   description: string;
   target_value: number;
   target_selector: Record<string, unknown>;
+  guide?: AdminQuestObjectiveGuideInput;
 }
 
 export interface AdminQuestRewardInput {

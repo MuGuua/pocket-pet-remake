@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
@@ -22,24 +23,26 @@ type packetSender interface {
 }
 
 type WorldHandler struct {
-	sessionService *session.Service
-	playerService  *player.Service
-	petService     *pet.Service
-	questService   *quest.Service
-	walletService  *wallet.Service
-	worldService   *world.Service
-	monsterService *monster.Service
+	sessionService   *session.Service
+	playerService    *player.Service
+	petService       *pet.Service
+	questService     *quest.Service
+	walletService    *wallet.Service
+	worldService     *world.Service
+	monsterService   *monster.Service
+	equipmentService *equipment.Service
 }
 
-func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service) *WorldHandler {
+func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
 	return &WorldHandler{
-		sessionService: sessionService,
-		playerService:  playerService,
-		petService:     petService,
-		questService:   questService,
-		walletService:  walletService,
-		worldService:   worldService,
-		monsterService: monsterService,
+		sessionService:   sessionService,
+		playerService:    playerService,
+		petService:       petService,
+		questService:     questService,
+		walletService:    walletService,
+		worldService:     worldService,
+		monsterService:   monsterService,
+		equipmentService: equipmentService,
 	}
 }
 
@@ -86,6 +89,13 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 	}
 	playerSnapshot := toProtocolPlayerSnapshot(profile)
 	playerSnapshot.Gold = legacyGold
+	if h.equipmentService != nil {
+		equippedItems, err := h.equipmentService.ListEquipped(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		playerSnapshot.EquippedItems = toProtocolEquippedItems(equippedItems)
+	}
 	return &protocol.EnterWorldResp{
 		Self: protocol.PlayerBrief{
 			PlayerID: profile.PlayerID,
@@ -97,7 +107,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
 		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
-		Lineup:         toProtocolLineup(lineup),
+		Lineup:         toProtocolLineup(lineup, h.petService.ResolveSkinID),
 		Gold:           legacyGold,
 		WildEncounter:  wildEncounter,
 	}, nil
@@ -241,7 +251,7 @@ func toProtocolEntities(entities []world.Entity) []protocol.EntityBrief {
 	return result
 }
 
-func toProtocolLineup(lineup []pet.LineupPet) []protocol.PetBrief {
+func toProtocolLineup(lineup []pet.LineupPet, resolveSkinID func(petID uint32) string) []protocol.PetBrief {
 	if len(lineup) == 0 {
 		return []protocol.PetBrief{}
 	}
@@ -253,6 +263,7 @@ func toProtocolLineup(lineup []pet.LineupPet) []protocol.PetBrief {
 			Level:  lineupPet.Level,
 			HP:     lineupPet.HP,
 			HPMax:  lineupPet.HPMax,
+			SkinID: resolveSkinID(lineupPet.PetID),
 		})
 	}
 	return result

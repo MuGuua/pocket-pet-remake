@@ -1,7 +1,8 @@
 extends Control
 class_name RuntimeHud
 
-const UiFormat = preload("res://scripts/common/ui_format.gd")
+## HUD 日志区最多保留的行数，防止 RichTextLabel 无限增长拖慢主线程。
+const MAX_LOG_LINES: int = 120
 
 ## 左上角玩家头像与属性条 HUD。
 @onready var player_status_hud: PanelContainer = %PlayerStatusHud
@@ -39,5 +40,20 @@ func _on_player_status_avatar_pressed() -> void:
 
 
 func append_log(message: String) -> void:
-	if log_output != null:
-		log_output.append_text(UiFormat.normalize_text(message) + "\n")
+	if log_output == null:
+		return
+	log_output.append_text(UiFormat.normalize_text(message) + "\n")
+	_trim_log_lines()
+
+
+## 超出上限时丢弃最旧行，避免长时间运行后日志控件占用过多内存。
+func _trim_log_lines() -> void:
+	if log_output == null:
+		return
+	var current_text: String = log_output.text
+	if current_text.is_empty():
+		return
+	var lines: PackedStringArray = current_text.split("\n", false)
+	if lines.size() <= MAX_LOG_LINES:
+		return
+	log_output.text = "\n".join(lines.slice(lines.size() - MAX_LOG_LINES))

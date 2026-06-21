@@ -42,6 +42,7 @@ import { PlayerWalletSection } from './PlayerWalletSection';
 import { formatDisplayLabel, PLAYER_STATUS_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
 import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface PlayerFormValues {
   account_name?: string;
@@ -80,6 +81,8 @@ const editableStatusOptions = [
   { label: '封禁', value: 2 },
   { label: '已删除', value: 0 },
 ];
+
+const PLAYER_EDITOR_MODAL_WIDTH = 860;
 
 // 玩家管理页按 ant-design-skill 的 CRUD 模式重写：筛选表格 + 详情抽屉 + 新增/编辑弹窗 + 删除确认。
 export function PlayerListPage() {
@@ -438,7 +441,9 @@ export function PlayerListPage() {
         onOk={() => editorForm.submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={860}
+        width={PLAYER_EDITOR_MODAL_WIDTH}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText={editingRecord ? '保存修改' : '创建玩家'}
         cancelText="取消"
       >

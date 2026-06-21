@@ -3,7 +3,6 @@ extends PanelContainer
 ## 点击玩家头像时触发，由主场景打开人物状态面板。
 signal avatar_pressed
 
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 const CharacterSkinRegistry = preload("res://scripts/feature/character/character_skin_registry.gd")
 const DEFAULT_AVATAR_SKIN_ID: String = "初始形象男_001"
 ## 与战斗表现层一致：unit_class 1 表示玩家角色。
@@ -71,7 +70,7 @@ func _on_avatar_button_pressed() -> void:
 
 
 func _update_avatar_texture() -> void:
-	var skin_id: String = str(GameState.player_snapshot.get("skin_id", ""))
+	var skin_id: String = _resolve_current_player_skin_id()
 	var avatar_texture: Texture2D = _resolve_avatar_texture(skin_id)
 	if avatar_texture == null:
 		avatar_texture = _resolve_avatar_texture(DEFAULT_AVATAR_SKIN_ID)
@@ -79,19 +78,25 @@ func _update_avatar_texture() -> void:
 		_avatar_texture.texture = avatar_texture
 
 
+## 优先使用玩家快照 skin_id；战斗态若 allies 已下发形象则与之对齐。
+func _resolve_current_player_skin_id() -> String:
+	var snapshot_skin_id: String = str(GameState.player_snapshot.get("skin_id", "")).strip_edges()
+	if GameState.is_in_battle:
+		var battle_actor: Dictionary = _resolve_player_battle_actor()
+		var battle_skin_id: String = str(battle_actor.get("skin_id", "")).strip_edges()
+		if not battle_skin_id.is_empty():
+			return battle_skin_id
+	return snapshot_skin_id
+
+
 func _resolve_avatar_texture(skin_id: String) -> Texture2D:
 	var normalized_skin_id: String = skin_id.strip_edges()
 	if normalized_skin_id.is_empty():
 		return null
 	var skin: UnitSkin = CharacterSkinRegistry.get_unit_skin(normalized_skin_id)
-	if skin == null or skin.sprite_frames == null:
+	if skin == null:
 		return null
-	var animation_name: String = skin.resolve_world_bootstrap_animation()
-	if animation_name.is_empty():
-		return null
-	if skin.sprite_frames.get_frame_count(animation_name) <= 0:
-		return null
-	return skin.sprite_frames.get_frame_texture(animation_name, 0)
+	return skin.resolve_avatar_preview_texture()
 
 
 func _apply_bar_values() -> void:

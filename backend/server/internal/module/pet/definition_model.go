@@ -19,6 +19,16 @@ var (
 	ErrInvalidAptitudeRollRange = errors.New("invalid aptitude roll range")
 	// ErrInvalidWildCapturePetTemplate 表示怪物关联的捕捉宠物模板不是野外捕捉类。
 	ErrInvalidWildCapturePetTemplate = errors.New("invalid wild capture pet template")
+	// ErrTalismanSlotAlreadyUnlocked 表示目标神符槽已经开启，继续使用道具不会产生效果。
+	ErrTalismanSlotAlreadyUnlocked = errors.New("talisman slot already unlocked")
+	// ErrInvalidArtifactSlot 表示法宝槽 index 非法。
+	ErrInvalidArtifactSlot = errors.New("invalid artifact slot")
+	// ErrArtifactSlotOccupied 表示目标法宝槽已有技能。
+	ErrArtifactSlotOccupied = errors.New("artifact slot occupied")
+	// ErrArtifactSlotEmpty 表示目标法宝槽为空。
+	ErrArtifactSlotEmpty = errors.New("artifact slot empty")
+	// ErrInvalidArtifactItem 表示背包物品不是可装备的法宝。
+	ErrInvalidArtifactItem = errors.New("invalid artifact item")
 )
 
 // AdminPetDefinitionListQuery 定义系统宠物模板列表筛选参数。
@@ -114,6 +124,8 @@ type AdminPetDefinitionDetail struct {
 	GrowthAptitudes      AdminPetDefinitionGrowthAptitudes    `json:"growth_aptitudes"`
 	AptitudeRollRanges   AdminPetDefinitionAptitudeRollRanges `json:"aptitude_roll_ranges"`
 	SkillIDs             []uint32                             `json:"skill_ids"`
+	InnateSkillIDs       []uint32                             `json:"innate_skill_ids"`
+	NormalSkillIDs       []uint32                             `json:"normal_skill_ids"`
 	SkinID               string                               `json:"skin_id"`
 	CreatedAt       time.Time                       `json:"created_at"`
 	UpdatedAt       time.Time                       `json:"updated_at"`
@@ -149,8 +161,10 @@ type AdminUpsertPetDefinitionInput struct {
 	SPDAptRollMax uint32   `json:"spd_apt_roll_max"`
 	MANAAptRollMin uint32  `json:"mana_apt_roll_min"`
 	MANAAptRollMax uint32  `json:"mana_apt_roll_max"`
-	SkillIDs      []uint32 `json:"skill_ids"`
-	SkinID        string   `json:"skin_id"`
+	SkillIDs       []uint32 `json:"skill_ids"`
+	InnateSkillIDs []uint32 `json:"innate_skill_ids"`
+	NormalSkillIDs []uint32 `json:"normal_skill_ids"`
+	SkinID         string   `json:"skin_id"`
 }
 
 // Normalize 补齐模板字段默认值，避免运营漏填导致发放链路异常。
@@ -196,6 +210,18 @@ func (input AdminUpsertPetDefinitionInput) Normalize() AdminUpsertPetDefinitionI
 	}
 	if input.SkillIDs == nil {
 		input.SkillIDs = []uint32{}
+	}
+	if input.InnateSkillIDs == nil {
+		input.InnateSkillIDs = []uint32{}
+	}
+	if input.NormalSkillIDs == nil {
+		input.NormalSkillIDs = []uint32{}
+	}
+	if len(input.InnateSkillIDs) > MaxInnateSkillSlots {
+		input.InnateSkillIDs = input.InnateSkillIDs[:MaxInnateSkillSlots]
+	}
+	if len(input.NormalSkillIDs) > MaxNormalSkillSlots {
+		input.NormalSkillIDs = input.NormalSkillIDs[:MaxNormalSkillSlots]
 	}
 	input.SkinID = strings.TrimSpace(input.SkinID)
 	return input

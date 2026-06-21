@@ -58,6 +58,8 @@ SELECT
   mana_apt_roll_min,
   mana_apt_roll_max,
   skill_ids,
+  innate_skill_ids,
+  normal_skill_ids,
   skin_id,
   created_at,
   updated_at
@@ -97,9 +99,11 @@ INSERT INTO pet_definition (
   mana_apt_roll_min,
   mana_apt_roll_max,
   skill_ids,
+  innate_skill_ids,
+  normal_skill_ids,
   skin_id
 ) VALUES (
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb,$30
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb,$30::jsonb,$31::jsonb,$32
 )
 `
 
@@ -133,7 +137,9 @@ SET pet_name = $2,
     mana_apt_roll_min = $27,
     mana_apt_roll_max = $28,
     skill_ids = $29::jsonb,
-    skin_id = $30
+    innate_skill_ids = $30::jsonb,
+    normal_skill_ids = $31::jsonb,
+    skin_id = $32
 WHERE pet_id = $1
 `
 
@@ -220,9 +226,9 @@ func (r *PetRepository) FindPetDefinitionForAdmin(ctx context.Context, petID uin
 
 // CreatePetDefinitionForAdmin 新增系统宠物模板。
 func (r *PetRepository) CreatePetDefinitionForAdmin(ctx context.Context, input pet.AdminUpsertPetDefinitionInput) (*pet.AdminPetDefinitionDetail, error) {
-	skillIDsJSON, err := json.Marshal(input.SkillIDs)
+	skillIDsJSON, innateSkillIDsJSON, normalSkillIDsJSON, err := marshalAdminPetDefinitionSkills(input)
 	if err != nil {
-		return nil, fmt.Errorf("marshal pet definition skill ids: %w", err)
+		return nil, err
 	}
 	status := int64(0)
 	if input.IsEnabled {
@@ -260,6 +266,8 @@ func (r *PetRepository) CreatePetDefinitionForAdmin(ctx context.Context, input p
 		input.MANAAptRollMin,
 		input.MANAAptRollMax,
 		skillIDsJSON,
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
 		input.SkinID,
 	); err != nil {
 		var pgErr *pgconn.PgError
@@ -273,9 +281,9 @@ func (r *PetRepository) CreatePetDefinitionForAdmin(ctx context.Context, input p
 
 // UpdatePetDefinitionForAdmin 更新系统宠物模板。
 func (r *PetRepository) UpdatePetDefinitionForAdmin(ctx context.Context, petID uint32, input pet.AdminUpsertPetDefinitionInput) (*pet.AdminPetDefinitionDetail, error) {
-	skillIDsJSON, err := json.Marshal(input.SkillIDs)
+	skillIDsJSON, innateSkillIDsJSON, normalSkillIDsJSON, err := marshalAdminPetDefinitionSkills(input)
 	if err != nil {
-		return nil, fmt.Errorf("marshal pet definition skill ids: %w", err)
+		return nil, err
 	}
 	status := int64(0)
 	if input.IsEnabled {
@@ -313,6 +321,8 @@ func (r *PetRepository) UpdatePetDefinitionForAdmin(ctx context.Context, petID u
 		input.MANAAptRollMin,
 		input.MANAAptRollMax,
 		skillIDsJSON,
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
 		input.SkinID,
 	)
 	if err != nil {
@@ -447,6 +457,8 @@ func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetai
 		manaAptRollMin int64
 		manaAptRollMax int64
 		skillIDsJSON []byte
+		innateSkillIDsJSON []byte
+		normalSkillIDsJSON []byte
 	)
 	if err := row.Scan(
 		&petID,
@@ -478,6 +490,8 @@ func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetai
 		&manaAptRollMin,
 		&manaAptRollMax,
 		&skillIDsJSON,
+		&innateSkillIDsJSON,
+		&normalSkillIDsJSON,
 		&detail.SkinID,
 		&detail.CreatedAt,
 		&detail.UpdatedAt,
@@ -525,8 +539,44 @@ func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetai
 			return nil, fmt.Errorf("unmarshal pet definition skill ids: %w", err)
 		}
 	}
+	if len(innateSkillIDsJSON) > 0 {
+		if err := json.Unmarshal(innateSkillIDsJSON, &detail.InnateSkillIDs); err != nil {
+			return nil, fmt.Errorf("unmarshal pet definition innate skill ids: %w", err)
+		}
+	}
+	if len(normalSkillIDsJSON) > 0 {
+		if err := json.Unmarshal(normalSkillIDsJSON, &detail.NormalSkillIDs); err != nil {
+			return nil, fmt.Errorf("unmarshal pet definition normal skill ids: %w", err)
+		}
+	}
 	if detail.SkillIDs == nil {
 		detail.SkillIDs = []uint32{}
 	}
+	if detail.InnateSkillIDs == nil {
+		detail.InnateSkillIDs = []uint32{}
+	}
+	if detail.NormalSkillIDs == nil {
+		detail.NormalSkillIDs = []uint32{}
+	}
 	return &detail, nil
+}
+
+func marshalAdminPetDefinitionSkills(input pet.AdminUpsertPetDefinitionInput) ([]byte, []byte, []byte, error) {
+	innateSkillIDsJSON, err := json.Marshal(input.InnateSkillIDs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("marshal pet definition innate skill ids: %w", err)
+	}
+	normalSkillIDsJSON, err := json.Marshal(input.NormalSkillIDs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("marshal pet definition normal skill ids: %w", err)
+	}
+	legacySkillIDs := pet.BuildBattleSkillIDs(pet.SkillLoadoutFromDefinition(input.InnateSkillIDs, input.NormalSkillIDs))
+	if len(legacySkillIDs) == 0 && len(input.SkillIDs) > 0 {
+		legacySkillIDs = append([]uint32{}, input.SkillIDs...)
+	}
+	skillIDsJSON, err := json.Marshal(legacySkillIDs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("marshal pet definition skill ids: %w", err)
+	}
+	return skillIDsJSON, innateSkillIDsJSON, normalSkillIDsJSON, nil
 }

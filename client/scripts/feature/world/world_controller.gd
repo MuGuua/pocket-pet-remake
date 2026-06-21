@@ -17,6 +17,8 @@ const CLICK_MARKER_RING_RADIUS: float = 10.0
 const CLICK_MARKER_CROSS_HALF_SIZE: float = 4.0
 const CLICK_MARKER_WIDTH: float = 2.0
 const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
+## 每帧最多记录的宠物跟随路径步数，防止主角锚点异常时在单帧 while 中卡死。
+const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
 const SCENE_CONFIGS: Dictionary = {
 	1: {
 		"scene_path": "res://scenes/maps/fashtown/roxus_house.tscn",
@@ -120,8 +122,14 @@ var _last_wild_encounter_nav_cell: Vector2i = INVALID_NAVIGATION_CELL
 var _wild_encounter_request_pending: bool = false
 # 战斗弹窗仍可见时由主场景置位，避免结算演出阶段提前切回 idle 动画。
 var _force_battle_pose_active: bool = false
+## 世界场景宠物跟随节点。
+var _pet_follower: WorldPetFollower = null
+## 主角路径记录锚点，用于按 24px 格距压入跟随路径。
+var _leader_path_anchor: Vector2 = Vector2.INF
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_pet_follow(delta)
+	_sync_local_actor_y_sort()
 	_report_player_position_if_changed()
 	_process_npc_interaction_input()
 	_check_wild_encounter_step()
@@ -136,6 +144,8 @@ func _ready() -> void:
 		game_viewport_container.gui_input.connect(_on_game_viewport_gui_input)
 	GameState.battle_changed.connect(_sync_local_player_battle_state)
 	GameState.battle_changed.connect(_on_battle_state_changed)
+	GameState.pets_changed.connect(_sync_pet_follower_lineup)
+	_ensure_pet_follower()
 	_ensure_click_destination_marker()
 	call_deferred("_refresh_game_layout")
 	_sync_local_player_battle_state()
@@ -263,7 +273,10 @@ func _flush_deferred_scene_apply() -> void:
 func set_render_frame_size(size: Vector2) -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	_render_frame_size = size
+	var normalized_size: Vector2 = size.floor()
+	if normalized_size == _render_frame_size.floor():
+		return
+	_render_frame_size = normalized_size
 	_refresh_game_layout()
 
 ## 截取当前世界地图视口画面，供战斗场景作为背景使用。
@@ -322,10 +335,13 @@ func mount_level(level_scene: PackedScene) -> void:
 	_bind_interactive_npcs(_current_level)
 	_refresh_background_fill()
 	_attach_player_to_current_level()
+	_attach_pet_follower_to_current_level()
 	_apply_pending_player_transition()
+	_reset_pet_follow_near_player()
 	_apply_level_camera_limits()
 	_rebuild_navigation_grid()
-	_keep_player_on_top()
+	_sync_local_actor_y_sort()
+	_sync_pet_follower_lineup()
 
 func unmount_current_level() -> void:
 	if _current_level == null:
@@ -334,6 +350,7 @@ func unmount_current_level() -> void:
 	_clear_current_interactable_npc()
 	_clear_navigation_grid()
 	_detach_player_from_current_level()
+	_detach_pet_follower_from_current_level()
 	var level_to_free := _current_level
 	_current_level = null
 	if level_to_free.get_parent() == game_root:
@@ -414,12 +431,18 @@ func _refresh_game_layout() -> void:
 func _resize_game_viewport() -> void:
 	if game_viewport == null:
 		return
-	var viewport_size: Vector2 = game_viewport_container.size
+	# SubViewportContainer 开启 stretch 时会自动同步子视口尺寸，手动赋值会触发 Godot 警告并造成重复布局。
+	if game_viewport_container != null and game_viewport_container.stretch:
+		return
+	var viewport_size: Vector2 = game_viewport_container.size if game_viewport_container != null else Vector2.ZERO
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		viewport_size = size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		viewport_size = _render_frame_size
-	game_viewport.size = viewport_size.floor()
+	var normalized_size: Vector2i = Vector2i(viewport_size.floor())
+	if game_viewport.size == normalized_size:
+		return
+	game_viewport.size = normalized_size
 
 func _refresh_background_fill() -> void:
 	if background_fill == null:
@@ -491,8 +514,11 @@ func _apply_authoritative_snapshot() -> void:
 	var spawn_position: Vector2 = _resolve_snapshot_spawn_position(scene_id, self_pos)
 	_stage_pending_player_transition({"spawn_position": spawn_position})
 	_apply_pending_player_transition()
+	_attach_pet_follower_to_current_level()
+	_reset_pet_follow_near_player()
+	_sync_pet_follower_lineup()
 	_apply_level_camera_limits()
-	_keep_player_on_top()
+	_sync_local_actor_y_sort()
 	_refresh_background_fill()
 
 	_pending_target_scene_id = 0
@@ -737,10 +763,13 @@ func _attach_player_to_current_level() -> void:
 	if _current_level == null or player_node == null:
 		return
 
-	var target_parent := _get_player_host(_current_level)
+	var target_parent := _resolve_actor_root(_current_level)
 	if player_node.get_parent() == target_parent:
+		_attach_pet_follower_to_current_level()
 		return
 	player_node.reparent(target_parent, true)
+	_configure_actor_y_sort(player_node)
+	_attach_pet_follower_to_current_level()
 
 func _detach_player_from_current_level() -> void:
 	if player_node == null:
@@ -749,19 +778,60 @@ func _detach_player_from_current_level() -> void:
 		return
 	player_node.reparent(game_viewport, true)
 
-func _get_player_host(level: Node2D) -> Node:
-	var actor_root := level.get_node_or_null("ActorRoot")
-	if actor_root != null:
+func _resolve_actor_root(level: Node2D) -> Node2D:
+	var actor_root_variant: Node = level.get_node_or_null("ActorRoot")
+	if actor_root_variant is Node2D:
+		var actor_root: Node2D = actor_root_variant as Node2D
+		actor_root.y_sort_enabled = true
 		return actor_root
-	return level
+	var created_root: Node2D = Node2D.new()
+	created_root.name = "ActorRoot"
+	created_root.y_sort_enabled = true
+	level.add_child(created_root)
+	return created_root
 
-func _keep_player_on_top() -> void:
-	if player_node == null:
+
+## 配置动态角色参与 ActorRoot Y-Sort：关闭子级 Y-Sort，避免重复排序。
+func _configure_actor_y_sort(actor: Node2D) -> void:
+	if actor == null:
 		return
-	var player_parent := player_node.get_parent()
-	if player_parent == null:
+	actor.y_sort_enabled = false
+
+
+## 同行/同格时让宠物排在主角之前绘制，作为 Y 值相同时的遮挡 tie-break。
+func _apply_pet_player_draw_tiebreak(actor_root: Node2D) -> void:
+	if _pet_follower == null or player_node == null or not _pet_follower.visible:
 		return
-	player_parent.move_child(player_node, player_parent.get_child_count() - 1)
+	if _pet_follower.get_parent() != actor_root or player_node.get_parent() != actor_root:
+		return
+	var player_sort_y: float = player_node.position.y
+	var pet_sort_y: float = _pet_follower.position.y
+	if absf(player_sort_y - pet_sort_y) >= 1.0:
+		return
+	var pet_index: int = _pet_follower.get_index()
+	var player_index: int = player_node.get_index()
+	if pet_index > player_index:
+		actor_root.move_child(_pet_follower, player_index)
+
+
+## 每帧确保 ActorRoot 开启 Y-Sort，使主角、宠物与 NPC 按脚底 Y 值正确遮挡。
+func _sync_local_actor_y_sort() -> void:
+	if _current_level == null or player_node == null:
+		return
+	if GameState.is_in_battle or _force_battle_pose_active:
+		return
+	var actor_root: Node2D = _resolve_actor_root(_current_level)
+	if not actor_root.y_sort_enabled:
+		actor_root.y_sort_enabled = true
+	if player_node.get_parent() == actor_root:
+		_configure_actor_y_sort(player_node)
+	if _pet_follower != null and _pet_follower.get_parent() == actor_root:
+		_configure_actor_y_sort(_pet_follower)
+	_apply_pet_player_draw_tiebreak(actor_root)
+
+
+func _get_player_host(level: Node2D) -> Node:
+	return _resolve_actor_root(level)
 
 func _apply_level_camera_limits() -> void:
 	if _current_level == null or player_node == null:
@@ -1047,8 +1117,11 @@ func _on_battle_state_changed() -> void:
 		_wild_encounter_request_pending = false
 		_set_transition_loading(false)
 		set_runtime_input_locked(true)
+		_sync_pet_follower_visibility()
 		return
 	set_runtime_input_locked(false)
+	_sync_pet_follower_visibility()
+	_reset_pet_follow_near_player()
 
 func _lock_local_player() -> void:
 	if player_node != null and player_node.has_method("set_scene_transition_locked"):
@@ -1099,3 +1172,136 @@ func _report_player_position_if_changed() -> void:
 		return
 	_last_reported_player_position = current_position
 	player_position_changed.emit(current_position, _current_player_global_position())
+
+
+func _ensure_pet_follower() -> void:
+	if _pet_follower != null:
+		return
+	_pet_follower = WorldPetFollower.new()
+	_pet_follower.name = "PetFollower"
+	game_viewport.add_child(_pet_follower)
+	_configure_actor_y_sort(_pet_follower)
+	_sync_pet_follower_lineup()
+
+
+func _attach_pet_follower_to_current_level() -> void:
+	_ensure_pet_follower()
+	if _pet_follower == null or _current_level == null or player_node == null:
+		return
+	var target_parent := _get_player_host(_current_level)
+	if _pet_follower.get_parent() == target_parent:
+		_configure_actor_y_sort(_pet_follower)
+		return
+	_pet_follower.reparent(target_parent, true)
+	_configure_actor_y_sort(_pet_follower)
+
+
+func _detach_pet_follower_from_current_level() -> void:
+	if _pet_follower == null:
+		return
+	if _pet_follower.get_parent() == game_viewport:
+		return
+	_pet_follower.reparent(game_viewport, true)
+
+
+func _sync_pet_follower_lineup() -> void:
+	_ensure_pet_follower()
+	if _pet_follower == null:
+		return
+	if GameState.lineup.is_empty():
+		_pet_follower.clear_binding()
+		return
+	var first_lineup_variant: Variant = GameState.lineup[0]
+	if first_lineup_variant is Dictionary:
+		_pet_follower.sync_lineup_pet(first_lineup_variant as Dictionary)
+	else:
+		_pet_follower.clear_binding()
+	_sync_pet_follower_visibility()
+
+
+func _sync_pet_follower_visibility() -> void:
+	if _pet_follower == null:
+		return
+	if GameState.is_in_battle or _force_battle_pose_active:
+		_pet_follower.clear_binding()
+		return
+	if GameState.lineup.is_empty():
+		_pet_follower.clear_binding()
+		return
+	var first_lineup_variant: Variant = GameState.lineup[0]
+	if first_lineup_variant is Dictionary:
+		_pet_follower.sync_lineup_pet(first_lineup_variant as Dictionary)
+
+
+func _reset_pet_follow_near_player() -> void:
+	if _pet_follower == null or player_node == null:
+		return
+	_leader_path_anchor = Vector2.INF
+	var follow_offset: Vector2 = _resolve_pet_follow_reset_offset()
+	_pet_follower.reset_near_leader(player_node.position, follow_offset)
+
+
+## 根据主角朝向计算切图/同步后的宠物站位：落在身后约半格，避免初始就隔一整格。
+func _resolve_pet_follow_reset_offset() -> Vector2:
+	var half_step: float = PathFollowController.PATH_STEP_SIZE * 0.5
+	if player_node == null or not player_node.has_method("get_cardinal_direction"):
+		return Vector2(0.0, -half_step)
+	var facing: Vector2 = player_node.call("get_cardinal_direction") as Vector2
+	if facing == Vector2.ZERO or facing == Vector2.DOWN:
+		return Vector2(0.0, -half_step)
+	if facing == Vector2.UP:
+		return Vector2(0.0, half_step)
+	if facing == Vector2.LEFT:
+		return Vector2(half_step, 0.0)
+	if facing == Vector2.RIGHT:
+		return Vector2(-half_step, 0.0)
+	return Vector2(0.0, -half_step)
+
+
+func _update_pet_follow(delta: float) -> void:
+	if _pet_follower == null or player_node == null:
+		return
+	if GameState.is_in_battle or _force_battle_pose_active:
+		return
+	if not _pet_follower.visible:
+		return
+	_record_leader_path_for_pet_follow()
+	var move_speed: float = player_node.get_move_speed() if player_node.has_method("get_move_speed") else 100.0
+	_pet_follower.update_follow(delta, move_speed)
+
+
+func _record_leader_path_for_pet_follow() -> void:
+	if _pet_follower == null or player_node == null:
+		return
+	if not player_node.has_method("is_walking") or not player_node.call("is_walking"):
+		return
+	var leader_direction: Vector2 = Vector2.ZERO
+	if player_node.has_method("get_cardinal_direction"):
+		leader_direction = player_node.call("get_cardinal_direction") as Vector2
+	if leader_direction == Vector2.ZERO:
+		return
+
+	var leader_position: Vector2 = player_node.position
+	if _leader_path_anchor == Vector2.INF:
+		_leader_path_anchor = leader_position
+		return
+
+	var anchor_to_leader: Vector2 = leader_position - _leader_path_anchor
+	if anchor_to_leader.dot(leader_direction) <= 0.0:
+		# 主角转向、碰撞滑动或服务端校正后，当前朝向可能不再指向旧锚点到主角的位置。
+		# 继续沿错误方向推进锚点会让 distance 永远不变甚至变大，导致单帧死循环。
+		_leader_path_anchor = leader_position
+		return
+
+	var recorded_steps: int = 0
+	while leader_position.distance_to(_leader_path_anchor) >= PathFollowController.PATH_STEP_SIZE:
+		if recorded_steps >= PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME:
+			_leader_path_anchor = leader_position
+			return
+		var previous_distance: float = leader_position.distance_to(_leader_path_anchor)
+		_pet_follower.push_leader_step(_leader_path_anchor, leader_direction)
+		_leader_path_anchor += leader_direction * PathFollowController.PATH_STEP_SIZE
+		recorded_steps += 1
+		if leader_position.distance_to(_leader_path_anchor) >= previous_distance:
+			_leader_path_anchor = leader_position
+			return

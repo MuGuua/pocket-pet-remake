@@ -2,81 +2,75 @@ package battle
 
 import "testing"
 
-// This test locks the stat-by-stat breakdown so future skill extensions do not
-// silently drop one coefficient from the final base damage sum.
-func TestCalculateBaseDamageIncludesConfiguredStatParts(t *testing.T) {
-	attacker := effectiveStats{
-		Attack:    20,
-		Mana:      16,
-		Defense:   15,
-		Speed:     10,
-		CurrentHP: 40,
-		MaxHP:     40,
-	}
-	target := effectiveStats{
-		CurrentHP: 50,
-		MaxHP:     80,
-	}
-	skill := skillDef{
-		AttackPct:          100,
-		ManaPct:            50,
-		DefensePct:         50,
-		SpeedPct:           30,
-		TargetCurrentHPPct: 20,
-		FixedDamage:        7,
+// TestCalculatePocketDamageMatchesExcelSample 锁定新表样例行（杰西卡徐 vs 无名麒麟）的四组结果。
+func TestCalculatePocketDamageMatchesExcelSample(t *testing.T) {
+	base := pocketDamageInput{
+		AttackerPanel:     100000,
+		SkillMult:         30,
+		CritDmg:           2000,
+		SkillCritAdd:      0,
+		AntiCrit:          1000,
+		RevSkill:          0,
+		SkillRes:          50,
+		DefenderPanel:     500000,
+		Guard:             700,
+		TalentDmgPct:      20,
+		TalentReducePct:   30,
+		AntiClassPct:      31,
+		ElementAdvPct:     30,
+		ElementPenaltyPct: 15,
 	}
 
-	breakdown := calculateBaseDamage(attacker, target, skill)
+	cases := []struct {
+		name     string
+		isAOE    bool
+		adv      bool
+		dis      bool
+		expected int32
+	}{
+		{name: "单体克制", isAOE: false, adv: true, expected: 3213371},
+		{name: "单体被克", isAOE: false, dis: true, expected: 2101050},
+		{name: "群体克制", isAOE: true, adv: true, expected: 682841},
+		{name: "群体被克", isAOE: true, dis: true, expected: 446473},
+	}
 
-	if breakdown.AttackPart != 20 {
-		t.Fatalf("AttackPart = %d, want 20", breakdown.AttackPart)
-	}
-	if breakdown.DefensePart != 7 {
-		t.Fatalf("DefensePart = %d, want 7", breakdown.DefensePart)
-	}
-	if breakdown.ManaPart != 8 {
-		t.Fatalf("ManaPart = %d, want 8", breakdown.ManaPart)
-	}
-	if breakdown.SpeedPart != 3 {
-		t.Fatalf("SpeedPart = %d, want 3", breakdown.SpeedPart)
-	}
-	if breakdown.CurrentHPPart != 10 {
-		t.Fatalf("CurrentHPPart = %d, want 10", breakdown.CurrentHPPart)
-	}
-	if breakdown.FixedPart != 7 {
-		t.Fatalf("FixedPart = %d, want 7", breakdown.FixedPart)
-	}
-	if breakdown.Total != 55 {
-		t.Fatalf("Total = %d, want 55", breakdown.Total)
+	for _, tc := range cases {
+		input := base
+		input.IsAOE = tc.isAOE
+		input.ElementAdvantaged = tc.adv
+		input.ElementDisadvantaged = tc.dis
+		got := calculatePocketDamage(input)
+		if got != tc.expected {
+			t.Fatalf("%s damage = %d, want %d", tc.name, got, tc.expected)
+		}
 	}
 }
 
-// This test verifies the defense branch that the design doc calls out most
-// explicitly: 90% cap, ignore-defense override, and modifier stacking.
-func TestCalculateDefenseReductionHonorsCapsAndModifiers(t *testing.T) {
-	target := effectiveStats{Defense: 10000}
-
-	reduction := calculateDefenseReduction(target, skillDef{})
-	if reduction != 0.90 {
-		t.Fatalf("reduction = %.2f, want 0.90 cap", reduction)
+func TestCalculatePocketDamageNumeratorMatchesExcel(t *testing.T) {
+	input := pocketDamageInput{
+		AttackerPanel: 100000,
+		SkillMult:     30,
+		CritDmg:       2000,
+		AntiCrit:      1000,
+		SkillRes:      50,
+		DefenderPanel: 500000,
 	}
-
-	ignoreDefense := calculateDefenseReduction(target, skillDef{IgnoreDefense: true})
-	if ignoreDefense != 0 {
-		t.Fatalf("ignoreDefense = %.2f, want 0", ignoreDefense)
-	}
-
-	armorBreakAndVulnerability := calculateDefenseReduction(
-		effectiveStats{Defense: 100},
-		skillDef{ArmorBreakPct: 50, VulnerabilityPct: 10},
-	)
-	if armorBreakAndVulnerability != 0 {
-		t.Fatalf("armorBreakAndVulnerability = %.4f, want 0 after vulnerability clamp", armorBreakAndVulnerability)
+	got := calculatePocketDamageNumerator(input)
+	if got != 14500000 {
+		t.Fatalf("numerator = %d, want 14500000", got)
 	}
 }
 
-// This test keeps malformed crit configuration data from bypassing the
-// recommended upper and lower bounds in the battle design doc.
+func TestScaledPanelBaseUsesAttackPctWhenSkillMultMissing(t *testing.T) {
+	got := scaledPanelBase(pocketDamageInput{
+		AttackerPanel:  200,
+		AttackScalePct: 135,
+	})
+	if got != 270 {
+		t.Fatalf("scaled panel = %d, want 270", got)
+	}
+}
+
 func TestClampCritValues(t *testing.T) {
 	if got := clampCritRatePct(180); got != 100 {
 		t.Fatalf("clampCritRatePct(180) = %d, want 100", got)
@@ -89,8 +83,6 @@ func TestClampCritValues(t *testing.T) {
 	}
 }
 
-// This test protects the current healing rule: percent-based recovery plus
-// optional fixed value, with a floor of 1 so support skills never "whiff".
 func TestCalculateHealAmountRespectsPercentAndFloor(t *testing.T) {
 	caster := effectiveStats{MaxHP: 80}
 
@@ -105,9 +97,7 @@ func TestCalculateHealAmountRespectsPercentAndFloor(t *testing.T) {
 	}
 }
 
-// This test verifies the two new extension points needed by the formula phase:
-// effective stat multipliers and post-defense block reduction.
-func TestEffectiveStatsAndBlockReduction(t *testing.T) {
+func TestEffectiveStatsPanelAndSpeedModifiers(t *testing.T) {
 	actor := &actorRuntime{
 		atk:                  20,
 		def:                  10,
@@ -131,25 +121,12 @@ func TestEffectiveStatsAndBlockReduction(t *testing.T) {
 	if stats.Mana != 29 {
 		t.Fatalf("stats.Mana = %d, want 29", stats.Mana)
 	}
-
-	blockReduction := calculateBlockReduction(
-		effectiveStats{UnitClass: ActorUnitClassPet, Attack: 10},
-		effectiveStats{GenericShieldPct: 5, PetResistPct: 18},
-		skillDef{},
-	)
-	if blockReduction != 0.23 {
-		t.Fatalf("blockReduction = %.2f, want 0.23", blockReduction)
-	}
-
-	damage := calculateFinalDamage(100, 0.20, blockReduction)
-	if damage != 62 {
-		t.Fatalf("damage = %d, want 62", damage)
+	if stats.Guard != 12 {
+		t.Fatalf("stats.Guard = %d, want 12", stats.Guard)
 	}
 }
 
-// This test verifies that runtime battle statuses now feed back into the
-// formula layer instead of only existing as UI markers.
-func TestStatusDerivedModifiersAffectFormulaAndExpireCleanly(t *testing.T) {
+func TestStatusDerivedModifiersAffectSpeedAndCritThenExpire(t *testing.T) {
 	actor := &actorRuntime{
 		hp:          40,
 		hpMax:       40,
@@ -157,24 +134,12 @@ func TestStatusDerivedModifiersAffectFormulaAndExpireCleanly(t *testing.T) {
 		critRatePct: 8,
 		statuses:    map[uint32]*statusRuntime{},
 	}
-	target := &actorRuntime{
-		hp:       40,
-		hpMax:    40,
-		def:      100,
-		statuses: map[uint32]*statusRuntime{},
-	}
 
 	if !actor.applyStatus(StatusSlow, 2, 50) {
 		t.Fatal("apply slow status = false, want true")
 	}
 	if !actor.applyStatus(StatusCritBoost, 2, 25) {
 		t.Fatal("apply crit boost status = false, want true")
-	}
-	if !target.applyStatus(StatusVulnerability, 2, 15) {
-		t.Fatal("apply vulnerability status = false, want true")
-	}
-	if !target.applyStatus(StatusArmorBreak, 2, 0) {
-		t.Fatal("apply armor break status = false, want true")
 	}
 
 	actorStats := actor.effectiveStats()
@@ -185,25 +150,9 @@ func TestStatusDerivedModifiersAffectFormulaAndExpireCleanly(t *testing.T) {
 		t.Fatalf("actorStats.CritRatePct = %d, want 33", actorStats.CritRatePct)
 	}
 
-	targetStats := target.effectiveStats()
-	if !targetStats.ArmorBroken {
-		t.Fatal("targetStats.ArmorBroken = false, want true")
-	}
-	if targetStats.VulnerabilityPct != 15 {
-		t.Fatalf("targetStats.VulnerabilityPct = %d, want 15", targetStats.VulnerabilityPct)
-	}
-
-	reduction := calculateDefenseReduction(targetStats, skillDef{})
-	if reduction != 0 {
-		t.Fatalf("reduction = %.2f, want 0 when armor break is active", reduction)
-	}
-
-	battle := &activeBattle{
-		allies:  []*actorRuntime{actor},
-		enemies: []*actorRuntime{target},
-	}
-	battle.expireRoundStatuses()
-	battle.expireRoundStatuses()
+	battle := &activeBattle{}
+	battle.expireActorStatuses(actor)
+	battle.expireActorStatuses(actor)
 
 	if actor.effectiveStats().Speed != 20 {
 		t.Fatalf("expired actor speed = %d, want 20", actor.effectiveStats().Speed)
@@ -211,48 +160,128 @@ func TestStatusDerivedModifiersAffectFormulaAndExpireCleanly(t *testing.T) {
 	if actor.effectiveStats().CritRatePct != 8 {
 		t.Fatalf("expired crit rate = %d, want 8", actor.effectiveStats().CritRatePct)
 	}
-	if target.effectiveStats().ArmorBroken {
-		t.Fatal("expired armor break still active")
-	}
-	if target.effectiveStats().VulnerabilityPct != 0 {
-		t.Fatalf("expired vulnerability = %d, want 0", target.effectiveStats().VulnerabilityPct)
-	}
 }
 
-// This test covers the newly added persistent-damage status so future control
-// system work does not accidentally drop curse ticks from round-end resolution.
-func TestResolveStatusTicksIncludesCurse(t *testing.T) {
+func TestResolveActorTurnEndStatusTicksIncludesCurse(t *testing.T) {
 	actor := &actorRuntime{
-		actorID:  1,
-		name:     "Target",
-		hp:       30,
-		hpMax:    30,
-		statuses: map[uint32]*statusRuntime{},
+		actorID:      1,
+		name:         "Target",
+		hp:           30,
+		hpMax:        30,
+		lifestealPct: 50,
+		statuses:     map[uint32]*statusRuntime{},
 	}
 	if !actor.applyStatus(StatusCurse, 2, 6) {
 		t.Fatal("apply curse status = false, want true")
+	}
+	if !actor.applyStatus(StatusBleed, 2, 5) {
+		t.Fatal("apply bleed status = false, want true")
 	}
 	battle := &activeBattle{
 		allies: []*actorRuntime{actor},
 	}
 
-	events := battle.resolveStatusTicks()
-	if len(events) != 1 {
-		t.Fatalf("len(events) = %d, want 1", len(events))
+	events := battle.resolveActorTurnEndStatusTicks(actor)
+	if len(events) != 2 {
+		t.Fatalf("len(events) = %d, want 2", len(events))
 	}
-	if events[0].StateID != StatusCurse {
-		t.Fatalf("events[0].StateID = %d, want StatusCurse", events[0].StateID)
+	if events[0].StateID != StatusBleed {
+		t.Fatalf("events[0].StateID = %d, want StatusBleed", events[0].StateID)
 	}
-	if events[0].Value != 6 {
-		t.Fatalf("events[0].Value = %d, want 6", events[0].Value)
+	if events[0].Value != 5 {
+		t.Fatalf("events[0].Value = %d, want 5", events[0].Value)
 	}
-	if actor.hp != 24 {
-		t.Fatalf("actor.hp = %d, want 24", actor.hp)
+	if events[1].StateID != StatusCurse {
+		t.Fatalf("events[1].StateID = %d, want StatusCurse", events[1].StateID)
+	}
+	if events[1].Value != 6 {
+		t.Fatalf("events[1].Value = %d, want 6", events[1].Value)
+	}
+	for _, event := range events {
+		if event.EventType == EventTypeHeal {
+			t.Fatalf("events = %#v, passive status damage should not trigger lifesteal", events)
+		}
+	}
+	if actor.hp != 19 {
+		t.Fatalf("actor.hp = %d, want 19", actor.hp)
 	}
 }
 
-// This test verifies that the broader control-state family now influences turn
-// resolution and not only the old stun path.
+func TestResolveRoundTicksStatusAtEachActorTurnEnd(t *testing.T) {
+	fastActor := &actorRuntime{
+		actorID:    10,
+		actorType:  PlayerActorType,
+		unitClass:  ActorUnitClassPet,
+		name:       "Fast",
+		hp:         80,
+		hpMax:      80,
+		atk:        8,
+		def:        4,
+		spd:        30,
+		mana:       5,
+		critDmgPct: 150,
+		skillIDs:   []uint32{DefaultAttackSkillID},
+		statuses:   map[uint32]*statusRuntime{},
+	}
+	slowActor := &actorRuntime{
+		actorID:    20,
+		actorType:  EnemyActorType,
+		unitClass:  ActorUnitClassMonster,
+		name:       "Slow",
+		hp:         80,
+		hpMax:      80,
+		atk:        8,
+		def:        4,
+		spd:        10,
+		mana:       5,
+		critDmgPct: 150,
+		skillIDs:   []uint32{DefaultAttackSkillID},
+		statuses:   map[uint32]*statusRuntime{},
+	}
+	if !fastActor.applyStatus(StatusBleed, 2, 3) {
+		t.Fatal("apply fast bleed status = false, want true")
+	}
+	if !slowActor.applyStatus(StatusBleed, 2, 4) {
+		t.Fatal("apply slow bleed status = false, want true")
+	}
+	battle := &activeBattle{
+		battleID:      90001,
+		round:         1,
+		phase:         PhaseCommand,
+		allies:        []*actorRuntime{fastActor},
+		enemies:       []*actorRuntime{slowActor},
+		plannedActs:   map[uint64]ActionRequest{},
+		pendingActors: []uint64{},
+		stateHistory:  []StateSnapshot{},
+	}
+
+	state, result := battle.resolveRound()
+	if result != nil {
+		t.Fatalf("result = %#v, want battle still running", result)
+	}
+
+	fastUseIndex := -1
+	fastTickIndex := -1
+	slowUseIndex := -1
+	for index, event := range state.Events {
+		if event.EventType == EventTypeUseSkill && event.SourceID == fastActor.actorID {
+			fastUseIndex = index
+		}
+		if event.EventType == EventTypeStatusTick && event.TargetID == fastActor.actorID && event.StateID == StatusBleed {
+			fastTickIndex = index
+		}
+		if event.EventType == EventTypeUseSkill && event.SourceID == slowActor.actorID {
+			slowUseIndex = index
+		}
+	}
+	if fastUseIndex == -1 || fastTickIndex == -1 || slowUseIndex == -1 {
+		t.Fatalf("events = %#v, want fast use, fast tick, slow use", state.Events)
+	}
+	if !(fastUseIndex < fastTickIndex && fastTickIndex < slowUseIndex) {
+		t.Fatalf("events = %#v, want fast bleed tick immediately after fast unit turn before slow unit acts", state.Events)
+	}
+}
+
 func TestActionBlockedStatusAndConfusionTargeting(t *testing.T) {
 	actor := &actorRuntime{
 		actorID:  100,
@@ -297,8 +326,6 @@ func TestActionBlockedStatusAndConfusionTargeting(t *testing.T) {
 	}
 }
 
-// This test verifies the first batch of passive hooks: dodge, lifesteal, and
-// counter all run on the authoritative server inside one damage resolution.
 func TestResolveDamageSkillPassiveHooks(t *testing.T) {
 	battle := &activeBattle{battleID: 80001, round: 1}
 
@@ -320,7 +347,7 @@ func TestResolveDamageSkillPassiveHooks(t *testing.T) {
 		dodgePct: 100,
 		statuses: map[uint32]*statusRuntime{},
 	}
-	dodgeEvents := battle.resolveDamageSkill(dodgeAttacker, dodgeTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, true, true)
+	dodgeEvents := battle.resolveDamageSkill(dodgeAttacker, dodgeTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, true, true, true)
 	if len(dodgeEvents) != 1 || dodgeEvents[0].EventType != EventTypeDodge {
 		t.Fatalf("dodgeEvents = %#v, want single dodge event", dodgeEvents)
 	}
@@ -343,7 +370,7 @@ func TestResolveDamageSkillPassiveHooks(t *testing.T) {
 		hpMax:    40,
 		statuses: map[uint32]*statusRuntime{},
 	}
-	lifestealEvents := battle.resolveDamageSkill(lifestealAttacker, lifestealTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, false)
+	lifestealEvents := battle.resolveDamageSkill(lifestealAttacker, lifestealTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, false, true)
 	var sawLifesteal bool
 	for _, event := range lifestealEvents {
 		if event.EventType == EventTypeHeal && event.SourceID == lifestealAttacker.actorID && event.TargetID == lifestealAttacker.actorID {
@@ -368,46 +395,53 @@ func TestResolveDamageSkillPassiveHooks(t *testing.T) {
 		statuses:   map[uint32]*statusRuntime{},
 	}
 	counterTarget := &actorRuntime{
-		actorID:    6,
-		name:       "Counterer",
-		hp:         40,
-		hpMax:      40,
-		atk:        16,
-		mana:       8,
-		counterPct: 100,
-		critDmgPct: 150,
-		statuses:   map[uint32]*statusRuntime{},
+		actorID:      6,
+		name:         "Counterer",
+		hp:           40,
+		hpMax:        40,
+		atk:          16,
+		mana:         8,
+		counterPct:   100,
+		lifestealPct: 50,
+		critDmgPct:   150,
+		statuses:     map[uint32]*statusRuntime{},
 	}
-	counterEvents := battle.resolveDamageSkill(counterAttacker, counterTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, true, false)
+	counterEvents := battle.resolveDamageSkill(counterAttacker, counterTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, true, false, true)
 	var sawCounter bool
+	var sawCounterLifesteal bool
 	for _, event := range counterEvents {
 		if event.EventType == EventTypeCounter && event.SourceID == counterTarget.actorID && event.TargetID == counterAttacker.actorID {
 			sawCounter = true
 		}
+		if event.EventType == EventTypeHeal && event.SourceID == counterTarget.actorID {
+			sawCounterLifesteal = true
+		}
 	}
 	if !sawCounter {
 		t.Fatalf("counterEvents = %#v, want counter event", counterEvents)
+	}
+	if sawCounterLifesteal {
+		t.Fatalf("counterEvents = %#v, passive counter should not trigger lifesteal", counterEvents)
 	}
 	if counterAttacker.hp >= 40 {
 		t.Fatalf("counterAttacker.hp = %d, want reduced by counter", counterAttacker.hp)
 	}
 }
 
-// This test locks the second passive batch: combo adds one extra attack,
-// revive cancels a death once, and control immunity blocks new control states.
 func TestPassiveComboReviveAndControlImmunity(t *testing.T) {
 	battle := &activeBattle{battleID: 80002, round: 1}
 
 	comboAttacker := &actorRuntime{
-		actorID:    11,
-		name:       "Combo",
-		hp:         40,
-		hpMax:      40,
-		atk:        18,
-		mana:       10,
-		comboPct:   100,
-		critDmgPct: 150,
-		statuses:   map[uint32]*statusRuntime{},
+		actorID:      11,
+		name:         "Combo",
+		hp:           20,
+		hpMax:        40,
+		atk:          18,
+		mana:         10,
+		comboPct:     100,
+		lifestealPct: 50,
+		critDmgPct:   150,
+		statuses:     map[uint32]*statusRuntime{},
 	}
 	comboTarget := &actorRuntime{
 		actorID:  12,
@@ -416,9 +450,10 @@ func TestPassiveComboReviveAndControlImmunity(t *testing.T) {
 		hpMax:    60,
 		statuses: map[uint32]*statusRuntime{},
 	}
-	comboEvents := battle.resolveDamageSkill(comboAttacker, comboTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, true)
+	comboEvents := battle.resolveDamageSkill(comboAttacker, comboTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, true, true)
 	var sawCombo bool
 	damageCount := 0
+	lifestealCount := 0
 	for _, event := range comboEvents {
 		if event.EventType == EventTypeCombo {
 			sawCombo = true
@@ -426,9 +461,15 @@ func TestPassiveComboReviveAndControlImmunity(t *testing.T) {
 		if event.EventType == EventTypeDamage {
 			damageCount++
 		}
+		if event.EventType == EventTypeHeal && event.SourceID == comboAttacker.actorID {
+			lifestealCount++
+		}
 	}
 	if !sawCombo || damageCount < 2 {
 		t.Fatalf("comboEvents = %#v, want combo event and at least two damage events", comboEvents)
+	}
+	if lifestealCount != 1 {
+		t.Fatalf("comboEvents = %#v, want only active attack lifesteal, got %d heal events", comboEvents, lifestealCount)
 	}
 
 	reviveAttacker := &actorRuntime{
@@ -451,7 +492,7 @@ func TestPassiveComboReviveAndControlImmunity(t *testing.T) {
 		critDmgPct:  150,
 		statuses:    map[uint32]*statusRuntime{},
 	}
-	reviveEvents := battle.resolveDamageSkill(reviveAttacker, reviveTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, false)
+	reviveEvents := battle.resolveDamageSkill(reviveAttacker, reviveTarget, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, false, true)
 	var sawRevive bool
 	var sawDefeat bool
 	for _, event := range reviveEvents {
@@ -485,8 +526,6 @@ func TestPassiveComboReviveAndControlImmunity(t *testing.T) {
 	}
 }
 
-// This test preserves the design choice that pure fixed-damage skills behave
-// like non-crit true damage even if the caster has a guaranteed crit rate.
 func TestPureFixedDamageDoesNotCrit(t *testing.T) {
 	attacker := &actorRuntime{
 		actorID:     1,
@@ -511,5 +550,33 @@ func TestPureFixedDamageDoesNotCrit(t *testing.T) {
 	}
 	if damage != 10 {
 		t.Fatalf("damage = %d, want 10", damage)
+	}
+}
+
+func TestBuildPocketDamageInputMapsRuntimeActors(t *testing.T) {
+	attacker := &actorRuntime{
+		unitClass:             ActorUnitClassPet,
+		atk:                   100000,
+		critDmgPct:            2000,
+		reverseSkillResistPct: 0,
+		talentDmgPct:          20,
+		elementAdvPct:         30,
+	}
+	target := &actorRuntime{
+		def:                500000,
+		guard:              700,
+		skillResistPct:     50,
+		critDmgResistPct:   1000,
+		characterResistPct: 10,
+		petResistPct:       31,
+		talentReducePct:    30,
+		elementPenaltyPct:  15,
+	}
+	input := buildPocketDamageInput(attacker, target, skillDef{SkillMult: 30, TargetRule: targetEnemySingle})
+	if input.AntiClassPct != 31 {
+		t.Fatalf("AntiClassPct = %d, want 31", input.AntiClassPct)
+	}
+	if input.Guard != 700 {
+		t.Fatalf("Guard = %d, want 700", input.Guard)
 	}
 }

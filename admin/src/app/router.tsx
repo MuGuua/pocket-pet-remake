@@ -10,12 +10,12 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { QuestAdminPage } from '../pages/quests/QuestAdminPage';
 import { NPCConfigPage } from '../pages/npcs/NPCConfigPage';
 import { ItemDefinitionPage } from '../pages/items/ItemDefinitionPage';
-import { PetDefinitionPage } from '../pages/pets/PetDefinitionPage';
+import { PetManagementPage } from '../pages/pets/PetManagementPage';
 import { SkillDefinitionPage } from '../pages/skills/SkillDefinitionPage';
 import { MonsterDefinitionPage } from '../pages/monsters/MonsterDefinitionPage';
 import { EncounterConfigPage } from '../pages/monsters/EncounterConfigPage';
-import { PlayerProgressionPage } from '../pages/progression/PlayerProgressionPage';
-import { PlayerListPage } from '../pages/players/PlayerListPage';
+import { EquipmentDefinitionPage } from '../pages/equipment/EquipmentDefinitionPage';
+import { PlayerManagementPage } from '../pages/players/PlayerManagementPage';
 
 function RequireAdminAuth() {
   const location = useLocation();
@@ -76,9 +76,15 @@ export function AppRouter() {
       <Route path="/" element={<RequireAdminAuth />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="players" element={<PlayerListPage />} />
-        <Route path="player-progression" element={<PlayerProgressionPage />} />
-        <Route path="pet-definitions" element={<PetDefinitionPage />} />
+        <Route path="players" element={<PlayerManagementPage />} />
+        <Route path="player-progression" element={<Navigate to="/players?tab=progression" replace />} />
+        <Route path="pets" element={<PetManagementPage />} />
+        <Route path="pet-progression" element={<Navigate to="/pets?tab=progression" replace />} />
+        <Route path="pet-skill-slot-unlock" element={<Navigate to="/pets?tab=skill-slots" replace />} />
+        <Route path="player-pets" element={<Navigate to="/players" replace />} />
+        <Route path="pet-combat-stat-caps" element={<Navigate to="/pets?tab=combat-caps" replace />} />
+        <Route path="equipment-definitions" element={<EquipmentDefinitionPage />} />
+        <Route path="pet-definitions" element={<Navigate to="/pets?tab=definitions" replace />} />
         <Route path="skill-definitions" element={<SkillDefinitionPage />} />
         <Route path="monster-definitions" element={<MonsterDefinitionPage />} />
         <Route path="monster-encounters" element={<EncounterConfigPage />} />
@@ -86,6 +92,7 @@ export function AppRouter() {
         <Route path="items" element={<ItemDefinitionPage />} />
         <Route path="quests" element={<QuestAdminPage />} />
         <Route path="npcs" element={<NPCConfigPage />} />
+        <Route path="npc-dialogues" element={<Navigate to="/npcs" replace />} />
       </Route>
     </Routes>
   );

@@ -1,0 +1,131 @@
+[gd_scene load_steps=6 format=3 uid="uid://ctktslgpn3tsi"]
+
+[ext_resource type="Script" uid="uid://dai0y0bcuiupj" path="res://scripts/ui/npc_dialogue_panel.gd" id="1_script"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="3_name_style"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_speaker"]
+texture = ExtResource("3_name_style")
+texture_margin_left = 20.0
+texture_margin_top = 20.0
+texture_margin_right = 20.0
+texture_margin_bottom = 20.0
+
+[node name="NPCDialoguePanel" type="CanvasLayer"]
+layer = 25
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DimLayer" type="ColorRect" parent="Root"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.62)
+
+[node name="DialogueVBox" type="VBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -101.0
+offset_right = 160.0
+offset_bottom = 101.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = -16
+
+[node name="SpeakerRow" type="HBoxContainer" parent="Root/DialogueVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="NpcSpeakerPanel" type="PanelContainer" parent="Root/DialogueVBox/SpeakerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
+
+[node name="NpcSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/NpcSpeakerPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+theme_override_colors/default_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/normal_font_size = 11
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+autowrap_mode = 0
+
+[node name="SpeakerSpacer" type="Control" parent="Root/DialogueVBox/SpeakerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="PlayerSpeakerPanel" type="PanelContainer" parent="Root/DialogueVBox/SpeakerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
+
+[node name="PlayerSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/PlayerSpeakerPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+theme_override_colors/default_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/normal_font_size = 11
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+autowrap_mode = 0
+
+[node name="Panel" type="PanelContainer" parent="Root/DialogueVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="Margin" type="MarginContainer" parent="Root/DialogueVBox/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Layout" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ContentLabel" type="RichTextLabel" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_font_sizes/normal_font_size = 11
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+
+[node name="ItemMentionContainer" type="HBoxContainer" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+
+[node name="OptionsContainer" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ContinueButton" type="Button" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+text = "继续"

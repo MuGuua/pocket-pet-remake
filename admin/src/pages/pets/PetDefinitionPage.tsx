@@ -37,9 +37,12 @@ import type {
   AdminUpsertPetDefinitionPayload,
 } from '../../types/petDefinition';
 import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface PetDefinitionFormValues extends AdminUpsertPetDefinitionPayload {
   skill_names_text?: string;
+  innate_skill_names_text?: string;
+  normal_skill_names_text?: string;
 }
 
 // 系统宠物模板页维护可召唤宠物白名单；停用或删除模板后，对应 pet_id 的玩家宠物将不可用。
@@ -281,8 +284,14 @@ export function PetDefinitionPage() {
               </Descriptions>
             ) : null}
             <Descriptions bordered column={1} size="small" title="技能">
-              <Descriptions.Item label="技能名称">
+              <Descriptions.Item label="兼容技能列表">
                 <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} />
+              </Descriptions.Item>
+              <Descriptions.Item label="天生技（最多5）">
+                <SkillReferenceText skillIds={detail.innate_skill_ids ?? []} map={skillReferenceMap} />
+              </Descriptions.Item>
+              <Descriptions.Item label="普通技（3槽）">
+                <SkillReferenceText skillIds={detail.normal_skill_ids ?? []} map={skillReferenceMap} />
               </Descriptions.Item>
             </Descriptions>
           </Space>
@@ -297,6 +306,8 @@ export function PetDefinitionPage() {
         confirmLoading={saving}
         destroyOnClose
         width={760}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText={editingRecord ? '保存修改' : '创建模板'}
         cancelText="取消"
       >
@@ -355,7 +366,9 @@ export function PetDefinitionPage() {
                 <Col xs={24} md={6}><Form.Item label="法力 Roll 最大" name="mana_apt_roll_max" rules={[{ required: true, message: '必填' }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
               </>
             ) : null}
-            <Col span={24}><Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 普通攻击,火花冲击"><Input placeholder="普通攻击,火花冲击" /></Form.Item></Col>
+            <Col span={24}><Form.Item label="天生技（最多5）" name="innate_skill_names_text" extra="发放时写入实例天生技槽"><Input placeholder="例如：撕咬,利爪" /></Form.Item></Col>
+            <Col span={24}><Form.Item label="普通技（3槽）" name="normal_skill_names_text" extra="默认开启的普通技槽"><Input placeholder="例如：普通攻击,火花冲击" /></Form.Item></Col>
+            <Col span={24}><Form.Item label="兼容技能列表" name="skill_names_text" extra="旧字段；留空时由天生+普通技自动生成"><Input placeholder="普通攻击,火花冲击" /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="启用" name="is_enabled" valuePropName="checked"><Switch /></Form.Item></Col>
           </Row>
         </Form>
@@ -396,7 +409,11 @@ function defaultPetDefinitionValues(): PetDefinitionFormValues {
     mana_apt_roll_min: 6,
     mana_apt_roll_max: 11,
     skill_ids: [],
-    skill_names_text: '普通攻击',
+    innate_skill_ids: [],
+    normal_skill_ids: [],
+    skill_names_text: '',
+    innate_skill_names_text: '',
+    normal_skill_names_text: '普通攻击',
   };
 }
 
@@ -432,12 +449,19 @@ function mapDetailToFormValues(detail: AdminPetDefinitionDetail, skillReferenceM
     mana_apt_roll_min: detail.aptitude_roll_ranges.mana_apt_roll_min,
     mana_apt_roll_max: detail.aptitude_roll_ranges.mana_apt_roll_max,
     skill_ids: detail.skill_ids,
+    innate_skill_ids: detail.innate_skill_ids ?? [],
+    normal_skill_ids: detail.normal_skill_ids ?? [],
     skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    innate_skill_names_text: formatSkillReferenceInput(detail.innate_skill_ids ?? [], skillReferenceMap),
+    normal_skill_names_text: formatSkillReferenceInput(detail.normal_skill_ids ?? [], skillReferenceMap),
   };
 }
 
 function buildPayloadFromForm(values: PetDefinitionFormValues, skillReferenceMap: SkillReferenceMap): AdminUpsertPetDefinitionPayload {
-  const skillIDs = parseSkillReferenceInput(values.skill_names_text ?? '', skillReferenceMap);
+  const innateSkillIDs = parseSkillReferenceInput(values.innate_skill_names_text ?? '', skillReferenceMap).slice(0, 5);
+  const normalSkillIDs = parseSkillReferenceInput(values.normal_skill_names_text ?? '', skillReferenceMap).slice(0, 3);
+  const legacySkillIDs = parseSkillReferenceInput(values.skill_names_text ?? '', skillReferenceMap);
+  const skillIDs = legacySkillIDs.length > 0 ? legacySkillIDs : [...innateSkillIDs, ...normalSkillIDs];
   return {
     pet_id: Number(values.pet_id),
     pet_name: values.pet_name.trim(),
@@ -469,5 +493,7 @@ function buildPayloadFromForm(values: PetDefinitionFormValues, skillReferenceMap
     mana_apt_roll_min: Number(values.mana_apt_roll_min || 0),
     mana_apt_roll_max: Number(values.mana_apt_roll_max || 0),
     skill_ids: skillIDs,
+    innate_skill_ids: innateSkillIDs,
+    normal_skill_ids: normalSkillIDs,
   };
 }

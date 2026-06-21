@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="UnitSkin" load_steps=5 format=3 uid="uid://8cocpjfcw5uf"]
+
+[ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_chj"]
+[ext_resource type="Texture2D" uid="uid://bf20vowsda81y" path="res://asset/口袋所有形象/imgs/2057.png" id="2_v7wt4"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v7wt4"]
+atlas = ExtResource("2_v7wt4")
+region = Rect2(225, 0, 25, 37)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_chj_battle_only"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_v7wt4")
+}],
+"loop": true,
+"name": &"战斗待机",
+"speed": 4.0
+}]
+
+[resource]
+script = ExtResource("1_chj")
+skin_id = "CHJ测试_2057"
+sprite_frames = SubResource("SpriteFrames_chj_battle_only")
+chj_path = "res://asset/chj/2057.chj"
+chj_display_scale = Vector2(1, 1)
+chj_walk_anim_speed = 80.0
+chj_skill_path = "res://asset/chj/2058.chj"
+world_battle_animation = "战斗待机"
+sprite_offset = Vector2(-13, 7)
+sprite_scale = Vector2(1, 1)

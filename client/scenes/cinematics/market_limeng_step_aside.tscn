@@ -1,0 +1,27 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scenes/cinematics/market_limeng_step_aside.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://dtk5edhy4ploq" path="res://asset/口袋所有形象/imgs/2006.png" id="2_texture"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sprite"]
+atlas = ExtResource("2_texture")
+region = Rect2(0, 0, 18, 37)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_sprite"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sprite")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="MarketLimengStepAside" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(180, 260)
+sprite_frames = SubResource("SpriteFrames_sprite")
+autoplay = "default"

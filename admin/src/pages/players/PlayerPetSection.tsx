@@ -3,6 +3,7 @@ import {
   Card,
   Col,
   Descriptions,
+  Divider,
   Drawer,
   Empty,
   Form,
@@ -36,9 +37,17 @@ import type {
   AdminPetSummary,
   AdminUpdatePetPayload,
 } from '../../types/pet';
+import {
+  ADMIN_PET_COMBAT_STAT_FIELDS,
+  defaultAdminPetCombatStats,
+  type AdminPetCombatStats,
+} from '../../types/petCombatStats';
 import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
-interface PetFormValues {
+interface PetFormValues extends PetFormBaseValues, AdminPetCombatStats {}
+
+interface PetFormBaseValues {
   player_id?: number;
   pet_id: number;
   level: number;
@@ -304,32 +313,41 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
             <Spin tip="正在加载宠物详情..." />
           </div>
         ) : petDetail ? (
-          <Descriptions bordered column={2} size="small">
-            <Descriptions.Item label="宠物UID">{petDetail.pet_uid}</Descriptions.Item>
-            <Descriptions.Item label="玩家ID">{petDetail.player_id}</Descriptions.Item>
-            <Descriptions.Item label="玩家名">{petDetail.player_name}</Descriptions.Item>
-            <Descriptions.Item label="宠物ID">{petDetail.pet_id}</Descriptions.Item>
-            <Descriptions.Item label="等级">{petDetail.level}</Descriptions.Item>
-            <Descriptions.Item label="经验">{petDetail.exp}</Descriptions.Item>
-            <Descriptions.Item label="品质">{petDetail.quality}</Descriptions.Item>
-            <Descriptions.Item label="出战">
-              <Switch
-                checked={petDetail.in_lineup}
-                loading={lineupUpdatingUID === petDetail.pet_uid}
-                checkedChildren="是"
-                unCheckedChildren="否"
-                onChange={(checked) => void handleToggleLineup(petDetail, checked)}
-              />
-            </Descriptions.Item>
-            <Descriptions.Item label="生命">{`${petDetail.hp}/${petDetail.hp_max}`}</Descriptions.Item>
-            <Descriptions.Item label="攻/防/速">{`${petDetail.atk}/${petDetail.def}/${petDetail.spd}`}</Descriptions.Item>
-            <Descriptions.Item label="法力">{petDetail.mana}</Descriptions.Item>
-            <Descriptions.Item label="技能" span={2}>
-              <SkillReferenceText skillIds={petDetail.skill_ids} map={skillReferenceMap} emptyText="无" />
-            </Descriptions.Item>
-            <Descriptions.Item label="创建时间">{formatDateTime(petDetail.created_at)}</Descriptions.Item>
-            <Descriptions.Item label="更新时间">{formatDateTime(petDetail.updated_at)}</Descriptions.Item>
-          </Descriptions>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="宠物UID">{petDetail.pet_uid}</Descriptions.Item>
+              <Descriptions.Item label="玩家ID">{petDetail.player_id}</Descriptions.Item>
+              <Descriptions.Item label="玩家名">{petDetail.player_name}</Descriptions.Item>
+              <Descriptions.Item label="宠物ID">{petDetail.pet_id}</Descriptions.Item>
+              <Descriptions.Item label="等级">{petDetail.level}</Descriptions.Item>
+              <Descriptions.Item label="经验">{petDetail.exp}</Descriptions.Item>
+              <Descriptions.Item label="品质">{petDetail.quality}</Descriptions.Item>
+              <Descriptions.Item label="出战">
+                <Switch
+                  checked={petDetail.in_lineup}
+                  loading={lineupUpdatingUID === petDetail.pet_uid}
+                  checkedChildren="是"
+                  unCheckedChildren="否"
+                  onChange={(checked) => void handleToggleLineup(petDetail, checked)}
+                />
+              </Descriptions.Item>
+              <Descriptions.Item label="生命">{`${petDetail.hp}/${petDetail.hp_max}`}</Descriptions.Item>
+              <Descriptions.Item label="攻/防/速">{`${petDetail.atk}/${petDetail.def}/${petDetail.spd}`}</Descriptions.Item>
+              <Descriptions.Item label="法力">{petDetail.mana}</Descriptions.Item>
+              <Descriptions.Item label="技能" span={2}>
+                <SkillReferenceText skillIds={petDetail.skill_ids} map={skillReferenceMap} emptyText="无" />
+              </Descriptions.Item>
+              <Descriptions.Item label="创建时间">{formatDateTime(petDetail.created_at)}</Descriptions.Item>
+              <Descriptions.Item label="更新时间">{formatDateTime(petDetail.updated_at)}</Descriptions.Item>
+            </Descriptions>
+            <Descriptions bordered column={2} size="small" title="次要战斗属性">
+              {ADMIN_PET_COMBAT_STAT_FIELDS.map((field) => (
+                <Descriptions.Item key={field.key} label={field.label}>
+                  {petDetail[field.key]}
+                </Descriptions.Item>
+              ))}
+            </Descriptions>
+          </Space>
         ) : null}
       </Drawer>
 
@@ -344,7 +362,9 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         onOk={() => editorForm.submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={700}
+        width={860}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText={editingRecord ? '保存修改' : '创建宠物'}
         cancelText="取消"
       >
@@ -377,6 +397,19 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
               </Form.Item>
             </Col>
           </Row>
+          <Divider orientation="left" plain>次要战斗属性</Divider>
+          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            保存时服务端会按 pet_combat_stat_cap 封顶表自动截断超限数值。
+          </Typography.Text>
+          <Row gutter={16}>
+            {ADMIN_PET_COMBAT_STAT_FIELDS.map((field) => (
+              <Col xs={12} md={6} key={field.key}>
+                <Form.Item label={field.label} name={field.key}>
+                  <InputNumber min={0} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            ))}
+          </Row>
         </Form>
       </Modal>
     </>
@@ -397,6 +430,7 @@ function defaultCreateValues(playerId: number): PetFormValues {
     spd: 5,
     mana: 0,
     skill_names_text: '普通攻击',
+    ...defaultAdminPetCombatStats(),
   };
 }
 
@@ -413,6 +447,30 @@ function mapDetailToForm(detail: AdminPetDetail, skillReferenceMap: SkillReferen
     spd: detail.spd,
     mana: detail.mana,
     skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    spirit: detail.spirit,
+    spirit_max: detail.spirit_max,
+    hit_pct: detail.hit_pct,
+    dodge_pct: detail.dodge_pct,
+    crit_rate_pct: detail.crit_rate_pct,
+    crit_dmg_pct: detail.crit_dmg_pct,
+    physical_resist_pct: detail.physical_resist_pct,
+    reverse_physical_resist_pct: detail.reverse_physical_resist_pct,
+    skill_resist_pct: detail.skill_resist_pct,
+    reverse_skill_resist_pct: detail.reverse_skill_resist_pct,
+    confusion_resist_pct: detail.confusion_resist_pct,
+    sleep_resist_pct: detail.sleep_resist_pct,
+    paralysis_resist_pct: detail.paralysis_resist_pct,
+    seal_resist_pct: detail.seal_resist_pct,
+    curse_resist_pct: detail.curse_resist_pct,
+    crit_dmg_resist_pct: detail.crit_dmg_resist_pct,
+    crit_resist_pct: detail.crit_resist_pct,
+    character_resist_pct: detail.character_resist_pct,
+    pet_resist_pct: detail.pet_resist_pct,
+    guard: detail.guard,
+    talent_dmg_pct: detail.talent_dmg_pct,
+    talent_reduce_pct: detail.talent_reduce_pct,
+    element_adv_pct: detail.element_adv_pct,
+    element_penalty_pct: detail.element_penalty_pct,
   };
 }
 
@@ -430,6 +488,30 @@ function mapFormToCreatePayload(values: PetFormValues, skillReferenceMap: SkillR
     spd: values.spd,
     mana: values.mana,
     skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    spirit: values.spirit,
+    spirit_max: values.spirit_max,
+    hit_pct: values.hit_pct,
+    dodge_pct: values.dodge_pct,
+    crit_rate_pct: values.crit_rate_pct,
+    crit_dmg_pct: values.crit_dmg_pct,
+    physical_resist_pct: values.physical_resist_pct,
+    reverse_physical_resist_pct: values.reverse_physical_resist_pct,
+    skill_resist_pct: values.skill_resist_pct,
+    reverse_skill_resist_pct: values.reverse_skill_resist_pct,
+    confusion_resist_pct: values.confusion_resist_pct,
+    sleep_resist_pct: values.sleep_resist_pct,
+    paralysis_resist_pct: values.paralysis_resist_pct,
+    seal_resist_pct: values.seal_resist_pct,
+    curse_resist_pct: values.curse_resist_pct,
+    crit_dmg_resist_pct: values.crit_dmg_resist_pct,
+    crit_resist_pct: values.crit_resist_pct,
+    character_resist_pct: values.character_resist_pct,
+    pet_resist_pct: values.pet_resist_pct,
+    guard: values.guard,
+    talent_dmg_pct: values.talent_dmg_pct,
+    talent_reduce_pct: values.talent_reduce_pct,
+    element_adv_pct: values.element_adv_pct,
+    element_penalty_pct: values.element_penalty_pct,
   };
 }
 
@@ -446,6 +528,30 @@ function mapFormToUpdatePayload(values: PetFormValues, skillReferenceMap: SkillR
     spd: values.spd,
     mana: values.mana,
     skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    spirit: values.spirit,
+    spirit_max: values.spirit_max,
+    hit_pct: values.hit_pct,
+    dodge_pct: values.dodge_pct,
+    crit_rate_pct: values.crit_rate_pct,
+    crit_dmg_pct: values.crit_dmg_pct,
+    physical_resist_pct: values.physical_resist_pct,
+    reverse_physical_resist_pct: values.reverse_physical_resist_pct,
+    skill_resist_pct: values.skill_resist_pct,
+    reverse_skill_resist_pct: values.reverse_skill_resist_pct,
+    confusion_resist_pct: values.confusion_resist_pct,
+    sleep_resist_pct: values.sleep_resist_pct,
+    paralysis_resist_pct: values.paralysis_resist_pct,
+    seal_resist_pct: values.seal_resist_pct,
+    curse_resist_pct: values.curse_resist_pct,
+    crit_dmg_resist_pct: values.crit_dmg_resist_pct,
+    crit_resist_pct: values.crit_resist_pct,
+    character_resist_pct: values.character_resist_pct,
+    pet_resist_pct: values.pet_resist_pct,
+    guard: values.guard,
+    talent_dmg_pct: values.talent_dmg_pct,
+    talent_reduce_pct: values.talent_reduce_pct,
+    element_adv_pct: values.element_adv_pct,
+    element_penalty_pct: values.element_penalty_pct,
   };
 }
 

@@ -24,6 +24,22 @@ func (s *Service) FindActionResult(ctx context.Context, entityID uint64, entryID
 	return s.repo.FindActionResult(ctx, entityID, entryID)
 }
 
+// ListShopGoodsByEntityID 返回某个商店 NPC 当前可售商品列表，客户端只负责展示与发起购买请求。
+func (s *Service) ListShopGoodsByEntityID(ctx context.Context, entityID uint64) ([]ShopGood, error) {
+	if s == nil || s.repo == nil {
+		return nil, nil
+	}
+	return s.repo.ListShopGoodsByEntityID(ctx, entityID)
+}
+
+// ShopGoodExists 校验指定商品是否属于该商店 NPC，购买链路必须以此结果为准。
+func (s *Service) ShopGoodExists(ctx context.Context, entityID uint64, itemID uint64) (bool, error) {
+	if s == nil || s.repo == nil {
+		return false, nil
+	}
+	return s.repo.ShopGoodExists(ctx, entityID, itemID)
+}
+
 // ListAdminEntities 返回后台 NPC / 世界实体配置列表。
 // 后台页会直接消费这里的分页结果，避免自己在前端拼接地图分布数据。
 func (s *Service) ListAdminEntities(ctx context.Context, query AdminEntityListQuery) (*AdminEntityList, error) {
@@ -36,6 +52,14 @@ func (s *Service) ListAdminEntities(ctx context.Context, query AdminEntityListQu
 		return &AdminEntityList{Items: []AdminEntitySummary{}, Page: query.Page, PageSize: query.PageSize}, nil
 	}
 	return result, nil
+}
+
+// ListAdminWorldScenes 返回后台可选地图场景列表，供 NPC 配置页展示场景名而不是裸 scene_id。
+func (s *Service) ListAdminWorldScenes(ctx context.Context) ([]AdminWorldSceneSummary, error) {
+	if s == nil || s.repo == nil {
+		return []AdminWorldSceneSummary{}, nil
+	}
+	return s.repo.ListWorldScenesForAdmin(ctx)
 }
 
 func (s *Service) GetAdminEntityDetail(ctx context.Context, entityID uint64) (*AdminEntityDetail, error) {

@@ -126,6 +126,7 @@ type SkillSnapshot struct {
 	CastColor     string
 	ImpactColor  string
 	Projectile   bool
+	IsBasicAttack bool
 }
 
 type StartSnapshot struct {

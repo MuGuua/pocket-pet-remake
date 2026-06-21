@@ -1,0 +1,259 @@
+[gd_resource type="Resource" script_class="UnitSkin" load_steps=29 format=3 uid="uid://dyykt2psti4v2"]
+
+[ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_aup01"]
+[ext_resource type="Texture2D" uid="uid://bfa8wdxso0uli" path="res://asset/分类/人物/职业形象/655.png" id="2_4eqxm"]
+[ext_resource type="Texture2D" uid="uid://dcva6vxm0k34" path="res://asset/分类/人物/职业形象/656.png" id="3_bftav"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2jro1"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(160, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5tfoa"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(200, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d00uh"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(240, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fo8bf"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(280, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vnr5p"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(0, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bbint"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(40, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5xdu7"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(80, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bp6ob"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(120, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ilfnc"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(320, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5h7ra"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(360, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bnju0"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(400, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rqwd1"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(440, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ltdvo"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(320, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sbg0g"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(360, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4kokk"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(400, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y3b7a"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(440, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jpnlu"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(160, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wktis"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(0, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4w2ud"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(320, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cdxq5"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(320, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dxvx3"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(480, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8mqet"]
+atlas = ExtResource("2_4eqxm")
+region = Rect2(520, 0, 40, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fnu05"]
+atlas = ExtResource("3_bftav")
+region = Rect2(0, 0, 45, 48)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_plcqp"]
+atlas = ExtResource("3_bftav")
+region = Rect2(45, 0, 45, 48)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_vmsrn"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2jro1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5tfoa")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d00uh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fo8bf")
+}],
+"loop": true,
+"name": &"向上走",
+"speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vnr5p")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bbint")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5xdu7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bp6ob")
+}],
+"loop": true,
+"name": &"向下走",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ilfnc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5h7ra")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bnju0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rqwd1")
+}],
+"loop": true,
+"name": &"向右走",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ltdvo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sbg0g")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4kokk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_y3b7a")
+}],
+"loop": true,
+"name": &"向左走",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jpnlu")
+}],
+"loop": true,
+"name": &"待机上",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wktis")
+}],
+"loop": true,
+"name": &"待机下",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4w2ud")
+}],
+"loop": true,
+"name": &"待机右",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_cdxq5")
+}],
+"loop": true,
+"name": &"待机左",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dxvx3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8mqet")
+}],
+"loop": true,
+"name": &"战斗待机",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fnu05")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_plcqp")
+}],
+"loop": true,
+"name": &"技能",
+"speed": 5.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"普攻",
+"speed": 5.0
+}]
+
+[resource]
+script = ExtResource("1_aup01")
+skin_id = "法师男"
+sprite_frames = SubResource("SpriteFrames_vmsrn")
+default_animation = "战斗待机"
+animation_map = {
+"技能": "技能",
+"普攻": "普攻"
+}
+animation_flip_h = {
+"战斗待机": true,
+"技能": true,
+"普攻": true
+}
+world_animation_map = {
+"idle_down": "待机下",
+"idle_left": "待机左",
+"idle_right": "待机右",
+"idle_up": "待机上",
+"walk_down": "向下走",
+"walk_left": "向左走",
+"walk_right": "向右走",
+"walk_up": "向上走"
+}
+world_battle_animation = "战斗待机"
+sprite_offset = Vector2(-13, 7)
+sprite_scale = Vector2(1, 1)

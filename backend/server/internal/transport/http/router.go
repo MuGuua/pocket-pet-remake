@@ -35,10 +35,17 @@ func NewRouter(loginHandler *LoginHandler, adminHandlers AdminHandlers, wsHandle
 	mux.Handle("/api/admin/scene-wild-encounters", adminHandlers.SceneWildEncounters)
 	mux.Handle("/api/admin/scene-wild-encounters/", adminHandlers.SceneWildEncounters)
 	mux.Handle("/api/admin/player-progression/", adminHandlers.PlayerProgression)
+	mux.Handle("/api/admin/pet-progression/", adminHandlers.PetProgression)
+	mux.Handle("/api/admin/pet-skill-slot-unlock-items", adminHandlers.PetSkillSlotUnlock)
+	mux.Handle("/api/admin/pet-skill-slot-unlock-items/", adminHandlers.PetSkillSlotUnlock)
+	mux.Handle("/api/admin/pet-combat-stat-caps", adminHandlers.PetCombatStatCaps)
+	mux.Handle("/api/admin/pet-combat-stat-caps/", adminHandlers.PetCombatStatCaps)
+	mux.Handle("/api/admin/equipment-definitions", adminHandlers.EquipmentDefinitions)
+	mux.Handle("/api/admin/equipment-definitions/", adminHandlers.EquipmentDefinitions)
 	mux.Handle("/api/admin/dashboard/overview", adminHandlers.Dashboard)
 	mux.Handle("/ws", wsHandler)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, 200, "success", map[string]string{"status": "ok"})
 	})
-	return mux
+	return withLocalWebCORS(mux)
 }

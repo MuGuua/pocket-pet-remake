@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="UnitSkin" load_steps=6 format=3 uid="uid://bp1qckj2vbleq"]
+
+[ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_6n5s4"]
+[ext_resource type="Texture2D" uid="uid://dw70ck4kwcm78" path="res://asset/分类/小部件/23.png" id="2_aww2f"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nlw81"]
+atlas = ExtResource("2_aww2f")
+region = Rect2(0, 0, 24, 28)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1fw30"]
+atlas = ExtResource("2_aww2f")
+region = Rect2(24, 0, 24, 28)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_duelist"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nlw81")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1fw30")
+}],
+"loop": true,
+"name": &"待机",
+"speed": 4.0
+}]
+
+[resource]
+script = ExtResource("1_6n5s4")
+skin_id = "战斗待机_004"
+sprite_frames = SubResource("SpriteFrames_duelist")
+animation_map = {
+"刃光斩": "普攻",
+"技能": "普攻",
+"普攻": "普攻"
+}
+animation_flip_h = {
+"待机": true,
+"技能": true,
+"普攻": true
+}
+world_battle_animation = "待机"
+sprite_offset = Vector2(-13, 7)
+sprite_scale = Vector2(1, 1)

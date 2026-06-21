@@ -23,7 +23,6 @@ MessageRouter="*res://autoload/message_router.gd"
 HttpClient="*res://autoload/http_client.gd"
 NetClient="*res://autoload/net_client.gd"
 App="*res://autoload/app.gd"
-DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
 SomeGlobal="*res://autoload/some_global.gd"
 
 [dialogue_manager]
@@ -38,11 +37,11 @@ window/size/window_width_override=1082
 window/size/window_height_override=1922
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/stretch/scale_mode="integer"
 
-[editor_plugins]
+[gui]
 
-enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg")
+theme/custom="res://resources/ui/default_theme.tres"
+theme/default_font_size=14
 
 [input]
 

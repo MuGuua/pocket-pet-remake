@@ -192,6 +192,9 @@ type RuntimeItemSnapshot struct {
 	Quality      uint32     `json:"quality"`
 	Icon         string     `json:"icon"`
 	EnhanceLevel uint32     `json:"enhance_level"`
+	Usable       bool       `json:"usable"`
+	TargetType   string     `json:"target_type"`
+	EffectType   string     `json:"effect_type"`
 }
 
 // RuntimeContainerSnapshot 描述一个容器的完整权威快照。
@@ -261,7 +264,9 @@ type RuntimeUseEffect struct {
 	TargetPetUID uint64              `json:"target_pet_uid"`
 	RestoredHP   uint32              `json:"restored_hp"`
 	NewPetHP     uint32              `json:"new_pet_hp"`
-	Rewards      []RuntimeRewardItem `json:"rewards,omitempty"`
+	// UnlockedTalismanSlot 描述神符类道具解锁的槽位键。
+	UnlockedTalismanSlot string              `json:"unlocked_talisman_slot,omitempty"`
+	Rewards              []RuntimeRewardItem `json:"rewards,omitempty"`
 	UpdatedPet   *RuntimePetSnapshot `json:"updated_pet,omitempty"`
 }
 

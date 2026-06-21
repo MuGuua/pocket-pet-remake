@@ -1,6 +1,5 @@
 extends Node
 
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 # 登录成功后要切入的主运行态场景路径。
 const MAIN_SCENE_PATH := "res://scenes/bootstrap/main.tscn"

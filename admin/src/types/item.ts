@@ -5,6 +5,8 @@ export interface AdminItemSummary {
   item_type: string;
   item_sub_type: string;
   quality: number;
+  icon: string;
+  desc: string;
   max_stack: number;
   buy_price_copper: number;
   sell_price_copper: number;

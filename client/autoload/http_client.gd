@@ -12,10 +12,24 @@ var _request: HTTPRequest
 func _ready() -> void:
 	_request = HTTPRequest.new()
 	add_child(_request)
+	_configure_web_base_url()
 
 # 更新当前请求服务端时使用的基础地址。
 func set_base_url(base_url: String) -> void:
 	_base_url = base_url.trim_suffix("/")
+
+## Web 导出包运行在浏览器里时，使用当前页面主机访问本地 8080 后端。
+func _configure_web_base_url() -> void:
+	if not OS.has_feature("web"):
+		return
+
+	var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
+	var hostname: String = str(JavaScriptBridge.eval("window.location.hostname", true))
+	if hostname.strip_edges().is_empty():
+		return
+
+	var http_scheme: String = "https" if protocol == "https:" else "http"
+	set_base_url("%s://%s:8080" % [http_scheme, hostname])
 
 # 发起登录接口请求，并返回统一字典结构结果。
 func login(account: String, password: String) -> Dictionary:

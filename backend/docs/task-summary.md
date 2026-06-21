@@ -23,9 +23,14 @@
 
 本次继续补充第四轮状态能力：
 - `backend/server/internal/module/battle/model.go` 新增 `诅咒 / 束缚 / 沉睡 / 麻痹 / 混乱` 状态编号
-- `backend/server/internal/module/battle/service.go` 已把诅咒加入回合末持续伤害结算，并把束缚/沉睡/麻痹统一接入“跳过行动”判定
+- `backend/server/internal/module/battle/service.go` 已把诅咒加入持续伤害结算，并把束缚/沉睡/麻痹统一接入“跳过行动”判定
 - 当前混乱会在服务端执行阶段强制改写目标，随机命中除自身外的任意存活单位，保持权威结算边界
 - `backend/server/internal/module/battle/formula_test.go` 已补充诅咒 tick、控制状态阻断与混乱目标改写测试
+
+本次修正持续伤害结算时机：
+- `backend/server/internal/module/battle/service.go` 已将流血、诅咒等被动扣血从全体回合末改为“该单位回合结束”结算，跳过行动也会进入自身回合结束结算
+- 持续伤害事件仍使用 `EventTypeStatusTick`，不走 `resolveDamageSkill()`，因此不会触发吸血、反击、连击等命中后被动
+- `backend/server/internal/module/battle/formula_test.go` 已补充事件顺序测试，锁定高速度单位行动后立即结算自身流血，再进入下一个单位行动
 
 本次继续补充第五轮被动能力：
 - `backend/server/internal/module/battle/service.go` 已新增服务端权威的 `闪避 / 吸血 / 反击` 结算分支，并统一收口到 `resolveDamageSkill()`

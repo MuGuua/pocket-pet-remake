@@ -155,14 +155,25 @@ func (q AdminPlayerQuestListQuery) Normalize() AdminPlayerQuestListQuery {
 	return q
 }
 
+// ObjectiveGuideInput 描述单个任务阶段在客户端/运营侧的引导信息。
+// menu_entry_id 与 dialogue_entry_id 对应 npc_menu_entry.entry_id，便于策划把阶段与 NPC 菜单剧情绑定。
+type ObjectiveGuideInput struct {
+	SceneID         uint32 `json:"scene_id,omitempty"`
+	NPCID           uint64 `json:"npc_id,omitempty"`
+	Text            string `json:"text,omitempty"`
+	MenuEntryID     uint64 `json:"menu_entry_id,omitempty"`
+	DialogueEntryID uint64 `json:"dialogue_entry_id,omitempty"`
+}
+
 // AdminObjectiveInput 让后台可以直接维护模板目标定义。
-// 先保留最必要字段，后续再根据策划需求补 guide/reward 等更复杂 JSON 结构。
+// 多阶段任务通过多个 objective_id 顺序排列；guide 字段用于记录 NPC/菜单/剧情绑定提示。
 type AdminObjectiveInput struct {
-	ObjectiveID    uint64         `json:"objective_id"`
-	EventType      string         `json:"event_type"`
-	Description    string         `json:"description"`
-	TargetValue    uint32         `json:"target_value"`
-	TargetSelector map[string]any `json:"target_selector"`
+	ObjectiveID    uint64              `json:"objective_id"`
+	EventType      string              `json:"event_type"`
+	Description    string              `json:"description"`
+	TargetValue    uint32              `json:"target_value"`
+	TargetSelector map[string]any      `json:"target_selector"`
+	Guide          *ObjectiveGuideInput `json:"guide,omitempty"`
 }
 
 // AdminRewardInput 描述后台可配置的任务奖励，当前仅支持经验与物品。

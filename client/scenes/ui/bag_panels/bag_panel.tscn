@@ -1,11 +1,12 @@
-[gd_scene load_steps=0 format=3 uid="uid://bjmjjyt5kmck5"]
+[gd_scene load_steps=16 format=3 uid="uid://bjmjjyt5kmck5"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_i1as4"]
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_wxjm4"]
 [ext_resource type="Texture2D" uid="uid://lw14leuar8qe" path="res://asset/分类/ui/精灵-0007.png" id="3_bu7xo"]
 [ext_resource type="PackedScene" uid="uid://cy7ymccdw2m71" path="res://scenes/ui/slot.tscn" id="4_krklo"]
-[ext_resource type="Texture2D" uid="uid://34am3ixgoon0" path="res://asset/分类/ui/战斗箭头.png" id="5_cw7q7"]
+[ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/分类/ui/战斗箭头.png" id="5_cw7q7"]
 [ext_resource type="Script" uid="uid://dmrggypy3lmki" path="res://scripts/ui/bag_panel.gd" id="6_script"]
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="7_menu_icon2"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_wxjm4"]
 texture = ExtResource("1_i1as4")
@@ -33,31 +34,22 @@ bg_color = Color(0.41568628, 0.4627451, 0.58431375, 1)
 corner_radius_top_left = 6
 corner_radius_bottom_left = 6
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_mncgp"]
-load_path = "res://.godot/imported/菜单图标2.png-6f8d921a35ed5df75f131e239275b801.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_kkxvv"]
-atlas = SubResource("CompressedTexture2D_mncgp")
+atlas = ExtResource("7_menu_icon2")
 region = Rect2(126, 0, 18, 18)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_n2wf6"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bm16y"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_1p3uf"]
-load_path = "res://.godot/imported/菜单图标2.png-6f8d921a35ed5df75f131e239275b801.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_gl5kh"]
-atlas = SubResource("CompressedTexture2D_1p3uf")
+atlas = ExtResource("7_menu_icon2")
 region = Rect2(36, 0, 18, 18)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_khj2f"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ypfyk"]
-load_path = "res://.godot/imported/菜单图标2.png-6f8d921a35ed5df75f131e239275b801.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_aliwa"]
-atlas = SubResource("CompressedTexture2D_ypfyk")
+atlas = ExtResource("7_menu_icon2")
 region = Rect2(198, 0, 18, 18)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l6jab"]
@@ -76,11 +68,8 @@ corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 shadow_size = 1
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ddyov"]
-load_path = "res://.godot/imported/战斗箭头.png-dcafd0a9e540255c3724bbe07aba0b2a.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_7cqxd"]
-atlas = SubResource("CompressedTexture2D_ddyov")
+atlas = ExtResource("5_cw7q7")
 region = Rect2(0, 0, 15, 11)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ma56j"]

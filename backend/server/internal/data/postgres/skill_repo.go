@@ -44,6 +44,8 @@ const skillDefinitionSelectColumns = `
   energy_cost,
   allow_crit,
   ignore_defense,
+  skill_mult,
+  skill_crit_add,
   attack_pct,
   mana_pct,
   defense_pct,
@@ -58,6 +60,7 @@ const skillDefinitionSelectColumns = `
   bleed_rounds,
   bleed_damage,
   seal_chance_pct,
+  seal_power,
   seal_rounds,
   vulnerability_chance_pct,
   vulnerability_rounds,
@@ -74,6 +77,7 @@ const skillDefinitionSelectColumns = `
   curse_damage,
   curse_mana_pct,
   control_chance_pct,
+  control_power,
   control_rounds,
   control_status_id,
   sort_weight,
@@ -102,22 +106,22 @@ const skillDefinitionInsertColumns = `
   skill_id, skill_code, skill_name, skill_category, skill_type, description, acquire_method,
   target_type, target_count, preferred_target_hp,
   animation_key, skill_visual_id, cast_color, impact_color, projectile,
-  is_skill_attack, is_basic_attack, energy_cost, allow_crit, ignore_defense,
+  is_skill_attack, is_basic_attack, energy_cost, allow_crit, ignore_defense, skill_mult, skill_crit_add,
   attack_pct, mana_pct, defense_pct, speed_pct, target_current_hp_pct, fixed_damage, heal_pct, fixed_heal,
   armor_break_pct, vulnerability_pct,
   bleed_chance_pct, bleed_rounds, bleed_damage,
-  seal_chance_pct, seal_rounds,
+  seal_chance_pct, seal_power, seal_rounds,
   vulnerability_chance_pct, vulnerability_rounds, vulnerability_apply_pct,
   armor_break_chance_pct, armor_break_rounds,
   slow_chance_pct, slow_rounds, slow_multiplier_pct,
   crit_boost_rounds, crit_boost_pct,
   curse_chance_pct, curse_rounds, curse_damage, curse_mana_pct,
-  control_chance_pct, control_rounds, control_status_id,
+  control_chance_pct, control_power, control_rounds, control_status_id,
   sort_weight, status
 `
 
 const skillDefinitionInsertPlaceholders = `
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58
 `
 
 const insertSkillDefinitionQuery = `
@@ -146,40 +150,44 @@ SET skill_code = $2,
     energy_cost = $18,
     allow_crit = $19,
     ignore_defense = $20,
-    attack_pct = $21,
-    mana_pct = $22,
-    defense_pct = $23,
-    speed_pct = $24,
-    target_current_hp_pct = $25,
-    fixed_damage = $26,
-    heal_pct = $27,
-    fixed_heal = $28,
-    armor_break_pct = $29,
-    vulnerability_pct = $30,
-    bleed_chance_pct = $31,
-    bleed_rounds = $32,
-    bleed_damage = $33,
-    seal_chance_pct = $34,
-    seal_rounds = $35,
-    vulnerability_chance_pct = $36,
-    vulnerability_rounds = $37,
-    vulnerability_apply_pct = $38,
-    armor_break_chance_pct = $39,
-    armor_break_rounds = $40,
-    slow_chance_pct = $41,
-    slow_rounds = $42,
-    slow_multiplier_pct = $43,
-    crit_boost_rounds = $44,
-    crit_boost_pct = $45,
-    curse_chance_pct = $46,
-    curse_rounds = $47,
-    curse_damage = $48,
-    curse_mana_pct = $49,
-    control_chance_pct = $50,
-    control_rounds = $51,
-    control_status_id = $52,
-    sort_weight = $53,
-    status = $54
+    skill_mult = $21,
+    skill_crit_add = $22,
+    attack_pct = $23,
+    mana_pct = $24,
+    defense_pct = $25,
+    speed_pct = $26,
+    target_current_hp_pct = $27,
+    fixed_damage = $28,
+    heal_pct = $29,
+    fixed_heal = $30,
+    armor_break_pct = $31,
+    vulnerability_pct = $32,
+    bleed_chance_pct = $33,
+    bleed_rounds = $34,
+    bleed_damage = $35,
+    seal_chance_pct = $36,
+    seal_power = $37,
+    seal_rounds = $38,
+    vulnerability_chance_pct = $39,
+    vulnerability_rounds = $40,
+    vulnerability_apply_pct = $41,
+    armor_break_chance_pct = $42,
+    armor_break_rounds = $43,
+    slow_chance_pct = $44,
+    slow_rounds = $45,
+    slow_multiplier_pct = $46,
+    crit_boost_rounds = $47,
+    crit_boost_pct = $48,
+    curse_chance_pct = $49,
+    curse_rounds = $50,
+    curse_damage = $51,
+    curse_mana_pct = $52,
+    control_chance_pct = $53,
+    control_power = $54,
+    control_rounds = $55,
+    control_status_id = $56,
+    sort_weight = $57,
+    status = $58
 WHERE skill_id = $1
 `
 
@@ -369,16 +377,17 @@ func skillUpsertArgs(skillID uint32, input skill.AdminUpsertInput, status int64)
 		input.TargetType, input.TargetCount, input.PreferredTargetHP,
 		input.AnimationKey, input.SkillVisualID, input.CastColor, input.ImpactColor, input.Projectile,
 		input.IsSkillAttack, input.IsBasicAttack, input.EnergyCost, input.AllowCrit, input.IgnoreDefense,
+		input.SkillMult, input.SkillCritAdd,
 		input.AttackPct, input.ManaPct, input.DefensePct, input.SpeedPct, input.TargetCurrentHPPct, input.FixedDamage, input.HealPct, input.FixedHeal,
 		input.ArmorBreakPct, input.VulnerabilityPct,
 		input.BleedChancePct, input.BleedRounds, input.BleedDamage,
-		input.SealChancePct, input.SealRounds,
+		input.SealChancePct, input.SealPower, input.SealRounds,
 		input.VulnerabilityChancePct, input.VulnerabilityRounds, input.VulnerabilityApplyPct,
 		input.ArmorBreakChancePct, input.ArmorBreakRounds,
 		input.SlowChancePct, input.SlowRounds, input.SlowMultiplierPct,
 		input.CritBoostRounds, input.CritBoostPct,
 		input.CurseChancePct, input.CurseRounds, input.CurseDamage, input.CurseManaPct,
-		input.ControlChancePct, input.ControlRounds, input.ControlStatusID,
+		input.ControlChancePct, input.ControlPower, input.ControlRounds, input.ControlStatusID,
 		input.SortWeight, status,
 	}
 }
@@ -423,6 +432,8 @@ type skillDefinitionRow struct {
 	energyCost    int64
 	allowCrit     bool
 	ignoreDefense bool
+	skillMult     int64
+	skillCritAdd  int64
 	attackPct     int64
 	manaPct       int64
 	defensePct    int64
@@ -437,6 +448,7 @@ type skillDefinitionRow struct {
 	bleedRounds   int64
 	bleedDamage   int64
 	sealChance    int64
+	sealPower     int64
 	sealRounds    int64
 	vulnChance    int64
 	vulnRounds    int64
@@ -453,6 +465,7 @@ type skillDefinitionRow struct {
 	curseDamage   int64
 	curseManaPct  int64
 	controlChance int64
+	controlPower  int64
 	controlRounds int64
 	controlStatus int64
 	sortWeight    int64
@@ -470,16 +483,17 @@ func scanSkillDefinitionRow(scanner interface {
 		&row.targetType, &row.targetCount, &row.preferredHP,
 		&row.animationKey, &row.skillVisualID, &row.castColor, &row.impactColor, &row.projectile,
 		&row.isSkillAttack, &row.isBasicAttack, &row.energyCost, &row.allowCrit, &row.ignoreDefense,
+		&row.skillMult, &row.skillCritAdd,
 		&row.attackPct, &row.manaPct, &row.defensePct, &row.speedPct, &row.targetHPPct, &row.fixedDamage, &row.healPct, &row.fixedHeal,
 		&row.armorBreakPct, &row.vulnPct,
 		&row.bleedChance, &row.bleedRounds, &row.bleedDamage,
-		&row.sealChance, &row.sealRounds,
+		&row.sealChance, &row.sealPower, &row.sealRounds,
 		&row.vulnChance, &row.vulnRounds, &row.vulnApply,
 		&row.abChance, &row.abRounds,
 		&row.slowChance, &row.slowRounds, &row.slowMult,
 		&row.critRounds, &row.critPct,
 		&row.curseChance, &row.curseRounds, &row.curseDamage, &row.curseManaPct,
-		&row.controlChance, &row.controlRounds, &row.controlStatus,
+		&row.controlChance, &row.controlPower, &row.controlRounds, &row.controlStatus,
 		&row.sortWeight, &row.status, &row.createdAt, &row.updatedAt,
 	)
 	return row, err
@@ -531,6 +545,8 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 			IsSkillAttack:      raw.isSkillAttack,
 			AllowCrit:          raw.allowCrit,
 			IgnoreDefense:      raw.ignoreDefense,
+			SkillMult:          uint32(raw.skillMult),
+			SkillCritAdd:       uint32(raw.skillCritAdd),
 		},
 		StatusEffects: skill.AdminStatusEffects{
 			ArmorBreakPct:          uint32(raw.armorBreakPct),
@@ -539,6 +555,7 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 			BleedRounds:            uint32(raw.bleedRounds),
 			BleedDamage:            int32(raw.bleedDamage),
 			SealChancePct:          uint32(raw.sealChance),
+			SealPower:              uint32(raw.sealPower),
 			SealRounds:             uint32(raw.sealRounds),
 			VulnerabilityChancePct: uint32(raw.vulnChance),
 			VulnerabilityRounds:    uint32(raw.vulnRounds),
@@ -555,6 +572,7 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 			CurseDamage:            int32(raw.curseDamage),
 			CurseManaPct:           int32(raw.curseManaPct),
 			ControlChancePct:       uint32(raw.controlChance),
+			ControlPower:           uint32(raw.controlPower),
 			ControlRounds:          uint32(raw.controlRounds),
 			ControlStatusID:        uint32(raw.controlStatus),
 		},
@@ -590,6 +608,8 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		Projectile:             raw.projectile,
 		IsSkillAttack:          raw.isSkillAttack,
 		EnergyCost:             uint32(raw.energyCost),
+		SkillMult:              uint32(raw.skillMult),
+		SkillCritAdd:           uint32(raw.skillCritAdd),
 		AttackPct:              int32(raw.attackPct),
 		ManaPct:                int32(raw.manaPct),
 		DefensePct:             int32(raw.defensePct),
@@ -606,6 +626,7 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		BleedRounds:            uint32(raw.bleedRounds),
 		BleedDamage:            int32(raw.bleedDamage),
 		SealChancePct:          uint32(raw.sealChance),
+		SealPower:              uint32(raw.sealPower),
 		SealRounds:             uint32(raw.sealRounds),
 		VulnerabilityChancePct: uint32(raw.vulnChance),
 		VulnerabilityRounds:    uint32(raw.vulnRounds),
@@ -622,7 +643,9 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		CurseDamage:            int32(raw.curseDamage),
 		CurseManaPct:           int32(raw.curseManaPct),
 		ControlChancePct:       uint32(raw.controlChance),
+		ControlPower:           uint32(raw.controlPower),
 		ControlRounds:          uint32(raw.controlRounds),
 		ControlStatusID:        uint32(raw.controlStatus),
+		IsBasicAttack:          raw.isBasicAttack,
 	}
 }

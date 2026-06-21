@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://ds2dqt3j82m8i"]
+[gd_scene load_steps=28 format=3 uid="uid://ds2dqt3j82m8i"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_ucce2"]
 [ext_resource type="Texture2D" uid="uid://buorrn06isqgu" path="res://asset/WenrexaAssetsUI_SciFI/PNG/TitlePanel02.png" id="2_kaafd"]
@@ -11,6 +11,7 @@
 [ext_resource type="Texture2D" uid="uid://bci4v1x02j2mt" path="res://asset/分类/ui/png/1.png" id="8_h30ww"]
 [ext_resource type="Texture2D" uid="uid://bjgpifm5okkr" path="res://asset/分类/ui/button_left.png" id="9_4v8lh"]
 [ext_resource type="Texture2D" uid="uid://bmecscqt2llph" path="res://asset/分类/ui/button_right.png" id="10_gky3i"]
+[ext_resource type="Texture2D" uid="uid://baki5kpxlmd5x" path="res://asset/分类/ui/png/3.png" id="11_png3"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_27pr6"]
 texture = ExtResource("1_ucce2")
@@ -41,11 +42,8 @@ texture_margin_top = 7.0
 texture_margin_right = 7.0
 texture_margin_bottom = 7.0
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_h30ww"]
-load_path = "res://.godot/imported/菜单图标2.png-229490cc21129c3f9a6834380b32910e.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_4v8lh"]
-atlas = SubResource("CompressedTexture2D_h30ww")
+atlas = ExtResource("3_def6l")
 region = Rect2(126, 0, 18, 18)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_gky3i"]
@@ -67,11 +65,8 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ers10"]
-load_path = "res://.godot/imported/3.png-39694ec904cdf76f6c9bae76435e30db.ctex"
-
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_l8lbm"]
-texture = SubResource("CompressedTexture2D_ers10")
+texture = ExtResource("11_png3")
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ndqss"]
 texture = ExtResource("7_tqt10")

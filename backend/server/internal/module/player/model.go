@@ -104,6 +104,11 @@ type Profile struct {
 	PetResistPct       uint32
 	MercenaryResistPct uint32
 	GenericShieldPct   uint32
+	Guard              uint32
+	TalentDmgPct       uint32
+	TalentReducePct    uint32
+	ElementAdvPct      uint32
+	ElementPenaltyPct  uint32
 	SkillIDs           []uint32
 	// SkinID 是当前玩家形象资源 ID，世界与战斗表现层共用。
 	SkinID string
@@ -406,6 +411,11 @@ type AdminPlayerDetail struct {
 	PetResistPct       uint32     `json:"pet_resist_pct"`
 	MercenaryResistPct uint32     `json:"mercenary_resist_pct"`
 	GenericShieldPct   uint32     `json:"generic_shield_pct"`
+	Guard              uint32     `json:"guard"`
+	TalentDmgPct       uint32     `json:"talent_dmg_pct"`
+	TalentReducePct    uint32     `json:"talent_reduce_pct"`
+	ElementAdvPct      uint32     `json:"element_adv_pct"`
+	ElementPenaltyPct  uint32     `json:"element_penalty_pct"`
 	SkillIDs           []uint32   `json:"skill_ids"`
 	SkinID             string     `json:"skin_id"`
 	LastLoginAt        *time.Time `json:"last_login_at"`

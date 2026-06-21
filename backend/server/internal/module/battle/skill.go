@@ -19,6 +19,7 @@ type skillDef struct {
 	ImpactColor            string
 	Projectile             bool
 	IsSkillAttack          bool
+	IsBasicAttack          bool
 	EnergyCost             uint32
 	AttackPct              int32
 	ManaPct                int32
@@ -28,6 +29,9 @@ type skillDef struct {
 	FixedDamage            int32
 	HealPct                int32
 	FixedHeal              int32
+	// SkillMult 为新表「技能倍数」；缺省时回退 AttackPct/100。
+	SkillMult              uint32
+	SkillCritAdd           uint32
 	AllowCrit              bool
 	IgnoreDefense          bool
 	ArmorBreakPct          uint32
@@ -36,6 +40,7 @@ type skillDef struct {
 	BleedRounds            uint32
 	BleedDamage            int32
 	SealChancePct          uint32
+	SealPower              uint32
 	SealRounds             uint32
 	VulnerabilityChancePct uint32
 	VulnerabilityRounds    uint32
@@ -52,6 +57,7 @@ type skillDef struct {
 	CurseDamage            int32
 	CurseManaPct           int32
 	ControlChancePct       uint32
+	ControlPower           uint32
 	ControlRounds          uint32
 	ControlStatusID        uint32
 	PreferredTargetHP      string
@@ -63,7 +69,8 @@ var skillCatalog = map[uint32]skillDef{
 		ID:                  DefaultCharacterSkillID,
 		Name:                "裂空斩",
 		TargetRule:          targetEnemySingle,
-		AnimationKey:        "slash",
+		AnimationKey:        "character_slash",
+		SkillVisualID:       "character_slash",
 		CastColor:           "#8FD6FF",
 		ImpactColor:         "#BDE9FF",
 		Projectile:          true,
@@ -80,18 +87,20 @@ var skillCatalog = map[uint32]skillDef{
 		BleedDamage:         3,
 	},
 	DefaultAttackSkillID: {
-		ID:           DefaultAttackSkillID,
-		Name:         "普通攻击",
-		TargetRule:   targetEnemySingle,
-		AnimationKey: "slash",
-		CastColor:    "#EBEBF5",
-		ImpactColor:  "#FFF2F2",
-		Projectile:   false,
-		EnergyCost:   0,
-		AttackPct:    100,
-		ManaPct:      35,
-		SpeedPct:     35,
-		AllowCrit:    true,
+		ID:            DefaultAttackSkillID,
+		Name:          "普通攻击",
+		TargetRule:    targetEnemySingle,
+		AnimationKey:  "slash",
+		SkillVisualID: "slash",
+		CastColor:     "#EBEBF5",
+		ImpactColor:   "#FFF2F2",
+		Projectile:    false,
+		IsBasicAttack: true,
+		EnergyCost:    0,
+		AttackPct:     100,
+		ManaPct:       35,
+		SpeedPct:      35,
+		AllowCrit:     true,
 	},
 	1002: {
 		ID:                     1002,

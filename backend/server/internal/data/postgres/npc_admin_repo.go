@@ -9,41 +9,38 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 )
 
 const adminNPCEntityListBaseQuery = `
 SELECT
-  entity_id,
-  entity_code,
-  display_name,
-  entity_type,
-  scene_id,
-  pos_x,
-  pos_y,
-  dir,
-  speed,
-  status,
-  created_at,
-  updated_at
-FROM world_entity_definition
+  e.entity_id,
+  e.entity_code,
+  e.display_name,
+  e.entity_type,
+  e.scene_id,
+  COALESCE(s.scene_name, '') AS scene_name,
+  e.status,
+  e.created_at,
+  e.updated_at
+FROM world_entity_definition e
+LEFT JOIN world_scene_definition s ON s.scene_id = e.scene_id
 `
 
 const adminNPCEntityDetailQuery = `
 SELECT
-  entity_id,
-  entity_code,
-  display_name,
-  entity_type,
-  scene_id,
-  pos_x,
-  pos_y,
-  dir,
-  speed,
-  status,
-  created_at,
-  updated_at
-FROM world_entity_definition
-WHERE entity_id = $1
+  e.entity_id,
+  e.entity_code,
+  e.display_name,
+  e.entity_type,
+  e.scene_id,
+  COALESCE(s.scene_name, '') AS scene_name,
+  e.status,
+  e.created_at,
+  e.updated_at
+FROM world_entity_definition e
+LEFT JOIN world_scene_definition s ON s.scene_id = e.scene_id
+WHERE e.entity_id = $1
 LIMIT 1
 `
 
@@ -54,12 +51,8 @@ INSERT INTO world_entity_definition (
   display_name,
   entity_type,
   scene_id,
-  pos_x,
-  pos_y,
-  dir,
-  speed,
   status
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+) VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 const updateAdminNPCEntityQuery = `
@@ -68,12 +61,15 @@ SET entity_code = $2,
     display_name = $3,
     entity_type = $4,
     scene_id = $5,
-    pos_x = $6,
-    pos_y = $7,
-    dir = $8,
-    speed = $9,
-    status = $10
+    status = $6
 WHERE entity_id = $1
+`
+
+const listAdminWorldScenesQuery = `
+SELECT scene_id, scene_code, scene_name, status
+FROM world_scene_definition
+WHERE status = 1
+ORDER BY scene_id ASC
 `
 
 const deleteAdminNPCEntityQuery = `
@@ -93,6 +89,7 @@ SELECT
   sort_order,
   action_result_type,
   battle_encounter_entity_id,
+  linked_quest_id,
   status,
   created_at,
   updated_at
@@ -112,6 +109,8 @@ SELECT
   action_result_type,
   action_notice,
   battle_encounter_entity_id,
+  linked_quest_id,
+  conditions_json,
   status,
   created_at,
   updated_at
@@ -133,8 +132,10 @@ INSERT INTO npc_menu_entry (
   action_result_type,
   action_notice,
   battle_encounter_entity_id,
+  linked_quest_id,
+  conditions_json,
   status
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 `
 
 const updateAdminNPCMenuEntryQuery = `
@@ -149,7 +150,9 @@ SET entity_id = $3,
     action_result_type = $10,
     action_notice = $11,
     battle_encounter_entity_id = $12,
-    status = $13
+    linked_quest_id = $13,
+    conditions_json = $14,
+    status = $15
 WHERE entity_id = $1 AND entry_id = $2
 `
 
@@ -173,28 +176,28 @@ func (r *NPCRepository) ListEntitiesForAdmin(ctx context.Context, query npc.Admi
 		return fmt.Sprintf("$%d", len(args))
 	}
 	if query.EntityID > 0 {
-		conditions = append(conditions, "entity_id = "+nextArg(query.EntityID))
+		conditions = append(conditions, "e.entity_id = "+nextArg(query.EntityID))
 	}
 	if query.SceneID > 0 {
-		conditions = append(conditions, "scene_id = "+nextArg(query.SceneID))
+		conditions = append(conditions, "e.scene_id = "+nextArg(query.SceneID))
 	}
 	if query.EntityType != nil {
-		conditions = append(conditions, "entity_type = "+nextArg(*query.EntityType))
+		conditions = append(conditions, "e.entity_type = "+nextArg(*query.EntityType))
 	}
 	if query.Status != nil {
-		conditions = append(conditions, "status = "+nextArg(*query.Status))
+		conditions = append(conditions, "e.status = "+nextArg(*query.Status))
 	}
 	if query.Name != "" {
-		conditions = append(conditions, "display_name ILIKE "+nextArg("%"+query.Name+"%"))
+		conditions = append(conditions, "e.display_name ILIKE "+nextArg("%"+query.Name+"%"))
 	}
 	whereClause := joinWhere(conditions)
-	countQuery := `SELECT COUNT(1) FROM world_entity_definition ` + whereClause
+	countQuery := `SELECT COUNT(1) FROM world_entity_definition e ` + whereClause
 	var total int64
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, err
 	}
 	args = append(args, query.PageSize, (query.Page-1)*query.PageSize)
-	listQuery := adminNPCEntityListBaseQuery + whereClause + fmt.Sprintf("\nORDER BY scene_id ASC, entity_id ASC\nLIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	listQuery := adminNPCEntityListBaseQuery + whereClause + fmt.Sprintf("\nORDER BY e.scene_id ASC, e.entity_id ASC\nLIMIT $%d OFFSET $%d", len(args)-1, len(args))
 	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, err
@@ -226,7 +229,7 @@ func (r *NPCRepository) FindAdminEntityDetailByEntityID(ctx context.Context, ent
 }
 
 func (r *NPCRepository) CreateEntityForAdmin(ctx context.Context, input npc.AdminCreateEntityInput) (*npc.AdminEntityDetail, error) {
-	_, err := r.db.ExecContext(ctx, insertAdminNPCEntityQuery, input.EntityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.PosX, input.PosY, input.Dir, input.Speed, input.Status)
+	_, err := r.db.ExecContext(ctx, insertAdminNPCEntityQuery, input.EntityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -237,7 +240,7 @@ func (r *NPCRepository) CreateEntityForAdmin(ctx context.Context, input npc.Admi
 }
 
 func (r *NPCRepository) UpdateEntityForAdmin(ctx context.Context, entityID uint64, input npc.AdminUpdateEntityInput) (*npc.AdminEntityDetail, error) {
-	result, err := r.db.ExecContext(ctx, updateAdminNPCEntityQuery, entityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.PosX, input.PosY, input.Dir, input.Speed, input.Status)
+	result, err := r.db.ExecContext(ctx, updateAdminNPCEntityQuery, entityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -332,7 +335,7 @@ func (r *NPCRepository) CreateMenuEntryForAdmin(ctx context.Context, input npc.A
 	if !ok {
 		return nil, npc.ErrAdminNPCNotFound
 	}
-	_, err = r.db.ExecContext(ctx, insertAdminNPCMenuEntryQuery, input.EntityID, input.EntryID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.Status)
+	_, err = r.db.ExecContext(ctx, insertAdminNPCMenuEntryQuery, input.EntityID, input.EntryID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.LinkedQuestID, npcdialogue.EncodeAdminConditionsJSON(input.Conditions), input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -350,7 +353,7 @@ func (r *NPCRepository) UpdateMenuEntryForAdmin(ctx context.Context, entityID ui
 	if !ok {
 		return nil, npc.ErrAdminNPCNotFound
 	}
-	result, err := r.db.ExecContext(ctx, updateAdminNPCMenuEntryQuery, entityID, entryID, input.EntityID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.Status)
+	result, err := r.db.ExecContext(ctx, updateAdminNPCMenuEntryQuery, entityID, entryID, input.EntityID, input.EntryType, input.Title, input.Subtitle, input.State, input.Priority, input.SortOrder, input.ActionResultType, input.ActionNotice, input.BattleEncounterEntityID, input.LinkedQuestID, npcdialogue.EncodeAdminConditionsJSON(input.Conditions), input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -390,22 +393,45 @@ func (r *NPCRepository) entityExists(ctx context.Context, entityID uint64) (bool
 	return count > 0, nil
 }
 
+func (r *NPCRepository) ListWorldScenesForAdmin(ctx context.Context) ([]npc.AdminWorldSceneSummary, error) {
+	rows, err := r.db.QueryContext(ctx, listAdminWorldScenesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]npc.AdminWorldSceneSummary, 0)
+	for rows.Next() {
+		var (
+			item     npc.AdminWorldSceneSummary
+			sceneID  int64
+			status   int64
+		)
+		if err := rows.Scan(&sceneID, &item.SceneCode, &item.SceneName, &status); err != nil {
+			return nil, err
+		}
+		item.SceneID = uint32(sceneID)
+		item.Status = uint32(status)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func scanAdminNPCEntitySummary(rows *sql.Rows) (npc.AdminEntitySummary, error) {
 	var (
 		item       npc.AdminEntitySummary
 		entityType int64
 		sceneID    int64
-		dir        int64
-		speed      int64
 		status     int64
 	)
-	if err := rows.Scan(&item.EntityID, &item.EntityCode, &item.DisplayName, &entityType, &sceneID, &item.PosX, &item.PosY, &dir, &speed, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.EntityID, &item.EntityCode, &item.DisplayName, &entityType, &sceneID, &item.SceneName, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return npc.AdminEntitySummary{}, err
 	}
 	item.EntityType = uint32(entityType)
 	item.SceneID = uint32(sceneID)
-	item.Dir = uint32(dir)
-	item.Speed = uint32(speed)
 	item.Status = uint32(status)
 	item.StatusText = npc.AdminNPCStatusText(item.Status)
 	return item, nil
@@ -416,17 +442,13 @@ func scanAdminNPCEntityDetail(row *sql.Row) (*npc.AdminEntityDetail, error) {
 		item       npc.AdminEntityDetail
 		entityType int64
 		sceneID    int64
-		dir        int64
-		speed      int64
 		status     int64
 	)
-	if err := row.Scan(&item.EntityID, &item.EntityCode, &item.DisplayName, &entityType, &sceneID, &item.PosX, &item.PosY, &dir, &speed, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.EntityID, &item.EntityCode, &item.DisplayName, &entityType, &sceneID, &item.SceneName, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.EntityType = uint32(entityType)
 	item.SceneID = uint32(sceneID)
-	item.Dir = uint32(dir)
-	item.Speed = uint32(speed)
 	item.Status = uint32(status)
 	item.StatusText = npc.AdminNPCStatusText(item.Status)
 	return &item, nil
@@ -437,13 +459,15 @@ func scanAdminNPCMenuEntrySummary(rows *sql.Rows) (npc.AdminMenuEntrySummary, er
 		item      npc.AdminMenuEntrySummary
 		priority  int64
 		sortOrder int64
+		linkedQuestID int64
 		status    int64
 	)
-	if err := rows.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.BattleEncounterEntityID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.BattleEncounterEntityID, &linkedQuestID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return npc.AdminMenuEntrySummary{}, err
 	}
 	item.Priority = uint32(priority)
 	item.SortOrder = uint32(sortOrder)
+	item.LinkedQuestID = uint64(linkedQuestID)
 	item.Status = uint32(status)
 	item.StatusText = npc.AdminNPCStatusText(item.Status)
 	return item, nil
@@ -451,16 +475,20 @@ func scanAdminNPCMenuEntrySummary(rows *sql.Rows) (npc.AdminMenuEntrySummary, er
 
 func scanAdminNPCMenuEntryDetail(row *sql.Row) (*npc.AdminMenuEntryDetail, error) {
 	var (
-		item      npc.AdminMenuEntryDetail
-		priority  int64
-		sortOrder int64
-		status    int64
+		item           npc.AdminMenuEntryDetail
+		priority       int64
+		sortOrder      int64
+		linkedQuestID  int64
+		conditionsJSON []byte
+		status         int64
 	)
-	if err := row.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.ActionNotice, &item.BattleEncounterEntityID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.ActionNotice, &item.BattleEncounterEntityID, &linkedQuestID, &conditionsJSON, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Priority = uint32(priority)
 	item.SortOrder = uint32(sortOrder)
+	item.LinkedQuestID = uint64(linkedQuestID)
+	item.Conditions = npcdialogue.DecodeAdminConditionsJSON(conditionsJSON)
 	item.Status = uint32(status)
 	item.StatusText = npc.AdminNPCStatusText(item.Status)
 	return &item, nil

@@ -69,6 +69,7 @@ func get_initial_units() -> Array[Dictionary]:
 		for actor_variant: Variant in enemies_variant:
 			if actor_variant is Dictionary:
 				result.append(_build_unit_data(actor_variant as Dictionary, false))
+	BattleFormationMapper.assign_unit_positions(result)
 	return result
 
 ## 按 actor_id 在 allies/enemies 中查找完整单位快照。
@@ -126,7 +127,9 @@ func _build_unit_data(actor: Dictionary, is_ally: bool) -> Dictionary:
 		"hp": int(actor.get("hp", 0)),
 		"max_hp": int(actor.get("hp_max", 0)),
 		"skin_id": str(actor.get("skin_id", "")),
-		"position": BattleFormationMapper.resolve_position_key(is_ally, lineup_index),
+		"unit_class": unit_class,
+		"lineup_index": lineup_index,
+		"owner_player_id": int(actor.get("owner_player_id", 0)),
 		"skills": _normalize_skills(actor.get("skills", [])),
 		"items": [],
 	}
@@ -157,6 +160,7 @@ func _normalize_skills(skills_variant: Variant) -> Array[Dictionary]:
 			"animation_key": str(skill.get("animation_key", "")),
 			"target_count": int(skill.get("target_count", 1)),
 			"target_side": _target_side_from_type(str(skill.get("target_type", "enemy_single"))),
+			"is_basic_attack": bool(skill.get("is_basic_attack", false)),
 		})
 	return result
 

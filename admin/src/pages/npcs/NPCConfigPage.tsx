@@ -15,6 +15,7 @@ import {
   Spin,
   Table,
   Tag,
+  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -24,6 +25,7 @@ import {
   deleteAdminNPCEntity,
   fetchAdminNPCEntities,
   fetchAdminNPCEntityDetail,
+  fetchAdminWorldScenes,
   updateAdminNPCEntity,
 } from '../../services/npc';
 import type {
@@ -32,6 +34,7 @@ import type {
   AdminNPCEntityFilters,
   AdminNPCEntitySummary,
   AdminUpdateNPCEntityPayload,
+  AdminWorldSceneSummary,
 } from '../../types/npc';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { NPCMenuEntryDrawer } from './NPCMenuEntryDrawer';
@@ -42,10 +45,6 @@ interface EntityFormValues {
   display_name: string;
   entity_type: number;
   scene_id: number;
-  pos_x: number;
-  pos_y: number;
-  dir: number;
-  speed: number;
   status: number;
 }
 
@@ -83,10 +82,24 @@ function MapNPCPanel() {
   const [deletingID, setDeletingID] = useState<number | null>(null);
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
   const [menuDrawerEntity, setMenuDrawerEntity] = useState<{ entityId: number; entityName: string } | null>(null);
+  const [sceneOptions, setSceneOptions] = useState<Array<{ label: string; value: number }>>([]);
 
   useEffect(() => {
     filterForm.setFieldsValue({ status: '1' });
+    void loadSceneOptions();
   }, [filterForm]);
+
+  async function loadSceneOptions() {
+    try {
+      const result = await fetchAdminWorldScenes();
+      setSceneOptions(result.items.map((scene: AdminWorldSceneSummary) => ({
+        label: scene.scene_name,
+        value: scene.scene_id,
+      })));
+    } catch {
+      setSceneOptions([]);
+    }
+  }
 
   useEffect(() => {
     void loadRows(filters, page, pageSize);
@@ -193,9 +206,13 @@ function MapNPCPanel() {
     { title: '实体ID', dataIndex: 'entity_id', key: 'entity_id', width: 110, fixed: 'left' },
     { title: '实体编码', dataIndex: 'entity_code', key: 'entity_code', width: 160 },
     { title: '显示名', dataIndex: 'display_name', key: 'display_name', width: 160 },
-    { title: '地图', dataIndex: 'scene_id', key: 'scene_id', width: 90 },
-    { title: '坐标', key: 'pos', width: 120, render: (_value, record) => `${record.pos_x}, ${record.pos_y}` },
-    { title: '方向/速度', key: 'move', width: 120, render: (_value, record) => `${record.dir}/${record.speed}` },
+    {
+      title: '所属场景',
+      dataIndex: 'scene_name',
+      key: 'scene_name',
+      width: 160,
+      render: (value: string, record: AdminNPCEntitySummary) => value || `场景 ${record.scene_id}`,
+    },
     {
       title: '状态',
       dataIndex: 'status_text',
@@ -241,7 +258,12 @@ function MapNPCPanel() {
             layout="inline"
             onFinish={(values) => {
               setPage(1);
-              setFilters(values);
+              setFilters({
+                ...values,
+                scene_id: values.scene_id !== undefined && values.scene_id !== null && String(values.scene_id) !== ''
+                  ? String(values.scene_id)
+                  : undefined,
+              });
             }}
           >
             <Form.Item name="entity_id" label="实体ID">
@@ -250,8 +272,13 @@ function MapNPCPanel() {
             <Form.Item name="name" label="显示名">
               <Input allowClear placeholder="显示名" style={{ width: 120 }} />
             </Form.Item>
-            <Form.Item name="scene_id" label="地图ID">
-              <Input allowClear placeholder="地图ID" style={{ width: 100 }} />
+            <Form.Item name="scene_id" label="所属场景">
+              <Select
+                allowClear
+                placeholder="全部场景"
+                style={{ width: 160 }}
+                options={sceneOptions}
+              />
             </Form.Item>
             <Form.Item name="status" label="状态">
               <Select options={statusOptions} style={{ width: 100 }} />
@@ -281,7 +308,7 @@ function MapNPCPanel() {
           rowKey="entity_id"
           loading={loading}
           locale={{ emptyText: <Empty description="当前筛选条件下没有地图 NPC 数据" /> }}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1100 }}
           pagination={{
             current: page,
             pageSize,
@@ -320,9 +347,7 @@ function MapNPCPanel() {
             <Descriptions.Item label="实体ID">{detail.entity_id}</Descriptions.Item>
             <Descriptions.Item label="编码">{detail.entity_code}</Descriptions.Item>
             <Descriptions.Item label="显示名">{detail.display_name}</Descriptions.Item>
-            <Descriptions.Item label="地图ID">{detail.scene_id}</Descriptions.Item>
-            <Descriptions.Item label="坐标">{`${detail.pos_x}, ${detail.pos_y}`}</Descriptions.Item>
-            <Descriptions.Item label="方向 / 速度">{`${detail.dir} / ${detail.speed}`}</Descriptions.Item>
+            <Descriptions.Item label="所属场景">{detail.scene_name || `场景 ${detail.scene_id}`}</Descriptions.Item>
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
           </Descriptions>
         ) : null}
@@ -373,14 +398,21 @@ function MapNPCPanel() {
                 <Input />
               </Form.Item>
             </Col>
-            <Col xs={12} md={6}><Form.Item label="实体类型" name="entity_type"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="地图ID" name="scene_id"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="X" name="pos_x"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="Y" name="pos_y"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="方向" name="dir"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="速度" name="speed"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableStatusOptions} /></Form.Item></Col>
+            <Col xs={12} md={8}>
+              <Form.Item label="实体类型" name="entity_type"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="所属场景" name="scene_id" rules={[{ required: true, message: '请选择所属场景' }]}>
+                <Select showSearch optionFilterProp="label" placeholder="选择场景" options={sceneOptions} />
+              </Form.Item>
+            </Col>
+            <Col xs={12} md={8}>
+              <Form.Item label="状态" name="status"><Select options={editableStatusOptions} /></Form.Item>
+            </Col>
           </Row>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            NPC 在场景中的坐标与朝向由客户端 Godot 场景资源维护，后台仅配置 entity_id 与所属 scene_id。
+          </Typography.Paragraph>
         </Form>
       </Modal>
 
@@ -403,11 +435,7 @@ function defaultEntityValues(): EntityFormValues {
     entity_code: 'ops_npc',
     display_name: '后台测试 NPC',
     entity_type: 2,
-    scene_id: 1,
-    pos_x: 8,
-    pos_y: 8,
-    dir: 2,
-    speed: 0,
+    scene_id: 3,
     status: 1,
   };
 }
@@ -419,10 +447,6 @@ function mapEntityDetailToForm(detail: AdminNPCEntityDetail): EntityFormValues {
     display_name: detail.display_name,
     entity_type: detail.entity_type,
     scene_id: detail.scene_id,
-    pos_x: detail.pos_x,
-    pos_y: detail.pos_y,
-    dir: detail.dir,
-    speed: detail.speed,
     status: detail.status,
   };
 }
@@ -434,10 +458,6 @@ function mapEntityFormToCreatePayload(values: EntityFormValues): AdminCreateNPCE
     display_name: values.display_name,
     entity_type: values.entity_type,
     scene_id: values.scene_id,
-    pos_x: values.pos_x,
-    pos_y: values.pos_y,
-    dir: values.dir,
-    speed: values.speed,
     status: values.status,
   };
 }

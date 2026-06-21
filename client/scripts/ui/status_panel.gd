@@ -3,7 +3,6 @@ extends PanelContainer
 const TAB_NORMAL_COLOR := Color(0.5019608, 0.62352943, 0.654902, 1)
 const TAB_HOVER_COLOR := Color(0.65882355, 0.7607843, 0.7529412, 1)
 const TAB_ACTIVE_COLOR := Color(0.8352941, 0.91764706, 0.8509804, 1)
-const UiFormat = preload("res://scripts/common/ui_format.gd")
 
 @onready var character_tab_button: Button = $RootVBox/SubTabRow/CharacterTabButton
 @onready var pet_tab_button: Button = $RootVBox/SubTabRow/PetTabButton
@@ -122,6 +121,13 @@ func _select_tab(index: int) -> void:
 		var panel := _tab_panels[i]
 		if panel != null:
 			panel.visible = i == _current_tab_index
+	if index == 0 and GameState.is_ws_authenticated:
+		if character_panel != null and character_panel.has_method("refresh_equipment_from_server"):
+			character_panel.call("refresh_equipment_from_server")
+	if index == 1 and GameState.is_ws_authenticated:
+		App.request_pet_list()
+	if index == 1 and pet_panel != null and pet_panel.has_method("refresh_from_game_state"):
+		pet_panel.call("refresh_from_game_state")
 
 
 func _refresh_tabs() -> void:
@@ -216,17 +222,18 @@ func _build_runtime_panel_data() -> Dictionary:
 		var pet_variant: Variant = GameState.pets[0]
 		if pet_variant is Dictionary:
 			var first_pet: Dictionary = pet_variant
-			pet["name"] = str(first_pet.get("name", pet.get("name", "宠物")))
+			var pet_id: int = int(first_pet.get("pet_id", 0))
+			pet["name"] = "宠物 %d" % pet_id
 			pet["level"] = "Lv.%s" % UiFormat.value_to_text(first_pet.get("level", pet.get("level", "1")))
 			pet["hp"] = "%s / %s" % [
 				UiFormat.value_to_text(first_pet.get("hp", 0)),
 				UiFormat.value_to_text(first_pet.get("hp_max", 0)),
 			]
-			if first_pet.has("mp") or first_pet.has("mp_max"):
-				pet["mp"] = "%s / %s" % [
-					UiFormat.value_to_text(first_pet.get("mp", 0)),
-					UiFormat.value_to_text(first_pet.get("mp_max", 0)),
-				]
+			pet["mp"] = UiFormat.value_to_text(first_pet.get("mana", first_pet.get("mp", 0)))
+			pet["attack"] = UiFormat.value_to_text(first_pet.get("atk", 0))
+			pet["defense"] = UiFormat.value_to_text(first_pet.get("def", 0))
+			pet["speed"] = UiFormat.value_to_text(first_pet.get("spd", 0))
+			pet["hint"] = "剩余自由点 %s，可在下方切换宠物并点击 +1 分配。" % UiFormat.value_to_text(first_pet.get("free_attr_points", 0))
 
 	points["free_points"] = UiFormat.value_to_text(GameState.player_snapshot.get("free_attr_points", 0))
 	points["strength"] = UiFormat.value_to_text(GameState.player_snapshot.get("strength", 0))

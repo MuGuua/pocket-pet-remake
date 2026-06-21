@@ -50,13 +50,27 @@ func connect_to_server(url: String = DEFAULT_WS_URL) -> int:
     _authenticated = false
     _heartbeat_interval_sec = 0
     _last_heartbeat_sent_ms = 0
-    var err := _socket.connect_to_url(url)
+    var connect_url: String = _resolve_connect_url(url)
+    var err: int = _socket.connect_to_url(connect_url)
     if err != OK:
         _set_state("error")
         return err
 
     _set_state("connecting")
     return OK
+
+## Web 导出包使用当前页面主机拼出 WebSocket 地址，方便本机和局域网手机调试。
+func _resolve_connect_url(url: String) -> String:
+    if not OS.has_feature("web") or url != DEFAULT_WS_URL:
+        return url
+
+    var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
+    var hostname: String = str(JavaScriptBridge.eval("window.location.hostname", true))
+    if hostname.strip_edges().is_empty():
+        return url
+
+    var ws_scheme: String = "wss" if protocol == "https:" else "ws"
+    return "%s://%s:8080/ws" % [ws_scheme, hostname]
 
 # 主动关闭当前连接，并清空鉴权与心跳相关状态。
 func disconnect_from_server(code: int = 1000, reason: String = "") -> void:

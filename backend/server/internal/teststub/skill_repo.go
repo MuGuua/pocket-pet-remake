@@ -17,7 +17,7 @@ func NewSkillRepository() *SkillRepository {
 		definitions: make(map[uint32]skill.AdminDetail, 8),
 	}
 	seeds := []skill.AdminUpsertInput{
-		{SkillID: 1101, SkillCode: "character_slash", SkillName: "裂空斩", SkillCategory: "character", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "slash", CastColor: "#8FD6FF", ImpactColor: "#BDE9FF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 135, ManaPct: 55, SpeedPct: 35, AllowCrit: true, ArmorBreakChancePct: 100, ArmorBreakRounds: 2, BleedChancePct: 45, BleedRounds: 2, BleedDamage: 3},
+		{SkillID: 1101, SkillCode: "character_slash", SkillName: "裂空斩", SkillCategory: "character", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "character_slash", SkillVisualID: "character_slash", CastColor: "#8FD6FF", ImpactColor: "#BDE9FF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 135, ManaPct: 55, SpeedPct: 35, AllowCrit: true, ArmorBreakChancePct: 100, ArmorBreakRounds: 2, BleedChancePct: 45, BleedRounds: 2, BleedDamage: 3},
 		{SkillID: 1001, SkillCode: "basic_attack", SkillName: "普通攻击", SkillCategory: "common", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "slash", IsBasicAttack: true, IsEnabled: true, AttackPct: 100, ManaPct: 35, SpeedPct: 35, AllowCrit: true},
 		{SkillID: 1002, SkillCode: "pet_spark_burst", SkillName: "火花冲击", SkillCategory: "pet", SkillType: "attack", TargetType: "enemy_all", AnimationKey: "burst", CastColor: "#FFAA5C", ImpactColor: "#FFD46B", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 18, AttackPct: 120, ManaPct: 85, SpeedPct: 55, AllowCrit: true, BleedChancePct: 70, BleedRounds: 2, BleedDamage: 4, VulnerabilityChancePct: 100, VulnerabilityRounds: 2, VulnerabilityApplyPct: 12, ControlChancePct: 35, ControlRounds: 1, ControlStatusID: 11},
 		{SkillID: 1003, SkillCode: "pet_vital_heal", SkillName: "活力治愈", SkillCategory: "pet", SkillType: "heal", TargetType: "ally_single", PreferredTargetHP: "lowest", AnimationKey: "heal", CastColor: "#73F5A3", ImpactColor: "#B7FFD0", IsSkillAttack: true, IsEnabled: true, EnergyCost: 14, HealPct: 22, CritBoostRounds: 2, CritBoostPct: 20},
@@ -190,6 +190,7 @@ func runtimeFromSkillDetail(detail skill.AdminDetail) skill.RuntimeDefinition {
 		TargetType: detail.TargetRule.TargetType, TargetCount: detail.TargetRule.TargetCount, PreferredTargetHP: detail.TargetRule.PreferredTargetHP,
 		AnimationKey: detail.Presentation.AnimationKey, SkillVisualID: detail.Presentation.SkillVisualID, CastColor: detail.Presentation.CastColor, ImpactColor: detail.Presentation.ImpactColor, Projectile: detail.Presentation.Projectile,
 		IsSkillAttack: detail.Formula.IsSkillAttack, EnergyCost: detail.Formula.EnergyCost,
+		SkillMult: detail.Formula.SkillMult, SkillCritAdd: detail.Formula.SkillCritAdd,
 		AttackPct: detail.Formula.AttackPct, ManaPct: detail.Formula.ManaPct, DefensePct: detail.Formula.DefensePct, SpeedPct: detail.Formula.SpeedPct,
 		TargetCurrentHPPct: detail.Formula.TargetCurrentHPPct, FixedDamage: detail.Formula.FixedDamage, HealPct: detail.Formula.HealPct, FixedHeal: detail.Formula.FixedHeal,
 		AllowCrit: detail.Formula.AllowCrit, IgnoreDefense: detail.Formula.IgnoreDefense,

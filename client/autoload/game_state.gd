@@ -14,6 +14,8 @@ signal wallet_changed
 signal quests_changed
 # 战斗状态变化后向外广播。
 signal battle_changed
+# 人物已佩戴装备变化后向外广播。
+signal equipment_changed
 
 # 当前登录态持有的访问令牌。
 var access_jwt: String = ""
@@ -59,6 +61,8 @@ var battle_state: Dictionary = {}
 var is_in_battle: bool = false
 # 当前地图暗雷遭遇配置，由进图/切图响应下发。
 var wild_encounter_config: Dictionary = {}
+# 当前人物已佩戴装备摘要列表。
+var equipped_items: Array = []
 
 # 清空当前会话和运行态数据，并广播会话变化。
 func reset_session_state() -> void:
@@ -89,12 +93,14 @@ func reset_runtime_state() -> void:
 	battle_state = {}
 	is_in_battle = false
 	wild_encounter_config = {}
+	equipped_items = []
 	world_snapshot_changed.emit()
 	pets_changed.emit()
 	bag_changed.emit()
 	wallet_changed.emit()
 	quests_changed.emit()
 	battle_changed.emit()
+	equipment_changed.emit()
 
 # 写入 HTTP 登录结果返回的会话基础信息。
 func store_login_result(data: Dictionary) -> void:
@@ -163,6 +169,11 @@ func set_world_snapshot(payload: Dictionary) -> void:
 			next_player["y"] = float(self_pos_variant.get("y", next_player.get("y", 0.0)))
 	player_snapshot = next_player
 
+	if player_data is Dictionary and player_data.has("equipped_items"):
+		var equipped_variant: Variant = player_data.get("equipped_items", [])
+		if equipped_variant is Array:
+			set_equipped_items(equipped_variant)
+
 	nearby_entities = {}
 	# 兼容 entities/nearby_entities 两种字段格式读取实体列表。
 	var entities_variant: Variant = payload.get("entities", payload.get("nearby_entities", []))
@@ -171,9 +182,10 @@ func set_world_snapshot(payload: Dictionary) -> void:
 			if entity_variant is Dictionary and entity_variant.has("entity_id"):
 				nearby_entities[int(entity_variant["entity_id"])] = entity_variant.duplicate(true)
 
-	# 提取当前世界快照中的编队摘要列表。
-	var lineup_variant: Variant = payload.get("lineup", [])
-	lineup = lineup_variant.duplicate(true) if lineup_variant is Array else []
+	# 仅当快照显式携带 lineup 时才覆盖本地编队，避免切图 resync 把出战宠物清掉。
+	if payload.has("lineup"):
+		var lineup_variant: Variant = payload.get("lineup", [])
+		lineup = lineup_variant.duplicate(true) if lineup_variant is Array else []
 
 	var wild_encounter_variant: Variant = payload.get("wild_encounter", {})
 	wild_encounter_config = wild_encounter_variant.duplicate(true) if wild_encounter_variant is Dictionary else {}
@@ -481,6 +493,15 @@ func set_battle_state(next_state: Dictionary, active: bool = true) -> void:
 	is_in_battle = active
 	battle_changed.emit()
 
+# 写入服务端下发的人物已佩戴装备摘要。
+func set_equipped_items(items: Array) -> void:
+	var next_items: Array = []
+	for item_variant: Variant in items:
+		if item_variant is Dictionary:
+			next_items.append((item_variant as Dictionary).duplicate(true))
+	equipped_items = next_items
+	equipment_changed.emit()
+
 # 合并服务端下发的玩家权威快照字段。
 func merge_player_snapshot(player_data: Dictionary) -> void:
 	if player_data.is_empty():
@@ -539,6 +560,40 @@ func apply_battle_player_rewards(payload: Dictionary) -> void:
 			changed = true
 	if changed:
 		world_snapshot_changed.emit()
+
+# 把战斗结算里的宠物经验与升级摘要合并进本地宠物列表。
+func apply_battle_pet_rewards(payload: Dictionary) -> void:
+	var pet_rewards_variant: Variant = payload.get("pet_rewards", [])
+	if pet_rewards_variant is not Array:
+		return
+	var changed: bool = false
+	for pet_reward_variant: Variant in pet_rewards_variant:
+		if pet_reward_variant is not Dictionary:
+			continue
+		var pet_reward: Dictionary = pet_reward_variant as Dictionary
+		var pet_uid: int = int(pet_reward.get("pet_uid", 0))
+		if pet_uid == 0:
+			continue
+		for index: int in range(pets.size()):
+			var current_variant: Variant = pets[index]
+			if current_variant is not Dictionary:
+				continue
+			var current: Dictionary = current_variant as Dictionary
+			if int(current.get("pet_uid", 0)) != pet_uid:
+				continue
+			var next_pet: Dictionary = current.duplicate(true)
+			if pet_reward.has("free_attr_points"):
+				next_pet["free_attr_points"] = int(pet_reward.get("free_attr_points", 0))
+			elif int(pet_reward.get("attr_points_gained", 0)) > 0:
+				var current_free: int = int(next_pet.get("free_attr_points", 0))
+				next_pet["free_attr_points"] = current_free + int(pet_reward.get("attr_points_gained", 0))
+			if pet_reward.has("exp_to_next"):
+				next_pet["exp_to_next"] = int(pet_reward.get("exp_to_next", 0))
+			pets[index] = next_pet
+			changed = true
+			break
+	if changed:
+		pets_changed.emit()
 
 # 返回当前激活战斗单位对应的快照数据。
 func active_battle_actor(group_key: String = "allies") -> Dictionary:

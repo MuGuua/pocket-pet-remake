@@ -13,6 +13,7 @@ import (
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
@@ -162,11 +163,11 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil, nil, nil)
-	petHandler := NewPetHandler(sessionService, nil)
+	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil, nil, nil, nil)
+	petHandler := NewPetHandler(sessionService, nil, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, nil, nil, questService, npcService, battle.NewService(nil), teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, nil), battleHandler, nil, NewQuestHandler(questService, sessionService, nil, nil, nil, nil, nil), sessionService)
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, nil, nil, questService, npcService, nil, battle.NewService(nil), teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, nil), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, nil, nil, nil, nil, nil), sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
 	packet := protocol.NewPacket(protocol.CmdEnterWorldReq, 12, 0, nil)
@@ -951,7 +952,54 @@ func TestRouterHandleMoveIntentRejectUnknownScene(t *testing.T) {
 	}
 }
 
-func TestRouterHandleInteractMenu(t *testing.T) {
+func TestRouterHandleNPCMenu(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCMenuReq, 160, 0, protocol.NPCMenuReq{EntityID: 93001})
+	if err != nil {
+		t.Fatalf("NewJSONPacket(npc menu) error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket(npc menu) error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle(npc menu) error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var resp protocol.NPCMenuResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted {
+		t.Fatalf("resp.Accepted = false, want true")
+	}
+	if resp.EntityID != 93001 {
+		t.Fatalf("resp.EntityID = %d, want 93001", resp.EntityID)
+	}
+	if len(resp.MenuEntries) != 2 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 2", len(resp.MenuEntries))
+	}
+	var sawDialogueIntro bool
+	for _, entry := range resp.MenuEntries {
+		if entry.EntryID == "dialog_market_intro" && entry.EntryType == "dialog" {
+			sawDialogueIntro = true
+			break
+		}
+	}
+	if !sawDialogueIntro {
+		t.Fatalf("resp.MenuEntries = %#v, want dialog_market_intro entry", resp.MenuEntries)
+	}
+}
+
+func TestRouterHandleInteractRejectsNPCMenu(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 
 	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
@@ -977,20 +1025,11 @@ func TestRouterHandleInteractMenu(t *testing.T) {
 	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
 		t.Fatalf("UnmarshalBody(resp) error = %v", err)
 	}
-	if !resp.Accepted {
-		t.Fatalf("resp.Accepted = false, want true")
+	if resp.Accepted {
+		t.Fatalf("resp.Accepted = true, want false")
 	}
-	if resp.ResponseType != "menu" {
-		t.Fatalf("resp.ResponseType = %q, want menu", resp.ResponseType)
-	}
-	if resp.EntityID != 93001 {
-		t.Fatalf("resp.EntityID = %d, want 93001", resp.EntityID)
-	}
-	if len(resp.MenuEntries) != 1 {
-		t.Fatalf("len(resp.MenuEntries) = %d, want 1", len(resp.MenuEntries))
-	}
-	if resp.MenuEntries[0].EntryType != "dialog" {
-		t.Fatalf("resp.MenuEntries[0].EntryType = %q, want dialog", resp.MenuEntries[0].EntryType)
+	if resp.Reason != "use npc menu request" {
+		t.Fatalf("resp.Reason = %q, want use npc menu request", resp.Reason)
 	}
 }
 
@@ -1009,17 +1048,17 @@ func TestRouterHandleInteractMenuShowsQuestEntryAfterUnlock(t *testing.T) {
 		t.Fatalf("UpdatePosition() error = %v", err)
 	}
 
-	mustHandleJSONPacket(t, router, conn, protocol.CmdInteractReq, 163, protocol.InteractReq{EntityID: 93001})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCMenuReq, 163, protocol.NPCMenuReq{EntityID: 93001})
 	if len(conn.packets) != 1 {
 		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
 	}
 
-	var resp protocol.InteractResp
+	var resp protocol.NPCMenuResp
 	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
 		t.Fatalf("UnmarshalBody(resp) error = %v", err)
 	}
-	if len(resp.MenuEntries) != 2 {
-		t.Fatalf("len(resp.MenuEntries) = %d, want 2", len(resp.MenuEntries))
+	if len(resp.MenuEntries) != 3 {
+		t.Fatalf("len(resp.MenuEntries) = %d, want 3", len(resp.MenuEntries))
 	}
 	if resp.MenuEntries[0].EntryType != "quest" {
 		t.Fatalf("resp.MenuEntries[0].EntryType = %q, want quest", resp.MenuEntries[0].EntryType)
@@ -1061,14 +1100,80 @@ func TestRouterHandleNPCAction(t *testing.T) {
 	if !resp.Accepted {
 		t.Fatalf("resp.Accepted = false, want true")
 	}
-	if resp.ResultType != "notice" {
-		t.Fatalf("resp.ResultType = %q, want notice", resp.ResultType)
+	if resp.ResultType != "shop" {
+		t.Fatalf("resp.ResultType = %q, want shop", resp.ResultType)
+	}
+	if resp.Shop == nil || len(resp.Shop.Goods) == 0 {
+		t.Fatalf("resp.Shop = %#v, want non-empty shop payload", resp.Shop)
 	}
 	if resp.EntityID != 93002 {
 		t.Fatalf("resp.EntityID = %d, want 93002", resp.EntityID)
 	}
 	if len(resp.MenuEntries) != 3 {
 		t.Fatalf("len(resp.MenuEntries) = %d, want 3", len(resp.MenuEntries))
+	}
+}
+
+func TestRouterHandleNPCDialogueFlow(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 164, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_intro"})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+	var actionResp protocol.NPCActionResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &actionResp); err != nil {
+		t.Fatalf("UnmarshalBody(actionResp) error = %v", err)
+	}
+	if actionResp.ResultType != "dialogue" {
+		t.Fatalf("actionResp.ResultType = %q, want dialogue", actionResp.ResultType)
+	}
+	if actionResp.Dialogue == nil || actionResp.Dialogue.NodeType != "line" {
+		t.Fatalf("actionResp.Dialogue = %#v, want first line node", actionResp.Dialogue)
+	}
+
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCDialogueNextReq, 165, protocol.NPCDialogueNextReq{
+		EntityID:   93001,
+		DialogueID: actionResp.Dialogue.DialogueID,
+		NodeID:     actionResp.Dialogue.NodeID,
+	})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) after next = %d, want 1", len(conn.packets))
+	}
+	var nextResp protocol.NPCDialogueResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &nextResp); err != nil {
+		t.Fatalf("UnmarshalBody(nextResp) error = %v", err)
+	}
+	if !nextResp.Accepted || nextResp.Node == nil || nextResp.Node.NodeType != "action" {
+		t.Fatalf("nextResp = %#v, want accepted action node", nextResp)
+	}
+	if nextResp.Node.ClientAnimationKey != "market_limeng_step_aside" {
+		t.Fatalf("nextResp.Node.ClientAnimationKey = %q, want market_limeng_step_aside", nextResp.Node.ClientAnimationKey)
+	}
+
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCDialogueNextReq, 166, protocol.NPCDialogueNextReq{
+		EntityID:   93001,
+		DialogueID: nextResp.Node.DialogueID,
+		NodeID:     nextResp.Node.NodeID,
+	})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) after action next = %d, want 1", len(conn.packets))
+	}
+	var choiceResp protocol.NPCDialogueResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &choiceResp); err != nil {
+		t.Fatalf("UnmarshalBody(choiceResp) error = %v", err)
+	}
+	if choiceResp.Node == nil || choiceResp.Node.NodeType != "choice" {
+		t.Fatalf("choiceResp.Node = %#v, want choice", choiceResp.Node)
+	}
+	if len(choiceResp.Node.Options) != 2 {
+		t.Fatalf("len(choiceResp.Node.Options) = %d, want 2", len(choiceResp.Node.Options))
 	}
 }
 
@@ -1367,13 +1472,13 @@ func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	playerService := teststub.NewTestPlayerService()
-	petService := pet.NewService(teststub.NewPetRepository(), nil, nil)
+	petService := pet.NewService(teststub.NewPetRepository(), nil, nil, nil)
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, nil, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, nil, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 
 	conn := &fakeConn{id: "disconnect-battle-conn"}
@@ -1460,18 +1565,18 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 	petRepo := teststub.NewPetRepository()
 	bagRepo := teststub.NewBagRepository()
 	bagRepo.BindPetRepository(petRepo)
-	petService := pet.NewService(petRepo, nil, nil)
+	petService := pet.NewService(petRepo, nil, nil, nil)
 	bagService := bag.NewService(bagRepo)
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
-	petHandler := NewPetHandler(sessionService, petService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil, nil)
+	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	firstConn := &fakeConn{id: "reconnect-old-conn"}
 	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
@@ -1562,19 +1667,19 @@ func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T
 	petRepo := teststub.NewPetRepository()
 	bagRepo := teststub.NewBagRepository()
 	bagRepo.BindPetRepository(petRepo)
-	petService := pet.NewService(petRepo, nil, nil)
+	petService := pet.NewService(petRepo, nil, nil, nil)
 	bagService := bag.NewService(bagRepo)
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
-	petHandler := NewPetHandler(sessionService, petService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil, nil)
+	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battleService, teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	firstConn := &fakeConn{id: "reconnect-finished-old-conn"}
 	sess, err := sessionService.Bind(teststub.DemoPlayerID, firstConn)
@@ -1647,19 +1752,19 @@ func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) 
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	playerService := teststub.NewTestPlayerService()
-	petService := pet.NewService(teststub.NewPetRepository(), nil, nil)
+	petService := pet.NewService(teststub.NewPetRepository(), nil, nil, nil)
 	bagService := bag.NewService(teststub.NewBagRepository())
 	itemService := item.NewService(teststub.NewItemRepository())
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil)
-	petHandler := NewPetHandler(sessionService, petService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil, nil)
+	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battle.NewService(nil), teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(nil), teststub.NewBattleRepository())
 	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	challengerConn := &fakeConn{id: "pvp-challenger-conn"}
 	if _, err := sessionService.Bind(teststub.DemoPlayerID, challengerConn); err != nil {
@@ -1726,7 +1831,7 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	petRepo := teststub.NewPetRepository()
 	bagRepo := teststub.NewBagRepository()
 	bagRepo.BindPetRepository(petRepo)
-	petService := pet.NewService(petRepo, nil, nil)
+	petService := pet.NewService(petRepo, nil, nil, nil)
 	bagService := bag.NewService(bagRepo)
 	itemService := item.NewService(teststub.NewItemRepository())
 	walletService := wallet.NewService(teststub.NewWalletRepository())
@@ -1737,12 +1842,12 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
 		t.Fatalf("RefreshBattleRewardCache() error = %v", err)
 	}
-	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService)
-	petHandler := NewPetHandler(sessionService, petService)
+	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService, nil)
+	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, battle.NewService(monsterService), teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(monsterService), teststub.NewBattleRepository())
 	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
-	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
+	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	conn := &fakeConn{id: "conn-1"}
 	if _, err := sessionService.Bind(teststub.DemoPlayerID, conn); err != nil {

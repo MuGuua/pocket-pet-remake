@@ -29,6 +29,7 @@ type BagHandler struct {
 	worldService   *world.Service
 	npcService     *npc.Service
 	rewardService  *reward.Service
+	petService     *pet.Service
 }
 
 // NewBagHandler 构造运行时背包处理器。
@@ -39,6 +40,7 @@ func NewBagHandler(sessionService *session.Service, bagService *bag.Service, ite
 		itemService:    itemService,
 		walletService:  walletService,
 		playerService:  playerService,
+		petService:     petService,
 		worldService:   worldService,
 		npcService:     npcService,
 		rewardService:  reward.NewService(bagService, petService, playerService, nil, walletService),
@@ -113,6 +115,15 @@ func (h *BagHandler) HandleBuyItem(conn packetSender, packet *protocol.Packet) e
 	}
 	if err := h.ensureShopAccess(context.Background(), sess.PlayerID, request.ShopID); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeShopRequestInvalid, "shop access denied", err)
+	}
+	if h.npcService != nil {
+		allowed, shopErr := h.npcService.ShopGoodExists(context.Background(), request.ShopID, request.ItemID)
+		if shopErr != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeShopRequestInvalid, "shop goods lookup failed", shopErr)
+		}
+		if !allowed {
+			return sendError(conn, packet.Seq, errcode.WSCodeShopRequestInvalid, "shop goods unavailable")
+		}
 	}
 	if h.itemService == nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeShopBuyFailed, "item service unavailable")
@@ -244,6 +255,7 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 			TargetPetUID: result.Result.TargetPetUID,
 			RestoredHP:   result.Result.RestoredHP,
 			NewPetHP:     result.Result.NewPetHP,
+			UnlockedTalismanSlot: result.Result.UnlockedTalismanSlot,
 			Rewards:      toProtocolUseItemRewards(result.Result.Rewards),
 		},
 	})
@@ -266,6 +278,19 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 		_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
 			Pet: toProtocolPetDetailFromBagSnapshot(*result.Result.UpdatedPet),
 		}))
+	}
+	if result.Result.UnlockedTalismanSlot != "" && h.petService != nil && result.Result.TargetPetUID > 0 {
+		if pets, listErr := h.petService.ListPets(context.Background(), sess.PlayerID); listErr == nil {
+			for _, currentPet := range pets {
+				if currentPet.PetUID != result.Result.TargetPetUID {
+					continue
+				}
+				_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+					Pet: toProtocolPetDetail(currentPet),
+				}))
+				break
+			}
+		}
 	}
 	for _, grantedPet := range grantedPets {
 		_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
@@ -524,6 +549,9 @@ func toProtocolContainerSnapshot(snapshot bag.RuntimeContainerSnapshot) protocol
 			Quality:      itemValue.Quality,
 			Icon:         itemValue.Icon,
 			EnhanceLevel: itemValue.EnhanceLevel,
+			Usable:       itemValue.Usable,
+			TargetType:   itemValue.TargetType,
+			EffectType:   itemValue.EffectType,
 		})
 	}
 	return protocol.ContainerSnapshot{

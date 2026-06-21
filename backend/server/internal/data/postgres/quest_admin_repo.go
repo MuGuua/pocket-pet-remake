@@ -776,11 +776,12 @@ func scanAdminPlayerQuestDetail(row *sql.Row) (*quest.AdminPlayerQuestDetail, er
 }
 
 type adminObjectiveJSON struct {
-	ObjectiveID    uint64         `json:"objective_id"`
-	EventType      string         `json:"event_type"`
-	Description    string         `json:"description"`
-	Target         uint32         `json:"target"`
-	TargetSelector map[string]any `json:"target_selector,omitempty"`
+	ObjectiveID    uint64                  `json:"objective_id"`
+	EventType      string                  `json:"event_type"`
+	Description    string                  `json:"description"`
+	Target         uint32                  `json:"target"`
+	TargetSelector map[string]any          `json:"target_selector,omitempty"`
+	Guide          *quest.ObjectiveGuideInput `json:"guide,omitempty"`
 }
 
 func marshalAdminQuestObjectives(input []quest.AdminObjectiveInput) ([]byte, error) {
@@ -792,6 +793,7 @@ func marshalAdminQuestObjectives(input []quest.AdminObjectiveInput) ([]byte, err
 			Description:    strings.TrimSpace(item.Description),
 			Target:         item.TargetValue,
 			TargetSelector: item.TargetSelector,
+			Guide:          item.Guide,
 		})
 	}
 	return json.Marshal(payload)
@@ -813,6 +815,7 @@ func unmarshalAdminQuestObjectives(raw []byte) ([]quest.AdminObjectiveInput, err
 			Description:    item.Description,
 			TargetValue:    item.Target,
 			TargetSelector: item.TargetSelector,
+			Guide:          item.Guide,
 		})
 	}
 	return result, nil

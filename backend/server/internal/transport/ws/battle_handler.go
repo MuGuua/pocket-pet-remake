@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/battle"
+	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/progression"
@@ -24,38 +29,48 @@ import (
 )
 
 type BattleHandler struct {
-	sessionService *session.Service
-	playerService  *player.Service
-	petService     *pet.Service
-	bagService     *bag.Service
-	walletService  *wallet.Service
-	worldService   *world.Service
-	questService   *quest.Service
-	npcService     *npc.Service
-	battleService  *battle.Service
-	battleRepo     battle.Repository
-	rewardService  *reward.Service
-	reconnectMu    sync.Mutex
-	reconnectCache map[uint64]protocol.BattleResultPush
-	wildEncounterMu sync.Mutex
-	wildEncounterLast map[uint64]time.Time
+	sessionService     *session.Service
+	playerService      *player.Service
+	petService         *pet.Service
+	bagService         *bag.Service
+	walletService      *wallet.Service
+	worldService       *world.Service
+	questService       *quest.Service
+	npcService         *npc.Service
+	npcDialogueService *npcdialogue.Service
+	itemService        *item.Service
+	battleService      *battle.Service
+	battleRepo         battle.Repository
+	rewardService      *reward.Service
+	reconnectMu        sync.Mutex
+	reconnectCache     map[uint64]protocol.BattleResultPush
+	wildEncounterMu    sync.Mutex
+	wildEncounterLast  map[uint64]time.Time
 }
 
-func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, walletService *wallet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, battleService *battle.Service, battleRepo battle.Repository) *BattleHandler {
+var dialogueItemTokenPattern = regexp.MustCompile(`\{item:(\d+)\}`)
+
+func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, walletService *wallet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, battleService *battle.Service, battleRepo battle.Repository, itemServices ...*item.Service) *BattleHandler {
+	var itemService *item.Service
+	if len(itemServices) > 0 {
+		itemService = itemServices[0]
+	}
 	return &BattleHandler{
-		sessionService: sessionService,
-		playerService:  playerService,
-		petService:     petService,
-		bagService:     bagService,
-		walletService:  walletService,
-		worldService:   worldService,
-		questService:   questService,
-		npcService:     npcService,
-		battleService:  battleService,
-		battleRepo:     battleRepo,
-		rewardService:  reward.NewService(bagService, petService, playerService, nil, walletService),
-		reconnectCache: make(map[uint64]protocol.BattleResultPush),
-		wildEncounterLast: make(map[uint64]time.Time),
+		sessionService:     sessionService,
+		playerService:      playerService,
+		petService:         petService,
+		bagService:         bagService,
+		walletService:      walletService,
+		worldService:       worldService,
+		questService:       questService,
+		npcService:         npcService,
+		npcDialogueService: npcDialogueService,
+		itemService:        itemService,
+		battleService:      battleService,
+		battleRepo:         battleRepo,
+		rewardService:      reward.NewService(bagService, petService, playerService, nil, walletService),
+		reconnectCache:     make(map[uint64]protocol.BattleResultPush),
+		wildEncounterLast:  make(map[uint64]time.Time),
 	}
 }
 
@@ -74,10 +89,13 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	if !found {
 		return h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{Accepted: false, Reason: "target unavailable"})
 	}
-
-	if menuResp, ok := h.buildNPCMenuResponse(context.Background(), sess.PlayerID, target); ok {
-		menuResp.Accepted = true
-		return h.sendInteractResponse(conn, packet.Seq, menuResp)
+	if _, ok := h.buildNPCMenuResponse(context.Background(), sess.PlayerID, target); ok {
+		return h.sendInteractResponse(conn, packet.Seq, protocol.InteractResp{
+			Accepted: false,
+			Reason:   "use npc menu request",
+			EntityID: target.EntityID,
+			NPCName:  target.Name,
+		})
 	}
 
 	startSnapshot, err := h.battleService.StartPVE(context.Background(), profile, lineup, target)
@@ -113,6 +131,31 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	}
 	logBattlePacket("push", conn.ID(), sess.PlayerID, protocol.CmdBattleStartPush, 0, startPayload)
 	return conn.SendPacket(mustJSONPacket(protocol.CmdBattleStartPush, 0, startPayload))
+}
+
+// HandleNPCMenu 拉取指定 NPC 的动态菜单列表，与 INTERACT_REQ 的菜单能力彻底拆分。
+func (h *BattleHandler) HandleNPCMenu(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.NPCMenuReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc menu body")
+	}
+	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCMenuReq, packet.Seq, request)
+
+	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	if err != nil {
+		return h.handleContextError(conn, packet.Seq, err)
+	}
+	target, found := findInteractTarget(sceneSnapshot.NearbyEntities, request.EntityID)
+	if !found {
+		return h.sendNPCMenuResponse(conn, packet.Seq, protocol.NPCMenuResp{Accepted: false, Reason: "target unavailable", EntityID: request.EntityID})
+	}
+	menuResp, ok := h.buildNPCMenuResponse(context.Background(), sess.PlayerID, target)
+	if !ok {
+		return h.sendNPCMenuResponse(conn, packet.Seq, protocol.NPCMenuResp{Accepted: false, Reason: "npc menu unavailable", EntityID: request.EntityID, NPCName: target.Name})
+	}
+	menuResp.Accepted = true
+	menuResp.Reason = "menu loaded"
+	return h.sendNPCMenuResponse(conn, packet.Seq, menuResp)
 }
 
 const wildEncounterCooldown = 2 * time.Second
@@ -649,10 +692,26 @@ func (h *BattleHandler) buildBattleResultPayload(result *battle.ResultSnapshot, 
 		playerGold = legacyGoldFromWalletSnapshot(settlement.Wallet)
 	}
 	for _, petResult := range result.PetResults {
-		petRewards = append(petRewards, protocol.BattlePetReward{
-			PetUID: petResult.PetUID,
-			Exp:    petResult.ExpGained,
-		})
+		reward := protocol.BattlePetReward{
+			PetUID:    petResult.PetUID,
+			Exp:       petResult.ExpGained,
+			ExpGained: petResult.ExpGained,
+		}
+		if settlement != nil {
+			for _, updatedPet := range settlement.Pets {
+				if updatedPet.PetUID != petResult.PetUID {
+					continue
+				}
+				reward.LevelUpCount = updatedPet.LastLevelUpCount
+				reward.AttrPointsGained = updatedPet.LastAttrPointsGained
+				reward.FreeAttrPoints = updatedPet.FreeAttrPoints
+				reward.ExpToNext = updatedPet.ExpToNext
+				reward.Level = updatedPet.Level
+				reward.PetID = updatedPet.PetID
+				break
+			}
+		}
+		petRewards = append(petRewards, reward)
 	}
 	return protocol.BattleResultPush{
 		BattleID:      result.BattleID,
@@ -1165,6 +1224,15 @@ func (h *BattleHandler) sendInteractResponse(conn packetSender, seq uint32, resp
 	return conn.SendPacket(packet)
 }
 
+func (h *BattleHandler) sendNPCMenuResponse(conn packetSender, seq uint32, response protocol.NPCMenuResp) error {
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCMenuResp, seq, response)
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCMenuResp, seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
 func (h *BattleHandler) sendPVPChallengeResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64, targetPlayerID uint64) error {
 	response := protocol.PVPChallengeResp{
 		Accepted:       accepted,
@@ -1302,6 +1370,7 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 				CastColor:     skill.CastColor,
 				ImpactColor:   skill.ImpactColor,
 				Projectile:    skill.Projectile,
+				IsBasicAttack: skill.IsBasicAttack,
 			})
 		}
 		result = append(result, protocol.BattleActorSnapshot{
@@ -1373,26 +1442,6 @@ func mustJSONPacket(cmd uint16, seq uint32, payload any) *protocol.Packet {
 	return packet
 }
 
-func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
-	skills := make([]uint32, 0, len(item.SkillIDs))
-	skills = append(skills, item.SkillIDs...)
-	return protocol.PetDetail{
-		PetUID:   item.PetUID,
-		PetID:    item.PetID,
-		Level:    item.Level,
-		Exp:      item.Exp,
-		Quality:  item.Quality,
-		HP:       item.HP,
-		HPMax:    item.HPMax,
-		ATK:      item.ATK,
-		DEF:      item.DEF,
-		SPD:      item.SPD,
-		SkillIDs: skills,
-		InLineup: item.InLineup,
-		IsUsable: item.IsUsable,
-	}
-}
-
 func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Packet) error {
 	var request protocol.NPCActionReq
 	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
@@ -1416,6 +1465,18 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	if actionResult.ResultType == "battle" {
 		return h.handleNPCBattleAction(conn, packet.Seq, sess.PlayerID, profile, lineup, target, request.EntryID, actionResult)
 	}
+	if actionResult.ResultType == "quest_accept" {
+		return h.handleNPCQuestAcceptAction(conn, packet.Seq, sess.PlayerID, target, request.EntryID, actionResult)
+	}
+	if actionResult.ResultType == "quest_submit" {
+		return h.handleNPCQuestSubmitAction(conn, packet.Seq, sess.PlayerID, target, request.EntryID, actionResult)
+	}
+	if actionResult.ResultType == "dialogue" {
+		return h.handleNPCDialogueStart(conn, packet.Seq, sess.PlayerID, target, request.EntryID)
+	}
+	if actionResult.ResultType == "shop" {
+		return h.handleNPCShopOpen(conn, packet.Seq, sess.PlayerID, target, request.EntryID)
+	}
 
 	var questBefore []quest.Summary
 	response, ok := h.buildNPCActionResponse(context.Background(), sess.PlayerID, target, request.EntryID, actionResult)
@@ -1438,6 +1499,42 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 		_ = pushQuestDiff(context.Background(), conn, h.questService, sess.PlayerID, questBefore)
 	}
 	return nil
+}
+
+// HandleNPCDialogueNext 在客户端点击继续或本地剧情动画播放结束后推进到下一个剧情节点。
+func (h *BattleHandler) HandleNPCDialogueNext(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.NPCDialogueNextReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc dialogue next body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	node, err := h.npcDialogueService.AdvanceDialogue(context.Background(), sess.PlayerID, request.EntityID, request.DialogueID, request.NodeID)
+	if err != nil {
+		return h.sendNPCDialogueResponse(conn, packet.Seq, protocol.NPCDialogueResp{Accepted: false, Reason: err.Error(), EntityID: request.EntityID})
+	}
+	_ = h.applyDialogueNodeSideEffects(context.Background(), conn, sess.PlayerID, request.EntityID, node)
+	return h.sendNPCDialogueResponse(conn, packet.Seq, protocol.NPCDialogueResp{Accepted: true, Reason: "dialogue advanced", EntityID: request.EntityID, Node: h.toProtocolNPCDialogueNode(context.Background(), sess.PlayerID, node)})
+}
+
+// HandleNPCDialogueChoose 在客户端点选分支按钮后按服务端配置推进剧情。
+func (h *BattleHandler) HandleNPCDialogueChoose(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.NPCDialogueChooseReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc dialogue choose body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	node, err := h.npcDialogueService.ChooseOption(context.Background(), sess.PlayerID, request.EntityID, request.DialogueID, request.NodeID, request.OptionID)
+	if err != nil {
+		return h.sendNPCDialogueResponse(conn, packet.Seq, protocol.NPCDialogueResp{Accepted: false, Reason: err.Error(), EntityID: request.EntityID})
+	}
+	_ = h.applyDialogueNodeSideEffects(context.Background(), conn, sess.PlayerID, request.EntityID, node)
+	return h.sendNPCDialogueResponse(conn, packet.Seq, protocol.NPCDialogueResp{Accepted: true, Reason: "dialogue advanced", EntityID: request.EntityID, Node: h.toProtocolNPCDialogueNode(context.Background(), sess.PlayerID, node)})
 }
 
 func (h *BattleHandler) handleNPCBattleAction(conn packetSender, seq uint32, playerID uint64, profile *player.Profile, lineup []pet.LineupPet, target world.Entity, entryID string, actionResult *npc.ActionResult) error {
@@ -1528,16 +1625,25 @@ func (h *BattleHandler) sendNPCActionResponse(conn packetSender, seq uint32, res
 	return conn.SendPacket(packet)
 }
 
-func (h *BattleHandler) buildNPCMenuResponse(ctx context.Context, playerID uint64, target world.Entity) (protocol.InteractResp, bool) {
+// sendNPCDialogueResponse 把剧情继续/分支选择的结果统一回给客户端对话面板。
+func (h *BattleHandler) sendNPCDialogueResponse(conn packetSender, seq uint32, response protocol.NPCDialogueResp) error {
+	logBattlePacket("resp", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCDialogueResp, seq, response)
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCDialogueResp, seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
+func (h *BattleHandler) buildNPCMenuResponse(ctx context.Context, playerID uint64, target world.Entity) (protocol.NPCMenuResp, bool) {
 	entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID)
 	if !ok {
-		return protocol.InteractResp{}, false
+		return protocol.NPCMenuResp{}, false
 	}
-	return protocol.InteractResp{
-		ResponseType: "menu",
-		EntityID:     target.EntityID,
-		NPCName:      target.Name,
-		MenuEntries:  entries,
+	return protocol.NPCMenuResp{
+		EntityID:    target.EntityID,
+		NPCName:     target.Name,
+		MenuEntries: entries,
 	}, true
 }
 
@@ -1560,8 +1666,281 @@ func (h *BattleHandler) buildNPCActionResponse(ctx context.Context, playerID uin
 	return base, true
 }
 
+// BuildActiveDialogueReconnect 在断线重连时恢复玩家未结束的 NPC 剧情会话。
+func (h *BattleHandler) BuildActiveDialogueReconnect(ctx context.Context, playerID uint64) (*protocol.ActiveDialogue, error) {
+	if h == nil || h.npcDialogueService == nil || playerID == 0 {
+		return nil, nil
+	}
+	entityID, node, err := h.npcDialogueService.GetActiveDialogue(ctx, playerID)
+	if err != nil || node == nil || entityID == 0 {
+		return nil, err
+	}
+	npcName := "NPC"
+	if h.worldService != nil && h.playerService != nil {
+		profile, profileErr := h.playerService.GetProfile(ctx, playerID)
+		if profileErr == nil && profile != nil {
+			sceneSnapshot, snapshotErr := h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+			if snapshotErr == nil {
+				for _, entity := range sceneSnapshot.NearbyEntities {
+					if entity.EntityID == entityID {
+						npcName = entity.Name
+						break
+					}
+				}
+			}
+		}
+	}
+	return &protocol.ActiveDialogue{
+		EntityID: entityID,
+		NPCName:  npcName,
+		Node:     h.toProtocolNPCDialogueNode(ctx, playerID, node),
+	}, nil
+}
+
+// handleNPCShopOpen 打开商店面板所需的服务端权威商品列表与钱包快照。
+func (h *BattleHandler) handleNPCShopOpen(conn packetSender, seq uint32, playerID uint64, target world.Entity, entryID string) error {
+	if h.npcService == nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "shop unavailable", EntityID: target.EntityID, EntryID: entryID})
+	}
+	var questBefore []quest.Summary
+	if h.questService != nil && playerID != 0 {
+		questBefore, _ = listQuestSummaries(context.Background(), h.questService, playerID)
+		_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
+			PlayerID:  playerID,
+			EventType: "TALK_TO_NPC",
+			NPCID:     target.EntityID,
+			Count:     1,
+		})
+	}
+	goods, err := h.npcService.ListShopGoodsByEntityID(context.Background(), target.EntityID)
+	if err != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "shop load failed", EntityID: target.EntityID, EntryID: entryID})
+	}
+	if len(goods) == 0 {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "shop has no goods", EntityID: target.EntityID, EntryID: entryID})
+	}
+	walletSnapshot, walletErr := h.walletService.GetRuntimeWallet(context.Background(), playerID)
+	if walletErr != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "wallet unavailable", EntityID: target.EntityID, EntryID: entryID})
+	}
+	shopGoods := make([]protocol.NPCShopGood, 0, len(goods))
+	for _, good := range goods {
+		shopGoods = append(shopGoods, protocol.NPCShopGood{
+			ItemID:      good.ItemID,
+			ItemName:    good.ItemName,
+			PriceCopper: good.BuyPriceCopper,
+		})
+	}
+	response := protocol.NPCActionResp{
+		Accepted:   true,
+		Reason:     "shop opened",
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "shop",
+		NPCName:    target.Name,
+		Shop: &protocol.NPCShopPayload{
+			Goods:  shopGoods,
+			Wallet: toProtocolWalletSnapshot(*walletSnapshot),
+		},
+	}
+	if entries, ok := h.npcMenuEntriesByEntityID(context.Background(), playerID, target.EntityID); ok {
+		response.MenuEntries = entries
+	}
+	if err := h.sendNPCActionResponse(conn, seq, response); err != nil {
+		return err
+	}
+	if h.questService != nil && playerID != 0 {
+		_ = pushQuestDiff(context.Background(), conn, h.questService, playerID, questBefore)
+	}
+	return nil
+}
+
+// handleNPCDialogueStart 以 NPC 菜单项为入口开启结构化剧情，并把首个节点打包到 NPC_ACTION_RESP 中返回。
+func (h *BattleHandler) handleNPCDialogueStart(conn packetSender, seq uint32, playerID uint64, target world.Entity, entryID string) error {
+	if h.npcDialogueService == nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "dialogue unavailable", EntityID: target.EntityID, EntryID: entryID})
+	}
+	var questBefore []quest.Summary
+	if h.questService != nil && playerID != 0 {
+		questBefore, _ = listQuestSummaries(context.Background(), h.questService, playerID)
+		_, _ = h.questService.HandleEvent(context.Background(), quest.Event{
+			PlayerID:  playerID,
+			EventType: "TALK_TO_NPC",
+			NPCID:     target.EntityID,
+			Count:     1,
+		})
+	}
+	node, err := h.npcDialogueService.StartDialogue(context.Background(), playerID, target.EntityID, entryID)
+	if err != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: err.Error(), EntityID: target.EntityID, EntryID: entryID})
+	}
+	_ = h.applyDialogueNodeSideEffects(context.Background(), conn, playerID, target.EntityID, node)
+	response := protocol.NPCActionResp{
+		Accepted:   true,
+		Reason:     "dialogue started",
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "dialogue",
+		NPCName:    target.Name,
+		Dialogue:   h.toProtocolNPCDialogueNode(context.Background(), playerID, node),
+	}
+	if entries, ok := h.npcMenuEntriesByEntityID(context.Background(), playerID, target.EntityID); ok {
+		response.MenuEntries = entries
+	}
+	if err := h.sendNPCActionResponse(conn, seq, response); err != nil {
+		return err
+	}
+	if h.questService != nil && playerID != 0 {
+		_ = pushQuestDiff(context.Background(), conn, h.questService, playerID, questBefore)
+	}
+	return nil
+}
+
+// toProtocolNPCDialogueNode 把服务端剧情模块的运行态节点转换成协议层结构，便于客户端直接消费。
+func (h *BattleHandler) toProtocolNPCDialogueNode(ctx context.Context, playerID uint64, node *npcdialogue.RuntimeNode) *protocol.NPCDialogueNode {
+	if node == nil {
+		return nil
+	}
+	options := make([]protocol.NPCDialogueOption, 0, len(node.Options))
+	for _, option := range node.Options {
+		options = append(options, protocol.NPCDialogueOption{OptionID: option.OptionID, Text: option.OptionText, Format: option.OptionFormat})
+	}
+	playerName := h.resolveDialoguePlayerName(ctx, playerID)
+	speaker, portraitKey, isPlayerSpeaker := resolveDialogueSpeaker(node.Speaker, node.PortraitKey, playerName)
+	content, mentionedItems := h.renderDialogueContent(ctx, playerID, node.Content)
+	return &protocol.NPCDialogueNode{
+		DialogueID:           node.DialogueID,
+		NodeID:               node.NodeID,
+		NodeType:             node.NodeType,
+		Speaker:              speaker,
+		IsPlayerSpeaker:      isPlayerSpeaker,
+		Content:              content,
+		ContentFormat:        node.ContentFormat,
+		PortraitKey:          portraitKey,
+		ClientAnimationKey:   node.ClientAnimationKey,
+		ClientAnimationBlock: node.ClientAnimationBlock,
+		Options:              options,
+		MentionedItems:       mentionedItems,
+		IsEnd:                node.IsEnd,
+		EffectNotice:         node.EffectNotice,
+	}
+}
+
+// resolveDialoguePlayerName 返回当前玩家在剧情渲染中使用的展示名。
+func (h *BattleHandler) resolveDialoguePlayerName(ctx context.Context, playerID uint64) string {
+	playerName := ""
+	if h != nil && h.playerService != nil && playerID > 0 {
+		profile, err := h.playerService.GetProfile(ctx, playerID)
+		if err == nil && profile != nil {
+			playerName = profile.Name
+		}
+	}
+	if playerName == "" && playerID > 0 {
+		playerName = fmt.Sprintf("玩家%d", playerID)
+	}
+	return playerName
+}
+
+// renderDialogueContent renders safe server-side placeholders before the node
+// reaches the client. Item names and icons always come from item_definition.
+func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint64, content string) (string, []protocol.NPCDialogueItem) {
+	rendered := content
+	playerName := h.resolveDialoguePlayerName(ctx, playerID)
+	rendered = strings.ReplaceAll(rendered, "{player_name}", playerName)
+	rendered = strings.ReplaceAll(rendered, "{player_id}", strconv.FormatUint(playerID, 10))
+
+	mentionedItems := make([]protocol.NPCDialogueItem, 0)
+	seenItems := make(map[uint64]bool)
+	rendered = dialogueItemTokenPattern.ReplaceAllStringFunc(rendered, func(token string) string {
+		matches := dialogueItemTokenPattern.FindStringSubmatch(token)
+		if len(matches) != 2 {
+			return token
+		}
+		itemID, err := strconv.ParseUint(matches[1], 10, 64)
+		if err != nil || itemID == 0 {
+			return token
+		}
+		itemName := fmt.Sprintf("物品%d", itemID)
+		itemIcon := ""
+		if h != nil && h.itemService != nil {
+			itemDetail, detailErr := h.itemService.GetRuntimeItemDetail(ctx, itemID)
+			if detailErr == nil && itemDetail != nil {
+				itemName = itemDetail.ItemName
+				itemIcon = itemDetail.Icon
+			}
+		}
+		if !seenItems[itemID] {
+			seenItems[itemID] = true
+			mentionedItems = append(mentionedItems, protocol.NPCDialogueItem{
+				ItemID:   itemID,
+				ItemName: itemName,
+				Icon:     itemIcon,
+			})
+		}
+		return itemName
+	})
+	return rendered, mentionedItems
+}
+
+// applyDialogueNodeSideEffects 在进入某个剧情节点后执行 effects_json 中配置的服务端权威副作用。
+func (h *BattleHandler) applyDialogueNodeSideEffects(ctx context.Context, conn packetSender, playerID uint64, entityID uint64, node *npcdialogue.RuntimeNode) error {
+	if node == nil {
+		return nil
+	}
+	var questBefore []quest.Summary
+	if h.questService != nil && playerID != 0 {
+		questBefore, _ = listQuestSummaries(ctx, h.questService, playerID)
+	}
+	if node.EffectNotice != "" {
+		_ = h.pushNoticeToPlayer(playerID, node.EffectNotice)
+	}
+	if h.questService != nil && playerID != 0 && node.EffectAcceptQuestID > 0 {
+		_, err := h.questService.Accept(ctx, playerID, node.EffectAcceptQuestID, entityID)
+		if err != nil && !errors.Is(err, quest.ErrQuestLocked) {
+			return err
+		}
+	}
+	if h.rewardService != nil && playerID != 0 && len(node.EffectGrantItems) > 0 {
+		rewardEntries := make([]reward.Entry, 0, len(node.EffectGrantItems))
+		for _, grantItem := range node.EffectGrantItems {
+			rewardEntries = append(rewardEntries, reward.Entry{
+				Type:   "item",
+				ItemID: grantItem.ItemID,
+				Count:  grantItem.Quantity,
+			})
+		}
+		_, err := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
+			PlayerID:     playerID,
+			ReasonType:   "npc_dialogue",
+			ReasonRefID:  uint64(node.DialogueID),
+			OperatorType: "system",
+			OperatorID:   0,
+			Rewards:      rewardEntries,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if h.questService != nil && playerID != 0 && node.EffectQuestEvent != "" {
+		_, err := h.questService.HandleEvent(ctx, quest.Event{
+			PlayerID:  playerID,
+			EventType: node.EffectQuestEvent,
+			NPCID:     entityID,
+			Count:     1,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if h.questService != nil && playerID != 0 && conn != nil {
+		_ = pushQuestDiff(ctx, conn, h.questService, playerID, questBefore)
+	}
+	return nil
+}
+
 func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID uint64, entityID uint64) ([]protocol.NpcMenuEntry, bool) {
 	result := []protocol.NpcMenuEntry{}
+	questReader := &npcdialogue.QuestServiceAdapter{Service: h.questService}
 	if h.questService != nil && playerID != 0 {
 		if summaries, err := listQuestSummaries(ctx, h.questService, playerID); err == nil {
 			result = append(result, questMenuEntriesForNPC(entityID, summaries)...)
@@ -1571,14 +1950,22 @@ func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID u
 	staticEntries, err := h.npcService.ListMenuEntriesByEntityID(ctx, entityID)
 	if err == nil {
 		for _, entry := range staticEntries {
-			result = append(result, protocol.NpcMenuEntry{
+			visible, matchErr := npcdialogue.MatchNodeConditions(ctx, questReader, playerID, entry.ConditionsJSON)
+			if matchErr != nil || !visible {
+				continue
+			}
+			menuEntry := protocol.NpcMenuEntry{
 				EntryID:   entry.EntryID,
 				EntryType: entry.EntryType,
 				Title:     entry.Title,
 				Subtitle:  entry.Subtitle,
 				State:     entry.State,
 				Priority:  entry.Priority,
-			})
+			}
+			if entry.LinkedQuestID > 0 {
+				menuEntry.QuestID = entry.LinkedQuestID
+			}
+			result = append(result, menuEntry)
 		}
 	}
 
@@ -1586,6 +1973,78 @@ func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID u
 		return nil, false
 	}
 	return result, true
+}
+
+// handleNPCQuestAcceptAction 通过菜单项接取绑定的任务模板。
+func (h *BattleHandler) handleNPCQuestAcceptAction(conn packetSender, seq uint32, playerID uint64, target world.Entity, entryID string, actionResult *npc.ActionResult) error {
+	questID := actionResult.LinkedQuestID
+	if questID == 0 || h.questService == nil || playerID == 0 {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "quest unavailable", EntityID: target.EntityID, EntryID: entryID})
+	}
+	ctx := context.Background()
+	questBefore, _ := listQuestSummaries(ctx, h.questService, playerID)
+	summary, err := h.questService.Accept(ctx, playerID, questID, target.EntityID)
+	if err != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: err.Error(), EntityID: target.EntityID, EntryID: entryID, NPCName: target.Name})
+	}
+	response := protocol.NPCActionResp{
+		Accepted:   true,
+		Reason:     "quest accepted",
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "notice",
+		Notice:     summary.Title,
+		NPCName:    target.Name,
+	}
+	if entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID); ok {
+		response.MenuEntries = entries
+	}
+	if err := h.sendNPCActionResponse(conn, seq, response); err != nil {
+		return err
+	}
+	return pushQuestDiff(ctx, conn, h.questService, playerID, questBefore)
+}
+
+// handleNPCQuestSubmitAction 通过菜单项提交绑定的任务模板。
+func (h *BattleHandler) handleNPCQuestSubmitAction(conn packetSender, seq uint32, playerID uint64, target world.Entity, entryID string, actionResult *npc.ActionResult) error {
+	questID := actionResult.LinkedQuestID
+	if questID == 0 || h.questService == nil || playerID == 0 {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: "quest unavailable", EntityID: target.EntityID, EntryID: entryID})
+	}
+	ctx := context.Background()
+	questBefore, _ := listQuestSummaries(ctx, h.questService, playerID)
+	result, err := h.questService.Submit(ctx, playerID, questID, target.EntityID)
+	if err != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: err.Error(), EntityID: target.EntityID, EntryID: entryID, NPCName: target.Name})
+	}
+	if h.rewardService != nil && len(result.Rewards) > 0 {
+		if _, grantErr := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
+			PlayerID:     playerID,
+			ReasonType:   "quest_reward",
+			ReasonRefID:  questID,
+			OperatorType: "system",
+			OperatorID:   playerID,
+			Rewards:      toRuntimeRewardEntries(result.Rewards),
+		}); grantErr != nil {
+			return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: grantErr.Error(), EntityID: target.EntityID, EntryID: entryID, NPCName: target.Name})
+		}
+	}
+	response := protocol.NPCActionResp{
+		Accepted:   true,
+		Reason:     "quest submitted",
+		EntityID:   target.EntityID,
+		EntryID:    entryID,
+		ResultType: "notice",
+		Notice:     result.Summary.Title,
+		NPCName:    target.Name,
+	}
+	if entries, ok := h.npcMenuEntriesByEntityID(ctx, playerID, target.EntityID); ok {
+		response.MenuEntries = entries
+	}
+	if err := h.sendNPCActionResponse(conn, seq, response); err != nil {
+		return err
+	}
+	return pushQuestDiff(ctx, conn, h.questService, playerID, questBefore)
 }
 
 func questMenuEntriesForNPC(npcID uint64, summaries []quest.Summary) []protocol.NpcMenuEntry {

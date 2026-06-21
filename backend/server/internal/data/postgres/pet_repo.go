@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"pocket-pet-remake/server/internal/module/pet"
+	"pocket-pet-remake/server/internal/module/petprogression"
 )
 
 type PetRepository struct {
@@ -29,7 +30,43 @@ SELECT
   pp.def,
   pp.spd,
   pp.mana,
-  pp.skill_ids
+  pp.spirit,
+  pp.spirit_max,
+  pp.hit_pct,
+  pp.dodge_pct,
+  pp.crit_rate_pct,
+  pp.crit_dmg_pct,
+  pp.physical_resist_pct,
+  pp.reverse_physical_resist_pct,
+  pp.skill_resist_pct,
+  pp.reverse_skill_resist_pct,
+  pp.confusion_resist_pct,
+  pp.sleep_resist_pct,
+  pp.paralysis_resist_pct,
+  pp.seal_resist_pct,
+  pp.curse_resist_pct,
+  pp.crit_dmg_resist_pct,
+  pp.crit_resist_pct,
+  pp.character_resist_pct,
+  pp.pet_resist_pct,
+  pp.guard,
+  pp.talent_dmg_pct,
+  pp.talent_reduce_pct,
+  pp.element_adv_pct,
+  pp.element_penalty_pct,
+  pp.skill_ids,
+  pp.innate_skill_ids,
+  pp.normal_skill_ids,
+  pp.active_talisman_skill_id,
+  pp.talisman_hero_skill_id,
+  pp.talisman_slot_1_skill_id,
+  pp.talisman_slot_2_skill_id,
+  pp.talisman_slot_3_skill_id,
+  pp.active_talisman_enabled,
+  pp.talisman_hero_enabled,
+  pp.talisman_slot_1_enabled,
+  pp.talisman_slot_2_enabled,
+  pp.talisman_slot_3_enabled
 FROM player_lineup pl
 JOIN player_pet pp ON pp.id = pl.pet_uid
 WHERE pl.player_id = $1
@@ -38,28 +75,91 @@ ORDER BY pl.slot_index ASC
 
 const listPetsByPlayerIDQuery = `
 SELECT
-  id,
-  pet_id,
-  level,
-  exp,
-  quality,
-  hp,
-  hp_max,
-  atk,
-  def,
-  spd,
-  mana,
-  skill_ids,
-  hp_apt,
-  atk_apt,
-  def_apt,
-  spd_apt,
-  mana_apt,
-  grant_source,
-  capture_monster_id
-FROM player_pet
+  pp.id,
+  pp.pet_id,
+  pp.level,
+  pp.exp,
+  pp.quality,
+  pp.hp,
+  pp.hp_max,
+  pp.atk,
+  pp.def,
+  pp.spd,
+  pp.mana,
+  pp.spirit,
+  pp.spirit_max,
+  pp.hit_pct,
+  pp.dodge_pct,
+  pp.crit_rate_pct,
+  pp.crit_dmg_pct,
+  pp.physical_resist_pct,
+  pp.reverse_physical_resist_pct,
+  pp.skill_resist_pct,
+  pp.reverse_skill_resist_pct,
+  pp.confusion_resist_pct,
+  pp.sleep_resist_pct,
+  pp.paralysis_resist_pct,
+  pp.seal_resist_pct,
+  pp.curse_resist_pct,
+  pp.crit_dmg_resist_pct,
+  pp.crit_resist_pct,
+  pp.character_resist_pct,
+  pp.pet_resist_pct,
+  pp.guard,
+  pp.talent_dmg_pct,
+  pp.talent_reduce_pct,
+  pp.element_adv_pct,
+  pp.element_penalty_pct,
+  pp.skill_ids,
+  pp.innate_skill_ids,
+  pp.normal_skill_ids,
+  pp.active_talisman_skill_id,
+  pp.talisman_hero_skill_id,
+  pp.talisman_slot_1_skill_id,
+  pp.talisman_slot_2_skill_id,
+  pp.talisman_slot_3_skill_id,
+  pp.active_talisman_enabled,
+  pp.talisman_hero_enabled,
+  pp.talisman_slot_1_enabled,
+  pp.talisman_slot_2_enabled,
+  pp.talisman_slot_3_enabled,
+  pp.hp_apt,
+  pp.atk_apt,
+  pp.def_apt,
+  pp.spd_apt,
+  pp.mana_apt,
+  pp.grant_source,
+  pp.capture_monster_id,
+  pp.free_attr_points,
+  pp.alloc_hp_points,
+  pp.alloc_atk_points,
+  pp.alloc_spd_points,
+  pp.alloc_mana_points,
+  pp.alloc_def_points,
+  pp.base_hp_apt,
+  pp.base_atk_apt,
+  pp.base_def_apt,
+  pp.base_spd_apt,
+  pp.base_mana_apt,
+  pp.extra_hp_apt,
+  pp.extra_atk_apt,
+  pp.extra_def_apt,
+  pp.extra_spd_apt,
+  pp.extra_mana_apt,
+  pp.evolution_level,
+  pp.rebirth_level,
+  COALESCE(pd.aptitude_profile, 'normal') AS aptitude_profile
+FROM player_pet pp
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
+WHERE pp.player_id = $1
+ORDER BY pp.id ASC
+`
+
+const listArtifactEquipmentByPlayerIDQuery = `
+SELECT pet_uid, slot_index, skill_id
+FROM pet_artifact_equipment
 WHERE player_id = $1
-ORDER BY id ASC
+ORDER BY pet_uid ASC, slot_index ASC
 `
 
 const deleteLineupByPlayerIDQuery = `
@@ -97,6 +197,8 @@ SELECT
   spd,
   mana,
   skill_ids,
+  innate_skill_ids,
+  normal_skill_ids,
   acquire_method,
   hp_apt,
   atk_apt,
@@ -112,7 +214,8 @@ SELECT
   spd_apt_roll_min,
   spd_apt_roll_max,
   mana_apt_roll_min,
-  mana_apt_roll_max
+  mana_apt_roll_max,
+  COALESCE(aptitude_profile, 'normal') AS aptitude_profile
 FROM pet_definition
 WHERE pet_id = $1
   AND status = 1
@@ -133,14 +236,32 @@ INSERT INTO player_pet (
   spd,
   mana,
   skill_ids,
+  innate_skill_ids,
+  normal_skill_ids,
   hp_apt,
   atk_apt,
   def_apt,
   spd_apt,
   mana_apt,
+  base_hp_apt,
+  base_atk_apt,
+  base_def_apt,
+  base_spd_apt,
+  base_mana_apt,
+  extra_hp_apt,
+  extra_atk_apt,
+  extra_def_apt,
+  extra_spd_apt,
+  extra_mana_apt,
   grant_source,
   capture_monster_id
-) VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+) VALUES (
+  $1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+  $14, $15, $16, $17, $18,
+  $19, $20, $21, $22, $23,
+  $24, $25, $26, $27, $28,
+  $29, $30
+)
 RETURNING id
 `
 
@@ -181,6 +302,30 @@ SELECT
   pp.spd,
   pp.mana,
   pp.skill_ids,
+  pp.spirit,
+  pp.spirit_max,
+  pp.hit_pct,
+  pp.dodge_pct,
+  pp.crit_rate_pct,
+  pp.crit_dmg_pct,
+  pp.physical_resist_pct,
+  pp.reverse_physical_resist_pct,
+  pp.skill_resist_pct,
+  pp.reverse_skill_resist_pct,
+  pp.confusion_resist_pct,
+  pp.sleep_resist_pct,
+  pp.paralysis_resist_pct,
+  pp.seal_resist_pct,
+  pp.curse_resist_pct,
+  pp.crit_dmg_resist_pct,
+  pp.crit_resist_pct,
+  pp.character_resist_pct,
+  pp.pet_resist_pct,
+  pp.guard,
+  pp.talent_dmg_pct,
+  pp.talent_reduce_pct,
+  pp.element_adv_pct,
+  pp.element_penalty_pct,
   EXISTS(SELECT 1 FROM player_lineup pl WHERE pl.player_id = pp.player_id AND pl.pet_uid = pp.id) AS in_lineup,
   pp.created_at,
   pp.updated_at
@@ -203,9 +348,34 @@ INSERT INTO player_pet (
   def,
   spd,
   mana,
-  skill_ids
+  skill_ids,
+  spirit,
+  spirit_max,
+  hit_pct,
+  dodge_pct,
+  crit_rate_pct,
+  crit_dmg_pct,
+  physical_resist_pct,
+  reverse_physical_resist_pct,
+  skill_resist_pct,
+  reverse_skill_resist_pct,
+  confusion_resist_pct,
+  sleep_resist_pct,
+  paralysis_resist_pct,
+  seal_resist_pct,
+  curse_resist_pct,
+  crit_dmg_resist_pct,
+  crit_resist_pct,
+  character_resist_pct,
+  pet_resist_pct,
+  guard,
+  talent_dmg_pct,
+  talent_reduce_pct,
+  element_adv_pct,
+  element_penalty_pct
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+  $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36
 )
 RETURNING id
 `
@@ -228,7 +398,31 @@ SET pet_id = $2,
     def = $9,
     spd = $10,
     mana = $11,
-    skill_ids = $12
+    skill_ids = $12,
+    spirit = $13,
+    spirit_max = $14,
+    hit_pct = $15,
+    dodge_pct = $16,
+    crit_rate_pct = $17,
+    crit_dmg_pct = $18,
+    physical_resist_pct = $19,
+    reverse_physical_resist_pct = $20,
+    skill_resist_pct = $21,
+    reverse_skill_resist_pct = $22,
+    confusion_resist_pct = $23,
+    sleep_resist_pct = $24,
+    paralysis_resist_pct = $25,
+    seal_resist_pct = $26,
+    curse_resist_pct = $27,
+    crit_dmg_resist_pct = $28,
+    crit_resist_pct = $29,
+    character_resist_pct = $30,
+    pet_resist_pct = $31,
+    guard = $32,
+    talent_dmg_pct = $33,
+    talent_reduce_pct = $34,
+    element_adv_pct = $35,
+    element_penalty_pct = $36
 WHERE id = $1
 `
 
@@ -243,6 +437,10 @@ WHERE id = $1
 `
 
 func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64) ([]pet.Pet, error) {
+	caps, err := r.LoadCombatStatCaps(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := r.db.QueryContext(ctx, listPetsByPlayerIDQuery, playerID)
 	if err != nil {
 		return nil, err
@@ -255,16 +453,33 @@ func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64)
 		if err != nil {
 			return nil, err
 		}
+		pet.ClampPetCombatStats(&item, caps)
 		pets = append(pets, item)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	artifactMap, err := r.loadArtifactEquipmentByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	for index := range pets {
+		applyArtifactEquipment(&pets[index], artifactMap[pets[index].PetUID])
+		pet.ResolvePetBattleSkills(&pets[index])
+	}
 	return pets, nil
 }
 
 func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint64) ([]pet.LineupPet, error) {
+	caps, err := r.LoadCombatStatCaps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	artifactMap, err := r.loadArtifactEquipmentByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := r.db.QueryContext(ctx, listLineupByPlayerIDQuery, playerID)
 	if err != nil {
 		return nil, err
@@ -275,6 +490,7 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 	for rows.Next() {
 		var (
 			item         pet.LineupPet
+			loadout      pet.SkillLoadout
 			petUID       int64
 			petID        int64
 			level        int64
@@ -284,9 +500,58 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 			def          int64
 			spd          int64
 			mana         int64
+			spirit       int64
+			spiritMax    int64
+			hitPct       int64
+			dodgePct     int64
+			critRatePct  int64
+			critDmgPct   int64
+			physicalResistPct int64
+			reversePhysicalResistPct int64
+			skillResistPct int64
+			reverseSkillResistPct int64
+			confusionResistPct int64
+			sleepResistPct int64
+			paralysisResistPct int64
+			sealResistPct int64
+			curseResistPct int64
+			critDmgResistPct int64
+			critResistPct int64
+			characterResistPct int64
+			petResistPct int64
+			guard int64
+			talentDmgPct int64
+			talentReducePct int64
+			elementAdvPct int64
+			elementPenaltyPct int64
 			skillIDsJSON []byte
+			innateSkillIDsJSON []byte
+			normalSkillIDsJSON []byte
+			activeTalismanSkillID int64
+			talismanHeroSkillID int64
+			talismanSlot1SkillID int64
+			talismanSlot2SkillID int64
+			talismanSlot3SkillID int64
+			activeTalismanEnabled bool
+			talismanHeroEnabled bool
+			talismanSlot1Enabled bool
+			talismanSlot2Enabled bool
+			talismanSlot3Enabled bool
 		)
-		if err := rows.Scan(&petUID, &petID, &level, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON); err != nil {
+		if err := rows.Scan(
+			&petUID, &petID, &level, &hp, &hpMax, &atk, &def, &spd, &mana,
+			&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
+			&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
+			&confusionResistPct, &sleepResistPct, &paralysisResistPct, &sealResistPct, &curseResistPct,
+			&critDmgResistPct, &critResistPct, &characterResistPct, &petResistPct,
+			&guard, &talentDmgPct, &talentReducePct, &elementAdvPct, &elementPenaltyPct,
+			&skillIDsJSON,
+			&innateSkillIDsJSON, &normalSkillIDsJSON,
+			&activeTalismanSkillID, &talismanHeroSkillID,
+			&talismanSlot1SkillID, &talismanSlot2SkillID, &talismanSlot3SkillID,
+			&activeTalismanEnabled, &talismanHeroEnabled,
+			&talismanSlot1Enabled, &talismanSlot2Enabled, &talismanSlot3Enabled,
+		); err != nil {
 			return nil, err
 		}
 		item.PetUID = uint64(petUID)
@@ -298,11 +563,58 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 		item.DEF = uint32(def)
 		item.SPD = uint32(spd)
 		item.MANA = uint32(mana)
+		item.Spirit = uint32(spirit)
+		item.SpiritMax = uint32(spiritMax)
+		item.HitPct = uint32(hitPct)
+		item.DodgePct = uint32(dodgePct)
+		item.CritRatePct = uint32(critRatePct)
+		item.CritDmgPct = uint32(critDmgPct)
+		item.PhysicalResistPct = uint32(physicalResistPct)
+		item.ReversePhysicalResistPct = uint32(reversePhysicalResistPct)
+		item.SkillResistPct = uint32(skillResistPct)
+		item.ReverseSkillResistPct = uint32(reverseSkillResistPct)
+		item.ConfusionResistPct = uint32(confusionResistPct)
+		item.SleepResistPct = uint32(sleepResistPct)
+		item.ParalysisResistPct = uint32(paralysisResistPct)
+		item.SealResistPct = uint32(sealResistPct)
+		item.CurseResistPct = uint32(curseResistPct)
+		item.CritDmgResistPct = uint32(critDmgResistPct)
+		item.CritResistPct = uint32(critResistPct)
+		item.CharacterResistPct = uint32(characterResistPct)
+		item.PetResistPct = uint32(petResistPct)
+		item.Guard = uint32(guard)
+		item.TalentDmgPct = uint32(talentDmgPct)
+		item.TalentReducePct = uint32(talentReducePct)
+		item.ElementAdvPct = uint32(elementAdvPct)
+		item.ElementPenaltyPct = uint32(elementPenaltyPct)
+		loadout = decodeSkillLoadout(
+			innateSkillIDsJSON,
+			normalSkillIDsJSON,
+			uint32(activeTalismanSkillID),
+			uint32(talismanHeroSkillID),
+			uint32(talismanSlot1SkillID),
+			uint32(talismanSlot2SkillID),
+			uint32(talismanSlot3SkillID),
+			activeTalismanEnabled,
+			talismanHeroEnabled,
+			talismanSlot1Enabled,
+			talismanSlot2Enabled,
+			talismanSlot3Enabled,
+		)
 		if len(skillIDsJSON) > 0 {
 			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
 				return nil, fmt.Errorf("unmarshal lineup pet skill ids: %w", err)
 			}
 		}
+		pet.ApplyLegacySkillIDs(&loadout, item.SkillIDs)
+		applyArtifactSkillsToLoadout(&loadout, artifactMap[item.PetUID])
+		item.SkillIDs = pet.BuildBattleSkillIDs(loadout)
+		if len(item.SkillIDs) == 0 && len(skillIDsJSON) > 0 {
+			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
+				return nil, fmt.Errorf("unmarshal lineup pet legacy skill ids: %w", err)
+			}
+		}
+		pet.ClampLineupPetCombatStats(&item, caps)
 		lineup = append(lineup, item)
 	}
 
@@ -349,6 +661,17 @@ func (r *PetRepository) UpdatePetHPByUID(ctx context.Context, playerID uint64, p
 	return pet.Pet{}, pet.ErrPetNotFound
 }
 
+func (r *PetRepository) FindPetByUID(ctx context.Context, playerID uint64, petUID uint64) (pet.Pet, error) {
+	item, err := r.loadPetByUID(ctx, playerID, petUID)
+	if err != nil {
+		return pet.Pet{}, err
+	}
+	if item == nil {
+		return pet.Pet{}, pet.ErrPetNotFound
+	}
+	return *item, nil
+}
+
 func (r *PetRepository) UpdatePetHPAndExpByUID(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (pet.Pet, error) {
 	result, err := r.db.ExecContext(ctx, updatePetHPAndExpByUIDQuery, playerID, petUID, hp, expGain)
 	if err != nil {
@@ -389,7 +712,8 @@ func (r *PetRepository) GrantRuntimePet(ctx context.Context, playerID uint64, pe
 		SPDApt:  definition.SPDApt,
 		MANAApt: definition.MANAApt,
 	}
-	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, pet.GrantSourceTemplate, 0, reasonType, reasonRefID, operatorType, operatorID)
+	splitAptitudes := buildBaseExtraAptitudes(definition, aptitudes)
+	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, splitAptitudes, pet.GrantSourceTemplate, 0, reasonType, reasonRefID, operatorType, operatorID)
 }
 
 func (r *PetRepository) GrantWildCapturePet(ctx context.Context, playerID uint64, petID uint32, captureMonsterID uint32, reasonType string, reasonRefID uint64) (*pet.RuntimeGrantResult, error) {
@@ -414,7 +738,8 @@ func (r *PetRepository) GrantWildCapturePet(ctx context.Context, playerID uint64
 		return nil, err
 	}
 	aptitudes := pet.RollWildCaptureAptitudes(rollRanges, nil)
-	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, pet.GrantSourceWildCapture, captureMonsterID, reasonType, reasonRefID, "", 0)
+	splitAptitudes := buildBaseExtraAptitudes(definition, aptitudes)
+	return r.insertRuntimePet(ctx, playerID, definition, aptitudes, splitAptitudes, pet.GrantSourceWildCapture, captureMonsterID, reasonType, reasonRefID, "", 0)
 }
 
 func (r *PetRepository) insertRuntimePet(
@@ -422,6 +747,7 @@ func (r *PetRepository) insertRuntimePet(
 	playerID uint64,
 	definition *runtimePetDefinitionRow,
 	aptitudes pet.GrowthAptitudes,
+	splitAptitudes petprogression.GrowthAptitudes,
 	grantSource string,
 	captureMonsterID uint32,
 	reasonType string,
@@ -429,26 +755,72 @@ func (r *PetRepository) insertRuntimePet(
 	operatorType string,
 	operatorID uint64,
 ) (*pet.RuntimeGrantResult, error) {
+	level := definition.Level
+	if level == 0 {
+		level = 1
+	}
+	combat := petprogression.RecalculateCombatStats(petprogression.ProgressionState{
+		Level:           level,
+		AptitudeProfile: definition.AptitudeProfile,
+		Aptitudes:       splitAptitudes,
+	}, petprogression.DefaultConvertRates())
+	hp := combat.HPMax
+	if definition.HP > 0 && definition.HP <= combat.HPMax {
+		hp = definition.HP
+	}
+	innateSkillIDs := decodeSkillIDJSONArray(definition.InnateSkillIDsJSON)
+	normalSkillIDs := decodeSkillIDJSONArray(definition.NormalSkillIDsJSON)
+	if len(normalSkillIDs) == 0 {
+		normalSkillIDs = decodeSkillIDJSONArray(definition.SkillIDsJSON)
+		if len(normalSkillIDs) > pet.MaxNormalSkillSlots {
+			normalSkillIDs = normalSkillIDs[:pet.MaxNormalSkillSlots]
+		}
+	}
+	loadout := pet.SkillLoadoutFromDefinition(innateSkillIDs, normalSkillIDs)
+	battleSkillIDsJSON, err := json.Marshal(pet.BuildBattleSkillIDs(loadout))
+	if err != nil {
+		return nil, fmt.Errorf("marshal granted pet battle skill ids: %w", err)
+	}
+	innateSkillIDsJSON, err := json.Marshal(loadout.InnateSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal granted pet innate skill ids: %w", err)
+	}
+	normalSkillIDsJSON, err := json.Marshal(loadout.NormalSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal granted pet normal skill ids: %w", err)
+	}
 	var petUID uint64
 	if err := r.db.QueryRowContext(
 		ctx,
 		insertRuntimePetQuery,
 		playerID,
 		definition.PetID,
-		definition.Level,
+		level,
 		definition.Quality,
-		definition.HP,
-		definition.HPMax,
-		definition.ATK,
-		definition.DEF,
-		definition.SPD,
-		definition.MANA,
-		definition.SkillIDsJSON,
+		hp,
+		combat.HPMax,
+		combat.ATK,
+		combat.DEF,
+		combat.SPD,
+		combat.MANA,
+		battleSkillIDsJSON,
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
 		aptitudes.HPApt,
 		aptitudes.ATKApt,
 		aptitudes.DEFApt,
 		aptitudes.SPDApt,
 		aptitudes.MANAApt,
+		splitAptitudes.BaseHPApt,
+		splitAptitudes.BaseATKApt,
+		splitAptitudes.BaseDEFApt,
+		splitAptitudes.BaseSPDApt,
+		splitAptitudes.BaseMANAApt,
+		splitAptitudes.ExtraHPApt,
+		splitAptitudes.ExtraATKApt,
+		splitAptitudes.ExtraDEFApt,
+		splitAptitudes.ExtraSPDApt,
+		splitAptitudes.ExtraMANAApt,
 		grantSource,
 		captureMonsterID,
 	).Scan(&petUID); err != nil {
@@ -529,8 +901,22 @@ func (r *PetRepository) ListForAdmin(ctx context.Context, query pet.AdminListQue
 func (r *PetRepository) FindAdminDetailByPetUID(ctx context.Context, petUID uint64) (*pet.AdminPetDetail, error) {
 	var detail pet.AdminPetDetail
 	var uid, playerID, petID, level, exp, quality, hp, hpMax, atk, def, spd, mana int64
+	var spirit, spiritMax, hitPct, dodgePct, critRatePct, critDmgPct int64
+	var physicalResistPct, reversePhysicalResistPct, skillResistPct, reverseSkillResistPct int64
+	var confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct int64
+	var critDmgResistPct, critResistPct, characterResistPct, petResistPct int64
+	var guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
 	var skillIDsJSON []byte
-	err := r.db.QueryRowContext(ctx, adminPetDetailQuery, petUID).Scan(&uid, &playerID, &detail.PlayerName, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON, &detail.InLineup, &detail.CreatedAt, &detail.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, adminPetDetailQuery, petUID).Scan(
+		&uid, &playerID, &detail.PlayerName, &petID, &level, &exp, &quality,
+		&hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
+		&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
+		&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
+		&confusionResistPct, &sleepResistPct, &paralysisResistPct, &sealResistPct, &curseResistPct,
+		&critDmgResistPct, &critResistPct, &characterResistPct, &petResistPct,
+		&guard, &talentDmgPct, &talentReducePct, &elementAdvPct, &elementPenaltyPct,
+		&detail.InLineup, &detail.CreatedAt, &detail.UpdatedAt,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -549,6 +935,32 @@ func (r *PetRepository) FindAdminDetailByPetUID(ctx context.Context, petUID uint
 	detail.DEF = uint32(def)
 	detail.SPD = uint32(spd)
 	detail.MANA = uint32(mana)
+	detail.AdminPetCombatStats = pet.AdminPetCombatStats{
+		Spirit:                   uint32(spirit),
+		SpiritMax:                uint32(spiritMax),
+		HitPct:                   uint32(hitPct),
+		DodgePct:                 uint32(dodgePct),
+		CritRatePct:              uint32(critRatePct),
+		CritDmgPct:               uint32(critDmgPct),
+		PhysicalResistPct:        uint32(physicalResistPct),
+		ReversePhysicalResistPct: uint32(reversePhysicalResistPct),
+		SkillResistPct:           uint32(skillResistPct),
+		ReverseSkillResistPct:    uint32(reverseSkillResistPct),
+		ConfusionResistPct:       uint32(confusionResistPct),
+		SleepResistPct:           uint32(sleepResistPct),
+		ParalysisResistPct:       uint32(paralysisResistPct),
+		SealResistPct:            uint32(sealResistPct),
+		CurseResistPct:           uint32(curseResistPct),
+		CritDmgResistPct:         uint32(critDmgResistPct),
+		CritResistPct:            uint32(critResistPct),
+		CharacterResistPct:       uint32(characterResistPct),
+		PetResistPct:             uint32(petResistPct),
+		Guard:                    uint32(guard),
+		TalentDmgPct:             uint32(talentDmgPct),
+		TalentReducePct:          uint32(talentReducePct),
+		ElementAdvPct:            uint32(elementAdvPct),
+		ElementPenaltyPct:        uint32(elementPenaltyPct),
+	}
 	if len(skillIDsJSON) > 0 {
 		if err := json.Unmarshal(skillIDsJSON, &detail.SkillIDs); err != nil {
 			return nil, fmt.Errorf("unmarshal admin pet skill ids: %w", err)
@@ -570,7 +982,46 @@ func (r *PetRepository) CreateForAdmin(ctx context.Context, input pet.AdminCreat
 		return nil, fmt.Errorf("marshal admin pet skill ids: %w", err)
 	}
 	var petUID int64
-	if err := r.db.QueryRowContext(ctx, insertAdminPetQuery, input.PlayerID, input.PetID, input.Level, input.Exp, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON).Scan(&petUID); err != nil {
+	if err := r.db.QueryRowContext(
+		ctx,
+		insertAdminPetQuery,
+		input.PlayerID,
+		input.PetID,
+		input.Level,
+		input.Exp,
+		input.Quality,
+		input.HP,
+		input.HPMax,
+		input.ATK,
+		input.DEF,
+		input.SPD,
+		input.MANA,
+		skillIDsJSON,
+		input.Spirit,
+		input.SpiritMax,
+		input.HitPct,
+		input.DodgePct,
+		input.CritRatePct,
+		input.CritDmgPct,
+		input.PhysicalResistPct,
+		input.ReversePhysicalResistPct,
+		input.SkillResistPct,
+		input.ReverseSkillResistPct,
+		input.ConfusionResistPct,
+		input.SleepResistPct,
+		input.ParalysisResistPct,
+		input.SealResistPct,
+		input.CurseResistPct,
+		input.CritDmgResistPct,
+		input.CritResistPct,
+		input.CharacterResistPct,
+		input.PetResistPct,
+		input.Guard,
+		input.TalentDmgPct,
+		input.TalentReducePct,
+		input.ElementAdvPct,
+		input.ElementPenaltyPct,
+	).Scan(&petUID); err != nil {
 		return nil, err
 	}
 	return r.FindAdminDetailByPetUID(ctx, uint64(petUID))
@@ -581,7 +1032,46 @@ func (r *PetRepository) UpdateForAdmin(ctx context.Context, petUID uint64, input
 	if err != nil {
 		return nil, fmt.Errorf("marshal admin pet skill ids: %w", err)
 	}
-	result, err := r.db.ExecContext(ctx, updateAdminPetQuery, petUID, input.PetID, input.Level, input.Exp, input.Quality, input.HP, input.HPMax, input.ATK, input.DEF, input.SPD, input.MANA, skillIDsJSON)
+	result, err := r.db.ExecContext(
+		ctx,
+		updateAdminPetQuery,
+		petUID,
+		input.PetID,
+		input.Level,
+		input.Exp,
+		input.Quality,
+		input.HP,
+		input.HPMax,
+		input.ATK,
+		input.DEF,
+		input.SPD,
+		input.MANA,
+		skillIDsJSON,
+		input.Spirit,
+		input.SpiritMax,
+		input.HitPct,
+		input.DodgePct,
+		input.CritRatePct,
+		input.CritDmgPct,
+		input.PhysicalResistPct,
+		input.ReversePhysicalResistPct,
+		input.SkillResistPct,
+		input.ReverseSkillResistPct,
+		input.ConfusionResistPct,
+		input.SleepResistPct,
+		input.ParalysisResistPct,
+		input.SealResistPct,
+		input.CurseResistPct,
+		input.CritDmgResistPct,
+		input.CritResistPct,
+		input.CharacterResistPct,
+		input.PetResistPct,
+		input.Guard,
+		input.TalentDmgPct,
+		input.TalentReducePct,
+		input.ElementAdvPct,
+		input.ElementPenaltyPct,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -633,6 +1123,8 @@ type runtimePetDefinitionRow struct {
 	SPD              uint32
 	MANA             uint32
 	SkillIDsJSON     []byte
+	InnateSkillIDsJSON []byte
+	NormalSkillIDsJSON []byte
 	AcquireMethod    string
 	HPApt            uint32
 	ATKApt           uint32
@@ -649,6 +1141,7 @@ type runtimePetDefinitionRow struct {
 	SPDAptRollMax    uint32
 	MANAAptRollMin   uint32
 	MANAAptRollMax   uint32
+	AptitudeProfile  string
 }
 
 func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint32) (*runtimePetDefinitionRow, error) {
@@ -664,6 +1157,8 @@ func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint
 		&value.SPD,
 		&value.MANA,
 		&value.SkillIDsJSON,
+		&value.InnateSkillIDsJSON,
+		&value.NormalSkillIDsJSON,
 		&value.AcquireMethod,
 		&value.HPApt,
 		&value.ATKApt,
@@ -680,6 +1175,7 @@ func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint
 		&value.SPDAptRollMax,
 		&value.MANAAptRollMin,
 		&value.MANAAptRollMax,
+		&value.AptitudeProfile,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -715,30 +1211,100 @@ func (r *PetRepository) loadPetByUID(ctx context.Context, playerID uint64, petUI
 
 func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	var (
-		item              pet.Pet
-		petUID            int64
-		petID             int64
-		level             int64
-		exp               int64
-		quality           int64
-		hp                int64
-		hpMax             int64
-		atk               int64
-		def               int64
-		spd               int64
-		mana              int64
-		skillIDsJSON      []byte
-		hpApt             int64
-		atkApt            int64
-		defApt            int64
-		spdApt            int64
-		manaApt           int64
-		grantSource       string
-		captureMonsterID  int64
+		item             pet.Pet
+		petUID           int64
+		petID            int64
+		level            int64
+		exp              int64
+		quality          int64
+		hp               int64
+		hpMax            int64
+		atk              int64
+		def              int64
+		spd              int64
+		mana             int64
+		spirit           int64
+		spiritMax        int64
+		hitPct           int64
+		dodgePct         int64
+		critRatePct      int64
+		critDmgPct       int64
+		physicalResistPct int64
+		reversePhysicalResistPct int64
+		skillResistPct   int64
+		reverseSkillResistPct int64
+		confusionResistPct int64
+		sleepResistPct   int64
+		paralysisResistPct int64
+		sealResistPct    int64
+		curseResistPct   int64
+		critDmgResistPct int64
+		critResistPct    int64
+		characterResistPct int64
+		petResistPct     int64
+		guard            int64
+		talentDmgPct     int64
+		talentReducePct  int64
+		elementAdvPct    int64
+		elementPenaltyPct int64
+		skillIDsJSON     []byte
+		innateSkillIDsJSON []byte
+		normalSkillIDsJSON []byte
+		activeTalismanSkillID int64
+		talismanHeroSkillID int64
+		talismanSlot1SkillID int64
+		talismanSlot2SkillID int64
+		talismanSlot3SkillID int64
+		activeTalismanEnabled bool
+		talismanHeroEnabled bool
+		talismanSlot1Enabled bool
+		talismanSlot2Enabled bool
+		talismanSlot3Enabled bool
+		hpApt            int64
+		atkApt           int64
+		defApt           int64
+		spdApt           int64
+		manaApt          int64
+		grantSource      string
+		captureMonsterID int64
+		freeAttrPoints   int64
+		allocHP          int64
+		allocATK         int64
+		allocSPD         int64
+		allocMANA        int64
+		allocDEF         int64
+		baseHPApt        int64
+		baseATKApt       int64
+		baseDEFApt       int64
+		baseSPDApt       int64
+		baseMANAApt      int64
+		extraHPApt       int64
+		extraATKApt      int64
+		extraDEFApt      int64
+		extraSPDApt      int64
+		extraMANAApt     int64
+		evolutionLevel   int64
+		rebirthLevel     int64
+		aptitudeProfile  string
 	)
 	if err := rows.Scan(
-		&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
+		&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana,
+		&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
+		&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
+		&confusionResistPct, &sleepResistPct, &paralysisResistPct, &sealResistPct, &curseResistPct,
+		&critDmgResistPct, &critResistPct, &characterResistPct, &petResistPct,
+		&guard, &talentDmgPct, &talentReducePct, &elementAdvPct, &elementPenaltyPct,
+		&skillIDsJSON,
+		&innateSkillIDsJSON, &normalSkillIDsJSON,
+		&activeTalismanSkillID, &talismanHeroSkillID,
+		&talismanSlot1SkillID, &talismanSlot2SkillID, &talismanSlot3SkillID,
+		&activeTalismanEnabled, &talismanHeroEnabled,
+		&talismanSlot1Enabled, &talismanSlot2Enabled, &talismanSlot3Enabled,
 		&hpApt, &atkApt, &defApt, &spdApt, &manaApt, &grantSource, &captureMonsterID,
+		&freeAttrPoints, &allocHP, &allocATK, &allocSPD, &allocMANA, &allocDEF,
+		&baseHPApt, &baseATKApt, &baseDEFApt, &baseSPDApt, &baseMANAApt,
+		&extraHPApt, &extraATKApt, &extraDEFApt, &extraSPDApt, &extraMANAApt,
+		&evolutionLevel, &rebirthLevel, &aptitudeProfile,
 	); err != nil {
 		return pet.Pet{}, err
 	}
@@ -753,6 +1319,30 @@ func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	item.DEF = uint32(def)
 	item.SPD = uint32(spd)
 	item.MANA = uint32(mana)
+	item.Spirit = uint32(spirit)
+	item.SpiritMax = uint32(spiritMax)
+	item.HitPct = uint32(hitPct)
+	item.DodgePct = uint32(dodgePct)
+	item.CritRatePct = uint32(critRatePct)
+	item.CritDmgPct = uint32(critDmgPct)
+	item.PhysicalResistPct = uint32(physicalResistPct)
+	item.ReversePhysicalResistPct = uint32(reversePhysicalResistPct)
+	item.SkillResistPct = uint32(skillResistPct)
+	item.ReverseSkillResistPct = uint32(reverseSkillResistPct)
+	item.ConfusionResistPct = uint32(confusionResistPct)
+	item.SleepResistPct = uint32(sleepResistPct)
+	item.ParalysisResistPct = uint32(paralysisResistPct)
+	item.SealResistPct = uint32(sealResistPct)
+	item.CurseResistPct = uint32(curseResistPct)
+	item.CritDmgResistPct = uint32(critDmgResistPct)
+	item.CritResistPct = uint32(critResistPct)
+	item.CharacterResistPct = uint32(characterResistPct)
+	item.PetResistPct = uint32(petResistPct)
+	item.Guard = uint32(guard)
+	item.TalentDmgPct = uint32(talentDmgPct)
+	item.TalentReducePct = uint32(talentReducePct)
+	item.ElementAdvPct = uint32(elementAdvPct)
+	item.ElementPenaltyPct = uint32(elementPenaltyPct)
 	item.GrowthAptitudes = pet.GrowthAptitudes{
 		HPApt:   uint32(hpApt),
 		ATKApt:  uint32(atkApt),
@@ -762,12 +1352,63 @@ func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	}
 	item.GrantSource = grantSource
 	item.CaptureMonsterID = uint32(captureMonsterID)
+	item.FreeAttrPoints = uint32(freeAttrPoints)
+	item.AllocHPPoints = uint32(allocHP)
+	item.AllocATKPoints = uint32(allocATK)
+	item.AllocSPDPoints = uint32(allocSPD)
+	item.AllocMANAPoints = uint32(allocMANA)
+	item.AllocDEFPoints = uint32(allocDEF)
+	item.BaseHPApt = uint32(baseHPApt)
+	item.BaseATKApt = uint32(baseATKApt)
+	item.BaseDEFApt = uint32(baseDEFApt)
+	item.BaseSPDApt = uint32(baseSPDApt)
+	item.BaseMANAApt = uint32(baseMANAApt)
+	item.ExtraHPApt = uint32(extraHPApt)
+	item.ExtraATKApt = uint32(extraATKApt)
+	item.ExtraDEFApt = uint32(extraDEFApt)
+	item.ExtraSPDApt = uint32(extraSPDApt)
+	item.ExtraMANAApt = uint32(extraMANAApt)
+	item.EvolutionLevel = uint32(evolutionLevel)
+	item.RebirthLevel = uint32(rebirthLevel)
+	item.AptitudeProfile = aptitudeProfile
+	item.SkillLoadout = decodeSkillLoadout(
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
+		uint32(activeTalismanSkillID),
+		uint32(talismanHeroSkillID),
+		uint32(talismanSlot1SkillID),
+		uint32(talismanSlot2SkillID),
+		uint32(talismanSlot3SkillID),
+		activeTalismanEnabled,
+		talismanHeroEnabled,
+		talismanSlot1Enabled,
+		talismanSlot2Enabled,
+		talismanSlot3Enabled,
+	)
 	if len(skillIDsJSON) > 0 {
 		if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
 			return pet.Pet{}, fmt.Errorf("unmarshal pet skill ids: %w", err)
 		}
 	}
+	pet.ApplyLegacySkillIDs(&item.SkillLoadout, item.SkillIDs)
 	return item, nil
+}
+
+func buildBaseExtraAptitudes(definition *runtimePetDefinitionRow, total pet.GrowthAptitudes) petprogression.GrowthAptitudes {
+	baseTemplate := petprogression.BaseTemplateFromTotals(
+		definition.HPApt,
+		definition.ATKApt,
+		definition.DEFApt,
+		definition.SPDApt,
+		definition.MANAApt,
+	)
+	return petprogression.SplitTotalAptitudes(baseTemplate, petprogression.GrowthAptitudes{
+		BaseHPApt:   total.HPApt,
+		BaseATKApt:  total.ATKApt,
+		BaseDEFApt:  total.DEFApt,
+		BaseSPDApt:  total.SPDApt,
+		BaseMANAApt: total.MANAApt,
+	})
 }
 
 func joinConditions(conditions []string) string {
@@ -779,4 +1420,86 @@ func joinConditions(conditions []string) string {
 		result += condition
 	}
 	return result
+}
+
+func decodeSkillIDJSONArray(raw []byte) []uint32 {
+	if len(raw) == 0 {
+		return []uint32{}
+	}
+	values := make([]uint32, 0)
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return []uint32{}
+	}
+	return values
+}
+
+func decodeSkillLoadout(
+	innateSkillIDsJSON []byte,
+	normalSkillIDsJSON []byte,
+	activeTalismanSkillID uint32,
+	talismanHeroSkillID uint32,
+	talismanSlot1SkillID uint32,
+	talismanSlot2SkillID uint32,
+	talismanSlot3SkillID uint32,
+	activeTalismanEnabled bool,
+	talismanHeroEnabled bool,
+	talismanSlot1Enabled bool,
+	talismanSlot2Enabled bool,
+	talismanSlot3Enabled bool,
+) pet.SkillLoadout {
+	return pet.NormalizeSkillLoadout(pet.SkillLoadout{
+		InnateSkillIDs:        decodeSkillIDJSONArray(innateSkillIDsJSON),
+		NormalSkillIDs:        decodeSkillIDJSONArray(normalSkillIDsJSON),
+		ActiveTalismanSkillID: activeTalismanSkillID,
+		TalismanHeroSkillID:   talismanHeroSkillID,
+		TalismanSlot1SkillID:  talismanSlot1SkillID,
+		TalismanSlot2SkillID:  talismanSlot2SkillID,
+		TalismanSlot3SkillID:  talismanSlot3SkillID,
+		ActiveTalismanEnabled: activeTalismanEnabled,
+		TalismanHeroEnabled:   talismanHeroEnabled,
+		TalismanSlot1Enabled:  talismanSlot1Enabled,
+		TalismanSlot2Enabled:  talismanSlot2Enabled,
+		TalismanSlot3Enabled:  talismanSlot3Enabled,
+	})
+}
+
+func (r *PetRepository) loadArtifactEquipmentByPlayerID(ctx context.Context, playerID uint64) (map[uint64][pet.MaxArtifactSkillSlots]uint32, error) {
+	rows, err := r.db.QueryContext(ctx, listArtifactEquipmentByPlayerIDQuery, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uint64][pet.MaxArtifactSkillSlots]uint32)
+	for rows.Next() {
+		var petUID int64
+		var slotIndex int64
+		var skillID int64
+		if err := rows.Scan(&petUID, &slotIndex, &skillID); err != nil {
+			return nil, err
+		}
+		if slotIndex < 0 || slotIndex >= pet.MaxArtifactSkillSlots {
+			continue
+		}
+		slots := result[uint64(petUID)]
+		slots[slotIndex] = uint32(skillID)
+		result[uint64(petUID)] = slots
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func applyArtifactEquipment(item *pet.Pet, artifactSlots [pet.MaxArtifactSkillSlots]uint32) {
+	if item == nil {
+		return
+	}
+	item.SkillLoadout.ArtifactSkillIDs = artifactSlots
+}
+
+func applyArtifactSkillsToLoadout(loadout *pet.SkillLoadout, artifactSlots [pet.MaxArtifactSkillSlots]uint32) {
+	if loadout == nil {
+		return
+	}
+	loadout.ArtifactSkillIDs = artifactSlots
 }

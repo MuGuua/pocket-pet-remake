@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://by565b7rmy27i" path="res://scripts/feature/battle/action_log_panel.gd" id="4"]
 [ext_resource type="Script" uid="uid://bbqpe23lupqrj" path="res://scripts/feature/battle/battle_content_registry.gd" id="5"]
 [ext_resource type="Script" uid="uid://bik067xn4swgh" path="res://scripts/feature/battle/battle_command_status.gd" id="6"]
+[ext_resource type="Texture2D" uid="uid://bcqr7w3fwkyex" path="res://asset/分类/ui/战斗ui.png" id="7_battle_ui"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ww1p6"]
 texture = ExtResource("3_2wmvw")
@@ -23,11 +24,8 @@ texture_margin_bottom = 15.0
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cywj5"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cywj5"]
-load_path = "res://.godot/imported/战斗ui.png-f7a2ba29e01312959ce37627cae81b29.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_ww1p6"]
-atlas = SubResource("CompressedTexture2D_cywj5")
+atlas = ExtResource("7_battle_ui")
 region = Rect2(0, 0, 172, 32)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7hnyd"]
@@ -192,7 +190,7 @@ anchor_right = 1.0
 offset_left = 12.0
 offset_top = 6.0
 offset_right = -12.0
-offset_bottom = 34.0
+offset_bottom = 44.0
 grow_horizontal = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_ww1p6")
@@ -205,11 +203,16 @@ theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 4
 
-[node name="StatusLabel" type="Label" parent="UILayer/CommandStatusBar/StatusMargin"]
+[node name="StatusLabel" type="RichTextLabel" parent="UILayer/CommandStatusBar/StatusMargin"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "请选择操作：25秒"
+theme_override_font_sizes/normal_font_size = 20
+bbcode_enabled = true
+text = "请选择人物操作：25秒"
+fit_content = false
+scroll_active = false
+autowrap_mode = 0
+size_flags_horizontal = 3
 horizontal_alignment = 1
 vertical_alignment = 1
 

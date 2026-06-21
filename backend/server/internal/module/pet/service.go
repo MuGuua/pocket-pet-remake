@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/monster"
+	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/module/skill"
 )
 
@@ -15,13 +16,19 @@ type CaptureConfigReader interface {
 }
 
 type Service struct {
-	repo                  Repository
-	skillService          *skill.Service
-	captureConfigReader   CaptureConfigReader
+	repo                Repository
+	skillService        *skill.Service
+	captureConfigReader CaptureConfigReader
+	progressionService  *petprogression.Service
 }
 
-func NewService(repo Repository, skillService *skill.Service, captureConfigReader CaptureConfigReader) *Service {
-	return &Service{repo: repo, skillService: skillService, captureConfigReader: captureConfigReader}
+func NewService(repo Repository, skillService *skill.Service, captureConfigReader CaptureConfigReader, progressionService *petprogression.Service) *Service {
+	return &Service{
+		repo:                repo,
+		skillService:        skillService,
+		captureConfigReader: captureConfigReader,
+		progressionService:  progressionService,
+	}
 }
 
 func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) {
@@ -35,6 +42,7 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 	if err := s.applyUsableFlags(ctx, pets); err != nil {
 		return nil, err
 	}
+	s.enrichProgressionFields(pets)
 
 	lineup, err := s.ListLineup(ctx, playerID)
 	if err != nil {
@@ -161,25 +169,89 @@ func (s *Service) UpdatePetHP(ctx context.Context, playerID uint64, petUID uint6
 }
 
 func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (Pet, error) {
-	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)
+	if err := s.ensurePetOwned(ctx, playerID, petUID); err != nil {
+		return Pet{}, err
+	}
+	if s.progressionService != nil && expGain > 0 {
+		result, err := s.progressionService.ApplyExp(ctx, playerID, petUID, expGain, hp)
+		if err != nil {
+			return Pet{}, err
+		}
+		updated, err := s.loadPetByUID(ctx, playerID, petUID)
+		if err != nil {
+			return Pet{}, err
+		}
+		updated.LastLevelUpCount = result.LevelUpCount
+		updated.LastAttrPointsGained = result.AttrPointsGained
+		return updated, nil
+	}
+	if hp == 0 {
+		return s.loadPetByUID(ctx, playerID, petUID)
+	}
+	updated, err := s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp)
 	if err != nil {
 		return Pet{}, err
 	}
+	s.enrichProgressionFields([]Pet{updated})
+	return updated, nil
+}
 
-	var target *Pet
+// AllocateAttrPoints 为单只宠物分配自由属性点并重算战斗属性。
+func (s *Service) AllocateAttrPoints(ctx context.Context, playerID uint64, petUID uint64, delta petprogression.ManualAllocatedPoints) (Pet, error) {
+	if s.progressionService == nil {
+		return Pet{}, petprogression.ErrInvalidAllocateInput
+	}
+	if err := s.ensurePetOwned(ctx, playerID, petUID); err != nil {
+		return Pet{}, err
+	}
+	if _, err := s.progressionService.AllocateAttrPoints(ctx, playerID, petUID, delta); err != nil {
+		return Pet{}, err
+	}
+	return s.loadPetByUID(ctx, playerID, petUID)
+}
+
+func (s *Service) ensurePetOwned(ctx context.Context, playerID uint64, petUID uint64) error {
+	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)
+	if err != nil {
+		return err
+	}
 	for index := range pets {
 		if pets[index].PetUID == petUID {
-			target = &pets[index]
+			return nil
+		}
+	}
+	return ErrPetNotFound
+}
+
+func (s *Service) loadPetByUID(ctx context.Context, playerID uint64, petUID uint64) (Pet, error) {
+	item, err := s.repo.FindPetByUID(ctx, playerID, petUID)
+	if err != nil {
+		return Pet{}, err
+	}
+	if err := s.applyUsableFlags(ctx, []Pet{item}); err != nil {
+		return Pet{}, err
+	}
+	s.enrichProgressionFields([]Pet{item})
+	lineup, err := s.ListLineup(ctx, playerID)
+	if err != nil {
+		return Pet{}, err
+	}
+	for _, lineupPet := range lineup {
+		if lineupPet.PetUID == petUID {
+			item.InLineup = true
 			break
 		}
 	}
-	if target == nil {
-		return Pet{}, ErrPetNotFound
+	return item, nil
+}
+
+func (s *Service) enrichProgressionFields(pets []Pet) {
+	if s.progressionService == nil {
+		return
 	}
-	if hp > target.HPMax {
-		hp = target.HPMax
+	for index := range pets {
+		pets[index].ExpToNext = s.progressionService.ExpToNext(pets[index].Level, pets[index].Exp)
 	}
-	return s.repo.UpdatePetHPAndExpByUID(ctx, playerID, petUID, hp, expGain)
 }
 
 // GrantRuntimePet 按服务端数据库里的宠物模板发放一只新宠物给玩家。
@@ -267,7 +339,11 @@ func (s *Service) GetAdminPetDetail(ctx context.Context, petUID uint64) (*AdminP
 }
 
 func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput) (*AdminPetDetail, error) {
-	input = input.Normalize()
+	caps, err := s.repo.LoadCombatStatCaps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	input = input.Normalize().applyCreateAdminCombatCaps(caps)
 	if input.PlayerID == 0 || input.PetID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
@@ -285,7 +361,11 @@ func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput)
 }
 
 func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input AdminUpdatePetInput) (*AdminPetDetail, error) {
-	input = input.Normalize()
+	caps, err := s.repo.LoadCombatStatCaps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	input = input.Normalize().applyUpdateAdminCombatCaps(caps)
 	if input.PetID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
@@ -429,4 +509,103 @@ func adminRollRangesFromDefinition(definition AdminPetDefinitionDetail) Aptitude
 		SPDAptMin: definition.AptitudeRollRanges.SPDAptRollMin, SPDAptMax: definition.AptitudeRollRanges.SPDAptRollMax,
 		MANAAptMin: definition.AptitudeRollRanges.MANAAptRollMin, MANAAptMax: definition.AptitudeRollRanges.MANAAptRollMax,
 	}
+}
+
+// EquipArtifactFromBagSlot 从背包装备法宝并刷新宠物战斗技能列表。
+func (s *Service) EquipArtifactFromBagSlot(ctx context.Context, playerID uint64, petUID uint64, slotIndex uint32, containerType string, bagSlotIndex uint32) (Pet, error) {
+	if playerID == 0 || petUID == 0 {
+		return Pet{}, ErrPetNotFound
+	}
+	normalizedContainerType := strings.TrimSpace(containerType)
+	if normalizedContainerType == "" {
+		normalizedContainerType = "bag"
+	}
+	updatedPet, err := s.repo.EquipArtifactFromBagSlot(ctx, playerID, petUID, slotIndex, normalizedContainerType, bagSlotIndex)
+	if err != nil {
+		return Pet{}, err
+	}
+	return s.loadPetByUID(ctx, playerID, updatedPet.PetUID)
+}
+
+// UnequipArtifact 卸下宠物法宝槽并刷新战斗技能列表。
+func (s *Service) UnequipArtifact(ctx context.Context, playerID uint64, petUID uint64, slotIndex uint32) (Pet, error) {
+	if playerID == 0 || petUID == 0 {
+		return Pet{}, ErrPetNotFound
+	}
+	updatedPet, err := s.repo.UnequipArtifact(ctx, playerID, petUID, slotIndex)
+	if err != nil {
+		return Pet{}, err
+	}
+	return s.loadPetByUID(ctx, playerID, updatedPet.PetUID)
+}
+
+// GetPetDetail 返回单只宠物完整快照，供技能详情等需要法宝技分槽的界面使用。
+func (s *Service) GetPetDetail(ctx context.Context, playerID uint64, petUID uint64) (Pet, error) {
+	return s.loadPetByUID(ctx, playerID, petUID)
+}
+
+func (s *Service) ListAdminPetSkillSlotUnlockItems(ctx context.Context) ([]AdminPetSkillSlotUnlockItem, error) {
+	items, err := s.repo.ListAdminPetSkillSlotUnlockItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		return []AdminPetSkillSlotUnlockItem{}, nil
+	}
+	return items, nil
+}
+
+func (s *Service) GetAdminPetSkillSlotUnlockItem(ctx context.Context, slotKey string) (*AdminPetSkillSlotUnlockItem, error) {
+	return s.repo.FindAdminPetSkillSlotUnlockItem(ctx, slotKey)
+}
+
+func (s *Service) CreateAdminPetSkillSlotUnlockItem(ctx context.Context, input AdminUpsertPetSkillSlotUnlockInput) (*AdminPetSkillSlotUnlockItem, error) {
+	normalized, err := input.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.CreateAdminPetSkillSlotUnlockItem(ctx, normalized)
+}
+
+func (s *Service) UpdateAdminPetSkillSlotUnlockItem(ctx context.Context, slotKey string, input AdminUpsertPetSkillSlotUnlockInput) (*AdminPetSkillSlotUnlockItem, error) {
+	normalized, err := input.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	normalized.SlotKey = slotKey
+	return s.repo.UpdateAdminPetSkillSlotUnlockItem(ctx, slotKey, normalized)
+}
+
+func (s *Service) DeleteAdminPetSkillSlotUnlockItem(ctx context.Context, slotKey string) error {
+	return s.repo.DeleteAdminPetSkillSlotUnlockItem(ctx, slotKey)
+}
+
+func (s *Service) ListAdminPetCombatStatCaps(ctx context.Context) ([]AdminPetCombatStatCap, error) {
+	items, err := s.repo.ListAdminPetCombatStatCaps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		return []AdminPetCombatStatCap{}, nil
+	}
+	return items, nil
+}
+
+func (s *Service) GetAdminPetCombatStatCap(ctx context.Context, statKey string) (*AdminPetCombatStatCap, error) {
+	result, err := s.repo.FindAdminPetCombatStatCap(ctx, statKey)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrPetCombatStatCapNotFound
+	}
+	return result, nil
+}
+
+func (s *Service) UpdateAdminPetCombatStatCap(ctx context.Context, statKey string, input AdminUpsertPetCombatStatCapInput) (*AdminPetCombatStatCap, error) {
+	input = input.Normalize()
+	if err := validateAdminPetCombatStatCapInput(statKey, input); err != nil {
+		return nil, err
+	}
+	return s.repo.UpdateAdminPetCombatStatCap(ctx, statKey, input)
 }

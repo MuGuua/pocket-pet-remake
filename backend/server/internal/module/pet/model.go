@@ -26,12 +26,69 @@ type Pet struct {
 	SPD      uint32
 	MANA     uint32
 	SkillIDs         []uint32
+	// SkillLoadout 分槽技能快照；SkillIDs 为战斗合并结果。
+	SkillLoadout     SkillLoadout
 	GrowthAptitudes  GrowthAptitudes
 	GrantSource      string
 	CaptureMonsterID uint32
 	InLineup         bool
 	// IsUsable 表示该实例对应的 pet_id 是否存在于启用中的系统宠物模板列表。
 	IsUsable bool
+	// FreeAttrPoints 是尚未分配的自由属性点。
+	FreeAttrPoints uint32
+	// AllocHPPoints 等五项是玩家已手动分配的自由点累计。
+	AllocHPPoints   uint32
+	AllocATKPoints  uint32
+	AllocSPDPoints  uint32
+	AllocMANAPoints uint32
+	AllocDEFPoints  uint32
+	// BaseHPApt 等五项是基础资质快照。
+	BaseHPApt   uint32
+	BaseATKApt  uint32
+	BaseDEFApt  uint32
+	BaseSPDApt  uint32
+	BaseMANAApt uint32
+	// ExtraHPApt 等五项是红色资质（提资超出基础部分）。
+	ExtraHPApt   uint32
+	ExtraATKApt  uint32
+	ExtraDEFApt  uint32
+	ExtraSPDApt  uint32
+	ExtraMANAApt uint32
+	EvolutionLevel  uint32
+	RebirthLevel    uint32
+	AptitudeProfile string
+	// ExpToNext 由成长服务按等级配置计算，仅运行态填充。
+	ExpToNext uint64
+	// LastLevelUpCount 记录最近一次经验结算连升次数，供战斗结算推送使用。
+	LastLevelUpCount uint32
+	// LastAttrPointsGained 记录最近一次经验结算获得的自由点。
+	LastAttrPointsGained uint32
+	// Spirit 是当前精力；SpiritMax 是精力上限。
+	Spirit    uint32
+	SpiritMax uint32
+	// HitPct 等字段为宠物次要战斗属性，首期默认 0，由玩法/装备后续写入。
+	HitPct                   uint32
+	DodgePct                 uint32
+	CritRatePct              uint32
+	CritDmgPct               uint32
+	PhysicalResistPct        uint32
+	ReversePhysicalResistPct uint32
+	SkillResistPct           uint32
+	ReverseSkillResistPct    uint32
+	ConfusionResistPct       uint32
+	SleepResistPct           uint32
+	ParalysisResistPct       uint32
+	SealResistPct            uint32
+	CurseResistPct           uint32
+	CritDmgResistPct         uint32
+	CritResistPct            uint32
+	CharacterResistPct       uint32
+	PetResistPct             uint32
+	Guard                    uint32
+	TalentDmgPct             uint32
+	TalentReducePct          uint32
+	ElementAdvPct            uint32
+	ElementPenaltyPct        uint32
 }
 
 // RuntimeGrantResult 描述一次系统侧发放宠物后的结果。
@@ -50,7 +107,72 @@ type LineupPet struct {
 	DEF      uint32
 	SPD      uint32
 	MANA     uint32
+	Spirit   uint32
+	SpiritMax uint32
+	HitPct                   uint32
+	DodgePct                 uint32
+	CritRatePct              uint32
+	CritDmgPct               uint32
+	PhysicalResistPct        uint32
+	ReversePhysicalResistPct uint32
+	SkillResistPct           uint32
+	ReverseSkillResistPct    uint32
+	ConfusionResistPct       uint32
+	SleepResistPct           uint32
+	ParalysisResistPct       uint32
+	SealResistPct            uint32
+	CurseResistPct           uint32
+	CritDmgResistPct         uint32
+	CritResistPct            uint32
+	CharacterResistPct       uint32
+	PetResistPct             uint32
+	Guard                    uint32
+	TalentDmgPct             uint32
+	TalentReducePct          uint32
+	ElementAdvPct            uint32
+	ElementPenaltyPct        uint32
 	SkillIDs []uint32
+}
+
+// ToLineupPet 把完整宠物快照转换为战斗编队读取用的精简结构。
+func ToLineupPet(item Pet) LineupPet {
+	ResolvePetBattleSkills(&item)
+	return LineupPet{
+		PetUID:                   item.PetUID,
+		PetID:                    item.PetID,
+		Level:                    item.Level,
+		HP:                       item.HP,
+		HPMax:                    item.HPMax,
+		ATK:                      item.ATK,
+		DEF:                      item.DEF,
+		SPD:                      item.SPD,
+		MANA:                     item.MANA,
+		Spirit:                   item.Spirit,
+		SpiritMax:                item.SpiritMax,
+		HitPct:                   item.HitPct,
+		DodgePct:                 item.DodgePct,
+		CritRatePct:              item.CritRatePct,
+		CritDmgPct:               item.CritDmgPct,
+		PhysicalResistPct:        item.PhysicalResistPct,
+		ReversePhysicalResistPct: item.ReversePhysicalResistPct,
+		SkillResistPct:           item.SkillResistPct,
+		ReverseSkillResistPct:    item.ReverseSkillResistPct,
+		ConfusionResistPct:       item.ConfusionResistPct,
+		SleepResistPct:           item.SleepResistPct,
+		ParalysisResistPct:       item.ParalysisResistPct,
+		SealResistPct:            item.SealResistPct,
+		CurseResistPct:           item.CurseResistPct,
+		CritDmgResistPct:         item.CritDmgResistPct,
+		CritResistPct:            item.CritResistPct,
+		CharacterResistPct:       item.CharacterResistPct,
+		PetResistPct:             item.PetResistPct,
+		Guard:                    item.Guard,
+		TalentDmgPct:             item.TalentDmgPct,
+		TalentReducePct:          item.TalentReducePct,
+		ElementAdvPct:            item.ElementAdvPct,
+		ElementPenaltyPct:        item.ElementPenaltyPct,
+		SkillIDs:                 append([]uint32{}, item.SkillIDs...),
+	}
 }
 
 type AdminListQuery struct {
@@ -87,6 +209,7 @@ type AdminCreatePetInput struct {
 	SPD      uint32   `json:"spd"`
 	MANA     uint32   `json:"mana"`
 	SkillIDs []uint32 `json:"skill_ids"`
+	AdminPetCombatStats
 }
 
 func (input AdminCreatePetInput) Normalize() AdminCreatePetInput {
@@ -126,6 +249,7 @@ type AdminUpdatePetInput struct {
 	SPD      uint32   `json:"spd"`
 	MANA     uint32   `json:"mana"`
 	SkillIDs []uint32 `json:"skill_ids"`
+	AdminPetCombatStats
 }
 
 func (input AdminUpdatePetInput) Normalize() AdminUpdatePetInput {
@@ -196,6 +320,7 @@ type AdminPetDetail struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+	AdminPetCombatStats
 }
 
 func NormalizeSkillIDs(raw string) []uint32 {

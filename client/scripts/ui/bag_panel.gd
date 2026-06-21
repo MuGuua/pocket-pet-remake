@@ -3,11 +3,9 @@ extends PanelContainer
 signal transfer_requested(source_container_type: String, slot_index: int, quantity: int)
 signal container_switch_requested(target_container_type: String)
 
-# 当前背包面板沿用旧 UI 外框，但内部数据改为直接消费 GameState 中
-# 的服务端权威背包快照，避免继续展示静态占位数字。
 const INVENTORY_CAPACITY: int = 30
 const GRID_PAGE_SIZE: int = 32
-const UiFormat = preload("res://scripts/common/ui_format.gd")
+const RequestLoadingOverlay = preload("res://scripts/ui/request_loading_overlay.gd")
 
 @onready var title_label: Label = $VBoxContainer/HBoxContainer/ColorRect/Label
 @onready var capacity_label: Label = $VBoxContainer/HBoxContainer2/PanelContainer/HBoxContainer/Label
@@ -27,6 +25,24 @@ var _pending_transfer_max_quantity: int = 0
 var _container_type: String = "bag"
 var _panel_title: String = "背包"
 var _warehouse_available: bool = false
+## 通用 loading 遮罩。
+var _request_loading: RequestLoadingOverlay = null
+## 正在等待服务端回包的请求序列号。
+var _loading_request_seq: int = 0
+## 宠物选择对话框。
+var _pet_pick_dialog: AcceptDialog = null
+## 宠物选择下拉框。
+var _pet_pick_option: OptionButton = null
+## 待使用物品的背包槽位。
+var _pending_use_slot_index: int = 0
+## 法宝装备对话框。
+var _artifact_equip_dialog: AcceptDialog = null
+## 法宝装备时的宠物选择下拉框。
+var _artifact_pet_option: OptionButton = null
+## 法宝装备时的槽位选择下拉框。
+var _artifact_slot_option: OptionButton = null
+## 待装备的背包槽位（法宝）。
+var _pending_equip_bag_slot_index: int = 0
 
 
 func _ready() -> void:
@@ -50,6 +66,9 @@ func _ready() -> void:
 	_action_container.add_child(_switch_button)
 
 	_build_quantity_dialog()
+	_build_pet_pick_dialog()
+	_build_artifact_equip_dialog()
+	_build_request_loading()
 
 	if not GameState.bag_changed.is_connected(refresh_panel_data):
 		GameState.bag_changed.connect(refresh_panel_data)
@@ -186,20 +205,53 @@ func _refresh_action_buttons(items: Array) -> void:
 		if item_variant is not Dictionary:
 			continue
 		var item: Dictionary = item_variant
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(0, 28)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var slot_index: int = int(item.get("slot_index", index + 1))
 		var item_name: String = str(item.get("item_name", "物品ID %d" % int(item.get("item_id", 0))))
 		var quantity: int = int(item.get("quantity", item.get("count", 0)))
-		button.text = "%s 槽位%d %s x%d" % [
+
+		var row: HBoxContainer = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+
+		var transfer_button := Button.new()
+		transfer_button.custom_minimum_size = Vector2(0, 28)
+		transfer_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		transfer_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		transfer_button.text = "%s 槽位%d %s x%d" % [
 			"存入" if _container_type == "bag" else "取回",
 			slot_index,
 			item_name,
 			quantity,
 		]
-		button.pressed.connect(_on_transfer_button_pressed.bind(slot_index, quantity))
-		_action_container.add_child(button)
+		transfer_button.pressed.connect(_on_transfer_button_pressed.bind(slot_index, quantity))
+		row.add_child(transfer_button)
+
+		if _is_artifact_item(item):
+			var equip_button := Button.new()
+			equip_button.custom_minimum_size = Vector2(56, 28)
+			equip_button.text = "装备"
+			equip_button.pressed.connect(_on_artifact_equip_button_pressed.bind(slot_index))
+			row.add_child(equip_button)
+		elif _is_player_equipment_item(item):
+			var wear_button := Button.new()
+			wear_button.custom_minimum_size = Vector2(56, 28)
+			wear_button.text = "穿戴"
+			wear_button.pressed.connect(_on_player_equip_button_pressed.bind(slot_index))
+			row.add_child(wear_button)
+			if _can_enhance_bag_equipment(item):
+				var enhance_button := Button.new()
+				enhance_button.custom_minimum_size = Vector2(56, 28)
+				enhance_button.text = "强化"
+				var item_uid: String = str(item.get("item_uid", ""))
+				enhance_button.pressed.connect(_on_player_enhance_button_pressed.bind(item_uid))
+				row.add_child(enhance_button)
+		elif _can_use_item(item):
+			var use_button := Button.new()
+			use_button.custom_minimum_size = Vector2(56, 28)
+			use_button.text = "使用"
+			use_button.pressed.connect(_on_use_button_pressed.bind(slot_index, item))
+			row.add_child(use_button)
+
+		_action_container.add_child(row)
 
 	if items.size() > max_buttons:
 		var more_label := Label.new()
@@ -264,3 +316,327 @@ func _on_quantity_dialog_confirmed() -> void:
 		return
 	var quantity: int = clampi(int(_quantity_spin_box.value), 1, _pending_transfer_max_quantity)
 	transfer_requested.emit(_pending_transfer_container_type, _pending_transfer_slot_index, quantity)
+
+
+## 判断是否为人物装备类物品（走 2072 佩戴协议）。
+func _is_player_equipment_item(item: Dictionary) -> bool:
+	if _container_type != "bag":
+		return false
+	return str(item.get("item_type", "")) == "equipment"
+
+
+## 判断背包内人物装备是否可强化（须已有 item_uid 且未佩戴）。
+func _can_enhance_bag_equipment(item: Dictionary) -> bool:
+	if not _is_player_equipment_item(item):
+		return false
+	var item_uid: String = str(item.get("item_uid", ""))
+	if item_uid.is_empty():
+		return false
+	return int(item.get("quantity", item.get("count", 0))) == 1
+
+
+## 判断是否为法宝镶嵌类物品（走 3031 装备协议，不走 5021）。
+func _is_artifact_item(item: Dictionary) -> bool:
+	if _container_type != "bag":
+		return false
+	return str(item.get("effect_type", "")) == "pet_artifact"
+
+
+## 判断背包物品是否可在当前容器中使用。
+func _can_use_item(item: Dictionary) -> bool:
+	if _container_type != "bag":
+		return false
+	if _is_artifact_item(item):
+		return false
+	if not bool(item.get("usable", false)):
+		return false
+	var target_type: String = str(item.get("target_type", ""))
+	if target_type.is_empty():
+		return false
+	return true
+
+
+## 构建通用 loading 遮罩。
+func _build_request_loading() -> void:
+	_request_loading = RequestLoadingOverlay.new()
+	_request_loading.name = "BagUseLoadingOverlay"
+	add_child(_request_loading)
+
+
+## 构建选择目标宠物的对话框。
+func _build_pet_pick_dialog() -> void:
+	_pet_pick_dialog = AcceptDialog.new()
+	_pet_pick_dialog.title = "选择目标宠物"
+	_pet_pick_dialog.ok_button_text = "确认使用"
+	_pet_pick_dialog.confirmed.connect(_on_pet_pick_confirmed)
+	add_child(_pet_pick_dialog)
+
+	var dialog_vbox := VBoxContainer.new()
+	_pet_pick_dialog.add_child(dialog_vbox)
+
+	var hint_label := Label.new()
+	hint_label.text = "请选择要对该道具生效的宠物："
+	dialog_vbox.add_child(hint_label)
+
+	_pet_pick_option = OptionButton.new()
+	_pet_pick_option.custom_minimum_size = Vector2(220, 32)
+	dialog_vbox.add_child(_pet_pick_option)
+
+
+## 构建法宝装备对话框（选宠物 + 选法宝槽位）。
+func _build_artifact_equip_dialog() -> void:
+	_artifact_equip_dialog = AcceptDialog.new()
+	_artifact_equip_dialog.title = "装备法宝"
+	_artifact_equip_dialog.ok_button_text = "确认装备"
+	_artifact_equip_dialog.confirmed.connect(_on_artifact_equip_confirmed)
+	add_child(_artifact_equip_dialog)
+
+	var dialog_vbox := VBoxContainer.new()
+	_artifact_equip_dialog.add_child(dialog_vbox)
+
+	var pet_hint := Label.new()
+	pet_hint.text = "选择目标宠物："
+	dialog_vbox.add_child(pet_hint)
+
+	_artifact_pet_option = OptionButton.new()
+	_artifact_pet_option.custom_minimum_size = Vector2(220, 32)
+	dialog_vbox.add_child(_artifact_pet_option)
+
+	var slot_hint := Label.new()
+	slot_hint.text = "选择法宝槽位："
+	dialog_vbox.add_child(slot_hint)
+
+	_artifact_slot_option = OptionButton.new()
+	_artifact_slot_option.custom_minimum_size = Vector2(220, 32)
+	_artifact_slot_option.add_item("法宝槽 1", 0)
+	_artifact_slot_option.add_item("法宝槽 2", 1)
+	_artifact_slot_option.add_item("法宝槽 3", 2)
+	dialog_vbox.add_child(_artifact_slot_option)
+
+
+## 点击法宝装备按钮，弹出宠物与槽位选择。
+func _on_artifact_equip_button_pressed(bag_slot_index: int) -> void:
+	if _loading_request_seq != 0 or bag_slot_index <= 0:
+		return
+	if not GameState.is_ws_authenticated:
+		return
+	_pending_equip_bag_slot_index = bag_slot_index
+	_rebuild_pet_pick_options_for(_artifact_pet_option)
+	if _artifact_pet_option == null or _artifact_pet_option.item_count == 0:
+		return
+	if _artifact_equip_dialog != null:
+		_artifact_equip_dialog.popup_centered(Vector2i(300, 180))
+
+
+## 确认法宝装备后发起 3031 请求。
+func _on_artifact_equip_confirmed() -> void:
+	if _artifact_pet_option == null or _artifact_slot_option == null:
+		return
+	if _pending_equip_bag_slot_index <= 0:
+		return
+	var pet_index: int = _artifact_pet_option.get_selected()
+	var slot_index: int = _artifact_slot_option.get_selected()
+	if pet_index < 0 or slot_index < 0:
+		return
+	var target_pet_uid: int = int(_artifact_pet_option.get_item_id(pet_index))
+	var artifact_slot_index: int = int(_artifact_slot_option.get_item_id(slot_index))
+	_request_artifact_equip(target_pet_uid, artifact_slot_index, _pending_equip_bag_slot_index)
+	_pending_equip_bag_slot_index = 0
+
+
+## 点击人物装备穿戴按钮，直接向服务端发起佩戴请求。
+func _on_player_equip_button_pressed(bag_slot_index: int) -> void:
+	if _loading_request_seq != 0 or bag_slot_index <= 0:
+		return
+	if not GameState.is_ws_authenticated:
+		return
+	_request_player_equip(bag_slot_index)
+
+
+## 向服务端发送人物装备佩戴请求并等待回包。
+func _request_player_equip(bag_slot_index: int) -> void:
+	if _loading_request_seq != 0:
+		return
+	var request_seq: int = App.request_player_equip(bag_slot_index, _container_type)
+	if request_seq <= 0:
+		return
+	_loading_request_seq = request_seq
+	if _request_loading != null:
+		_request_loading.show_waiting("正在穿戴装备")
+	call_deferred("_wait_player_equip_request", request_seq)
+
+
+## 点击背包内未佩戴人物装备的强化按钮。
+func _on_player_enhance_button_pressed(item_uid: String) -> void:
+	if item_uid.is_empty() or _loading_request_seq != 0:
+		return
+	if not GameState.is_ws_authenticated:
+		return
+	_request_player_equipment_enhance(item_uid)
+
+
+## 向服务端发送人物装备强化请求并等待回包。
+func _request_player_equipment_enhance(item_uid: String) -> void:
+	if _loading_request_seq != 0:
+		return
+	var request_seq: int = App.request_player_equipment_enhance(item_uid)
+	if request_seq <= 0:
+		return
+	_loading_request_seq = request_seq
+	if _request_loading != null:
+		_request_loading.show_waiting("正在强化装备")
+	call_deferred("_wait_player_enhance_request", request_seq)
+
+
+## 等待人物装备强化回包后关闭 loading 并刷新面板。
+func _wait_player_enhance_request(expected_seq: int) -> void:
+	while expected_seq != 0 and _loading_request_seq == expected_seq:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		if request_cmd != CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ or seq != expected_seq:
+			continue
+		break
+	if _loading_request_seq != expected_seq:
+		return
+	_loading_request_seq = 0
+	if _request_loading != null:
+		_request_loading.hide_overlay()
+	refresh_panel_data()
+
+
+## 等待人物装备佩戴回包后关闭 loading 并刷新面板。
+func _wait_player_equip_request(expected_seq: int) -> void:
+	while expected_seq != 0 and _loading_request_seq == expected_seq:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		if request_cmd != CommandIds.PLAYER_EQUIP_REQ or seq != expected_seq:
+			continue
+		break
+	if _loading_request_seq != expected_seq:
+		return
+	_loading_request_seq = 0
+	if _request_loading != null:
+		_request_loading.hide_overlay()
+	refresh_panel_data()
+
+
+## 填充指定下拉框的宠物列表。
+func _rebuild_pet_pick_options_for(option_button: OptionButton) -> void:
+	if option_button == null:
+		return
+	option_button.clear()
+	for pet_variant: Variant in GameState.pets:
+		if pet_variant is not Dictionary:
+			continue
+		var pet: Dictionary = pet_variant as Dictionary
+		var pet_uid: int = int(pet.get("pet_uid", 0))
+		if pet_uid == 0:
+			continue
+		var label: String = "宠物 %d Lv.%d" % [int(pet.get("pet_id", 0)), int(pet.get("level", 1))]
+		option_button.add_item(label, pet_uid)
+
+
+## 向服务端发送法宝装备请求并等待回包。
+func _request_artifact_equip(pet_uid: int, artifact_slot_index: int, bag_slot_index: int) -> void:
+	if _loading_request_seq != 0:
+		return
+	var request_seq: int = App.request_pet_artifact_equip(pet_uid, artifact_slot_index, bag_slot_index)
+	if request_seq <= 0:
+		return
+	_loading_request_seq = request_seq
+	if _request_loading != null:
+		_request_loading.show_waiting("正在装备法宝")
+	call_deferred("_wait_artifact_equip_request", request_seq)
+
+
+## 等待法宝装备回包后关闭 loading 并刷新面板。
+func _wait_artifact_equip_request(expected_seq: int) -> void:
+	while expected_seq != 0 and _loading_request_seq == expected_seq:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		if request_cmd != CommandIds.PET_ARTIFACT_EQUIP_REQ or seq != expected_seq:
+			continue
+		break
+	if _loading_request_seq != expected_seq:
+		return
+	_loading_request_seq = 0
+	if _request_loading != null:
+		_request_loading.hide_overlay()
+	refresh_panel_data()
+
+
+## 点击使用按钮：需要选宠物时弹窗，否则直接请求。
+func _on_use_button_pressed(slot_index: int, item: Dictionary) -> void:
+	if _loading_request_seq != 0 or slot_index <= 0:
+		return
+	if not GameState.is_ws_authenticated:
+		return
+	var target_type: String = str(item.get("target_type", ""))
+	if target_type == "pet_single":
+		_pending_use_slot_index = slot_index
+		_rebuild_pet_pick_options()
+		if _pet_pick_option == null or _pet_pick_option.item_count == 0:
+			return
+		if _pet_pick_dialog != null:
+			_pet_pick_dialog.popup_centered(Vector2i(280, 140))
+		return
+	_request_use_item(slot_index, 0)
+
+
+## 填充宠物选择列表。
+func _rebuild_pet_pick_options() -> void:
+	_rebuild_pet_pick_options_for(_pet_pick_option)
+
+
+## 确认选择宠物后发起使用请求。
+func _on_pet_pick_confirmed() -> void:
+	if _pet_pick_option == null or _pending_use_slot_index <= 0:
+		return
+	var selected_index: int = _pet_pick_option.get_selected()
+	if selected_index < 0:
+		return
+	var target_pet_uid: int = int(_pet_pick_option.get_item_id(selected_index))
+	_request_use_item(_pending_use_slot_index, target_pet_uid)
+	_pending_use_slot_index = 0
+
+
+## 向服务端发送使用物品请求并等待回包。
+func _request_use_item(slot_index: int, target_pet_uid: int) -> void:
+	if _loading_request_seq != 0:
+		return
+	var request_seq: int = App.request_use_item(_container_type, slot_index, 1, target_pet_uid)
+	if request_seq <= 0:
+		return
+	_loading_request_seq = request_seq
+	if _request_loading != null:
+		_request_loading.show_waiting("正在使用物品")
+	call_deferred("_wait_use_item_request", request_seq)
+
+
+## 等待使用物品回包后关闭 loading 并刷新面板。
+func _wait_use_item_request(expected_seq: int) -> void:
+	while expected_seq != 0 and _loading_request_seq == expected_seq:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		if request_cmd != CommandIds.USE_ITEM_REQ or seq != expected_seq:
+			continue
+		break
+	if _loading_request_seq != expected_seq:
+		return
+	_loading_request_seq = 0
+	if _request_loading != null:
+		_request_loading.hide_overlay()
+	refresh_panel_data()
+

@@ -1,7 +1,8 @@
-[gd_scene load_steps=14 format=3 uid="uid://dcq0v6mibiqva"]
+[gd_scene load_steps=13 format=3 uid="uid://dcq0v6mibiqva"]
 
 [ext_resource type="Script" uid="uid://ba801osq37gfc" path="res://scripts/feature/battle/battle_unit.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://c30ik2o46quif" path="res://asset/分类/宠物/两图宠物/440.png" id="2_b86jy"]
+[ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/分类/ui/战斗箭头.png" id="3_arrow"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1"]
 radius = 4.0
@@ -28,18 +29,12 @@ animations = [{
 "speed": 5.0
 }]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_b86jy"]
-load_path = "res://.godot/imported/战斗箭头.png-3593a8b346561b105ec1be43dba1dc12.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_7x877"]
-atlas = SubResource("CompressedTexture2D_b86jy")
+atlas = ExtResource("3_arrow")
 region = Rect2(15, 0, 15, 11)
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_4estc"]
-load_path = "res://.godot/imported/战斗箭头.png-3593a8b346561b105ec1be43dba1dc12.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_i1hm4"]
-atlas = SubResource("CompressedTexture2D_4estc")
+atlas = ExtResource("3_arrow")
 region = Rect2(0, 0, 15, 11)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_b86jy"]
@@ -99,27 +94,22 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -32.0
-offset_top = 26.5
-offset_right = 32.0
-offset_bottom = 29.5
+offset_left = -17.0
+offset_top = 10.5
+offset_right = 18.0
+offset_bottom = 16.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 mouse_filter = 2
 
 [node name="HpBar" type="ProgressBar" parent="StatusRoot"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(64, 0)
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -32.0
-offset_top = -1.5
-offset_right = 32.0
-offset_bottom = 4.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_b86jy")

@@ -11,16 +11,19 @@ import (
 	"pocket-pet-remake/server/internal/module/admin"
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/monster"
 	"pocket-pet-remake/server/internal/module/npc"
+	"pocket-pet-remake/server/internal/module/npcdialogue"
 	"pocket-pet-remake/server/internal/module/pet"
+	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
-	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 )
@@ -28,23 +31,27 @@ import (
 // AdminHandlers 聚合后台管理入口使用的基础 handler。
 // 当前已经落地健康检查、管理员登录、当前用户信息，以及玩家/宠物管理 CRUD 一期闭环。
 type AdminHandlers struct {
-	Login              http.Handler
-	Me                 http.Handler
-	Health             http.Handler
-	Players            http.Handler
-	Pets               http.Handler
-	Bags               http.Handler
-	Items              http.Handler
-	Quests             http.Handler
-	NPCs               http.Handler
-	Wallets            http.Handler
-	Rewards            http.Handler
-	PetDefinitions     http.Handler
-	SkillDefinitions   http.Handler
-	MonsterDefinitions     http.Handler
-	MonsterEncounters      http.Handler
-	SceneWildEncounters    http.Handler
-	PlayerProgression    http.Handler
+	Login               http.Handler
+	Me                  http.Handler
+	Health              http.Handler
+	Players             http.Handler
+	Pets                http.Handler
+	Bags                http.Handler
+	Items               http.Handler
+	Quests              http.Handler
+	NPCs                http.Handler
+	Wallets             http.Handler
+	Rewards             http.Handler
+	PetDefinitions      http.Handler
+	SkillDefinitions    http.Handler
+	MonsterDefinitions  http.Handler
+	MonsterEncounters   http.Handler
+	SceneWildEncounters http.Handler
+	PlayerProgression   http.Handler
+	PetProgression      http.Handler
+	PetSkillSlotUnlock  http.Handler
+	PetCombatStatCaps      http.Handler
+	EquipmentDefinitions   http.Handler
 	Dashboard              http.Handler
 }
 
@@ -74,8 +81,9 @@ type AdminQuestHandler struct {
 }
 
 type AdminNPCHandler struct {
-	adminService *admin.Service
-	npcService   *npc.Service
+	adminService       *admin.Service
+	npcService         *npc.Service
+	npcDialogueService *npcdialogue.Service
 }
 
 type adminLoginRequest struct {
@@ -83,27 +91,31 @@ type adminLoginRequest struct {
 	Password string `json:"password"`
 }
 
-func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service) AdminHandlers {
+func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, equipmentService *equipment.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service, petProgressionService *petprogression.Service) AdminHandlers {
 	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
-		Login:              &AdminLoginHandler{service: adminService},
-		Me:                 http.HandlerFunc(handleAdminMe(adminService)),
-		Health:             http.HandlerFunc(handleAdminHealth),
-		Dashboard:          &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
-		Players:            &AdminPlayerHandler{adminService: adminService, playerService: playerService, petService: petService},
-		Pets:               &AdminPetHandler{adminService: adminService, petService: petService},
-		Bags:               &AdminBagHandler{adminService: adminService, bagService: bagService},
-		Items:              &AdminItemHandler{adminService: adminService, itemService: itemService},
-		Quests:             &AdminQuestHandler{adminService: adminService, questService: questService},
-		NPCs:               &AdminNPCHandler{adminService: adminService, npcService: npcService},
-		Wallets:            &AdminWalletHandler{adminService: adminService, walletService: walletService},
-		Rewards:            &AdminRewardHandler{adminService: adminService, rewardService: rewardService, bagService: bagService},
-		PetDefinitions:     &AdminPetDefinitionHandler{adminService: adminService, petService: petService},
-		SkillDefinitions:   &AdminSkillDefinitionHandler{adminService: adminService, skillService: skillService},
+		Login:               &AdminLoginHandler{service: adminService},
+		Me:                  http.HandlerFunc(handleAdminMe(adminService)),
+		Health:              http.HandlerFunc(handleAdminHealth),
+		Dashboard:           &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
+		Players:             &AdminPlayerHandler{adminService: adminService, playerService: playerService, petService: petService},
+		Pets:                &AdminPetHandler{adminService: adminService, petService: petService},
+		Bags:                &AdminBagHandler{adminService: adminService, bagService: bagService},
+		Items:               &AdminItemHandler{adminService: adminService, itemService: itemService},
+		Quests:              &AdminQuestHandler{adminService: adminService, questService: questService},
+		NPCs:                &AdminNPCHandler{adminService: adminService, npcService: npcService, npcDialogueService: npcDialogueService},
+		Wallets:             &AdminWalletHandler{adminService: adminService, walletService: walletService},
+		Rewards:             &AdminRewardHandler{adminService: adminService, rewardService: rewardService, bagService: bagService},
+		PetDefinitions:      &AdminPetDefinitionHandler{adminService: adminService, petService: petService},
+		SkillDefinitions:    &AdminSkillDefinitionHandler{adminService: adminService, skillService: skillService},
 		MonsterDefinitions:  &AdminMonsterDefinitionHandler{adminService: adminService, monsterService: monsterService},
 		MonsterEncounters:   &AdminMonsterEncounterHandler{adminService: adminService, monsterService: monsterService},
 		SceneWildEncounters: &AdminSceneWildEncounterHandler{adminService: adminService, monsterService: monsterService},
 		PlayerProgression:   &AdminPlayerProgressionHandler{adminService: adminService, progressionService: progressionService},
+		PetProgression:      &AdminPetProgressionHandler{adminService: adminService, petProgressionService: petProgressionService},
+		PetSkillSlotUnlock:  &AdminPetSkillSlotUnlockHandler{adminService: adminService, petService: petService},
+		PetCombatStatCaps:      &AdminPetCombatStatCapHandler{adminService: adminService, petService: petService},
+		EquipmentDefinitions:   &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
 	}
 }
 
@@ -350,7 +362,7 @@ func (h *AdminQuestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminNPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.adminService == nil || h.npcService == nil {
+	if h.adminService == nil || h.npcService == nil || h.npcDialogueService == nil {
 		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "admin npc service is unavailable", nil)
 		return
 	}
@@ -364,6 +376,12 @@ func (h *AdminNPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimSpace(strings.TrimPrefix(r.URL.Path, "/api/admin/npcs"))
 	switch {
+	case path == "/scenes" || path == "scenes":
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+			return
+		}
+		h.handleWorldSceneList(w, r)
 	case path == "/entities" || path == "entities":
 		switch r.Method {
 		case http.MethodGet:
@@ -411,6 +429,31 @@ func (h *AdminNPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.handleMenuEntryUpdate(w, r, entityID, entryID)
 		case http.MethodDelete:
 			h.handleMenuEntryDelete(w, r, entityID, entryID)
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+		}
+	case path == "/dialogues" || path == "dialogues":
+		switch r.Method {
+		case http.MethodGet:
+			h.handleDialogueList(w, r)
+		case http.MethodPost:
+			h.handleDialogueCreate(w, r)
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+		}
+	case strings.HasPrefix(path, "/dialogues/") || strings.HasPrefix(path, "dialogues/"):
+		entityID, entryID, err := parseNPCDialoguePath(path)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid npc dialogue path", nil)
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			h.handleDialogueDetail(w, r, entityID, entryID)
+		case http.MethodPut:
+			h.handleDialogueUpdate(w, r, entityID, entryID)
+		case http.MethodDelete:
+			h.handleDialogueDelete(w, r, entityID, entryID)
 		default:
 			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
 		}
@@ -898,6 +941,15 @@ func (h *AdminNPCHandler) handleEntityList(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", result)
 }
 
+func (h *AdminNPCHandler) handleWorldSceneList(w http.ResponseWriter, r *http.Request) {
+	items, err := h.npcService.ListAdminWorldScenes(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load admin world scene list failed", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": items})
+}
+
 func (h *AdminNPCHandler) handleEntityDetail(w http.ResponseWriter, r *http.Request, entityID uint64) {
 	detail, err := h.npcService.GetAdminEntityDetail(r.Context(), entityID)
 	if err != nil {
@@ -1053,6 +1105,95 @@ func (h *AdminNPCHandler) handleMenuEntryDelete(w http.ResponseWriter, r *http.R
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "delete admin npc menu entry failed", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"entity_id": entityID, "entry_id": entryID, "deleted": true})
+}
+
+func (h *AdminNPCHandler) handleDialogueList(w http.ResponseWriter, r *http.Request) {
+	query, err := parseAdminNPCDialogueListQuery(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	result, err := h.npcDialogueService.ListAdminDialogues(r.Context(), query)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load admin npc dialogue list failed", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", result)
+}
+
+func (h *AdminNPCHandler) handleDialogueDetail(w http.ResponseWriter, r *http.Request, entityID uint64, entryID string) {
+	detail, err := h.npcDialogueService.GetAdminDialogueDetail(r.Context(), entityID, entryID)
+	if err != nil {
+		if errors.Is(err, npcdialogue.ErrDialogueNotFound) {
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "npc dialogue not found", nil)
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load admin npc dialogue detail failed", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", detail)
+}
+
+func (h *AdminNPCHandler) handleDialogueCreate(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var request npcdialogue.AdminCreateDialogueInput
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	created, err := h.npcDialogueService.CreateAdminDialogue(r.Context(), request)
+	if err != nil {
+		switch {
+		case errors.Is(err, npcdialogue.ErrInvalidAdminDialogueInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid npc dialogue payload", nil)
+		case errors.Is(err, npcdialogue.ErrDialogueMenuEntryNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "npc menu entry not found", nil)
+		case errors.Is(err, npcdialogue.ErrAdminDialogueConflict):
+			writeJSON(w, http.StatusConflict, http.StatusConflict, "npc dialogue already exists", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "create admin npc dialogue failed", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", created)
+}
+
+func (h *AdminNPCHandler) handleDialogueUpdate(w http.ResponseWriter, r *http.Request, entityID uint64, entryID string) {
+	defer r.Body.Close()
+	var request npcdialogue.AdminUpdateDialogueInput
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	updated, err := h.npcDialogueService.UpdateAdminDialogue(r.Context(), entityID, entryID, request)
+	if err != nil {
+		switch {
+		case errors.Is(err, npcdialogue.ErrInvalidAdminDialogueInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid npc dialogue payload", nil)
+		case errors.Is(err, npcdialogue.ErrDialogueMenuEntryNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "npc menu entry not found", nil)
+		case errors.Is(err, npcdialogue.ErrDialogueNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "npc dialogue not found", nil)
+		case errors.Is(err, npcdialogue.ErrAdminDialogueConflict):
+			writeJSON(w, http.StatusConflict, http.StatusConflict, "npc dialogue already exists", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "update admin npc dialogue failed", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", updated)
+}
+
+func (h *AdminNPCHandler) handleDialogueDelete(w http.ResponseWriter, r *http.Request, entityID uint64, entryID string) {
+	if err := h.npcDialogueService.DeleteAdminDialogue(r.Context(), entityID, entryID); err != nil {
+		if errors.Is(err, npcdialogue.ErrDialogueNotFound) {
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "npc dialogue not found", nil)
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "delete admin npc dialogue failed", nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"entity_id": entityID, "entry_id": entryID, "deleted": true})
@@ -1400,6 +1541,41 @@ func parseAdminNPCMenuEntryListQuery(r *http.Request) (npc.AdminMenuEntryListQue
 	return query.Normalize(), nil
 }
 
+func parseAdminNPCDialogueListQuery(r *http.Request) (npcdialogue.AdminDialogueListQuery, error) {
+	values := r.URL.Query()
+	query := npcdialogue.AdminDialogueListQuery{EntryID: values.Get("entry_id")}
+	if raw := strings.TrimSpace(values.Get("entity_id")); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return npcdialogue.AdminDialogueListQuery{}, fmt.Errorf("invalid entity_id")
+		}
+		query.EntityID = parsed
+	}
+	if raw := strings.TrimSpace(values.Get("status")); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			return npcdialogue.AdminDialogueListQuery{}, fmt.Errorf("invalid status")
+		}
+		status := uint32(parsed)
+		query.Status = &status
+	}
+	if raw := strings.TrimSpace(values.Get("page")); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			return npcdialogue.AdminDialogueListQuery{}, fmt.Errorf("invalid page")
+		}
+		query.Page = uint32(parsed)
+	}
+	if raw := strings.TrimSpace(values.Get("page_size")); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			return npcdialogue.AdminDialogueListQuery{}, fmt.Errorf("invalid page_size")
+		}
+		query.PageSize = uint32(parsed)
+	}
+	return query.Normalize(), nil
+}
+
 func parseUintPathID(path string) (uint64, error) {
 	valueText := strings.Trim(path, "/")
 	value, err := strconv.ParseUint(valueText, 10, 64)
@@ -1431,6 +1607,23 @@ func parseNPCMenuEntryPath(path string) (uint64, string, error) {
 	entryID := strings.TrimSpace(segments[2])
 	if entryID == "" {
 		return 0, "", fmt.Errorf("invalid npc menu entry path")
+	}
+	return entityID, entryID, nil
+}
+
+func parseNPCDialoguePath(path string) (uint64, string, error) {
+	trimmed := strings.Trim(path, "/")
+	segments := strings.Split(trimmed, "/")
+	if len(segments) != 3 || segments[0] != "dialogues" {
+		return 0, "", fmt.Errorf("invalid npc dialogue path")
+	}
+	entityID, err := parseUintPathID(segments[1])
+	if err != nil {
+		return 0, "", err
+	}
+	entryID := strings.TrimSpace(segments[2])
+	if entryID == "" {
+		return 0, "", fmt.Errorf("invalid npc dialogue path")
 	}
 	return entityID, entryID, nil
 }

@@ -78,18 +78,20 @@ type AdminTargetRule struct {
 
 // AdminFormula 描述战斗结算使用的伤害/治疗公式系数。
 type AdminFormula struct {
-	AttackPct         int32  `json:"attack_pct"`
-	ManaPct           int32  `json:"mana_pct"`
-	DefensePct        int32  `json:"defense_pct"`
-	SpeedPct          int32  `json:"speed_pct"`
-	TargetCurrentHPPct int32 `json:"target_current_hp_pct"`
-	FixedDamage       int32  `json:"fixed_damage"`
-	HealPct           int32  `json:"heal_pct"`
-	FixedHeal         int32  `json:"fixed_heal"`
-	EnergyCost        uint32 `json:"energy_cost"`
-	IsSkillAttack     bool   `json:"is_skill_attack"`
-	AllowCrit         bool   `json:"allow_crit"`
-	IgnoreDefense     bool   `json:"ignore_defense"`
+	AttackPct          int32  `json:"attack_pct"`
+	ManaPct            int32  `json:"mana_pct"`
+	DefensePct         int32  `json:"defense_pct"`
+	SpeedPct           int32  `json:"speed_pct"`
+	TargetCurrentHPPct int32  `json:"target_current_hp_pct"`
+	FixedDamage        int32  `json:"fixed_damage"`
+	HealPct            int32  `json:"heal_pct"`
+	FixedHeal          int32  `json:"fixed_heal"`
+	EnergyCost         uint32 `json:"energy_cost"`
+	IsSkillAttack      bool   `json:"is_skill_attack"`
+	AllowCrit          bool   `json:"allow_crit"`
+	IgnoreDefense      bool   `json:"ignore_defense"`
+	SkillMult          uint32 `json:"skill_mult"`
+	SkillCritAdd       uint32 `json:"skill_crit_add"`
 }
 
 // AdminStatusEffects 描述技能附带的状态效果概率与数值。
@@ -100,6 +102,7 @@ type AdminStatusEffects struct {
 	BleedRounds            uint32 `json:"bleed_rounds"`
 	BleedDamage            int32  `json:"bleed_damage"`
 	SealChancePct          uint32 `json:"seal_chance_pct"`
+	SealPower              uint32 `json:"seal_power"`
 	SealRounds             uint32 `json:"seal_rounds"`
 	VulnerabilityChancePct uint32 `json:"vulnerability_chance_pct"`
 	VulnerabilityRounds    uint32 `json:"vulnerability_rounds"`
@@ -116,6 +119,7 @@ type AdminStatusEffects struct {
 	CurseDamage            int32  `json:"curse_damage"`
 	CurseManaPct           int32  `json:"curse_mana_pct"`
 	ControlChancePct       uint32 `json:"control_chance_pct"`
+	ControlPower           uint32 `json:"control_power"`
 	ControlRounds          uint32 `json:"control_rounds"`
 	ControlStatusID        uint32 `json:"control_status_id"`
 }
@@ -174,6 +178,8 @@ type AdminUpsertInput struct {
 	EnergyCost        uint32 `json:"energy_cost"`
 	AllowCrit         bool   `json:"allow_crit"`
 	IgnoreDefense     bool   `json:"ignore_defense"`
+	SkillMult         uint32 `json:"skill_mult"`
+	SkillCritAdd      uint32 `json:"skill_crit_add"`
 	AttackPct         int32  `json:"attack_pct"`
 	ManaPct           int32  `json:"mana_pct"`
 	DefensePct        int32  `json:"defense_pct"`
@@ -188,6 +194,7 @@ type AdminUpsertInput struct {
 	BleedRounds            uint32 `json:"bleed_rounds"`
 	BleedDamage            int32  `json:"bleed_damage"`
 	SealChancePct          uint32 `json:"seal_chance_pct"`
+	SealPower              uint32 `json:"seal_power"`
 	SealRounds             uint32 `json:"seal_rounds"`
 	VulnerabilityChancePct uint32 `json:"vulnerability_chance_pct"`
 	VulnerabilityRounds    uint32 `json:"vulnerability_rounds"`
@@ -204,6 +211,7 @@ type AdminUpsertInput struct {
 	CurseDamage            int32  `json:"curse_damage"`
 	CurseManaPct           int32  `json:"curse_mana_pct"`
 	ControlChancePct       uint32 `json:"control_chance_pct"`
+	ControlPower           uint32 `json:"control_power"`
 	ControlRounds          uint32 `json:"control_rounds"`
 	ControlStatusID        uint32 `json:"control_status_id"`
 }
@@ -259,6 +267,8 @@ type RuntimeDefinition struct {
 	Projectile             bool
 	IsSkillAttack          bool
 	EnergyCost             uint32
+	SkillMult              uint32
+	SkillCritAdd           uint32
 	AttackPct              int32
 	ManaPct                int32
 	DefensePct             int32
@@ -275,6 +285,7 @@ type RuntimeDefinition struct {
 	BleedRounds            uint32
 	BleedDamage            int32
 	SealChancePct          uint32
+	SealPower              uint32
 	SealRounds             uint32
 	VulnerabilityChancePct uint32
 	VulnerabilityRounds    uint32
@@ -291,6 +302,8 @@ type RuntimeDefinition struct {
 	CurseDamage            int32
 	CurseManaPct           int32
 	ControlChancePct       uint32
+	ControlPower           uint32
 	ControlRounds          uint32
 	ControlStatusID        uint32
+	IsBasicAttack          bool
 }

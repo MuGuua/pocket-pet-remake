@@ -1,8 +1,9 @@
-[gd_scene load_steps=0 format=3 uid="uid://cjp6w7fmwwuxs"]
+[gd_scene load_steps=7 format=3 uid="uid://cjp6w7fmwwuxs"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_r8swt"]
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_inner"]
-[ext_resource type="Texture2D" uid="uid://34am3ixgoon0" path="res://asset/分类/ui/战斗箭头.png" id="4_arrow"]
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/分类/武器/pixel items0.png" id="3_pixel"]
+[ext_resource type="Texture2D" uid="uid://dvuxsb7ssynb2" path="res://asset/分类/ui/战斗箭头.png" id="4_arrow"]
 [ext_resource type="Script" uid="uid://ba7clguer5xy6" path="res://scripts/ui/skill_panel.gd" id="5_script"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_outer"]
@@ -26,29 +27,20 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_r8swt"]
-load_path = "res://.godot/imported/pixel items0.png-7a72b218889f7fd84694845e176587f1.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_5so4x"]
-atlas = SubResource("CompressedTexture2D_r8swt")
+atlas = ExtResource("3_pixel")
 region = Rect2(0, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_arrow_right"]
 atlas = ExtResource("4_arrow")
 region = Rect2(15, 0, 15, 11)
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_qb1rm"]
-load_path = "res://.godot/imported/pixel items0.png-7a72b218889f7fd84694845e176587f1.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_0gj34"]
-atlas = SubResource("CompressedTexture2D_qb1rm")
+atlas = ExtResource("3_pixel")
 region = Rect2(96, 160, 32, 32)
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_5so4x"]
-load_path = "res://.godot/imported/pixel items0.png-7a72b218889f7fd84694845e176587f1.ctex"
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_tqatt"]
-atlas = SubResource("CompressedTexture2D_5so4x")
+atlas = ExtResource("3_pixel")
 region = Rect2(224, 224, 32, 32)
 
 [node name="SkillPanel" type="PanelContainer" unique_id=533125749]
