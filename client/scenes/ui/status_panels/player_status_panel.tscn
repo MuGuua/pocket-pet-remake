@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://ujdkkth4qprt"]
+[gd_scene load_steps=9 format=3 uid="uid://ujdkkth4qprt"]
 
 [ext_resource type="Texture2D" uid="uid://dnildif8vujac" path="res://asset/分类/ui/UI.png" id="1_hqwm8"]
 [ext_resource type="Theme" uid="uid://h41i8sydwpy4" path="res://scenes/ui/status_panels/player_status_panel_button.tres" id="2_mvs75"]
@@ -6,6 +6,7 @@
 [ext_resource type="Theme" uid="uid://c04j1ylcfpixo" path="res://scenes/ui/status_panels/player_status_panel_button3.tres" id="4_wnekc"]
 [ext_resource type="PackedScene" uid="uid://dmjs3qd3blec8" path="res://scenes/ui/status_panels/battle_attributes.tscn" id="5_wnekc"]
 [ext_resource type="PackedScene" uid="uid://6i381sk6jye4" path="res://scenes/ui/status_panels/status_esistance.tscn" id="6_bk641"]
+[ext_resource type="PackedScene" uid="uid://b87jrqm1hldu1" path="res://scenes/ui/status_panels/social_attribute.tscn" id="7_xw5ed"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_mvs75"]
 atlas = ExtResource("1_hqwm8")
@@ -105,4 +106,8 @@ visible = false
 layout_mode = 2
 
 [node name="StatusEsistance" parent="Control/VBoxContainer" instance=ExtResource("6_bk641")]
+layout_mode = 2
+
+[node name="MarginContainer3" parent="Control/VBoxContainer" instance=ExtResource("7_xw5ed")]
+visible = false
 layout_mode = 2

@@ -1,6 +1,4 @@
-[gd_scene load_steps=21 format=3 uid="uid://b87jrqm1hldu1"]
-
-[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_ne1um"]
+[gd_scene load_steps=5 format=3 uid="uid://b87jrqm1hldu1"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bk641"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -25,59 +23,6 @@ load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e
 atlas = SubResource("CompressedTexture2D_hgue3")
 region = Rect2(90, 0, 18, 18)
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_a5ns0"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_vcmeb"]
-atlas = SubResource("CompressedTexture2D_a5ns0")
-region = Rect2(414, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_rem2j"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_a5ns0"]
-atlas = SubResource("CompressedTexture2D_rem2j")
-region = Rect2(342, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_vcmeb"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_ps28w"]
-atlas = SubResource("CompressedTexture2D_vcmeb")
-region = Rect2(324, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_vk17s"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_2vfmw"]
-atlas = SubResource("CompressedTexture2D_vk17s")
-region = Rect2(306, 0, 18, 18)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_gps0v"]
-atlas = ExtResource("1_ne1um")
-region = Rect2(108, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ml3tc"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_0vapx"]
-atlas = SubResource("CompressedTexture2D_ml3tc")
-region = Rect2(810, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_njub3"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_w4hs2"]
-atlas = SubResource("CompressedTexture2D_njub3")
-region = Rect2(396, 0, 18, 18)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_asn2n"]
-load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_vgwvj"]
-atlas = SubResource("CompressedTexture2D_asn2n")
-region = Rect2(144, 0, 18, 18)
-
 [node name="MarginContainer" type="MarginContainer"]
 custom_minimum_size = Vector2(0, 400)
 theme_override_constants/margin_left = 14
@@ -92,303 +37,354 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_bk641")
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
 layout_mode = 2
 
-[node name="物理攻击抗性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="家族" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/家族"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/家族/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
 layout_mode = 2
-text = "物理攻击抗性："
+text = "所属家族："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "100"
+text = "无"
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+[node name="背包数量" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
-text = "逆："
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/背包数量"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rem2j")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
+layout_mode = 2
+text = "背包数量："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "0"
+text = "无"
 
-[node name="技能攻击抗性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="资金" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/资金"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/资金/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_vcmeb")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
 layout_mode = 2
-text = "技能攻击抗性："
+text = "资金："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "100"
+text = "无"
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+[node name="人品值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
-text = "逆："
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人品值"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rem2j")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
+layout_mode = 2
+text = "人品值："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "0"
+text = "无"
 
-[node name="混乱和昏睡" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="活力值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/活力值"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_a5ns0")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
 layout_mode = 2
-text = "混乱："
+text = "活力值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "700"
-vertical_alignment = 1
+text = "无"
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
-
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
-layout_mode = 2
-texture = SubResource("AtlasTexture_ps28w")
-expand_mode = 1
-stretch_mode = 4
-
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-text = "昏睡："
-
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-text = "700"
-vertical_alignment = 1
-
-[node name="麻痹和封印" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="战神积分" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神积分"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_2vfmw")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
 layout_mode = 2
-text = "麻痹："
+text = "战神积分："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "700"
-vertical_alignment = 1
+text = "无"
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
-
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
-layout_mode = 2
-texture = SubResource("AtlasTexture_gps0v")
-expand_mode = 1
-stretch_mode = 4
-
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-text = "封印："
-
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
-layout_mode = 2
-text = "700"
-vertical_alignment = 1
-
-[node name="诅咒" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="战神高级积分" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神高级积分"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_0vapx")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
 layout_mode = 2
-text = "诅咒："
+text = "战神高级积分："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "700"
-vertical_alignment = 1
+text = "无"
 
-[node name="抗人物和抗宠物" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="爱心值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/爱心值"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_w4hs2")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
 layout_mode = 2
-text = "抗人物："
+text = "爱心值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "700"
-vertical_alignment = 1
+text = "无"
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
+[node name="人缘值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人缘值"]
+custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer/PanelContainer"]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_vgwvj")
+texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
 layout_mode = 2
-text = "抗宠物："
+text = "人缘值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "700"
-vertical_alignment = 1
+text = "无"
+
+[node name="摆摊时长" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/摆摊时长"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rem2j")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+layout_mode = 2
+text = "摆摊时长："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "无"
+
+[node name="掌握配方" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(319, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/掌握配方"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rem2j")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+layout_mode = 2
+text = "掌握配方："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "无"
