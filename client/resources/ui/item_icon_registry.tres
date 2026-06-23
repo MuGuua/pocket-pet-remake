@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="ItemIconRegistry" load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/bag/item_icon_registry.gd" id="1_registry"]
+[ext_resource type="Script" path="res://scripts/ui/bag/item_icon_entry.gd" id="2_entry"]
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/分类/武器/pixel items0.png" id="3_icons"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_default"]
+atlas = ExtResource("3_icons")
+region = Rect2(192, 96, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_potion_red"]
+atlas = ExtResource("3_icons")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_potion_blue"]
+atlas = ExtResource("3_icons")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_box_common"]
+atlas = ExtResource("3_icons")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_equipment_sword"]
+atlas = ExtResource("3_icons")
+region = Rect2(192, 96, 32, 32)
+
+[sub_resource type="Resource" id="ItemIconEntry_default"]
+script = ExtResource("2_entry")
+icon_key = "default_item"
+texture = SubResource("AtlasTexture_default")
+
+[sub_resource type="Resource" id="ItemIconEntry_potion_red"]
+script = ExtResource("2_entry")
+icon_key = "potion_red_small"
+texture = SubResource("AtlasTexture_potion_red")
+
+[sub_resource type="Resource" id="ItemIconEntry_potion_blue"]
+script = ExtResource("2_entry")
+icon_key = "potion_blue_small"
+texture = SubResource("AtlasTexture_potion_blue")
+
+[sub_resource type="Resource" id="ItemIconEntry_box_common"]
+script = ExtResource("2_entry")
+icon_key = "box_common"
+texture = SubResource("AtlasTexture_box_common")
+
+[sub_resource type="Resource" id="ItemIconEntry_equipment_sword"]
+script = ExtResource("2_entry")
+icon_key = "equipment_sword_01"
+texture = SubResource("AtlasTexture_equipment_sword")
+
+[resource]
+script = ExtResource("1_registry")
+default_icon = SubResource("AtlasTexture_default")
+entries = [SubResource("ItemIconEntry_default"), SubResource("ItemIconEntry_potion_red"), SubResource("ItemIconEntry_potion_blue"), SubResource("ItemIconEntry_box_common"), SubResource("ItemIconEntry_equipment_sword")]

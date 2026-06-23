@@ -6,6 +6,7 @@ const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
 const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
+const BAG_PANEL_SCENE := preload("res://scenes/ui/bag_panel.tscn")
 const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
 const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
@@ -72,6 +73,7 @@ var _grid_spread_transition: GridSpreadTransition = null
 var _redirecting_to_login: bool = false
 var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
+var _bag_panel: CanvasLayer
 var _npc_menu: CanvasLayer
 var _npc_list_menu: CanvasLayer
 var _pvp_target_menu: CanvasLayer
@@ -668,6 +670,7 @@ func _append_log(message: String) -> void:
 func _create_runtime_ui() -> void:
 	_create_main_menu()
 	_create_player_panel()
+	_create_bag_panel()
 	_create_npc_menu()
 	_create_npc_list_menu()
 	_create_pvp_target_menu()
@@ -841,6 +844,14 @@ func _create_player_panel() -> void:
 	if _player_panel.has_signal("menu_closed"):
 		_player_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
 
+func _create_bag_panel() -> void:
+	_bag_panel = BAG_PANEL_SCENE.instantiate() as CanvasLayer
+	if _bag_panel == null:
+		return
+	add_child(_bag_panel)
+	if _bag_panel.has_signal("menu_closed"):
+		_bag_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
 func _create_npc_menu() -> void:
 	_npc_menu = NPC_MENU_SCENE.instantiate() as CanvasLayer
 	if _npc_menu == null:
@@ -953,6 +964,13 @@ func _on_main_menu_item_selected(item: Dictionary) -> void:
 	if _is_battle_modal_active():
 		return
 	var label: String = str(item.get("label", ""))
+	if label == "物品行囊":
+		if _main_menu != null and _main_menu.has_method("close_menu"):
+			_main_menu.call("close_menu")
+		if _bag_panel != null and _bag_panel.has_method("open_menu"):
+			_bag_panel.call("open_menu")
+			_set_runtime_menu_locked(true)
+		return
 	if label != "全服竞技场":
 		return
 	if _main_menu != null and _main_menu.has_method("close_menu"):
@@ -1433,7 +1451,7 @@ func _is_settlement_input_blocked() -> bool:
 
 ## 关闭所有运行时菜单；战斗中传入 keep_world_locked=true 避免误解锁世界输入。
 func _close_runtime_menus(keep_world_locked: bool = false) -> void:
-	for layer in [_main_menu, _player_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
+	for layer in [_main_menu, _player_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
 		if layer != null and layer.has_method("close_menu"):
 			layer.call("close_menu")
 	if _pvp_invite_dialog != null:
@@ -1445,6 +1463,8 @@ func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "main_menu" and _main_menu != null and _main_menu.visible:
 		return true
 	if except != "player_panel" and _player_panel != null and _player_panel.visible:
+		return true
+	if except != "bag_panel" and _bag_panel != null and _bag_panel.visible:
 		return true
 	if except != "npc_menu" and _npc_menu != null and _npc_menu.visible:
 		return true
