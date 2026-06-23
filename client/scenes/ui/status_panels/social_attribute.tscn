@@ -1,4 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://b87jrqm1hldu1"]
+[gd_scene format=3 uid="uid://b87jrqm1hldu1"]
+
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_supve"]
+[ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_rbxq3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bk641"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -16,375 +19,391 @@ corner_radius_bottom_left = 8
 bg_color = Color(0.6, 0.6, 0.6, 0.023529412)
 border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
 
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_b3332"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wmxol"]
+atlas = SubResource("CompressedTexture2D_b3332")
+region = Rect2(756, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xhr5e"]
+atlas = ExtResource("1_supve")
+region = Rect2(126, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y7vc4"]
+atlas = ExtResource("2_rbxq3")
+region = Rect2(270, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_yec2h"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yg8ym"]
+atlas = SubResource("CompressedTexture2D_yec2h")
+region = Rect2(324, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_oknbc"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2dtuw"]
+atlas = SubResource("CompressedTexture2D_oknbc")
+region = Rect2(18, 0, 18, 18)
+
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_hgue3"]
 load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_rem2j"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_84lxk"]
 atlas = SubResource("CompressedTexture2D_hgue3")
-region = Rect2(90, 0, 18, 18)
+region = Rect2(18, 0, 18, 18)
 
-[node name="MarginContainer" type="MarginContainer"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_pxlll"]
+atlas = SubResource("CompressedTexture2D_hgue3")
+region = Rect2(216, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_l51x0"]
+atlas = SubResource("CompressedTexture2D_hgue3")
+region = Rect2(108, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_u76nr"]
+atlas = SubResource("CompressedTexture2D_hgue3")
+region = Rect2(270, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_lso3x"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_m24jf"]
+atlas = SubResource("CompressedTexture2D_lso3x")
+region = Rect2(198, 0, 18, 18)
+
+[node name="MarginContainer" type="MarginContainer" unique_id=692474176]
 custom_minimum_size = Vector2(0, 400)
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 14
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=2138172400]
 custom_minimum_size = Vector2(0, 465)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bk641")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=1150654414]
 layout_mode = 2
 
-[node name="家族" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="家族" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1471503065]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/家族"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/家族" unique_id=1700039694]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/家族/HBoxContainer" unique_id=495574063]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/家族/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/家族/HBoxContainer/PanelContainer" unique_id=633647598]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_wmxol")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer" unique_id=205569179]
 layout_mode = 2
 text = "所属家族："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/家族/HBoxContainer" unique_id=1759857943]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="背包数量" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="背包数量" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=753303679]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/背包数量"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/背包数量" unique_id=1028520790]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer" unique_id=1504531502]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer/PanelContainer" unique_id=277880224]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_xhr5e")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer" unique_id=1792308969]
 layout_mode = 2
 text = "背包数量："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/背包数量/HBoxContainer" unique_id=289968156]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "无"
+text = "50"
 
-[node name="资金" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="人品值" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1237313512]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/资金"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人品值" unique_id=2123032773]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer" unique_id=619074856]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/资金/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer/PanelContainer" unique_id=1949095152]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_y7vc4")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
-layout_mode = 2
-text = "资金："
-
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/资金/HBoxContainer"]
-custom_minimum_size = Vector2(30, 0)
-layout_mode = 2
-text = "无"
-
-[node name="人品值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
-custom_minimum_size = Vector2(319, 0)
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
-
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人品值"]
-custom_minimum_size = Vector2(0, 35)
-layout_mode = 2
-
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
-
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
-layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
-expand_mode = 1
-stretch_mode = 4
-
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer" unique_id=1162285856]
 layout_mode = 2
 text = "人品值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人品值/HBoxContainer" unique_id=1037454577]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="活力值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="活力值" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=811079095]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/活力值"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/活力值" unique_id=1389523515]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer" unique_id=1465400158]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer/PanelContainer" unique_id=903070146]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_yg8ym")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer" unique_id=74478619]
 layout_mode = 2
 text = "活力值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/活力值/HBoxContainer" unique_id=1254051488]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "无"
+text = "0"
 
-[node name="战神积分" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="战神积分" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=375353737]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神积分"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神积分" unique_id=823684407]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer" unique_id=225914339]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer/PanelContainer" unique_id=470380880]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_2dtuw")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer" unique_id=851103864]
 layout_mode = 2
 text = "战神积分："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神积分/HBoxContainer" unique_id=413251350]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
-text = "无"
+text = "0"
 
-[node name="战神高级积分" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="战神高级积分" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1905862046]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神高级积分"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/战神高级积分" unique_id=1136954649]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer" unique_id=1512585144]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer/PanelContainer" unique_id=107879215]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_84lxk")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer" unique_id=1013641908]
 layout_mode = 2
 text = "战神高级积分："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/战神高级积分/HBoxContainer" unique_id=250913460]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="爱心值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="爱心值" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=333285805]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/爱心值"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/爱心值" unique_id=1869764037]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer" unique_id=1797305181]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer/PanelContainer" unique_id=702368793]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_pxlll")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer" unique_id=931444598]
 layout_mode = 2
 text = "爱心值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/爱心值/HBoxContainer" unique_id=1856437456]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="人缘值" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="人缘值" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1593925491]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人缘值"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/人缘值" unique_id=1927359966]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer" unique_id=505283094]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer/PanelContainer" unique_id=233390974]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_l51x0")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer" unique_id=1714120173]
 layout_mode = 2
 text = "人缘值："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/人缘值/HBoxContainer" unique_id=2117170642]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="摆摊时长" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="摆摊时长" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=807996250]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/摆摊时长"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/摆摊时长" unique_id=1704504766]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer" unique_id=1711456598]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer/PanelContainer" unique_id=1574605357]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_u76nr")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer" unique_id=279394375]
 layout_mode = 2
 text = "摆摊时长："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/摆摊时长/HBoxContainer" unique_id=1787467655]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"
 
-[node name="掌握配方" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="掌握配方" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=932270271]
 custom_minimum_size = Vector2(319, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/掌握配方"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/掌握配方" unique_id=1512193699]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer" unique_id=214541635]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer/PanelContainer" unique_id=1984278428]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
-texture = SubResource("AtlasTexture_rem2j")
+texture = SubResource("AtlasTexture_m24jf")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer" unique_id=1479471851]
 layout_mode = 2
 text = "掌握配方："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/掌握配方/HBoxContainer" unique_id=301839358]
 custom_minimum_size = Vector2(30, 0)
 layout_mode = 2
 text = "无"

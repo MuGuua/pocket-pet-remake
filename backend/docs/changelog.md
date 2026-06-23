@@ -1,5 +1,10 @@
 # 最新变更记录
 
+## 2026-06-23
+- 客户端左上角头像入口改为打开新版 `player_status_panel.tscn`；旧人物弹窗及其背包/组队/技能旧页资源已移除，新面板直接读取 `GameState` 服务端权威快照展示战斗属性、状态抗性和社会属性。
+- 客户端人物信息新面板三个分页按钮补齐 hover 样式，悬停态复用按下态贴图与字体颜色，保证只有普通/按下两种视觉状态。
+- 客户端人物信息新面板 `player_status_panel.tscn` 接入分页脚本：打开默认选中“战斗属性”，三个分页按钮保持单选按下/弹起状态，并同步切换战斗属性、状态抗性、社会属性内容面板。
+
 ## 2026-06-18
 - 战斗伤害公式切换为《口袋伤害计算新表》链路：分子 `(A×SkillMult)×(爆伤链)/100×(1−技能抗性差/100)−D`、分母 `1+Guard×(0.001|0.01)`、综合乘子含天赋/元素/抗类与全局 0.5；删除旧 `def/(def+K)` 与 block 叠乘逻辑；爆伤链直接进分子（不再独立掷暴击骰）；`skillDef` 新增 `skill_mult`/`skill_crit_add`（缺省 `attack_pct/100`）；`actorRuntime` 新增 `guard`/`talent_dmg_pct`/`talent_reduce_pct`/元素字段
 - 口袋伤害 DB/Admin：迁移 `062_skill_pocket_damage_fields.sql`（`skill_mult`/`skill_crit_add`）、`063_combat_pocket_damage_stats.sql`（player/player_pet/monster 的 guard/天赋/元素 + 宠物封顶）；技能页/怪物页/宠物实例页可配置上述字段

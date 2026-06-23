@@ -5,7 +5,7 @@ extends Node
 const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
 const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
-const PLAYER_PANEL_SCENE := preload("res://scenes/ui/player_panel.tscn")
+const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
 const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
 const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
@@ -979,10 +979,7 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 		_begin_npc_menu_request(entity_id)
 		return
 	if entry_type == "warehouse":
-		_append_log("打开仓库面板: %s (%d)" % [str(option.get("npc_name", "仓库 NPC")), entity_id])
-		if _player_panel != null and _player_panel.has_method("open_warehouse_menu"):
-			_player_panel.call("open_warehouse_menu", entity_id)
-			_set_runtime_menu_locked(true)
+		_append_log("仓库旧面板已移除，等待新版仓库界面接入。")
 		return
 	_begin_npc_action_request(entity_id, entry_id)
 

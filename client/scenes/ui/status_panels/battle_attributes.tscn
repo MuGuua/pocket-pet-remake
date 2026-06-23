@@ -257,7 +257,7 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
 layout_mode = 2
-text = "生命："
+text = "经验："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
 layout_mode = 2

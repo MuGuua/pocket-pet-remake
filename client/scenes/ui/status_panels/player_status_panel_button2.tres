@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=7 format=3 uid="uid://dg8tynk7cvhkk"]
+[gd_resource type="Theme" format=3 uid="uid://dg8tynk7cvhkk"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_cj0gx"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -23,5 +23,9 @@ texture = SubResource("AtlasTexture_q10wk")
 [resource]
 Button/colors/font_color = Color(0.7294118, 0.72156864, 0.6784314, 1)
 Button/colors/font_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/colors/font_hover_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/colors/font_hover_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/styles/hover = SubResource("StyleBoxTexture_pn5ik")
+Button/styles/hover_pressed = SubResource("StyleBoxTexture_pn5ik")
 Button/styles/normal = SubResource("StyleBoxTexture_v67wo")
 Button/styles/pressed = SubResource("StyleBoxTexture_pn5ik")
