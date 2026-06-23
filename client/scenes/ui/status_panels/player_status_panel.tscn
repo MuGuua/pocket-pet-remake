@@ -1,0 +1,108 @@
+[gd_scene load_steps=8 format=3 uid="uid://ujdkkth4qprt"]
+
+[ext_resource type="Texture2D" uid="uid://dnildif8vujac" path="res://asset/分类/ui/UI.png" id="1_hqwm8"]
+[ext_resource type="Theme" uid="uid://h41i8sydwpy4" path="res://scenes/ui/status_panels/player_status_panel_button.tres" id="2_mvs75"]
+[ext_resource type="Theme" uid="uid://dg8tynk7cvhkk" path="res://scenes/ui/status_panels/player_status_panel_button2.tres" id="3_e4pro"]
+[ext_resource type="Theme" uid="uid://c04j1ylcfpixo" path="res://scenes/ui/status_panels/player_status_panel_button3.tres" id="4_wnekc"]
+[ext_resource type="PackedScene" uid="uid://dmjs3qd3blec8" path="res://scenes/ui/status_panels/battle_attributes.tscn" id="5_wnekc"]
+[ext_resource type="PackedScene" uid="uid://6i381sk6jye4" path="res://scenes/ui/status_panels/status_esistance.tscn" id="6_bk641"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mvs75"]
+atlas = ExtResource("1_hqwm8")
+region = Rect2(387, 29, 176, 291)
+
+[node name="PlayerStatusPanel" type="CanvasLayer"]
+
+[node name="Control" type="Control" parent="."]
+custom_minimum_size = Vector2(352, 582)
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -240.0
+offset_right = 172.0
+offset_bottom = 342.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.6, 0.6)
+
+[node name="TextureRect" type="TextureRect" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_mvs75")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+custom_minimum_size = Vector2(352, 582)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -176.0
+offset_top = -291.0
+offset_right = 176.0
+offset_bottom = 291.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_constants/margin_top = 3
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/MarginContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
+theme_override_font_sizes/font_size = 18
+text = "人物信息"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MarginContainer2" type="MarginContainer" parent="Control/VBoxContainer"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/VBoxContainer/MarginContainer2"]
+layout_mode = 2
+theme_override_constants/separation = -2
+
+[node name="Button" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+theme = ExtResource("2_mvs75")
+toggle_mode = true
+action_mode = 0
+text = "战斗属性"
+
+[node name="Button2" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+theme = ExtResource("3_e4pro")
+toggle_mode = true
+action_mode = 0
+text = "状态抗性"
+
+[node name="Button3" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+theme = ExtResource("4_wnekc")
+toggle_mode = true
+action_mode = 0
+text = "社会属性"
+
+[node name="BattleAttributes" parent="Control/VBoxContainer" instance=ExtResource("5_wnekc")]
+visible = false
+layout_mode = 2
+
+[node name="StatusEsistance" parent="Control/VBoxContainer" instance=ExtResource("6_bk641")]
+layout_mode = 2

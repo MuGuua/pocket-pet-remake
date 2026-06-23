@@ -1,0 +1,470 @@
+[gd_scene load_steps=25 format=3 uid="uid://6i381sk6jye4"]
+
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_rem2j"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bk641"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xw5ed"]
+bg_color = Color(0.6, 0.6, 0.6, 0.023529412)
+border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_hgue3"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rem2j"]
+atlas = SubResource("CompressedTexture2D_hgue3")
+region = Rect2(90, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_a5ns0"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vcmeb"]
+atlas = SubResource("CompressedTexture2D_a5ns0")
+region = Rect2(414, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_rem2j"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a5ns0"]
+atlas = SubResource("CompressedTexture2D_rem2j")
+region = Rect2(342, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_vcmeb"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ps28w"]
+atlas = SubResource("CompressedTexture2D_vcmeb")
+region = Rect2(324, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_vk17s"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2vfmw"]
+atlas = SubResource("CompressedTexture2D_vk17s")
+region = Rect2(306, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_gps0v"]
+atlas = ExtResource("1_rem2j")
+region = Rect2(108, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ml3tc"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0vapx"]
+atlas = SubResource("CompressedTexture2D_ml3tc")
+region = Rect2(810, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_yfjvw"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r327x"]
+atlas = SubResource("CompressedTexture2D_yfjvw")
+region = Rect2(666, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ut06w"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c58vq"]
+atlas = SubResource("CompressedTexture2D_ut06w")
+region = Rect2(702, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_njub3"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w4hs2"]
+atlas = SubResource("CompressedTexture2D_njub3")
+region = Rect2(396, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_asn2n"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vgwvj"]
+atlas = SubResource("CompressedTexture2D_asn2n")
+region = Rect2(144, 0, 18, 18)
+
+[node name="MarginContainer" type="MarginContainer"]
+custom_minimum_size = Vector2(0, 400)
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 14
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(0, 465)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bk641")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+
+[node name="物理攻击抗性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rem2j")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+layout_mode = 2
+text = "物理攻击抗性："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "100"
+
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+layout_mode = 2
+text = "逆："
+
+[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "0"
+
+[node name="技能攻击抗性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_vcmeb")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+layout_mode = 2
+text = "技能攻击抗性："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "100"
+
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+layout_mode = 2
+text = "逆："
+
+[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+text = "0"
+
+[node name="混乱和昏睡" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_a5ns0")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "混乱："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
+custom_minimum_size = Vector2(155, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_ps28w")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "昏睡："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="麻痹和封印" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_2vfmw")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "麻痹："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
+custom_minimum_size = Vector2(155, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_gps0v")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "封印："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="诅咒" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_0vapx")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "诅咒："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="抗致命和抗爆伤" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_r327x")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "抗致命："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer"]
+custom_minimum_size = Vector2(155, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_c58vq")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "抗爆伤："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="抗人物和抗宠物" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_w4hs2")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "抗人物："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
+custom_minimum_size = Vector2(155, 0)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2/PanelContainer"]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_vgwvj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "抗宠物："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "700"
+vertical_alignment = 1
