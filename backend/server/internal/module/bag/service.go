@@ -37,7 +37,7 @@ func (s *Service) GetAdminItemDetail(ctx context.Context, recordID uint64) (*Adm
 
 func (s *Service) CreateAdminItem(ctx context.Context, input AdminCreateItemInput) (*AdminItemDetail, error) {
 	input = input.Normalize()
-	if input.PlayerID == 0 || input.ItemID == 0 || input.SlotIndex == 0 || input.Quantity == 0 || input.ContainerType == "" {
+	if input.PlayerID == 0 || input.ItemID == 0 || input.Quantity == 0 || input.ContainerType == "" {
 		return nil, ErrInvalidAdminBagInput
 	}
 	return s.repo.CreateForAdmin(ctx, input)

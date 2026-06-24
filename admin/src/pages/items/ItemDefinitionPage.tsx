@@ -246,6 +246,15 @@ export function ItemDefinitionPage() {
             <Col xs={24} md={8}><Form.Item label="子分类" name="item_sub_type"><Input /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="稀有度" name="rarity"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={16}>
+              <Form.Item
+                label="图标资源"
+                name="icon"
+                extra="直接填写客户端资源路径。单图可填 res://...png；图集中某一格建议先做成 AtlasTexture .tres，再填 res://...tres。"
+              >
+                <Input placeholder="res://resources/item_icons/red_potion_icon.tres" />
+              </Form.Item>
+            </Col>
             <Col xs={24} md={8}><Form.Item label="堆叠上限" name="max_stack"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="占格" name="occupy_slots"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="买价(铜)" name="buy_price_copper"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>

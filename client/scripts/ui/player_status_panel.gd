@@ -17,6 +17,10 @@ const DEFAULT_TAB_INDEX: int = 0
 @onready var status_resistance_panel: Control = $Control/VBoxContainer/StatusEsistance
 ## 社会属性内容面板。
 @onready var social_attribute_panel: Control = $Control/VBoxContainer/SocialAttribute
+## 场景中配置好的请求 loading；脚本只控制显隐，不创建或覆盖面板布局。
+@onready var request_loading: RequestLoadingOverlay = $RequestLoadingOverlay
+## 人物状态面板的关闭按钮；优先使用场景显式节点名，兼容后续 UI 调整。
+@onready var close_button: BaseButton = _resolve_close_button()
 
 ## 当前可切换的按钮集合。
 var _tab_buttons: Array[Button] = []
@@ -24,6 +28,8 @@ var _tab_buttons: Array[Button] = []
 var _tab_panels: Array[Control] = []
 ## 当前选中的分页索引。
 var _current_tab_index: int = DEFAULT_TAB_INDEX
+## 当前仍在等待回包的请求序列号集合，每次打开面板都会重新等待一组服务端数据。
+var _pending_request_seqs: Dictionary = {}
 
 
 ## 初始化按钮事件、订阅权威快照变化，并默认隐藏弹窗。
@@ -39,6 +45,9 @@ func _ready() -> void:
     battle_attribute_button.pressed.connect(_on_tab_pressed.bind(0))
     status_resistance_button.pressed.connect(_on_tab_pressed.bind(1))
     social_attribute_button.pressed.connect(_on_tab_pressed.bind(2))
+    if close_button != null:
+        _apply_close_button_static_style(close_button)
+        close_button.button_down.connect(_on_close_button_pressed)
     if not GameState.session_changed.is_connected(refresh_panel_data):
         GameState.session_changed.connect(refresh_panel_data)
     if not GameState.world_snapshot_changed.is_connected(refresh_panel_data):
@@ -47,6 +56,8 @@ func _ready() -> void:
         GameState.bag_changed.connect(refresh_panel_data)
     if not GameState.wallet_changed.is_connected(refresh_panel_data):
         GameState.wallet_changed.connect(refresh_panel_data)
+    if not App.request_finished.is_connected(_on_request_finished):
+        App.request_finished.connect(_on_request_finished)
 
     reset_to_default()
     refresh_panel_data()
@@ -62,18 +73,22 @@ func _exit_tree() -> void:
         GameState.bag_changed.disconnect(refresh_panel_data)
     if GameState.wallet_changed.is_connected(refresh_panel_data):
         GameState.wallet_changed.disconnect(refresh_panel_data)
+    if App.request_finished.is_connected(_on_request_finished):
+        App.request_finished.disconnect(_on_request_finished)
 
 
 ## 打开人物状态弹窗，并刷新为当前服务端权威快照。
 func open_menu() -> void:
     show()
     reset_to_default()
-    refresh_panel_data()
+    _request_panel_data()
 
 
 ## 关闭人物状态弹窗，并通知主场景解除菜单锁定。
 func close_menu() -> void:
     var was_visible: bool = visible
+    _pending_request_seqs.clear()
+    _hide_loading_overlay()
     hide()
     if was_visible:
         menu_closed.emit()
@@ -97,6 +112,11 @@ func _on_tab_pressed(index: int) -> void:
     _select_tab(index)
 
 
+## 响应面板右上角/标题区关闭按钮，沿用统一关闭逻辑。
+func _on_close_button_pressed() -> void:
+    close_menu()
+
+
 ## 切换按钮按下状态和内容面板显隐。
 func _select_tab(index: int) -> void:
     if index < 0 or index >= _tab_buttons.size():
@@ -114,6 +134,112 @@ func _select_tab(index: int) -> void:
         if tab_panel == null:
             continue
         tab_panel.visible = panel_index == _current_tab_index
+
+
+## 查找场景中新增的关闭按钮，避免脚本硬编码覆盖面板布局。
+func _resolve_close_button() -> BaseButton:
+    var candidate_paths: Array[NodePath] = [
+        NodePath("Control/CloseButton"),
+        NodePath("Control/VBoxContainer/MarginContainer/HBoxContainer/Button"),
+        NodePath("Control/VBoxContainer/MarginContainer/CloseButton"),
+        NodePath("Control/VBoxContainer/CloseButton"),
+        NodePath("Control/Button"),
+    ]
+    for candidate_path: NodePath in candidate_paths:
+        var candidate_node: Node = get_node_or_null(candidate_path)
+        if candidate_node is BaseButton:
+            return candidate_node as BaseButton
+
+    return _find_close_button_in_children(self)
+
+
+## 递归扫描“关闭”按钮，兼容用户在场景里新增但尚未固定命名的节点。
+func _find_close_button_in_children(root: Node) -> BaseButton:
+    if root == null:
+        return null
+
+    for child: Node in root.get_children():
+        if child is BaseButton:
+            var button: BaseButton = child as BaseButton
+            if button.name == "CloseButton":
+                return button
+            if button is Button and (button as Button).text == "关闭":
+                return button
+            if button is Button and not button.toggle_mode and (button as Button).text.is_empty():
+                return button
+
+        var nested_button: BaseButton = _find_close_button_in_children(child)
+        if nested_button != null:
+            return nested_button
+
+    return null
+
+
+## 关闭按钮只保留 normal 样式，避免 hover/pressed/focus 叠加造成视觉跳动。
+func _apply_close_button_static_style(button: BaseButton) -> void:
+    if button == null:
+        return
+
+    button.toggle_mode = false
+    button.focus_mode = Control.FOCUS_NONE
+    if button is Control:
+        var button_control: Control = button as Control
+        var normal_style: StyleBox = button_control.get_theme_stylebox("normal")
+        if normal_style != null:
+            button_control.add_theme_stylebox_override("hover", normal_style)
+            button_control.add_theme_stylebox_override("pressed", normal_style)
+            button_control.add_theme_stylebox_override("hover_pressed", normal_style)
+            button_control.add_theme_stylebox_override("focus", normal_style)
+
+
+## 面板每次打开时向服务端重新拉取一次完整人物面板数据。
+func _request_panel_data() -> void:
+    if not GameState.is_ws_authenticated:
+        refresh_panel_data()
+        return
+
+    var player_status_seq: int = App.refresh_player_status()
+    _track_request_seq(player_status_seq)
+    var bag_seq: int = App.request_bag_list()
+    _track_request_seq(bag_seq)
+    var wallet_seq: int = App.request_wallet()
+    _track_request_seq(wallet_seq)
+
+    if _pending_request_seqs.is_empty():
+        refresh_panel_data()
+        return
+    _show_loading_overlay()
+
+
+## 记录一次已发出的请求序列号，等待 App.request_finished 后再关闭 loading。
+func _track_request_seq(request_seq: int) -> void:
+    if request_seq <= 0:
+        return
+    _pending_request_seqs[request_seq] = true
+
+
+## 服务端请求完成后移除对应序列号，并在所有请求结束后刷新面板。
+func _on_request_finished(_request_cmd: int, seq: int, _ok: bool, _response_cmd: int, _payload: Dictionary) -> void:
+    if not _pending_request_seqs.has(seq):
+        return
+    _pending_request_seqs.erase(seq)
+    if not _pending_request_seqs.is_empty():
+        return
+    _hide_loading_overlay()
+    if visible:
+        refresh_panel_data()
+
+
+## 显示人物面板请求 loading，提示用户正在等待服务端权威数据。
+func _show_loading_overlay() -> void:
+    if request_loading != null:
+        request_loading.show_waiting("正在同步人物信息")
+
+
+## 隐藏人物面板请求 loading。
+func _hide_loading_overlay() -> void:
+    if request_loading != null:
+        request_loading.hide_overlay()
 
 
 ## 刷新战斗属性分页，所有数值均来自服务端玩家快照。

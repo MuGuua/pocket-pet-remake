@@ -341,6 +341,8 @@ func _connect_signals() -> void:
 	NetClient.websocket_closed.connect(_on_websocket_closed)
 	if hud_root.has_signal("avatar_pressed"):
 		hud_root.connect("avatar_pressed", Callable(self, "_on_hud_avatar_pressed"))
+	if hud_root.has_signal("bag_pressed"):
+		hud_root.connect("bag_pressed", Callable(self, "_on_hud_bag_pressed"))
 
 func _unhandled_input(event: InputEvent) -> void:
 	# 升级/奖励弹窗展示或刚关闭当帧，吞掉快捷键，避免误开其它菜单。
@@ -661,6 +663,18 @@ func _on_hud_avatar_pressed() -> void:
 		_player_panel.call("close_menu")
 	else:
 		_player_panel.call("open_menu")
+		_set_runtime_menu_locked(true)
+
+## 点击右下角背包常驻按钮时打开背包，沿用主菜单中的背包面板与服务端刷新逻辑。
+func _on_hud_bag_pressed() -> void:
+	if _is_battle_modal_active() or _has_blocking_ui_open("bag_panel"):
+		return
+	if _bag_panel == null:
+		return
+	if _bag_panel.visible:
+		_bag_panel.call("close_menu")
+	else:
+		_bag_panel.call("open_menu")
 		_set_runtime_menu_locked(true)
 
 # 向底部 HUD 日志区域追加一条文本。

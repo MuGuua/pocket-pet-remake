@@ -26,10 +26,27 @@ const NPC_PORTRAIT_FRAME_BY_KEY: Dictionary = {
 		"atlas_path": "res://asset/口袋所有形象/imgs/2005.png",
 		"region": Rect2(0.0, 0.0, 19.0, 39.0),
 	},
+	"npc_doro_normal": {
+		"atlas_path": "res://asset/分类/NPC/DORO1.png",
+		"region": Rect2(0.0, 0.0, 48.0, 48.0),
+	},
 	"default": {
 		"atlas_path": "res://asset/分类/NPC/2000.png",
 		"region": Rect2(0.0, 0.0, 18.0, 38.0),
 	},
+}
+
+## 当服务端未下发 portrait_key 时，按说话人 / 当前 NPC 名称兜底到稳定立绘 key。
+const NPC_PORTRAIT_KEY_BY_NAME: Dictionary = {
+	"市场理萌": "npc_limeng_normal",
+	"理萌": "npc_limeng_normal",
+	"罗思": "npc_luosi_normal",
+	"luosi": "npc_luosi_normal",
+	"市场罗格": "npc_luoge_normal",
+	"罗格": "npc_luoge_normal",
+	"doro": "npc_doro_normal",
+	"Doro": "npc_doro_normal",
+	"DORO": "npc_doro_normal",
 }
 
 
@@ -93,7 +110,7 @@ static func load_texture_by_key(portrait_key: String) -> Texture2D:
 ## 把后台配置的说话人占位符解析成实际展示名；@player 会替换成当前登录玩家名。
 static func resolve_speaker_display(speaker: String, npc_fallback: String) -> String:
 	var normalized_speaker: String = speaker.strip_edges()
-	if normalized_speaker == "@player" or normalized_speaker == "$player":
+	if normalized_speaker == "@player" or normalized_speaker == "$player" or normalized_speaker == "{player_name}" or normalized_speaker == "玩家":
 		var player_name: String = str(GameState.player_snapshot.get("name", "")).strip_edges()
 		if player_name.is_empty():
 			return "训练家"
@@ -103,15 +120,31 @@ static func resolve_speaker_display(speaker: String, npc_fallback: String) -> St
 	return normalized_speaker
 
 
-## 根据 portrait_key 与说话人占位符推导最终立绘 key。
-static func resolve_portrait_key(portrait_key: String, speaker: String) -> String:
+## 根据 portrait_key、说话人和当前交互 NPC 名称推导最终立绘 key。
+static func resolve_portrait_key(portrait_key: String, speaker: String, npc_name: String) -> String:
 	var normalized_key: String = portrait_key.strip_edges()
 	if not normalized_key.is_empty():
 		return normalized_key
 	var normalized_speaker: String = speaker.strip_edges()
-	if normalized_speaker == "@player" or normalized_speaker == "$player":
+	if normalized_speaker == "@player" or normalized_speaker == "$player" or normalized_speaker == "{player_name}" or normalized_speaker == "玩家":
 		return "player_default"
+	var speaker_key: String = _resolve_npc_portrait_key_by_name(normalized_speaker)
+	if not speaker_key.is_empty():
+		return speaker_key
+	var npc_key: String = _resolve_npc_portrait_key_by_name(npc_name.strip_edges())
+	if not npc_key.is_empty():
+		return npc_key
 	return "default"
+
+
+## 按说话人或当前交互 NPC 名称映射到预设立绘 key，减少后台漏配 portrait_key 时的客户端退化。
+static func _resolve_npc_portrait_key_by_name(name_text: String) -> String:
+	var normalized_name: String = name_text.strip_edges()
+	if normalized_name.is_empty():
+		return ""
+	if NPC_PORTRAIT_KEY_BY_NAME.has(normalized_name):
+		return str(NPC_PORTRAIT_KEY_BY_NAME.get(normalized_name, ""))
+	return ""
 
 
 ## 从 atlas 路径与区域构造单帧 AtlasTexture。

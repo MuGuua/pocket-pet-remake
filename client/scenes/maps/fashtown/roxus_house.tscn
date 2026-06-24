@@ -1,10 +1,11 @@
-[gd_scene load_steps=12 format=4 uid="uid://bmtsiogflkwo5"]
+[gd_scene load_steps=13 format=4 uid="uid://bmtsiogflkwo5"]
 
 [ext_resource type="Script" uid="uid://cqqey00iokxxb" path="res://scripts/feature/world/scene_levels/roxus_house_level.gd" id="1_2dwht"]
 [ext_resource type="Texture2D" uid="uid://bl2x46gll5v8e" path="res://asset/Tilemap_Platform.png" id="2_j816w"]
 [ext_resource type="Texture2D" uid="uid://13ul8gddpxfm" path="res://asset/generated_maps/maps/sgz/cunzhangjia/full_frames/sheet.png" id="2_s32ju"]
 [ext_resource type="PackedScene" uid="uid://bqtjrmev5uvay" path="res://npc/cangku/aqing.tscn" id="3_aqing"]
 [ext_resource type="PackedScene" uid="uid://dw5q5nbmn1th3" path="res://npc/cangku/luosi.tscn" id="4_877fa"]
+[ext_resource type="PackedScene" uid="uid://dl5kfre4r88fu" path="res://npc/cangku/doro.tscn" id="6_0t2ui"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_mmkxe"]
 texture = ExtResource("2_s32ju")
@@ -1976,3 +1977,6 @@ position = Vector2(58, 89)
 
 [node name="Aqing" parent="ActorRoot" instance=ExtResource("3_aqing")]
 position = Vector2(82, 92)
+
+[node name="Luosi2" parent="ActorRoot" instance=ExtResource("6_0t2ui")]
+position = Vector2(154, 218)

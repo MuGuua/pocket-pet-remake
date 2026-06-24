@@ -8,15 +8,23 @@ const MAX_LOG_LINES: int = 120
 @onready var player_status_hud: PanelContainer = %PlayerStatusHud
 ## 右上角当前场景名称标签。
 @onready var scene_name_label: Label = %SceneNameLabel
+## 右下角常驻背包按钮，移动端玩家可以直接点击打开背包。
+@onready var bag_button: Button = %BagButton
+## 底部调试日志输出控件。
 @onready var log_output: RichTextLabel = %LogOutput
 
 ## 头像被点击时向外转发，供主场景打开人物面板。
 signal avatar_pressed
+## 背包按钮被点击时向外转发，供主场景复用现有背包打开链路。
+signal bag_pressed
 
 
+## 初始化 HUD 常驻按钮与头像事件转发。
 func _ready() -> void:
 	if player_status_hud != null and player_status_hud.has_signal("avatar_pressed"):
 		player_status_hud.connect("avatar_pressed", Callable(self, "_on_player_status_avatar_pressed"))
+	if bag_button != null:
+		bag_button.pressed.connect(_on_bag_button_pressed)
 
 
 ## 刷新头像、血条、蓝条与经验条。
@@ -50,6 +58,12 @@ func _on_player_status_avatar_pressed() -> void:
 	avatar_pressed.emit()
 
 
+## 点击右下角背包按钮时，只广播意图，不在 HUD 内直接操作背包面板。
+func _on_bag_button_pressed() -> void:
+	bag_pressed.emit()
+
+
+## 追加一条运行时日志。
 func append_log(message: String) -> void:
 	if log_output == null:
 		return

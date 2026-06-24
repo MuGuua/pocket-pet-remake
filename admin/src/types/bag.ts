@@ -49,11 +49,12 @@ export interface AdminBagListFilters {
 export interface AdminCreateBagPayload {
   player_id: number;
   container_type: string;
-  slot_index: number;
   item_id: number;
-  item_uid: string;
   quantity: number;
   is_bound: boolean;
 }
 
-export interface AdminUpdateBagPayload extends AdminCreateBagPayload {}
+export interface AdminUpdateBagPayload extends AdminCreateBagPayload {
+  slot_index: number;
+  item_uid: string;
+}

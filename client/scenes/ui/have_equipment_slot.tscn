@@ -1,12 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://cy7ymccdw2m71"]
+[gd_scene load_steps=3 format=3 uid="uid://b311n7pg7d4v"]
 
-[ext_resource type="Texture2D" uid="uid://bfi02xl85inkq" path="res://asset/分类/ui/bagUI.png" id="1_jkamp"]
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_k6qwn"]
+load_path = "res://.godot/imported/bagUI2.png-0e22add6ab8c2b8f482b3b559d8a1c30.ctex"
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_sad2q"]
-atlas = ExtResource("1_jkamp")
-region = Rect2(485, 528, 16, 16)
+[sub_resource type="AtlasTexture" id="AtlasTexture_j4eb0"]
+atlas = SubResource("CompressedTexture2D_k6qwn")
+region = Rect2(506, 504, 16, 16)
 
-[node name="Slot" type="Button"]
+[node name="HaveEquipmentSlot" type="Button"]
 custom_minimum_size = Vector2(22, 22)
 anchors_preset = 8
 anchor_left = 0.5
@@ -19,6 +20,7 @@ offset_right = 11.0
 offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.5, 1.5)
 mouse_filter = 2
 
 [node name="TextureRect" type="TextureRect" parent="."]
@@ -35,7 +37,7 @@ offset_right = 11.0
 offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("AtlasTexture_sad2q")
+texture = SubResource("AtlasTexture_j4eb0")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -54,21 +56,7 @@ grow_vertical = 2
 [node name="Control" type="Control" parent="CenterContainer"]
 layout_mode = 2
 
-[node name="ItemImage" type="TextureRect" parent="CenterContainer/Control"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -9.0
-offset_top = -9.0
-offset_right = 9.0
-offset_bottom = 9.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="ItemQuantity" type="Label" parent="CenterContainer/Control"]
+[node name="EquipmentSlot" type="TextureRect" parent="CenterContainer/Control"]
 custom_minimum_size = Vector2(18, 18)
 layout_mode = 1
 anchors_preset = 8
@@ -76,15 +64,9 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -9.0
-offset_top = -9.0
-offset_right = 9.0
-offset_bottom = 9.0
+offset_left = -3.0
+offset_top = -3.0
+offset_right = 3.0
+offset_bottom = 3.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
-text = "99"
-horizontal_alignment = 2
-vertical_alignment = 2

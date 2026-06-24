@@ -971,42 +971,42 @@ func (r *PetRepository) CreateForAdmin(_ context.Context, input pet.AdminCreateP
 
 	input = input.Normalize()
 	item := pet.Pet{
-		PetUID:   r.nextID,
-		PetID:    input.PetID,
-		Level:    input.Level,
-		Exp:      input.Exp,
-		Quality:  input.Quality,
-		HP:       input.HP,
-		HPMax:    input.HPMax,
-		ATK:      input.ATK,
-		DEF:      input.DEF,
-		SPD:      input.SPD,
-		MANA:     input.MANA,
-		SkillIDs: append([]uint32{}, input.SkillIDs...),
-		Spirit:   input.Spirit,
+		PetUID:    r.nextID,
+		PetID:     input.PetID,
+		Level:     input.Level,
+		Exp:       input.Exp,
+		Quality:   input.Quality,
+		HP:        input.HP,
+		HPMax:     input.HPMax,
+		ATK:       input.ATK,
+		DEF:       input.DEF,
+		SPD:       input.SPD,
+		MANA:      input.MANA,
+		SkillIDs:  append([]uint32{}, input.SkillIDs...),
+		Spirit:    input.Spirit,
 		SpiritMax: input.SpiritMax,
-		HitPct:   input.HitPct,
-		DodgePct: input.DodgePct,
+		HitPct:    input.HitPct,
+		DodgePct:  input.DodgePct,
 	}
 	r.nextID++
 	r.pets[input.PlayerID] = append(r.pets[input.PlayerID], item)
 	return &pet.AdminPetDetail{
-		PetUID:     item.PetUID,
-		PlayerID:   input.PlayerID,
-		PlayerName: fmt.Sprintf("Player%d", input.PlayerID),
-		PetID:      item.PetID,
-		Level:      item.Level,
-		Exp:        item.Exp,
-		Quality:    item.Quality,
-		HP:         item.HP,
-		HPMax:      item.HPMax,
-		ATK:        item.ATK,
-		DEF:        item.DEF,
-		SPD:        item.SPD,
-		MANA:       item.MANA,
-		SkillIDs:   append([]uint32{}, item.SkillIDs...),
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		PetUID:              item.PetUID,
+		PlayerID:            input.PlayerID,
+		PlayerName:          fmt.Sprintf("Player%d", input.PlayerID),
+		PetID:               item.PetID,
+		Level:               item.Level,
+		Exp:                 item.Exp,
+		Quality:             item.Quality,
+		HP:                  item.HP,
+		HPMax:               item.HPMax,
+		ATK:                 item.ATK,
+		DEF:                 item.DEF,
+		SPD:                 item.SPD,
+		MANA:                item.MANA,
+		SkillIDs:            append([]uint32{}, item.SkillIDs...),
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 		AdminPetCombatStats: input.AdminPetCombatStats,
 	}, nil
 }
@@ -1039,22 +1039,22 @@ func (r *PetRepository) UpdateForAdmin(_ context.Context, petUID uint64, input p
 			r.pets[playerID] = petsForPlayer
 			item := petsForPlayer[index]
 			return &pet.AdminPetDetail{
-				PetUID:     item.PetUID,
-				PlayerID:   playerID,
-				PlayerName: fmt.Sprintf("Player%d", playerID),
-				PetID:      item.PetID,
-				Level:      item.Level,
-				Exp:        item.Exp,
-				Quality:    item.Quality,
-				HP:         item.HP,
-				HPMax:      item.HPMax,
-				ATK:        item.ATK,
-				DEF:        item.DEF,
-				SPD:        item.SPD,
-				MANA:       item.MANA,
-				SkillIDs:   append([]uint32{}, item.SkillIDs...),
-				CreatedAt:  time.Now(),
-				UpdatedAt:  time.Now(),
+				PetUID:              item.PetUID,
+				PlayerID:            playerID,
+				PlayerName:          fmt.Sprintf("Player%d", playerID),
+				PetID:               item.PetID,
+				Level:               item.Level,
+				Exp:                 item.Exp,
+				Quality:             item.Quality,
+				HP:                  item.HP,
+				HPMax:               item.HPMax,
+				ATK:                 item.ATK,
+				DEF:                 item.DEF,
+				SPD:                 item.SPD,
+				MANA:                item.MANA,
+				SkillIDs:            append([]uint32{}, item.SkillIDs...),
+				CreatedAt:           time.Now(),
+				UpdatedAt:           time.Now(),
 				AdminPetCombatStats: input.AdminPetCombatStats,
 			}, nil
 		}
@@ -1375,17 +1375,44 @@ func (r *BagRepository) FindAdminDetailByRecordID(_ context.Context, recordID ui
 func (r *BagRepository) CreateForAdmin(_ context.Context, input bag.AdminCreateItemInput) (*bag.AdminItemDetail, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for _, current := range r.items {
-		if current.PlayerID == input.PlayerID && current.ContainerType == input.ContainerType && current.SlotIndex == input.SlotIndex {
-			return nil, bag.ErrBagItemConflict
+
+	if input.Quantity == 0 {
+		return nil, bag.ErrInvalidAdminBagInput
+	}
+
+	for recordID, current := range r.items {
+		if current.PlayerID != input.PlayerID || current.ContainerType != input.ContainerType {
+			continue
 		}
+		if current.ItemID == input.ItemID && current.ItemUID == "" && current.IsBound == input.IsBound {
+			current.Quantity += input.Quantity
+			current.UpdatedAt = time.Now()
+			r.items[recordID] = current
+			copied := current
+			return &copied, nil
+		}
+	}
+
+	capacity := r.containerCapacity(input.PlayerID, input.ContainerType)
+	occupied := map[uint32]bool{}
+	for _, current := range r.items {
+		if current.PlayerID == input.PlayerID && current.ContainerType == input.ContainerType {
+			occupied[current.SlotIndex] = true
+		}
+	}
+	slotIndex := capacity
+	for slotIndex >= 1 && occupied[slotIndex] {
+		slotIndex--
+	}
+	if slotIndex == 0 {
+		return nil, bag.ErrContainerCapacityFull
 	}
 	recordID := r.nextID
 	r.nextID++
 	now := time.Now()
 	itemValue := bag.AdminItemDetail{
 		RecordID: recordID, PlayerID: input.PlayerID, PlayerName: bagPlayerName(input.PlayerID), ContainerType: input.ContainerType,
-		SlotIndex: input.SlotIndex, ItemID: input.ItemID, ItemUID: input.ItemUID, ItemName: fmt.Sprintf("Item%d", input.ItemID),
+		SlotIndex: slotIndex, ItemID: input.ItemID, ItemUID: "", ItemName: fmt.Sprintf("Item%d", input.ItemID),
 		ItemType: "consumable", Quantity: input.Quantity, IsBound: input.IsBound, CreatedAt: now, UpdatedAt: now,
 	}
 	r.items[recordID] = itemValue

@@ -28,16 +28,26 @@ import {
   fetchAdminBags,
   updateAdminBagItem,
 } from '../../services/bag';
+import { fetchAdminItems } from '../../services/item';
 import type {
   AdminBagDetail,
   AdminBagSummary,
   AdminCreateBagPayload,
   AdminUpdateBagPayload,
 } from '../../types/bag';
+import type { AdminItemSummary } from '../../types/item';
 import { CONTAINER_TYPE_LABELS, formatDisplayLabel } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
 
-interface BagFormValues extends AdminCreateBagPayload {}
+interface BagFormValues {
+  player_id: number;
+  container_type: string;
+  item_id: number;
+  quantity: number;
+  is_bound: boolean;
+  slot_index?: number;
+  item_uid?: string;
+}
 
 interface PlayerBagSectionProps {
   playerId: number;
@@ -68,6 +78,8 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
   const [editingRecord, setEditingRecord] = useState<AdminBagDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
+  const [itemOptionsLoading, setItemOptionsLoading] = useState(false);
+  const [itemOptions, setItemOptions] = useState<AdminItemSummary[]>([]);
 
   useEffect(() => {
     void loadBags();
@@ -113,6 +125,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       setEditingRecord(null);
       editorForm.resetFields();
       editorForm.setFieldsValue(defaultCreateValues(playerId));
+      await searchItemOptions('');
       return;
     }
     if (!recordID) {
@@ -123,11 +136,36 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       const result = await fetchAdminBagDetail(recordID);
       setEditingRecord(result);
       editorForm.setFieldsValue(mapDetailToForm(result));
+      await searchItemOptions(result.item_name || String(result.item_id), result.item_id);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载容器编辑数据失败');
       setEditorOpen(false);
     } finally {
       setBagDetailLoading(false);
+    }
+  }
+
+  async function searchItemOptions(keyword: string, preferredItemID?: number) {
+    setItemOptionsLoading(true);
+    try {
+      const result = await fetchAdminItems({
+        filters: { keyword: keyword.trim() || undefined, enabled: 'true' },
+        page: 1,
+        pageSize: 20,
+      });
+      const nextItems = [...result.items];
+      if (preferredItemID && !nextItems.some((item) => item.item_id === preferredItemID)) {
+        const currentItem = itemOptions.find((item) => item.item_id === preferredItemID);
+        if (currentItem) {
+          nextItems.unshift(currentItem);
+        }
+      }
+      setItemOptions(nextItems);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载物品选项失败');
+      setItemOptions([]);
+    } finally {
+      setItemOptionsLoading(false);
     }
   }
 
@@ -305,32 +343,39 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
         cancelText="取消"
       >
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+          <Form.Item name="player_id" hidden>
+            <InputNumber />
+          </Form.Item>
+          <Form.Item name="slot_index" hidden>
+            <InputNumber />
+          </Form.Item>
+          <Form.Item name="item_uid" hidden>
+            <Input />
+          </Form.Item>
           <Row gutter={16}>
-            {!editingRecord ? (
-              <Col xs={24} md={12}>
-                <Form.Item label="玩家ID" name="player_id">
-                  <InputNumber min={1} style={{ width: '100%' }} disabled />
-                </Form.Item>
-              </Col>
-            ) : null}
             <Col xs={24} md={12}>
               <Form.Item label="容器类型" name="container_type" rules={[{ required: true, message: '请选择容器类型' }]}>
                 <Select options={editableContainerTypeOptions} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="格子号" name="slot_index" rules={[{ required: true, message: '请输入格子号' }]}>
-                <InputNumber min={1} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="物品ID" name="item_id" rules={[{ required: true, message: '请输入物品ID' }]}>
-                <InputNumber min={1} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="实例ID" name="item_uid">
-                <Input allowClear placeholder="装备等实例物品再填写" />
+              <Form.Item label="物品名称" name="item_id" rules={[{ required: true, message: '请选择物品' }]}>
+                <Select
+                  showSearch
+                  filterOption={false}
+                  loading={itemOptionsLoading}
+                  placeholder="输入物品名称或物品ID搜索"
+                  onSearch={(value) => void searchItemOptions(value)}
+                  onFocus={() => {
+                    if (itemOptions.length === 0) {
+                      void searchItemOptions('');
+                    }
+                  }}
+                  options={itemOptions.map((item) => ({
+                    label: `${item.item_name} (${item.item_id})`,
+                    value: item.item_id,
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -338,7 +383,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
                 <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={24}>
+            <Col xs={24} md={12}>
               <Form.Item label="绑定状态" name="is_bound" valuePropName="checked">
                 <Switch />
               </Form.Item>
@@ -354,9 +399,7 @@ function defaultCreateValues(playerId: number): BagFormValues {
   return {
     player_id: playerId,
     container_type: 'bag',
-    slot_index: 1,
-    item_id: 1001,
-    item_uid: '',
+    item_id: 0,
     quantity: 1,
     is_bound: false,
   };
@@ -366,18 +409,32 @@ function mapDetailToForm(detail: AdminBagDetail): BagFormValues {
   return {
     player_id: detail.player_id,
     container_type: detail.container_type,
-    slot_index: detail.slot_index,
     item_id: detail.item_id,
-    item_uid: detail.item_uid,
     quantity: detail.quantity,
     is_bound: detail.is_bound,
+    slot_index: detail.slot_index,
+    item_uid: detail.item_uid,
   };
 }
 
 function mapFormToCreatePayload(values: BagFormValues): AdminCreateBagPayload {
-  return { ...values };
+  return {
+    player_id: values.player_id,
+    container_type: values.container_type,
+    item_id: values.item_id,
+    quantity: values.quantity,
+    is_bound: values.is_bound,
+  };
 }
 
 function mapFormToUpdatePayload(values: BagFormValues): AdminUpdateBagPayload {
-  return { ...values };
+  return {
+    player_id: values.player_id,
+    container_type: values.container_type,
+    item_id: values.item_id,
+    quantity: values.quantity,
+    is_bound: values.is_bound,
+    slot_index: values.slot_index ?? 0,
+    item_uid: values.item_uid ?? '',
+  };
 }

@@ -1,0 +1,11 @@
+[gd_resource type="AtlasTexture" load_steps=3 format=3 uid="uid://cnl5jtrhebume"]
+
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_h7phv"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f5t6o"]
+atlas = ExtResource("1_h7phv")
+region = Rect2(324, 0, 18, 18)
+
+[resource]
+atlas = SubResource("AtlasTexture_f5t6o")
+region = Rect2(0, 0, 32, 32)

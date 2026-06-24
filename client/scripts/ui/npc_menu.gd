@@ -44,6 +44,7 @@ func configure(title: String, options: Array[Dictionary]) -> void:
 		var option_data: Dictionary = option.duplicate(true)
 		var button: Button = Button.new()
 		button.text = _format_option_label(option_data)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		DialogueActionButtonTheme.apply(button, true)
 		var entry_state: String = str(option_data.get("state", "available"))
 		if DISABLED_STATES.has(entry_state):
@@ -53,6 +54,7 @@ func configure(title: String, options: Array[Dictionary]) -> void:
 
 	var close_button: Button = Button.new()
 	close_button.text = "关闭"
+	close_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	DialogueActionButtonTheme.apply(close_button, true)
 	close_button.pressed.connect(close_menu)
 	buttons_container.add_child(close_button)

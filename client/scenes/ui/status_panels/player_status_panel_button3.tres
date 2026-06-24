@@ -1,14 +1,6 @@
-[gd_resource type="Theme" format=3 uid="uid://c04j1ylcfpixo"]
+[gd_resource type="Theme" load_steps=8 format=3 uid="uid://c04j1ylcfpixo"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_tlnns"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_6kqc7"]
-atlas = SubResource("CompressedTexture2D_tlnns")
-region = Rect2(304, 70, 54, 17)
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_qapn4"]
-texture = SubResource("AtlasTexture_6kqc7")
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_1nevu"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -18,13 +10,32 @@ atlas = SubResource("CompressedTexture2D_1nevu")
 region = Rect2(304, 48, 54, 17)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_0eeln"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
 texture = SubResource("AtlasTexture_kiec6")
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_tlnns"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6kqc7"]
+atlas = SubResource("CompressedTexture2D_tlnns")
+region = Rect2(304, 70, 54, 17)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_qapn4"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+texture = SubResource("AtlasTexture_6kqc7")
 
 [resource]
 Button/colors/font_color = Color(0.7294118, 0.72156864, 0.6784314, 1)
-Button/colors/font_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
 Button/colors/font_hover_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
 Button/colors/font_hover_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/colors/font_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/styles/focus = SubResource("StyleBoxEmpty_focus")
 Button/styles/hover = SubResource("StyleBoxTexture_0eeln")
 Button/styles/hover_pressed = SubResource("StyleBoxTexture_0eeln")
 Button/styles/normal = SubResource("StyleBoxTexture_qapn4")

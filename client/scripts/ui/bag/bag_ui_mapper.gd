@@ -12,9 +12,9 @@ static func description(item: Dictionary) -> String:
     return str(item.get("description", item.get("desc", "暂无描述。")))
 
 
-## 读取本地图标键。
-static func icon_key(item: Dictionary) -> String:
-    return str(item.get("icon_key", item.get("icon", "default_item")))
+## 读取服务端下发的客户端图标资源路径。
+static func icon_ref(item: Dictionary) -> String:
+    return str(item.get("icon", ""))
 
 
 ## 读取服务端权威格子编号。

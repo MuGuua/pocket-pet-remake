@@ -56,8 +56,6 @@ interface MenuEntryFormValues {
   title: string;
   subtitle: string;
   state: string;
-  priority: number;
-  sort_order: number;
   action_result_type: string;
   action_notice: string;
   battle_encounter_entity_id: number;
@@ -108,11 +106,14 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [draggingEntryID, setDraggingEntryID] = useState<string | null>(null);
+  const [dragOverEntryID, setDragOverEntryID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<AdminNPCMenuEntryDetail | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminNPCMenuEntryDetail | null>(null);
+  const [insertAfterEntryID, setInsertAfterEntryID] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [encounterOptions, setEncounterOptions] = useState<{ label: string; value: number }[]>([]);
@@ -187,6 +188,19 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     }
   }
 
+  // 顺序由前端列表托管，这里把当前列表顺序重新写回 sort_order，避免依赖人工填写排序字段。
+  async function applyMenuEntryOrder(currentEntityId: number, orderedEntryIDs: string[]): Promise<void> {
+    for (let index = 0; index < orderedEntryIDs.length; index += 1) {
+      const entryID: string = orderedEntryIDs[index];
+      const detailPayload: AdminNPCMenuEntryDetail = await fetchAdminNPCMenuEntryDetail(currentEntityId, entryID);
+      await updateAdminNPCMenuEntry(
+        currentEntityId,
+        entryID,
+        mapMenuEntryDetailToOrderedPayload(detailPayload, index + 1),
+      );
+    }
+  }
+
   async function handleViewDetail(entryID: string) {
     if (!entityId) {
       return;
@@ -204,7 +218,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     }
   }
 
-  async function handleOpenEditor(mode: 'create' | 'edit', entryID?: string, initialTab: string = 'menu') {
+  async function handleOpenEditor(mode: 'create' | 'edit', entryID?: string, initialTab: string = 'menu', insertAfterID?: string) {
     if (!entityId) {
       return;
     }
@@ -212,6 +226,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     setEditorTab(initialTab);
     if (mode === 'create') {
       setEditingRecord(null);
+      setInsertAfterEntryID(insertAfterID ?? null);
       editorForm.resetFields();
       editorForm.setFieldsValue(defaultMenuEntryValues(entityId));
       return;
@@ -223,6 +238,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     try {
       const result = await fetchAdminNPCMenuEntryDetail(entityId, entryID);
       setEditingRecord(result);
+      setInsertAfterEntryID(null);
       editorForm.setFieldsValue(mapMenuEntryDetailToForm(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载 NPC 菜单编辑数据失败');
@@ -244,14 +260,19 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
           editingRecord.entry_id,
           mapMenuEntryFormToUpdatePayload(values),
         );
+        await applyMenuEntryOrder(entityId, rows.map((row: AdminNPCMenuEntrySummary) => row.entry_id));
+        setInsertAfterEntryID(null);
         message.success('NPC 菜单更新成功');
       } else {
         const createdEntryID: string = values.entry_id ?? '';
         await createAdminNPCMenuEntry(mapMenuEntryFormToCreatePayload(values));
+        await applyMenuEntryOrder(entityId, buildMenuOrderAfterCreate(rows, createdEntryID, insertAfterEntryID));
+        setInsertAfterEntryID(null);
         message.success('NPC 菜单创建成功');
         if (createdEntryID && menuEntryUsesDialogue(values)) {
           const createdDetail: AdminNPCMenuEntryDetail = await fetchAdminNPCMenuEntryDetail(entityId, createdEntryID);
           setEditingRecord(createdDetail);
+          setInsertAfterEntryID(null);
           editorForm.setFieldsValue(mapMenuEntryDetailToForm(createdDetail));
           setEditorTab('dialogue');
           await loadRows(entityId, page, pageSize);
@@ -283,6 +304,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
         setDetailOpen(false);
         setDetail(null);
       }
+      await applyMenuEntryOrder(entityId, rows.filter((row: AdminNPCMenuEntrySummary) => row.entry_id !== entryID).map((row: AdminNPCMenuEntrySummary) => row.entry_id));
       await loadRows(entityId, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '删除 NPC 菜单失败');
@@ -291,9 +313,69 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
     }
   }
 
+  // 菜单顺序直接由当前列表控制；上移/下移后立刻整体回写 sort_order。
+  async function handleMoveMenuEntry(entryID: string, direction: 'up' | 'down'): Promise<void> {
+    if (!entityId) {
+      return;
+    }
+    const currentOrder: string[] = rows.map((row: AdminNPCMenuEntrySummary) => row.entry_id);
+    const currentIndex: number = currentOrder.findIndex((value: string) => value === entryID);
+    if (currentIndex < 0) {
+      return;
+    }
+    const targetIndex: number = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) {
+      return;
+    }
+    const nextOrder: string[] = [...currentOrder];
+    [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
+    setLoading(true);
+    try {
+      await applyMenuEntryOrder(entityId, nextOrder);
+      await loadRows(entityId, page, pageSize);
+      message.success(direction === 'up' ? '菜单项已上移' : '菜单项已下移');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '调整菜单顺序失败');
+      setLoading(false);
+    }
+  }
+
+  // 表格行拖拽后，直接以拖拽结果作为新的菜单顺序并整体回写。
+  async function handleDropMenuEntry(targetEntryID: string): Promise<void> {
+    if (!entityId || !draggingEntryID || draggingEntryID === targetEntryID) {
+      setDraggingEntryID(null);
+      setDragOverEntryID(null);
+      return;
+    }
+    const currentOrder: string[] = rows.map((row: AdminNPCMenuEntrySummary) => row.entry_id);
+    const draggingIndex: number = currentOrder.findIndex((entryID: string) => entryID === draggingEntryID);
+    const targetIndex: number = currentOrder.findIndex((entryID: string) => entryID === targetEntryID);
+    if (draggingIndex < 0 || targetIndex < 0) {
+      setDraggingEntryID(null);
+      setDragOverEntryID(null);
+      return;
+    }
+    const nextOrder: string[] = [...currentOrder];
+    const [draggingValue] = nextOrder.splice(draggingIndex, 1);
+    nextOrder.splice(targetIndex, 0, draggingValue);
+    setLoading(true);
+    try {
+      await applyMenuEntryOrder(entityId, nextOrder);
+      await loadRows(entityId, page, pageSize);
+      message.success('菜单顺序已更新');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '拖拽调整菜单顺序失败');
+      setLoading(false);
+    } finally {
+      setDraggingEntryID(null);
+      setDragOverEntryID(null);
+    }
+  }
+
   function handleCloseEditor() {
     setEditorOpen(false);
     setEditingRecord(null);
+    setInsertAfterEntryID(null);
     setEditorTab('menu');
     setDialogueEditing(false);
     editorForm.resetFields();
@@ -312,7 +394,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
       width: 100,
       render: (value: string) => <Tag color={value === '启用' ? 'green' : 'default'}>{value}</Tag>,
     },
-    { title: '优先级/排序', key: 'sort', width: 120, render: (_value, record) => `${record.priority}/${record.sort_order}` },
+    { title: '当前顺序', key: 'sort', width: 100, render: (_value, _record, index) => index + 1 },
     { title: '动作类型', dataIndex: 'action_result_type', key: 'action_result_type', width: 120, render: (value: string) => formatDisplayLabel(NPC_ACTION_RESULT_LABELS, value) },
     {
       title: '固定战',
@@ -326,12 +408,15 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
       key: 'actions',
       width: 100,
       fixed: 'right',
-      render: (_value, record) => (
+      render: (_value, record, index) => (
         <TableActionDropdown
           loading={deletingKey === `${record.entity_id}:${record.entry_id}`}
           actions={[
             { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.entry_id) },
             { key: 'edit', label: '菜单与剧情', onClick: () => void handleOpenEditor('edit', record.entry_id) },
+            { key: 'move_up', label: '上移', disabled: index === 0, onClick: () => void handleMoveMenuEntry(record.entry_id, 'up') },
+            { key: 'move_down', label: '下移', disabled: index === rows.length - 1, onClick: () => void handleMoveMenuEntry(record.entry_id, 'down') },
+            { key: 'insert_below', label: '下方插入', onClick: () => void handleOpenEditor('create', undefined, 'menu', record.entry_id) },
             ...((record.entry_type === 'dialog' || record.action_result_type === 'dialog' || record.action_result_type === 'dialogue') ? [{
               key: 'dialogue',
               label: '剧情配置',
@@ -348,7 +433,7 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
         />
       ),
     },
-  ], [deletingKey, entityId]);
+  ], [deletingKey, entityId, rows, page, pageSize]);
 
   return (
     <>
@@ -366,6 +451,35 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
               dataSource={rows}
               rowKey={(record) => `${record.entity_id}:${record.entry_id}`}
               loading={loading}
+              onRow={(record) => ({
+                draggable: true,
+                onDragStart: (event) => {
+                  event.dataTransfer.effectAllowed = 'move';
+                  setDraggingEntryID(record.entry_id);
+                },
+                onDragOver: (event) => {
+                  event.preventDefault();
+                  if (draggingEntryID !== record.entry_id) {
+                    setDragOverEntryID(record.entry_id);
+                  }
+                },
+                onDragLeave: () => {
+                  if (dragOverEntryID === record.entry_id) {
+                    setDragOverEntryID(null);
+                  }
+                },
+                onDrop: (event) => {
+                  event.preventDefault();
+                  void handleDropMenuEntry(record.entry_id);
+                },
+                onDragEnd: () => {
+                  setDraggingEntryID(null);
+                  setDragOverEntryID(null);
+                },
+                style: dragOverEntryID === record.entry_id
+                  ? { background: '#fff7e6', outline: '1px dashed #fa8c16', cursor: 'move' }
+                  : { cursor: 'move' },
+              })}
               locale={{ emptyText: <Empty description="当前 NPC 还没有菜单配置" /> }}
               scroll={{ x: 1100 }}
               pagination={{
@@ -523,10 +637,9 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
                       </Form.Item>
                     </Col>
                     <Col xs={12} md={6}>
-                      <Form.Item label="优先级" name="priority"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-                    </Col>
-                    <Col xs={12} md={6}>
-                      <Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+                      <Form.Item label="当前顺序">
+                        <Input value={describeMenuInsertPosition(rows, editingRecord?.entry_id ?? null, insertAfterEntryID)} disabled />
+                      </Form.Item>
                     </Col>
                     <Col xs={12} md={6}>
                       <Form.Item label="动作类型" name="action_result_type">
@@ -642,8 +755,6 @@ function defaultMenuEntryValues(entityId: number): MenuEntryFormValues {
     title: '后台菜单项',
     subtitle: '用于测试新入口',
     state: 'available',
-    priority: 100,
-    sort_order: 10,
     action_result_type: 'dialogue',
     action_notice: '这是一条后台新增提示。',
     battle_encounter_entity_id: entityId,
@@ -661,8 +772,6 @@ function mapMenuEntryDetailToForm(detail: AdminNPCMenuEntryDetail): MenuEntryFor
     title: detail.title,
     subtitle: detail.subtitle,
     state: detail.state,
-    priority: detail.priority,
-    sort_order: detail.sort_order,
     action_result_type: detail.action_result_type,
     action_notice: detail.action_notice,
     battle_encounter_entity_id: detail.battle_encounter_entity_id ?? detail.entity_id,
@@ -698,8 +807,8 @@ function mapMenuEntryFormToCreatePayload(values: MenuEntryFormValues): AdminCrea
     title: normalizedValues.title,
     subtitle: normalizedValues.subtitle,
     state: normalizedValues.state,
-    priority: normalizedValues.priority,
-    sort_order: normalizedValues.sort_order,
+    priority: 0,
+    sort_order: 0,
     action_result_type: normalizedValues.action_result_type,
     action_notice: normalizedValues.action_notice,
     battle_encounter_entity_id: normalizedValues.battle_encounter_entity_id,
@@ -712,4 +821,53 @@ function mapMenuEntryFormToCreatePayload(values: MenuEntryFormValues): AdminCrea
 function mapMenuEntryFormToUpdatePayload(values: MenuEntryFormValues): AdminUpdateNPCMenuEntryPayload {
   const { entry_id: _entryID, ...rest } = mapMenuEntryFormToCreatePayload(values);
   return rest;
+}
+
+// 菜单顺序完全由前端列表顺序决定；创建后按插入位置重排全部菜单项。
+function buildMenuOrderAfterCreate(rows: AdminNPCMenuEntrySummary[], createdEntryID: string, insertAfterEntryID: string | null): string[] {
+  const currentOrder: string[] = rows.map((row: AdminNPCMenuEntrySummary) => row.entry_id);
+  if (createdEntryID.trim() === '') {
+    return currentOrder;
+  }
+  if (insertAfterEntryID) {
+    const anchorIndex: number = currentOrder.findIndex((entryID: string) => entryID === insertAfterEntryID);
+    if (anchorIndex >= 0) {
+      currentOrder.splice(anchorIndex + 1, 0, createdEntryID);
+      return currentOrder;
+    }
+  }
+  currentOrder.push(createdEntryID);
+  return currentOrder;
+}
+
+function describeMenuInsertPosition(rows: AdminNPCMenuEntrySummary[], editingEntryID: string | null, insertAfterEntryID: string | null): string {
+  if (editingEntryID) {
+    const currentIndex: number = rows.findIndex((row: AdminNPCMenuEntrySummary) => row.entry_id === editingEntryID);
+    return currentIndex >= 0 ? `第 ${currentIndex + 1} 个` : '按当前列表顺序';
+  }
+  if (insertAfterEntryID) {
+    const anchorIndex: number = rows.findIndex((row: AdminNPCMenuEntrySummary) => row.entry_id === insertAfterEntryID);
+    if (anchorIndex >= 0) {
+      return `插入到第 ${anchorIndex + 2} 个`;
+    }
+  }
+  return `追加到第 ${rows.length + 1} 个`;
+}
+
+function mapMenuEntryDetailToOrderedPayload(detail: AdminNPCMenuEntryDetail, sortOrder: number): AdminUpdateNPCMenuEntryPayload {
+  return {
+    entity_id: detail.entity_id,
+    entry_type: detail.entry_type,
+    title: detail.title,
+    subtitle: detail.subtitle,
+    state: detail.state,
+    priority: 0,
+    sort_order: sortOrder,
+    action_result_type: detail.action_result_type,
+    action_notice: detail.action_notice,
+    battle_encounter_entity_id: detail.battle_encounter_entity_id,
+    linked_quest_id: detail.linked_quest_id,
+    conditions: detail.conditions ?? {},
+    status: detail.status,
+  };
 }

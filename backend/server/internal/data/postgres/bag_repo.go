@@ -69,6 +69,31 @@ WHERE pci.id = $1
 LIMIT 1
 `
 
+const adminBagDetailByPlayerSlotQuery = `
+SELECT
+  pci.id,
+  pci.player_id,
+  p.name,
+  pci.container_type,
+  pci.slot_index,
+  pci.item_id,
+  COALESCE(pci.item_uid, ''),
+  COALESCE(idf.item_name, ''),
+  COALESCE(idf.item_type, ''),
+  pci.quantity,
+  pci.is_bound,
+  pci.expire_at,
+  pci.created_at,
+  pci.updated_at
+FROM player_container_item pci
+JOIN player p ON p.id = pci.player_id
+LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
+WHERE pci.player_id = $1
+  AND pci.container_type = $2
+  AND pci.slot_index = $3
+LIMIT 1
+`
+
 const adminBagPlayerExistsQuery = `
 SELECT COUNT(1)
 FROM player
@@ -421,7 +446,22 @@ func (r *BagRepository) FindAdminDetailByRecordID(ctx context.Context, recordID 
 	return itemValue, nil
 }
 
+func (r *BagRepository) findAdminDetailByPlayerContainerSlot(ctx context.Context, playerID uint64, containerType string, slotIndex uint32) (*bag.AdminItemDetail, error) {
+	itemValue, err := scanAdminBagDetailRow(r.db.QueryRowContext(ctx, adminBagDetailByPlayerSlotQuery, playerID, containerType, slotIndex))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return itemValue, nil
+}
+
 func (r *BagRepository) CreateForAdmin(ctx context.Context, input bag.AdminCreateItemInput) (*bag.AdminItemDetail, error) {
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
 	if ok, err := r.playerExists(ctx, input.PlayerID); err != nil {
 		return nil, err
 	} else if !ok {
@@ -432,22 +472,42 @@ func (r *BagRepository) CreateForAdmin(ctx context.Context, input bag.AdminCreat
 	} else if !ok {
 		return nil, bag.ErrBagItemNotFound
 	}
-	var recordID int64
-	if err := r.db.QueryRowContext(ctx, insertAdminBagItemQuery,
-		input.PlayerID,
-		input.ContainerType,
-		input.SlotIndex,
-		input.ItemID,
-		input.ItemUID,
-		input.Quantity,
-		input.IsBound,
-	).Scan(&recordID); err != nil {
-		if isPlayerContainerItemUniqueViolation(err) {
-			return nil, bag.ErrBagItemConflict
-		}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
 		return nil, err
 	}
-	return r.FindAdminDetailByRecordID(ctx, uint64(recordID))
+	defer rollbackTx(tx)
+
+	capacity, err := loadTransferContainerCapacity(ctx, tx, input.PlayerID, input.ContainerType)
+	if err != nil {
+		return nil, err
+	}
+	if capacity == 0 {
+		return nil, bag.ErrContainerNotFound
+	}
+	itemDef, err := loadGrantItemDefinition(ctx, tx, input.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	if itemDef == nil {
+		return nil, bag.ErrBagItemNotFound
+	}
+	targetRows, err := loadTransferTargetRows(ctx, tx, input.PlayerID, input.ContainerType)
+	if err != nil {
+		return nil, err
+	}
+
+	recordID, grantedSlotIndex, err := grantAdminItemToContainer(ctx, tx, input, itemDef, targetRows, capacity)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	if recordID > 0 {
+		return r.FindAdminDetailByRecordID(ctx, uint64(recordID))
+	}
+	return r.findAdminDetailByPlayerContainerSlot(ctx, input.PlayerID, input.ContainerType, grantedSlotIndex)
 }
 
 func (r *BagRepository) UpdateForAdmin(ctx context.Context, recordID uint64, input bag.AdminUpdateItemInput) (*bag.AdminItemDetail, error) {
@@ -1618,6 +1678,77 @@ func loadGrantItemDefinition(ctx context.Context, tx *sql.Tx, itemID uint64) (*g
 	return &value, nil
 }
 
+func grantAdminItemToContainer(
+	ctx context.Context,
+	tx *sql.Tx,
+	input bag.AdminCreateItemInput,
+	itemDef *grantItemDefinitionRow,
+	targetRows []transferTargetRow,
+	capacity uint32,
+) (int64, uint32, error) {
+	recordID := int64(0)
+	grantedSlotIndex := uint32(0)
+	remainingQuantity := input.Quantity
+
+	if itemDef.MaxStack > 1 {
+		for _, targetRow := range targetRows {
+			if targetRow.ItemID != input.ItemID || targetRow.ItemUID != "" || targetRow.IsBound != input.IsBound {
+				continue
+			}
+			if targetRow.Quantity >= itemDef.MaxStack {
+				continue
+			}
+			available := itemDef.MaxStack - targetRow.Quantity
+			moveQuantity := minUint64(available, remainingQuantity)
+			if err := updateTransferItemQuantity(ctx, tx, targetRow.RecordID, targetRow.Quantity+moveQuantity); err != nil {
+				return 0, 0, err
+			}
+			grantedSlotIndex = targetRow.SlotIndex
+			remainingQuantity -= moveQuantity
+			if remainingQuantity == 0 {
+				return 0, grantedSlotIndex, nil
+			}
+		}
+	}
+
+	for remainingQuantity > 0 {
+		slotIndex := lastEmptySlotIndex(targetRows, capacity)
+		if slotIndex == 0 {
+			return 0, 0, bag.ErrContainerCapacityFull
+		}
+		stackQuantity := remainingQuantity
+		if itemDef.MaxStack > 1 {
+			stackQuantity = minUint64(itemDef.MaxStack, remainingQuantity)
+		}
+		if err := tx.QueryRowContext(ctx, insertAdminBagItemQuery,
+			input.PlayerID,
+			input.ContainerType,
+			slotIndex,
+			input.ItemID,
+			"",
+			stackQuantity,
+			input.IsBound,
+		).Scan(&recordID); err != nil {
+			if isPlayerContainerItemUniqueViolation(err) {
+				return 0, 0, bag.ErrContainerCapacityFull
+			}
+			return 0, 0, err
+		}
+		targetRows = append(targetRows, transferTargetRow{
+			RecordID:  recordID,
+			SlotIndex: slotIndex,
+			ItemID:    input.ItemID,
+			ItemUID:   "",
+			Quantity:  stackQuantity,
+			IsBound:   input.IsBound,
+		})
+		grantedSlotIndex = slotIndex
+		remainingQuantity -= stackQuantity
+	}
+
+	return recordID, grantedSlotIndex, nil
+}
+
 func insertItemChangeLog(ctx context.Context, tx *sql.Tx, entry itemChangeLogEntry) error {
 	_, err := tx.ExecContext(ctx, insertItemChangeLogQuery,
 		entry.PlayerID,
@@ -1970,6 +2101,22 @@ func firstEmptySlotIndex(rows []transferTargetRow, capacity uint32) uint32 {
 	for slotIndex := uint32(1); slotIndex <= capacity; slotIndex++ {
 		if _, exists := occupied[slotIndex]; !exists {
 			return slotIndex
+		}
+	}
+	return 0
+}
+
+func lastEmptySlotIndex(rows []transferTargetRow, capacity uint32) uint32 {
+	occupied := make(map[uint32]struct{}, len(rows))
+	for _, row := range rows {
+		occupied[row.SlotIndex] = struct{}{}
+	}
+	for slotIndex := capacity; slotIndex >= 1; slotIndex-- {
+		if _, exists := occupied[slotIndex]; !exists {
+			return slotIndex
+		}
+		if slotIndex == 1 {
+			break
 		}
 	}
 	return 0

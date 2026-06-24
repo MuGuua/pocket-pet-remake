@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://ujdkkth4qprt"]
+[gd_scene load_steps=18 format=3 uid="uid://ujdkkth4qprt"]
 
 [ext_resource type="Texture2D" uid="uid://dnildif8vujac" path="res://asset/分类/ui/UI.png" id="1_hqwm8"]
 [ext_resource type="Theme" uid="uid://h41i8sydwpy4" path="res://scenes/ui/status_panels/player_status_panel_button.tres" id="2_mvs75"]
@@ -8,15 +8,34 @@
 [ext_resource type="PackedScene" uid="uid://6i381sk6jye4" path="res://scenes/ui/status_panels/status_esistance.tscn" id="6_bk641"]
 [ext_resource type="PackedScene" uid="uid://b87jrqm1hldu1" path="res://scenes/ui/status_panels/social_attribute.tscn" id="7_xw5ed"]
 [ext_resource type="Script" uid="uid://d217uiaigs8mu" path="res://scripts/ui/player_status_panel.gd" id="8_player"]
+[ext_resource type="Script" uid="uid://bdoy4j1shi0xc" path="res://scripts/ui/request_loading_overlay.gd" id="9_loading"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_mvs75"]
 atlas = ExtResource("1_hqwm8")
 region = Rect2(387, 29, 176, 291)
 
-[node name="PlayerStatusPanel" type="CanvasLayer" unique_id=1850804156]
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_3sb3g"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fi3ju"]
+atlas = SubResource("CompressedTexture2D_3sb3g")
+region = Rect2(272, 208, 17, 16)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_p46st"]
+texture = SubResource("AtlasTexture_fi3ju")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wha43"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ulxww"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_6bfjp"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_knyfb"]
+
+[node name="PlayerStatusPanel" type="CanvasLayer"]
 script = ExtResource("8_player")
 
-[node name="Control" type="Control" parent="." unique_id=2007347309]
+[node name="Control" type="Control" parent="."]
 custom_minimum_size = Vector2(352, 582)
 layout_mode = 3
 anchors_preset = 8
@@ -24,15 +43,15 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -180.0
+offset_left = -145.0
 offset_top = -240.0
-offset_right = 172.0
+offset_right = 207.0
 offset_bottom = 342.0
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(0.6, 0.6)
+scale = Vector2(0.8, 0.8)
 
-[node name="TextureRect" type="TextureRect" parent="Control" unique_id=705354625]
+[node name="TextureRect" type="TextureRect" parent="Control"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -41,7 +60,7 @@ grow_horizontal = 2
 grow_vertical = 2
 texture = SubResource("AtlasTexture_mvs75")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Control" unique_id=1510387558]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
 custom_minimum_size = Vector2(352, 582)
 layout_mode = 1
 anchors_preset = 8
@@ -56,12 +75,19 @@ offset_bottom = 291.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer" unique_id=1281411084]
+[node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer"]
 custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 theme_override_constants/margin_top = 3
 
-[node name="Label" type="Label" parent="Control/VBoxContainer/MarginContainer" unique_id=1207364406]
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/VBoxContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="Control/VBoxContainer/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(135, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/MarginContainer/HBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
 theme_override_font_sizes/font_size = 18
@@ -69,18 +95,36 @@ text = "人物信息"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MarginContainer2" type="MarginContainer" parent="Control/VBoxContainer" unique_id=1016613142]
+[node name="Control2" type="Control" parent="Control/VBoxContainer/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Button" type="Button" parent="Control/VBoxContainer/MarginContainer/HBoxContainer/MarginContainer"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_p46st")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_wha43")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_ulxww")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_6bfjp")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_knyfb")
+
+[node name="MarginContainer2" type="MarginContainer" parent="Control/VBoxContainer"]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
 
-[node name="HBoxContainer" type="HBoxContainer" parent="Control/VBoxContainer/MarginContainer2" unique_id=1517497150]
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/VBoxContainer/MarginContainer2"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 4
 
-[node name="Button" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=423133306]
+[node name="Button" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme = ExtResource("2_mvs75")
@@ -88,7 +132,7 @@ toggle_mode = true
 action_mode = 0
 text = "战斗属性"
 
-[node name="Button2" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=518043107]
+[node name="Button2" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme = ExtResource("3_e4pro")
@@ -96,7 +140,7 @@ toggle_mode = true
 action_mode = 0
 text = "状态抗性"
 
-[node name="Button3" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1342533036]
+[node name="Button3" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme = ExtResource("4_wnekc")
@@ -104,13 +148,16 @@ toggle_mode = true
 action_mode = 0
 text = "社会属性"
 
-[node name="BattleAttributes" parent="Control/VBoxContainer" unique_id=1527601739 instance=ExtResource("5_wnekc")]
+[node name="BattleAttributes" parent="Control/VBoxContainer" instance=ExtResource("5_wnekc")]
 layout_mode = 2
 
-[node name="StatusEsistance" parent="Control/VBoxContainer" unique_id=1048207890 instance=ExtResource("6_bk641")]
+[node name="StatusEsistance" parent="Control/VBoxContainer" instance=ExtResource("6_bk641")]
 visible = false
 layout_mode = 2
 
-[node name="SocialAttribute" parent="Control/VBoxContainer" unique_id=328219263 instance=ExtResource("7_xw5ed")]
+[node name="SocialAttribute" parent="Control/VBoxContainer" instance=ExtResource("7_xw5ed")]
 visible = false
 layout_mode = 2
+
+[node name="RequestLoadingOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("9_loading")

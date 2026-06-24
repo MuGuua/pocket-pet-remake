@@ -109,7 +109,6 @@ export function NPCDialogueConfigDrawer({
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<AdminNPCDialogueDetail | null>(null);
   const [detailMissing, setDetailMissing] = useState(false);
-  const [editorOpen, setEditorOpen] = useState(false);
   const [embeddedEditing, setEmbeddedEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -125,10 +124,7 @@ export function NPCDialogueConfigDrawer({
   }, [open, entityId, entryId, embedded]);
 
   useEffect(() => {
-    if (!embedded || !entityId || !entryId) {
-      return;
-    }
-    if (loading) {
+    if (!entityId || !entryId || loading) {
       return;
     }
     if (detail) {
@@ -138,7 +134,7 @@ export function NPCDialogueConfigDrawer({
     if (detailMissing) {
       editorForm.setFieldsValue(defaultDialogueFormValues(entityId, entryId, entryTitle, getNPCSpeakerName(npcName, entityId)));
     }
-  }, [embedded, entityId, entryId, entryTitle, npcName, detail, detailMissing, loading, editorForm]);
+  }, [entityId, entryId, entryTitle, npcName, detail, detailMissing, loading, editorForm]);
 
   useEffect(() => {
     if (!embedded || !onEmbeddedEditingChange) {
@@ -148,10 +144,16 @@ export function NPCDialogueConfigDrawer({
   }, [embedded, embeddedEditing, onEmbeddedEditingChange]);
 
   useEffect(() => {
+    if (!embedded || !entityId || !entryId || loading) {
+      return;
+    }
+    setEmbeddedEditing(true);
+  }, [embedded, entityId, entryId, loading]);
+
+  useEffect(() => {
     if (embedded || open) {
       return;
     }
-    setEditorOpen(false);
     editorForm.resetFields();
   }, [open, editorForm, embedded]);
 
@@ -184,20 +186,9 @@ export function NPCDialogueConfigDrawer({
     if (!entityId) {
       return;
     }
-    setEditorOpen(true);
     setEmbeddedEditing(true);
     editorForm.resetFields();
     editorForm.setFieldsValue(defaultDialogueFormValues(entityId, entryId, entryTitle, getNPCSpeakerName(npcName, entityId)));
-  }
-
-  function handleOpenEdit(): void {
-    if (!detail) {
-      return;
-    }
-    setEditorOpen(true);
-    setEmbeddedEditing(true);
-    editorForm.resetFields();
-    editorForm.setFieldsValue(mapDialogueDetailToForm(detail, getNPCSpeakerName(npcName, entityId)));
   }
 
   async function handleSubmit(values: DialogueEditorFormValues): Promise<void> {
@@ -216,9 +207,6 @@ export function NPCDialogueConfigDrawer({
       } else {
         await createAdminNPCDialogue(mapDialogueFormToCreatePayload(normalizedValues));
         message.success('NPC 剧情配置创建成功');
-      }
-      if (!embedded) {
-        setEditorOpen(false);
       }
       await loadDetail(entityId, entryId);
     } catch (error: unknown) {
@@ -256,44 +244,6 @@ export function NPCDialogueConfigDrawer({
         />
       );
     }
-    if (!embeddedEditing) {
-      return (
-        <Spin spinning={loading}>
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Typography.Paragraph type="secondary">
-              剧情与当前菜单项绑定（{entityId}/{entryId}）。先查看这段剧情包含的对白节点，再点击某一段进入编辑页。
-            </Typography.Paragraph>
-            {detail ? (
-              <Card
-                title={`剧情对话（${detail.nodes.length} 段）`}
-                extra={<Button type="primary" onClick={handleOpenEdit}>进入编辑</Button>}
-              >
-                <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                  {detail.nodes.map((node: AdminNPCDialogueNode, index: number) => (
-                    <Card
-                      key={`${node.node_id}-${index}`}
-                      size="small"
-                      hoverable
-                      onClick={handleOpenEdit}
-                      title={`${index + 1}. ${node.speaker || '系统'} · ${formatNodeType(node.node_type)}`}
-                      extra={<Tag>{node.node_id}</Tag>}
-                    >
-                      <Typography.Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
-                        {node.content || node.effects?.notice || node.client_animation_key || '空节点'}
-                      </Typography.Paragraph>
-                    </Card>
-                  ))}
-                </Space>
-              </Card>
-            ) : detailMissing ? (
-              <Empty description="当前菜单项还没有剧情配置" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-                <Button type="primary" onClick={handleOpenCreate}>创建剧情</Button>
-              </Empty>
-            ) : null}
-          </Space>
-        </Spin>
-      );
-    }
     return (
       <Spin spinning={loading}>
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -301,7 +251,7 @@ export function NPCDialogueConfigDrawer({
             <Typography.Text type="secondary">
               正在编辑 {detail ? detail.nodes.length : (editorForm.getFieldValue('nodes')?.length ?? 0)} 段剧情对白。
             </Typography.Text>
-            <Button onClick={() => setEmbeddedEditing(false)}>返回列表</Button>
+            <Button onClick={() => editorForm.setFieldsValue(detail ? mapDialogueDetailToForm(detail, getNPCSpeakerName(npcName, entityId)) : defaultDialogueFormValues(entityId, entryId, entryTitle, getNPCSpeakerName(npcName, entityId)))}>重置表单</Button>
           </Space>
           <Form
             id={embeddedFormId}
@@ -347,7 +297,6 @@ export function NPCDialogueConfigDrawer({
         destroyOnClose
         extra={detail ? (
           <Space>
-            <Button onClick={handleOpenEdit}>编辑配置</Button>
             <Button
               danger
               loading={deleting}
@@ -375,93 +324,37 @@ export function NPCDialogueConfigDrawer({
           <div style={{ minHeight: 240, display: 'grid', placeItems: 'center' }}>
             <Spin tip="正在加载剧情配置..." />
           </div>
-        ) : detail ? (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="实体ID">{detail.entity_id}</Descriptions.Item>
-              <Descriptions.Item label="入口ID">{detail.entry_id}</Descriptions.Item>
-              <Descriptions.Item label="剧情编码">{detail.dialogue_code || '-'}</Descriptions.Item>
-              <Descriptions.Item label="剧情标题">{detail.title}</Descriptions.Item>
-              <Descriptions.Item label="起始节点">{detail.start_node_id}</Descriptions.Item>
-              <Descriptions.Item label="版本">{detail.version}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={detail.status === 1 ? 'green' : 'default'}>{detail.status === 1 ? '启用' : '停用'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="节点数">{detail.nodes.length}</Descriptions.Item>
-            </Descriptions>
-            <Card title="节点预览">
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {detail.nodes.map((node: AdminNPCDialogueNode, index: number) => (
-                  <Card
-                    key={`${node.node_id}-${index}`}
-                    size="small"
-                    title={`${index + 1}. ${node.node_id}`}
-                    extra={<Tag>{formatNodeType(node.node_type)}</Tag>}
-                  >
-                    <Descriptions column={2} size="small">
-                      <Descriptions.Item label="说话人">{node.speaker || '-'}</Descriptions.Item>
-                      <Descriptions.Item label="排序">{node.sort_order}</Descriptions.Item>
-                      <Descriptions.Item label="内容格式">{node.content_format || 'plain'}</Descriptions.Item>
-                      <Descriptions.Item label="立绘Key">{node.portrait_key || '-'}</Descriptions.Item>
-                      <Descriptions.Item label="下一节点">{node.next_node_id || '-'}</Descriptions.Item>
-                      <Descriptions.Item label="动画Key">{node.client_animation_key || '-'}</Descriptions.Item>
-                      <Descriptions.Item label="提示文案">{node.effects?.notice || '-'}</Descriptions.Item>
-                      <Descriptions.Item label="任务事件">{node.effects?.quest_event || '-'}</Descriptions.Item>
-                    </Descriptions>
-                    {node.content ? (
-                      <Typography.Paragraph style={{ marginTop: 12, marginBottom: 0 }}>
-                        {node.content}
-                      </Typography.Paragraph>
-                    ) : null}
-                    {node.options.length > 0 ? (
-                      <>
-                        <Divider style={{ margin: '12px 0' }}>选项</Divider>
-                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                          {node.options.map((option: AdminNPCDialogueOption) => (
-                            <Card key={option.option_id} size="small" bodyStyle={{ padding: 12 }}>
-                              <Descriptions column={2} size="small">
-                                <Descriptions.Item label="选项ID">{option.option_id}</Descriptions.Item>
-                                <Descriptions.Item label="排序">{option.sort_order}</Descriptions.Item>
-                                <Descriptions.Item label="文案">{option.option_text}</Descriptions.Item>
-                                <Descriptions.Item label="下一节点">{option.next_node_id || '-'}</Descriptions.Item>
-                              </Descriptions>
-                            </Card>
-                          ))}
-                        </Space>
-                      </>
-                    ) : null}
-                  </Card>
-                ))}
+        ) : (
+          <Form form={editorForm} layout="vertical" onFinish={(values: DialogueEditorFormValues) => void handleSubmit(values)}>
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Descriptions bordered column={2} size="small">
+                <Descriptions.Item label="实体ID">{entityId}</Descriptions.Item>
+                <Descriptions.Item label="入口ID">{entryId}</Descriptions.Item>
+                <Descriptions.Item label="剧情状态">
+                  <Tag color={detail ? 'green' : 'default'}>{detail ? '已创建' : '未创建'}</Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="节点数">{detail?.nodes.length ?? (editorForm.getFieldValue('nodes')?.length ?? 0)}</Descriptions.Item>
+              </Descriptions>
+              <DialogueEditorFields hasExistingDetail={Boolean(detail)} npcSpeakerName={getNPCSpeakerName(npcName, entityId)} />
+              <Space>
+                <Button type="primary" loading={saving} onClick={() => editorForm.submit()}>
+                  {detail ? '保存修改' : '创建配置'}
+                </Button>
+                <Button onClick={() => {
+                  const resolvedEntityId: number = entityId ?? 0;
+                  editorForm.setFieldsValue(
+                    detail
+                      ? mapDialogueDetailToForm(detail, getNPCSpeakerName(npcName, resolvedEntityId))
+                      : defaultDialogueFormValues(resolvedEntityId, entryId, entryTitle, getNPCSpeakerName(npcName, resolvedEntityId)),
+                  );
+                }}>
+                  重置表单
+                </Button>
               </Space>
-            </Card>
-          </Space>
-        ) : detailMissing ? (
-          <Empty description="当前菜单项还没有剧情配置" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-            <Button type="primary" onClick={handleOpenCreate}>立即创建</Button>
-          </Empty>
-        ) : null}
+            </Space>
+          </Form>
+        )}
       </Drawer>
-
-      <Modal
-        title={detail ? `编辑剧情配置 · ${entryId}` : '新建剧情配置'}
-        open={editorOpen}
-        onCancel={() => {
-          setEditorOpen(false);
-          editorForm.resetFields();
-        }}
-        onOk={() => editorForm.submit()}
-        confirmLoading={saving}
-        destroyOnClose
-        width={1080}
-        style={{ top: FIXED_FORM_MODAL_TOP }}
-        styles={FIXED_FORM_MODAL_STYLES}
-        okText={detail ? '保存修改' : '创建配置'}
-        cancelText="取消"
-      >
-        <Form form={editorForm} layout="vertical" onFinish={(values: DialogueEditorFormValues) => void handleSubmit(values)}>
-          <DialogueEditorFields hasExistingDetail={Boolean(detail)} npcSpeakerName={getNPCSpeakerName(npcName, entityId)} />
-        </Form>
-      </Modal>
     </>
   );
 }
@@ -483,6 +376,12 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
   const [itemLoading, setItemLoading] = useState(false);
   const [itemRows, setItemRows] = useState<AdminItemSummary[]>([]);
   const [itemPreviewMap, setItemPreviewMap] = useState<Record<number, AdminItemSummary>>({});
+  const [draggingNodeIndex, setDraggingNodeIndex] = useState<number | null>(null);
+  const [dragOverNodeIndex, setDragOverNodeIndex] = useState<number | null>(null);
+  const [draggingOptionKey, setDraggingOptionKey] = useState<string | null>(null);
+  const [dragOverOptionKey, setDragOverOptionKey] = useState<string | null>(null);
+  const [expandedNodeKeys, setExpandedNodeKeys] = useState<Record<string, boolean>>({});
+  const [expandedOptionKeys, setExpandedOptionKeys] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!itemPickerOpen) {
@@ -535,6 +434,198 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
     editorForm.setFieldValue(['nodes', nodeIndex, 'content'], `${currentContent}${separator}${token}`);
   }
 
+  // 节点 ID、线性跳转和排序都由当前表单列表顺序统一生成，避免运营手填引用关系。
+  function applySequentialNodeLayout(nextNodes: AdminNPCDialogueNode[]): void {
+    const normalizedNodes: AdminNPCDialogueNode[] = renumberDialogueNodes(nextNodes);
+    editorForm.setFieldsValue({
+      ...editorForm.getFieldsValue(),
+      start_node_id: normalizedNodes.length > 0 ? normalizedNodes[0].node_id : '',
+      nodes: normalizedNodes,
+    });
+  }
+
+  // 在当前节点下方插入一条新节点，并立即顺延后续节点编号。
+  function handleInsertNodeAfter(nodeIndex: number): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    nextNodes.splice(nodeIndex + 1, 0, defaultDialogueNode(currentNodes.length + 1, npcSpeakerName));
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  // 删除节点后重新压缩编号，保证始终保持“节点1、节点2 ...”连续。
+  function handleRemoveNode(nodeIndex: number): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const nextNodes: AdminNPCDialogueNode[] = currentNodes.filter((_node: AdminNPCDialogueNode, index: number) => index !== nodeIndex);
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  // 复制当前节点，方便快速制作结构相近的剧情片段。
+  function handleDuplicateNode(nodeIndex: number): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const sourceNode: AdminNPCDialogueNode | undefined = currentNodes[nodeIndex];
+    if (!sourceNode) {
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    nextNodes.splice(nodeIndex + 1, 0, {
+      ...sourceNode,
+      node_id: '',
+      next_node_id: '',
+      sort_order: 0,
+      options: (sourceNode.options ?? []).map((option: AdminNPCDialogueOption) => ({
+        ...option,
+        sort_order: 0,
+      })),
+    });
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  // 上移/下移节点后，节点编号、起始节点和线性跳转都会自动重排。
+  function handleMoveNode(nodeIndex: number, direction: 'up' | 'down'): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const targetIndex: number = direction === 'up' ? nodeIndex - 1 : nodeIndex + 1;
+    if (targetIndex < 0 || targetIndex >= currentNodes.length) {
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    [nextNodes[nodeIndex], nextNodes[targetIndex]] = [nextNodes[targetIndex], nextNodes[nodeIndex]];
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  // 分支选项也按当前列表顺序保存；上移/下移后自动回写顺序值。
+  function handleMoveOption(nodeIndex: number, optionIndex: number, direction: 'up' | 'down'): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const targetIndex: number = direction === 'up' ? optionIndex - 1 : optionIndex + 1;
+    const currentNode: AdminNPCDialogueNode | undefined = currentNodes[nodeIndex];
+    if (!currentNode || targetIndex < 0 || targetIndex >= (currentNode.options ?? []).length) {
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    const nextOptions: AdminNPCDialogueOption[] = [...(nextNodes[nodeIndex].options ?? [])];
+    [nextOptions[optionIndex], nextOptions[targetIndex]] = [nextOptions[targetIndex], nextOptions[optionIndex]];
+    nextNodes[nodeIndex] = {
+      ...nextNodes[nodeIndex],
+      options: nextOptions.map((option: AdminNPCDialogueOption, index: number) => ({
+        ...option,
+        sort_order: index + 1,
+      })),
+    };
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  // 在当前选项下方插入，避免每次新增都只能追加到最后。
+  function handleInsertOptionAfter(nodeIndex: number, optionIndex: number): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const currentNode: AdminNPCDialogueNode | undefined = currentNodes[nodeIndex];
+    if (!currentNode) {
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    const nextOptions: AdminNPCDialogueOption[] = [...(currentNode.options ?? [])];
+    nextOptions.splice(optionIndex + 1, 0, defaultDialogueOption(nextOptions.length + 1));
+    nextNodes[nodeIndex] = {
+      ...currentNode,
+      options: nextOptions.map((option: AdminNPCDialogueOption, index: number) => ({
+        ...option,
+        sort_order: index + 1,
+      })),
+    };
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  function handleRemoveOption(nodeIndex: number, optionIndex: number): void {
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const currentNode: AdminNPCDialogueNode | undefined = currentNodes[nodeIndex];
+    if (!currentNode) {
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    nextNodes[nodeIndex] = {
+      ...currentNode,
+      options: (currentNode.options ?? [])
+        .filter((_option: AdminNPCDialogueOption, index: number) => index !== optionIndex)
+        .map((option: AdminNPCDialogueOption, index: number) => ({
+          ...option,
+          sort_order: index + 1,
+        })),
+    };
+    applySequentialNodeLayout(nextNodes);
+  }
+
+  function handleToggleNodeExpanded(nodeKey: string): void {
+    setExpandedNodeKeys((previous: Record<string, boolean>) => ({
+      ...previous,
+      [nodeKey]: !previous[nodeKey],
+    }));
+  }
+
+  function handleToggleOptionExpanded(optionKey: string): void {
+    setExpandedOptionKeys((previous: Record<string, boolean>) => ({
+      ...previous,
+      [optionKey]: !previous[optionKey],
+    }));
+  }
+
+  function buildOptionDragKey(nodeIndex: number, optionIndex: number): string {
+    return `${nodeIndex}:${optionIndex}`;
+  }
+
+  function handleDropNode(targetIndex: number): void {
+    if (draggingNodeIndex === null || draggingNodeIndex === targetIndex) {
+      setDraggingNodeIndex(null);
+      setDragOverNodeIndex(null);
+      return;
+    }
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    const [draggingNode] = nextNodes.splice(draggingNodeIndex, 1);
+    nextNodes.splice(targetIndex, 0, draggingNode);
+    applySequentialNodeLayout(nextNodes);
+    setDraggingNodeIndex(null);
+    setDragOverNodeIndex(null);
+  }
+
+  function handleDropOption(nodeIndex: number, targetOptionIndex: number): void {
+    if (!draggingOptionKey) {
+      setDragOverOptionKey(null);
+      return;
+    }
+    const [sourceNodeIndexText, sourceOptionIndexText] = draggingOptionKey.split(':');
+    const sourceNodeIndex: number = Number(sourceNodeIndexText);
+    const sourceOptionIndex: number = Number(sourceOptionIndexText);
+    if (Number.isNaN(sourceNodeIndex) || Number.isNaN(sourceOptionIndex)) {
+      setDraggingOptionKey(null);
+      setDragOverOptionKey(null);
+      return;
+    }
+    if (sourceNodeIndex !== nodeIndex || sourceOptionIndex === targetOptionIndex) {
+      setDraggingOptionKey(null);
+      setDragOverOptionKey(null);
+      return;
+    }
+    const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+    const currentNode: AdminNPCDialogueNode | undefined = currentNodes[nodeIndex];
+    if (!currentNode) {
+      setDraggingOptionKey(null);
+      setDragOverOptionKey(null);
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+    const nextOptions: AdminNPCDialogueOption[] = [...(currentNode.options ?? [])];
+    const [draggingOption] = nextOptions.splice(sourceOptionIndex, 1);
+    nextOptions.splice(targetOptionIndex, 0, draggingOption);
+    nextNodes[nodeIndex] = {
+      ...currentNode,
+      options: nextOptions.map((option: AdminNPCDialogueOption, index: number) => ({
+        ...option,
+        sort_order: index + 1,
+      })),
+    };
+    applySequentialNodeLayout(nextNodes);
+    setDraggingOptionKey(null);
+    setDragOverOptionKey(null);
+  }
+
   return (
     <>
       <Row gutter={16}>
@@ -562,7 +653,7 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
         </Col>
         <Col xs={24} md={8}>
           <Form.Item label="起始节点ID" name="start_node_id" rules={[{ required: true, message: '请输入起始节点ID' }]}>
-            <Input />
+            <Input disabled />
           </Form.Item>
         </Col>
         <Col xs={24} md={4}>
@@ -583,24 +674,73 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
       </Typography.Paragraph>
 
       <Form.List name="nodes">
-        {(fields, { add, remove }) => (
+        {(fields) => (
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
             {fields.map((field, index) => (
-              <Card
-                key={field.key}
-                size="small"
-                title={`节点 ${index + 1}`}
-                extra={(
-                  <Space>
-                    <Button type="link" onClick={() => add(defaultDialogueNode(index + 2, npcSpeakerName), index + 1)}>下方插入</Button>
-                    <Button type="link" danger onClick={() => remove(field.name)}>删除节点</Button>
-                  </Space>
-                )}
-              >
+              (() => {
+                const currentNode: AdminNPCDialogueNode = (editorForm.getFieldValue(['nodes', field.name]) ?? {}) as AdminNPCDialogueNode;
+                const nodeKey: string = buildNodeCollapseKey(String(currentNode.node_id ?? ''), index);
+                const expanded: boolean = expandedNodeKeys[nodeKey] ?? false;
+                return (
+                  <Card
+                    key={field.key}
+                    size="small"
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      setDraggingNodeIndex(index);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (draggingNodeIndex !== index) {
+                        setDragOverNodeIndex(index);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverNodeIndex === index) {
+                        setDragOverNodeIndex(null);
+                      }
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      handleDropNode(index);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingNodeIndex(null);
+                      setDragOverNodeIndex(null);
+                    }}
+                    style={dragOverNodeIndex === index ? { borderColor: '#fa8c16', background: '#fff7e6' } : undefined}
+                    title={(
+                      <Space direction="vertical" size={0}>
+                        <Typography.Text strong>{`节点 ${index + 1}`}</Typography.Text>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {buildNodeCollapsedSummary(
+                            currentNode,
+                            index,
+                            resolveLinearNodePreviewLabel(editorForm.getFieldValue('nodes') as AdminNPCDialogueNode[] | undefined, index, String(currentNode.node_type ?? 'line')),
+                          )}
+                        </Typography.Text>
+                      </Space>
+                    )}
+                    extra={(
+                      <Space size={4} wrap>
+                        <Button size="small" type="link" onClick={() => handleToggleNodeExpanded(nodeKey)}>
+                          {expanded ? '折叠' : '展开'}
+                        </Button>
+                        <Button size="small" type="link" onClick={() => handleMoveNode(index, 'up')} disabled={index === 0}>上移</Button>
+                        <Button size="small" type="link" onClick={() => handleMoveNode(index, 'down')} disabled={index === fields.length - 1}>下移</Button>
+                        <Button size="small" type="link" onClick={() => handleDuplicateNode(index)}>复制节点</Button>
+                        <Button size="small" type="link" onClick={() => handleInsertNodeAfter(index)}>下方插入</Button>
+                        <Button size="small" type="link" danger onClick={() => handleRemoveNode(index)}>删除节点</Button>
+                      </Space>
+                    )}
+                  >
+                    {expanded ? (
+                      <>
                 <Row gutter={12}>
                   <Col xs={24} md={8}>
                     <Form.Item label="节点ID" name={[field.name, 'node_id']} rules={[{ required: true, message: '请输入节点ID' }]}>
-                      <Input />
+                      <Input disabled />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={8}>
@@ -609,8 +749,8 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={8}>
-                    <Form.Item label="排序" name={[field.name, 'sort_order']}>
-                      <InputNumber min={1} style={{ width: '100%' }} />
+                    <Form.Item label="当前顺序">
+                      <Input value={`第 ${index + 1} 个`} disabled />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -706,8 +846,6 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                     const isActionNode: boolean = nodeType === 'action';
                     const isEndNode: boolean = nodeType === 'end';
                     const needsSpeakerFields: boolean = !isActionNode && !isEndNode;
-                    const needsNextNode: boolean = nodeType === 'line' || nodeType === 'action';
-
                     return (
                       <>
                         <Row gutter={12}>
@@ -758,8 +896,11 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                             )}
                           </Col>
                           <Col xs={24} md={8}>
-                            <Form.Item label="下一节点ID" name={[field.name, 'next_node_id']}>
-                              <Input disabled={!needsNextNode} placeholder={needsNextNode ? '例如：next_step' : 'choice/end 节点由分支或结束控制'} />
+                            <Form.Item label="下一节点">
+                              <Input
+                                value={resolveLinearNodePreviewLabel(editorForm.getFieldValue('nodes') as AdminNPCDialogueNode[] | undefined, index, nodeType)}
+                                disabled
+                              />
                             </Form.Item>
                             <Form.Item label="动画Key" name={[field.name, 'client_animation_key']}>
                               <Input disabled={!isActionNode} placeholder={isActionNode ? '例如：market_limeng_step_aside' : '仅动作节点使用'} />
@@ -774,16 +915,63 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                           <>
                             <Divider style={{ margin: '8px 0 16px 0' }}>分支选项</Divider>
                             <Form.List name={[field.name, 'options']}>
-                              {(optionFields, optionOperations) => (
+                              {(optionFields) => (
                                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                  {optionFields.map((optionField, optionIndex) => (
+                                  {optionFields.map((optionField, optionIndex) => {
+                                    const optionKey: string = buildOptionDragKey(field.name, optionIndex);
+                                    const currentOption: AdminNPCDialogueOption = (editorForm.getFieldValue(['nodes', field.name, 'options', optionField.name]) ?? {}) as AdminNPCDialogueOption;
+                                    const optionExpanded: boolean = expandedOptionKeys[optionKey] ?? false;
+                                    return (
                                     <Card
                                       key={optionField.key}
                                       size="small"
+                                      draggable
+                                      onDragStart={(event) => {
+                                        event.dataTransfer.effectAllowed = 'move';
+                                        setDraggingOptionKey(optionKey);
+                                      }}
+                                      onDragOver={(event) => {
+                                        event.preventDefault();
+                                        if (draggingOptionKey !== optionKey) {
+                                          setDragOverOptionKey(optionKey);
+                                        }
+                                      }}
+                                      onDragLeave={() => {
+                                        if (dragOverOptionKey === optionKey) {
+                                          setDragOverOptionKey(null);
+                                        }
+                                      }}
+                                      onDrop={(event) => {
+                                        event.preventDefault();
+                                        handleDropOption(field.name, optionIndex);
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggingOptionKey(null);
+                                        setDragOverOptionKey(null);
+                                      }}
+                                      style={dragOverOptionKey === optionKey ? { borderColor: '#fa8c16', background: '#fff7e6' } : undefined}
                                       bodyStyle={{ padding: 12 }}
-                                      title={`选项 ${optionIndex + 1}`}
-                                      extra={<Button type="link" danger onClick={() => optionOperations.remove(optionField.name)}>删除选项</Button>}
+                                      title={(
+                                        <Space direction="vertical" size={0}>
+                                          <Typography.Text strong>{`选项 ${optionIndex + 1}`}</Typography.Text>
+                                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                            {buildOptionCollapsedSummary(currentOption, optionIndex)}
+                                          </Typography.Text>
+                                        </Space>
+                                      )}
+                                      extra={(
+                                        <Space size={4} wrap>
+                                          <Button size="small" type="link" onClick={() => handleToggleOptionExpanded(optionKey)}>
+                                            {optionExpanded ? '折叠' : '展开'}
+                                          </Button>
+                                          <Button size="small" type="link" onClick={() => handleMoveOption(field.name, optionIndex, 'up')} disabled={optionIndex === 0}>上移</Button>
+                                          <Button size="small" type="link" onClick={() => handleMoveOption(field.name, optionIndex, 'down')} disabled={optionIndex === optionFields.length - 1}>下移</Button>
+                                          <Button size="small" type="link" onClick={() => handleInsertOptionAfter(field.name, optionIndex)}>下方插入</Button>
+                                          <Button size="small" type="link" danger onClick={() => handleRemoveOption(field.name, optionIndex)}>删除选项</Button>
+                                        </Space>
+                                      )}
                                     >
+                                      {optionExpanded ? (
                                       <Row gutter={12}>
                                         <Col xs={24} md={6}>
                                           <Form.Item label="选项ID" name={[optionField.name, 'option_id']} rules={[{ required: true, message: '请输入选项ID' }]}>
@@ -801,13 +989,17 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24} md={4}>
-                                          <Form.Item label="排序" name={[optionField.name, 'sort_order']}>
-                                            <InputNumber min={1} style={{ width: '100%' }} />
+                                          <Form.Item label="当前顺序">
+                                            <Input value={`第 ${optionIndex + 1} 个`} disabled />
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24} md={12}>
-                                          <Form.Item label="下一节点ID" name={[optionField.name, 'next_node_id']}>
-                                            <Input placeholder="留空表示该分支直接结束剧情" />
+                                          <Form.Item label="跳转到节点" name={[optionField.name, 'next_node_id']}>
+                                            <Select
+                                              allowClear
+                                              placeholder="留空表示该分支直接结束剧情"
+                                              options={buildNodeTargetOptions(editorForm.getFieldValue('nodes') as AdminNPCDialogueNode[] | undefined, field.name)}
+                                            />
                                           </Form.Item>
                                         </Col>
                                         <Col xs={24} md={6}>
@@ -821,9 +1013,30 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                                           </Form.Item>
                                         </Col>
                                       </Row>
+                                      ) : null}
                                     </Card>
-                                  ))}
-                                  <Button type="dashed" block onClick={() => optionOperations.add(defaultDialogueOption(optionFields.length + 1))}>
+                                    );
+                                  })}
+                                  <Button
+                                    type="dashed"
+                                    block
+                                    onClick={() => {
+                                      const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+                                      const currentNode: AdminNPCDialogueNode | undefined = currentNodes[field.name];
+                                      if (!currentNode) {
+                                        return;
+                                      }
+                                      const nextNodes: AdminNPCDialogueNode[] = [...currentNodes];
+                                      nextNodes[field.name] = {
+                                        ...currentNode,
+                                        options: [...(currentNode.options ?? []), defaultDialogueOption(optionFields.length + 1)].map((option: AdminNPCDialogueOption, index: number) => ({
+                                          ...option,
+                                          sort_order: index + 1,
+                                        })),
+                                      };
+                                      applySequentialNodeLayout(nextNodes);
+                                    }}
+                                  >
                                     新增选项
                                   </Button>
                                 </Space>
@@ -835,9 +1048,20 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                     );
                   }}
                 </Form.Item>
-              </Card>
+                      </>
+                    ) : null}
+                  </Card>
+                );
+              })()
             ))}
-            <Button type="dashed" block onClick={() => add(defaultDialogueNode(fields.length + 1, npcSpeakerName))}>
+            <Button
+              type="dashed"
+              block
+              onClick={() => {
+                const currentNodes: AdminNPCDialogueNode[] = (editorForm.getFieldValue('nodes') ?? []) as AdminNPCDialogueNode[];
+                applySequentialNodeLayout([...currentNodes, defaultDialogueNode(currentNodes.length + 1, npcSpeakerName)]);
+              }}
+            >
               新增节点
             </Button>
           </Space>
@@ -916,32 +1140,32 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
 
 // 默认值按服务端聚合结构直接生成，减少第一次录入时的样板字段。
 function defaultDialogueFormValues(entityId: number, entryId: string, entryTitle: string, npcSpeakerName: string): DialogueEditorFormValues {
-  return {
+  return buildSequentialDialogueFormValues({
     entity_id: entityId,
     entry_id: entryId,
     dialogue_code: `${entryId}_code`,
     title: `${entryTitle || entryId}剧情`,
-    start_node_id: 'start',
+    start_node_id: '',
     version: 1,
     status: 1,
     nodes: [
       {
-        node_id: 'start',
+        node_id: '',
         node_type: 'line',
         speaker: npcSpeakerName,
         content: '这里填写第一句对白。',
         content_format: 'plain',
         portrait_key: '',
-        next_node_id: 'end',
+        next_node_id: '',
         client_animation_key: '',
         client_animation_block: false,
-        sort_order: 1,
+        sort_order: 0,
         conditions: {},
         effects: {},
         options: [],
       },
       {
-        node_id: 'end',
+        node_id: '',
         node_type: 'end',
         speaker: '',
         content: '',
@@ -950,18 +1174,18 @@ function defaultDialogueFormValues(entityId: number, entryId: string, entryTitle
         next_node_id: '',
         client_animation_key: '',
         client_animation_block: false,
-        sort_order: 2,
+        sort_order: 0,
         conditions: {},
         effects: {},
         options: [],
       },
     ],
-  };
+  });
 }
 
 function defaultDialogueNode(sortOrder: number, npcSpeakerName: string): AdminNPCDialogueNode {
   return {
-    node_id: `node_${sortOrder}`,
+    node_id: '',
     node_type: 'line',
     speaker: npcSpeakerName,
     content: '',
@@ -979,7 +1203,7 @@ function defaultDialogueNode(sortOrder: number, npcSpeakerName: string): AdminNP
 
 function defaultDialogueOption(sortOrder: number): AdminNPCDialogueOption {
   return {
-    option_id: `option_${sortOrder}`,
+    option_id: `选项${sortOrder}`,
     option_text: '',
     option_format: 'plain',
     next_node_id: '',
@@ -989,12 +1213,12 @@ function defaultDialogueOption(sortOrder: number): AdminNPCDialogueOption {
 }
 
 function mapDialogueDetailToForm(detail: AdminNPCDialogueDetail, npcSpeakerName: string): DialogueEditorFormValues {
-  return {
+  return buildSequentialDialogueFormValues({
     entity_id: detail.entity_id,
     entry_id: detail.entry_id,
     dialogue_code: detail.dialogue_code,
     title: detail.title,
-    start_node_id: detail.start_node_id,
+    start_node_id: '',
     version: detail.version,
     status: detail.status,
     nodes: detail.nodes.map((node: AdminNPCDialogueNode) => ({
@@ -1009,7 +1233,7 @@ function mapDialogueDetailToForm(detail: AdminNPCDialogueDetail, npcSpeakerName:
         conditions: option.conditions ?? {},
       })),
     })),
-  };
+  });
 }
 
 // 说话人固定为当前 NPC 和玩家，避免运营录入出无法统一展示的自由文本。
@@ -1127,25 +1351,25 @@ function toAdminImageSrc(icon: string): string {
 
 // 这里统一清洗表单结构，确保空白输入不会直接以脏数据写回数据库。
 function normalizeDialogueFormValues(values: DialogueEditorFormValues): DialogueEditorFormValues {
-  return {
+  return buildSequentialDialogueFormValues({
     entity_id: values.entity_id,
     entry_id: values.entry_id?.trim(),
     dialogue_code: values.dialogue_code.trim(),
     title: values.title.trim(),
-    start_node_id: values.start_node_id.trim(),
+    start_node_id: '',
     version: values.version > 0 ? values.version : 1,
     status: values.status,
-    nodes: (values.nodes ?? []).map((node: AdminNPCDialogueNode, nodeIndex: number) => ({
+    nodes: (values.nodes ?? []).map((node: AdminNPCDialogueNode) => ({
       node_id: node.node_id.trim(),
       node_type: node.node_type,
       speaker: node.speaker.trim(),
       content: node.content.trim(),
       content_format: node.content_format || 'plain',
       portrait_key: node.portrait_key.trim(),
-      next_node_id: node.next_node_id.trim(),
+      next_node_id: '',
       client_animation_key: node.client_animation_key.trim(),
       client_animation_block: Boolean(node.client_animation_block),
-      sort_order: node.sort_order > 0 ? node.sort_order : nodeIndex + 1,
+      sort_order: 0,
       conditions: {
         quest_id: node.conditions?.quest_id ?? 0,
         quest_state: node.conditions?.quest_state?.trim() ?? '',
@@ -1168,14 +1392,133 @@ function normalizeDialogueFormValues(values: DialogueEditorFormValues): Dialogue
         option_text: option.option_text.trim(),
         option_format: option.option_format || 'plain',
         next_node_id: option.next_node_id.trim(),
-        sort_order: option.sort_order > 0 ? option.sort_order : optionIndex + 1,
+        sort_order: optionIndex + 1,
         conditions: {
           quest_id: option.conditions?.quest_id ?? 0,
           quest_state: option.conditions?.quest_state?.trim() ?? '',
         },
       })),
     })),
+  });
+}
+
+// 节点 ID 固定按当前列表顺序生成，插入/删除后自动重排，避免手工维护引用关系。
+function buildSequentialDialogueFormValues(values: DialogueEditorFormValues): DialogueEditorFormValues {
+  const sequentialNodes: AdminNPCDialogueNode[] = renumberDialogueNodes(values.nodes ?? []);
+  return {
+    entity_id: values.entity_id,
+    entry_id: values.entry_id?.trim(),
+    dialogue_code: values.dialogue_code,
+    title: values.title,
+    start_node_id: sequentialNodes.length > 0 ? sequentialNodes[0].node_id : '',
+    version: values.version,
+    status: values.status,
+    nodes: sequentialNodes,
   };
+}
+
+// 统一重建节点 ID、线性 next_node_id 和顺序值；分支选项目标会按旧 ID 映射到新 ID。
+function renumberDialogueNodes(nodes: AdminNPCDialogueNode[]): AdminNPCDialogueNode[] {
+  const idMap: Record<string, string> = {};
+  nodes.forEach((node: AdminNPCDialogueNode, index: number) => {
+    const previousID: string = node.node_id.trim();
+    const nextID: string = buildSequentialNodeID(index);
+    if (previousID !== '') {
+      idMap[previousID] = nextID;
+    }
+  });
+  return nodes.map((node: AdminNPCDialogueNode, index: number) => {
+    const nextID: string = buildSequentialNodeID(index);
+    const nextNodeID: string = resolveSequentialNextNodeID(nodes, index, node.node_type);
+    return {
+      ...node,
+      node_id: nextID,
+      next_node_id: nextNodeID,
+      sort_order: index + 1,
+      options: (node.options ?? []).map((option: AdminNPCDialogueOption, optionIndex: number) => ({
+        ...option,
+        option_id: option.option_id.trim() || `选项${optionIndex + 1}`,
+        sort_order: optionIndex + 1,
+        next_node_id: mapNodeTargetID(option.next_node_id, idMap),
+      })),
+    };
+  });
+}
+
+// 线性节点统一跳到后一个节点；分支节点和结束节点不再单独录入下一节点。
+function resolveSequentialNextNodeID(nodes: AdminNPCDialogueNode[], index: number, nodeType: string): string {
+  if (nodeType === 'choice' || nodeType === 'end') {
+    return '';
+  }
+  if (index + 1 >= nodes.length) {
+    return '';
+  }
+  return buildSequentialNodeID(index + 1);
+}
+
+// 分支选项仍允许跳转到某个节点，但节点重编号后会自动改成新 ID。
+function mapNodeTargetID(targetNodeID: string, idMap: Record<string, string>): string {
+  const normalizedTarget: string = targetNodeID.trim();
+  if (normalizedTarget === '') {
+    return '';
+  }
+  return idMap[normalizedTarget] ?? normalizedTarget;
+}
+
+function buildSequentialNodeID(index: number): string {
+  return `节点${index + 1}`;
+}
+
+function buildNodeCollapseKey(nodeID: string, index: number): string {
+  return `${nodeID || 'node'}:${index}`;
+}
+
+function buildNodeCollapsedSummary(node: AdminNPCDialogueNode, index: number, nextNodeLabel: string): string {
+  const nodeTypeLabel: string = formatNodeType(node.node_type || 'line');
+  const speakerLabel: string = node.speaker?.trim() ? node.speaker.trim() : '系统';
+  const contentPreview: string = (node.content || node.effects?.notice || node.client_animation_key || '').trim();
+  const choiceCount: number = (node.options ?? []).length;
+  const optionSummary: string = node.node_type === 'choice' ? ` · 分支${choiceCount}个` : '';
+  const nextSummary: string = node.node_type === 'choice'
+    ? ''
+    : ` · 下一步${nextNodeLabel}`;
+  if (contentPreview !== '') {
+    return `${speakerLabel} · ${nodeTypeLabel}${optionSummary}${nextSummary} · ${contentPreview}`;
+  }
+  return `${speakerLabel} · ${nodeTypeLabel}${optionSummary}${nextSummary} · 第 ${index + 1} 个节点`;
+}
+
+function buildOptionCollapsedSummary(option: AdminNPCDialogueOption, index: number): string {
+  const optionText: string = (option.option_text ?? '').trim();
+  const targetLabel: string = (option.next_node_id ?? '').trim();
+  const targetSummary: string = targetLabel !== '' ? ` · 跳到${targetLabel}` : ' · 直接结束';
+  if (optionText !== '') {
+    return `${optionText}${targetSummary}`;
+  }
+  return `第 ${index + 1} 个选项${targetSummary}`;
+}
+
+function resolveLinearNodePreviewLabel(nodes: AdminNPCDialogueNode[] | undefined, index: number, nodeType: string): string {
+  if (nodeType === 'choice') {
+    return '由分支选项决定';
+  }
+  if (nodeType === 'end') {
+    return '剧情结束';
+  }
+  if (!nodes || index + 1 >= nodes.length) {
+    return '剧情结束';
+  }
+  return buildSequentialNodeID(index + 1);
+}
+
+function buildNodeTargetOptions(nodes: AdminNPCDialogueNode[] | undefined, currentNodeIndex: number): Array<{ label: string; value: string }> {
+  return (nodes ?? [])
+    .map((node: AdminNPCDialogueNode, index: number) => ({
+      label: `${buildSequentialNodeID(index)} · ${formatNodeType(node.node_type)}`,
+      value: buildSequentialNodeID(index),
+      disabled: index === currentNodeIndex,
+    }))
+    .filter((option: { label: string; value: string; disabled: boolean }) => !option.disabled);
 }
 
 function mapDialogueFormToCreatePayload(values: DialogueEditorFormValues): AdminCreateNPCDialoguePayload {

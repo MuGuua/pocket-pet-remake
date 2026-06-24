@@ -11,8 +11,8 @@ signal panel_closed
 const _TEXT_PHASE_TYPING: int = 0
 const _TEXT_PHASE_READY: int = 1
 const _CHAR_INTERVAL_SEC: float = 0.035
-## 物品提及图标的移动端展示尺寸。
-const _ITEM_ICON_SIZE: int = 28
+## 物品提及图标的移动端展示尺寸；这里压到接近单个文字大小，避免喧宾夺主。
+const _ITEM_ICON_SIZE: int = 12
 ## 物品图集兜底路径；优先使用服务端 item_definition.icon。
 const _ITEM_ATLAS_TEXTURE_PATH: String = "res://asset/分类/武器/pixel items0.png"
 ## 说话人角标内边距，用于动态计算面板宽度。
@@ -45,6 +45,8 @@ var _text_phase: int = _TEXT_PHASE_READY
 var _full_content_text: String = ""
 ## 当前内容格式，plain 或 bbcode。
 var _content_format: String = "plain"
+## 当前节点里的物品提及；正文仍由服务端控制，这里只在正文尾部补 icon。
+var _current_item_mentions: Array[Dictionary] = []
 ## 打字机计时器，累计到间隔阈值后推进一个可见字符。
 var _typing_elapsed: float = 0.0
 ## 当前已显示的字符数。
@@ -77,7 +79,11 @@ func show_dialogue(npc_name: String, node_payload: Dictionary) -> void:
 	var raw_speaker: String = str(node_payload.get("speaker", ""))
 	var portrait_key: String = str(node_payload.get("portrait_key", ""))
 	var speaker_name: String = PortraitRegistry.resolve_speaker_display(raw_speaker, npc_name)
-	var resolved_portrait_key: String = PortraitRegistry.resolve_portrait_key(portrait_key, raw_speaker)
+	var resolved_portrait_key: String = PortraitRegistry.resolve_portrait_key(
+		portrait_key,
+		raw_speaker,
+		npc_name
+	)
 	var is_player_speaking: bool = bool(node_payload.get("is_player_speaker", false))
 	if not is_player_speaking:
 		is_player_speaking = _is_player_speaker(raw_speaker, resolved_portrait_key)
@@ -130,6 +136,7 @@ func hide_panel(emit_closed: bool = true) -> void:
 	_current_dialogue_id = 0
 	_current_node_id = ""
 	_full_content_text = ""
+	_current_item_mentions.clear()
 	_pending_effect_notice = ""
 	_clear_item_mentions()
 	if _npc_speaker_panel != null:
@@ -241,6 +248,7 @@ func _apply_content_text(full_text: String, content_format: String) -> void:
 	else:
 		_content_label.bbcode_enabled = false
 	_content_label.text = full_text
+	_append_inline_item_icons()
 
 ## 更新 RichTextLabel 当前可见字符数；-1 表示显示全部。
 func _apply_visible_characters(visible_chars: int) -> void:
@@ -248,21 +256,18 @@ func _apply_visible_characters(visible_chars: int) -> void:
 		return
 	_content_label.visible_characters = visible_chars
 
-## 根据服务端解析出的物品提及，展示正式物品名和数据库 icon。
+## 根据服务端解析出的物品提及，只缓存 icon 信息并关闭旧的单独一行容器。
 func _render_item_mentions(mentions_variant: Variant) -> void:
-	_clear_item_mentions()
-	if _item_mention_container == null:
-		return
+	_current_item_mentions.clear()
 	if mentions_variant is not Array:
-		_item_mention_container.visible = false
+		_clear_item_mentions()
 		return
 	var mentions: Array = mentions_variant as Array
-	_item_mention_container.visible = mentions.size() > 0
 	for mention_variant: Variant in mentions:
 		if mention_variant is not Dictionary:
 			continue
-		var mention: Dictionary = mention_variant as Dictionary
-		_item_mention_container.add_child(_create_item_mention_chip(mention))
+		_current_item_mentions.append((mention_variant as Dictionary).duplicate(true))
+	_clear_item_mentions()
 
 ## 清理上一句对白残留的物品提及 UI。
 func _clear_item_mentions() -> void:
@@ -275,26 +280,26 @@ func _clear_item_mentions() -> void:
 			child_node.queue_free()
 	_item_mention_container.visible = false
 
-## 创建一个包含物品 icon 和物品名的移动端紧凑标签。
+## 在正文尾部补 icon，避免单独一行导致视觉换行；正文文字仍完全使用服务端配置内容。
+func _append_inline_item_icons() -> void:
+	if _content_label == null:
+		return
+	for mention: Dictionary in _current_item_mentions:
+		var icon_texture: Texture2D = _resolve_item_icon_texture(str(mention.get("icon", "")))
+		if icon_texture == null:
+			continue
+		_content_label.add_image(icon_texture, _ITEM_ICON_SIZE, _ITEM_ICON_SIZE)
+
+## 创建一个仅包含物品 icon 的移动端紧凑标签，避免与服务端正文中的物品名重复显示。
 func _create_item_mention_chip(mention: Dictionary) -> Control:
-	var chip: HBoxContainer = HBoxContainer.new()
-	chip.custom_minimum_size = Vector2(0.0, float(_ITEM_ICON_SIZE + 4))
-	chip.add_theme_constant_override("separation", 4)
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon_rect: TextureRect = TextureRect.new()
 	icon_rect.custom_minimum_size = Vector2(float(_ITEM_ICON_SIZE), float(_ITEM_ICON_SIZE))
 	icon_rect.texture = _resolve_item_icon_texture(str(mention.get("icon", "")))
 	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.add_child(icon_rect)
-	var item_label: Label = Label.new()
-	item_label.text = str(mention.get("item_name", "物品%d" % int(mention.get("item_id", 0))))
-	item_label.add_theme_font_size_override("font_size", 12)
-	item_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.add_child(item_label)
-	chip.tooltip_text = item_label.text
-	return chip
+	icon_rect.tooltip_text = str(mention.get("item_name", "物品%d" % int(mention.get("item_id", 0))))
+	return icon_rect
 
 ## 从服务端 icon 字段加载纹理，支持 res:// 路径并提供图集首格兜底。
 func _resolve_item_icon_texture(icon_ref: String) -> Texture2D:
@@ -333,7 +338,7 @@ func _get_total_char_count() -> int:
 ## 判断当前说话人是否为玩家（占位符、立绘 key 或玩家名）。
 func _is_player_speaker(raw_speaker: String, resolved_portrait_key: String) -> bool:
 	var normalized_speaker: String = raw_speaker.strip_edges()
-	if normalized_speaker == "@player" or normalized_speaker == "$player" or normalized_speaker == "玩家":
+	if normalized_speaker == "@player" or normalized_speaker == "$player" or normalized_speaker == "{player_name}" or normalized_speaker == "玩家":
 		return true
 	if resolved_portrait_key.strip_edges() == "player_default":
 		return true

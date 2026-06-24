@@ -243,7 +243,7 @@ func TestAdminBagCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, bag.AdminCreateItemInput{PlayerID: teststub.DemoPlayerID, ContainerType: "bag", SlotIndex: 8, ItemID: 2002, Quantity: 5})
+	createBody := marshalJSON(t, bag.AdminCreateItemInput{PlayerID: teststub.DemoPlayerID, ContainerType: "bag", ItemID: 2002, Quantity: 5})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/bags", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -621,8 +621,8 @@ func TestAdminRewardsGrantHandler(t *testing.T) {
 	if len(payload.Data.Granted) != 2 {
 		t.Fatalf("len(payload.Data.Granted) = %d, want 2", len(payload.Data.Granted))
 	}
-	if payload.Data.Wallet == nil || payload.Data.Wallet.Gold <= 2 {
-		t.Fatalf("payload.Data.Wallet = %#v, want wallet gold above initial 2", payload.Data.Wallet)
+	if payload.Data.Wallet == nil || payload.Data.Wallet.TotalCopper <= 2345678 {
+		t.Fatalf("payload.Data.Wallet = %#v, want total copper above initial 2345678", payload.Data.Wallet)
 	}
 	if payload.Data.Bag == nil || payload.Data.Bag.ContainerType != bag.ContainerTypeBag {
 		t.Fatalf("payload.Data.Bag = %#v, want bag snapshot", payload.Data.Bag)
