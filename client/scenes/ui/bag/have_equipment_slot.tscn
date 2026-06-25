@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://b311n7pg7d4v"]
+[gd_scene format=3 uid="uid://b311n7pg7d4v"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_k6qwn"]
 load_path = "res://.godot/imported/bagUI2.png-0e22add6ab8c2b8f482b3b559d8a1c30.ctex"
@@ -7,7 +7,7 @@ load_path = "res://.godot/imported/bagUI2.png-0e22add6ab8c2b8f482b3b559d8a1c30.c
 atlas = SubResource("CompressedTexture2D_k6qwn")
 region = Rect2(506, 504, 16, 16)
 
-[node name="HaveEquipmentSlot" type="Button"]
+[node name="HaveEquipmentSlot" type="Button" unique_id=933344733]
 custom_minimum_size = Vector2(22, 22)
 anchors_preset = 8
 anchor_left = 0.5
@@ -23,7 +23,7 @@ grow_vertical = 2
 scale = Vector2(1.5, 1.5)
 mouse_filter = 2
 
-[node name="TextureRect" type="TextureRect" parent="."]
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1603664948]
 custom_minimum_size = Vector2(22, 22)
 layout_mode = 1
 anchors_preset = 8
@@ -39,7 +39,7 @@ grow_horizontal = 2
 grow_vertical = 2
 texture = SubResource("AtlasTexture_j4eb0")
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1430050808]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -53,10 +53,10 @@ offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Control" type="Control" parent="CenterContainer"]
+[node name="Control" type="Control" parent="CenterContainer" unique_id=124429076]
 layout_mode = 2
 
-[node name="EquipmentSlot" type="TextureRect" parent="CenterContainer/Control"]
+[node name="EquipmentSlot" type="TextureRect" parent="CenterContainer/Control" unique_id=1046830099]
 custom_minimum_size = Vector2(18, 18)
 layout_mode = 1
 anchors_preset = 8

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://by1wk6ikbj1nn"
-path="res://.godot/imported/656wae7jknn.png-36def45ea5abdb9f620efcea7bb2a28e.ctex"
+uid="uid://cjhwr25kaj4k2"
+path="res://.godot/imported/spritesheet-32px.png-c126c2c8b989c9c4e412699c64d2bf71.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://asset/分类/ui/656wae7jknn.png"
-dest_files=["res://.godot/imported/656wae7jknn.png-36def45ea5abdb9f620efcea7bb2a28e.ctex"]
+source_file="res://asset/分类/菜单表情/spritesheet-32px.png"
+dest_files=["res://.godot/imported/spritesheet-32px.png-c126c2c8b989c9c4e412699c64d2bf71.ctex"]
 
 [params]
 

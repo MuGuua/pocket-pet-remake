@@ -107,7 +107,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	playerHandler := wstransport.NewPlayerHandler(sessionService, playerService)
 	equipmentHandler := wstransport.NewEquipmentHandler(sessionService, equipmentService)
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, itemService)
-	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
+	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, playerHandler, equipmentHandler, battleHandler, bagHandler, questHandler, sessionService)

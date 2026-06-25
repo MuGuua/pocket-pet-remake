@@ -19,6 +19,7 @@ region = Rect2(0, 0, 32, 32)
 
 [sub_resource type="Resource" id="ItemIconEntry_potion_red"]
 script = ExtResource("2_entry")
+item_id = 3003
 icon_key = "potion_red_small"
 texture = SubResource("AtlasTexture_potion_red")
 
@@ -37,6 +38,7 @@ region = Rect2(64, 0, 32, 32)
 
 [sub_resource type="Resource" id="ItemIconEntry_box_common"]
 script = ExtResource("2_entry")
+item_id = 3201
 icon_key = "box_common"
 texture = SubResource("AtlasTexture_box_common")
 

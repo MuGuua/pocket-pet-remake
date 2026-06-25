@@ -1,26 +1,19 @@
-[gd_scene load_steps=9 format=3 uid="uid://fe1x56xjri4a"]
+[gd_scene format=3 uid="uid://fe1x56xjri4a"]
 
+[ext_resource type="Script" path="res://scripts/ui/bag/equipment_slot.gd" id="1_slot"]
 [ext_resource type="Texture2D" uid="uid://sebrg5lnyrs4" path="res://asset/分类/ui/bagUI2.png" id="1_lf8cf"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2u3e0"]
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_hb0a2"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_38h01"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7wogr"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_i337v"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_6j8u0"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_empty"]
 atlas = ExtResource("1_lf8cf")
 region = Rect2(485, 504, 16, 16)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_arona"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_equipped"]
 atlas = ExtResource("1_lf8cf")
-region = Rect2(466, 509, 6, 6)
+region = Rect2(506, 504, 16, 16)
 
-[node name="NullEquipmentSlot" type="Button"]
+[node name="NullEquipmentSlot" type="Button" unique_id=2020876812]
 custom_minimum_size = Vector2(22, 22)
 anchors_preset = 8
 anchor_left = 0.5
@@ -34,14 +27,18 @@ offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(1.5, 1.5)
-mouse_filter = 2
+focus_mode = 0
+mouse_filter = 0
 theme_override_styles/normal = SubResource("StyleBoxEmpty_2u3e0")
-theme_override_styles/pressed = SubResource("StyleBoxEmpty_hb0a2")
-theme_override_styles/hover = SubResource("StyleBoxEmpty_38h01")
-theme_override_styles/disabled = SubResource("StyleBoxEmpty_7wogr")
-theme_override_styles/focus = SubResource("StyleBoxEmpty_i337v")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_2u3e0")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_2u3e0")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_2u3e0")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_2u3e0")
+texture_empty = SubResource("AtlasTexture_empty")
+texture_equipped = SubResource("AtlasTexture_equipped")
+script = ExtResource("1_slot")
 
-[node name="TextureRect" type="TextureRect" parent="."]
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1536085589]
 custom_minimum_size = Vector2(22, 22)
 layout_mode = 1
 anchors_preset = 8
@@ -55,9 +52,12 @@ offset_right = 11.0
 offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("AtlasTexture_6j8u0")
+mouse_filter = 2
+texture = SubResource("AtlasTexture_empty")
+expand_mode = 1
+stretch_mode = 4
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1977401391]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -70,11 +70,15 @@ offset_right = 11.0
 offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
-[node name="Control" type="Control" parent="CenterContainer"]
+[node name="Control" type="Control" parent="CenterContainer" unique_id=1176083232]
 layout_mode = 2
+mouse_filter = 2
 
-[node name="+" type="TextureRect" parent="CenterContainer/Control"]
+[node name="ItemIcon" type="TextureRect" parent="CenterContainer/Control" unique_id=1046830099]
+visible = false
+custom_minimum_size = Vector2(18, 18)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -87,4 +91,6 @@ offset_right = 3.0
 offset_bottom = 3.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("AtlasTexture_arona")
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 4

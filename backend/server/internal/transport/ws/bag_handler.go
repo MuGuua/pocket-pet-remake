@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/item"
 	"pocket-pet-remake/server/internal/module/npc"
 	"pocket-pet-remake/server/internal/module/pet"
@@ -21,29 +22,31 @@ import (
 // BagHandler 负责玩家端背包、仓库与钱包查询协议。
 // 当前先打通查询链路，后续容器移动、扩容和使用道具都可以继续挂在这里扩展。
 type BagHandler struct {
-	sessionService *session.Service
-	bagService     *bag.Service
-	itemService    *item.Service
-	walletService  *wallet.Service
-	playerService  *player.Service
-	worldService   *world.Service
-	npcService     *npc.Service
-	rewardService  *reward.Service
-	petService     *pet.Service
+	sessionService   *session.Service
+	bagService       *bag.Service
+	itemService      *item.Service
+	walletService    *wallet.Service
+	playerService    *player.Service
+	equipmentService *equipment.Service
+	worldService     *world.Service
+	npcService       *npc.Service
+	rewardService    *reward.Service
+	petService       *pet.Service
 }
 
 // NewBagHandler 构造运行时背包处理器。
-func NewBagHandler(sessionService *session.Service, bagService *bag.Service, itemService *item.Service, walletService *wallet.Service, playerService *player.Service, petService *pet.Service, worldService *world.Service, npcService *npc.Service) *BagHandler {
+func NewBagHandler(sessionService *session.Service, bagService *bag.Service, itemService *item.Service, walletService *wallet.Service, playerService *player.Service, petService *pet.Service, equipmentService *equipment.Service, worldService *world.Service, npcService *npc.Service) *BagHandler {
 	return &BagHandler{
-		sessionService: sessionService,
-		bagService:     bagService,
-		itemService:    itemService,
-		walletService:  walletService,
-		playerService:  playerService,
-		petService:     petService,
-		worldService:   worldService,
-		npcService:     npcService,
-		rewardService:  reward.NewService(bagService, petService, playerService, nil, walletService),
+		sessionService:   sessionService,
+		bagService:       bagService,
+		itemService:      itemService,
+		walletService:    walletService,
+		playerService:    playerService,
+		petService:       petService,
+		equipmentService: equipmentService,
+		worldService:     worldService,
+		npcService:       npcService,
+		rewardService:    reward.NewService(bagService, petService, playerService, nil, walletService),
 	}
 }
 
@@ -520,7 +523,19 @@ func (h *BagHandler) sendContainerList(conn packetSender, seq uint32, containerT
 		Wallet:    toProtocolWalletSnapshot(*walletSnapshot),
 	}
 	if responseCmd == protocol.CmdBagListResp {
-		packet, err := protocol.NewJSONPacket(responseCmd, seq, errcode.WSCodeSuccess, protocol.BagListResp(responseBody))
+		equippedItems := []protocol.PlayerEquippedItemSnapshot{}
+		if h.equipmentService != nil {
+			items, listErr := h.equipmentService.ListEquipped(ctx, sess.PlayerID)
+			if listErr != nil {
+				return sendError(conn, seq, errcode.WSCodeInteractFailed, "load player equipment failed", listErr)
+			}
+			equippedItems = toProtocolEquippedItems(items)
+		}
+		packet, err := protocol.NewJSONPacket(responseCmd, seq, errcode.WSCodeSuccess, protocol.BagListResp{
+			Container:     responseBody.Container,
+			Wallet:        responseBody.Wallet,
+			EquippedItems: equippedItems,
+		})
 		if err != nil {
 			return err
 		}
@@ -547,7 +562,6 @@ func toProtocolContainerSnapshot(snapshot bag.RuntimeContainerSnapshot) protocol
 			ItemType:     itemValue.ItemType,
 			ItemSubType:  itemValue.ItemSubType,
 			Quality:      itemValue.Quality,
-			Icon:         itemValue.Icon,
 			EnhanceLevel: itemValue.EnhanceLevel,
 			Usable:       itemValue.Usable,
 			TargetType:   itemValue.TargetType,
@@ -711,7 +725,6 @@ func buildContainerUpdatePush(snapshot bag.RuntimeContainerSnapshot) protocol.Ba
 			ItemType:     itemValue.ItemType,
 			ItemSubType:  itemValue.ItemSubType,
 			Quality:      itemValue.Quality,
-			Icon:         itemValue.Icon,
 			EnhanceLevel: itemValue.EnhanceLevel,
 		}
 	}

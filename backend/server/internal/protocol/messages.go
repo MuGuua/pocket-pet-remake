@@ -409,7 +409,7 @@ type NPCDialogueNode struct {
 type NPCDialogueItem struct {
 	ItemID   uint64 `json:"item_id"`
 	ItemName string `json:"item_name"`
-	Icon     string `json:"icon"`
+	Icon     string `json:"icon,omitempty"`
 }
 
 type NPCDialogueNextReq struct {
@@ -540,6 +540,7 @@ type PlayerEquippedItemSnapshot struct {
 	ItemUID          string                       `json:"item_uid"`
 	ItemID           uint64                       `json:"item_id"`
 	ItemName         string                       `json:"item_name"`
+	Icon             string                       `json:"icon,omitempty"`
 	EnhanceLevel     uint32                       `json:"enhance_level"`
 	AppearanceSkinID string                       `json:"appearance_skin_id,omitempty"`
 	AppearanceOnly   bool                         `json:"appearance_only"`
@@ -860,7 +861,7 @@ type ContainerItemSnapshot struct {
 	ItemType     string `json:"item_type"`
 	ItemSubType  string `json:"item_sub_type"`
 	Quality      uint32 `json:"quality"`
-	Icon         string `json:"icon"`
+	Icon         string `json:"icon,omitempty"`
 	EnhanceLevel uint32 `json:"enhance_level"`
 	Usable       bool   `json:"usable"`
 	TargetType   string `json:"target_type"`
@@ -876,8 +877,9 @@ type ContainerSnapshot struct {
 }
 
 type BagListResp struct {
-	Container ContainerSnapshot `json:"container"`
-	Wallet    WalletSnapshot    `json:"wallet"`
+	Container     ContainerSnapshot              `json:"container"`
+	Wallet        WalletSnapshot                 `json:"wallet"`
+	EquippedItems []PlayerEquippedItemSnapshot   `json:"equipped_items"`
 }
 
 type ContainerListResp struct {

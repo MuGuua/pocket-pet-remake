@@ -11,12 +11,7 @@ const REWARD_NUMBER_COLOR: String = "#82D563"
 ## 与服务端钱包拆分一致：1000 铜 = 1 银，100 万铜 = 1 金。
 const COPPER_PER_SILVER: int = 1000
 const COPPER_PER_GOLD: int = 1000000
-## 物品图集兜底路径；运行时再 load，避免 preload 绑定失效的 .godot/imported 缓存。
-const ITEM_ATLAS_TEXTURE_PATH: String = "res://asset/分类/武器/pixel items0.png"
 const ITEM_ICON_SIZE: int = 32
-
-## 懒加载的物品图集纹理。
-var _item_atlas_texture: Texture2D = null
 
 
 ## 展示奖励列表；无有效奖励时不弹窗。
@@ -236,60 +231,6 @@ func _create_item_icon_cell(reward: Dictionary) -> Control:
 	return cell
 
 
-## 优先使用奖励自带 icon，其次查背包快照，最后回退图集首格。
+## 按 item_id 从本地注册表解析奖励图标。
 func _resolve_item_icon_texture(reward: Dictionary) -> Texture2D:
-	var icon_ref: String = str(reward.get("icon", ""))
-	var resolved: Texture2D = _load_icon_from_ref(icon_ref)
-	if resolved != null:
-		return resolved
-	var item_id: int = int(reward.get("item_id", 0))
-	if item_id > 0:
-		var bag_icon: String = _find_bag_item_icon(item_id)
-		resolved = _load_icon_from_ref(bag_icon)
-		if resolved != null:
-			return resolved
-	return _build_default_item_atlas_texture()
-
-
-## 从 res:// 路径或图集引用加载纹理。
-func _load_icon_from_ref(icon_ref: String) -> Texture2D:
-	var normalized_ref: String = icon_ref.strip_edges()
-	if normalized_ref.is_empty():
-		return null
-	if normalized_ref.begins_with("res://"):
-		var resource: Resource = load(normalized_ref)
-		if resource is Texture2D:
-			return resource as Texture2D
-	return null
-
-
-## 在本地背包快照里查找物品 icon 字段。
-func _find_bag_item_icon(item_id: int) -> String:
-	for item_variant: Variant in GameState.bag_items:
-		if item_variant is not Dictionary:
-			continue
-		var item: Dictionary = item_variant as Dictionary
-		if int(item.get("item_id", 0)) == item_id:
-			return str(item.get("icon", ""))
-	return ""
-
-
-## 图集兜底纹理，避免无 icon 配置时整排空白。
-func _build_default_item_atlas_texture() -> Texture2D:
-	var atlas_source: Texture2D = _get_item_atlas_texture()
-	if atlas_source == null:
-		return null
-	var atlas_texture: AtlasTexture = AtlasTexture.new()
-	atlas_texture.atlas = atlas_source
-	atlas_texture.region = Rect2(0.0, 0.0, float(ITEM_ICON_SIZE), float(ITEM_ICON_SIZE))
-	return atlas_texture
-
-
-## 懒加载物品图集，避免场景切换时因 import 缓存缺失导致脚本报错。
-func _get_item_atlas_texture() -> Texture2D:
-	if _item_atlas_texture != null:
-		return _item_atlas_texture
-	var loaded_texture: Resource = load(ITEM_ATLAS_TEXTURE_PATH)
-	if loaded_texture is Texture2D:
-		_item_atlas_texture = loaded_texture as Texture2D
-	return _item_atlas_texture
+	return ItemIcons.resolve_texture(int(reward.get("item_id", 0)))

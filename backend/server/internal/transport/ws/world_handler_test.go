@@ -1763,7 +1763,7 @@ func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) 
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(nil), teststub.NewBattleRepository())
-	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
+	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, nil, worldService, npcService)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	challengerConn := &fakeConn{id: "pvp-challenger-conn"}
@@ -1846,7 +1846,7 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(monsterService), teststub.NewBattleRepository())
-	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, worldService, npcService)
+	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, nil, worldService, npcService)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	conn := &fakeConn{id: "conn-1"}

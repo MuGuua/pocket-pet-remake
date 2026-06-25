@@ -285,7 +285,7 @@ func _append_inline_item_icons() -> void:
 	if _content_label == null:
 		return
 	for mention: Dictionary in _current_item_mentions:
-		var icon_texture: Texture2D = _resolve_item_icon_texture(str(mention.get("icon", "")))
+		var icon_texture: Texture2D = _resolve_item_icon_texture(mention)
 		if icon_texture == null:
 			continue
 		_content_label.add_image(icon_texture, _ITEM_ICON_SIZE, _ITEM_ICON_SIZE)
@@ -294,21 +294,16 @@ func _append_inline_item_icons() -> void:
 func _create_item_mention_chip(mention: Dictionary) -> Control:
 	var icon_rect: TextureRect = TextureRect.new()
 	icon_rect.custom_minimum_size = Vector2(float(_ITEM_ICON_SIZE), float(_ITEM_ICON_SIZE))
-	icon_rect.texture = _resolve_item_icon_texture(str(mention.get("icon", "")))
+	icon_rect.texture = _resolve_item_icon_texture(mention)
 	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_rect.tooltip_text = str(mention.get("item_name", "物品%d" % int(mention.get("item_id", 0))))
 	return icon_rect
 
-## 从服务端 icon 字段加载纹理，支持 res:// 路径并提供图集首格兜底。
-func _resolve_item_icon_texture(icon_ref: String) -> Texture2D:
-	var normalized_ref: String = icon_ref.strip_edges()
-	if not normalized_ref.is_empty() and normalized_ref.begins_with("res://"):
-		var loaded_resource: Resource = load(normalized_ref)
-		if loaded_resource is Texture2D:
-			return loaded_resource as Texture2D
-	return _build_default_item_atlas_texture()
+## 按 item_id 从本地注册表解析图标贴图。
+func _resolve_item_icon_texture(mention: Dictionary) -> Texture2D:
+	return ItemIcons.resolve_texture(int(mention.get("item_id", 0)))
 
 ## 使用统一物品图集首格作为缺省图标，避免配置缺失时没有视觉反馈。
 func _build_default_item_atlas_texture() -> Texture2D:

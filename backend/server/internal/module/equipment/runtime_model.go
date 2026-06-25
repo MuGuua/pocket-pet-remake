@@ -20,6 +20,7 @@ type RuntimeEquippedItem struct {
 	ItemUID       string            `json:"item_uid"`
 	ItemID        uint64            `json:"item_id"`
 	ItemName      string            `json:"item_name"`
+	Icon          string            `json:"icon"`
 	EnhanceLevel  uint32            `json:"enhance_level"`
 	AppearanceSkinID string         `json:"appearance_skin_id,omitempty"`
 	AppearanceOnly   bool           `json:"appearance_only"`

@@ -1,0 +1,412 @@
+[gd_scene format=3 uid="uid://c1shba0bn0k1a"]
+
+[ext_resource type="PackedScene" uid="uid://fe1x56xjri4a" path="res://scenes/ui/null_equipment_slot.tscn" id="1_qbtfp"]
+[ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_080m8"]
+[ext_resource type="Texture2D" uid="uid://kxkj8edhsh44" path="res://asset/分类/宠物/两图宠物/758.png" id="3_1fd6l"]
+[ext_resource type="Texture2D" uid="uid://cjhwr25kaj4k2" path="res://asset/分类/菜单表情/spritesheet-32px.png" id="3_104bh"]
+[ext_resource type="Texture2D" uid="uid://ctt5au2jduhln" path="res://asset/分类/人物/职业形象/659.png" id="4_yughk"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y1mnv"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.8, 0.8, 0.24313726)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+corner_detail = 17
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y1mnv"]
+atlas = ExtResource("2_080m8")
+region = Rect2(18, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_i1as4"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wxjm4"]
+atlas = SubResource("CompressedTexture2D_i1as4")
+region = Rect2(432, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_4csmc"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_104bh"]
+atlas = SubResource("CompressedTexture2D_4csmc")
+region = Rect2(378, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_e47kl"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1fd6l"]
+atlas = SubResource("CompressedTexture2D_e47kl")
+region = Rect2(522, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_yughk"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c67rm"]
+atlas = SubResource("CompressedTexture2D_yughk")
+region = Rect2(540, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_escak"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_s2hsq"]
+atlas = SubResource("CompressedTexture2D_escak")
+region = Rect2(234, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_1fd6l"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yughk"]
+atlas = SubResource("CompressedTexture2D_1fd6l")
+region = Rect2(108, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_c67rm"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_escak"]
+atlas = SubResource("CompressedTexture2D_c67rm")
+region = Rect2(126, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_s2hsq"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_eodj5"]
+atlas = SubResource("CompressedTexture2D_s2hsq")
+region = Rect2(108, 0, 18, 18)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_eodj5"]
+load_path = "res://.godot/imported/魔法阵.png-981683f3305cee15cbda77135f46f4f7.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2hnwu"]
+atlas = ExtResource("3_1fd6l")
+region = Rect2(0, 0, 68, 78)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bhnpi"]
+atlas = ExtResource("3_1fd6l")
+region = Rect2(68, 0, 68, 78)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_fp0h2"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2hnwu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bhnpi")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 3.0
+}]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pdbmg"]
+atlas = ExtResource("4_yughk")
+region = Rect2(0, 0, 47, 49)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_gy17h"]
+atlas = ExtResource("4_yughk")
+region = Rect2(47, 0, 47, 49)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_y1mnv"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pdbmg")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_gy17h")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 3.0
+}]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_2hnwu"]
+load_path = "res://.godot/imported/spritesheet-32px.png-c126c2c8b989c9c4e412699c64d2bf71.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idk83"]
+atlas = SubResource("CompressedTexture2D_2hnwu")
+region = Rect2(65, 5, 30, 23)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_454i8"]
+atlas = ExtResource("3_104bh")
+region = Rect2(65, 5, 30, 23)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_bhnpi"]
+load_path = "res://.godot/imported/spritesheet-32px.png-c126c2c8b989c9c4e412699c64d2bf71.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fp0h2"]
+atlas = SubResource("CompressedTexture2D_bhnpi")
+region = Rect2(65, 5, 30, 23)
+
+[node name="MarginContainer2" type="MarginContainer" unique_id=485359149]
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1326181095]
+custom_minimum_size = Vector2(150, 110)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=714707719]
+layout_mode = 2
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_bottom = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=1794810373]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_constants/separation = 5
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=309504024]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="NullEquipmentSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=138525869 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot" unique_id=303719839]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_y1mnv")
+flip_h = true
+
+[node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=80557910 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot2" unique_id=1001937611]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_wxjm4")
+flip_h = true
+
+[node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=775098807 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot3" unique_id=2128908308]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_104bh")
+flip_h = true
+
+[node name="NullEquipmentSlot4" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=627717603 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot4" unique_id=359062719]
+modulate = Color(4.7037287, 4.7037287, 4.7037287, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_1fd6l")
+flip_h = true
+
+[node name="NullEquipmentSlot5" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1643004142 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot5" unique_id=2138528980]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_c67rm")
+flip_h = true
+
+[node name="NullEquipmentSlot6" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1655263138 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot6" unique_id=1765659231]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_s2hsq")
+flip_h = true
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1560798019]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=1852478235]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="NullEquipmentSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=1479341569 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot" unique_id=1188651491]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_yughk")
+
+[node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=1003190910 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot2" unique_id=804397090]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_escak")
+
+[node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=292522440 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot3" unique_id=1859008982]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_eodj5")
+
+[node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=2035361405]
+custom_minimum_size = Vector2(110, 74)
+layout_mode = 2
+
+[node name="HBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control" unique_id=489206425]
+custom_minimum_size = Vector2(110, 70)
+custom_maximum_size = Vector2(-1, 70)
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 74.0
+
+[node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer" unique_id=236139716]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control" unique_id=701497947]
+modulate = Color(1, 1, 1, 0.44705883)
+custom_minimum_size = Vector2(50, 12)
+layout_mode = 0
+offset_top = 53.0
+offset_right = 110.0
+offset_bottom = 65.0
+size_flags_vertical = 10
+texture = SubResource("CompressedTexture2D_eodj5")
+expand_mode = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control" unique_id=546295641]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 0
+offset_top = 4.0
+offset_right = 110.0
+offset_bottom = 4.0
+
+[node name="Pet" type="AnimatedSprite2D" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=2092438364]
+position = Vector2(63, 32)
+scale = Vector2(0.6, 0.6)
+sprite_frames = SubResource("SpriteFrames_fp0h2")
+autoplay = "default"
+frame_progress = 0.2490806
+
+[node name="Player" type="AnimatedSprite2D" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=1088089470]
+position = Vector2(33, 34)
+scale = Vector2(0.7, 0.804)
+sprite_frames = SubResource("SpriteFrames_y1mnv")
+autoplay = "default"
+frame_progress = 0.69908303
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer" unique_id=1297206361]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=1891799341]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="WeaponSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=118249921 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+equip_slot_key = "weapon"
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/WeaponSlot" unique_id=1231486959]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_idk83")
+flip_h = true
+
+[node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=664285003 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot2" unique_id=2037361961]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_454i8")
+flip_h = true
+
+[node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=980606157 instance=ExtResource("1_qbtfp")]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot3" unique_id=1081916429]
+modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
+custom_maximum_size = Vector2(14, 14)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_fp0h2")
+flip_h = true
