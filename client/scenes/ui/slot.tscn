@@ -1,13 +1,57 @@
-[gd_scene load_steps=3 format=3 uid="uid://cy7ymccdw2m71"]
+[gd_scene format=3 uid="uid://cy7ymccdw2m71"]
 
+[ext_resource type="Script" uid="uid://mmt00s53tam" path="res://scripts/ui/bag/bag_slot.gd" id="1_bagslot"]
 [ext_resource type="Texture2D" uid="uid://bfi02xl85inkq" path="res://asset/分类/ui/bagUI.png" id="1_jkamp"]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_sad2q"]
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_pag2s"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_empty"]
 atlas = ExtResource("1_jkamp")
 region = Rect2(485, 528, 16, 16)
 
-[node name="Slot" type="Button"]
+[node name="Slot" type="Button" unique_id=320579853]
 custom_minimum_size = Vector2(22, 22)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxEmpty_pag2s")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_pag2s")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_pag2s")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_pag2s")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_pag2s")
+toggle_mode = true
+script = ExtResource("1_bagslot")
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1221487482]
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("AtlasTexture_empty")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=980126358]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -21,40 +65,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="TextureRect" type="TextureRect" parent="."]
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = SubResource("AtlasTexture_sad2q")
-
-[node name="CenterContainer" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Control" type="Control" parent="CenterContainer"]
+[node name="Control" type="Control" parent="CenterContainer" unique_id=2035895270]
 layout_mode = 2
+mouse_filter = 2
 
-[node name="ItemImage" type="TextureRect" parent="CenterContainer/Control"]
+[node name="ItemImage" type="TextureRect" parent="CenterContainer/Control" unique_id=226068879]
+visible = false
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -67,8 +83,12 @@ offset_right = 9.0
 offset_bottom = 9.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 4
 
-[node name="ItemQuantity" type="Label" parent="CenterContainer/Control"]
+[node name="ItemQuantity" type="Label" parent="CenterContainer/Control" unique_id=499760035]
+visible = false
 custom_minimum_size = Vector2(18, 18)
 layout_mode = 1
 anchors_preset = 8
@@ -85,6 +105,5 @@ grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 8
-text = "99"
 horizontal_alignment = 2
 vertical_alignment = 2

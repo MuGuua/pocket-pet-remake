@@ -12,9 +12,14 @@ static func description(item: Dictionary) -> String:
     return str(item.get("description", item.get("desc", "暂无描述。")))
 
 
-## 读取服务端下发的客户端图标资源路径。
-static func icon_ref(item: Dictionary) -> String:
-    return str(item.get("icon", ""))
+## 读取服务端权威物品模板 id。
+static func item_id(item: Dictionary) -> int:
+    return int(item.get("item_id", 0))
+
+
+## 按 item_id 从本地注册表解析图标贴图。
+static func icon_texture(item: Dictionary) -> Texture2D:
+    return ItemIcons.resolve_texture(item_id(item))
 
 
 ## 读取服务端权威格子编号。

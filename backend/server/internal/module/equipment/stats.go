@@ -231,13 +231,14 @@ func resolveEquippedSkinID(templates []EquippedPieceTemplate, _ *player.Profile)
 }
 
 // ToRuntimeEquippedItem 把模板快照转为协议层已佩戴摘要。
-func ToRuntimeEquippedItem(template EquippedPieceTemplate, itemUID string, itemID uint64, itemName string) RuntimeEquippedItem {
+func ToRuntimeEquippedItem(template EquippedPieceTemplate, itemUID string, itemID uint64, itemName string, icon string) RuntimeEquippedItem {
 	return RuntimeEquippedItem{
 		EquipSlot:        string(template.EquipSlot),
 		EquipSlotLabel:   EquipSlotLabel(template.EquipSlot),
 		ItemUID:          itemUID,
 		ItemID:           itemID,
 		ItemName:         itemName,
+		Icon:             icon,
 		EnhanceLevel:     template.EnhanceLevel,
 		AppearanceSkinID: template.AppearanceSkinID,
 		AppearanceOnly:   template.AppearanceOnly,

@@ -21,6 +21,7 @@ SELECT
   ei.item_id,
   ei.enhance_level,
   idf.item_name,
+  COALESCE(idf.icon, ''),
   iee.appearance_skin_id,
   iee.appearance_only,
   iee.base_hp,
@@ -50,6 +51,7 @@ SELECT
   idf.required_level,
   idf.bind_type,
   idf.item_name,
+  COALESCE(idf.icon, ''),
   iee.equip_slot,
   iee.appearance_skin_id,
   iee.appearance_only,
@@ -78,6 +80,7 @@ SELECT
   ei.item_id,
   ei.enhance_level,
   idf.item_name,
+  COALESCE(idf.icon, ''),
   iee.appearance_skin_id,
   iee.appearance_only,
   iee.base_hp,
@@ -150,6 +153,7 @@ type runtimeEquippedRow struct {
 	ItemID                   uint64
 	EnhanceLevel             uint32
 	ItemName                 string
+	Icon                     string
 	AppearanceSkinID         string
 	AppearanceOnly           bool
 	BaseHP                   uint32
@@ -172,6 +176,7 @@ type runtimeBagEquipmentRow struct {
 	RequiredLevel            uint32
 	BindType                 string
 	ItemName                 string
+	Icon                     string
 	EquipSlot                string
 	AppearanceSkinID         string
 	AppearanceOnly           bool
@@ -203,7 +208,7 @@ func (r *EquipmentRepository) ListEquipped(ctx context.Context, playerID uint64)
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName))
+		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, row.Icon))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -279,7 +284,7 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 		if err != nil {
 			return nil, err
 		}
-		item := equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName)
+		item := equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName, existingRow.Icon)
 		unequippedItem = &item
 	}
 
@@ -313,7 +318,7 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 		return nil, err
 	}
 	return &equipment.EquipFromBagResult{
-		EquippedSlot: equipment.ToRuntimeEquippedItem(equippedTemplate, itemUID, sourceRow.ItemID, sourceRow.ItemName),
+		EquippedSlot: equipment.ToRuntimeEquippedItem(equippedTemplate, itemUID, sourceRow.ItemID, sourceRow.ItemName, sourceRow.Icon),
 		Unequipped:   unequippedItem,
 		AllEquipped:  allEquipped,
 	}, nil
@@ -373,7 +378,7 @@ func (r *EquipmentRepository) UnequipSlot(
 		return nil, err
 	}
 	return &equipment.UnequipSlotResult{
-		Unequipped:  equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName),
+		Unequipped:  equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName, existingRow.Icon),
 		AllEquipped: allEquipped,
 	}, nil
 }
@@ -399,6 +404,7 @@ func loadRuntimeBagEquipmentRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&requiredLevel,
 		&row.BindType,
 		&row.ItemName,
+		&row.Icon,
 		&row.EquipSlot,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
@@ -436,6 +442,7 @@ func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&row.ItemID,
 		&enhanceLevel,
 		&row.ItemName,
+		&row.Icon,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
 		&baseHP,
@@ -473,6 +480,7 @@ func scanRuntimeEquippedRow(scanner interface {
 		&row.ItemID,
 		&enhanceLevel,
 		&row.ItemName,
+		&row.Icon,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
 		&baseHP,
@@ -582,7 +590,7 @@ func loadEquippedRuntimeItemsInTx(ctx context.Context, tx *sql.Tx, playerID uint
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName))
+		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, row.Icon))
 	}
 	return items, rows.Err()
 }

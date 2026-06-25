@@ -1861,12 +1861,10 @@ func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint
 			return token
 		}
 		itemName := fmt.Sprintf("物品%d", itemID)
-		itemIcon := ""
 		if h != nil && h.itemService != nil {
 			itemDetail, detailErr := h.itemService.GetRuntimeItemDetail(ctx, itemID)
 			if detailErr == nil && itemDetail != nil {
 				itemName = itemDetail.ItemName
-				itemIcon = itemDetail.Icon
 			}
 		}
 		if !seenItems[itemID] {
@@ -1874,7 +1872,6 @@ func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint
 			mentionedItems = append(mentionedItems, protocol.NPCDialogueItem{
 				ItemID:   itemID,
 				ItemName: itemName,
-				Icon:     itemIcon,
 			})
 		}
 		return itemName

@@ -279,7 +279,7 @@ func buildRuntimeItemSnapshotFromEnhanceRow(row *runtimeEnhanceInstanceRow) (equ
 	if err != nil {
 		return equipment.RuntimeEquippedItem{}, err
 	}
-	return equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName), nil
+	return equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, ""), nil
 }
 
 // consumeBagMaterialsByItemIDInTx 按 item_id 跨格子扣减可堆叠材料，优先消耗 slot_index 较小的格子。

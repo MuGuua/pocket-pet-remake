@@ -27,6 +27,7 @@ MessageRouter="*res://autoload/message_router.gd"
 HttpClient="*res://autoload/http_client.gd"
 NetClient="*res://autoload/net_client.gd"
 App="*res://autoload/app.gd"
+ItemIcons="*res://autoload/item_icons.gd"
 SomeGlobal="*res://autoload/some_global.gd"
 
 [dialogue_manager]
@@ -35,8 +36,8 @@ runtime/balloon_path="res://dialogue/balloon.tscn"
 
 [display]
 
-window/size/viewport_width=360
-window/size/viewport_height=480
+window/size/viewport_width=240
+window/size/viewport_height=360
 window/size/window_width_override=1082
 window/size/window_height_override=1922
 window/stretch/mode="canvas_items"
