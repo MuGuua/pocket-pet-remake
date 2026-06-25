@@ -8,6 +8,8 @@ signal npc_interaction_requested(entity_id: int, npc_name: String)
 signal wild_encounter_responded(accepted: bool, reason: String)
 
 const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(360.0, 480.0)
+## 世界场景内部固定渲染分辨率。移动端外层只做整数倍放大，避免像素图被非整数比例重采样。
+const INTERNAL_RENDER_FRAME_SIZE: Vector2i = Vector2i(360, 480)
 const PORTAL_ACTIVATION_COOLDOWN_MS: int = 350
 const DEFAULT_GRID_TO_PIXELS: float = 24.0
 const WILD_ENCOUNTER_RATE_DENOMINATOR: int = 10000
@@ -46,7 +48,7 @@ const SCENE_CONFIGS: Dictionary = {
 	},
 }
 
-@onready var game_shell: PanelContainer = %GameShell
+@onready var game_shell: Control = %GameShell
 @onready var game_viewport_container: SubViewportContainer = %GameViewportContainer
 @onready var game_viewport: SubViewport = %GameViewport
 @onready var background_fill: Sprite2D = %BackgroundFill
@@ -394,6 +396,7 @@ func _request_auto_move_to_world(target_world_position: Vector2) -> void:
 
 func _refresh_game_layout() -> void:
 	_resize_game_viewport()
+	_layout_game_viewport_container()
 	_refresh_background_fill()
 	if map_loading_overlay != null:
 		map_loading_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -401,18 +404,31 @@ func _refresh_game_layout() -> void:
 func _resize_game_viewport() -> void:
 	if game_viewport == null:
 		return
-	# SubViewportContainer 开启 stretch 时会自动同步子视口尺寸，手动赋值会触发 Godot 警告并造成重复布局。
-	if game_viewport_container != null and game_viewport_container.stretch:
+	# 世界始终先按固定低分辨率渲染，再交给外层做整数倍放大，保证像素边缘稳定。
+	if game_viewport.size == INTERNAL_RENDER_FRAME_SIZE:
 		return
-	var viewport_size: Vector2 = game_viewport_container.size if game_viewport_container != null else Vector2.ZERO
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		viewport_size = size
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		viewport_size = _render_frame_size
-	var normalized_size: Vector2i = Vector2i(viewport_size.floor())
-	if game_viewport.size == normalized_size:
+	game_viewport.size = INTERNAL_RENDER_FRAME_SIZE
+
+## 根据当前可用区域，把 SubViewportContainer 以整数倍居中显示，避免 1.3x / 1.87x 这类非整数缩放带来的发糊。
+func _layout_game_viewport_container() -> void:
+	if game_viewport_container == null:
 		return
-	game_viewport.size = normalized_size
+
+	var available_size: Vector2 = game_shell.size if game_shell != null else Vector2.ZERO
+	if available_size.x <= 0.0 or available_size.y <= 0.0:
+		available_size = _render_frame_size
+
+	var scale_x: float = available_size.x / float(INTERNAL_RENDER_FRAME_SIZE.x)
+	var scale_y: float = available_size.y / float(INTERNAL_RENDER_FRAME_SIZE.y)
+	var integer_scale: int = maxi(1, int(floor(minf(scale_x, scale_y))))
+	var target_size: Vector2 = Vector2(
+		float(INTERNAL_RENDER_FRAME_SIZE.x * integer_scale),
+		float(INTERNAL_RENDER_FRAME_SIZE.y * integer_scale)
+	)
+	var target_position: Vector2 = ((available_size - target_size) * 0.5).floor()
+
+	game_viewport_container.position = target_position
+	game_viewport_container.size = target_size
 
 func _refresh_background_fill() -> void:
 	if background_fill == null:
@@ -670,7 +686,8 @@ func _grid_to_pixels_for_scene(scene_id: int) -> float:
 ## 参数 scene_id 表示当前场景 ID；scene_position 是服务端/场景统一坐标；返回值是 Godot 像素坐标。
 func _scene_coordinate_to_local_pixels(scene_id: int, scene_position: Vector2) -> Vector2:
 	var grid_to_pixels: float = _grid_to_pixels_for_scene(scene_id)
-	return _current_level_scene_origin_pixels + scene_position * grid_to_pixels
+	# 地图和角色统一吸附到整数像素，避免服务端浮点坐标换算后出现半像素渲染。
+	return (_current_level_scene_origin_pixels + scene_position * grid_to_pixels).round()
 
 ## 把玩家当前像素坐标换算回统一场景坐标，供 HUD 和调试日志展示。
 ## 参数 scene_id 表示当前场景 ID；local_pixels 是地图内像素坐标；返回值与服务端 self_pos 使用同一坐标系。
@@ -701,7 +718,7 @@ func _apply_pending_player_transition() -> bool:
 		if player_node.has_method("apply_authoritative_position"):
 			player_node.call("apply_authoritative_position", _pending_player_spawn_position)
 		else:
-			player_node.position = _pending_player_spawn_position
+			player_node.position = _pending_player_spawn_position.round()
 		_pending_player_spawn_requested = false
 		applied = true
 

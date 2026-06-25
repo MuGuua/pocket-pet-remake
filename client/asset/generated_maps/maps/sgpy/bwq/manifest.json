@@ -1,0 +1,172 @@
+{
+  "source": "maps/maps/sgpy/bwq.sj.txt",
+  "group": "sgpy",
+  "map_name": "bwq",
+  "sj_file": "bwq.sj",
+  "width": 11,
+  "height": 13,
+  "tile_set_count": 7,
+  "overlay_descriptor_count": 27,
+  "object_count": 0,
+  "teleport_count": 14,
+  "external_tile_ids": [
+    0,
+    1,
+    3,
+    5,
+    6
+  ],
+  "tile_sets": [
+    {
+      "index": 0,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 3
+    },
+    {
+      "index": 1,
+      "embedded": true,
+      "offset": 620,
+      "length": 487,
+      "file_id": null
+    },
+    {
+      "index": 2,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 0
+    },
+    {
+      "index": 3,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 5
+    },
+    {
+      "index": 4,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 1
+    },
+    {
+      "index": 5,
+      "embedded": true,
+      "offset": 1107,
+      "length": 392,
+      "file_id": null
+    },
+    {
+      "index": 6,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 6
+    }
+  ],
+  "resource_dirs": {
+    "raw": "../../../resources/d/raw",
+    "png": "../../../resources/d/png"
+  },
+  "required_raw_files": [
+    "0.tij",
+    "0.tij1",
+    "0.tij2",
+    "00.dat",
+    "00.dat1",
+    "00.dat2",
+    "00.dat3",
+    "00.dat4",
+    "00.dat5",
+    "00.dat6",
+    "00.dat7",
+    "00.dat8",
+    "00.dat9",
+    "01.dat",
+    "02.dat",
+    "02.dat1",
+    "02.dat2",
+    "02.dat3",
+    "02.dat4",
+    "02.dat5",
+    "02.dat6",
+    "02.dat7",
+    "1.tij",
+    "1.tij1",
+    "1.tij2",
+    "3.tij",
+    "3.tij1",
+    "3.tij2",
+    "5.tij",
+    "5.tij1",
+    "6.tij",
+    "6.tij1"
+  ],
+  "required_png_files": [
+    "0.png",
+    "00.dat.png",
+    "00.dat_1.png",
+    "00.dat_2.png",
+    "00.dat_3.png",
+    "00.dat_4.png",
+    "00.dat_5.png",
+    "00.dat_6.png",
+    "00.dat_7.png",
+    "00.dat_8.png",
+    "00.dat_9.png",
+    "01.dat.png",
+    "02.dat.png",
+    "02.dat_1.png",
+    "02.dat_2.png",
+    "02.dat_3.png",
+    "02.dat_4.png",
+    "02.dat_5.png",
+    "02.dat_6.png",
+    "02.dat_7.png",
+    "0_tij1.png",
+    "0_tij2.png",
+    "1.png",
+    "1_tij1.png",
+    "1_tij2.png",
+    "3.png",
+    "3_tij1.png",
+    "3_tij2.png",
+    "5.png",
+    "5_tij1.png",
+    "6.png",
+    "6_tij1.png"
+  ],
+  "animation_steps": 6,
+  "animated_cells_dir": "animated_cells",
+  "animated_cell_count": 2,
+  "animated_cells": [
+    {
+      "x": 4,
+      "y": 3,
+      "sheet": "cell_04_03.png",
+      "frame_count": 6,
+      "fps": 12.5
+    },
+    {
+      "x": 9,
+      "y": 3,
+      "sheet": "cell_09_03.png",
+      "frame_count": 6,
+      "fps": 12.5
+    }
+  ],
+  "full_frames_dir": "full_frames",
+  "full_animation_steps": 6,
+  "full_frame_count": 3,
+  "full_frame_files": [
+    "frame_000.png",
+    "frame_001.png",
+    "frame_002.png"
+  ],
+  "full_sheet_file": "sheet.png",
+  "full_sheet_frame_width": 176,
+  "full_sheet_frame_height": 208
+}

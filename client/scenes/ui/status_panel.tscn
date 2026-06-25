@@ -1,12 +1,7 @@
-[gd_scene load_steps=13 format=3 uid="uid://dhqd8fj5egaiy"]
+[gd_scene format=3 uid="uid://dhqd8fj5egaiy"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_dvh5f"]
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_inner"]
-[ext_resource type="Script" path="res://scripts/ui/status_panel.gd" id="3_script"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/character_status_panel.tscn" id="panel_1"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/pet_status_panel.tscn" id="panel_2"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/points_status_panel.tscn" id="panel_3"]
-[ext_resource type="PackedScene" path="res://scenes/ui/status_panels/transfer_status_panel.tscn" id="panel_4"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_outer"]
 texture = ExtResource("1_dvh5f")
@@ -43,79 +38,78 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="StatusPanel" type="PanelContainer"]
+[node name="StatusPanel" type="PanelContainer" unique_id=410360769]
 custom_minimum_size = Vector2(350, 430)
 theme_override_styles/panel = SubResource("StyleBoxTexture_outer")
-script = ExtResource("3_script")
 
-[node name="RootVBox" type="VBoxContainer" parent="."]
+[node name="RootVBox" type="VBoxContainer" parent="." unique_id=1588305207]
 custom_minimum_size = Vector2(300, 400)
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderPanel" type="PanelContainer" parent="RootVBox"]
+[node name="HeaderPanel" type="PanelContainer" parent="RootVBox" unique_id=317940031]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_inner")
 
-[node name="HeaderMargin" type="MarginContainer" parent="RootVBox/HeaderPanel"]
+[node name="HeaderMargin" type="MarginContainer" parent="RootVBox/HeaderPanel" unique_id=1053369244]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/HeaderPanel/HeaderMargin"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/HeaderPanel/HeaderMargin" unique_id=1630377128]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderLeft" type="HBoxContainer" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow"]
+[node name="HeaderLeft" type="HBoxContainer" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow" unique_id=2054663881]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 4
 
-[node name="AvatarLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft"]
+[node name="AvatarLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft" unique_id=1613151368]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "🧙‍♂️"
 
-[node name="NameLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft"]
+[node name="NameLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft" unique_id=1098067255]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 2
 text = "小去哪"
 
-[node name="BadgeLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft"]
+[node name="BadgeLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft" unique_id=202204858]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.8, 0, 1)
 theme_override_constants/outline_size = 2
 text = "🎖️"
 
-[node name="LevelLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft"]
+[node name="LevelLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow/HeaderLeft" unique_id=1462050803]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 2
 text = "100"
 
-[node name="FlyLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow"]
+[node name="FlyLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow" unique_id=1335155782]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 1, 1)
 theme_override_constants/outline_size = 2
 text = "飞 11"
 
-[node name="TierLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow"]
+[node name="TierLabel" type="Label" parent="RootVBox/HeaderPanel/HeaderMargin/HeaderRow" unique_id=419823561]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.46666667, 1, 1)
 theme_override_constants/outline_size = 2
 text = "🔮 9阶4级"
 
-[node name="SubTabRow" type="HBoxContainer" parent="RootVBox"]
+[node name="SubTabRow" type="HBoxContainer" parent="RootVBox" unique_id=205965851]
 layout_mode = 2
 theme_override_constants/separation = 9
 
-[node name="Control" type="Control" parent="RootVBox/SubTabRow"]
+[node name="Control" type="Control" parent="RootVBox/SubTabRow" unique_id=1243884804]
 layout_mode = 2
 
-[node name="CharacterTabButton" type="Button" parent="RootVBox/SubTabRow"]
+[node name="CharacterTabButton" type="Button" parent="RootVBox/SubTabRow" unique_id=80994146]
 custom_minimum_size = Vector2(68, 28)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -126,7 +120,7 @@ theme_override_styles/focus = SubResource("StyleBoxFlat_tab_hover")
 toggle_mode = true
 text = "人物状态"
 
-[node name="PetTabButton" type="Button" parent="RootVBox/SubTabRow"]
+[node name="PetTabButton" type="Button" parent="RootVBox/SubTabRow" unique_id=413343371]
 custom_minimum_size = Vector2(68, 28)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -137,7 +131,7 @@ theme_override_styles/focus = SubResource("StyleBoxFlat_tab_hover")
 toggle_mode = true
 text = "宠物状态"
 
-[node name="PointsTabButton" type="Button" parent="RootVBox/SubTabRow"]
+[node name="PointsTabButton" type="Button" parent="RootVBox/SubTabRow" unique_id=816741868]
 custom_minimum_size = Vector2(68, 28)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -148,7 +142,7 @@ theme_override_styles/focus = SubResource("StyleBoxFlat_tab_hover")
 toggle_mode = true
 text = "属性加点"
 
-[node name="TransferTabButton" type="Button" parent="RootVBox/SubTabRow"]
+[node name="TransferTabButton" type="Button" parent="RootVBox/SubTabRow" unique_id=117201113]
 custom_minimum_size = Vector2(68, 28)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -159,22 +153,22 @@ theme_override_styles/focus = SubResource("StyleBoxFlat_tab_hover")
 toggle_mode = true
 text = "转职"
 
-[node name="PanelHost" type="Control" parent="RootVBox"]
+[node name="PanelHost" type="Control" parent="RootVBox" unique_id=926774779]
 custom_minimum_size = Vector2(300, 328)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="CharacterStatusPanel" parent="RootVBox/PanelHost" instance=ExtResource("panel_1")]
+[node name="CharacterStatusPanel" parent="RootVBox/PanelHost" unique_id=1630757877]
 layout_mode = 1
 
-[node name="PetStatusPanel" parent="RootVBox/PanelHost" instance=ExtResource("panel_2")]
+[node name="PetStatusPanel" parent="RootVBox/PanelHost" unique_id=1859649738]
 visible = false
 
-[node name="PointsStatusPanel" parent="RootVBox/PanelHost" instance=ExtResource("panel_3")]
+[node name="PointsStatusPanel" parent="RootVBox/PanelHost" unique_id=1148918091]
 visible = false
 layout_mode = 1
 
-[node name="TransferStatusPanel" parent="RootVBox/PanelHost" instance=ExtResource("panel_4")]
+[node name="TransferStatusPanel" parent="RootVBox/PanelHost" unique_id=1968882203]
 visible = false
 layout_mode = 1

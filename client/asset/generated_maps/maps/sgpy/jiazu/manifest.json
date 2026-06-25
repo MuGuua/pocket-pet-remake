@@ -1,0 +1,111 @@
+{
+  "source": "maps/maps/sgpy/jiazu.sj.txt",
+  "group": "sgpy",
+  "map_name": "jiazu",
+  "sj_file": "jiazu.sj",
+  "width": 15,
+  "height": 20,
+  "tile_set_count": 3,
+  "overlay_descriptor_count": 57,
+  "object_count": 0,
+  "teleport_count": 4,
+  "external_tile_ids": [
+    4,
+    5,
+    6
+  ],
+  "tile_sets": [
+    {
+      "index": 0,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 4
+    },
+    {
+      "index": 1,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 6
+    },
+    {
+      "index": 2,
+      "embedded": false,
+      "offset": 0,
+      "length": 0,
+      "file_id": 5
+    }
+  ],
+  "resource_dirs": {
+    "raw": "../../../resources/d/raw",
+    "png": "../../../resources/d/png"
+  },
+  "required_raw_files": [
+    "00.dat",
+    "00.dat1",
+    "00.dat2",
+    "00.dat3",
+    "00.dat4",
+    "00.dat5",
+    "00.dat6",
+    "00.dat7",
+    "00.dat8",
+    "00.dat9",
+    "01.dat",
+    "02.dat",
+    "02.dat1",
+    "02.dat2",
+    "02.dat3",
+    "02.dat4",
+    "02.dat5",
+    "02.dat6",
+    "02.dat7",
+    "4.tij",
+    "4.tij1",
+    "5.tij",
+    "5.tij1",
+    "6.tij",
+    "6.tij1"
+  ],
+  "required_png_files": [
+    "00.dat.png",
+    "00.dat_1.png",
+    "00.dat_2.png",
+    "00.dat_3.png",
+    "00.dat_4.png",
+    "00.dat_5.png",
+    "00.dat_6.png",
+    "00.dat_7.png",
+    "00.dat_8.png",
+    "00.dat_9.png",
+    "01.dat.png",
+    "02.dat.png",
+    "02.dat_1.png",
+    "02.dat_2.png",
+    "02.dat_3.png",
+    "02.dat_4.png",
+    "02.dat_5.png",
+    "02.dat_6.png",
+    "02.dat_7.png",
+    "4.png",
+    "4_tij1.png",
+    "5.png",
+    "5_tij1.png",
+    "6.png",
+    "6_tij1.png"
+  ],
+  "animation_steps": 1,
+  "animated_cells_dir": "animated_cells",
+  "animated_cell_count": 0,
+  "animated_cells": [],
+  "full_frames_dir": "full_frames",
+  "full_animation_steps": 1,
+  "full_frame_count": 1,
+  "full_frame_files": [
+    "frame_000.png"
+  ],
+  "full_sheet_file": "sheet.png",
+  "full_sheet_frame_width": 240,
+  "full_sheet_frame_height": 320
+}

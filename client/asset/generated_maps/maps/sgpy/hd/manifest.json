@@ -1,0 +1,111 @@
+{
+  "source": "maps/maps/sgpy/hd.sj.txt",
+  "group": "sgpy",
+  "map_name": "hd",
+  "sj_file": "hd.sj",
+  "width": 12,
+  "height": 14,
+  "tile_set_count": 3,
+  "overlay_descriptor_count": 27,
+  "object_count": 0,
+  "teleport_count": 8,
+  "external_tile_ids": [],
+  "tile_sets": [
+    {
+      "index": 0,
+      "embedded": true,
+      "offset": 704,
+      "length": 523,
+      "file_id": null
+    },
+    {
+      "index": 1,
+      "embedded": true,
+      "offset": 1227,
+      "length": 342,
+      "file_id": null
+    },
+    {
+      "index": 2,
+      "embedded": true,
+      "offset": 1569,
+      "length": 487,
+      "file_id": null
+    }
+  ],
+  "resource_dirs": {
+    "raw": "../../../resources/d/raw",
+    "png": "../../../resources/d/png"
+  },
+  "required_raw_files": [
+    "00.dat",
+    "00.dat1",
+    "00.dat2",
+    "00.dat3",
+    "00.dat4",
+    "00.dat5",
+    "00.dat6",
+    "00.dat7",
+    "00.dat8",
+    "00.dat9",
+    "01.dat",
+    "02.dat",
+    "02.dat1",
+    "02.dat2",
+    "02.dat3",
+    "02.dat4",
+    "02.dat5",
+    "02.dat6",
+    "02.dat7"
+  ],
+  "required_png_files": [
+    "00.dat.png",
+    "00.dat_1.png",
+    "00.dat_2.png",
+    "00.dat_3.png",
+    "00.dat_4.png",
+    "00.dat_5.png",
+    "00.dat_6.png",
+    "00.dat_7.png",
+    "00.dat_8.png",
+    "00.dat_9.png",
+    "01.dat.png",
+    "02.dat.png",
+    "02.dat_1.png",
+    "02.dat_2.png",
+    "02.dat_3.png",
+    "02.dat_4.png",
+    "02.dat_5.png",
+    "02.dat_6.png",
+    "02.dat_7.png"
+  ],
+  "animation_steps": 4,
+  "animated_cells_dir": "animated_cells",
+  "animated_cell_count": 2,
+  "animated_cells": [
+    {
+      "x": 9,
+      "y": 0,
+      "sheet": "cell_09_00.png",
+      "frame_count": 4,
+      "fps": 12.5
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "sheet": "cell_00_02.png",
+      "frame_count": 4,
+      "fps": 12.5
+    }
+  ],
+  "full_frames_dir": "full_frames",
+  "full_animation_steps": 4,
+  "full_frame_count": 2,
+  "full_frame_files": [
+    "frame_000.png",
+    "frame_001.png"
+  ],
+  "full_sheet_file": "sheet.png",
+  "full_sheet_frame_width": 192,
+  "full_sheet_frame_height": 224
+}

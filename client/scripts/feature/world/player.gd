@@ -17,7 +17,7 @@ const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
 # 世界相机统一缩放；小于 1 会放大画面。
-@export var camera_zoom_scale: float = 0.65
+@export var camera_zoom_scale: float = 1
 # 世界相机相对玩家的垂直偏移；负值表示画面整体上移。
 @export var camera_vertical_offset: float = 150.0
 
@@ -100,6 +100,8 @@ func _process(_delta: float) -> void:
 # 在物理帧中执行角色移动。
 func _physics_process(_delta: float) -> void:
 	move_and_slide()
+	# 像素风世界要求角色始终落在整数像素上，避免相机跟随时把整张地图带成半像素采样。
+	position = position.round()
 
 ## 返回当前四方向朝向，供宠物跟随等世界表现层读取。
 func get_cardinal_direction() -> Vector2:
@@ -115,7 +117,8 @@ func get_move_speed() -> float:
 
 # 把服务端权威坐标直接应用到当前角色显示位置。
 func apply_authoritative_position(local_position: Vector2) -> void:
-	position = local_position
+	# 服务端坐标换算成像素后，统一吸附到整数像素，避免世界初次进入时立刻出现发糊。
+	position = local_position.round()
 	_clear_auto_move_path()
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO

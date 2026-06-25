@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://bf3ktm4jsxdhu"]
+[gd_scene format=3 uid="uid://bf3ktm4jsxdhu"]
 
 [ext_resource type="Script" uid="uid://1gwvwu5232nl" path="res://scripts/feature/world/player.gd" id="1_g2els"]
 [ext_resource type="Texture2D" uid="uid://ces3tym5sslw" path="res://asset/口袋所有形象/imgs/53.png" id="2_l3o4k"]
@@ -209,36 +209,33 @@ height = 10.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_g2els"]
 radius = 5.0990195
 
-[node name="Player" type="CharacterBody2D"]
+[node name="Player" type="CharacterBody2D" unique_id=1322619257]
 position = Vector2(173, 199)
 collision_layer = 2
 collision_mask = 7
 script = ExtResource("1_g2els")
-camera_zoom_scale = 1.3
 camera_vertical_offset = 30.0
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1583039981]
 position = Vector2(13, -20)
 texture = ExtResource("2_l3o4k")
 hframes = 14
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
-libraries = {
-&"": SubResource("AnimationLibrary_813xy")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=113384106]
+libraries/ = SubResource("AnimationLibrary_813xy")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1284200956]
 position = Vector2(13, -7)
 shape = SubResource("CapsuleShape2D_l3o4k")
 
-[node name="Area2D" type="Area2D" parent="."]
+[node name="Area2D" type="Area2D" parent="." unique_id=490807910]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=220882928]
 visibility_layer = 2
 position = Vector2(13, -7)
 shape = SubResource("CircleShape2D_g2els")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1956812325]
 physics_interpolation_mode = 1
 position = Vector2(-8, 42)
 process_callback = 0

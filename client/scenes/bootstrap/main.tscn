@@ -84,7 +84,7 @@ offset_left = 6.0
 offset_top = 4.0
 offset_right = 230.0
 offset_bottom = 96.0
-scale = Vector2(0.6, 0.6)
+scale = Vector2(0.4, 0.4)
 
 [node name="SceneNameLabel" type="Label" parent="UiLayer/HudRoot"]
 unique_name_in_owner = true
