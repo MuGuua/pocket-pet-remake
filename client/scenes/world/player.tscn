@@ -214,6 +214,7 @@ position = Vector2(173, 199)
 collision_layer = 2
 collision_mask = 7
 script = ExtResource("1_g2els")
+camera_zoom_scale = 2.0
 camera_vertical_offset = 30.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1583039981]
