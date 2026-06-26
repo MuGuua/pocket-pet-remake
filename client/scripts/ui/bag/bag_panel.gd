@@ -413,10 +413,10 @@ func _ensure_detail_overlay() -> void:
 	detail_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_detail_overlay.add_child(detail_center)
 
-    _detail_panel = BAG_ITEM_DETAIL_SCENE.instantiate() as BagItemDetail
-    if _detail_panel == null:
-        return
-    _detail_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_detail_panel = BAG_ITEM_DETAIL_SCENE.instantiate() as BagItemDetail
+	if _detail_panel == null:
+		return
+	_detail_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	detail_center.add_child(_detail_panel)
 	if not _detail_panel.action_requested.is_connected(_on_item_action_requested):
 		_detail_panel.action_requested.connect(_on_item_action_requested)

@@ -9,7 +9,16 @@ const ITEM_TYPE_LABELS: Dictionary = {
     "currency": "货币",
     "misc": "杂项",
     "functional": "功能道具",
+    "box": "宝箱礼包",
 }
+
+## 与服务端 effect_type 对齐的宝箱/礼包开启效果类型集合。
+const BOX_EFFECT_TYPES: Array[String] = [
+    "reward_box",
+    "gift_box",
+    "box_open",
+    "open",
+]
 
 const EQUIP_SLOT_LABELS: Dictionary = {
     "weapon": "武器",
@@ -83,6 +92,19 @@ static func is_equipment(item: Dictionary) -> bool:
     return str(item.get("item_type", "")).to_lower() == "equipment"
 
 
+## 判断当前物品是否属于服务端定义的宝箱或礼包类型。
+static func is_box_item(item: Dictionary) -> bool:
+    if item.is_empty():
+        return false
+    if str(item.get("item_type", "")).to_lower() == "box":
+        return true
+    var item_sub_type: String = str(item.get("item_sub_type", "")).to_lower()
+    if item_sub_type == "reward_box" or item_sub_type == "gift_box":
+        return true
+    var effect_type: String = str(item.get("effect_type", "")).to_lower()
+    return BOX_EFFECT_TYPES.has(effect_type) or has_action(item, "open")
+
+
 ## 判断当前物品是否需要先选择目标宠物，当前新版背包还没有对应目标选择弹窗。
 static func requires_pet_target(item: Dictionary) -> bool:
     return str(item.get("target_type", "")).to_lower() == "pet_single"
@@ -97,6 +119,8 @@ static func supports_primary_action(item: Dictionary) -> bool:
         return false
     if is_equipment(item):
         return true
+    if is_box_item(item):
+        return has_action(item, "use") or bool(item.get("usable", false))
     return has_action(item, "use")
 
 

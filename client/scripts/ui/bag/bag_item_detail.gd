@@ -8,10 +8,7 @@ enum DetailContext {
     EQUIPPED_ITEM,
 }
 
-const ACTION_BUTTON_KEYS: Array[String] = [
-    "open",
-    "use",
-    "unequip",
+const MORE_MENU_ACTION_KEYS: Array[String] = [
     "drop",
     "give",
     "share",
@@ -27,43 +24,46 @@ const ACTION_BUTTON_KEYS: Array[String] = [
 @onready var _quantity_label: Label = %QuantityLabel
 ## 物品描述标签。
 @onready var _description_label: Label = %DescriptionLabel
-## 打开按钮。
-@onready var _open_button: Button = %OpenButton
-## 使用/装备按钮。
-@onready var _use_button: Button = %UseButton
-## 卸下按钮。
-@onready var _unequip_button: Button = %UnequipButton
-## 丢弃按钮。
+## 左侧主操作按钮：打开 / 使用 / 装备 / 卸下。
+@onready var _primary_button: Button = %PrimaryButton
+## 右侧次操作按钮：已穿戴显示分享，背包物品显示更多。
+@onready var _secondary_button: Button = %SecondaryButton
+## 点击「更多」后在主按钮上方展开的次级菜单容器。
+@onready var _more_menu_row: HBoxContainer = %MoreMenuRow
+## 更多菜单中的丢弃按钮。
 @onready var _drop_button: Button = %DropButton
-## 给人按钮。
+## 更多菜单中的给人按钮。
 @onready var _give_button: Button = %GiveButton
-## 分享按钮。
+## 更多菜单中的分享按钮。
 @onready var _share_button: Button = %ShareButton
 
 ## 当前详情展示上下文：背包格子物品或已穿戴装备。
 var _context: DetailContext = DetailContext.BAG_ITEM
 ## 当前选中的服务端物品快照。
 var _item: Dictionary = {}
-## 操作按钮索引，key 与协议动作一致。
-var _action_buttons: Dictionary = {}
+## 更多菜单是否处于展开状态。
+var _more_menu_open: bool = false
+## 更多菜单按钮索引，key 与协议动作一致。
+var _more_menu_buttons: Dictionary = {}
 
 
 ## 绑定场景内按钮信号，并初始化空态文案。
 func _ready() -> void:
-    _action_buttons = {
-        "open": _open_button,
-        "use": _use_button,
-        "unequip": _unequip_button,
+    _more_menu_buttons = {
         "drop": _drop_button,
         "give": _give_button,
         "share": _share_button,
     }
-    for action_key: String in ACTION_BUTTON_KEYS:
-        var button: Button = _action_buttons.get(action_key, null) as Button
+    if _primary_button != null and not _primary_button.pressed.is_connected(_on_primary_pressed):
+        _primary_button.pressed.connect(_on_primary_pressed)
+    if _secondary_button != null and not _secondary_button.pressed.is_connected(_on_secondary_pressed):
+        _secondary_button.pressed.connect(_on_secondary_pressed)
+    for action_key: String in MORE_MENU_ACTION_KEYS:
+        var button: Button = _more_menu_buttons.get(action_key, null) as Button
         if button == null:
             continue
-        if not button.pressed.is_connected(_on_action_pressed.bind(action_key)):
-            button.pressed.connect(_on_action_pressed.bind(action_key))
+        if not button.pressed.is_connected(_on_more_menu_action_pressed.bind(action_key)):
+            button.pressed.connect(_on_more_menu_action_pressed.bind(action_key))
     clear_item()
 
 
@@ -82,7 +82,7 @@ func set_equipped_item(item: Dictionary) -> void:
 ## 写入物品快照并刷新详情文案与操作按钮。
 func _apply_item_snapshot(item: Dictionary) -> void:
     _item = item.duplicate(true)
-    _refresh_primary_action_text()
+    _more_menu_open = false
     if _name_label != null:
         _name_label.text = BagUiMapper.item_name(_item)
     if _type_label != null:
@@ -110,7 +110,7 @@ func _apply_item_snapshot(item: Dictionary) -> void:
 func clear_item() -> void:
     _context = DetailContext.BAG_ITEM
     _item.clear()
-    _refresh_primary_action_text()
+    _more_menu_open = false
     if _name_label != null:
         _name_label.text = "未选择物品"
     if _type_label != null:
@@ -126,71 +126,127 @@ func clear_item() -> void:
     _refresh_actions()
 
 
-## 刷新按钮可见性与启用态；未接入功能仍保留入口但禁用。
+## 刷新主按钮、次按钮与更多菜单的文案和可见性。
 func _refresh_actions() -> void:
-    for action_key: String in ACTION_BUTTON_KEYS:
-        var button: Button = _action_buttons.get(action_key, null) as Button
+    _refresh_primary_button()
+    _refresh_secondary_button()
+    _refresh_more_menu()
+
+
+## 刷新左侧主操作按钮文案与启用态。
+func _refresh_primary_button() -> void:
+    if _primary_button == null:
+        return
+    if _item.is_empty():
+        _primary_button.text = "操作"
+        _primary_button.visible = false
+        _primary_button.disabled = true
+        return
+    _primary_button.visible = true
+    _primary_button.text = _resolve_primary_action_label()
+    _primary_button.disabled = not _is_primary_action_enabled()
+
+
+## 刷新右侧次操作按钮文案与启用态。
+func _refresh_secondary_button() -> void:
+    if _secondary_button == null:
+        return
+    if _item.is_empty():
+        _secondary_button.text = "更多"
+        _secondary_button.visible = false
+        _secondary_button.disabled = true
+        return
+    _secondary_button.visible = true
+    if _context == DetailContext.EQUIPPED_ITEM:
+        _secondary_button.text = "分享"
+        _secondary_button.disabled = false
+    else:
+        _secondary_button.text = "更多"
+        _secondary_button.disabled = false
+
+
+## 刷新更多菜单容器与内部按钮状态。
+func _refresh_more_menu() -> void:
+    if _more_menu_row != null:
+        var should_show_more_menu: bool = (
+            not _item.is_empty()
+            and _context == DetailContext.BAG_ITEM
+            and _more_menu_open
+        )
+        _more_menu_row.visible = should_show_more_menu
+    for action_key: String in MORE_MENU_ACTION_KEYS:
+        var button: Button = _more_menu_buttons.get(action_key, null) as Button
         if button == null:
             continue
-        var should_show: bool = _is_action_visible(action_key)
-        button.visible = should_show
-        button.disabled = _item.is_empty() or not should_show or not _is_action_enabled(action_key)
+        var should_enable: bool = (
+            not _item.is_empty()
+            and _context == DetailContext.BAG_ITEM
+            and _is_more_menu_action_enabled(action_key)
+        )
+        button.disabled = not should_enable
 
 
-## 按当前上下文决定某个操作按钮是否显示。
-func _is_action_visible(action_key: String) -> bool:
+## 根据当前上下文解析左侧主按钮应展示的中文文案。
+func _resolve_primary_action_label() -> String:
+    if _context == DetailContext.EQUIPPED_ITEM:
+        return "卸下"
+    if BagUiMapper.is_box_item(_item):
+        return "打开"
+    if BagUiMapper.is_equipment(_item):
+        return "装备"
+    return "使用"
+
+
+## 根据当前上下文解析左侧主按钮应触发的协议动作 key。
+func _resolve_primary_action_key() -> String:
+    if _context == DetailContext.EQUIPPED_ITEM:
+        return "unequip"
+    if BagUiMapper.is_box_item(_item):
+        return "open"
+    return "use"
+
+
+## 判断左侧主操作当前是否允许点击。
+func _is_primary_action_enabled() -> bool:
     if _item.is_empty():
         return false
-    match _context:
-        DetailContext.EQUIPPED_ITEM:
-            return action_key == "unequip" or action_key == "share"
-        DetailContext.BAG_ITEM:
-            if action_key == "drop" or action_key == "give" or action_key == "share":
-                return true
-            if BagUiMapper.is_equipment(_item):
-                return action_key == "use"
-            if action_key == "use":
-                return BagUiMapper.supports_primary_action(_item) and not _should_prefer_open_action()
-            if action_key == "open":
-                return _should_prefer_open_action()
-    return false
+    if _context == DetailContext.EQUIPPED_ITEM:
+        return true
+    return BagUiMapper.supports_primary_action(_item)
 
 
-## 判断当前背包物品是否应优先展示“打开”而不是“使用”。
-func _should_prefer_open_action() -> bool:
-    if BagUiMapper.is_equipment(_item):
+## 判断更多菜单里的某个动作当前是否允许点击。
+func _is_more_menu_action_enabled(action_key: String) -> bool:
+    if _item.is_empty() or _context != DetailContext.BAG_ITEM:
         return false
-    return BagUiMapper.has_action(_item, "open") or str(_item.get("effect_type", "")).to_lower() == "open"
+    return action_key == "drop" or action_key == "give" or action_key == "share"
 
 
-## 当前版本开放装备/使用/卸下；丢弃、给人、分享保留入口待后续接入服务端。
-func _is_action_enabled(action_key: String) -> bool:
-    match action_key:
-        "use", "open":
-            return BagUiMapper.supports_primary_action(_item)
-        "unequip":
-            return _context == DetailContext.EQUIPPED_ITEM
-        "drop", "give", "share":
-            return _context == DetailContext.BAG_ITEM
-        _:
-            return false
+## 处理左侧主操作按钮点击。
+func _on_primary_pressed() -> void:
+    if _item.is_empty() or _primary_button == null or _primary_button.disabled:
+        return
+    _more_menu_open = false
+    _refresh_more_menu()
+    var action_key: String = _resolve_primary_action_key()
+    action_requested.emit(action_key, _item.duplicate(true))
 
 
-## 根据当前物品类型动态调整主操作按钮文案。
-func _refresh_primary_action_text() -> void:
-    if _use_button != null:
-        if _context == DetailContext.EQUIPPED_ITEM:
-            _use_button.text = "使用"
-        elif BagUiMapper.is_equipment(_item):
-            _use_button.text = "装备"
-        else:
-            _use_button.text = "使用"
-    if _open_button != null:
-        _open_button.text = "打开"
+## 处理右侧次操作按钮点击：已穿戴直接分享，背包物品切换更多菜单。
+func _on_secondary_pressed() -> void:
+    if _item.is_empty() or _secondary_button == null or _secondary_button.disabled:
+        return
+    if _context == DetailContext.EQUIPPED_ITEM:
+        action_requested.emit("share", _item.duplicate(true))
+        return
+    _more_menu_open = not _more_menu_open
+    _refresh_more_menu()
 
 
-## 转发玩家点击的功能按钮。
-func _on_action_pressed(action_key: String) -> void:
+## 转发更多菜单内按钮点击，并在触发后收起菜单。
+func _on_more_menu_action_pressed(action_key: String) -> void:
     if _item.is_empty():
         return
+    _more_menu_open = false
+    _refresh_more_menu()
     action_requested.emit(action_key, _item.duplicate(true))

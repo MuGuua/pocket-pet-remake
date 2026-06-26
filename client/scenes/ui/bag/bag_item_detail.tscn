@@ -1,104 +1,112 @@
 [gd_scene format=3 uid="uid://ddcvakp2gvdxr"]
 
 [ext_resource type="Script" uid="uid://b2wjw7r065n80" path="res://scripts/ui/bag/bag_item_detail.gd" id="1_detail"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_gemxe"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.12, 0.16, 0.22, 0.96)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.52, 0.62, 0.85)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-content_margin_left = 10.0
-content_margin_top = 8.0
-content_margin_right = 10.0
-content_margin_bottom = 8.0
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_on3p7"]
+texture = ExtResource("1_gemxe")
+texture_margin_left = 5.0
+texture_margin_top = 5.0
+texture_margin_right = 5.0
+texture_margin_bottom = 5.0
 
-[node name="BagItemDetail" type="PanelContainer"]
-custom_minimum_size = Vector2(260, 170)
-mouse_filter = 0
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y1mnv"]
+bg_color = Color(0.019607844, 0.019607844, 0.019607844, 0.37254903)
+
+[node name="BagItemDetail" type="PanelContainer" unique_id=390760406]
+custom_minimum_size = Vector2(200, 170)
+custom_maximum_size = Vector2(200, -1)
+offset_right = 270.0
+offset_bottom = 170.0
+theme_override_styles/panel = SubResource("StyleBoxTexture_on3p7")
 script = ExtResource("1_detail")
 
-[node name="ContentVBox" type="VBoxContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=948122808]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 7
+theme_override_constants/margin_bottom = 6
+
+[node name="ContentVBox" type="VBoxContainer" parent="MarginContainer" unique_id=2138945161]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="NameLabel" type="Label" parent="ContentVBox"]
+[node name="NameLabel" type="Label" parent="MarginContainer/ContentVBox" unique_id=1881246273]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 13
 text = "未选择物品"
 
-[node name="TypeLabel" type="Label" parent="ContentVBox"]
-unique_name_in_owner = true
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1556069148]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+
+[node name="TypeLabel" type="Label" parent="MarginContainer/ContentVBox/HBoxContainer" unique_id=598546605]
+unique_name_in_owner = true
+custom_maximum_size = Vector2(100, -1)
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
 text = "类型：-"
 
-[node name="EquipSlotLabel" type="Label" parent="ContentVBox"]
+[node name="EquipSlotLabel" type="Label" parent="MarginContainer/ContentVBox/HBoxContainer" unique_id=1481687263]
 unique_name_in_owner = true
-visible = false
+custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.82, 0.42, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 9
 text = "部位：-"
 
-[node name="QuantityLabel" type="Label" parent="ContentVBox"]
-unique_name_in_owner = true
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/ContentVBox" unique_id=798183545]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "数量：-"
+theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")
 
-[node name="DescriptionLabel" type="Label" parent="ContentVBox"]
+[node name="DescriptionLabel" type="Label" parent="MarginContainer/ContentVBox/PanelContainer" unique_id=1196820403]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(168, 40)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 9
 text = "点击物品或已装备槽位查看详情。"
 autowrap_mode = 3
 
-[node name="ActionRow" type="HBoxContainer" parent="ContentVBox"]
+[node name="ActionRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=503985020]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="OpenButton" type="Button" parent="ContentVBox/ActionRow"]
+[node name="OpenButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow" unique_id=625008229]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "打开"
 
-[node name="UseButton" type="Button" parent="ContentVBox/ActionRow"]
+[node name="UseButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow" unique_id=335749104]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "使用"
 
-[node name="UnequipButton" type="Button" parent="ContentVBox/ActionRow"]
+[node name="UnequipButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow" unique_id=1753429630]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "卸下"
 
-[node name="DropButton" type="Button" parent="ContentVBox/ActionRow"]
+[node name="ActionRow2" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1167310644]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DropButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow2" unique_id=759227795]
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "丢弃"
 
-[node name="GiveButton" type="Button" parent="ContentVBox/ActionRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+[node name="GiveButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow2" unique_id=1418279046]
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "给人"
 
-[node name="ShareButton" type="Button" parent="ContentVBox/ActionRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+[node name="ShareButton" type="Button" parent="MarginContainer/ContentVBox/ActionRow2" unique_id=834048994]
+custom_minimum_size = Vector2(40, 20)
 layout_mode = 2
 text = "分享"
