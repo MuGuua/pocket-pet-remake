@@ -10,6 +10,7 @@ import {
   InputNumber,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -29,6 +30,7 @@ import {
   updateAdminBagItem,
 } from '../../services/bag';
 import { fetchAdminItems } from '../../services/item';
+import { fetchAdminEquipmentDefinitions } from '../../services/equipmentDefinition';
 import type {
   AdminBagDetail,
   AdminBagSummary,
@@ -36,7 +38,8 @@ import type {
   AdminUpdateBagPayload,
 } from '../../types/bag';
 import type { AdminItemSummary } from '../../types/item';
-import { CONTAINER_TYPE_LABELS, formatDisplayLabel } from '../../utils/displayLabels';
+import type { AdminEquipmentSummary } from '../../types/equipmentDefinition';
+import { CONTAINER_TYPE_LABELS, formatDisplayLabel, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
 
 interface BagFormValues {
@@ -52,6 +55,15 @@ interface BagFormValues {
 interface PlayerBagSectionProps {
   playerId: number;
   playerName: string;
+}
+
+type GrantableItemCategory = 'all' | 'equipment' | 'other';
+
+interface GrantableItemOption {
+  item_id: number;
+  item_name: string;
+  item_type: string;
+  quality: number;
 }
 
 const containerTypeOptions = [
@@ -79,7 +91,8 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
   const [itemOptionsLoading, setItemOptionsLoading] = useState(false);
-  const [itemOptions, setItemOptions] = useState<AdminItemSummary[]>([]);
+  const [itemOptions, setItemOptions] = useState<GrantableItemOption[]>([]);
+  const [grantCategory, setGrantCategory] = useState<GrantableItemCategory>('all');
 
   useEffect(() => {
     void loadBags();
@@ -125,7 +138,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       setEditingRecord(null);
       editorForm.resetFields();
       editorForm.setFieldsValue(defaultCreateValues(playerId));
-      await searchItemOptions('');
+      await searchItemOptions('', 'all');
       return;
     }
     if (!recordID) {
@@ -136,7 +149,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       const result = await fetchAdminBagDetail(recordID);
       setEditingRecord(result);
       editorForm.setFieldsValue(mapDetailToForm(result));
-      await searchItemOptions(result.item_name || String(result.item_id), result.item_id);
+      await searchItemOptions(result.item_name || String(result.item_id), grantCategory, result.item_id);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载容器编辑数据失败');
       setEditorOpen(false);
@@ -145,22 +158,51 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
     }
   }
 
-  async function searchItemOptions(keyword: string, preferredItemID?: number) {
+  // 发放候选项需要同时覆盖普通物品和装备模板；装备要明确走正式模板，而不是让运营手填 item_id。
+  async function searchItemOptions(keyword: string, category: GrantableItemCategory, preferredItemID?: number) {
     setItemOptionsLoading(true);
     try {
-      const result = await fetchAdminItems({
-        filters: { keyword: keyword.trim() || undefined, enabled: 'true' },
-        page: 1,
-        pageSize: 20,
-      });
-      const nextItems = [...result.items];
+      const trimmedKeyword = keyword.trim() || undefined;
+      let nextItems: GrantableItemOption[] = [];
+      if (category === 'equipment') {
+        const result = await fetchAdminEquipmentDefinitions({
+          filters: { keyword: trimmedKeyword, is_enabled: 'true' },
+          page: 1,
+          pageSize: 20,
+        });
+        nextItems = result.items.map(mapEquipmentSummaryToGrantableOption);
+      } else if (category === 'other') {
+        const result = await fetchAdminItems({
+          filters: { keyword: trimmedKeyword, enabled: 'true', exclude_item_type: 'equipment' },
+          page: 1,
+          pageSize: 20,
+        });
+        nextItems = result.items.map(mapItemSummaryToGrantableOption);
+      } else {
+        const [itemResult, equipmentResult] = await Promise.all([
+          fetchAdminItems({
+            filters: { keyword: trimmedKeyword, enabled: 'true', exclude_item_type: 'equipment' },
+            page: 1,
+            pageSize: 20,
+          }),
+          fetchAdminEquipmentDefinitions({
+            filters: { keyword: trimmedKeyword, is_enabled: 'true' },
+            page: 1,
+            pageSize: 20,
+          }),
+        ]);
+        nextItems = [
+          ...itemResult.items.map(mapItemSummaryToGrantableOption),
+          ...equipmentResult.items.map(mapEquipmentSummaryToGrantableOption),
+        ];
+      }
       if (preferredItemID && !nextItems.some((item) => item.item_id === preferredItemID)) {
         const currentItem = itemOptions.find((item) => item.item_id === preferredItemID);
         if (currentItem) {
           nextItems.unshift(currentItem);
         }
       }
-      setItemOptions(nextItems);
+      setItemOptions(deduplicateGrantableOptions(nextItems));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载物品选项失败');
       setItemOptions([]);
@@ -214,6 +256,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       { title: '格子', dataIndex: 'slot_index', key: 'slot_index', width: 70 },
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 90 },
       { title: '物品名', dataIndex: 'item_name', key: 'item_name', width: 140 },
+      { title: '类型', dataIndex: 'item_type', key: 'item_type', width: 90, render: (value: string) => formatDisplayLabel(ITEM_TYPE_LABELS, value) },
       { title: '实例ID', dataIndex: 'item_uid', key: 'item_uid', width: 120, render: (value: string) => value || '-' },
       { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 70 },
       { title: '绑定', dataIndex: 'is_bound', key: 'is_bound', width: 70, render: (value: boolean) => (value ? '是' : '否') },
@@ -319,7 +362,7 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
             <Descriptions.Item label="物品ID">{bagDetail.item_id}</Descriptions.Item>
             <Descriptions.Item label="物品名">{bagDetail.item_name || '-'}</Descriptions.Item>
             <Descriptions.Item label="实例ID">{bagDetail.item_uid || '-'}</Descriptions.Item>
-            <Descriptions.Item label="物品类型">{bagDetail.item_type || '-'}</Descriptions.Item>
+            <Descriptions.Item label="物品类型">{formatDisplayLabel(ITEM_TYPE_LABELS, bagDetail.item_type)}</Descriptions.Item>
             <Descriptions.Item label="数量">{bagDetail.quantity}</Descriptions.Item>
             <Descriptions.Item label="绑定">{bagDetail.is_bound ? '是' : '否'}</Descriptions.Item>
             <Descriptions.Item label="更新时间">{formatDateTime(bagDetail.updated_at)}</Descriptions.Item>
@@ -352,6 +395,21 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
           <Form.Item name="item_uid" hidden>
             <Input />
           </Form.Item>
+          <Form.Item label="候选分类">
+            <Segmented<GrantableItemCategory>
+              block
+              options={[
+                { label: '全部', value: 'all' },
+                { label: '装备', value: 'equipment' },
+                { label: '其他', value: 'other' },
+              ]}
+              value={grantCategory}
+              onChange={(value) => {
+                setGrantCategory(value);
+                void searchItemOptions('', value);
+              }}
+            />
+          </Form.Item>
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="容器类型" name="container_type" rules={[{ required: true, message: '请选择容器类型' }]}>
@@ -365,14 +423,14 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
                   filterOption={false}
                   loading={itemOptionsLoading}
                   placeholder="输入物品名称或物品ID搜索"
-                  onSearch={(value) => void searchItemOptions(value)}
+                  onSearch={(value) => void searchItemOptions(value, grantCategory)}
                   onFocus={() => {
                     if (itemOptions.length === 0) {
-                      void searchItemOptions('');
+                      void searchItemOptions('', grantCategory);
                     }
                   }}
                   options={itemOptions.map((item) => ({
-                    label: `${item.item_name} (${item.item_id})`,
+                    label: `${item.item_name} (${item.item_id}) · ${formatDisplayLabel(ITEM_TYPE_LABELS, item.item_type)}`,
                     value: item.item_id,
                   }))}
                 />
@@ -437,4 +495,32 @@ function mapFormToUpdatePayload(values: BagFormValues): AdminUpdateBagPayload {
     slot_index: values.slot_index ?? 0,
     item_uid: values.item_uid ?? '',
   };
+}
+
+function mapItemSummaryToGrantableOption(item: AdminItemSummary): GrantableItemOption {
+  return {
+    item_id: item.item_id,
+    item_name: item.item_name,
+    item_type: item.item_type,
+    quality: item.quality,
+  };
+}
+
+function mapEquipmentSummaryToGrantableOption(item: AdminEquipmentSummary): GrantableItemOption {
+  return {
+    item_id: item.item_id,
+    item_name: item.item_name,
+    item_type: 'equipment',
+    quality: item.quality,
+  };
+}
+
+function deduplicateGrantableOptions(items: GrantableItemOption[]): GrantableItemOption[] {
+  const nextMap = new Map<number, GrantableItemOption>();
+  items.forEach((item) => {
+    if (!nextMap.has(item.item_id)) {
+      nextMap.set(item.item_id, item);
+    }
+  });
+  return Array.from(nextMap.values());
 }

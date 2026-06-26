@@ -135,12 +135,12 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="TextureRect2" type="TextureRect" parent="Bg/PanelContainer"]
-custom_minimum_size = Vector2(300, 150)
+custom_minimum_size = Vector2(200, 112)
 layout_mode = 0
 offset_left = 30.0
-offset_top = 165.0
-offset_right = 330.0
-offset_bottom = 315.0
+offset_top = 178.0
+offset_right = 230.0
+offset_bottom = 290.0
 size_flags_horizontal = 4
 size_flags_vertical = 4
 mouse_filter = 2
@@ -149,7 +149,7 @@ expand_mode = 1
 
 [node name="PanelContainer" type="PanelContainer" parent="Bg/PanelContainer"]
 layout_mode = 0
-offset_right = 360.0
+offset_right = 260.0
 offset_bottom = 480.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_ww1p6")
@@ -187,10 +187,10 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 12.0
-offset_top = 6.0
-offset_right = -12.0
-offset_bottom = 44.0
+offset_left = 6.0
+offset_top = 4.0
+offset_right = -6.0
+offset_bottom = 34.0
 grow_horizontal = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_ww1p6")
@@ -198,15 +198,15 @@ script = ExtResource("6")
 
 [node name="StatusMargin" type="MarginContainer" parent="UILayer/CommandStatusBar"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 2
 
 [node name="StatusLabel" type="RichTextLabel" parent="UILayer/CommandStatusBar/StatusMargin"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 20
+theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 text = "请选择人物操作：25秒"
 fit_content = false
@@ -223,17 +223,17 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 14.0
-offset_top = -182.0
-offset_right = -15.0
-offset_bottom = -114.0
+offset_left = 8.0
+offset_top = -156.0
+offset_right = -8.0
+offset_bottom = -98.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_o3k7m")
 script = ExtResource("4")
-log_font_size = 10
-line_height = 12.0
+log_font_size = 9
+line_height = 11.0
 
 [node name="LogMargin" type="MarginContainer" parent="UILayer/ActionLogPanel"]
 layout_mode = 2
@@ -267,7 +267,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 3.0
-offset_top = -112.0
+offset_top = -96.0
 offset_right = -3.0
 offset_bottom = -3.0
 grow_horizontal = 2
@@ -284,18 +284,18 @@ theme_override_constants/margin_bottom = 4
 
 [node name="ActionVBox" type="VBoxContainer" parent="UILayer/ActionPanel/ActionMargin"]
 layout_mode = 2
-theme_override_constants/separation = 3
+theme_override_constants/separation = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox"]
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_7hnyd")
 
 [node name="ButtonRow" type="HBoxContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 55)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="AttackButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
 unique_name_in_owner = true
@@ -360,7 +360,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter"]
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(176, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_choice_popup")
 
@@ -393,7 +393,7 @@ text = "上一页"
 
 [node name="ChoicePageLabel" type="Label" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(52, 0)
 layout_mode = 2
 text = "1 / 1"
 horizontal_alignment = 1
@@ -417,19 +417,19 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -176.0
-offset_top = 100.0
-offset_right = 177.0
-offset_bottom = 132.0
+offset_left = -112.0
+offset_top = 88.0
+offset_right = 112.0
+offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 alignment = 1
 
 [node name="TargetConfirmButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 28)
+custom_minimum_size = Vector2(84, 28)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_te27b")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_7i1my")
@@ -439,13 +439,13 @@ theme_override_styles/focus = SubResource("StyleBoxEmpty_7s01p")
 text = "确定"
 
 [node name="Control" type="Control" parent="UILayer/SelectionOverlay/TargetCancelBar"]
-custom_minimum_size = Vector2(145, 0)
+custom_minimum_size = Vector2(20, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 
 [node name="TargetCancelButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 28)
+custom_minimum_size = Vector2(84, 28)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_tc5fe")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_tpsmh")

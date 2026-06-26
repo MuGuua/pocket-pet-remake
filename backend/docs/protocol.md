@@ -109,6 +109,11 @@
 - `5021 USE_ITEM_REQ`
 - `5022 USE_ITEM_RESP`
 
+当前 `5001/5002` 已支持新版背包 UI 使用的服务端分页参数：
+- `page`
+- `page_size`
+- `category`（`all` / `equipment` / `other`）
+
 ### 5030-5199 背包 / 仓库 / 钱包 / 商店（规划预留，尚未进入当前代码）
 
 以下命令当前用于文档预留，不代表 `server/internal/protocol/command.go` 已经声明：
@@ -507,9 +512,12 @@
 ```json
 {
   "scene_id": 4,
-  "move_seq": 128
+  "move_seq": 128,
+  "self_pos": { "x": 12, "y": 34 }
 }
 ```
+
+`self_pos` 为客户端当前场景坐标（与 `ENTER_WORLD_RESP.self_pos` 同坐标系）。服务端在开战前会写回玩家档案并作为 `return_pos`，避免场景内移动后战斗结束坐标回跳。
 
 ### 2036 WILD_ENCOUNTER_RESP
 
@@ -528,9 +536,12 @@
 
 ```json
 {
-  "entity_id": 90001
+  "entity_id": 90001,
+  "self_pos": { "x": 12, "y": 34 }
 }
 ```
+
+`self_pos` 含义同上，用于固定战开战前同步 return_pos。
 
 若目标 NPC 配置了菜单项，服务端会拒绝本次交互并提示改用 `2042 NPC_MENU_REQ`：
 
@@ -595,9 +606,12 @@
 ```json
 {
   "entity_id": 93001,
-  "entry_id": "dialog_market_intro"
+  "entry_id": "dialog_market_intro",
+  "self_pos": { "x": 12, "y": 34 }
 }
 ```
+
+触发 NPC 固定战时，`self_pos` 同样用于开战前同步 `return_pos`。
 
 ### 2034 NPC_ACTION_RESP
 

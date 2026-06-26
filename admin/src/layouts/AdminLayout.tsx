@@ -9,7 +9,6 @@ const menuItems = [
   { key: '/dashboard', label: '控制台' },
   { key: '/players', label: '玩家管理' },
   { key: '/pets', label: '宠物管理' },
-  { key: '/equipment-definitions', label: '系统装备管理' },
   { key: '/skill-definitions', label: '系统技能管理' },
   { key: '/monster-definitions', label: '系统怪物管理' },
   { key: '/monster-encounters', label: '怪物遭遇配置' },

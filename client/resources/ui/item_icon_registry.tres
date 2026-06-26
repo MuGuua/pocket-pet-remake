@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ItemIconRegistry" load_steps=14 format=3 uid="uid://blx1j5aoav3ca"]
+[gd_resource type="Resource" script_class="ItemIconRegistry" format=3 uid="uid://blx1j5aoav3ca"]
 
 [ext_resource type="Script" uid="uid://dqsu41xq7xly1" path="res://scripts/ui/bag/item_icon_registry.gd" id="1_registry"]
 [ext_resource type="Script" uid="uid://bkehp47xl52db" path="res://scripts/ui/bag/item_icon_entry.gd" id="2_entry"]
@@ -51,7 +51,18 @@ script = ExtResource("2_entry")
 icon_key = "equipment_sword_01"
 texture = SubResource("AtlasTexture_equipment_sword")
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_0ormr"]
+atlas = ExtResource("3_icons")
+region = Rect2(100, 196, 24, 24)
+
+[sub_resource type="Resource" id="Resource_qqmsx"]
+script = ExtResource("2_entry")
+item_id = 4001
+icon_key = "equipment_4001"
+texture = SubResource("AtlasTexture_0ormr")
+metadata/_custom_type_script = "uid://bkehp47xl52db"
+
 [resource]
 script = ExtResource("1_registry")
 default_icon = SubResource("AtlasTexture_default")
-entries = Array[ExtResource("2_entry")]([SubResource("ItemIconEntry_default"), SubResource("ItemIconEntry_potion_red"), SubResource("ItemIconEntry_potion_blue"), SubResource("ItemIconEntry_box_common"), SubResource("ItemIconEntry_equipment_sword")])
+entries = Array[ExtResource("2_entry")]([SubResource("ItemIconEntry_default"), SubResource("ItemIconEntry_potion_red"), SubResource("ItemIconEntry_potion_blue"), SubResource("ItemIconEntry_box_common"), SubResource("ItemIconEntry_equipment_sword"), SubResource("Resource_qqmsx")])

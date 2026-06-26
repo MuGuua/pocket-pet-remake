@@ -22,14 +22,19 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { createAdminItem, deleteAdminItem, fetchAdminItemDetail, fetchAdminItems, updateAdminItem } from '../../services/item';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { ITEM_QUALITY_OPTIONS, formatItemQualityLabel } from '../../constants/itemQuality';
 import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary, AdminUpsertItemPayload } from '../../types/item';
-import { formatDisplayLabel, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
+import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, ITEM_SUB_TYPE_LABELS, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface ItemFormValues extends AdminUpsertItemPayload {}
 
+interface ItemDefinitionPageProps {
+  excludeItemType?: string;
+}
+
 // 物品模板页直接面向正式数据库模板，所有字段修改都会影响后续背包、掉落、商店和奖励链路。
-export function ItemDefinitionPage() {
+export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps) {
   const [filterForm] = Form.useForm<AdminItemListFilters>();
   const [editorForm] = Form.useForm<ItemFormValues>();
   const [filters, setFilters] = useState<AdminItemListFilters>({});
@@ -52,7 +57,14 @@ export function ItemDefinitionPage() {
   async function loadItems(nextFilters: AdminItemListFilters, nextPage: number, nextPageSize: number) {
     setLoading(true);
     try {
-      const result = await fetchAdminItems({ filters: nextFilters, page: nextPage, pageSize: nextPageSize });
+      const result = await fetchAdminItems({
+        filters: {
+          ...nextFilters,
+          exclude_item_type: excludeItemType,
+        },
+        page: nextPage,
+        pageSize: nextPageSize,
+      });
       setRows(result.items);
       setTotal(result.total);
       setPage(result.page);
@@ -84,7 +96,8 @@ export function ItemDefinitionPage() {
     setEditorOpen(true);
     if (mode === 'create') {
       setEditingRecord(null);
-      editorForm.setFieldsValue(defaultItemValues());
+      const nextItemID = await loadNextItemID();
+      editorForm.setFieldsValue(defaultItemValues(nextItemID));
       return;
     }
     if (!itemID) return;
@@ -103,13 +116,17 @@ export function ItemDefinitionPage() {
 
   async function handleSubmit(values: ItemFormValues) {
     setSaving(true);
+    // disabled/hidden 自动字段不会稳定出现在 onFinish values 中，
+    // 这里统一回读完整表单状态，避免 item_id、item_code、rarity 丢失成非法请求体。
+    const fullValues = editorForm.getFieldsValue(true) as ItemFormValues;
+    const payload = mapItemFormToPayload({ ...fullValues, ...values });
     try {
       if (editingRecord) {
-        await updateAdminItem(editingRecord.item_id, values);
-        message.success('物品模板更新成功');
+        await updateAdminItem(editingRecord.item_id, payload);
+        message.success(`物品模板已更新：ID ${editingRecord.item_id} / ${payload.item_code}`);
       } else {
-        await createAdminItem(values);
-        message.success('物品模板创建成功');
+        const created = await createAdminItem(payload);
+        message.success(`物品模板已创建：ID ${created.item_id} / ${created.item_code}`);
       }
       setEditorOpen(false);
       setEditingRecord(null);
@@ -135,6 +152,25 @@ export function ItemDefinitionPage() {
     }
   }
 
+  // 新建普通物品模板时统一取当前最大 item_id，再自动生成下一个编号和编码，
+  // 这样运营不需要手填，也能避免和装备页或既有模板发生重复。
+  async function loadNextItemID(): Promise<number> {
+    try {
+      const result = await fetchAdminItems({
+        filters: {
+          exclude_item_type: excludeItemType,
+        },
+        page: 1,
+        pageSize: 1,
+      });
+      const currentMaxItemID = result.items[0]?.item_id ?? 10000;
+      return currentMaxItemID + 1;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '获取下一个物品ID失败');
+      return 10001;
+    }
+  }
+
   const columns = useMemo<ColumnsType<AdminItemSummary>>(
     () => [
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 110, fixed: 'left' },
@@ -142,7 +178,13 @@ export function ItemDefinitionPage() {
       { title: '名称', dataIndex: 'item_name', key: 'item_name', width: 160 },
       { title: '分类', dataIndex: 'item_type', key: 'item_type', width: 120, render: (value: string) => <Tag color="blue">{formatDisplayLabel(ITEM_TYPE_LABELS, value)}</Tag> },
       { title: '子类', dataIndex: 'item_sub_type', key: 'item_sub_type', width: 120 },
-      { title: '品质', dataIndex: 'quality', key: 'quality', width: 90 },
+      {
+        title: '品质',
+        dataIndex: 'quality',
+        key: 'quality',
+        width: 90,
+        render: (value: number) => formatItemQualityLabel(value),
+      },
       { title: '堆叠上限', dataIndex: 'max_stack', key: 'max_stack', width: 110 },
       { title: '买价(铜)', dataIndex: 'buy_price_copper', key: 'buy_price_copper', width: 120 },
       { title: '卖价(铜)', dataIndex: 'sell_price_copper', key: 'sell_price_copper', width: 120 },
@@ -178,7 +220,7 @@ export function ItemDefinitionPage() {
               <Input allowClear placeholder="物品ID" style={{ width: 100 }} />
             </Form.Item>
             <Form.Item name="item_type" label="分类">
-              <Input allowClear placeholder="分类" style={{ width: 100 }} />
+              <Select allowClear placeholder="分类" style={{ width: 120 }} options={buildFilterSelectOptions(ITEM_TYPE_LABELS)} />
             </Form.Item>
             <Form.Item name="keyword" label="关键字">
               <Input allowClear placeholder="编码或名称" style={{ width: 120 }} />
@@ -215,6 +257,11 @@ export function ItemDefinitionPage() {
             },
           }}
         />
+        {excludeItemType ? (
+          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+            当前页默认排除 `{excludeItemType}`，装备请到“装备”页签维护，避免遗漏扩展字段。
+          </Typography.Text>
+        ) : null}
       </Card>
       <Drawer title={detail ? `物品详情 · ${detail.item_name}` : '物品详情'} width={680} open={detailOpen} onClose={() => setDetailOpen(false)} destroyOnClose>
         {detailLoading || !detail ? <Typography.Text type="secondary">正在加载物品详情...</Typography.Text> : (
@@ -223,8 +270,8 @@ export function ItemDefinitionPage() {
             <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
             <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
             <Descriptions.Item label="分类">{formatDisplayLabel(ITEM_TYPE_LABELS, detail.item_type)}</Descriptions.Item>
-            <Descriptions.Item label="子类">{detail.item_sub_type || '-'}</Descriptions.Item>
-            <Descriptions.Item label="品质 / 稀有度">{detail.quality} / {detail.rarity}</Descriptions.Item>
+            <Descriptions.Item label="子类">{formatDisplayLabel(ITEM_SUB_TYPE_LABELS, detail.item_sub_type)}</Descriptions.Item>
+            <Descriptions.Item label="品质">{formatItemQualityLabel(detail.quality)}</Descriptions.Item>
             <Descriptions.Item label="堆叠上限">{detail.max_stack}</Descriptions.Item>
             <Descriptions.Item label="占格">{detail.occupy_slots}</Descriptions.Item>
             <Descriptions.Item label="买价(铜)">{detail.buy_price_copper}</Descriptions.Item>
@@ -239,22 +286,40 @@ export function ItemDefinitionPage() {
       <Modal title={editingRecord ? `编辑模板 · ${editingRecord.item_name}` : '新增物品模板'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={720} style={{ top: FIXED_FORM_MODAL_TOP }} styles={FIXED_FORM_MODAL_STYLES} okText={editingRecord ? '保存修改' : '创建模板'} cancelText="取消">
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
           <Row gutter={16}>
-            <Col xs={24} md={8}><Form.Item label="物品ID" name="item_id" rules={[{ required: true, message: '请输入物品ID' }]}><InputNumber min={1} disabled={Boolean(editingRecord)} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="物品编码" name="item_code" rules={[{ required: true, message: '请输入物品编码' }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="物品名称" name="item_name" rules={[{ required: true, message: '请输入物品名称' }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="主分类" name="item_type" rules={[{ required: true, message: '请输入主分类' }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="子分类" name="item_sub_type"><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="稀有度" name="rarity"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={16}>
+            <Col xs={24} md={8}>
               <Form.Item
-                label="图标资源"
-                name="icon"
-                extra="直接填写客户端资源路径。单图可填 res://...png；图集中某一格建议先做成 AtlasTexture .tres，再填 res://...tres。"
+                label="物品ID"
+                name="item_id"
+                rules={[{ required: true, message: '系统未生成物品ID，请关闭弹窗后重试' }]}
+                extra="新建时自动取当前最大物品ID + 1，创建后不可修改。"
               >
-                <Input placeholder="res://resources/item_icons/red_potion_icon.tres" />
+                <InputNumber min={1} disabled controls={false} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="物品编码"
+                name="item_code"
+                rules={[{ required: true, message: '系统未生成物品编码，请关闭弹窗后重试' }]}
+                extra="系统按 item_{item_id} 自动生成并锁定。"
+              >
+                <Input disabled />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}><Form.Item label="物品名称" name="item_name" rules={[{ required: true, message: '请输入物品名称' }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item label="主分类" name="item_type" rules={[{ required: true, message: '请选择主分类' }]}><Select options={buildSelectOptions(ITEM_TYPE_LABELS)} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item label="子分类" name="item_sub_type"><Select allowClear options={buildSelectOptions(ITEM_SUB_TYPE_LABELS)} /></Form.Item></Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="品质" name="quality">
+                <Select options={ITEM_QUALITY_OPTIONS} />
+              </Form.Item>
+            </Col>
+            <Form.Item name="rarity" hidden>
+              <InputNumber min={1} />
+            </Form.Item>
+            <Form.Item name="icon" hidden>
+              <Input />
+            </Form.Item>
             <Col xs={24} md={8}><Form.Item label="堆叠上限" name="max_stack"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="占格" name="occupy_slots"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="买价(铜)" name="buy_price_copper"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
@@ -278,10 +343,12 @@ export function ItemDefinitionPage() {
   );
 }
 
-function defaultItemValues(): ItemFormValues {
+// defaultItemValues 为普通物品新建表单提供默认值。
+// item_id / item_code 由页面在打开弹窗时自动生成，避免运营手填唯一字段。
+function defaultItemValues(itemID: number): ItemFormValues {
   return {
-    item_id: 10001,
-    item_code: 'new_item_code',
+    item_id: itemID,
+    item_code: `item_${itemID}`,
     item_name: '新物品模板',
     item_type: 'consumable',
     item_sub_type: '',
@@ -312,5 +379,42 @@ function defaultItemValues(): ItemFormValues {
     recycle_price_copper: 0,
     price_type: 'base_coin',
     is_enabled: true,
+  };
+}
+
+function mapItemFormToPayload(values: ItemFormValues): AdminUpsertItemPayload {
+  return {
+    item_id: Number(values.item_id ?? 0),
+    item_code: values.item_code ?? '',
+    item_name: values.item_name ?? '',
+    item_type: values.item_type ?? '',
+    item_sub_type: values.item_sub_type ?? '',
+    quality: Number(values.quality ?? 1),
+    rarity: Number(values.rarity ?? 1),
+    icon: values.icon ?? '',
+    desc: values.desc ?? '',
+    max_stack: Number(values.max_stack ?? 1),
+    occupy_slots: Number(values.occupy_slots ?? 1),
+    auto_merge: Boolean(values.auto_merge),
+    sort_weight: Number(values.sort_weight ?? 0),
+    usable: Boolean(values.usable),
+    use_scope: values.use_scope ?? '',
+    target_type: values.target_type ?? '',
+    required_level: Number(values.required_level ?? 0),
+    required_scene_id: Number(values.required_scene_id ?? 0),
+    bind_type: values.bind_type ?? 'none',
+    can_sell: Boolean(values.can_sell),
+    can_drop: Boolean(values.can_drop),
+    can_store: Boolean(values.can_store),
+    can_trade: Boolean(values.can_trade),
+    expire_at_rule: values.expire_at_rule ?? '',
+    effect_type: values.effect_type ?? '',
+    effect_value: Number(values.effect_value ?? 0),
+    effect_params_json: values.effect_params_json ?? '{}',
+    buy_price_copper: Number(values.buy_price_copper ?? 0),
+    sell_price_copper: Number(values.sell_price_copper ?? 0),
+    recycle_price_copper: Number(values.recycle_price_copper ?? 0),
+    price_type: values.price_type ?? 'base_coin',
+    is_enabled: Boolean(values.is_enabled),
   };
 }

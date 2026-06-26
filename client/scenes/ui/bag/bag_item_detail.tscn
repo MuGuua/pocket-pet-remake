@@ -1,0 +1,104 @@
+[gd_scene format=3 uid="uid://ddcvakp2gvdxr"]
+
+[ext_resource type="Script" uid="uid://b2wjw7r065n80" path="res://scripts/ui/bag/bag_item_detail.gd" id="1_detail"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.12, 0.16, 0.22, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.52, 0.62, 0.85)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+
+[node name="BagItemDetail" type="PanelContainer"]
+custom_minimum_size = Vector2(260, 170)
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("1_detail")
+
+[node name="ContentVBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="NameLabel" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "未选择物品"
+
+[node name="TypeLabel" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "类型：-"
+
+[node name="EquipSlotLabel" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.82, 0.42, 1)
+theme_override_font_sizes/font_size = 12
+text = "部位：-"
+
+[node name="QuantityLabel" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "数量：-"
+
+[node name="DescriptionLabel" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "点击物品或已装备槽位查看详情。"
+autowrap_mode = 3
+
+[node name="ActionRow" type="HBoxContainer" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="OpenButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "打开"
+
+[node name="UseButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "使用"
+
+[node name="UnequipButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "卸下"
+
+[node name="DropButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "丢弃"
+
+[node name="GiveButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "给人"
+
+[node name="ShareButton" type="Button" parent="ContentVBox/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+text = "分享"

@@ -1,8 +1,5 @@
-extends CanvasLayer
+extends RuntimeRootPanel
 
-signal menu_closed
-
-## 默认打开的分页索引，保持面板每次展示时先进入战斗属性。
 const DEFAULT_TAB_INDEX: int = 0
 
 ## 战斗属性切换按钮。
@@ -34,7 +31,7 @@ var _pending_request_seqs: Dictionary = {}
 
 ## 初始化按钮事件、订阅权威快照变化，并默认隐藏弹窗。
 func _ready() -> void:
-    hide()
+    super._ready()
     _tab_buttons.append(battle_attribute_button)
     _tab_buttons.append(status_resistance_button)
     _tab_buttons.append(social_attribute_button)
@@ -79,19 +76,16 @@ func _exit_tree() -> void:
 
 ## 打开人物状态弹窗，并刷新为当前服务端权威快照。
 func open_menu() -> void:
-    show()
+    super.open_menu()
     reset_to_default()
     _request_panel_data()
 
 
 ## 关闭人物状态弹窗，并通知主场景解除菜单锁定。
 func close_menu() -> void:
-    var was_visible: bool = visible
     _pending_request_seqs.clear()
     _hide_loading_overlay()
-    hide()
-    if was_visible:
-        menu_closed.emit()
+    super.close_menu()
 
 
 ## 恢复默认选中项，供外部打开面板时主动调用。
@@ -343,7 +337,7 @@ func _build_exp_suffix(snapshot: Dictionary) -> String:
 
 ## 构建背包容量文案，优先使用服务端容器容量，缺失时退回当前物品数量。
 func _build_bag_count_text() -> String:
-    var used_count: int = GameState.bag_items.size()
+    var used_count: int = int(GameState.bag_container.get("used_slots", GameState.bag_items.size()))
     var capacity: int = int(GameState.bag_container.get("capacity", GameState.bag_container.get("max_slots", 0)))
     if capacity > 0:
         return "%d/%d" % [used_count, capacity]

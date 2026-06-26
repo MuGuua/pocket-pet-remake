@@ -75,6 +75,12 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   quest: '任务物品',
   currency: '货币',
   misc: '杂项',
+  functional: '功能道具',
+};
+
+/** 物品子类 */
+export const ITEM_SUB_TYPE_LABELS: Record<string, string> = {
+  expand: '扩容',
 };
 
 /** 技能分类 */
@@ -129,6 +135,13 @@ export function formatControlStatusLabel(statusID: number): string {
 export const CONTAINER_TYPE_LABELS: Record<string, string> = {
   bag: '背包',
   warehouse: '仓库',
+};
+
+/** 绑定类型 */
+export const BIND_TYPE_LABELS: Record<string, string> = {
+  none: '不绑定',
+  pickup_bind: '获得绑定',
+  equip_bind: '装备绑定',
 };
 
 /**

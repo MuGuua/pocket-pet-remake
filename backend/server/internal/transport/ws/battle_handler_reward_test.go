@@ -71,13 +71,13 @@ func TestBattlePopupRewardsFromResultRequiresGrantedSettlement(t *testing.T) {
 		RewardPlayerExp: 20,
 	}
 
-	if rewards := battlePopupRewardsFromResult(result, nil); len(rewards) != 0 {
-		t.Fatalf("nil settlement rewards = %#v, want empty popup list", rewards)
+	if rewards := battlePopupRewardsFromResult(result, nil); len(rewards) != 2 {
+		t.Fatalf("nil settlement rewards = %#v, want snapshot fallback popup rewards", rewards)
 	}
 
 	emptySettlement := &battleSettlement{}
-	if rewards := battlePopupRewardsFromResult(result, emptySettlement); len(rewards) != 0 {
-		t.Fatalf("empty settlement rewards = %#v, want empty popup list", rewards)
+	if rewards := battlePopupRewardsFromResult(result, emptySettlement); len(rewards) != 2 {
+		t.Fatalf("empty settlement rewards = %#v, want snapshot fallback popup rewards", rewards)
 	}
 
 	grantedSettlement := &battleSettlement{

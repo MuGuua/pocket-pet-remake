@@ -195,6 +195,13 @@ func set_world_snapshot(payload: Dictionary) -> void:
 	world_snapshot_changed.emit()
 	pets_changed.emit()
 
+# 把客户端当前场景坐标写入玩家快照，供开战上报与服务端 return_pos 对齐。
+func sync_player_scene_position(scene_position: Vector2) -> void:
+	var next_player: Dictionary = player_snapshot.duplicate(true)
+	next_player["x"] = scene_position.x
+	next_player["y"] = scene_position.y
+	player_snapshot = next_player
+
 # 向附近实体表中写入一个新实体。
 func add_entity(entity: Dictionary) -> void:
 	if not entity.has("entity_id"):

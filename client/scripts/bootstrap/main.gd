@@ -23,8 +23,9 @@ const TRANSITION_DURATION := 0.18
 const SCENE_MAP_TRANSITION_DURATION := 0.37
 # 过渡遮罩 CanvasLayer 层级，需高于战斗弹窗层以便盖住切换过程。
 const TRANSITION_LAYER := 20
-# 世界场景内战斗弹窗的固定尺寸，与战斗场景 UI 布局保持一致。
-const BATTLE_MODAL_SIZE := Vector2(360.0, 520.0)
+# 世界场景内战斗弹窗的固定尺寸；当前项目视口已切到 260x480，
+# 战斗面板也同步收窄到同尺寸，避免左右溢出屏幕。
+const BATTLE_MODAL_SIZE := Vector2(260.0, 480.0)
 # 战斗弹窗 CanvasLayer 层级，需高于运行时菜单与 HUD。
 const BATTLE_MODAL_LAYER := 10
 # 当前客户端默认只允许从附近玩家列表中发起 PVP 挑战，避免没有明确目标时误发请求。
@@ -86,6 +87,10 @@ var _pending_pvp_invite: Dictionary = {}
 var _suppress_settlement_input_until_frame: int = -1
 # 结算弹窗流程代次；新战斗开始时会递增，用于打断未关闭的升级/奖励弹窗链路。
 var _popup_flow_generation: int = 0
+# 串行处理 battle_finished，避免 4012 兜底与 4013 结算包并发时重复卸载或抢跑空结算。
+var _battle_finish_handler_running: bool = false
+# 若结算 handler 正在执行，暂存后续到达的权威 4013 结算包。
+var _pending_battle_finish_payload: Dictionary = {}
 # 当前运行中的 NPC 结构化剧情面板实例。
 var _npc_dialogue_panel: NPCDialoguePanel = null
 # 当前运行中的 NPC 商店面板实例。
@@ -358,34 +363,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("open_main_menu"):
-		if _has_blocking_ui_open("main_menu"):
+		if _main_menu == null or _is_battle_modal_active() or _is_settlement_input_blocked():
 			return
-		if _main_menu == null:
-			return
-		if _main_menu.visible:
-			_main_menu.call("close_menu")
-		else:
-			_main_menu.call("open_menu")
-			_set_runtime_menu_locked(true)
+		_toggle_root_runtime_panel(_main_menu, "main_menu")
 		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("open_player_panel"):
-		if _has_blocking_ui_open("player_panel"):
+		if _player_panel == null or _is_battle_modal_active() or _is_settlement_input_blocked():
 			return
-		if _player_panel == null:
-			return
-		if _player_panel.visible:
-			_player_panel.call("close_menu")
-		else:
-			_player_panel.call("open_menu")
-			_set_runtime_menu_locked(true)
+		_toggle_root_runtime_panel(_player_panel, "player_panel")
 		get_viewport().set_input_as_handled()
 		return
 
 	if not event.is_action_pressed("open_scene_npc_list"):
 		return
-	if GameState.is_in_battle or _is_battle_modal_active() or _npc_list_menu == null or _has_blocking_ui_open("npc_list"):
+	if GameState.is_in_battle or _is_battle_modal_active() or _npc_list_menu == null or _is_settlement_input_blocked():
 		return
 	if _npc_list_menu.visible:
 		_npc_list_menu.call("close_menu")
@@ -395,6 +388,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var nearby_npcs: Array[Dictionary] = _collect_nearby_npc_entries()
 	if nearby_npcs.is_empty():
 		return
+	_close_other_root_panels("npc_list")
 	_npc_list_menu.call("configure", "周围 NPC", nearby_npcs)
 	_npc_list_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -520,13 +514,46 @@ func _enter_battle_with_transition(payload: Dictionary) -> void:
 	await get_tree().process_frame
 	await _grid_spread_transition.play_reveal()
 
-# 处理战斗结束事件，先等战斗场景播完最后一轮事件再卸载。
+# 处理战斗结束事件：4012 兜底只负责退出战斗界面，4013 结算包单独驱动升级/奖励弹窗。
 func _on_battle_finished(payload: Dictionary) -> void:
+	if payload.is_empty():
+		return
+	if _battle_finish_handler_running:
+		if not bool(payload.get("fallback_result", false)):
+			_pending_battle_finish_payload = payload.duplicate(true)
+		return
+	_battle_finish_handler_running = true
+	await _process_battle_finished(payload)
+	while not _pending_battle_finish_payload.is_empty():
+		var pending_payload: Dictionary = _pending_battle_finish_payload
+		_pending_battle_finish_payload = {}
+		await _process_battle_finished(pending_payload)
+	_battle_finish_handler_running = false
+
+
+## 4012 兜底包只退出战斗弹窗；4013 权威结算包才展示升级与奖励弹窗。
+func _process_battle_finished(payload: Dictionary) -> void:
+	if bool(payload.get("fallback_result", false)):
+		await _dismiss_battle_modal(payload)
+		return
+	if _is_battle_modal_active():
+		await _dismiss_battle_modal(payload)
+	else:
+		_sync_world_player_battle_pose()
+	await _present_battle_settlement(payload)
+
+
+## 等待战斗演出结束并卸载战斗弹窗，恢复世界 HUD。
+func _dismiss_battle_modal(payload: Dictionary) -> void:
 	_set_runtime_menu_locked(true)
 	_sync_world_player_battle_pose()
 	if _battle_scene != null and _battle_scene.has_method("wait_for_presentation_complete"):
 		await _battle_scene.wait_for_presentation_complete(payload)
 	_unmount_battle_scene()
+
+
+## 展示战斗胜利后的升级弹窗、宠物升级弹窗与奖励弹窗，并刷新权威数据。
+func _present_battle_settlement(payload: Dictionary) -> void:
 	var flow_id: int = _popup_flow_generation
 	if int(payload.get("level_up_count", 0)) > 0:
 		var player_level: int = int(payload.get("player_level", 0))
@@ -541,20 +568,20 @@ func _on_battle_finished(payload: Dictionary) -> void:
 	if flow_id != _popup_flow_generation:
 		return
 	var popup_rewards: Array = _collect_battle_popup_rewards(payload)
-	if bool(payload.get("win", false)) and (not popup_rewards.is_empty() or not pet_rewards.is_empty()):
+	if _should_show_battle_reward_popup(payload, popup_rewards, pet_rewards):
 		if flow_id != _popup_flow_generation:
 			return
-		_show_reward_popup("", popup_rewards, pet_rewards)
-	var reward_gold := int(payload.get("reward_gold", 0))
-	var reward_player_exp := int(payload.get("reward_player_exp", 0))
+		await _show_reward_popup_and_wait("", popup_rewards, pet_rewards)
+	var reward_gold: int = int(payload.get("reward_gold", 0))
+	var reward_player_exp: int = int(payload.get("reward_player_exp", 0))
 	var drop_texts_variant: Variant = payload.get("drop_texts", [])
 	var drop_texts: Array = drop_texts_variant if drop_texts_variant is Array else []
 	if reward_gold > 0 or reward_player_exp > 0:
 		_append_log("战斗结束，获得 %d 金币 / %d 角色经验。" % [reward_gold, reward_player_exp])
 	else:
 		_append_log("战斗结束，返回世界场景。")
-	for drop_text_variant in drop_texts:
-		var drop_text := str(drop_text_variant)
+	for drop_text_variant: Variant in drop_texts:
+		var drop_text: String = str(drop_text_variant)
 		if not drop_text.is_empty():
 			_append_log(drop_text)
 	_log_pet_level_up_rewards(pet_rewards)
@@ -628,8 +655,15 @@ func _unmount_battle_scene() -> void:
 	if _battle_modal_layer != null:
 		_battle_modal_layer.visible = false
 	_sync_world_player_battle_pose()
+	_refresh_world_pet_follower_after_battle()
 	_set_runtime_menu_locked(false)
 	hud_root.set_player_status_visible(true)
+
+
+## 战斗弹窗卸载后恢复世界场景出战宠物展示。
+func _refresh_world_pet_follower_after_battle() -> void:
+	if _world_controller != null and _world_controller.has_method("refresh_pet_follower_after_battle"):
+		_world_controller.call("refresh_pet_follower_after_battle")
 
 ## 同步世界玩家战斗待机动画，与战斗弹窗可见态保持一致。
 func _sync_world_player_battle_pose() -> void:
@@ -656,27 +690,15 @@ func _refresh_view() -> void:
 
 ## 点击左上角头像时打开人物状态面板。
 func _on_hud_avatar_pressed() -> void:
-	if _is_battle_modal_active() or _has_blocking_ui_open("player_panel"):
+	if _is_battle_modal_active() or _is_settlement_input_blocked():
 		return
-	if _player_panel == null:
-		return
-	if _player_panel.visible:
-		_player_panel.call("close_menu")
-	else:
-		_player_panel.call("open_menu")
-		_set_runtime_menu_locked(true)
+	_toggle_root_runtime_panel(_player_panel, "player_panel")
 
 ## 点击右下角背包常驻按钮时打开背包，沿用主菜单中的背包面板与服务端刷新逻辑。
 func _on_hud_bag_pressed() -> void:
-	if _is_battle_modal_active() or _has_blocking_ui_open("bag_panel"):
+	if _is_battle_modal_active() or _is_settlement_input_blocked():
 		return
-	if _bag_panel == null:
-		return
-	if _bag_panel.visible:
-		_bag_panel.call("close_menu")
-	else:
-		_bag_panel.call("open_menu")
-		_set_runtime_menu_locked(true)
+	_toggle_root_runtime_panel(_bag_panel, "bag_panel")
 
 # 向底部 HUD 日志区域追加一条文本。
 func _append_log(message: String) -> void:
@@ -799,6 +821,16 @@ func _show_reward_popup(title_text: String, rewards: Array, pet_rewards: Array =
 		_reward_popup.call("show_rewards", title_text, rewards, pet_rewards)
 
 
+## 展示奖励弹窗并等待玩家关闭，避免后续刷新请求抢跑导致弹窗一闪而过。
+func _show_reward_popup_and_wait(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
+	_create_reward_popup()
+	if _reward_popup == null or not _reward_popup.has_method("show_rewards"):
+		return
+	_reward_popup.call("show_rewards", title_text, rewards, pet_rewards)
+	if _reward_popup.visible and _reward_popup.has_signal("popup_closed"):
+		await _reward_popup.popup_closed
+
+
 ## 从战斗结算包整理弹窗奖励；优先使用服务端 rewards 列表，缺失时回退到顶层数值字段。
 func _collect_battle_popup_rewards(payload: Dictionary) -> Array:
 	var rewards_variant: Variant = payload.get("rewards", [])
@@ -816,6 +848,23 @@ func _collect_battle_popup_rewards(payload: Dictionary) -> Array:
 	if reward_gold > 0:
 		normalized.append({"type": "gold", "value": reward_gold})
 	return normalized
+
+
+## 判断战斗胜利后是否应弹出奖励面板；需与 RewardPopup 的可展示规则保持一致。
+func _should_show_battle_reward_popup(payload: Dictionary, popup_rewards: Array, pet_rewards: Array) -> bool:
+	if not bool(payload.get("win", false)):
+		return false
+	if not popup_rewards.is_empty():
+		return true
+	if int(payload.get("reward_player_exp", 0)) > 0 or int(payload.get("reward_gold", 0)) > 0:
+		return true
+	for pet_reward_variant: Variant in pet_rewards:
+		if pet_reward_variant is not Dictionary:
+			continue
+		var pet_reward: Dictionary = pet_reward_variant as Dictionary
+		if int(pet_reward.get("exp_gained", pet_reward.get("exp", 0))) > 0:
+			return true
+	return false
 
 
 func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
@@ -980,10 +1029,19 @@ func _on_main_menu_item_selected(item: Dictionary) -> void:
 		return
 	var label: String = str(item.get("label", ""))
 	if label == "物品行囊":
+		_close_other_root_panels("bag_panel")
 		if _main_menu != null and _main_menu.has_method("close_menu"):
 			_main_menu.call("close_menu")
 		if _bag_panel != null and _bag_panel.has_method("open_menu"):
 			_bag_panel.call("open_menu")
+			_set_runtime_menu_locked(true)
+		return
+	if label == "个人状态":
+		_close_other_root_panels("player_panel")
+		if _main_menu != null and _main_menu.has_method("close_menu"):
+			_main_menu.call("close_menu")
+		if _player_panel != null and _player_panel.has_method("open_menu"):
+			_player_panel.call("open_menu")
 			_set_runtime_menu_locked(true)
 		return
 	if label != "全服竞技场":
@@ -1131,6 +1189,7 @@ func _open_pvp_target_menu() -> void:
 	if nearby_players.is_empty():
 		_append_log("附近没有可挑战的玩家。")
 		return
+	_close_other_root_panels("pvp_list")
 	_pvp_target_menu.call("configure", "选择挑战玩家", nearby_players)
 	_pvp_target_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -1233,6 +1292,7 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 	if _npc_menu == null:
 		return
 	var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+	_close_other_root_panels("npc_menu")
 	_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
 	_npc_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -1253,6 +1313,7 @@ func _handle_npc_action_payload(payload: Dictionary) -> void:
 		_append_log("NPC 操作: %s" % notice)
 	if payload.has("menu_entries") and _npc_menu != null:
 		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
+		_close_other_root_panels("npc_menu")
 		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
 		_npc_menu.call("open_menu")
 		_set_runtime_menu_locked(true)
@@ -1473,6 +1534,37 @@ func _close_runtime_menus(keep_world_locked: bool = false) -> void:
 		_pvp_invite_dialog.hide()
 	if not keep_world_locked:
 		_set_runtime_menu_locked(false)
+
+
+## 打开某个根面板前关闭其它互斥根面板（不解除世界锁定）。
+func _close_other_root_panels(keep_key: String) -> void:
+	var panel_entries: Array[Array] = [
+		["main_menu", _main_menu],
+		["player_panel", _player_panel],
+		["bag_panel", _bag_panel],
+		["npc_menu", _npc_menu],
+		["npc_list", _npc_list_menu],
+		["pvp_list", _pvp_target_menu],
+	]
+	for entry: Array in panel_entries:
+		var panel_key: String = str(entry[0])
+		if panel_key == keep_key:
+			continue
+		var panel_layer: CanvasLayer = entry[1] as CanvasLayer
+		if panel_layer != null and panel_layer.visible and panel_layer.has_method("close_menu"):
+			panel_layer.call("close_menu")
+
+
+## 切换根面板：已打开则关闭；否则先关其它根面板再打开目标面板。
+func _toggle_root_runtime_panel(panel: CanvasLayer, panel_key: String) -> void:
+	if panel == null:
+		return
+	if panel.visible:
+		panel.call("close_menu")
+		return
+	_close_other_root_panels(panel_key)
+	panel.call("open_menu")
+	_set_runtime_menu_locked(true)
 
 func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "main_menu" and _main_menu != null and _main_menu.visible:

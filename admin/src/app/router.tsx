@@ -9,7 +9,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { QuestAdminPage } from '../pages/quests/QuestAdminPage';
 import { NPCConfigPage } from '../pages/npcs/NPCConfigPage';
-import { ItemDefinitionPage } from '../pages/items/ItemDefinitionPage';
+import { ItemTemplatePage } from '../pages/items/ItemTemplatePage';
 import { PetManagementPage } from '../pages/pets/PetManagementPage';
 import { SkillDefinitionPage } from '../pages/skills/SkillDefinitionPage';
 import { MonsterDefinitionPage } from '../pages/monsters/MonsterDefinitionPage';
@@ -83,13 +83,13 @@ export function AppRouter() {
         <Route path="pet-skill-slot-unlock" element={<Navigate to="/pets?tab=skill-slots" replace />} />
         <Route path="player-pets" element={<Navigate to="/players" replace />} />
         <Route path="pet-combat-stat-caps" element={<Navigate to="/pets?tab=combat-caps" replace />} />
-        <Route path="equipment-definitions" element={<EquipmentDefinitionPage />} />
+        <Route path="equipment-definitions" element={<Navigate to="/items?tab=equipment" replace />} />
         <Route path="pet-definitions" element={<Navigate to="/pets?tab=definitions" replace />} />
         <Route path="skill-definitions" element={<SkillDefinitionPage />} />
         <Route path="monster-definitions" element={<MonsterDefinitionPage />} />
         <Route path="monster-encounters" element={<EncounterConfigPage />} />
         <Route path="scene-wild-encounters" element={<Navigate to="/monster-encounters" replace />} />
-        <Route path="items" element={<ItemDefinitionPage />} />
+        <Route path="items" element={<ItemTemplatePage />} />
         <Route path="quests" element={<QuestAdminPage />} />
         <Route path="npcs" element={<NPCConfigPage />} />
         <Route path="npc-dialogues" element={<Navigate to="/npcs" replace />} />

@@ -332,7 +332,7 @@ func _on_action_selected(action_type: String) -> void:
 		return
 	match action_type:
 		"attack":
-			_resolve_action_selection(_build_attack_selection())
+			_resolve_action_selection(_build_attack_selection(actor_id))
 		"skill":
 			_begin_skill_selection(unit)
 		"item":
@@ -436,11 +436,14 @@ func _begin_item_selection(unit: BattleUnit) -> void:
 	_pending_item_choices = unit.items.duplicate()
 	_action_panel.open_choice_list("item", unit.items)
 
-func _build_attack_selection() -> Dictionary:
+func _build_attack_selection(actor_id: int) -> Dictionary:
+	var display_name: String = "攻击"
+	if _network != null:
+		display_name = _network.get_basic_attack_display_name(actor_id)
 	return {
 		"action_type": "attack",
 		"skill_id": App.DEFAULT_BATTLE_SKILL_ID,
-		"display_name": "攻击",
+		"display_name": display_name,
 		"skill_visual_id": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
 		"animation_key": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
 		"target_count": 1,
@@ -997,12 +1000,19 @@ func _show_caster_action_name(actor: BattleUnit, action_name: String) -> void:
 	_floating_layer.add_child(label)
 	label.play(action_name, _resolve_floating_text_color("action_name"))
 
-## 取施法者头顶展示用的技能名；优先 display_name，普攻会显示「攻击」。
+## 取施法者头顶展示用的技能名；优先 action.display_name，人物普攻会展示武器名。
 func _resolve_caster_action_label(action: Dictionary) -> String:
 	var display_name: String = str(action.get("display_name", "")).strip_edges()
+	var actor_id: int = int(action.get("actor_id", 0))
+	var action_type: String = str(action.get("action_type", ""))
+	var skill_id: int = int(action.get("skill_id", 0))
+	var is_basic_attack: bool = action_type == "attack" or skill_id == App.DEFAULT_BATTLE_SKILL_ID
+	if _network != null and actor_id > 0 and is_basic_attack:
+		var weapon_label: String = _network.get_basic_attack_display_name(actor_id)
+		if weapon_label != "攻击":
+			return weapon_label
 	if not display_name.is_empty():
 		return display_name
-	var action_type: String = str(action.get("action_type", ""))
 	return _display_action_name(action_type)
 
 func _start_floating_number(world_position: Vector2, value_text: String, result_type: String) -> void:

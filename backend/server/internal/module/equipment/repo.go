@@ -17,5 +17,9 @@ type Repository interface {
 	ListEquipped(ctx context.Context, playerID uint64) ([]RuntimeEquippedItem, error)
 	EquipFromBagSlot(ctx context.Context, playerID uint64, containerType string, bagSlotIndex uint32, recalc RecalcContext, currentProfile *player.Profile) (*EquipFromBagResult, error)
 	UnequipSlot(ctx context.Context, playerID uint64, equipSlot string, containerType string, recalc RecalcContext, currentProfile *player.Profile) (*UnequipSlotResult, error)
+	RecalcEquippedCombatStats(ctx context.Context, playerID uint64, recalc RecalcContext, currentProfile *player.Profile, refillHP bool) error
+	ListEquippedEntriesForItemID(ctx context.Context, itemID uint64) ([]EquippedTemplateRefreshEntry, error)
+	FindBagSlotIndexByItemUID(ctx context.Context, playerID uint64, containerType string, itemUID string) (uint32, error)
+	RefreshEquippedTemplateEntry(ctx context.Context, playerID uint64, equipSlot string, itemUID string, containerType string, recalc RecalcContext, currentProfile *player.Profile) error
 	EnhanceInstance(ctx context.Context, playerID uint64, itemUID string) (*EnhanceResult, error)
 }

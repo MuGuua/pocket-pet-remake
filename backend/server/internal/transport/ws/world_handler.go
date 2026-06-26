@@ -49,7 +49,7 @@ func NewWorldHandler(sessionService *session.Service, playerService *player.Serv
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
 // reconnect can recover the current world view without duplicating scene logic.
 func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID uint64) (*protocol.EnterWorldResp, error) {
-	profile, err := h.playerService.GetProfile(ctx, playerID)
+	profile, err := h.playerService.GetBattleReadyProfile(ctx, playerID)
 	if err != nil {
 		return nil, err
 	}

@@ -313,7 +313,8 @@ type MoveIntentResp struct {
 }
 
 type InteractReq struct {
-	EntityID uint64 `json:"entity_id"`
+	EntityID uint64  `json:"entity_id"`
+	SelfPos  *Vec2i  `json:"self_pos,omitempty"`
 }
 
 type NpcMenuEntry struct {
@@ -351,6 +352,7 @@ type NPCMenuResp struct {
 type NPCActionReq struct {
 	EntityID uint64 `json:"entity_id"`
 	EntryID  string `json:"entry_id"`
+	SelfPos  *Vec2i `json:"self_pos,omitempty"`
 }
 
 type NPCActionResp struct {
@@ -489,6 +491,7 @@ type WildEncounterConfig struct {
 type WildEncounterReq struct {
 	SceneID uint32 `json:"scene_id"`
 	MoveSeq uint32 `json:"move_seq"`
+	SelfPos *Vec2i `json:"self_pos,omitempty"`
 }
 
 type WildEncounterResp struct {
@@ -747,6 +750,9 @@ type BattlePetReward struct {
 
 type BagListReq struct {
 	ContainerType string `json:"container_type,omitempty"`
+	Page          uint32 `json:"page,omitempty"`
+	PageSize      uint32 `json:"page_size,omitempty"`
+	Category      string `json:"category,omitempty"`
 }
 
 type UseItemReq struct {
@@ -866,6 +872,7 @@ type ContainerItemSnapshot struct {
 	Usable       bool   `json:"usable"`
 	TargetType   string `json:"target_type"`
 	EffectType   string `json:"effect_type"`
+	EquipSlot    string `json:"equip_slot,omitempty"`
 }
 
 type ContainerSnapshot struct {
@@ -873,13 +880,17 @@ type ContainerSnapshot struct {
 	Capacity      uint32                  `json:"capacity"`
 	MaxCapacity   uint32                  `json:"max_capacity"`
 	UsedSlots     uint32                  `json:"used_slots"`
+	Page          uint32                  `json:"page,omitempty"`
+	PageSize      uint32                  `json:"page_size,omitempty"`
+	TotalItems    uint32                  `json:"total_items,omitempty"`
+	Category      string                  `json:"category,omitempty"`
 	Items         []ContainerItemSnapshot `json:"items"`
 }
 
 type BagListResp struct {
-	Container     ContainerSnapshot              `json:"container"`
-	Wallet        WalletSnapshot                 `json:"wallet"`
-	EquippedItems []PlayerEquippedItemSnapshot   `json:"equipped_items"`
+	Container     ContainerSnapshot            `json:"container"`
+	Wallet        WalletSnapshot               `json:"wallet"`
+	EquippedItems []PlayerEquippedItemSnapshot `json:"equipped_items"`
 }
 
 type ContainerListResp struct {

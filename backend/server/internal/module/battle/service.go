@@ -227,6 +227,18 @@ func (s *Service) EnsureNextBattleID(ctx context.Context, repo Repository) error
 	return nil
 }
 
+// IsPlayerInActiveBattle 判断玩家是否处于进行中的战斗会话。
+// 战斗内属性以开战快照为准，外部不应再触发读库重算或模板刷新写库。
+func (s *Service) IsPlayerInActiveBattle(playerID uint64) bool {
+	if s == nil || playerID == 0 {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.activeByPlayer[playerID]
+	return ok
+}
+
 const pvpChallengeTimeout = 30 * time.Second
 
 func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity) (*StartSnapshot, error) {

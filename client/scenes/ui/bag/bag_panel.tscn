@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cu0ft75vcv34o"]
 
-[ext_resource type="Script" path="res://scripts/ui/bag/bag_panel.gd" id="1_bagpanel"]
+[ext_resource type="Script" uid="uid://56pm2rr06oda" path="res://scripts/ui/bag/bag_panel.gd" id="1_bagpanel"]
 [ext_resource type="PackedScene" uid="uid://c1shba0bn0k1a" path="res://scenes/ui/bag/equipment_slot_1.tscn" id="2_42kmg"]
 [ext_resource type="PackedScene" uid="uid://cy7ymccdw2m71" path="res://scenes/ui/slot.tscn" id="3_jctgi"]
 [ext_resource type="Texture2D" uid="uid://sebrg5lnyrs4" path="res://asset/分类/ui/bagUI2.png" id="3_oqfbl"]
@@ -276,6 +276,7 @@ region = Rect2(555, 501, 10, 9)
 texture = SubResource("AtlasTexture_fdui7")
 
 [node name="BagPanel" type="CanvasLayer" unique_id=1561311213]
+visible = false
 script = ExtResource("1_bagpanel")
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=1850279401]
@@ -284,12 +285,15 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -90.0
-offset_top = -140.0
-offset_right = 90.0
-offset_bottom = 140.0
+offset_left = -115.0
+offset_top = -184.5
+offset_right = 65.0
+offset_bottom = 94.5
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.3, 1.3)
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel" unique_id=164735940]
@@ -367,6 +371,7 @@ expand_mode = 1
 stretch_mode = 4
 
 [node name="Label" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/PanelContainer/HBoxContainer" unique_id=847022376]
+custom_minimum_size = Vector2(28, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
 theme_override_font_sizes/font_size = 7
@@ -674,14 +679,13 @@ theme_override_colors/font_uneditable_color = Color(0.94027185, 0.83364743, 0.69
 theme_override_colors/caret_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
 theme_override_colors/selection_color = Color(0.54509807, 0.48235294, 0.39607844, 0.6)
 theme_override_font_sizes/font_size = 8
-theme_override_styles/focus = SubResource("StyleBoxEmpty_krklo")
 theme_override_styles/normal = SubResource("StyleBoxEmpty_krklo")
 theme_override_styles/read_only = SubResource("StyleBoxEmpty_krklo")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_krklo")
 alignment = 1
 max_length = 3
 flat = true
 caret_blink = true
-selecting_enabled = true
 
 [node name="Button5" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=425246358]
 custom_minimum_size = Vector2(12, 2)

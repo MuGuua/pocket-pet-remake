@@ -196,5 +196,5 @@ func NewTestPlayerService() *player.Service {
 	progressionRepo := NewProgressionRepository(playerRepo)
 	progressionService := progression.NewService(progressionRepo)
 	_ = progressionService.RefreshRuntimeCache(context.Background())
-	return player.NewService(playerRepo, nil, progressionService)
+	return player.NewService(playerRepo, nil, progressionService, nil)
 }

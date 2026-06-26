@@ -1,0 +1,139 @@
+[gd_scene format=3 uid="uid://dem5p4nmph453"]
+
+[ext_resource type="Script" uid="uid://56pm2rr06oda" path="res://scripts/ui/bag/bag_panel.gd" id="1_bag_panel"]
+[ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_xggsb"]
+[ext_resource type="PackedScene" uid="uid://fe1x56xjri4a" path="res://scenes/ui/null_equipment_slot.tscn" id="3_n3uqk"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fjtt8"]
+atlas = SubResource("CompressedTexture2D_n3uqk")
+region = Rect2(387, 29, 176, 291)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
+texture = SubResource("AtlasTexture_fjtt8")
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_wxjm4"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fi3ju"]
+atlas = SubResource("CompressedTexture2D_wxjm4")
+region = Rect2(272, 208, 17, 16)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bu7xo"]
+texture = SubResource("AtlasTexture_fi3ju")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_krklo"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cw7q7"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2qbur"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_05nox"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_0abjx"]
+texture = ExtResource("2_xggsb")
+texture_margin_left = 32.0
+texture_margin_top = 32.0
+texture_margin_right = 32.0
+texture_margin_bottom = 32.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_hb0a2"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_38h01"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7wogr"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_i337v"]
+
+[node name="BagPanel" type="CanvasLayer" unique_id=2020859994]
+visible = false
+script = ExtResource("1_bag_panel")
+
+[node name="RootPanel" type="PanelContainer" parent="." unique_id=1807068148]
+custom_minimum_size = Vector2(352, 582)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -165.0
+offset_top = -280.0
+offset_right = 165.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
+
+[node name="MarginContainer" type="MarginContainer" parent="RootPanel" unique_id=1541716785]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="RootPanel/MarginContainer" unique_id=1249038083]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer" unique_id=593607443]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_constants/margin_top = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer" unique_id=1250879369]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1400010673]
+custom_minimum_size = Vector2(135, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1454056484]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
+theme_override_font_sizes/font_size = 18
+text = "物品行囊"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Control2" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=2109469139]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1131241311]
+layout_mode = 2
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/HBoxContainer/MarginContainer" unique_id=391322642]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxTexture_bu7xo")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_krklo")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_cw7q7")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_2qbur")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_05nox")
+
+[node name="MarginContainer2" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer" unique_id=740195072]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+
+[node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer2" unique_id=1373197285]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_0abjx")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer2/PanelContainer" unique_id=1489437378]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer2/PanelContainer/VBoxContainer" unique_id=806936666]
+custom_minimum_size = Vector2(0, 33)
+layout_mode = 2
+
+[node name="NullEquipmentSlot" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer2/PanelContainer/VBoxContainer/HBoxContainer" unique_id=1572770105 instance=ExtResource("3_n3uqk")]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 2
+focus_mode = 2
+mouse_filter = 2
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_hb0a2")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_38h01")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_7wogr")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_i337v")
+script = null

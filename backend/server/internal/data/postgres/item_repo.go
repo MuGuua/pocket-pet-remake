@@ -181,6 +181,9 @@ func (r *ItemRepository) ListForAdmin(ctx context.Context, query item.AdminListQ
 	if query.ItemType != "" {
 		conditions = append(conditions, "item_type = "+nextArg(query.ItemType))
 	}
+	if query.ExcludeItemType != "" {
+		conditions = append(conditions, "item_type <> "+nextArg(query.ExcludeItemType))
+	}
 	if query.Keyword != "" {
 		placeholder := nextArg("%" + query.Keyword + "%")
 		conditions = append(conditions, "(item_code ILIKE "+placeholder+" OR item_name ILIKE "+placeholder+")")

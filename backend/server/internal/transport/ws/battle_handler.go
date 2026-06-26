@@ -81,7 +81,7 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdInteractReq, packet.Seq, request)
 
-	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -141,7 +141,7 @@ func (h *BattleHandler) HandleNPCMenu(conn packetSender, packet *protocol.Packet
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCMenuReq, packet.Seq, request)
 
-	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), nil)
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -167,7 +167,7 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdWildEncounterReq, packet.Seq, request)
 
-	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID())
+	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -386,7 +386,7 @@ func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *proto
 		return h.pushNoticeToPlayer(challenge.ChallengerPlayerID, "对方拒绝了 PVP 邀请。")
 	}
 
-	challengerProfile, err := h.playerService.GetProfile(context.Background(), challenge.ChallengerPlayerID)
+	challengerProfile, err := h.playerService.GetBattleReadyProfile(context.Background(), challenge.ChallengerPlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "challenger not found")
 	}
@@ -394,7 +394,7 @@ func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *proto
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "load challenger lineup failed")
 	}
-	defenderProfile, err := h.playerService.GetProfile(context.Background(), challenge.DefenderPlayerID)
+	defenderProfile, err := h.playerService.GetBattleReadyProfile(context.Background(), challenge.DefenderPlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "defender not found")
 	}
@@ -546,20 +546,8 @@ func (h *BattleHandler) pushBattleOutcome(ctx context.Context, conn packetSender
 	if outcome.Result == nil {
 		return nil
 	}
-	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, preConsumedBag)
-	if err != nil {
-		return err
-	}
-	if len(outcome.Result.ParticipantPlayerIDs) > 1 {
-		if err := h.pushBattleResultToParticipants(outcome.Result, settlement); err != nil {
-			return err
-		}
-	} else {
-		if err := h.pushBattleResultPacket(conn, outcome.Result, settlement); err != nil {
-			return err
-		}
-	}
-	return h.pushBattleSettlementFollowUps(ctx, conn, playerID, outcome.Result, settlement)
+	settlement, grantErr := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, preConsumedBag)
+	return h.pushBattleResultAfterSideEffects(ctx, conn, playerID, outcome.Result, settlement, grantErr)
 }
 
 func (h *BattleHandler) deliverAutoOutcome(ctx context.Context, playerID uint64, outcome *battle.ActionOutcome) error {
@@ -578,19 +566,53 @@ func (h *BattleHandler) deliverAutoOutcome(ctx context.Context, playerID uint64,
 			return err
 		}
 	}
-	settlement, err := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, nil)
-	if err != nil {
-		return err
+	if outcome.Result == nil {
+		return nil
 	}
-	if conn != nil && outcome.Result != nil {
+	settlement, grantErr := h.applyBattleResultSideEffects(ctx, conn, playerID, outcome.Result, nil)
+	if conn != nil {
 		h.clearReconnectResult(playerID)
-		if err := h.pushBattleResultPacket(conn, outcome.Result, settlement); err != nil {
-			return err
-		}
-	} else if outcome.Result != nil {
-		h.storeReconnectResult(playerID, h.buildBattleResultPayload(outcome.Result, settlement))
 	}
-	return h.pushBattleSettlementFollowUps(ctx, conn, playerID, outcome.Result, settlement)
+	return h.pushBattleResultAfterSideEffects(ctx, conn, playerID, outcome.Result, settlement, grantErr)
+}
+
+// pushBattleResultAfterSideEffects 无论发奖是否成功都推送 4013，避免客户端只收到 4012 finished 而无法展示奖励弹窗。
+func (h *BattleHandler) pushBattleResultAfterSideEffects(
+	ctx context.Context,
+	conn packetSender,
+	playerID uint64,
+	result *battle.ResultSnapshot,
+	settlement *battleSettlement,
+	grantErr error,
+) error {
+	if result == nil {
+		return grantErr
+	}
+	if settlement == nil {
+		settlement = &battleSettlement{}
+	}
+	var pushErr error
+	if len(result.ParticipantPlayerIDs) > 1 {
+		pushErr = h.pushBattleResultToParticipants(result, settlement)
+	} else if conn != nil {
+		pushErr = h.pushBattleResultPacket(conn, result, settlement)
+	} else if playerID != 0 {
+		h.storeReconnectResult(playerID, h.buildBattleResultPayload(result, settlement))
+	}
+	if pushErr != nil {
+		return pushErr
+	}
+	if grantErr != nil {
+		_ = h.pushNoticeToPlayer(playerID, "战斗奖励发放异常，请检查背包空间后重试")
+	}
+	followUpErr := h.pushBattleSettlementFollowUps(ctx, conn, playerID, result, settlement)
+	if grantErr != nil {
+		return followUpErr
+	}
+	if followUpErr != nil {
+		return followUpErr
+	}
+	return nil
 }
 
 func (h *BattleHandler) pushBattleStatePacket(conn packetSender, state *battle.StateSnapshot) error {
@@ -757,16 +779,14 @@ func battlePopupRewardsFromResult(result *battle.ResultSnapshot, settlement *bat
 	if len(rewards) > 0 {
 		return rewards
 	}
-	if result == nil || !result.Win || settlement == nil {
+	if result == nil || !result.Win {
 		return nil
 	}
-	if len(settlement.GrantedRewards) == 0 && !settlement.rewardsAlreadyGranted {
+	// 重复结算同步包不再弹奖励，避免同一场战斗重复展示。
+	if settlement != nil && settlement.rewardsAlreadyGranted {
 		return nil
 	}
-	// 去重同步包只展示发奖服务实际带回的奖励，避免用战斗快照伪造“已到账”弹窗。
-	if settlement.rewardsAlreadyGranted {
-		return nil
-	}
+	// 首次结算或发奖异常时，用战斗快照里的奖励摘要驱动客户端弹窗。
 	return popupRewardsFromBattleResultSnapshot(result)
 }
 
@@ -1183,17 +1203,18 @@ func (h *BattleHandler) tryBeginBattleRewardGrant(ctx context.Context, playerID 
 	return inserted, err
 }
 
-func (h *BattleHandler) loadPlayerBattleContext(connID string) (*session.Session, *player.Profile, []pet.LineupPet, *world.SceneSnapshot, error) {
+func (h *BattleHandler) loadPlayerBattleContext(connID string, clientSelfPos *protocol.Vec2i) (*session.Session, *player.Profile, []pet.LineupPet, *world.SceneSnapshot, error) {
 	sess, err := h.sessionService.GetByConnID(connID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	ctx := context.Background()
-	profile, err := h.playerService.GetProfile(ctx, sess.PlayerID)
+	profile, err := h.playerService.GetBattleReadyProfile(ctx, sess.PlayerID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	h.syncBattleReturnPosition(ctx, sess.PlayerID, profile, clientSelfPos)
 	lineup, err := h.petService.ListLineup(ctx, sess.PlayerID)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -1203,6 +1224,19 @@ func (h *BattleHandler) loadPlayerBattleContext(connID string) (*session.Session
 		return nil, nil, nil, nil, err
 	}
 	return sess, profile, lineup, sceneSnapshot, nil
+}
+
+// syncBattleReturnPosition 在开战前把客户端上报的场景坐标写回玩家档案，确保 return_pos 与战斗结束回世界位置一致。
+func (h *BattleHandler) syncBattleReturnPosition(ctx context.Context, playerID uint64, profile *player.Profile, clientSelfPos *protocol.Vec2i) {
+	if h == nil || h.playerService == nil || profile == nil || clientSelfPos == nil {
+		return
+	}
+	pos := world.Vec2i{X: clientSelfPos.X, Y: clientSelfPos.Y}
+	if err := h.playerService.UpdatePosition(ctx, playerID, profile.SceneID, pos.X, pos.Y); err != nil {
+		return
+	}
+	profile.PosX = pos.X
+	profile.PosY = pos.Y
 }
 
 func (h *BattleHandler) handleContextError(conn packetSender, seq uint32, err error) error {
@@ -1449,7 +1483,7 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCActionReq, packet.Seq, request)
 
-	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
+	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}

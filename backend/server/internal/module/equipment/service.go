@@ -15,12 +15,18 @@ type CombatCapsLoader interface {
 	LoadCombatStatCaps(ctx context.Context) (pet.CombatStatCaps, error)
 }
 
+// ActiveBattleChecker 用于在战斗进行期间跳开会触发读库重算的路径。
+type ActiveBattleChecker interface {
+	IsPlayerInActiveBattle(playerID uint64) bool
+}
+
 // Service 负责装备模板后台 CRUD 与运行时佩戴的领域入口。
 type Service struct {
 	repo              Repository
 	progression       *progression.Service
 	players           player.Repository
 	combatCapsLoader  CombatCapsLoader
+	battleChecker     ActiveBattleChecker
 }
 
 // NewService 构造装备服务。
@@ -31,6 +37,14 @@ func NewService(repo Repository, progressionService *progression.Service, player
 		players:          players,
 		combatCapsLoader: combatCapsLoader,
 	}
+}
+
+// SetBattleChecker 注入战斗状态检查器，用于模板刷新与重算时跳过战斗中的玩家。
+func (s *Service) SetBattleChecker(checker ActiveBattleChecker) {
+	if s == nil {
+		return
+	}
+	s.battleChecker = checker
 }
 
 // ListAdminEquipmentDefinitions 返回装备模板分页列表。
@@ -83,6 +97,9 @@ func (s *Service) UpdateAdminEquipmentDefinition(ctx context.Context, itemID uin
 	if result == nil {
 		return nil, ErrEquipmentDefinitionNotFound
 	}
+	if err := s.refreshPlayersEquippedItemTemplate(ctx, itemID); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -118,6 +135,19 @@ func (s *Service) EquipFromBagSlot(ctx context.Context, playerID uint64, contain
 		return result, nil, err
 	}
 	return result, updatedProfile, nil
+}
+
+// RecalcPlayerCombatStats 在成长层写库后，把当前已佩戴装备加成重新合并到 player 战斗字段。
+// refillHP 为 true 时会把当前 hp 补满到新 hp_max（用于升级后补满，避免成长层先写入裸装上限）。
+func (s *Service) RecalcPlayerCombatStats(ctx context.Context, playerID uint64, refillHP bool) error {
+	if s.repo == nil || playerID == 0 {
+		return nil
+	}
+	recalc, profile, err := s.buildRecalcContext(ctx, playerID)
+	if err != nil {
+		return err
+	}
+	return s.repo.RecalcEquippedCombatStats(ctx, playerID, recalc, profile, refillHP)
 }
 
 // UnequipSlot 卸下指定部位装备并重算玩家战斗属性。
@@ -180,4 +210,41 @@ func (s *Service) buildRecalcContext(ctx context.Context, playerID uint64) (Reca
 		CombatBonus: combatBonus,
 		Caps:        caps,
 	}, profile, nil
+}
+
+// refreshPlayersEquippedItemTemplate 在装备模板数值变更后，为所有正佩戴该模板的玩家
+// 复用客户端同款卸装/再穿戴链路，确保属性重算与正式玩法完全一致。
+func (s *Service) refreshPlayersEquippedItemTemplate(ctx context.Context, itemID uint64) error {
+	if s.repo == nil || itemID == 0 {
+		return nil
+	}
+	entries, err := s.repo.ListEquippedEntriesForItemID(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	containerType := bag.ContainerTypeBag
+	for _, entry := range entries {
+		if entry.PlayerID == 0 || strings.TrimSpace(entry.EquipSlot) == "" || strings.TrimSpace(entry.ItemUID) == "" {
+			continue
+		}
+		if s.battleChecker != nil && s.battleChecker.IsPlayerInActiveBattle(entry.PlayerID) {
+			continue
+		}
+		recalc, profile, err := s.buildRecalcContext(ctx, entry.PlayerID)
+		if err != nil {
+			return err
+		}
+		if err := s.repo.RefreshEquippedTemplateEntry(
+			ctx,
+			entry.PlayerID,
+			entry.EquipSlot,
+			entry.ItemUID,
+			containerType,
+			recalc,
+			profile,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -33,6 +33,7 @@ texture = SubResource("AtlasTexture_fi3ju")
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_knyfb"]
 
 [node name="PlayerStatusPanel" type="CanvasLayer" unique_id=602936780]
+visible = false
 script = ExtResource("8_player")
 
 [node name="Control" type="Control" parent="." unique_id=209631995]
@@ -50,6 +51,7 @@ offset_right = 176.0
 offset_bottom = 291.0
 grow_horizontal = 2
 grow_vertical = 2
+pivot_offset = Vector2(176, 291)
 scale = Vector2(0.64, 0.64)
 
 [node name="TextureRect" type="TextureRect" parent="Control" unique_id=1684407338]

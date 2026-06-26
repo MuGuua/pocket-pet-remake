@@ -5,7 +5,7 @@ extends "res://scripts/ui/modal_popup_layer.gd"
 @onready var _content_list: VBoxContainer = %ContentList
 
 ## 正文与数字字号。
-const CONTENT_FONT_SIZE: int = 14
+const CONTENT_FONT_SIZE: int = 10
 ## 数字高亮色，对应 RGB(130, 213, 99)。
 const REWARD_NUMBER_COLOR: String = "#82D563"
 ## 与服务端钱包拆分一致：1000 铜 = 1 银，100 万铜 = 1 金。

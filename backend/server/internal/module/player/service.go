@@ -7,18 +7,39 @@ import (
 	"pocket-pet-remake/server/internal/module/skill"
 )
 
+// EquipmentCombatRecalculator 在成长层变更后重算并写回含装备加成的最终战斗属性。
+type EquipmentCombatRecalculator interface {
+	RecalcPlayerCombatStats(ctx context.Context, playerID uint64, refillHP bool) error
+}
+
+// ActiveBattleChecker 用于战斗期间跳过会触发读库重算的属性刷新。
+type ActiveBattleChecker interface {
+	IsPlayerInActiveBattle(playerID uint64) bool
+}
+
 type Service struct {
 	repo                Repository
 	skillService        *skill.Service
 	progressionService  *progression.Service
+	equipmentRecalc     EquipmentCombatRecalculator
+	battleChecker       ActiveBattleChecker
 }
 
-func NewService(repo Repository, skillService *skill.Service, progressionService *progression.Service) *Service {
+func NewService(repo Repository, skillService *skill.Service, progressionService *progression.Service, equipmentRecalc EquipmentCombatRecalculator) *Service {
 	return &Service{
 		repo:               repo,
 		skillService:       skillService,
 		progressionService: progressionService,
+		equipmentRecalc:    equipmentRecalc,
 	}
+}
+
+// SetBattleChecker 注入战斗状态检查器，开战快照生效期间不再触发装备重算读库。
+func (s *Service) SetBattleChecker(checker ActiveBattleChecker) {
+	if s == nil {
+		return
+	}
+	s.battleChecker = checker
 }
 
 func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, error) {
@@ -31,6 +52,18 @@ func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, er
 	}
 	s.fillExpToNext(profile)
 	return profile, nil
+}
+
+// GetBattleReadyProfile 返回开战前权威的战斗属性快照。
+// 非战斗状态下会先重算并写回当前已佩戴装备加成；战斗中直接返回当前持久化快照，不再读表重算。
+func (s *Service) GetBattleReadyProfile(ctx context.Context, playerID uint64) (*Profile, error) {
+	inBattle := s.battleChecker != nil && s.battleChecker.IsPlayerInActiveBattle(playerID)
+	if !inBattle && s.equipmentRecalc != nil {
+		if err := s.equipmentRecalc.RecalcPlayerCombatStats(ctx, playerID, false); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetProfile(ctx, playerID)
 }
 
 // ListAdminPlayers 返回后台玩家列表。
@@ -111,6 +144,12 @@ func (s *Service) AddExp(ctx context.Context, playerID uint64, exp uint64) (*Exp
 	if err != nil {
 		return nil, err
 	}
+	if s.equipmentRecalc != nil {
+		refillHP := applyResult.LevelUpCount > 0
+		if err := s.equipmentRecalc.RecalcPlayerCombatStats(ctx, playerID, refillHP); err != nil {
+			return nil, err
+		}
+	}
 	profile, err := s.GetProfile(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -130,6 +169,11 @@ func (s *Service) AllocateAttrPoints(ctx context.Context, playerID uint64, delta
 	}
 	if err := s.progressionService.AllocateAttrPoints(ctx, playerID, delta); err != nil {
 		return nil, err
+	}
+	if s.equipmentRecalc != nil {
+		if err := s.equipmentRecalc.RecalcPlayerCombatStats(ctx, playerID, false); err != nil {
+			return nil, err
+		}
 	}
 	return s.GetProfile(ctx, playerID)
 }

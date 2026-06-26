@@ -122,6 +122,9 @@ func _ready() -> void:
 
 func handle_enter_world(payload: Dictionary) -> void:
 	var already_in_world: bool = int(GameState.scene_snapshot.get("scene_id", 0)) > 0
+	var preserved_scene_position: Vector2 = Vector2.INF
+	if already_in_world:
+		preserved_scene_position = _current_player_scene_position()
 	if not already_in_world:
 		_use_scene_login_spawn_on_next_snapshot = true
 		_pending_player_facing_requested = true
@@ -129,6 +132,8 @@ func handle_enter_world(payload: Dictionary) -> void:
 	GameState.set_world_snapshot(payload)
 	if already_in_world:
 		# 人物面板等场景只会刷新属性，不应重置当前地图站位。
+		if preserved_scene_position != Vector2.INF:
+			GameState.sync_player_scene_position(preserved_scene_position)
 		return
 	_apply_authoritative_snapshot()
 	_emit_scene_loaded_if_changed(true)
@@ -577,6 +582,8 @@ func _request_wild_encounter_battle(scene_id: int) -> void:
 	if player_node != null and player_node.has_method("clear_auto_move_path"):
 		player_node.call("clear_auto_move_path")
 	_set_transition_loading(true)
+	var scene_position: Vector2 = _current_player_scene_position()
+	GameState.sync_player_scene_position(scene_position)
 	App.request_wild_encounter(scene_id, _take_next_move_seq())
 
 func _ensure_scene_loaded(scene_id: int) -> bool:
@@ -1146,6 +1153,15 @@ func _sync_local_player_battle_state() -> void:
 func set_local_player_battle_pose_active(active: bool) -> void:
 	_force_battle_pose_active = active
 	_apply_local_player_battle_pose()
+	if not active and not GameState.is_in_battle:
+		refresh_pet_follower_after_battle()
+
+
+## 战斗弹窗完全关闭且不再处于战斗态时，恢复出战宠物跟随展示。
+func refresh_pet_follower_after_battle() -> void:
+	_sync_pet_follower_visibility()
+	_reset_pet_follow_near_player()
+
 
 func _apply_local_player_battle_pose() -> void:
 	if player_node == null or not player_node.has_method("set_battle_active"):
@@ -1161,6 +1177,9 @@ func _on_battle_state_changed() -> void:
 		_sync_pet_follower_visibility()
 		return
 	set_runtime_input_locked(false)
+	## 4013 可能先于战斗弹窗关闭把 is_in_battle 置 false；此时仍保持战斗待机，不要提前清宠物。
+	if _force_battle_pose_active:
+		return
 	_sync_pet_follower_visibility()
 	_reset_pet_follow_near_player()
 
@@ -1214,6 +1233,7 @@ func _report_player_position_if_changed() -> void:
 	if current_position.is_equal_approx(_last_reported_player_position):
 		return
 	_last_reported_player_position = current_position
+	GameState.sync_player_scene_position(current_position)
 	player_position_changed.emit(current_position, _current_player_global_position())
 
 

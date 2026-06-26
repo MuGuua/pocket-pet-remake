@@ -3,8 +3,10 @@ extends PanelContainer
 ## 命令阶段倒计时归零后请求服务端切入自动战斗。
 signal request_auto_timeout()
 
-const AUTO_HINT_TEXT: String = "已开启自动战斗，再次点击按钮关闭"
-const STATUS_FONT_SIZE: int = 20
+## 260 宽视口下压缩顶部提示文案，避免自动战斗提示超出状态条。
+const AUTO_HINT_TEXT: String = "自动战斗中，点自动关闭"
+## 顶部状态条字号随 260 宽视口同步收紧，给剩余秒数预留空间。
+const STATUS_FONT_SIZE: int = 16
 const SELECTOR_HIGHLIGHT_COLOR: String = "#FFE566"
 const PLAYER_UNIT_CLASS: int = 1
 const PET_UNIT_CLASS: int = 2

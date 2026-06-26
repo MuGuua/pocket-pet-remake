@@ -149,6 +149,20 @@ WHERE p.id = $1
 LIMIT 1
 `
 
+const listAdminPlayerEquippedItemsQuery = `
+SELECT
+  pes.equip_slot,
+  COALESCE(ei.item_uid, ''),
+  COALESCE(ei.item_id, 0),
+  COALESCE(idf.item_name, ''),
+  COALESCE(ei.enhance_level, 0)
+FROM player_equipment_slot pes
+LEFT JOIN equipment_instance ei ON ei.item_uid = pes.item_uid
+LEFT JOIN item_definition idf ON idf.item_id = ei.item_id
+WHERE pes.player_id = $1
+ORDER BY pes.equip_slot ASC
+`
+
 const insertAdminAccountQuery = `
 INSERT INTO account (
   account_name,
@@ -599,7 +613,11 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		return nil, err
 	}
 
-	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, freeAttrPoints, strength, vitality, agility, mind, gold, status, sceneID, posX, posY, hp, hpMax, vigor, vigorMax, spirit, spiritMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct, skillIDsJSON, lastLoginAt)
+	equippedItems, err := r.loadAdminPlayerEquippedItems(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	return buildAdminPlayerDetail(&detail, accountID, detailPlayerID, level, exp, freeAttrPoints, strength, vitality, agility, mind, gold, status, sceneID, posX, posY, hp, hpMax, vigor, vigorMax, spirit, spiritMax, atk, def, spd, mana, hitPct, dodgePct, critRatePct, critDmgPct, physicalResistPct, skillResistPct, confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct, critResistPct, critDmgResistPct, characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct, guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct, skillIDsJSON, lastLoginAt, equippedItems)
 }
 
 func (r *PlayerRepository) CreateForAdmin(ctx context.Context, input player.AdminCreatePlayerInput) (*player.AdminPlayerDetail, error) {
@@ -795,6 +813,7 @@ func buildAdminPlayerDetail(
 	guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64,
 	skillIDsJSON []byte,
 	lastLoginAt sql.NullTime,
+	equippedItems []player.AdminPlayerEquippedItem,
 ) (*player.AdminPlayerDetail, error) {
 	detail.PlayerID = uint64(detailPlayerID)
 	detail.AccountID = uint64(accountID)
@@ -844,6 +863,7 @@ func buildAdminPlayerDetail(
 	detail.ElementAdvPct = uint32(elementAdvPct)
 	detail.ElementPenaltyPct = uint32(elementPenaltyPct)
 	detail.SkinID = strings.TrimSpace(detail.SkinID)
+	detail.EquippedItems = equippedItems
 	if lastLoginAt.Valid {
 		value := lastLoginAt.Time
 		detail.LastLoginAt = &value
@@ -855,6 +875,59 @@ func buildAdminPlayerDetail(
 		}
 	}
 	return detail, nil
+}
+
+func (r *PlayerRepository) loadAdminPlayerEquippedItems(ctx context.Context, playerID uint64) ([]player.AdminPlayerEquippedItem, error) {
+	result := player.DefaultAdminPlayerEquippedItems()
+	indexBySlot := make(map[string]int, len(result))
+	for index, item := range result {
+		indexBySlot[item.EquipSlot] = index
+	}
+
+	rows, err := r.db.QueryContext(ctx, listAdminPlayerEquippedItemsQuery, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			equipSlot     string
+			itemUID       string
+			itemID        int64
+			itemName      string
+			enhanceLevel  int64
+		)
+		if err := rows.Scan(&equipSlot, &itemUID, &itemID, &itemName, &enhanceLevel); err != nil {
+			return nil, err
+		}
+		slotIndex, ok := indexBySlot[equipSlot]
+		if !ok {
+			continue
+		}
+		result[slotIndex] = player.AdminPlayerEquippedItem{
+			EquipSlot:      equipSlot,
+			EquipSlotLabel: resolveAdminPlayerEquipSlotLabel(equipSlot),
+			ItemUID:        strings.TrimSpace(itemUID),
+			ItemID:         uint64(itemID),
+			ItemName:       strings.TrimSpace(itemName),
+			EnhanceLevel:   uint32(enhanceLevel),
+			IsEmpty:        strings.TrimSpace(itemUID) == "",
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func resolveAdminPlayerEquipSlotLabel(slot string) string {
+	for _, item := range player.DefaultAdminPlayerEquippedItems() {
+		if item.EquipSlot == slot {
+			return item.EquipSlotLabel
+		}
+	}
+	return slot
 }
 
 func resolveAdminPlayerSkinID(skinID string) string {

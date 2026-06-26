@@ -1,6 +1,13 @@
 extends Node
 class_name BattleNetworkProvider
 
+## 与战斗 HUD 一致：unit_class=1 表示玩家角色。
+const PLAYER_UNIT_CLASS: int = 1
+## 人物普攻展示名在未佩戴武器时的兜底文案。
+const DEFAULT_BASIC_ATTACK_LABEL: String = "攻击"
+## 优先读取的武器槽位标识，与服务端 equip_slot 对齐。
+const WEAPON_EQUIP_SLOTS: Array[String] = ["weapon", "class_weapon"]
+
 ## 从 GameState.battle_state 读取权威战斗快照，替代 Demo JSON 数据源。
 
 ## 返回当前战斗快照副本。
@@ -107,6 +114,15 @@ func get_events() -> Array[Dictionary]:
 				result.append((event_variant as Dictionary).duplicate(true))
 	return result
 
+## 返回指定单位普攻在 UI 上应展示的名称；人物已佩戴武器时用武器名。
+func get_basic_attack_display_name(actor_id: int) -> String:
+	if not _is_player_character_actor(actor_id):
+		return DEFAULT_BASIC_ATTACK_LABEL
+	var weapon_name: String = _get_equipped_weapon_name()
+	if weapon_name.is_empty():
+		return DEFAULT_BASIC_ATTACK_LABEL
+	return weapon_name
+
 ## 判断 actor 是否属于己方。
 func is_ally_actor(actor_id: int) -> bool:
 	var allies_variant: Variant = get_battle_state().get("allies", [])
@@ -172,3 +188,40 @@ func _target_side_from_type(target_type: String) -> String:
 			return "enemy"
 		_:
 			return "enemy"
+
+## 判断 actor 是否为玩家角色单位。
+func _is_player_character_actor(actor_id: int) -> bool:
+	var actor: Dictionary = find_actor_snapshot(actor_id)
+	return int(actor.get("unit_class", 0)) == PLAYER_UNIT_CLASS
+
+## 从 GameState 已佩戴列表中读取武器名称。
+func _get_equipped_weapon_name() -> String:
+	for slot_key: String in WEAPON_EQUIP_SLOTS:
+		var item: Dictionary = _find_equipped_item_by_slot(slot_key)
+		if item.is_empty():
+			continue
+		var item_name: String = str(item.get("item_name", "")).strip_edges()
+		if not item_name.is_empty():
+			return item_name
+	return ""
+
+## 按 equip_slot 查找已佩戴装备摘要。
+func _find_equipped_item_by_slot(slot_key: String) -> Dictionary:
+	var normalized_slot_key: String = _normalize_equip_slot_key(slot_key)
+	for item_variant: Variant in GameState.equipped_items:
+		if not item_variant is Dictionary:
+			continue
+		var item: Dictionary = item_variant as Dictionary
+		if _normalize_equip_slot_key(str(item.get("equip_slot", ""))) == normalized_slot_key:
+			return item.duplicate(true)
+	return {}
+
+## 统一槽位标识格式，兼容旧场景里「武器:weapon」写法。
+func _normalize_equip_slot_key(raw_key: String) -> String:
+	var key: String = raw_key.strip_edges()
+	if key.is_empty():
+		return ""
+	var separator_index: int = key.rfind(":")
+	if separator_index >= 0 and separator_index < key.length() - 1:
+		return key.substr(separator_index + 1).strip_edges()
+	return key

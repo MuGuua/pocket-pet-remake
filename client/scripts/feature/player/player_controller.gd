@@ -23,11 +23,21 @@ func handle_equipment_list_response(payload: Dictionary) -> void:
 # 处理从背包装备人物装备响应。
 func handle_equip_response(payload: Dictionary) -> void:
 	_apply_equipment_mutation_response(payload)
+	var equipped_variant: Variant = payload.get("equipped", {})
+	if equipped_variant is Dictionary:
+		var equipped_item: Dictionary = equipped_variant as Dictionary
+		var item_name: String = str(equipped_item.get("item_name", "装备"))
+		App.notice_received.emit("已装备：%s" % item_name)
 
 
 # 处理卸下人物装备响应。
 func handle_unequip_response(payload: Dictionary) -> void:
 	_apply_equipment_mutation_response(payload)
+	var unequipped_variant: Variant = payload.get("unequipped", {})
+	if unequipped_variant is Dictionary:
+		var unequipped_item: Dictionary = unequipped_variant as Dictionary
+		var item_name: String = str(unequipped_item.get("item_name", "装备"))
+		App.notice_received.emit("已卸下：%s" % item_name)
 
 
 # 处理人物装备强化响应。

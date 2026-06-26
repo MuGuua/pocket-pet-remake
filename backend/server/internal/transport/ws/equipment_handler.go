@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"log"
 
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/equipment"
@@ -176,6 +177,9 @@ func mapEquipmentError(conn packetSender, seq uint32, err error) error {
 	case errors.Is(err, player.ErrPlayerNotFound):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "player not found")
 	default:
+		// 兜底分支说明错误没有命中任何已知业务校验；这里必须把真实错误打印出来，
+		// 方便排查数据库迁移缺失、事务写入失败或属性重算等服务端权威链路问题。
+		log.Printf("[equipment-error] seq=%d err=%v", seq, err)
 		return sendError(conn, seq, errcode.WSCodeInteractFailed, "equipment operation failed")
 	}
 }

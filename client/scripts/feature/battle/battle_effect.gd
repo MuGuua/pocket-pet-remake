@@ -1,6 +1,9 @@
 extends Node2D
 class_name BattleEffect
 
+## 260 宽战斗视口下，统一压缩技能命中特效和治疗特效的基准缩放。
+const EFFECT_BASE_SCALE: Vector2 = Vector2(0.7, 0.7)
+
 @onready var _pivot: Node2D = %Pivot
 @onready var _effect_sprite: AnimatedSprite2D = %EffectSprite
 @onready var _debug_label: Label = %DebugLabel
@@ -46,7 +49,7 @@ func play_from_config(skill_visual: SkillVisualConfig, fallback_name: String = "
 func _apply_visual(skill_visual: SkillVisualConfig) -> void:
 	_ensure_motion_root()
 	_pivot.position = skill_visual.effect_offset
-	_pivot.scale = Vector2.ONE
+	_pivot.scale = EFFECT_BASE_SCALE
 	_effect_sprite.sprite_frames = _resolve_effect_frames(skill_visual)
 	_effect_sprite.frame = 0
 	_effect_sprite.animation = &"默认"
@@ -54,17 +57,23 @@ func _apply_visual(skill_visual: SkillVisualConfig) -> void:
 	var has_sprite_frames: bool = _effect_sprite.sprite_frames != null
 	_effect_sprite.visible = has_sprite_frames
 	if has_sprite_frames:
-		_effect_sprite.scale = skill_visual.effect_scale
+		_effect_sprite.scale = Vector2(
+			skill_visual.effect_scale.x * EFFECT_BASE_SCALE.x,
+			skill_visual.effect_scale.y * EFFECT_BASE_SCALE.y
+		)
 		_motion_root.scale = Vector2.ONE
 	else:
 		_effect_sprite.scale = Vector2.ONE
-		_motion_root.scale = skill_visual.effect_scale
+		_motion_root.scale = Vector2(
+			skill_visual.effect_scale.x * EFFECT_BASE_SCALE.x,
+			skill_visual.effect_scale.y * EFFECT_BASE_SCALE.y
+		)
 	_debug_label.visible = false
 
 func _apply_fallback_visual(_effect_name: String) -> void:
 	_ensure_motion_root()
 	_pivot.position = Vector2.ZERO
-	_pivot.scale = Vector2.ONE
+	_pivot.scale = EFFECT_BASE_SCALE
 	_motion_root.scale = Vector2.ONE
 	_effect_sprite.scale = Vector2.ONE
 	_effect_sprite.sprite_frames = null

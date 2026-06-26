@@ -2,6 +2,10 @@ extends CharacterBody2D
 class_name BattleUnit
 
 const ATTACK_MOVE_DISTANCE: float = 36.0
+## 战斗单位在 260 宽视口下的统一默认缩放，避免人物与宠物占位过满。
+const DEFAULT_UNIT_SCALE: Vector2 = Vector2(0.7, 0.7)
+## 规划中的当前出手单位略微放大一点，仍基于默认缩放计算，避免高亮时突然过大。
+const PLANNING_HIGHLIGHT_SCALE: Vector2 = Vector2(0.742, 0.742)
 
 const ACTION_TYPE_ANIMATIONS: Dictionary = {
     "attack": "普攻",
@@ -118,6 +122,7 @@ func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
     current_hp = clamp(int(data.get("hp", max_hp)), 0, max_hp)
     base_position = slot_position
     position = slot_position
+    scale = DEFAULT_UNIT_SCALE
     modulate = Color.WHITE
     rotation = 0.0
     is_dead = current_hp <= 0
@@ -224,7 +229,7 @@ func play_death() -> void:
 
 func reset_focus() -> void:
     position = base_position
-    scale = Vector2.ONE
+    scale = DEFAULT_UNIT_SCALE
     rotation = 0.0
     _character_sprite.rotation = 0.0
     if not is_dead:
@@ -235,10 +240,10 @@ func set_planning_highlight(enabled: bool) -> void:
     if is_dead:
         return
     if enabled:
-        scale = Vector2(1.06, 1.06)
+        scale = PLANNING_HIGHLIGHT_SCALE
         _character_sprite.modulate = _sprite_tint.lightened(0.15)
     else:
-        scale = Vector2.ONE
+        scale = DEFAULT_UNIT_SCALE
         _character_sprite.modulate = _sprite_tint
 
 func set_target_highlight(enabled: bool, selectable: bool = true) -> void:
@@ -342,7 +347,7 @@ func _ensure_name_label() -> void:
         _name_label = Label.new()
         _name_label.name = "NameLabel"
         _name_label.z_index = 5
-        _name_label.position = Vector2(-54.0, -86.0)
+        _name_label.position = Vector2(-54.0, -56.0)
         _name_label.size = Vector2(108.0, 18.0)
         _name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         _name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -538,7 +543,7 @@ func _update_dead_visual() -> void:
         _status_root.modulate = Color(1, 1, 1, 0.82)
     else:
         modulate = Color.WHITE
-        scale = Vector2.ONE
+        scale = DEFAULT_UNIT_SCALE
         _character_sprite.modulate = _sprite_tint
         _status_root.modulate = Color.WHITE
 
@@ -766,9 +771,9 @@ func _build_idle_animation() -> Animation:
     animation.loop_mode = Animation.LOOP_LINEAR
     var sprite_scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(sprite_scale_track, NodePath("CharacterSprite:scale"))
-    animation.track_insert_key(sprite_scale_track, 0.0, Vector2.ONE)
-    animation.track_insert_key(sprite_scale_track, 0.4, Vector2(1.03, 1.03))
-    animation.track_insert_key(sprite_scale_track, 0.8, Vector2.ONE)
+    animation.track_insert_key(sprite_scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(sprite_scale_track, 0.4, DEFAULT_UNIT_SCALE * 1.03)
+    animation.track_insert_key(sprite_scale_track, 0.8, DEFAULT_UNIT_SCALE)
     return animation
 
 func _build_attack_animation() -> Animation:
@@ -776,9 +781,9 @@ func _build_attack_animation() -> Animation:
     animation.length = 0.24
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, Vector2.ONE)
-    animation.track_insert_key(scale_track, 0.12, Vector2(1.06, 1.06))
-    animation.track_insert_key(scale_track, 0.24, Vector2.ONE)
+    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.12, DEFAULT_UNIT_SCALE * 1.06)
+    animation.track_insert_key(scale_track, 0.24, DEFAULT_UNIT_SCALE)
     var rotation_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(rotation_track, NodePath("CharacterSprite:rotation"))
     animation.track_insert_key(rotation_track, 0.0, 0.0)
@@ -801,9 +806,13 @@ func _build_escape_animation() -> Animation:
     animation.length = 0.24
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, Vector2.ONE)
-    animation.track_insert_key(scale_track, 0.12, Vector2(0.94, 1.08))
-    animation.track_insert_key(scale_track, 0.24, Vector2.ONE)
+    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(
+        scale_track,
+        0.12,
+        Vector2(DEFAULT_UNIT_SCALE.x * 0.94, DEFAULT_UNIT_SCALE.y * 1.08)
+    )
+    animation.track_insert_key(scale_track, 0.24, DEFAULT_UNIT_SCALE)
     var rotation_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(rotation_track, NodePath("CharacterSprite:rotation"))
     animation.track_insert_key(rotation_track, 0.0, 0.0)
@@ -821,9 +830,13 @@ func _build_hit_animation(flash_color: Color, scale_target: Vector2) -> Animatio
     animation.track_insert_key(color_track, 0.2, Color.WHITE)
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, Vector2.ONE)
-    animation.track_insert_key(scale_track, 0.08, scale_target)
-    animation.track_insert_key(scale_track, 0.2, Vector2.ONE)
+    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(
+        scale_track,
+        0.08,
+        Vector2(DEFAULT_UNIT_SCALE.x * scale_target.x, DEFAULT_UNIT_SCALE.y * scale_target.y)
+    )
+    animation.track_insert_key(scale_track, 0.2, DEFAULT_UNIT_SCALE)
     return animation
 
 func _build_death_animation() -> Animation:
@@ -835,6 +848,6 @@ func _build_death_animation() -> Animation:
     animation.track_insert_key(alpha_track, 0.35, 0.32)
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, Vector2.ONE)
-    animation.track_insert_key(scale_track, 0.35, Vector2(0.9, 0.9))
+    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.35, DEFAULT_UNIT_SCALE * 0.9)
     return animation

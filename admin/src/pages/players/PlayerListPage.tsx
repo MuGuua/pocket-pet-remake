@@ -31,6 +31,7 @@ import {
 import type {
   AdminCreatePlayerPayload,
   AdminPlayerDetail,
+  AdminPlayerEquippedItem,
   AdminPlayerListFilters,
   AdminPlayerSummary,
   AdminUpdatePlayerPayload,
@@ -423,6 +424,13 @@ export function PlayerListPage() {
                 <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
               </Descriptions.Item>
             </Descriptions>
+            <Descriptions bordered column={2} size="small" title="人物装备">
+              {(detail.equipped_items ?? []).map((item: AdminPlayerEquippedItem) => (
+                <Descriptions.Item key={item.equip_slot} label={item.equip_slot_label}>
+                  {formatPlayerEquippedItem(item)}
+                </Descriptions.Item>
+              ))}
+            </Descriptions>
             <PlayerWalletSection playerId={detail.player_id} playerName={detail.name} />
             <PlayerPetSection playerId={detail.player_id} playerName={detail.name} />
             <PlayerBagSection playerId={detail.player_id} playerName={detail.name} />
@@ -635,4 +643,14 @@ function statusColor(statusText: string): string {
     default:
       return 'default';
   }
+}
+
+function formatPlayerEquippedItem(item: AdminPlayerEquippedItem): string {
+  if (item.is_empty || !item.item_name) {
+    return '空';
+  }
+  if (item.enhance_level > 0) {
+    return `${item.item_name} +${item.enhance_level}`;
+  }
+  return item.item_name;
 }

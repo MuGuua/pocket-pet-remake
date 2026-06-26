@@ -334,6 +334,7 @@ func parseAdminItemListQuery(r *http.Request) (item.AdminListQuery, error) {
 		result.ItemID = value
 	}
 	result.ItemType = strings.TrimSpace(query.Get("item_type"))
+	result.ExcludeItemType = strings.TrimSpace(query.Get("exclude_item_type"))
 	result.Keyword = strings.TrimSpace(query.Get("keyword"))
 	if raw := strings.TrimSpace(query.Get("enabled")); raw != "" {
 		value, err := strconv.ParseBool(raw)

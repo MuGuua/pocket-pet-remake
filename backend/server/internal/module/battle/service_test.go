@@ -370,6 +370,28 @@ func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
 	}
 }
 
+func TestBuildPlayerCharacterActorUsesProfileATK(t *testing.T) {
+	profile := &player.Profile{
+		PlayerID: 40001,
+		Name:     "SoloHero",
+		ATK:      152,
+		DEF:      20,
+		HP:       200,
+		HPMax:    200,
+	}
+	actor := buildPlayerCharacterActor(profile, PlayerActorType)
+	if actor == nil {
+		t.Fatal("buildPlayerCharacterActor() = nil, want runtime actor")
+	}
+	if actor.atk != 152 {
+		t.Fatalf("actor.atk = %d, want 152 from equipped profile", actor.atk)
+	}
+	stats := actor.effectiveStats()
+	if stats.Attack != 152 {
+		t.Fatalf("effectiveStats().Attack = %d, want 152", stats.Attack)
+	}
+}
+
 func TestBuildPlayerCharacterActorIncludesRequestedAttributes(t *testing.T) {
 	profile := &player.Profile{PlayerID: 40001, Name: "SoloHero"}
 	actor := buildPlayerCharacterActor(profile, PlayerActorType)

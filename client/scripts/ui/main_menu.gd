@@ -1,7 +1,5 @@
-extends CanvasLayer
+extends RuntimeRootPanel
 
-signal menu_closed
-# 选中菜单项后向外广播该项的完整数据，供运行态决定是否执行实际功能。
 signal menu_item_selected(item: Dictionary)
 
 const MENU_ICON_1: Texture2D = preload("res://asset/分类/菜单表情/菜单图标1.png")
@@ -102,7 +100,7 @@ var _item_rows: Array[PanelContainer] = []
 
 
 func _ready() -> void:
-	hide()
+	super._ready()
 	call_deferred("_initialize_menu_ui")
 
 
@@ -137,7 +135,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func open_menu() -> void:
-	show()
+	super.open_menu()
 	if tabs_container == null or items_container == null:
 		return
 	_refresh_tabs()
@@ -145,10 +143,7 @@ func open_menu() -> void:
 
 
 func close_menu() -> void:
-	var was_visible := visible
-	hide()
-	if was_visible:
-		menu_closed.emit()
+	super.close_menu()
 
 
 func _build_tabs() -> void:

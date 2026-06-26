@@ -18,12 +18,13 @@ var (
 // AdminListQuery 定义后台物品模板列表页的筛选参数。
 // 模板列表会被商店、掉落、任务奖励与背包展示同时复用，因此分页与筛选必须由服务端统一处理。
 type AdminListQuery struct {
-	ItemID   uint64
-	ItemType string
-	Keyword  string
-	Enabled  *bool
-	Page     uint32
-	PageSize uint32
+	ItemID          uint64
+	ItemType        string
+	ExcludeItemType string
+	Keyword         string
+	Enabled         *bool
+	Page            uint32
+	PageSize        uint32
 }
 
 // Normalize 收口默认分页和筛选字符串，避免每个 handler 重复做同样的边界处理。
@@ -38,6 +39,7 @@ func (q AdminListQuery) Normalize() AdminListQuery {
 		q.PageSize = 100
 	}
 	q.ItemType = strings.TrimSpace(q.ItemType)
+	q.ExcludeItemType = strings.TrimSpace(q.ExcludeItemType)
 	q.Keyword = strings.TrimSpace(q.Keyword)
 	return q
 }

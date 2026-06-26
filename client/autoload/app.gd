@@ -234,8 +234,17 @@ func request_player_equipment_enhance(item_uid: String) -> int:
 	)
 
 # 请求刷新当前玩家的背包摘要。
-func request_bag_list() -> int:
-	return _send_command(CommandIds.BAG_LIST_REQ, {})
+# page/category/page_size 仅对新版背包 UI 生效；旧调用不传时默认仍返回第 1 页、28 条、全部分类。
+func request_bag_list(page: int = 1, page_size: int = 28, category: String = "all") -> int:
+	return _send_command(
+		CommandIds.BAG_LIST_REQ,
+		{
+			"container_type": "bag",
+			"page": page,
+			"page_size": page_size,
+			"category": category,
+		}
+	)
 
 # 请求刷新指定容器的完整快照；当前主要用于仓库等非随身容器。
 func request_container_list(container_type: String) -> int:
@@ -306,6 +315,7 @@ func request_interact(entity_id: int) -> int:
 		CommandIds.INTERACT_REQ,
 		{
 			"entity_id": entity_id,
+			"self_pos": _build_battle_self_pos_payload(),
 		}
 	)
 
@@ -316,6 +326,7 @@ func request_wild_encounter(scene_id: int, move_seq: int) -> void:
 		{
 			"scene_id": scene_id,
 			"move_seq": move_seq,
+			"self_pos": _build_battle_self_pos_payload(),
 		}
 	)
 
@@ -335,6 +346,7 @@ func request_npc_action(entity_id: int, entry_id: String) -> int:
 		{
 			"entity_id": entity_id,
 			"entry_id": entry_id,
+			"self_pos": _build_battle_self_pos_payload(),
 		}
 	)
 
@@ -807,6 +819,15 @@ func _set_reconnect_in_progress(in_progress: bool) -> void:
 		return
 	_reconnect_in_progress = in_progress
 	reconnect_state_changed.emit(_reconnect_in_progress)
+
+## 构造开战请求附带的客户端场景坐标，与服务端 return_pos 使用同一坐标系。
+func _build_battle_self_pos_payload() -> Dictionary:
+	var scene_x: int = int(round(float(GameState.player_snapshot.get("x", 0.0))))
+	var scene_y: int = int(round(float(GameState.player_snapshot.get("y", 0.0))))
+	return {
+		"x": scene_x,
+		"y": scene_y,
+	}
 
 # 返回下一个战斗类请求使用的操作标识，并在上限后回绕。
 func _take_battle_op_id() -> int:

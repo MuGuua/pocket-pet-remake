@@ -72,9 +72,20 @@ export interface AdminPlayerDetail {
   generic_shield_pct: number;
   skill_ids: number[];
   skin_id: string;
+  equipped_items: AdminPlayerEquippedItem[];
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminPlayerEquippedItem {
+  equip_slot: string;
+  equip_slot_label: string;
+  item_uid: string;
+  item_id: number;
+  item_name: string;
+  enhance_level: number;
+  is_empty: boolean;
 }
 
 export interface AdminPlayerListFilters {

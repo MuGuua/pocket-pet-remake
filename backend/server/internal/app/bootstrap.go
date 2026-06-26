@@ -82,7 +82,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := petProgressionService.RefreshRuntimeCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load pet progression runtime cache: %w", err)
 	}
-	playerService := player.NewService(repos.Players, skillService, progressionService)
+	playerService := player.NewService(repos.Players, skillService, progressionService, equipmentService)
 	petService := pet.NewService(repos.Pets, skillService, repos.Monsters, petProgressionService)
 	questService := quest.NewService(repos.Quests)
 	unlockService := unlock.NewService(repos.Unlocks)
@@ -98,6 +98,8 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := battleService.EnsureNextBattleID(context.Background(), repos.Battles); err != nil {
 		return nil, fmt.Errorf("sync battle id cursor: %w", err)
 	}
+	equipmentService.SetBattleChecker(battleService)
+	playerService.SetBattleChecker(battleService)
 	battle.SetPetSkinResolver(petService.ResolveSkinID)
 	sessionService := session.NewService(logger, cfg.HeartbeatInterval, cfg.HeartbeatTimeout)
 

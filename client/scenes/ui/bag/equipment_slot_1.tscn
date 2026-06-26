@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://c1shba0bn0k1a"]
 
+[ext_resource type="Script" uid="uid://22c6gd61ii7u" path="res://scripts/ui/bag/equipment_preview_panel.gd" id="1_1g7k6"]
 [ext_resource type="PackedScene" uid="uid://fe1x56xjri4a" path="res://scenes/ui/null_equipment_slot.tscn" id="1_qbtfp"]
 [ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_080m8"]
 [ext_resource type="Texture2D" uid="uid://kxkj8edhsh44" path="res://asset/分类/宠物/两图宠物/758.png" id="3_1fd6l"]
@@ -147,6 +148,7 @@ region = Rect2(65, 5, 30, 23)
 [node name="MarginContainer2" type="MarginContainer" unique_id=485359149]
 theme_override_constants/margin_left = 5
 theme_override_constants/margin_right = 5
+script = ExtResource("1_1g7k6")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=1326181095]
 custom_minimum_size = Vector2(150, 110)
@@ -172,6 +174,9 @@ alignment = 1
 
 [node name="NullEquipmentSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=138525869 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "weapon"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot" unique_id=303719839]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -187,6 +192,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=80557910 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "hat"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot2" unique_id=1001937611]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -202,6 +210,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=775098807 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "clothes"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot3" unique_id=2128908308]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -217,6 +228,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot4" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=627717603 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "pants"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot4" unique_id=359062719]
 modulate = Color(4.7037287, 4.7037287, 4.7037287, 0.22352941)
@@ -232,6 +246,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot5" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1643004142 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "shoes"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot5" unique_id=2138528980]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -247,6 +264,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot6" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1655263138 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "medicine_pouch"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot6" unique_id=1765659231]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -269,6 +289,9 @@ theme_override_constants/separation = 5
 
 [node name="NullEquipmentSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=1479341569 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "ring"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot" unique_id=1188651491]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -283,6 +306,9 @@ texture = SubResource("AtlasTexture_yughk")
 
 [node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=1003190910 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "hero_ring"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot2" unique_id=804397090]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -297,6 +323,9 @@ texture = SubResource("AtlasTexture_escak")
 
 [node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=292522440 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "guardian_ring"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot3" unique_id=1859008982]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -367,7 +396,9 @@ theme_override_constants/separation = 5
 
 [node name="WeaponSlot" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=118249921 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
-equip_slot_key = "weapon"
+equip_slot_key = "badge"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/WeaponSlot" unique_id=1231486959]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -383,6 +414,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot2" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=664285003 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "charm"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot2" unique_id=2037361961]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
@@ -398,6 +432,9 @@ flip_h = true
 
 [node name="NullEquipmentSlot3" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=980606157 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
+equip_slot_key = "class_badge"
+texture_empty = null
+texture_equipped = null
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot3" unique_id=1081916429]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)

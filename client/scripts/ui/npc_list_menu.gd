@@ -1,7 +1,6 @@
-extends CanvasLayer
+extends RuntimeRootPanel
 
 signal npc_selected(npc_data: Dictionary)
-signal menu_closed
 
 @onready var panel: PanelContainer = $MarginContainer/PanelContainer
 @onready var title_label: Label = $MarginContainer/PanelContainer/VBoxContainer/TitleLabel
@@ -11,7 +10,7 @@ var _npc_lookup: Dictionary = {}
 
 
 func _ready() -> void:
-	hide()
+	super._ready()
 
 
 func configure(title: String, npcs: Array[Dictionary]) -> void:
@@ -71,14 +70,11 @@ func configure(title: String, npcs: Array[Dictionary]) -> void:
 
 
 func open_menu() -> void:
-	show()
+	super.open_menu()
 
 
 func close_menu() -> void:
-	var was_visible := visible
-	hide()
-	if was_visible:
-		menu_closed.emit()
+	super.close_menu()
 
 
 func _on_npc_button_pressed(npc_id: String) -> void:

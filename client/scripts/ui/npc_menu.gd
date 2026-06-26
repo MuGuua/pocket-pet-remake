@@ -1,7 +1,6 @@
-extends CanvasLayer
+extends RuntimeRootPanel
 
 signal option_selected(option: Dictionary)
-signal menu_closed
 
 const ENTRY_TYPE_LABELS: Dictionary = {
 	"quest": "[任务]",
@@ -29,7 +28,7 @@ const DISABLED_STATES: Array[String] = ["locked", "completed"]
 
 
 func _ready() -> void:
-	hide()
+	super._ready()
 
 
 ## 根据服务端返回的菜单项列表刷新按钮文案与可点击状态。
@@ -66,14 +65,11 @@ func configure(title: String, options: Array[Dictionary]) -> void:
 
 
 func open_menu() -> void:
-	show()
+	super.open_menu()
 
 
 func close_menu() -> void:
-	var was_visible := visible
-	hide()
-	if was_visible:
-		menu_closed.emit()
+	super.close_menu()
 
 
 func _on_button_pressed(option: Dictionary) -> void:

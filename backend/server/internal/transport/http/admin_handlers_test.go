@@ -857,7 +857,7 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	if err := progressionService.RefreshRuntimeCache(context.Background()); err != nil {
 		t.Fatalf("RefreshRuntimeCache() error = %v", err)
 	}
-	playerService := player.NewService(playerRepo, skillService, progressionService)
+	playerService := player.NewService(playerRepo, skillService, progressionService, nil)
 	bagService := bag.NewService(teststub.NewBagRepository())
 	itemService := item.NewService(teststub.NewItemRepository())
 	equipmentService := equipment.NewService(teststub.NewEquipmentRepository(), progressionService, playerRepo, teststub.NewPetRepository())

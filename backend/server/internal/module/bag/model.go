@@ -195,6 +195,7 @@ type RuntimeItemSnapshot struct {
 	Usable       bool       `json:"usable"`
 	TargetType   string     `json:"target_type"`
 	EffectType   string     `json:"effect_type"`
+	EquipSlot    string     `json:"equip_slot,omitempty"`
 }
 
 // RuntimeContainerSnapshot 描述一个容器的完整权威快照。

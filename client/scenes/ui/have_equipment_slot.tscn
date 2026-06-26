@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://c8ftsxw1v288b"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_k6qwn"]
+load_path = "res://.godot/imported/bagUI2.png-0e22add6ab8c2b8f482b3b559d8a1c30.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j4eb0"]
+atlas = SubResource("CompressedTexture2D_k6qwn")
+region = Rect2(506, 504, 16, 16)
+
+[node name="HaveEquipmentSlot" type="Button" unique_id=1553377625]
+custom_minimum_size = Vector2(22, 22)
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.5, 1.5)
+mouse_filter = 2
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=373198257]
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_j4eb0")
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1953934232]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -11.0
+offset_top = -11.0
+offset_right = 11.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Control" type="Control" parent="CenterContainer" unique_id=494399316]
+layout_mode = 2
+
+[node name="EquipmentSlot" type="TextureRect" parent="CenterContainer/Control" unique_id=1994807537]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -3.0
+offset_top = -3.0
+offset_right = 3.0
+offset_bottom = 3.0
+grow_horizontal = 2
+grow_vertical = 2

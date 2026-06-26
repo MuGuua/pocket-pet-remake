@@ -405,6 +405,7 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(_ context.Context, playerID
 		GenericShieldPct:   profile.GenericShieldPct,
 		SkillIDs:           append([]uint32{}, profile.SkillIDs...),
 		SkinID:             profile.SkinID,
+		EquippedItems:      player.DefaultAdminPlayerEquippedItems(),
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
 	}, nil

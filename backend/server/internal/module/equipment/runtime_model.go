@@ -95,3 +95,10 @@ type UnequipSlotResult struct {
 	Unequipped  RuntimeEquippedItem   `json:"unequipped"`
 	AllEquipped []RuntimeEquippedItem `json:"all_equipped"`
 }
+
+// EquippedTemplateRefreshEntry 描述某玩家当前佩戴的指定模板实例，供模板热更新后走卸装/再穿戴刷新。
+type EquippedTemplateRefreshEntry struct {
+	PlayerID  uint64
+	EquipSlot string
+	ItemUID   string
+}

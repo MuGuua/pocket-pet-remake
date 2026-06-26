@@ -1,13 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://bxake1bqap641"]
+[gd_scene format=3 uid="uid://bxake1bqap641"]
 
 [ext_resource type="Script" uid="uid://dxb12ixipi3f4" path="res://scripts/ui/reward_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 
-[node name="RewardPopup" type="CanvasLayer"]
+[node name="RewardPopup" type="CanvasLayer" unique_id=1202063431]
 layer = 130
 script = ExtResource("1_script")
 
-[node name="DimLayer" type="ColorRect" parent="."]
+[node name="DimLayer" type="ColorRect" parent="." unique_id=2112413293]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -16,7 +16,7 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.039215688, 0.078431375, 0.14117648, 0.20392157)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=902239454]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -30,23 +30,20 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(280, 0)
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=747103815]
+custom_minimum_size = Vector2(200, 0)
+custom_maximum_size = Vector2(200, -1)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer" unique_id=1284829820]
 layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 16
 
-[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer"]
+[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer" unique_id=34522495]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ContentList" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox"]
+[node name="ContentList" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox" unique_id=476572838]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8

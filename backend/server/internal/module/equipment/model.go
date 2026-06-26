@@ -5,6 +5,7 @@ type EquipSlot string
 
 const (
 	EquipSlotWeapon          EquipSlot = "weapon"
+	EquipSlotClassWeapon     EquipSlot = "class_weapon"
 	EquipSlotHat             EquipSlot = "hat"
 	EquipSlotClothes         EquipSlot = "clothes"
 	EquipSlotPants           EquipSlot = "pants"
@@ -12,17 +13,21 @@ const (
 	EquipSlotNecklace        EquipSlot = "necklace"
 	EquipSlotRing            EquipSlot = "ring"
 	EquipSlotHeroRing        EquipSlot = "hero_ring"
+	EquipSlotBadge           EquipSlot = "badge"
+	EquipSlotCharm           EquipSlot = "charm"
 	EquipSlotMedicinePouch   EquipSlot = "medicine_pouch"
+	EquipSlotGuardianRing    EquipSlot = "guardian_ring"
 	EquipSlotClassBadge      EquipSlot = "class_badge"
-	EquipSlotClassWeapon     EquipSlot = "class_weapon"
 	EquipSlotCostume         EquipSlot = "costume"
 	EquipSlotElementBracelet EquipSlot = "element_bracelet"
+	EquipSlotRebirthStone    EquipSlot = "rebirth_stone"
 )
 
 // AllEquipSlots 返回全部合法人物装备槽位，供 Admin 下拉与校验复用。
 func AllEquipSlots() []EquipSlot {
 	return []EquipSlot{
 		EquipSlotWeapon,
+		EquipSlotClassWeapon,
 		EquipSlotHat,
 		EquipSlotClothes,
 		EquipSlotPants,
@@ -30,11 +35,14 @@ func AllEquipSlots() []EquipSlot {
 		EquipSlotNecklace,
 		EquipSlotRing,
 		EquipSlotHeroRing,
+		EquipSlotBadge,
+		EquipSlotCharm,
 		EquipSlotMedicinePouch,
+		EquipSlotGuardianRing,
 		EquipSlotClassBadge,
-		EquipSlotClassWeapon,
 		EquipSlotCostume,
 		EquipSlotElementBracelet,
+		EquipSlotRebirthStone,
 	}
 }
 
@@ -53,6 +61,8 @@ func EquipSlotLabel(slot EquipSlot) string {
 	switch slot {
 	case EquipSlotWeapon:
 		return "武器"
+	case EquipSlotClassWeapon:
+		return "职业武器"
 	case EquipSlotHat:
 		return "帽子"
 	case EquipSlotClothes:
@@ -67,16 +77,22 @@ func EquipSlotLabel(slot EquipSlot) string {
 		return "戒指"
 	case EquipSlotHeroRing:
 		return "英雄之戒"
+	case EquipSlotBadge:
+		return "徽章"
+	case EquipSlotCharm:
+		return "护符"
 	case EquipSlotMedicinePouch:
 		return "药囊"
+	case EquipSlotGuardianRing:
+		return "守护之戒"
 	case EquipSlotClassBadge:
 		return "职业徽章"
-	case EquipSlotClassWeapon:
-		return "职业武器"
 	case EquipSlotCostume:
 		return "时装"
 	case EquipSlotElementBracelet:
 		return "元素手镯"
+	case EquipSlotRebirthStone:
+		return "转生之石"
 	default:
 		return string(slot)
 	}

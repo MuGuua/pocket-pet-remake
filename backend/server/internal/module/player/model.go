@@ -418,9 +418,62 @@ type AdminPlayerDetail struct {
 	ElementPenaltyPct  uint32     `json:"element_penalty_pct"`
 	SkillIDs           []uint32   `json:"skill_ids"`
 	SkinID             string     `json:"skin_id"`
+	EquippedItems      []AdminPlayerEquippedItem `json:"equipped_items"`
 	LastLoginAt        *time.Time `json:"last_login_at"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+// AdminPlayerEquippedItem 描述后台玩家详情页里的单个装备槽状态。
+// 无论槽位是否已佩戴，都返回一条记录，避免前端自己补齐“空槽位”。
+type AdminPlayerEquippedItem struct {
+	EquipSlot      string `json:"equip_slot"`
+	EquipSlotLabel string `json:"equip_slot_label"`
+	ItemUID        string `json:"item_uid"`
+	ItemID         uint64 `json:"item_id"`
+	ItemName       string `json:"item_name"`
+	EnhanceLevel   uint32 `json:"enhance_level"`
+	IsEmpty        bool   `json:"is_empty"`
+}
+
+// DefaultAdminPlayerEquippedItems 返回玩家详情页默认展示的全槽位空列表。
+func DefaultAdminPlayerEquippedItems() []AdminPlayerEquippedItem {
+	items := make([]AdminPlayerEquippedItem, 0, len(adminPlayerEquipSlots))
+	for _, slot := range adminPlayerEquipSlots {
+		items = append(items, AdminPlayerEquippedItem{
+			EquipSlot:      slot.key,
+			EquipSlotLabel: slot.label,
+			ItemUID:        "",
+			ItemID:         0,
+			ItemName:       "",
+			EnhanceLevel:   0,
+			IsEmpty:        true,
+		})
+	}
+	return items
+}
+
+var adminPlayerEquipSlots = []struct {
+	key   string
+	label string
+}{
+	{key: "weapon", label: "武器"},
+	{key: "class_weapon", label: "职业武器"},
+	{key: "hat", label: "帽子"},
+	{key: "clothes", label: "衣服"},
+	{key: "pants", label: "裤子"},
+	{key: "shoes", label: "鞋子"},
+	{key: "necklace", label: "项链"},
+	{key: "ring", label: "戒指"},
+	{key: "hero_ring", label: "英雄之戒"},
+	{key: "badge", label: "徽章"},
+	{key: "charm", label: "护符"},
+	{key: "medicine_pouch", label: "药囊"},
+	{key: "guardian_ring", label: "守护之戒"},
+	{key: "class_badge", label: "职业徽章"},
+	{key: "costume", label: "时装"},
+	{key: "element_bracelet", label: "元素手镯"},
+	{key: "rebirth_stone", label: "转生之石"},
 }
 
 func AdminPlayerStatusText(status uint32) string {

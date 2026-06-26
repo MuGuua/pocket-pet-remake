@@ -222,7 +222,7 @@ static func _build_combo_entry(event: Dictionary, network_provider: BattleNetwor
 
 static func _find_skill_meta(actor_id: int, skill_id: int, network_provider: BattleNetworkProvider) -> Dictionary:
     if skill_id == App.DEFAULT_BATTLE_SKILL_ID:
-        return _basic_attack_meta()
+        return _basic_attack_meta(actor_id, network_provider)
     var actor: Dictionary = network_provider.find_actor_snapshot(actor_id)
     var skills_variant: Variant = actor.get("skills", [])
     if skills_variant is Array:
@@ -231,7 +231,7 @@ static func _find_skill_meta(actor_id: int, skill_id: int, network_provider: Bat
                 var skill: Dictionary = skill_variant as Dictionary
                 if int(skill.get("skill_id", 0)) == skill_id:
                     if bool(skill.get("is_basic_attack", false)):
-                        return _basic_attack_meta()
+                        return _basic_attack_meta(actor_id, network_provider)
                     return {
                         "display_name": str(skill.get("name", "")),
                         "skill_visual_id": str(skill.get("skill_visual_id", "")),
@@ -239,10 +239,13 @@ static func _find_skill_meta(actor_id: int, skill_id: int, network_provider: Bat
                     }
     return {"display_name": "技能", "skill_visual_id": "", "animation_key": ""}
 
-## 普攻固定使用 slash.tres，不依赖 skills 快照中的条目。
-static func _basic_attack_meta() -> Dictionary:
+## 普攻固定使用 slash.tres；人物单位优先展示已佩戴武器名。
+static func _basic_attack_meta(actor_id: int, network_provider: BattleNetworkProvider) -> Dictionary:
+    var display_name: String = "攻击"
+    if network_provider != null:
+        display_name = network_provider.get_basic_attack_display_name(actor_id)
     return {
-        "display_name": "攻击",
+        "display_name": display_name,
         "skill_visual_id": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
         "animation_key": App.DEFAULT_BATTLE_SKILL_VISUAL_ID,
     }

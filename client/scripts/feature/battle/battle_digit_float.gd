@@ -5,6 +5,8 @@ class_name BattleDigitFloat
 
 const FLOAT_DISTANCE: float = 18.0
 const DISPLAY_DURATION: float = 1.5
+## 位图伤害数字在 260 宽视口下的统一缩放。
+const DIGIT_FLOAT_SCALE: Vector2 = Vector2(0.7, 0.7)
 
 static var _default_atlas: BattleDigitAtlas = null
 
@@ -15,7 +17,7 @@ func play(value_text: String, tint: Color = Color.WHITE, atlas: BattleDigitAtlas
 		queue_free()
 		return
 	modulate = Color(tint.r, tint.g, tint.b, 1.0)
-	scale = Vector2.ONE
+	scale = DIGIT_FLOAT_SCALE
 	_build_glyphs(value_text, digit_atlas)
 	var tween: Tween = create_tween()
 	tween.tween_property(self, "position:y", position.y - FLOAT_DISTANCE, DISPLAY_DURATION).set_trans(Tween.TRANS_LINEAR)

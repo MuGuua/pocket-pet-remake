@@ -1,6 +1,35 @@
 extends RefCounted
 class_name BagUiMapper
 
+const ITEM_TYPE_LABELS: Dictionary = {
+    "consumable": "消耗品",
+    "equipment": "装备",
+    "material": "材料",
+    "quest": "任务物品",
+    "currency": "货币",
+    "misc": "杂项",
+    "functional": "功能道具",
+}
+
+const EQUIP_SLOT_LABELS: Dictionary = {
+    "weapon": "武器",
+    "class_weapon": "职业武器",
+    "hat": "帽子",
+    "clothes": "衣服",
+    "pants": "裤子",
+    "shoes": "鞋子",
+    "necklace": "项链",
+    "ring": "戒指",
+    "hero_ring": "英雄之戒",
+    "badge": "徽章",
+    "medicine_pouch": "药囊",
+    "charm": "护符",
+    "class_badge": "职业徽章",
+    "element_bracelet": "元素手镯",
+    "rebirth_stone": "转生之石",
+    "guardian_ring": "守护之戒",
+    "costume": "时装",
+}
 
 ## 读取服务端物品名称。
 static func item_name(item: Dictionary) -> String:
@@ -49,9 +78,46 @@ static func has_action(item: Dictionary, action_key: String) -> bool:
     return false
 
 
+## 判断当前物品是否属于人物装备类型。
+static func is_equipment(item: Dictionary) -> bool:
+    return str(item.get("item_type", "")).to_lower() == "equipment"
+
+
+## 判断当前物品是否需要先选择目标宠物，当前新版背包还没有对应目标选择弹窗。
+static func requires_pet_target(item: Dictionary) -> bool:
+    return str(item.get("target_type", "")).to_lower() == "pet_single"
+
+
+## 判断新版背包是否已经具备当前物品的“主操作”入口。
+## 装备类物品走人物装备协议；普通可用物品走 USE_ITEM 协议；需要宠物目标的道具暂时不开放。
+static func supports_primary_action(item: Dictionary) -> bool:
+    if item.is_empty():
+        return false
+    if requires_pet_target(item):
+        return false
+    if is_equipment(item):
+        return true
+    return has_action(item, "use")
+
+
 ## 格式化物品类型文案。
 static func item_type_text(item: Dictionary) -> String:
     var item_type: String = str(item.get("item_type", ""))
     if item_type.is_empty():
         return "类型：未知"
-    return "类型：%s" % item_type
+    var mapped_text: String = str(ITEM_TYPE_LABELS.get(item_type, item_type))
+    return "类型：%s" % mapped_text
+
+
+## 格式化装备部位文案；背包装备与已穿戴装备都支持 equip_slot / equip_slot_label。
+static func equip_slot_text(item: Dictionary) -> String:
+    var equip_slot: String = str(item.get("equip_slot", "")).strip_edges()
+    if equip_slot.is_empty():
+        if not is_equipment(item):
+            return ""
+    var slot_label: String = str(item.get("equip_slot_label", "")).strip_edges()
+    if slot_label.is_empty() and not equip_slot.is_empty():
+        slot_label = str(EQUIP_SLOT_LABELS.get(equip_slot, equip_slot))
+    if slot_label.is_empty():
+        return ""
+    return "部位：%s" % slot_label

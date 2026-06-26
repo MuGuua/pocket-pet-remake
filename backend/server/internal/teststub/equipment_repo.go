@@ -113,6 +113,22 @@ func (r *EquipmentRepository) UnequipSlot(_ context.Context, _ uint64, _ string,
 	return nil, equipment.ErrEquipmentSlotEmpty
 }
 
+func (r *EquipmentRepository) RecalcEquippedCombatStats(_ context.Context, _ uint64, _ equipment.RecalcContext, _ *player.Profile, _ bool) error {
+	return nil
+}
+
+func (r *EquipmentRepository) ListEquippedEntriesForItemID(_ context.Context, _ uint64) ([]equipment.EquippedTemplateRefreshEntry, error) {
+	return nil, nil
+}
+
+func (r *EquipmentRepository) FindBagSlotIndexByItemUID(_ context.Context, _ uint64, _ string, _ string) (uint32, error) {
+	return 0, nil
+}
+
+func (r *EquipmentRepository) RefreshEquippedTemplateEntry(_ context.Context, _ uint64, _ string, _ string, _ string, _ equipment.RecalcContext, _ *player.Profile) error {
+	return nil
+}
+
 func (r *EquipmentRepository) EnhanceInstance(_ context.Context, _ uint64, _ string) (*equipment.EnhanceResult, error) {
 	return nil, equipment.ErrEquipmentNotFound
 }

@@ -65,6 +65,7 @@ export interface AdminItemDetail {
 export interface AdminItemListFilters {
   item_id?: string;
   item_type?: string;
+  exclude_item_type?: string;
   keyword?: string;
   enabled?: 'true' | 'false';
 }

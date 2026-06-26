@@ -25,6 +25,23 @@ signal battle_finished(state: Dictionary)
 var _battle_finish_emitted: bool = false
 ## 当前已发出的结束通知是否只是 4012 finished 兜底结果；正式 4013 到达时仍允许再同步奖励。
 var _battle_finish_was_fallback: bool = false
+## 4012 兜底调度序号；新战斗开始或正式 4013 到达后递增，用于取消过期的兜底 emit。
+var _battle_fallback_emit_generation: int = 0
+
+
+## 延迟一帧再尝试发出 4012 兜底结束，优先让同帧或下一帧到达的 4013 结算包接管奖励弹窗。
+func _schedule_battle_finished_fallback(state_snapshot: Dictionary) -> void:
+	var generation: int = _battle_fallback_emit_generation
+	call_deferred("_try_emit_battle_finished_fallback", state_snapshot, generation)
+
+
+func _try_emit_battle_finished_fallback(state_snapshot: Dictionary, generation: int) -> void:
+	if generation != _battle_fallback_emit_generation:
+		return
+	if _battle_finish_emitted and not _battle_finish_was_fallback:
+		return
+	_emit_battle_finished_from_state(state_snapshot)
+
 
 # 打印战斗场景消费到的协议载荷；高频状态推送只打一行摘要，避免 JSON 刷屏导致卡顿。
 func _log_battle_scene(tag: String, payload: Dictionary) -> void:
@@ -95,8 +112,12 @@ func handle_battle_start(payload: Dictionary) -> void:
 	_log_battle_scene("BATTLE_START_PUSH", payload)
 	_battle_finish_emitted = false
 	_battle_finish_was_fallback = false
+	_battle_fallback_emit_generation += 1
 	GameState.clear_battle_state()
 	GameState.set_battle_state(payload, true)
+	## 开战时补拉一次已佩戴装备，确保人物普攻能展示武器名。
+	if GameState.equipped_items.is_empty():
+		App.request_player_equipment_list()
 	battle_started.emit(GameState.battle_state)
 	battle_updated.emit(GameState.battle_state)
 
@@ -106,19 +127,31 @@ func handle_battle_state(payload: Dictionary) -> void:
 	GameState.set_battle_state(payload, true)
 	battle_updated.emit(GameState.battle_state)
 	if str(payload.get("phase", "")) == "finished":
-		call_deferred("_emit_battle_finished_from_state", payload.duplicate(true))
+		call_deferred("_schedule_battle_finished_fallback", payload.duplicate(true))
 
 # 处理战斗结果推送，并把全局状态切换为非战斗态。
 func handle_battle_result(payload: Dictionary) -> void:
 	_log_battle_scene("BATTLE_RESULT_PUSH", payload)
+	_battle_fallback_emit_generation += 1
 	## 结算包单独保留一份副本，避免后续 battle_state 合并时被战斗过程字段干扰弹窗展示。
 	var result_snapshot: Dictionary = payload.duplicate(true)
+	_apply_battle_return_position(result_snapshot)
 	GameState.apply_battle_player_rewards(payload)
 	GameState.apply_battle_pet_rewards(payload)
 	GameState.set_battle_state(payload, false)
 	battle_updated.emit(GameState.battle_state)
 	## 延迟一帧再通知主场景结束，确保 battle_updated 已 ingest 并排入演出队列。
 	call_deferred("_emit_battle_finished", result_snapshot)
+
+## 把服务端下发的 return_pos 写回本地玩家快照，避免战后刷新面板时坐标回跳。
+func _apply_battle_return_position(result_snapshot: Dictionary) -> void:
+	var return_pos_variant: Variant = result_snapshot.get("return_pos", {})
+	if return_pos_variant is not Dictionary:
+		return
+	var return_pos: Dictionary = return_pos_variant as Dictionary
+	GameState.sync_player_scene_position(
+		Vector2(float(return_pos.get("x", 0.0)), float(return_pos.get("y", 0.0)))
+	)
 
 ## 当服务端只下发 4012 finished、4013 结算包因奖励落库异常等原因未到达时，兜底退出战斗界面。
 func _emit_battle_finished_from_state(state_snapshot: Dictionary) -> void:

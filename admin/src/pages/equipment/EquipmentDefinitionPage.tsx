@@ -21,6 +21,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { ITEM_QUALITY_OPTIONS, formatItemQualityLabel } from '../../constants/itemQuality';
 import {
   createAdminEquipmentDefinition,
   deleteAdminEquipmentDefinition,
@@ -28,34 +29,83 @@ import {
   fetchAdminEquipmentDefinitions,
   updateAdminEquipmentDefinition,
 } from '../../services/equipmentDefinition';
-import {
-  ADMIN_PET_COMBAT_STAT_FIELDS,
-  defaultAdminPetCombatStats,
-} from '../../types/petCombatStats';
 import type {
   AdminEquipmentDetail,
   AdminEquipmentListFilters,
   AdminEquipmentSummary,
   AdminUpsertEquipmentPayload,
 } from '../../types/equipmentDefinition';
+import { BIND_TYPE_LABELS, buildSelectOptions, formatDisplayLabel } from '../../utils/displayLabels';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 import {
+  ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS,
   EQUIPMENT_SLOT_OPTIONS,
+  defaultAdminEquipmentCombatStats,
   defaultEquipmentValues,
   defaultMedicinePouchExtra,
 } from '../../types/equipmentDefinition';
 
 interface EquipmentFormValues extends AdminUpsertEquipmentPayload {
-  enhance_atk_per_level: number;
-  enhance_def_per_level: number;
-  enhance_hp_max_per_level: number;
   allowed_gem_types_text: string;
+  property_entries: EquipmentPropertyEntry[];
+  enhance_entries: EquipmentPropertyEntry[];
 }
 
+interface EquipmentDefinitionPageProps {
+  embedded?: boolean;
+}
+
+interface EquipmentPropertyOption {
+  key: string;
+  label: string;
+  group: 'base' | 'combat';
+}
+
+interface EquipmentPropertyEntry {
+  key: string;
+  value: number;
+}
+
+interface PropertyEditorFormValues {
+  property_key: string;
+  property_value: number;
+}
+
+const BASE_PROPERTY_OPTIONS: EquipmentPropertyOption[] = [
+  { key: 'base_hp', label: '生命', group: 'base' },
+  { key: 'base_mana', label: '法力', group: 'base' },
+  { key: 'base_atk', label: '攻击', group: 'base' },
+  { key: 'base_def', label: '防御', group: 'base' },
+  { key: 'base_spd', label: '速度', group: 'base' },
+];
+
+const EQUIPMENT_PROPERTY_OPTIONS: EquipmentPropertyOption[] = [
+  ...BASE_PROPERTY_OPTIONS,
+  ...ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS.map((field) => ({
+    key: field.key,
+    label: field.label,
+    group: 'combat' as const,
+  })),
+];
+
+const ENHANCE_PROPERTY_OPTIONS: EquipmentPropertyOption[] = [
+  { key: 'hp_max', label: '生命', group: 'base' },
+  { key: 'mana', label: '法力', group: 'base' },
+  { key: 'atk', label: '攻击', group: 'base' },
+  { key: 'def', label: '防御', group: 'base' },
+  { key: 'spd', label: '速度', group: 'base' },
+  ...ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS.map((field) => ({
+    key: field.key,
+    label: field.label,
+    group: 'combat' as const,
+  })),
+];
+
 // 系统装备管理页：维护 item_definition + item_equipment_extra 人物装备模板。
-export function EquipmentDefinitionPage() {
+export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitionPageProps) {
   const [filterForm] = Form.useForm<AdminEquipmentListFilters>();
   const [editorForm] = Form.useForm<EquipmentFormValues>();
+  const [propertyEditorForm] = Form.useForm<PropertyEditorFormValues>();
   const [filters, setFilters] = useState<AdminEquipmentListFilters>({});
   const [rows, setRows] = useState<AdminEquipmentSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -68,7 +118,13 @@ export function EquipmentDefinitionPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminEquipmentDetail | null>(null);
   const [saving, setSaving] = useState(false);
+  const [propertyEditorOpen, setPropertyEditorOpen] = useState(false);
+  const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(null);
+  const [enhanceEditorOpen, setEnhanceEditorOpen] = useState(false);
+  const [editingEnhanceKey, setEditingEnhanceKey] = useState<string | null>(null);
   const equipSlot = Form.useWatch('equip_slot', editorForm);
+  const propertyEntries = Form.useWatch('property_entries', editorForm) ?? [];
+  const enhanceEntries = Form.useWatch('enhance_entries', editorForm) ?? [];
 
   useEffect(() => {
     void loadRows(filters, page, pageSize);
@@ -109,7 +165,8 @@ export function EquipmentDefinitionPage() {
     setEditorOpen(true);
     if (mode === 'create') {
       setEditingRecord(null);
-      editorForm.setFieldsValue(mapPayloadToForm(defaultEquipmentValues()));
+      const nextItemID = await loadNextEquipmentItemID();
+      editorForm.setFieldsValue(mapPayloadToForm(defaultEquipmentValues(nextItemID)));
       return;
     }
     if (!itemID) {
@@ -130,14 +187,17 @@ export function EquipmentDefinitionPage() {
 
   async function handleSubmit(values: EquipmentFormValues) {
     setSaving(true);
-    const payload = mapFormToPayload(values);
+    // disabled/hidden 字段在 antd 提交值里可能缺失，这里强制取整份表单快照再映射，
+    // 避免 item_id、item_code、rarity 等自动字段丢失后被序列化成 null。
+    const fullValues = editorForm.getFieldsValue(true) as EquipmentFormValues;
+    const payload = mapFormToPayload({ ...fullValues, ...values });
     try {
       if (editingRecord) {
         await updateAdminEquipmentDefinition(editingRecord.item_id, payload);
-        message.success('装备模板已更新');
+        message.success(`装备模板已更新：ID ${editingRecord.item_id} / ${payload.item_code}`);
       } else {
-        await createAdminEquipmentDefinition(payload);
-        message.success('装备模板已创建');
+        const created = await createAdminEquipmentDefinition(payload);
+        message.success(`装备模板已创建：ID ${created.item_id} / ${created.item_code}`);
       }
       setEditorOpen(false);
       setEditingRecord(null);
@@ -148,6 +208,70 @@ export function EquipmentDefinitionPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleOpenPropertyEditor(propertyKey?: string) {
+    const currentEntries = editorForm.getFieldValue('property_entries') ?? [];
+    const currentEntry = propertyKey ? currentEntries.find((entry: EquipmentPropertyEntry) => entry.key === propertyKey) : null;
+    setEditingPropertyKey(propertyKey ?? null);
+    propertyEditorForm.setFieldsValue({
+      property_key: currentEntry?.key ?? '',
+      property_value: currentEntry?.value ?? 0,
+    });
+    setPropertyEditorOpen(true);
+  }
+
+  function handleSubmitPropertyEditor(values: PropertyEditorFormValues) {
+    const currentEntries: EquipmentPropertyEntry[] = editorForm.getFieldValue('property_entries') ?? [];
+    const nextEntries = currentEntries.filter((entry) => entry.key !== editingPropertyKey && entry.key !== values.property_key);
+    nextEntries.push({
+      key: values.property_key,
+      value: Number(values.property_value),
+    });
+    editorForm.setFieldValue('property_entries', sortPropertyEntries(nextEntries));
+    setPropertyEditorOpen(false);
+    setEditingPropertyKey(null);
+    propertyEditorForm.resetFields();
+  }
+
+  function handleDeleteProperty(propertyKey: string) {
+    const currentEntries: EquipmentPropertyEntry[] = editorForm.getFieldValue('property_entries') ?? [];
+    editorForm.setFieldValue(
+      'property_entries',
+      currentEntries.filter((entry) => entry.key !== propertyKey),
+    );
+  }
+
+  function handleOpenEnhanceEditor(propertyKey?: string) {
+    const currentEntries = editorForm.getFieldValue('enhance_entries') ?? [];
+    const currentEntry = propertyKey ? currentEntries.find((entry: EquipmentPropertyEntry) => entry.key === propertyKey) : null;
+    setEditingEnhanceKey(propertyKey ?? null);
+    propertyEditorForm.setFieldsValue({
+      property_key: currentEntry?.key ?? '',
+      property_value: currentEntry?.value ?? 0,
+    });
+    setEnhanceEditorOpen(true);
+  }
+
+  function handleSubmitEnhanceEditor(values: PropertyEditorFormValues) {
+    const currentEntries: EquipmentPropertyEntry[] = editorForm.getFieldValue('enhance_entries') ?? [];
+    const nextEntries = currentEntries.filter((entry) => entry.key !== editingEnhanceKey && entry.key !== values.property_key);
+    nextEntries.push({
+      key: values.property_key,
+      value: Number(values.property_value),
+    });
+    editorForm.setFieldValue('enhance_entries', sortPropertyEntries(nextEntries, ENHANCE_PROPERTY_OPTIONS));
+    setEnhanceEditorOpen(false);
+    setEditingEnhanceKey(null);
+    propertyEditorForm.resetFields();
+  }
+
+  function handleDeleteEnhance(propertyKey: string) {
+    const currentEntries: EquipmentPropertyEntry[] = editorForm.getFieldValue('enhance_entries') ?? [];
+    editorForm.setFieldValue(
+      'enhance_entries',
+      currentEntries.filter((entry) => entry.key != propertyKey),
+    )
   }
 
   async function handleDelete(itemID: number) {
@@ -164,6 +288,19 @@ export function EquipmentDefinitionPage() {
     }
   }
 
+  // 新建装备模板时统一基于服务端当前最大 item_id 自动分配下一个可用编号，
+  // 避免运营手填导致重复或跳号，同时确保翻页/筛选后依然取到全量列表里的最大值。
+  async function loadNextEquipmentItemID(): Promise<number> {
+    try {
+      const result = await fetchAdminEquipmentDefinitions({ filters: {}, page: 1, pageSize: 1 });
+      const currentMaxItemID = result.items[0]?.item_id ?? 4000;
+      return currentMaxItemID + 1;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '获取下一个装备物品ID失败');
+      return 4001;
+    }
+  }
+
   const columns = useMemo<ColumnsType<AdminEquipmentSummary>>(
     () => [
       { title: '物品ID', dataIndex: 'item_id', width: 90 },
@@ -171,7 +308,12 @@ export function EquipmentDefinitionPage() {
       { title: '名称', dataIndex: 'item_name', width: 160 },
       { title: '部位', dataIndex: 'equip_slot_label', width: 100 },
       { title: '佩戴等级', dataIndex: 'required_level', width: 90 },
-      { title: '品质', dataIndex: 'quality', width: 70 },
+      {
+        title: '品质',
+        dataIndex: 'quality',
+        width: 90,
+        render: (value: number) => formatItemQualityLabel(value),
+      },
       {
         title: '强化',
         width: 90,
@@ -212,15 +354,103 @@ export function EquipmentDefinitionPage() {
   const isCostume = equipSlot === 'costume';
   const isMedicinePouch = equipSlot === 'medicine_pouch';
   const skipCombatStats = isCostume || isMedicinePouch;
+  const selectedPropertyKeys = new Set(propertyEntries.map((entry) => entry.key));
+  const propertyOptionMap = useMemo(
+    () => new Map(EQUIPMENT_PROPERTY_OPTIONS.map((option) => [option.key, option])),
+    [],
+  );
+  const enhanceOptionMap = useMemo(
+    () => new Map(ENHANCE_PROPERTY_OPTIONS.map((option) => [option.key, option])),
+    [],
+  );
+  const selectedEnhanceKeys = new Set(enhanceEntries.map((entry) => entry.key));
+  const propertyColumns = useMemo<ColumnsType<EquipmentPropertyEntry>>(
+    () => [
+      {
+        title: '属性',
+        dataIndex: 'key',
+        key: 'key',
+        render: (value: string) => propertyOptionMap.get(value)?.label ?? value,
+      },
+      {
+        title: '分类',
+        dataIndex: 'key',
+        key: 'group',
+        width: 100,
+        render: (value: string) => {
+          const option = propertyOptionMap.get(value);
+          return <Tag color={option?.group === 'base' ? 'blue' : 'gold'}>{option?.group === 'base' ? '基础' : '次要战斗'}</Tag>;
+        },
+      },
+      {
+        title: '数值',
+        dataIndex: 'value',
+        key: 'value',
+        width: 120,
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 140,
+        render: (_value, record) => (
+          <Space size={8}>
+            <Button size="small" onClick={() => handleOpenPropertyEditor(record.key)}>编辑</Button>
+            <Button size="small" danger onClick={() => handleDeleteProperty(record.key)}>删除</Button>
+          </Space>
+        ),
+      },
+    ],
+    [propertyOptionMap],
+  );
+  const enhanceColumns = useMemo<ColumnsType<EquipmentPropertyEntry>>(
+    () => [
+      {
+        title: '每级强化属性',
+        dataIndex: 'key',
+        key: 'key',
+        render: (value: string) => enhanceOptionMap.get(value)?.label ?? value,
+      },
+      {
+        title: '分类',
+        dataIndex: 'key',
+        key: 'group',
+        width: 100,
+        render: (value: string) => {
+          const option = enhanceOptionMap.get(value);
+          return <Tag color={option?.group === 'base' ? 'cyan' : 'purple'}>{option?.group === 'base' ? '基础' : '次要战斗'}</Tag>;
+        },
+      },
+      {
+        title: '每级增加',
+        dataIndex: 'value',
+        key: 'value',
+        width: 120,
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 140,
+        render: (_value, record) => (
+          <Space size={8}>
+            <Button size="small" onClick={() => handleOpenEnhanceEditor(record.key)}>编辑</Button>
+            <Button size="small" danger onClick={() => handleDeleteEnhance(record.key)}>删除</Button>
+          </Space>
+        ),
+      },
+    ],
+    [enhanceOptionMap],
+  );
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Card>
-        <Typography.Title level={4} style={{ marginTop: 0 }}>系统装备管理</Typography.Title>
-        <Typography.Text type="secondary">
-          维护人物可穿戴装备模板；创建时同时写入 item_definition 与 item_equipment_extra。
-        </Typography.Text>
-      </Card>
+      {!embedded ? (
+        <Card>
+          <Typography.Title level={4} style={{ marginTop: 0 }}>系统装备管理</Typography.Title>
+          <Typography.Text type="secondary">
+            维护人物可穿戴装备模板；创建时同时写入 item_definition 与 item_equipment_extra。
+          </Typography.Text>
+        </Card>
+      ) : null}
 
       <Card>
         <Form
@@ -286,7 +516,8 @@ export function EquipmentDefinitionPage() {
               <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
               <Descriptions.Item label="部位">{detail.equip_slot_label}</Descriptions.Item>
               <Descriptions.Item label="佩戴等级">{detail.required_level}</Descriptions.Item>
-              <Descriptions.Item label="品质">{detail.quality}</Descriptions.Item>
+              <Descriptions.Item label="品质">{formatItemQualityLabel(detail.quality)}</Descriptions.Item>
+              <Descriptions.Item label="绑定类型">{formatDisplayLabel(BIND_TYPE_LABELS, detail.bind_type)}</Descriptions.Item>
               <Descriptions.Item label="强化">{detail.can_enhance ? `最高 +${detail.max_enhance_level}` : '不可强化'}</Descriptions.Item>
               <Descriptions.Item label="套装ID">{detail.set_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="五维" span={2}>
@@ -296,7 +527,7 @@ export function EquipmentDefinitionPage() {
             </Descriptions>
             {!detail.appearance_only ? (
               <Descriptions bordered column={2} size="small" title="次要战斗属性">
-                {ADMIN_PET_COMBAT_STAT_FIELDS.map((field) => (
+                {ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS.map((field) => (
                   <Descriptions.Item key={field.key} label={field.label}>{detail.combat_stats[field.key]}</Descriptions.Item>
                 ))}
               </Descriptions>
@@ -329,13 +560,23 @@ export function EquipmentDefinitionPage() {
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item label="物品ID" name="item_id" rules={[{ required: true, message: '请输入物品ID' }]}>
-                <InputNumber min={1} style={{ width: '100%' }} disabled={!!editingRecord} />
+              <Form.Item
+                label="物品ID"
+                name="item_id"
+                rules={[{ required: true, message: '系统未生成物品ID，请关闭弹窗后重试' }]}
+                extra="新建时自动取当前最大物品ID + 1，创建后不可修改。"
+              >
+                <InputNumber min={1} style={{ width: '100%' }} disabled controls={false} />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="编码" name="item_code" rules={[{ required: true, message: '请输入编码' }]}>
-                <Input />
+              <Form.Item
+                label="编码"
+                name="item_code"
+                rules={[{ required: true, message: '系统未生成编码，请关闭弹窗后重试' }]}
+                extra="系统按 equipment_{item_id} 自动生成并锁定。"
+              >
+                <Input disabled />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
@@ -351,11 +592,23 @@ export function EquipmentDefinitionPage() {
             <Col xs={24} md={8}>
               <Form.Item label="佩戴等级" name="required_level"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
             </Col>
-            <Col xs={12} md={4}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={4}><Form.Item label="稀有度" name="rarity"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={8}>
+              <Form.Item label="品质" name="quality">
+                <Select options={ITEM_QUALITY_OPTIONS} />
+              </Form.Item>
+            </Col>
+            <Form.Item name="rarity" hidden>
+              <InputNumber min={1} />
+            </Form.Item>
             <Col span={24}><Form.Item label="介绍" name="desc"><Input.TextArea rows={2} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="图标" name="icon"><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="绑定类型" name="bind_type"><Input /></Form.Item></Col>
+            <Form.Item name="icon" hidden>
+              <Input />
+            </Form.Item>
+            <Col xs={24} md={8}>
+              <Form.Item label="绑定类型" name="bind_type">
+                <Select options={buildSelectOptions(BIND_TYPE_LABELS)} />
+              </Form.Item>
+            </Col>
             <Col xs={24} md={8}><Form.Item label="套装ID" name="set_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="职业限制" name="career_limit"><Input placeholder="留空表示不限" /></Form.Item></Col>
             <Col xs={8} md={4}><Form.Item label="可出售" name="can_sell" valuePropName="checked"><Switch /></Form.Item></Col>
@@ -391,31 +644,27 @@ export function EquipmentDefinitionPage() {
 
           {!skipCombatStats ? (
             <>
-              <Divider plain>基础属性</Divider>
-              <Row gutter={16}>
-                <Col xs={12} md={6}><Form.Item label="生命" name="base_hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="法力" name="base_mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="攻击" name="base_atk"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="防御" name="base_def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="速度" name="base_spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-              </Row>
-              <Divider plain>次要战斗属性</Divider>
-              <Row gutter={16}>
-                {ADMIN_PET_COMBAT_STAT_FIELDS.map((field) => (
-                  <Col xs={12} md={6} key={field.key}>
-                    <Form.Item label={field.label} name={['combat_stats', field.key]}>
-                      <InputNumber min={0} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                ))}
-              </Row>
+              <Divider plain>装备属性</Divider>
+              <Form.Item name="property_entries" hidden>
+                <Input />
+              </Form.Item>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Button type="dashed" onClick={() => handleOpenPropertyEditor()}>
+                  添加属性
+                </Button>
+                <Table<EquipmentPropertyEntry>
+                  rowKey="key"
+                  size="small"
+                  columns={propertyColumns}
+                  dataSource={propertyEntries}
+                  pagination={false}
+                  locale={{ emptyText: '当前还没有配置属性，点击“添加属性”开始设置' }}
+                />
+              </Space>
               <Divider plain>强化与镶嵌</Divider>
               <Row gutter={16}>
                 <Col xs={12} md={6}><Form.Item label="可强化" name="can_enhance" valuePropName="checked"><Switch /></Form.Item></Col>
                 <Col xs={12} md={6}><Form.Item label="最高强化" name="max_enhance_level"><InputNumber min={0} max={15} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="每级+攻击" name="enhance_atk_per_level"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="每级+防御" name="enhance_def_per_level"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={12} md={6}><Form.Item label="每级+生命上限" name="enhance_hp_max_per_level"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={12} md={6}><Form.Item label="镶嵌孔数" name="socket_count"><InputNumber min={0} max={8} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={24} md={12}>
                   <Form.Item label="允许宝石类型" name="allowed_gem_types_text" extra="英文逗号分隔，如 attack,defense">
@@ -423,8 +672,103 @@ export function EquipmentDefinitionPage() {
                   </Form.Item>
                 </Col>
               </Row>
+              <Form.Item name="enhance_entries" hidden>
+                <Input />
+              </Form.Item>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Typography.Text type="secondary">
+                  强化属性按“每升 1 级增加多少”配置；只添加这件装备真正需要增长的属性。
+                </Typography.Text>
+                <Button type="dashed" onClick={() => handleOpenEnhanceEditor()} disabled={!Boolean(editorForm.getFieldValue('can_enhance'))}>
+                  添加强化属性
+                </Button>
+                <Table<EquipmentPropertyEntry>
+                  rowKey="key"
+                  size="small"
+                  columns={enhanceColumns}
+                  dataSource={enhanceEntries}
+                  pagination={false}
+                  locale={{ emptyText: '当前没有强化成长属性，可按需添加' }}
+                />
+              </Space>
             </>
           ) : null}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingPropertyKey ? '编辑属性' : '添加属性'}
+        open={propertyEditorOpen}
+        onCancel={() => {
+          setPropertyEditorOpen(false);
+          setEditingPropertyKey(null);
+          propertyEditorForm.resetFields();
+        }}
+        onOk={() => propertyEditorForm.submit()}
+        destroyOnClose
+        okText="确定"
+        cancelText="取消"
+      >
+        <Form form={propertyEditorForm} layout="vertical" onFinish={handleSubmitPropertyEditor}>
+          <Form.Item
+            label="属性"
+            name="property_key"
+            rules={[{ required: true, message: '请选择属性' }]}
+          >
+            <Select
+              options={EQUIPMENT_PROPERTY_OPTIONS.map((option) => ({
+                value: option.key,
+                label: `${option.label} · ${option.group === 'base' ? '基础' : '次要战斗'}`,
+                disabled: option.key !== editingPropertyKey && selectedPropertyKeys.has(option.key),
+              }))}
+              placeholder="请选择属性"
+            />
+          </Form.Item>
+          <Form.Item
+            label="数值"
+            name="property_value"
+            rules={[{ required: true, message: '请输入数值' }]}
+          >
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingEnhanceKey ? '编辑强化属性' : '添加强化属性'}
+        open={enhanceEditorOpen}
+        onCancel={() => {
+          setEnhanceEditorOpen(false);
+          setEditingEnhanceKey(null);
+          propertyEditorForm.resetFields();
+        }}
+        onOk={() => propertyEditorForm.submit()}
+        destroyOnClose
+        okText="确定"
+        cancelText="取消"
+      >
+        <Form form={propertyEditorForm} layout="vertical" onFinish={handleSubmitEnhanceEditor}>
+          <Form.Item
+            label="强化属性"
+            name="property_key"
+            rules={[{ required: true, message: '请选择强化属性' }]}
+          >
+            <Select
+              options={ENHANCE_PROPERTY_OPTIONS.map((option) => ({
+                value: option.key,
+                label: `${option.label} · ${option.group === 'base' ? '基础' : '次要战斗'}`,
+                disabled: option.key !== editingEnhanceKey && selectedEnhanceKeys.has(option.key),
+              }))}
+              placeholder="请选择强化后每级增加的属性"
+            />
+          </Form.Item>
+          <Form.Item
+            label="每级增加值"
+            name="property_value"
+            rules={[{ required: true, message: '请输入每级增加值' }]}
+          >
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
         </Form>
       </Modal>
     </Space>
@@ -434,69 +778,150 @@ export function EquipmentDefinitionPage() {
 function mapDetailToForm(detail: AdminEquipmentDetail): EquipmentFormValues {
   return {
     ...detail,
-    combat_stats: detail.combat_stats ?? defaultAdminPetCombatStats(),
-    enhance_atk_per_level: detail.enhance_per_level_stats?.atk ?? 0,
-    enhance_def_per_level: detail.enhance_per_level_stats?.def ?? 0,
-    enhance_hp_max_per_level: detail.enhance_per_level_stats?.hp_max ?? 0,
+    combat_stats: detail.combat_stats ?? defaultAdminEquipmentCombatStats(),
     allowed_gem_types_text: (detail.allowed_gem_types ?? []).join(','),
     medicine_pouch: detail.medicine_pouch ?? defaultMedicinePouchExtra(),
+    property_entries: buildPropertyEntries(detail),
+    enhance_entries: buildEnhanceEntries(detail.enhance_per_level_stats ?? {}),
   };
 }
 
 function mapPayloadToForm(payload: AdminUpsertEquipmentPayload): EquipmentFormValues {
   return {
     ...payload,
-    enhance_atk_per_level: payload.enhance_per_level_stats?.atk ?? 0,
-    enhance_def_per_level: payload.enhance_per_level_stats?.def ?? 0,
-    enhance_hp_max_per_level: payload.enhance_per_level_stats?.hp_max ?? 0,
     allowed_gem_types_text: (payload.allowed_gem_types ?? []).join(','),
     medicine_pouch: payload.medicine_pouch ?? defaultMedicinePouchExtra(),
+    property_entries: buildPropertyEntries(payload),
+    enhance_entries: buildEnhanceEntries(payload.enhance_per_level_stats ?? {}),
   };
 }
 
 function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayload {
-  const enhanceStats: Record<string, number> = {};
-  if (values.enhance_atk_per_level > 0) {
-    enhanceStats.atk = Number(values.enhance_atk_per_level);
-  }
-  if (values.enhance_def_per_level > 0) {
-    enhanceStats.def = Number(values.enhance_def_per_level);
-  }
-  if (values.enhance_hp_max_per_level > 0) {
-    enhanceStats.hp_max = Number(values.enhance_hp_max_per_level);
-  }
+  const enhanceStats: Record<string, number> = buildEnhanceStatsMap(values.enhance_entries ?? []);
   const allowedGemTypes = values.allowed_gem_types_text
     ? values.allowed_gem_types_text.split(',').map((item) => item.trim()).filter(Boolean)
     : [];
+  const propertyValues = splitPropertyEntries(values.property_entries ?? []);
   return {
-    item_id: Number(values.item_id),
-    item_code: values.item_code,
-    item_name: values.item_name,
-    desc: values.desc,
-    icon: values.icon,
-    quality: Number(values.quality),
-    rarity: Number(values.rarity),
-    required_level: Number(values.required_level),
-    bind_type: values.bind_type,
-    can_sell: values.can_sell,
-    can_store: values.can_store,
-    is_enabled: values.is_enabled,
-    equip_slot: values.equip_slot,
-    career_limit: values.career_limit,
-    can_enhance: values.can_enhance,
-    max_enhance_level: Number(values.max_enhance_level),
-    set_id: Number(values.set_id),
-    appearance_skin_id: values.appearance_skin_id,
+    item_id: Number(values.item_id ?? 0),
+    item_code: values.item_code ?? '',
+    item_name: values.item_name ?? '',
+    desc: values.desc ?? '',
+    icon: values.icon ?? '',
+    quality: Number(values.quality ?? 1),
+    rarity: Number(values.rarity ?? 1),
+    required_level: Number(values.required_level ?? 0),
+    bind_type: values.bind_type ?? 'none',
+    can_sell: Boolean(values.can_sell),
+    can_store: Boolean(values.can_store),
+    is_enabled: Boolean(values.is_enabled),
+    equip_slot: values.equip_slot ?? '',
+    career_limit: values.career_limit ?? '',
+    can_enhance: Boolean(values.can_enhance),
+    max_enhance_level: Number(values.max_enhance_level ?? 0),
+    set_id: Number(values.set_id ?? 0),
+    appearance_skin_id: values.appearance_skin_id ?? '',
     appearance_only: values.equip_slot === 'costume',
-    base_hp: Number(values.base_hp),
-    base_mana: Number(values.base_mana),
-    base_atk: Number(values.base_atk),
-    base_def: Number(values.base_def),
-    base_spd: Number(values.base_spd),
-    combat_stats: values.combat_stats ?? defaultAdminPetCombatStats(),
+    base_hp: propertyValues.base_hp,
+    base_mana: propertyValues.base_mana,
+    base_atk: propertyValues.base_atk,
+    base_def: propertyValues.base_def,
+    base_spd: propertyValues.base_spd,
+    combat_stats: propertyValues.combat_stats,
     enhance_per_level_stats: enhanceStats,
-    socket_count: Number(values.socket_count),
+    socket_count: Number(values.socket_count ?? 0),
     allowed_gem_types: allowedGemTypes,
     medicine_pouch: values.equip_slot === 'medicine_pouch' ? (values.medicine_pouch ?? defaultMedicinePouchExtra()) : undefined,
   };
+}
+
+function buildPropertyEntries(source: Pick<
+  AdminUpsertEquipmentPayload,
+  'base_hp' | 'base_mana' | 'base_atk' | 'base_def' | 'base_spd' | 'combat_stats'
+>): EquipmentPropertyEntry[] {
+  const nextEntries: EquipmentPropertyEntry[] = [];
+  BASE_PROPERTY_OPTIONS.forEach((option) => {
+    const value = Number(source[option.key as keyof typeof source] ?? 0);
+    if (value > 0) {
+      nextEntries.push({ key: option.key, value });
+    }
+  });
+  const combatStats = source.combat_stats ?? defaultAdminEquipmentCombatStats();
+  ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS.forEach((field) => {
+    const value = Number(combatStats[field.key] ?? 0);
+    if (value > 0) {
+      nextEntries.push({ key: field.key, value });
+    }
+  });
+  return sortPropertyEntries(nextEntries);
+}
+
+function splitPropertyEntries(entries: EquipmentPropertyEntry[]): {
+  base_hp: number;
+  base_mana: number;
+  base_atk: number;
+  base_def: number;
+  base_spd: number;
+  combat_stats: ReturnType<typeof defaultAdminEquipmentCombatStats>;
+} {
+  const result = {
+    base_hp: 0,
+    base_mana: 0,
+    base_atk: 0,
+    base_def: 0,
+    base_spd: 0,
+    combat_stats: defaultAdminEquipmentCombatStats(),
+  };
+  entries.forEach((entry) => {
+    const value = Number(entry.value ?? 0);
+    switch (entry.key) {
+      case 'base_hp':
+        result.base_hp = value;
+        break;
+      case 'base_mana':
+        result.base_mana = value;
+        break;
+      case 'base_atk':
+        result.base_atk = value;
+        break;
+      case 'base_def':
+        result.base_def = value;
+        break;
+      case 'base_spd':
+        result.base_spd = value;
+        break;
+      default:
+        if (entry.key in result.combat_stats) {
+          result.combat_stats[entry.key as keyof ReturnType<typeof defaultAdminEquipmentCombatStats>] = value;
+        }
+        break;
+    }
+  });
+  return result;
+}
+
+function buildEnhanceEntries(enhanceStats: Record<string, number>): EquipmentPropertyEntry[] {
+  const entries: EquipmentPropertyEntry[] = [];
+  Object.entries(enhanceStats).forEach(([key, value]) => {
+    if (Number(value) > 0) {
+      entries.push({ key, value: Number(value) });
+    }
+  });
+  return sortPropertyEntries(entries, ENHANCE_PROPERTY_OPTIONS);
+}
+
+function buildEnhanceStatsMap(entries: EquipmentPropertyEntry[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  entries.forEach((entry) => {
+    const value = Number(entry.value ?? 0);
+    if (value > 0) {
+      result[entry.key] = value;
+    }
+  });
+  return result;
+}
+
+function sortPropertyEntries(entries: EquipmentPropertyEntry[], orderSource: EquipmentPropertyOption[] = EQUIPMENT_PROPERTY_OPTIONS): EquipmentPropertyEntry[] {
+  const orderMap = new Map(orderSource.map((option, index) => [option.key, index]));
+  return [...entries].sort((left, right) => (orderMap.get(left.key) ?? 999) - (orderMap.get(right.key) ?? 999));
 }

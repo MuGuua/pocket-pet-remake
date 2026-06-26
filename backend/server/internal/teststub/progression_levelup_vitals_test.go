@@ -16,7 +16,7 @@ func TestAddExpLevelUpRefillsHPAndVigor(t *testing.T) {
 	if err := progressionService.RefreshRuntimeCache(context.Background()); err != nil {
 		t.Fatalf("RefreshRuntimeCache() error = %v", err)
 	}
-	svc := player.NewService(playerRepo, nil, progressionService)
+	svc := player.NewService(playerRepo, nil, progressionService, nil)
 
 	playerRepo.mu.Lock()
 	stored := playerRepo.players[DemoPlayerID]

@@ -5,25 +5,29 @@ class_name BattleFormationMapper
 
 const ALLY_SLOT_PREFIXES: Array[String] = ["left_front", "left_back"]
 const ENEMY_SLOT_PREFIXES: Array[String] = ["right_front", "right_back"]
-const ALLY_FRONT_X: float = 88.0
-const ALLY_BACK_X: float = 42.0
-const ENEMY_FRONT_X: float = 272.0
-const ENEMY_BACK_X: float = 314.0
+## 260 宽战斗视口下，我方前排站位 X；再向左侧外扩一点，给中间留出更多战斗空间。
+const ALLY_FRONT_X: float = 74.0
+## 260 宽战斗视口下，我方后排站位 X；与前排一起整体向左收边。
+const ALLY_BACK_X: float = 44.0
+## 260 宽战斗视口下，敌方前排站位 X；再向右侧外扩一点。
+const ENEMY_FRONT_X: float = 186.0
+## 260 宽战斗视口下，敌方后排站位 X；与前排一起整体向右收边。
+const ENEMY_BACK_X: float = 216.0
 ## 左右对阵分界线：右侧单位命中左侧目标时，客户端镜像技能特效。
 const BATTLEFIELD_SPLIT_X: float = (ALLY_FRONT_X + ENEMY_FRONT_X) * 0.5
 
 ## 四方及以下全部上下站位；超过四方则按组排布。
 const COMPACT_FORMATION_MAX: int = 4
 ## 单列模式下相邻单位 Y 间距（像素）。
-const VERTICAL_UNIT_SPACING: float = 50.0
+const VERTICAL_UNIT_SPACING: float = 42.0
 ## 单列模式下人物相对列 X 的右移补偿（抵消模型锚点偏左）。
-const ALLY_PLAYER_COMPACT_X_OFFSET: float = 18.0
+const ALLY_PLAYER_COMPACT_X_OFFSET: float = 12.0
 ## 分组模式下相邻小组 Y 间距（像素）。
-const GROUP_VERTICAL_SPACING: float = 56.0
+const GROUP_VERTICAL_SPACING: float = 48.0
 
 # 与 battle_scene.tscn -> Bg/PanelContainer/TextureRect2 魔法阵贴图区域保持一致。
-const MAGIC_CIRCLE_TOP_Y: float = 165.0
-const MAGIC_CIRCLE_BOTTOM_Y: float = 315.0
+const MAGIC_CIRCLE_TOP_Y: float = 178.0
+const MAGIC_CIRCLE_BOTTOM_Y: float = 290.0
 const MAGIC_CIRCLE_CENTER_Y: float = (MAGIC_CIRCLE_TOP_Y + MAGIC_CIRCLE_BOTTOM_Y) * 0.5
 
 

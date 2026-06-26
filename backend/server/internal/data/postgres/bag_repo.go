@@ -162,10 +162,12 @@ SELECT
   COALESCE(eq.enhance_level, 0),
   COALESCE(idf.usable, FALSE),
   COALESCE(idf.target_type, ''),
-  COALESCE(idf.effect_type, '')
+  COALESCE(idf.effect_type, ''),
+  COALESCE(iee.equip_slot, '')
 FROM player_container_item pci
 LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 LEFT JOIN equipment_instance eq ON eq.item_uid = pci.item_uid
+LEFT JOIN item_equipment_extra iee ON iee.item_id = pci.item_id
 WHERE pci.player_id = $1
   AND pci.container_type = $2
 ORDER BY pci.slot_index ASC
@@ -600,6 +602,7 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			&value.Usable,
 			&value.TargetType,
 			&value.EffectType,
+			&value.EquipSlot,
 		); err != nil {
 			return nil, err
 		}

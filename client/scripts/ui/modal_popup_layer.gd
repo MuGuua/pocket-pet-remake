@@ -58,7 +58,7 @@ func _disable_modal_input_listeners() -> void:
 
 ## 在输入链路最前端吞掉事件；只有“按下类”输入会关闭弹窗。
 func _consume_modal_input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or not _is_topmost_runtime_modal():
 		return
 	get_viewport().set_input_as_handled()
 	if _is_dismiss_event(event):
@@ -78,12 +78,29 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_dim_layer_gui_input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or not _is_topmost_runtime_modal():
 		return
 	if _dim_layer != null:
 		_dim_layer.accept_event()
 	if _is_dismiss_event(event):
 		_dismiss_modal()
+
+
+## 多个模态弹窗同时可见时，仅最顶层（layer 最高）响应空白关闭。
+func _is_topmost_runtime_modal() -> bool:
+	var top_modal: Node = null
+	var top_order: int = -2147483648
+	for node_variant: Variant in get_tree().get_nodes_in_group("runtime_modal_popup"):
+		if not (node_variant is CanvasLayer):
+			continue
+		var modal_layer: CanvasLayer = node_variant as CanvasLayer
+		if not modal_layer.visible:
+			continue
+		var modal_order: int = modal_layer.layer * 1000 + modal_layer.get_index()
+		if modal_order >= top_order:
+			top_order = modal_order
+			top_modal = modal_layer
+	return top_modal == self
 
 
 func _dismiss_modal() -> void:

@@ -5,6 +5,7 @@ export async function fetchAdminItems(params: { filters?: AdminItemListFilters; 
   const query = new URLSearchParams();
   if (params.filters?.item_id?.trim()) query.set('item_id', params.filters.item_id.trim());
   if (params.filters?.item_type?.trim()) query.set('item_type', params.filters.item_type.trim());
+  if (params.filters?.exclude_item_type?.trim()) query.set('exclude_item_type', params.filters.exclude_item_type.trim());
   if (params.filters?.keyword?.trim()) query.set('keyword', params.filters.keyword.trim());
   if (params.filters?.enabled) query.set('enabled', params.filters.enabled);
   query.set('page', String(params.page ?? 1));
