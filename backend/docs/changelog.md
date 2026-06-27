@@ -1,5 +1,9 @@
 # 最新变更记录
 
+## 2026-06-27
+- 装备强化铜币消耗：迁移 `065_equipment_enhance_cost_gold_copper.sql` 为 `equipment_enhance_cost` 增加 `cost_gold_copper`（总铜币真值）；`enhance_preview.cost_gold_copper` 由服务端填充；强化成功/失败均扣铜币并推送 `WALLET_UPDATE_PUSH`；客户端强化页展示消耗铜币与当前金/银/铜余额，余额不足时禁用强化按钮
+- 装备强化铜币公式可配置：迁移 `067_item_equipment_enhance_gold_cost.sql` 在 `item_equipment_extra` 增加每件装备独立的强化铜币公式（默认基础 100 铜、每级固定 +200）；运行时按装备模板 `item_id` 计算 `enhance_preview.cost_gold_copper` 与强化扣费；系统装备管理页「编辑装备」弹窗内可配置并预览 +1~+15 消耗
+
 ## 2026-06-23
 - 客户端新增新版背包一期：主菜单“物品行囊”打开 `bag_panel.tscn`，通过 `BAG_LIST_REQ/USE_ITEM_REQ` 与服务端交互；新增本地 `ItemIconRegistry` 仅映射 `icon_key -> Texture2D`，物品数量/可用行为仍来自服务端快照。
 - 客户端左上角头像入口改为打开新版 `player_status_panel.tscn`；旧人物弹窗及其背包/组队/技能旧页资源已移除，新面板直接读取 `GameState` 服务端权威快照展示战斗属性、状态抗性和社会属性。
@@ -10,7 +14,7 @@
 - 战斗伤害公式切换为《口袋伤害计算新表》链路：分子 `(A×SkillMult)×(爆伤链)/100×(1−技能抗性差/100)−D`、分母 `1+Guard×(0.001|0.01)`、综合乘子含天赋/元素/抗类与全局 0.5；删除旧 `def/(def+K)` 与 block 叠乘逻辑；爆伤链直接进分子（不再独立掷暴击骰）；`skillDef` 新增 `skill_mult`/`skill_crit_add`（缺省 `attack_pct/100`）；`actorRuntime` 新增 `guard`/`talent_dmg_pct`/`talent_reduce_pct`/元素字段
 - 口袋伤害 DB/Admin：迁移 `062_skill_pocket_damage_fields.sql`（`skill_mult`/`skill_crit_add`）、`063_combat_pocket_damage_stats.sql`（player/player_pet/monster 的 guard/天赋/元素 + 宠物封顶）；技能页/怪物页/宠物实例页可配置上述字段
 - 战斗控制双体系：`seal_chance_pct`/`control_chance_pct` 概率无视抗性；`seal_power`/`control_power` 威力对抗控制抗性（差值≥50 稳控，每缩小 1 点降 2%）；迁移 `061_skill_control_power.sql`；文档 `backend/docs/battle-control-effects.md`；Admin 系统技能页「效果」Tab 可配置封印/控制双体系字段
-- 人物装备系统 P2 强化：迁移 `060_player_equipment_enhance_cost.sql`（材料表 + 强化石 3201）；WS `2076/2077`；**仅未佩戴且位于背包**时可强化；扣材料 → 掷骰 → 成功升一级（失败不掉级）；客户端背包「强化」按钮
+- 人物装备系统 P2 强化：迁移 `060_player_equipment_enhance_cost.sql`（材料表 + 强化石 3201）；WS `2076/2077`；**仅未佩戴且位于背包**时可强化；扣材料 → 掷骰 → 成功升一级（失败不掉级）；客户端背包「强化」按钮；`enhance_preview` 含强化等级行 + 可强化属性行 + `materials` 列表；请求可传 `cost_item_id` 选择强化材料；背包 category `enhance_material` 按 `item_sub_type=equipment_enhance` 筛选
 - 人物装备系统 P1：运行时佩戴/卸下 WS `2070`–`2075`；`player_equipment_slot` 事务写入；`equipment/stats.go` 属性重算 + `pet_combat_stat_cap` 截断；背包装备无 `item_uid` 时自动创建 `equipment_instance`；客户端背包「穿戴」、状态页「已佩戴装备/卸下」；`EnterWorld.player.equipped_items`
 - 人物装备系统 P0：迁移 `058_player_equipment_foundation.sql`、`059_admin_equipment_permissions.sql`；`module/equipment` Admin CRUD；后台「系统装备管理」页 `/equipment-definitions`
 - 玩家人物装备系统设计文档 `backend/docs/player-equipment-system.md`：13 部位、强化成功率、药囊战后恢复、时装纯外观、镶嵌无损取下、属性全额叠加、与宠物共用 `pet_combat_stat_cap`

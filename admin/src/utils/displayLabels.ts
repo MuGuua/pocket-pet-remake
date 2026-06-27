@@ -76,11 +76,20 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   currency: '货币',
   misc: '杂项',
   functional: '功能道具',
+  box: '礼包',
 };
 
 /** 物品子类 */
 export const ITEM_SUB_TYPE_LABELS: Record<string, string> = {
   expand: '扩容',
+  gift_box: '礼包',
+  equipment_enhance: '强化材料',
+};
+
+/** 材料类物品可选子分类（item_type=material 时在后台表单展示） */
+export const MATERIAL_ITEM_SUB_TYPE_LABELS: Record<string, string> = {
+  '': '普通材料',
+  equipment_enhance: '强化材料',
 };
 
 /** 技能分类 */

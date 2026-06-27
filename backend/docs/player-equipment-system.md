@@ -364,7 +364,7 @@ Admin 配置示例：
 | `2073` | S→C | `PLAYER_EQUIP_RESP` + 更新后属性 |
 | `2074` | C→S | `PLAYER_UNEQUIP_REQ` `{ equip_slot }` |
 | `2075` | S→C | `PLAYER_UNEQUIP_RESP` |
-| `2076` | C→S | `PLAYER_EQUIPMENT_ENHANCE_REQ` `{ item_uid }` |
+| `2076` | C→S | `PLAYER_EQUIPMENT_ENHANCE_REQ` `{ item_uid, cost_item_id? }`；`cost_item_id` 须为 `item_sub_type=equipment_enhance` 的强化材料 |
 | `2077` | S→C | `PLAYER_EQUIPMENT_ENHANCE_RESP` |
 | `2078` | C→S | `PLAYER_EQUIPMENT_SOCKET_REQ` `{ item_uid, socket_index, bag_slot_index }` |
 | `2079` | S→C | `PLAYER_EQUIPMENT_SOCKET_RESP` |

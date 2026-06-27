@@ -7,6 +7,28 @@ const FILTER_ALL: String = "all"
 const FILTER_EQUIPMENT: String = "equipment"
 const FILTER_OTHER: String = "other"
 const BAG_ITEM_DETAIL_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_detail.tscn")
+const RUNTIME_PROGRESS_OVERLAY_SCENE: PackedScene = preload("res://scenes/ui/common/runtime_progress_overlay.tscn")
+const REWARD_POPUP_SCENE: PackedScene = preload("res://scenes/ui/common/reward_popup.tscn")
+const EQUIPMENT_ENHANCE_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/equipment_enhance_popup.tscn")
+## 礼包打开进度条播放时长（秒）。
+const BOX_OPEN_PROGRESS_DURATION_SEC: float = 3.0
+## 礼包打开进度条提示文案。
+const BOX_OPEN_PROGRESS_STATUS_TEXT: String = "打开中..."
+## 礼包开启成功后奖励弹窗标题。
+## 等待 USE_ITEM 回包的最长帧数（约 15 秒），防止界面永久卡住。
+const BOX_OPEN_RESPONSE_TIMEOUT_FRAMES: int = 900
+## 详情面板与锚点按钮之间的垂直间距（像素）。
+const DETAIL_ANCHOR_GAP_Y: float = 6.0
+## 锚点横向位置低于该比例时，面板出现在右上方。
+const DETAIL_ZONE_LEFT_THRESHOLD: float = 0.33
+## 锚点横向位置高于该比例时，面板出现在左上方。
+const DETAIL_ZONE_RIGHT_THRESHOLD: float = 0.66
+
+enum DetailAnchorZone {
+	LEFT,
+	CENTER,
+	RIGHT,
+}
 
 @onready var _close_button: Button = $RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer/Button
 @onready var _root_panel: PanelContainer = $RootPanel
@@ -43,6 +65,34 @@ var _selected_slot_index: int = 0
 var _selected_item: Dictionary = {}
 ## 当前选中的已穿戴装备槽位标识；用于详情弹层卸装和刷新。
 var _selected_equip_slot_key: String = ""
+## 当前详情面板相对定位所使用的锚点控件（背包格子或装备槽）。
+var _detail_anchor: Control = null
+## 通用进度遮罩；礼包打开等流程复用。
+var _progress_overlay: RuntimeProgressOverlay = null
+## 通用奖励弹窗实例。
+var _reward_popup: RewardPopup = null
+## 装备强化弹窗实例。
+var _enhance_popup: EquipmentEnhancePopup = null
+## 当前强化目标 item_uid，用于背包刷新后回写弹窗。
+var _enhance_target_item_uid: String = ""
+## 强化回包监听 Callable。
+var _enhance_request_handler: Callable = Callable()
+## 是否正在执行礼包打开演出，避免重复点击。
+var _box_open_in_flight: bool = false
+## 当前礼包打开请求对应的 seq，用于匹配 USE_ITEM 回包。
+var _box_open_request_seq: int = 0
+## 礼包打开演出代次；取消或新一次打开时递增，避免旧 await 误弹奖励。
+var _box_open_presentation_id: int = 0
+## 是否已收到当前礼包打开请求的回包。
+var _box_open_response_ready: bool = false
+## 当前礼包打开请求是否成功。
+var _box_open_response_ok: bool = false
+## 当前礼包打开请求的回包载荷。
+var _box_open_response_payload: Dictionary = {}
+## USE_ITEM 回包监听 Callable，便于 disconnect。
+var _box_open_request_handler: Callable = Callable()
+## 礼包打开演出期间暂缓刷新背包格子/钱包展示，避免与成功弹窗同时跳变。
+var _defer_bag_visual_refresh: bool = false
 
 
 ## 初始化背包面板：绑定按钮、订阅 GameState，并懒创建详情弹层。
@@ -103,12 +153,17 @@ func open_menu() -> void:
 
 ## 关闭背包并同步关闭详情弹层，避免旧选中状态残留到下一次打开。
 func close_menu() -> void:
+	_cancel_box_open_presentation()
+	_force_close_reward_popup()
+	_hide_enhance_popup()
+	_end_box_open_deferred_refresh(false)
 	_hide_detail_popup()
 	super.close_menu()
 
 
-## 关闭背包内所有 overlay（详情层）。
+## 关闭背包内所有 overlay（详情层与礼包打开进度）。
 func _close_all_overlays() -> void:
+	_cancel_box_open_presentation()
 	_hide_detail_popup()
 
 
@@ -120,10 +175,12 @@ func _dismiss_top_overlay() -> bool:
 	return false
 
 
-## 背包或钱包快照变化后，只在面板可见时刷新当前页内容。
+## 背包或钱包快照变化后，只在面板可见且未处于礼包演出暂缓期时刷新。
 func _on_bag_data_changed() -> void:
-	if visible:
-		_refresh_panel()
+	if not visible or _defer_bag_visual_refresh:
+		return
+	_refresh_panel()
+	_refresh_enhance_popup_if_open()
 
 
 ## 用最新的服务端快照重绘容量、格子、分页和已装备物品。
@@ -288,7 +345,8 @@ func _on_slot_item_selected(item: Dictionary) -> void:
 	_selected_item = item.duplicate(true)
 	_selected_slot_index = BagUiMapper.slot_index(_selected_item)
 	_apply_selected_slot_visuals()
-	_show_item_detail(_selected_item)
+	var anchor_slot: BagSlot = _find_visible_slot_by_index(_selected_slot_index)
+	_show_item_detail(_selected_item, anchor_slot)
 
 
 ## 响应底部分类按钮切换，并把分页重置到筛选结果的第一页。
@@ -339,7 +397,7 @@ func _on_equipment_slot_pressed(slot: EquipmentSlot) -> void:
 	_selected_slot_index = 0
 	_apply_selected_slot_visuals()
 	_selected_equip_slot_key = equip_slot_key
-	_show_equipped_item_detail(slot.get_equipment())
+	_show_equipped_item_detail(slot.get_equipment(), slot)
 
 
 ## 刷新页内格子的选中态，确保翻页、筛选切换或服务端回包后高亮状态仍然正确。
@@ -403,21 +461,11 @@ func _ensure_detail_overlay() -> void:
 	_detail_dim.gui_input.connect(_on_detail_dim_gui_input)
 	_detail_overlay.add_child(_detail_dim)
 
-	var detail_center: CenterContainer = CenterContainer.new()
-	detail_center.name = "DetailCenter"
-	detail_center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	detail_center.offset_left = 0.0
-	detail_center.offset_top = 0.0
-	detail_center.offset_right = 0.0
-	detail_center.offset_bottom = 0.0
-	detail_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_detail_overlay.add_child(detail_center)
-
 	_detail_panel = BAG_ITEM_DETAIL_SCENE.instantiate() as BagItemDetail
 	if _detail_panel == null:
 		return
 	_detail_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	detail_center.add_child(_detail_panel)
+	_detail_overlay.add_child(_detail_panel)
 	if not _detail_panel.action_requested.is_connected(_on_item_action_requested):
 		_detail_panel.action_requested.connect(_on_item_action_requested)
 
@@ -433,35 +481,38 @@ func _on_detail_dim_gui_input(event: InputEvent) -> void:
 	_hide_detail_popup()
 
 
-## 显示当前选中物品详情，并把弹层尽量放在背包面板中心附近，适配移动端单手操作。
-func _show_item_detail(item: Dictionary) -> void:
+## 显示当前选中物品详情，并根据点击格子动态定位到按钮上方。
+func _show_item_detail(item: Dictionary, anchor: Control = null) -> void:
 	if item.is_empty():
 		return
 	_selected_equip_slot_key = ""
 	_ensure_detail_overlay()
 	if _detail_overlay == null or _detail_panel == null:
 		return
+	_detail_anchor = anchor
 	_detail_panel.set_item(item)
-	_open_detail_popup()
+	_open_detail_popup(anchor)
 
 
-## 显示已穿戴装备详情，并提供卸下/分享操作入口。
-func _show_equipped_item_detail(item: Dictionary) -> void:
+## 显示已穿戴装备详情，并根据点击装备槽动态定位到按钮上方。
+func _show_equipped_item_detail(item: Dictionary, anchor: Control = null) -> void:
 	if item.is_empty():
 		return
 	_ensure_detail_overlay()
 	if _detail_overlay == null or _detail_panel == null:
 		return
+	_detail_anchor = anchor
 	_detail_panel.set_equipped_item(item)
-	_open_detail_popup()
+	_open_detail_popup(anchor)
 
 
-## 打开详情 overlay 并置于当前面板最顶层。
-func _open_detail_popup() -> void:
+## 打开详情 overlay 并置于当前面板最顶层，随后按锚点控件计算面板位置。
+func _open_detail_popup(anchor: Control = null) -> void:
 	if _detail_overlay == null:
 		return
 	_detail_overlay.show()
 	move_child(_detail_overlay, get_child_count() - 1)
+	call_deferred("_apply_detail_panel_position", anchor)
 
 
 ## 关闭详情 overlay 并清空当前选中物品，避免旧高亮残留到下一次交互。
@@ -470,6 +521,7 @@ func _hide_detail_popup() -> void:
 		_detail_overlay.hide()
 	if _detail_panel != null:
 		_detail_panel.clear_item()
+	_detail_anchor = null
 	_selected_item.clear()
 	_selected_slot_index = 0
 	_selected_equip_slot_key = ""
@@ -499,6 +551,66 @@ func _find_equipped_item_by_slot(slot_key: String) -> Dictionary:
 		if str(item.get("equip_slot", "")) == slot_key:
 			return item.duplicate(true)
 	return {}
+
+
+## 在当前页格子列表中查找与 slot_index 对应的 BagSlot，供详情面板定位。
+func _find_visible_slot_by_index(slot_index: int) -> BagSlot:
+	if slot_index <= 0:
+		return null
+	var page_items: Array = _collect_bag_items()
+	for index: int in range(_slots.size()):
+		if index >= page_items.size():
+			continue
+		var item_variant: Variant = page_items[index]
+		if item_variant is not Dictionary:
+			continue
+		var item: Dictionary = item_variant as Dictionary
+		if BagUiMapper.slot_index(item) == slot_index:
+			return _slots[index]
+	return null
+
+
+## 根据锚点在 overlay 中的横向位置，判断详情面板应出现在右上方 / 正上方 / 左上方。
+func _resolve_detail_anchor_zone(anchor: Control) -> DetailAnchorZone:
+	if anchor == null or _detail_overlay == null:
+		return DetailAnchorZone.CENTER
+	var overlay_rect: Rect2 = _detail_overlay.get_global_rect()
+	var anchor_rect: Rect2 = anchor.get_global_rect()
+	var anchor_center_x: float = anchor_rect.position.x + anchor_rect.size.x * 0.5
+	var relative_x: float = (anchor_center_x - overlay_rect.position.x) / maxf(overlay_rect.size.x, 1.0)
+	if relative_x <= DETAIL_ZONE_LEFT_THRESHOLD:
+		return DetailAnchorZone.LEFT
+	if relative_x >= DETAIL_ZONE_RIGHT_THRESHOLD:
+		return DetailAnchorZone.RIGHT
+	return DetailAnchorZone.CENTER
+
+
+## 将详情面板定位到锚点上方：左侧格子偏右、中间居中、右侧格子偏左，且不遮挡锚点。
+func _apply_detail_panel_position(anchor: Control) -> void:
+	if _detail_panel == null or _detail_overlay == null or not _detail_overlay.visible:
+		return
+	var panel_size: Vector2 = _detail_panel.size
+	if panel_size.x <= 0.0 or panel_size.y <= 0.0:
+		panel_size = _detail_panel.get_combined_minimum_size()
+	if panel_size.x <= 0.0 or panel_size.y <= 0.0:
+		return
+	var bounds_rect: Rect2 = _detail_overlay.get_global_rect()
+	var global_x: float = bounds_rect.position.x + (bounds_rect.size.x - panel_size.x) * 0.5
+	var global_y: float = bounds_rect.position.y + (bounds_rect.size.y - panel_size.y) * 0.5
+	if anchor != null and anchor.is_inside_tree():
+		var anchor_rect: Rect2 = anchor.get_global_rect()
+		var anchor_center_x: float = anchor_rect.position.x + anchor_rect.size.x * 0.5
+		global_y = anchor_rect.position.y - panel_size.y - DETAIL_ANCHOR_GAP_Y
+		match _resolve_detail_anchor_zone(anchor):
+			DetailAnchorZone.LEFT:
+				global_x = anchor_center_x
+			DetailAnchorZone.CENTER:
+				global_x = anchor_center_x - panel_size.x * 0.5
+			DetailAnchorZone.RIGHT:
+				global_x = anchor_center_x - panel_size.x
+	global_x = clampf(global_x, bounds_rect.position.x, bounds_rect.position.x + bounds_rect.size.x - panel_size.x)
+	global_y = clampf(global_y, bounds_rect.position.y, bounds_rect.position.y + bounds_rect.size.y - panel_size.y)
+	_detail_panel.global_position = Vector2(global_x, global_y)
 
 
 ## 同步底部三个分类按钮的按下状态：左边全部、中间装备、右边其他。
@@ -532,6 +644,8 @@ func _on_item_action_requested(action_key: String, item: Dictionary) -> void:
 			App.notice_received.emit("给人功能尚未接入新版背包。")
 		"share":
 			App.notice_received.emit("分享功能尚未接入新版背包。")
+		"enhance":
+			_open_enhance_popup(item)
 		_:
 			App.notice_received.emit("该操作尚未接入新版背包服务端链路。")
 
@@ -561,6 +675,320 @@ func _execute_primary_item_action(item: Dictionary) -> void:
 	if BagUiMapper.is_equipment(item):
 		App.request_player_equip(slot_index, "bag")
 		App.notice_received.emit("已发送装备请求，请等待服务端返回最新装备数据。")
-	else:
-		App.request_use_item("bag", slot_index, 1)
+		_hide_detail_popup()
+		return
+	if BagUiMapper.is_box_item(item):
+		_execute_box_open_action(item)
+		return
+	App.request_use_item("bag", slot_index, 1)
 	_hide_detail_popup()
+
+
+## 礼包类物品：先关详情，再播 3 秒打开进度，最后展示服务端奖励弹窗。
+func _execute_box_open_action(item: Dictionary) -> void:
+	if _box_open_in_flight:
+		return
+	var slot_index: int = BagUiMapper.slot_index(item)
+	if slot_index <= 0:
+		App.notice_received.emit("物品格子编号无效，暂时无法操作。")
+		return
+	_hide_detail_popup()
+	await _ensure_runtime_popup_ui_ready()
+	_defer_bag_visual_refresh = true
+	_box_open_in_flight = true
+	_box_open_presentation_id += 1
+	var presentation_id: int = _box_open_presentation_id
+	_run_box_open_presentation(slot_index, presentation_id)
+
+
+## 懒创建装备强化弹窗，并绑定强化请求信号。
+func _ensure_enhance_popup() -> void:
+	if _enhance_popup != null:
+		return
+	_enhance_popup = EQUIPMENT_ENHANCE_POPUP_SCENE.instantiate() as EquipmentEnhancePopup
+	if _enhance_popup == null:
+		return
+	add_child(_enhance_popup)
+	if not _enhance_popup.enhance_requested.is_connected(_on_enhance_popup_requested):
+		_enhance_popup.enhance_requested.connect(_on_enhance_popup_requested)
+	if not _enhance_popup.enhance_presentation_finished.is_connected(_on_enhance_presentation_finished):
+		_enhance_popup.enhance_presentation_finished.connect(_on_enhance_presentation_finished)
+	if not _enhance_popup.popup_closed.is_connected(_on_enhance_popup_closed):
+		_enhance_popup.popup_closed.connect(_on_enhance_popup_closed)
+
+
+## 关闭详情后打开强化弹窗；优先使用背包快照里带 enhance_preview 的最新物品数据。
+func _open_enhance_popup(item: Dictionary) -> void:
+	if item.is_empty() or not BagUiMapper.is_equipment(item):
+		App.notice_received.emit("仅背包装备可强化。")
+		return
+	var item_uid: String = str(item.get("item_uid", "")).strip_edges()
+	if not item_uid.is_empty():
+		var refreshed_item: Dictionary = _find_bag_item_by_uid(item_uid)
+		if not refreshed_item.is_empty():
+			item = refreshed_item
+	_hide_detail_popup()
+	_ensure_enhance_popup()
+	if _enhance_popup == null:
+		return
+	_enhance_target_item_uid = str(item.get("item_uid", ""))
+	_enhance_popup.show_equipment(item)
+
+
+## 关闭强化弹窗并清理监听。
+func _hide_enhance_popup() -> void:
+	_disconnect_enhance_request_handler()
+	_enhance_target_item_uid = ""
+	if _enhance_popup != null and _enhance_popup.visible:
+		_enhance_popup.force_close_popup()
+
+
+## 强化演出结束后同步背包最新快照到弹窗。
+func _on_enhance_presentation_finished() -> void:
+	_refresh_enhance_popup_if_open()
+
+
+## 用户点击空白区域关闭强化弹窗时，同步清理本地追踪状态。
+func _on_enhance_popup_closed() -> void:
+	_disconnect_enhance_request_handler()
+	_enhance_target_item_uid = ""
+
+
+## 背包刷新后，若强化弹窗仍打开则同步最新物品快照。
+func _refresh_enhance_popup_if_open() -> void:
+	if _enhance_popup == null or not _enhance_popup.visible:
+		return
+	if _enhance_target_item_uid.is_empty():
+		return
+	var refreshed_item: Dictionary = _find_bag_item_by_uid(_enhance_target_item_uid)
+	if refreshed_item.is_empty():
+		_hide_enhance_popup()
+		return
+	_enhance_popup.refresh_current_item(refreshed_item)
+
+
+## 按 item_uid 在当前背包快照中查找物品。
+func _find_bag_item_by_uid(item_uid: String) -> Dictionary:
+	var normalized_uid: String = item_uid.strip_edges()
+	if normalized_uid.is_empty():
+		return {}
+	for item_variant: Variant in GameState.bag_items:
+		if item_variant is not Dictionary:
+			continue
+		var item: Dictionary = item_variant as Dictionary
+		if str(item.get("item_uid", "")) == normalized_uid:
+			return item.duplicate(true)
+	return {}
+
+
+## 处理强化弹窗内的强化按钮。
+func _on_enhance_popup_requested(item: Dictionary, _times: int, _continuous: bool, cost_item_id: int) -> void:
+	var item_uid: String = str(item.get("item_uid", "")).strip_edges()
+	if item_uid.is_empty():
+		App.notice_received.emit("装备实例缺失，无法强化。")
+		if _enhance_popup != null:
+			_enhance_popup.notify_enhance_response(false, false)
+			_refresh_enhance_popup_if_open()
+		return
+	_enhance_target_item_uid = item_uid
+	_connect_enhance_request_handler()
+	var request_seq: int = App.request_player_equipment_enhance(item_uid, cost_item_id)
+	if request_seq <= 0:
+		_disconnect_enhance_request_handler()
+		if _enhance_popup != null:
+			_enhance_popup.notify_enhance_response(false, false)
+			_refresh_enhance_popup_if_open()
+		App.notice_received.emit("强化请求发送失败，请稍后再试。")
+		return
+
+
+## 绑定强化回包监听。
+func _connect_enhance_request_handler() -> void:
+	_disconnect_enhance_request_handler()
+	_enhance_request_handler = Callable(self, "_handle_enhance_request_finished")
+	App.request_finished.connect(_enhance_request_handler)
+
+
+## 断开强化回包监听。
+func _disconnect_enhance_request_handler() -> void:
+	if _enhance_request_handler.is_valid() and App.request_finished.is_connected(_enhance_request_handler):
+		App.request_finished.disconnect(_enhance_request_handler)
+	_enhance_request_handler = Callable()
+
+
+## 处理强化回包并提示结果；背包快照刷新后会自动回写弹窗。
+func _handle_enhance_request_finished(
+	request_cmd: int,
+	_seq: int,
+	ok: bool,
+	_response_cmd: int,
+	payload: Dictionary
+) -> void:
+	if request_cmd != CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ:
+		return
+	if _enhance_popup != null and _enhance_popup.is_enhance_presentation_active():
+		var enhance_success: bool = ok and bool(payload.get("success", false))
+		_enhance_popup.notify_enhance_response(ok, enhance_success)
+	_refresh_enhance_popup_if_open()
+	if not ok:
+		var error_message: String = str(payload.get("msg", payload.get("message", "强化请求失败。")))
+		if error_message.is_empty():
+			error_message = "强化请求失败。"
+		if _enhance_popup == null or not _enhance_popup.is_enhance_presentation_active():
+			App.notice_received.emit(error_message)
+		return
+	if _enhance_popup == null or not _enhance_popup.is_enhance_presentation_active():
+		if bool(payload.get("success", false)):
+			var new_level: int = int(payload.get("new_level", 0))
+			App.notice_received.emit("强化成功，当前等级 +%s。" % UiFormat.value_to_text(new_level))
+		else:
+			App.notice_received.emit("强化失败，材料已消耗。")
+
+
+## 懒创建通用进度遮罩与奖励弹窗，并等待 ready。
+func _ensure_runtime_popup_ui_ready() -> void:
+	_ensure_runtime_popup_ui()
+	if _progress_overlay != null and not _progress_overlay.is_node_ready():
+		await _progress_overlay.ready
+	if _reward_popup != null and not _reward_popup.is_node_ready():
+		await _reward_popup.ready
+
+
+## 懒创建通用 UI 弹层，挂到背包面板下统一管理。
+func _ensure_runtime_popup_ui() -> void:
+	if _progress_overlay == null:
+		_progress_overlay = RUNTIME_PROGRESS_OVERLAY_SCENE.instantiate() as RuntimeProgressOverlay
+		if _progress_overlay != null:
+			add_child(_progress_overlay)
+	if _reward_popup == null:
+		_reward_popup = REWARD_POPUP_SCENE.instantiate() as RewardPopup
+		if _reward_popup != null:
+			add_child(_reward_popup)
+
+
+## 先监听回包再发 USE_ITEM，再播进度条；两者都完成后再弹奖励窗。
+func _run_box_open_presentation(slot_index: int, presentation_id: int) -> void:
+	_box_open_response_ready = false
+	_box_open_response_ok = false
+	_box_open_response_payload = {}
+	_box_open_request_seq = 0
+	_connect_box_open_request_handler()
+	var request_seq: int = App.request_use_item("bag", slot_index, 1)
+	if request_seq <= 0:
+		_disconnect_box_open_request_handler()
+		_box_open_in_flight = false
+		_end_box_open_deferred_refresh(true)
+		App.notice_received.emit("打开请求发送失败，请稍后再试。")
+		return
+	if not _box_open_response_ready:
+		_box_open_request_seq = request_seq
+	if _progress_overlay != null:
+		await _progress_overlay.play_progress(BOX_OPEN_PROGRESS_DURATION_SEC, BOX_OPEN_PROGRESS_STATUS_TEXT)
+	var waited_frames: int = 0
+	while not _box_open_response_ready and waited_frames < BOX_OPEN_RESPONSE_TIMEOUT_FRAMES:
+		await get_tree().process_frame
+		waited_frames += 1
+	_disconnect_box_open_request_handler()
+	if presentation_id != _box_open_presentation_id:
+		return
+	if not _box_open_response_ready:
+		_finish_box_open_presentation(false, {"msg": "打开超时，请稍后再试。"})
+		return
+	_finish_box_open_presentation(_box_open_response_ok, _box_open_response_payload)
+
+
+## 绑定当前礼包 USE_ITEM 回包监听。
+func _connect_box_open_request_handler() -> void:
+	_disconnect_box_open_request_handler()
+	_box_open_request_handler = Callable(self, "_handle_box_open_request_finished")
+	App.request_finished.connect(_box_open_request_handler)
+
+
+## 断开礼包 USE_ITEM 回包监听。
+func _disconnect_box_open_request_handler() -> void:
+	if _box_open_request_handler.is_valid() and App.request_finished.is_connected(_box_open_request_handler):
+		App.request_finished.disconnect(_box_open_request_handler)
+	_box_open_request_handler = Callable()
+
+
+## 处理礼包 USE_ITEM 回包，仅匹配当前 seq。
+func _handle_box_open_request_finished(
+	request_cmd: int,
+	seq: int,
+	ok: bool,
+	_response_cmd: int,
+	payload: Dictionary
+) -> void:
+	if request_cmd != CommandIds.USE_ITEM_REQ or not _box_open_in_flight:
+		return
+	if _box_open_response_ready:
+		return
+	if _box_open_request_seq > 0 and seq != _box_open_request_seq:
+		return
+	_box_open_request_seq = seq
+	_box_open_response_ready = true
+	_box_open_response_ok = ok
+	_box_open_response_payload = payload
+
+
+## 结束礼包打开演出：隐藏进度层，成功时弹出奖励，失败时提示错误。
+func _finish_box_open_presentation(response_ok: bool, response_payload: Dictionary) -> void:
+	_box_open_in_flight = false
+	_box_open_request_seq = 0
+	if _progress_overlay != null:
+		_progress_overlay.hide_progress()
+	if not response_ok:
+		var error_message: String = str(
+			response_payload.get("msg", response_payload.get("message", "打开失败，请稍后再试。"))
+		)
+		if error_message.is_empty():
+			error_message = "打开失败，请稍后再试。"
+		App.notice_received.emit(error_message)
+		_end_box_open_deferred_refresh(true)
+		return
+	var result_variant: Variant = response_payload.get("result", {})
+	var result: Dictionary = result_variant if result_variant is Dictionary else {}
+	var rewards_variant: Variant = result.get("rewards", [])
+	var rewards: Array = rewards_variant if rewards_variant is Array else []
+	_show_box_reward_and_refresh_when_closed(rewards)
+
+
+## 展示礼包成功弹窗，并在玩家关闭弹窗后再刷新背包列表。
+func _show_box_reward_and_refresh_when_closed(rewards: Array) -> void:
+	if _reward_popup == null:
+		_end_box_open_deferred_refresh(true)
+		return
+	_reward_popup.show_rewards("", rewards, [])
+	if not _reward_popup.visible:
+		_end_box_open_deferred_refresh(true)
+		return
+	await _reward_popup.popup_closed
+	_end_box_open_deferred_refresh(true)
+
+
+## 结束礼包演出的背包 UI 暂缓刷新；force_refresh 为 true 时立即重绘当前页。
+func _end_box_open_deferred_refresh(force_refresh: bool) -> void:
+	_defer_bag_visual_refresh = false
+	if force_refresh and visible:
+		_refresh_panel()
+
+
+## 强制关闭奖励弹窗（例如玩家直接关背包时）。
+func _force_close_reward_popup() -> void:
+	if _reward_popup == null or not _reward_popup.visible:
+		return
+	_reward_popup.force_close_popup()
+
+
+## 取消进行中的礼包打开演出（例如关闭背包时）。
+func _cancel_box_open_presentation() -> void:
+	if not _box_open_in_flight and not _defer_bag_visual_refresh:
+		return
+	_box_open_presentation_id += 1
+	_box_open_in_flight = false
+	_box_open_request_seq = 0
+	_disconnect_box_open_request_handler()
+	if _progress_overlay != null:
+		_progress_overlay.hide_progress()
+	if _defer_bag_visual_refresh:
+		_end_box_open_deferred_refresh(true)

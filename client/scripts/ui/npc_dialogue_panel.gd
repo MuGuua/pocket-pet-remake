@@ -30,7 +30,7 @@ const _SPEAKER_ICON_SIZE: int = 28
 @onready var _content_label: RichTextLabel = $Root/DialogueVBox/Panel/Margin/Layout/ContentLabel
 @onready var _item_mention_container: HBoxContainer = $Root/DialogueVBox/Panel/Margin/Layout/ItemMentionContainer
 @onready var _options_container: VBoxContainer = $Root/DialogueVBox/Panel/Margin/Layout/OptionsContainer
-@onready var _continue_button: Button = $Root/DialogueVBox/Panel/Margin/Layout/ContinueButton
+@onready var _continue_button: RuntimeActionButton = $Root/DialogueVBox/Panel/Margin/Layout/ContinueButton
 @onready var _status_label: Label = $Root/DialogueVBox/Panel/Margin/Layout/StatusLabel
 
 ## 当前剧情节点 ID，供按钮回调原样带回服务端做权威校验。
@@ -61,9 +61,10 @@ var _item_atlas_texture: Texture2D = null
 ## 绑定按钮与点击区域，并在启动时保持隐藏。
 func _ready() -> void:
 	if _continue_button != null:
-		DialogueActionButtonTheme.apply(_continue_button, false)
+		_continue_button.set_button_label("继续")
 		_continue_button.visible = false
-		_continue_button.pressed.connect(_on_continue_button_pressed)
+		if not _continue_button.pressed.is_connected(_on_continue_button_pressed):
+			_continue_button.pressed.connect(_on_continue_button_pressed)
 	if _dim_layer != null:
 		_dim_layer.gui_input.connect(_on_advance_gui_input)
 	if _panel != null:

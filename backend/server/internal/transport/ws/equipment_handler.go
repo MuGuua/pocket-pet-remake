@@ -119,7 +119,7 @@ func (h *EquipmentHandler) HandleEnhance(conn packetSender, packet *protocol.Pac
 	if h.equipmentService == nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "equipment service unavailable")
 	}
-	result, err := h.equipmentService.EnhanceInstance(context.Background(), sess.PlayerID, request.ItemUID)
+	result, err := h.equipmentService.EnhanceInstance(context.Background(), sess.PlayerID, request.ItemUID, request.CostItemID)
 	if err != nil {
 		return mapEquipmentEnhanceError(conn, packet.Seq, err)
 	}
@@ -136,7 +136,13 @@ func (h *EquipmentHandler) HandleEnhance(conn packetSender, packet *protocol.Pac
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(responsePacket)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	if result.Wallet != nil {
+		_ = pushWalletUpdatePacket(conn, *result.Wallet, "player_equipment_enhance", 0)
+	}
+	return nil
 }
 
 func mapEquipmentEnhanceError(conn packetSender, seq uint32, err error) error {
@@ -151,6 +157,10 @@ func mapEquipmentEnhanceError(conn packetSender, seq uint32, err error) error {
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment enhance level max")
 	case errors.Is(err, equipment.ErrEquipmentEnhanceMaterialInsufficient):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "insufficient enhance materials")
+	case errors.Is(err, equipment.ErrEquipmentEnhanceWalletInsufficient):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "insufficient wallet balance for enhance")
+	case errors.Is(err, equipment.ErrEquipmentEnhanceMaterialInvalid):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "invalid enhance material item")
 	case errors.Is(err, equipment.ErrEquipmentEnhanceConfigMissing):
 		return sendError(conn, seq, errcode.WSCodeInteractFailed, "enhance config missing")
 	case errors.Is(err, player.ErrPlayerNotFound):
@@ -210,34 +220,13 @@ func toProtocolEquippedItem(item equipment.RuntimeEquippedItem) protocol.PlayerE
 		ItemUID:          item.ItemUID,
 		ItemID:           item.ItemID,
 		ItemName:         item.ItemName,
+		Icon:             item.Icon,
+		RequiredLevel:    item.RequiredLevel,
 		EnhanceLevel:     item.EnhanceLevel,
 		AppearanceSkinID: item.AppearanceSkinID,
 		AppearanceOnly:   item.AppearanceOnly,
-		Bonus: protocol.PlayerEquipmentBonusSnapshot{
-			HPMax:                    item.Bonus.HPMax,
-			MANA:                     item.Bonus.MANA,
-			ATK:                      item.Bonus.ATK,
-			DEF:                      item.Bonus.DEF,
-			SPD:                      item.Bonus.SPD,
-			Spirit:                   item.Bonus.Spirit,
-			SpiritMax:                item.Bonus.SpiritMax,
-			HitPct:                   item.Bonus.HitPct,
-			DodgePct:                 item.Bonus.DodgePct,
-			CritRatePct:              item.Bonus.CritRatePct,
-			CritDmgPct:               item.Bonus.CritDmgPct,
-			PhysicalResistPct:        item.Bonus.PhysicalResistPct,
-			ReversePhysicalResistPct: item.Bonus.ReversePhysicalResistPct,
-			SkillResistPct:           item.Bonus.SkillResistPct,
-			ReverseSkillResistPct:    item.Bonus.ReverseSkillResistPct,
-			ConfusionResistPct:       item.Bonus.ConfusionResistPct,
-			SleepResistPct:           item.Bonus.SleepResistPct,
-			ParalysisResistPct:       item.Bonus.ParalysisResistPct,
-			SealResistPct:            item.Bonus.SealResistPct,
-			CurseResistPct:           item.Bonus.CurseResistPct,
-			CritDmgResistPct:         item.Bonus.CritDmgResistPct,
-			CritResistPct:            item.Bonus.CritResistPct,
-			CharacterResistPct:       item.Bonus.CharacterResistPct,
-			PetResistPct:             item.Bonus.PetResistPct,
-		},
+		Description:           item.Description,
+		DescriptionMentions:     toProtocolDescriptionMentions(item.DescriptionMentions),
+		Bonus:                 toProtocolEquipmentBonusFromAggregate(item.Bonus),
 	}
 }

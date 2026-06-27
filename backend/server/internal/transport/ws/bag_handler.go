@@ -22,9 +22,10 @@ import (
 const (
 	defaultBagListPage     uint32 = 1
 	defaultBagListPageSize uint32 = 28
-	bagListCategoryAll     string = "all"
-	bagListCategoryEquip   string = "equipment"
-	bagListCategoryOther   string = "other"
+	bagListCategoryAll             string = "all"
+	bagListCategoryEquip           string = "equipment"
+	bagListCategoryOther           string = "other"
+	bagListCategoryEnhanceMaterial string = "enhance_material"
 )
 
 // BagHandler 负责玩家端背包、仓库与钱包查询协议。
@@ -236,6 +237,8 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "item has no effect on current target", err)
 		case errors.Is(err, bag.ErrContainerCapacityLimit):
 			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "target container capacity already reached limit", err)
+		case errors.Is(err, bag.ErrUseItemTooFast):
+			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "use item too fast", err)
 		default:
 			return sendError(conn, packet.Seq, errcode.WSCodeBagListFailed, "use item failed", err)
 		}
@@ -378,11 +381,12 @@ func toProtocolUseItemRewards(values []bag.RuntimeRewardItem) []protocol.QuestRe
 	result := make([]protocol.QuestReward, 0, len(values))
 	for _, value := range values {
 		result = append(result, protocol.QuestReward{
-			Type:   value.Type,
-			Value:  value.Value,
-			ItemID: value.ItemID,
-			Count:  value.Count,
-			PetID:  value.PetID,
+			Type:     value.Type,
+			Value:    value.Value,
+			ItemID:   value.ItemID,
+			ItemName: value.ItemName,
+			Count:    value.Count,
+			PetID:    value.PetID,
 		})
 	}
 	return result
@@ -578,22 +582,7 @@ func toProtocolContainerSnapshot(
 ) protocol.ContainerSnapshot {
 	items := make([]protocol.ContainerItemSnapshot, 0, len(snapshot.Items))
 	for _, itemValue := range snapshot.Items {
-		items = append(items, protocol.ContainerItemSnapshot{
-			SlotIndex:    itemValue.SlotIndex,
-			ItemID:       itemValue.ItemID,
-			ItemUID:      itemValue.ItemUID,
-			Quantity:     itemValue.Quantity,
-			IsBound:      itemValue.IsBound,
-			ItemName:     itemValue.ItemName,
-			ItemType:     itemValue.ItemType,
-			ItemSubType:  itemValue.ItemSubType,
-			Quality:      itemValue.Quality,
-			EnhanceLevel: itemValue.EnhanceLevel,
-			Usable:       itemValue.Usable,
-			TargetType:   itemValue.TargetType,
-			EffectType:   itemValue.EffectType,
-			EquipSlot:    itemValue.EquipSlot,
-		})
+		items = append(items, toProtocolContainerItemSnapshot(itemValue))
 	}
 	return protocol.ContainerSnapshot{
 		ContainerType: snapshot.ContainerType,
@@ -643,13 +632,15 @@ func normalizeBagListQuery(request protocol.BagListReq) (uint32, uint32, string)
 		category = bagListCategoryEquip
 	case bagListCategoryOther:
 		category = bagListCategoryOther
+	case bagListCategoryEnhanceMaterial:
+		category = bagListCategoryEnhanceMaterial
 	default:
 		category = bagListCategoryAll
 	}
 	return page, pageSize, category
 }
 
-// filterBagSnapshotItems 按背包分类筛选运行时物品列表；装备单独归类，其余统一归到“其他”。
+// filterBagSnapshotItems 按背包分类筛选运行时物品列表；装备单独归类，强化材料按 item_sub_type 过滤，其余统一归到“其他”。
 func filterBagSnapshotItems(items []bag.RuntimeItemSnapshot, category string) []bag.RuntimeItemSnapshot {
 	if category == bagListCategoryAll {
 		return append([]bag.RuntimeItemSnapshot{}, items...)
@@ -657,11 +648,16 @@ func filterBagSnapshotItems(items []bag.RuntimeItemSnapshot, category string) []
 	filtered := make([]bag.RuntimeItemSnapshot, 0, len(items))
 	for _, itemValue := range items {
 		isEquipment := strings.EqualFold(itemValue.ItemType, bagListCategoryEquip)
+		isEnhanceMaterial := strings.EqualFold(itemValue.ItemSubType, bag.ItemSubTypeEquipmentEnhance)
 		if category == bagListCategoryEquip && isEquipment {
 			filtered = append(filtered, itemValue)
 			continue
 		}
-		if category == bagListCategoryOther && !isEquipment {
+		if category == bagListCategoryEnhanceMaterial && isEnhanceMaterial {
+			filtered = append(filtered, itemValue)
+			continue
+		}
+		if category == bagListCategoryOther && !isEquipment && !isEnhanceMaterial {
 			filtered = append(filtered, itemValue)
 		}
 	}
@@ -822,19 +818,7 @@ func buildContainerUpdatePush(snapshot bag.RuntimeContainerSnapshot) protocol.Ba
 	updates := make([]protocol.BagSlotUpdate, 0, snapshot.Capacity)
 	occupiedBySlot := make(map[uint32]protocol.ContainerItemSnapshot, len(snapshot.Items))
 	for _, itemValue := range snapshot.Items {
-		occupiedBySlot[itemValue.SlotIndex] = protocol.ContainerItemSnapshot{
-			SlotIndex:    itemValue.SlotIndex,
-			ItemID:       itemValue.ItemID,
-			ItemUID:      itemValue.ItemUID,
-			Quantity:     itemValue.Quantity,
-			IsBound:      itemValue.IsBound,
-			ItemName:     itemValue.ItemName,
-			ItemType:     itemValue.ItemType,
-			ItemSubType:  itemValue.ItemSubType,
-			Quality:      itemValue.Quality,
-			EnhanceLevel: itemValue.EnhanceLevel,
-			EquipSlot:    itemValue.EquipSlot,
-		}
+		occupiedBySlot[itemValue.SlotIndex] = toProtocolContainerItemSnapshot(itemValue)
 	}
 	for slotIndex := uint32(1); slotIndex <= snapshot.Capacity; slotIndex++ {
 		itemSnapshot, ok := occupiedBySlot[slotIndex]

@@ -1,10 +1,11 @@
-[gd_scene format=3 uid="uid://bxake1bqap641"]
+[gd_scene format=3 uid="uid://4xpt4qdylxy4"]
 
-[ext_resource type="Script" uid="uid://dxb12ixipi3f4" path="res://scripts/ui/reward_popup.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/reward_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 
 [node name="RewardPopup" type="CanvasLayer" unique_id=1202063431]
 layer = 130
+visible = false
 script = ExtResource("1_script")
 
 [node name="DimLayer" type="ColorRect" parent="." unique_id=2112413293]

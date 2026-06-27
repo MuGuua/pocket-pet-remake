@@ -224,13 +224,16 @@ func request_player_unequip(equip_slot: String, container_type: String = "bag") 
 		}
 	)
 
-# 强化指定 item_uid 的人物装备实例。
-func request_player_equipment_enhance(item_uid: String) -> int:
+# 强化指定 item_uid 的人物装备实例；cost_item_id 为玩家选中的强化材料。
+func request_player_equipment_enhance(item_uid: String, cost_item_id: int = 0) -> int:
+	var payload: Dictionary = {
+		"item_uid": item_uid,
+	}
+	if cost_item_id > 0:
+		payload["cost_item_id"] = cost_item_id
 	return _send_command(
 		CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ,
-		{
-			"item_uid": item_uid,
-		}
+		payload
 	)
 
 # 请求刷新当前玩家的背包摘要。

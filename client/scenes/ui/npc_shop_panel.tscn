@@ -4,6 +4,7 @@
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 
 [node name="NPCShopPanel" type="CanvasLayer"]
+visible = false
 layer = 25
 script = ExtResource("1_script")
 

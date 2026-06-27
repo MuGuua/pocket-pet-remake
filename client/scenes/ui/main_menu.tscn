@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/menu_frame.tscn" id="2_11on6"]
 
 [node name="MainMenu" type="CanvasLayer" unique_id=988296387]
+visible = false
 script = ExtResource("1_5rxl3")
 
 [node name="Root" type="Control" parent="." unique_id=1768600115]

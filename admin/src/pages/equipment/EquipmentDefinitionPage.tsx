@@ -21,6 +21,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { EquipmentEnhanceGoldCostEditor } from '../../components/EquipmentEnhanceGoldCostEditor';
 import { ITEM_QUALITY_OPTIONS, formatItemQualityLabel } from '../../constants/itemQuality';
 import {
   createAdminEquipmentDefinition,
@@ -42,6 +43,7 @@ import {
   EQUIPMENT_SLOT_OPTIONS,
   defaultAdminEquipmentCombatStats,
   defaultEquipmentValues,
+  defaultEquipmentEnhanceGoldCost,
   defaultMedicinePouchExtra,
 } from '../../types/equipmentDefinition';
 
@@ -600,7 +602,15 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
             <Form.Item name="rarity" hidden>
               <InputNumber min={1} />
             </Form.Item>
-            <Col span={24}><Form.Item label="介绍" name="desc"><Input.TextArea rows={2} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item
+                label="介绍"
+                name="desc"
+                extra="支持 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+              >
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            </Col>
             <Form.Item name="icon" hidden>
               <Input />
             </Form.Item>
@@ -672,6 +682,9 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
                   </Form.Item>
                 </Col>
               </Row>
+              <Divider plain>强化铜币消耗</Divider>
+              <EquipmentEnhanceGoldCostEditor />
+              <Divider plain>强化成长属性</Divider>
               <Form.Item name="enhance_entries" hidden>
                 <Input />
               </Form.Item>
@@ -783,6 +796,7 @@ function mapDetailToForm(detail: AdminEquipmentDetail): EquipmentFormValues {
     medicine_pouch: detail.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(detail),
     enhance_entries: buildEnhanceEntries(detail.enhance_per_level_stats ?? {}),
+    enhance_gold_cost: detail.enhance_gold_cost ?? defaultEquipmentEnhanceGoldCost(),
   };
 }
 
@@ -793,6 +807,7 @@ function mapPayloadToForm(payload: AdminUpsertEquipmentPayload): EquipmentFormVa
     medicine_pouch: payload.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(payload),
     enhance_entries: buildEnhanceEntries(payload.enhance_per_level_stats ?? {}),
+    enhance_gold_cost: payload.enhance_gold_cost ?? defaultEquipmentEnhanceGoldCost(),
   };
 }
 
@@ -829,6 +844,15 @@ function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayl
     base_spd: propertyValues.base_spd,
     combat_stats: propertyValues.combat_stats,
     enhance_per_level_stats: enhanceStats,
+    enhance_gold_cost: values.can_enhance
+      ? {
+          is_enabled: Boolean(values.enhance_gold_cost?.is_enabled),
+          base_copper: Number(values.enhance_gold_cost?.base_copper ?? 0),
+          increment_mode: values.enhance_gold_cost?.increment_mode === 'percent' ? 'percent' : 'fixed',
+          increment_fixed: Number(values.enhance_gold_cost?.increment_fixed ?? 0),
+          increment_percent: Number(values.enhance_gold_cost?.increment_percent ?? 0),
+        }
+      : defaultEquipmentEnhanceGoldCost(),
     socket_count: Number(values.socket_count ?? 0),
     allowed_gem_types: allowedGemTypes,
     medicine_pouch: values.equip_slot === 'medicine_pouch' ? (values.medicine_pouch ?? defaultMedicinePouchExtra()) : undefined,

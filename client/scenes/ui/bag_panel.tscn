@@ -1,18 +1,9 @@
 [gd_scene format=3 uid="uid://dem5p4nmph453"]
 
 [ext_resource type="Script" uid="uid://56pm2rr06oda" path="res://scripts/ui/bag/bag_panel.gd" id="1_bag_panel"]
+[ext_resource type="StyleBox" uid="uid://nqiohg85g7py" path="res://scenes/ui/bag/bag_bg.tres" id="2_fjtt8"]
 [ext_resource type="Texture2D" uid="uid://dh3nyffjbtnw5" path="res://asset/分类/ui/精灵-0006.png" id="2_xggsb"]
 [ext_resource type="PackedScene" uid="uid://fe1x56xjri4a" path="res://scenes/ui/null_equipment_slot.tscn" id="3_n3uqk"]
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_fjtt8"]
-atlas = SubResource("CompressedTexture2D_n3uqk")
-region = Rect2(387, 29, 176, 291)
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
-texture = SubResource("AtlasTexture_fjtt8")
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_wxjm4"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -64,7 +55,7 @@ offset_right = 165.0
 offset_bottom = 280.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
+theme_override_styles/panel = ExtResource("2_fjtt8")
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel" unique_id=1541716785]
 layout_mode = 2

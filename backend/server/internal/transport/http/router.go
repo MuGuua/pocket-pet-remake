@@ -42,6 +42,7 @@ func NewRouter(loginHandler *LoginHandler, adminHandlers AdminHandlers, wsHandle
 	mux.Handle("/api/admin/pet-combat-stat-caps/", adminHandlers.PetCombatStatCaps)
 	mux.Handle("/api/admin/equipment-definitions", adminHandlers.EquipmentDefinitions)
 	mux.Handle("/api/admin/equipment-definitions/", adminHandlers.EquipmentDefinitions)
+	mux.Handle("/api/admin/equipment-enhance-gold-cost-config", adminHandlers.EquipmentEnhanceGoldCost)
 	mux.Handle("/api/admin/dashboard/overview", adminHandlers.Dashboard)
 	mux.Handle("/ws", wsHandler)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {

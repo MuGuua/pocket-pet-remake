@@ -1,11 +1,18 @@
 package bag
 
-import "context"
+import (
+	"context"
+	"sync"
+	"time"
+)
 
 // Service 负责把后台背包管理请求收口到统一领域入口。
 // HTTP handler 只解析参数，默认值、空结果与存在性判断都在这里处理。
 type Service struct {
 	repo Repository
+	// useItemMu 与 useItemLast 共同限制同一玩家的主动使用物品频率，防止脚本高频刷用。
+	useItemMu   sync.Mutex
+	useItemLast map[uint64]time.Time
 }
 
 func NewService(repo Repository) *Service {
@@ -154,7 +161,28 @@ func (s *Service) UseRuntimeItem(ctx context.Context, playerID uint64, container
 	if err != nil {
 		return nil, err
 	}
+	if err := s.acquireRuntimeUseItemSlot(playerID); err != nil {
+		return nil, err
+	}
 	return s.repo.UseRuntimeItem(ctx, playerID, normalizedContainerType, slotIndex, quantity, targetPetUID, targetPlayerID)
+}
+
+// acquireRuntimeUseItemSlot 占用一次主动使用物品的时间片；同一玩家在冷却期内再次使用会返回 ErrUseItemTooFast。
+func (s *Service) acquireRuntimeUseItemSlot(playerID uint64) error {
+	if s == nil || playerID == 0 {
+		return ErrInvalidTransferQuantity
+	}
+	now := time.Now()
+	s.useItemMu.Lock()
+	defer s.useItemMu.Unlock()
+	if s.useItemLast == nil {
+		s.useItemLast = make(map[uint64]time.Time)
+	}
+	if lastUsed, exists := s.useItemLast[playerID]; exists && now.Sub(lastUsed) < RuntimeUseItemCooldown {
+		return ErrUseItemTooFast
+	}
+	s.useItemLast[playerID] = now
+	return nil
 }
 
 // ConsumeRuntimeItemStack 仅扣减背包格子数量，不触发道具使用效果；战斗捕捉等场景复用。

@@ -7,9 +7,7 @@ signal scene_transition_failed(reason: String)
 signal npc_interaction_requested(entity_id: int, npc_name: String)
 signal wild_encounter_responded(accepted: bool, reason: String)
 
-const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(360.0, 480.0)
-## 世界场景内部固定渲染分辨率。移动端外层只做整数倍放大，避免像素图被非整数比例重采样。
-const INTERNAL_RENDER_FRAME_SIZE: Vector2i = Vector2i(360, 480)
+const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(260.0, 480.0)
 const PORTAL_ACTIVATION_COOLDOWN_MS: int = 350
 const DEFAULT_GRID_TO_PIXELS: float = 24.0
 const WILD_ENCOUNTER_RATE_DENOMINATOR: int = 10000
@@ -335,6 +333,7 @@ func unmount_current_level() -> void:
 	level_to_free.queue_free()
 
 func _on_viewport_size_changed() -> void:
+	_sync_render_frame_size_from_shell()
 	_refresh_game_layout()
 
 func _on_game_viewport_gui_input(event: InputEvent) -> void:
@@ -400,35 +399,56 @@ func _request_auto_move_to_world(target_world_position: Vector2) -> void:
 	_show_click_destination_marker(_navigation_cell_to_world_position(target_cell))
 
 func _refresh_game_layout() -> void:
+	_sync_render_frame_size_from_shell()
 	_resize_game_viewport()
 	_layout_game_viewport_container()
 	_refresh_background_fill()
 	if map_loading_overlay != null:
 		map_loading_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+## 从 GameShell 同步当前可用渲染区域，保证 SubViewport 宽度与视口一致。
+func _sync_render_frame_size_from_shell() -> void:
+	if game_shell == null:
+		return
+	var shell_size: Vector2 = game_shell.size.floor()
+	if shell_size.x <= 0.0 or shell_size.y <= 0.0:
+		return
+	if shell_size == _render_frame_size.floor():
+		return
+	_render_frame_size = shell_size
+
+## 解析世界 SubViewport 内部渲染尺寸：宽度跟随当前视口，高度与视口保持一致。
+func _resolve_internal_render_frame_size() -> Vector2i:
+	var frame_size: Vector2 = _render_frame_size.floor()
+	if frame_size.x <= 0.0 or frame_size.y <= 0.0:
+		frame_size = DEFAULT_RENDER_FRAME_SIZE
+	return Vector2i(maxi(1, int(frame_size.x)), maxi(1, int(frame_size.y)))
+
 func _resize_game_viewport() -> void:
 	if game_viewport == null:
 		return
-	# 世界始终先按固定低分辨率渲染，再交给外层做整数倍放大，保证像素边缘稳定。
-	if game_viewport.size == INTERNAL_RENDER_FRAME_SIZE:
+	var target_size: Vector2i = _resolve_internal_render_frame_size()
+	# 世界先按当前视口尺寸渲染，再交给外层做整数倍放大，保证像素边缘稳定。
+	if game_viewport.size == target_size:
 		return
-	game_viewport.size = INTERNAL_RENDER_FRAME_SIZE
+	game_viewport.size = target_size
 
 ## 根据当前可用区域，把 SubViewportContainer 以整数倍居中显示，避免 1.3x / 1.87x 这类非整数缩放带来的发糊。
 func _layout_game_viewport_container() -> void:
 	if game_viewport_container == null:
 		return
 
+	var internal_frame_size: Vector2i = _resolve_internal_render_frame_size()
 	var available_size: Vector2 = game_shell.size if game_shell != null else Vector2.ZERO
 	if available_size.x <= 0.0 or available_size.y <= 0.0:
-		available_size = _render_frame_size
+		available_size = Vector2(float(internal_frame_size.x), float(internal_frame_size.y))
 
-	var scale_x: float = available_size.x / float(INTERNAL_RENDER_FRAME_SIZE.x)
-	var scale_y: float = available_size.y / float(INTERNAL_RENDER_FRAME_SIZE.y)
+	var scale_x: float = available_size.x / float(internal_frame_size.x)
+	var scale_y: float = available_size.y / float(internal_frame_size.y)
 	var integer_scale: int = maxi(1, int(floor(minf(scale_x, scale_y))))
 	var target_size: Vector2 = Vector2(
-		float(INTERNAL_RENDER_FRAME_SIZE.x * integer_scale),
-		float(INTERNAL_RENDER_FRAME_SIZE.y * integer_scale)
+		float(internal_frame_size.x * integer_scale),
+		float(internal_frame_size.y * integer_scale)
 	)
 	var target_position: Vector2 = ((available_size - target_size) * 0.5).floor()
 

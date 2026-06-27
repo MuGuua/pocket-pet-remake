@@ -175,11 +175,25 @@ func (s *Service) UnequipSlot(ctx context.Context, playerID uint64, equipSlot st
 }
 
 // EnhanceInstance 消耗材料并尝试强化指定装备实例；仅允许未佩戴且位于背包中的实例。
-func (s *Service) EnhanceInstance(ctx context.Context, playerID uint64, itemUID string) (*EnhanceResult, error) {
+func (s *Service) EnhanceInstance(ctx context.Context, playerID uint64, itemUID string, costItemID uint64) (*EnhanceResult, error) {
 	if strings.TrimSpace(itemUID) == "" {
 		return nil, ErrEquipmentNotFound
 	}
-	return s.repo.EnhanceInstance(ctx, playerID, itemUID)
+	return s.repo.EnhanceInstance(ctx, playerID, itemUID, costItemID)
+}
+
+// GetAdminEnhanceGoldCostConfig 返回强化铜币公式配置与 +1~+15 预览表。
+func (s *Service) GetAdminEnhanceGoldCostConfig(ctx context.Context) (*AdminEnhanceGoldCostConfigDetail, error) {
+	return s.repo.GetEnhanceGoldCostConfigForAdmin(ctx)
+}
+
+// UpdateAdminEnhanceGoldCostConfig 保存强化铜币公式配置。
+func (s *Service) UpdateAdminEnhanceGoldCostConfig(ctx context.Context, input AdminUpsertEnhanceGoldCostConfigInput) (*AdminEnhanceGoldCostConfigDetail, error) {
+	input = input.Normalize()
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+	return s.repo.UpsertEnhanceGoldCostConfigForAdmin(ctx, input)
 }
 
 func (s *Service) buildRecalcContext(ctx context.Context, playerID uint64) (RecalcContext, *player.Profile, error) {

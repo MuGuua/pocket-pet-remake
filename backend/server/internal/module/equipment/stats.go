@@ -18,6 +18,7 @@ type EquippedPieceTemplate struct {
 	BaseSPD              uint32
 	CombatStats          AdminCombatStats
 	EnhancePerLevelStats map[string]uint32
+	RequiredLevel        uint32
 	EnhanceLevel         uint32
 }
 
@@ -231,7 +232,14 @@ func resolveEquippedSkinID(templates []EquippedPieceTemplate, _ *player.Profile)
 }
 
 // ToRuntimeEquippedItem 把模板快照转为协议层已佩戴摘要。
-func ToRuntimeEquippedItem(template EquippedPieceTemplate, itemUID string, itemID uint64, itemName string, icon string) RuntimeEquippedItem {
+func ToRuntimeEquippedItem(
+	template EquippedPieceTemplate,
+	itemUID string,
+	itemID uint64,
+	itemName string,
+	icon string,
+	description string,
+) RuntimeEquippedItem {
 	return RuntimeEquippedItem{
 		EquipSlot:        string(template.EquipSlot),
 		EquipSlotLabel:   EquipSlotLabel(template.EquipSlot),
@@ -240,8 +248,10 @@ func ToRuntimeEquippedItem(template EquippedPieceTemplate, itemUID string, itemI
 		ItemName:         itemName,
 		Icon:             icon,
 		EnhanceLevel:     template.EnhanceLevel,
+		RequiredLevel:    template.RequiredLevel,
 		AppearanceSkinID: template.AppearanceSkinID,
 		AppearanceOnly:   template.AppearanceOnly,
+		Description:      description,
 		Bonus:            ComputePieceBonus(template),
 	}
 }

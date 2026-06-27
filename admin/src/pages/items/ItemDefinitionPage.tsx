@@ -3,6 +3,7 @@ import {
   Card,
   Col,
   Descriptions,
+  Divider,
   Drawer,
   Empty,
   Form,
@@ -20,14 +21,20 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { GiftBoxRewardEditor } from '../../components/GiftBoxRewardEditor';
 import { createAdminItem, deleteAdminItem, fetchAdminItemDetail, fetchAdminItems, updateAdminItem } from '../../services/item';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
-import { ITEM_QUALITY_OPTIONS, formatItemQualityLabel } from '../../constants/itemQuality';
-import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary, AdminUpsertItemPayload } from '../../types/item';
-import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, ITEM_SUB_TYPE_LABELS, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
+import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary } from '../../types/item';
+import { ITEM_USE_BEHAVIOR_OPTIONS, parseGiftBoxRewards, resolveItemUseBehavior, type GiftBoxRewardEntry } from '../../types/giftBoxReward';
+import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, ITEM_SUB_TYPE_LABELS, ITEM_TYPE_LABELS, MATERIAL_ITEM_SUB_TYPE_LABELS } from '../../utils/displayLabels';
+import {
+  formatGiftRewardSummary,
+  formatUseBehaviorLabel,
+  mapItemDetailToFormValues,
+  mapItemFormToPayload,
+  type ItemEditorFormValues,
+} from '../../utils/itemFormMapping';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
-
-interface ItemFormValues extends AdminUpsertItemPayload {}
 
 interface ItemDefinitionPageProps {
   excludeItemType?: string;
@@ -36,7 +43,9 @@ interface ItemDefinitionPageProps {
 // 物品模板页直接面向正式数据库模板，所有字段修改都会影响后续背包、掉落、商店和奖励链路。
 export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps) {
   const [filterForm] = Form.useForm<AdminItemListFilters>();
-  const [editorForm] = Form.useForm<ItemFormValues>();
+  const [editorForm] = Form.useForm<ItemEditorFormValues>();
+  const watchedItemType = Form.useWatch('item_type', editorForm);
+  const watchedUseBehavior = Form.useWatch('use_behavior', editorForm);
   const [filters, setFilters] = useState<AdminItemListFilters>({});
   const [rows, setRows] = useState<AdminItemSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -49,6 +58,12 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminItemDetail | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const isGiftBoxForm = watchedItemType === 'box';
+  const isMaterialForm = watchedItemType === 'material';
+  const showUseAmount = watchedUseBehavior === 'pet_hp_restore'
+    || watchedUseBehavior === 'bag_expand'
+    || watchedUseBehavior === 'warehouse_expand';
 
   useEffect(() => {
     void loadItems(filters, page, pageSize);
@@ -105,7 +120,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     try {
       const result = await fetchAdminItemDetail(itemID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(result);
+      editorForm.setFieldsValue(mapItemDetailToFormValues(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载物品编辑数据失败');
       setEditorOpen(false);
@@ -114,12 +129,15 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     }
   }
 
-  async function handleSubmit(values: ItemFormValues) {
+  async function handleSubmit(values: ItemEditorFormValues) {
     setSaving(true);
-    // disabled/hidden 自动字段不会稳定出现在 onFinish values 中，
-    // 这里统一回读完整表单状态，避免 item_id、item_code、rarity 丢失成非法请求体。
-    const fullValues = editorForm.getFieldsValue(true) as ItemFormValues;
+    const fullValues = editorForm.getFieldsValue(true) as ItemEditorFormValues;
     const payload = mapItemFormToPayload({ ...fullValues, ...values });
+    if (payload.item_type === 'box' && parseGiftBoxRewards(payload.effect_params_json).length === 0) {
+      message.error('礼包至少需要配置一条奖励内容');
+      setSaving(false);
+      return;
+    }
     try {
       if (editingRecord) {
         await updateAdminItem(editingRecord.item_id, payload);
@@ -152,8 +170,6 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     }
   }
 
-  // 新建普通物品模板时统一取当前最大 item_id，再自动生成下一个编号和编码，
-  // 这样运营不需要手填，也能避免和装备页或既有模板发生重复。
   async function loadNextItemID(): Promise<number> {
     try {
       const result = await fetchAdminItems({
@@ -171,20 +187,40 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     }
   }
 
+  const detailGiftRewards = useMemo(
+    () => (detail ? parseGiftBoxRewards(detail.effect_params_json) : []),
+    [detail],
+  );
+
+  const detailGiftRewardColumns = useMemo<ColumnsType<GiftBoxRewardEntry>>(
+    () => [
+      {
+        title: '类型',
+        dataIndex: 'type',
+        key: 'type',
+        width: 100,
+        render: (value: GiftBoxRewardEntry['type']) => (value === 'gold' ? '金币' : '物品'),
+      },
+      {
+        title: '内容',
+        key: 'content',
+        render: (_value, record) => {
+          if (record.type === 'gold') {
+            return `铜币 ${record.value ?? 0}`;
+          }
+          return `${record.item_name?.trim() || `物品ID ${record.item_id ?? 0}`} × ${record.count ?? 1}`;
+        },
+      },
+    ],
+    [],
+  );
+
   const columns = useMemo<ColumnsType<AdminItemSummary>>(
     () => [
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 110, fixed: 'left' },
       { title: '编码', dataIndex: 'item_code', key: 'item_code', width: 150 },
       { title: '名称', dataIndex: 'item_name', key: 'item_name', width: 160 },
       { title: '分类', dataIndex: 'item_type', key: 'item_type', width: 120, render: (value: string) => <Tag color="blue">{formatDisplayLabel(ITEM_TYPE_LABELS, value)}</Tag> },
-      { title: '子类', dataIndex: 'item_sub_type', key: 'item_sub_type', width: 120 },
-      {
-        title: '品质',
-        dataIndex: 'quality',
-        key: 'quality',
-        width: 90,
-        render: (value: number) => formatItemQualityLabel(value),
-      },
       { title: '堆叠上限', dataIndex: 'max_stack', key: 'max_stack', width: 110 },
       { title: '买价(铜)', dataIndex: 'buy_price_copper', key: 'buy_price_copper', width: 120 },
       { title: '卖价(铜)', dataIndex: 'sell_price_copper', key: 'sell_price_copper', width: 120 },
@@ -244,7 +280,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
           rowKey="item_id"
           loading={loading}
           locale={{ emptyText: <Empty description="当前筛选条件下没有模板数据" /> }}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1300 }}
           pagination={{
             current: page,
             pageSize,
@@ -263,28 +299,81 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
           </Typography.Text>
         ) : null}
       </Card>
-      <Drawer title={detail ? `物品详情 · ${detail.item_name}` : '物品详情'} width={680} open={detailOpen} onClose={() => setDetailOpen(false)} destroyOnClose>
+      <Drawer title={detail ? `物品详情 · ${detail.item_name}` : '物品详情'} width={720} open={detailOpen} onClose={() => setDetailOpen(false)} destroyOnClose>
         {detailLoading || !detail ? <Typography.Text type="secondary">正在加载物品详情...</Typography.Text> : (
-          <Descriptions bordered column={2} size="small">
-            <Descriptions.Item label="物品ID">{detail.item_id}</Descriptions.Item>
-            <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
-            <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
-            <Descriptions.Item label="分类">{formatDisplayLabel(ITEM_TYPE_LABELS, detail.item_type)}</Descriptions.Item>
-            <Descriptions.Item label="子类">{formatDisplayLabel(ITEM_SUB_TYPE_LABELS, detail.item_sub_type)}</Descriptions.Item>
-            <Descriptions.Item label="品质">{formatItemQualityLabel(detail.quality)}</Descriptions.Item>
-            <Descriptions.Item label="堆叠上限">{detail.max_stack}</Descriptions.Item>
-            <Descriptions.Item label="占格">{detail.occupy_slots}</Descriptions.Item>
-            <Descriptions.Item label="买价(铜)">{detail.buy_price_copper}</Descriptions.Item>
-            <Descriptions.Item label="卖价(铜)">{detail.sell_price_copper}</Descriptions.Item>
-            <Descriptions.Item label="效果类型">{detail.effect_type || '-'}</Descriptions.Item>
-            <Descriptions.Item label="效果值">{detail.effect_value}</Descriptions.Item>
-            <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
-            <Descriptions.Item label="说明" span={2}>{detail.desc || '-'}</Descriptions.Item>
-          </Descriptions>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="物品ID">{detail.item_id}</Descriptions.Item>
+              <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
+              <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
+              <Descriptions.Item label="分类">{formatDisplayLabel(ITEM_TYPE_LABELS, detail.item_type)}</Descriptions.Item>
+              {detail.item_sub_type ? (
+                <Descriptions.Item label="子分类">{formatDisplayLabel(ITEM_SUB_TYPE_LABELS, detail.item_sub_type)}</Descriptions.Item>
+              ) : null}
+              <Descriptions.Item label="堆叠上限">{detail.max_stack}</Descriptions.Item>
+              <Descriptions.Item label="占格">{detail.occupy_slots}</Descriptions.Item>
+              <Descriptions.Item label="买价(铜)">{detail.buy_price_copper}</Descriptions.Item>
+              <Descriptions.Item label="卖价(铜)">{detail.sell_price_copper}</Descriptions.Item>
+              <Descriptions.Item label="使用行为" span={2}>
+                {detail.item_type === 'box'
+                  ? '打开获得礼包内容'
+                  : formatUseBehaviorLabel(resolveItemUseBehavior(detail.effect_type, detail.effect_value))}
+              </Descriptions.Item>
+              {detail.item_type !== 'box' && detail.effect_value > 0 ? (
+                <Descriptions.Item label="效果数值">{detail.effect_value}</Descriptions.Item>
+              ) : null}
+              <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
+              <Descriptions.Item label="说明" span={2}>{detail.desc || '-'}</Descriptions.Item>
+            </Descriptions>
+            {detail.item_type === 'box' ? (
+              <>
+                <Divider orientation="left" plain>礼包内容</Divider>
+                <Typography.Text type="secondary">{formatGiftRewardSummary(detailGiftRewards)}</Typography.Text>
+                <Table
+                  size="small"
+                  rowKey={(_record, index) => String(index)}
+                  columns={detailGiftRewardColumns}
+                  dataSource={detailGiftRewards}
+                  pagination={false}
+                  locale={{ emptyText: '尚未配置礼包内容' }}
+                />
+              </>
+            ) : null}
+          </Space>
         )}
       </Drawer>
-      <Modal title={editingRecord ? `编辑模板 · ${editingRecord.item_name}` : '新增物品模板'} open={editorOpen} onCancel={() => { setEditorOpen(false); setEditingRecord(null); }} onOk={() => editorForm.submit()} confirmLoading={saving} destroyOnClose width={720} style={{ top: FIXED_FORM_MODAL_TOP }} styles={FIXED_FORM_MODAL_STYLES} okText={editingRecord ? '保存修改' : '创建模板'} cancelText="取消">
-        <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
+      <Modal
+        title={editingRecord ? `编辑模板 · ${editingRecord.item_name}` : '新增物品模板'}
+        open={editorOpen}
+        onCancel={() => { setEditorOpen(false); setEditingRecord(null); }}
+        onOk={() => editorForm.submit()}
+        confirmLoading={saving}
+        destroyOnClose
+        width={860}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
+        okText={editingRecord ? '保存修改' : '创建模板'}
+        cancelText="取消"
+      >
+        <Form
+          form={editorForm}
+          layout="vertical"
+          onFinish={(values) => void handleSubmit(values)}
+          onValuesChange={(changedValues) => {
+            if (changedValues.item_type === 'box') {
+              editorForm.setFieldsValue({
+                usable: true,
+                use_behavior: 'none',
+                gift_rewards: editorForm.getFieldValue('gift_rewards') ?? [],
+                item_sub_type: 'gift_box',
+              });
+              return;
+            }
+            if (changedValues.item_type != null && changedValues.item_type !== 'material') {
+              editorForm.setFieldsValue({ item_sub_type: '' });
+            }
+          }}
+        >
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item
@@ -306,30 +395,91 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
                 <Input disabled />
               </Form.Item>
             </Col>
-            <Col xs={24} md={8}><Form.Item label="物品名称" name="item_name" rules={[{ required: true, message: '请输入物品名称' }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="主分类" name="item_type" rules={[{ required: true, message: '请选择主分类' }]}><Select options={buildSelectOptions(ITEM_TYPE_LABELS)} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="子分类" name="item_sub_type"><Select allowClear options={buildSelectOptions(ITEM_SUB_TYPE_LABELS)} /></Form.Item></Col>
             <Col xs={24} md={8}>
-              <Form.Item label="品质" name="quality">
-                <Select options={ITEM_QUALITY_OPTIONS} />
+              <Form.Item label="物品名称" name="item_name" rules={[{ required: true, message: '请输入物品名称' }]}>
+                <Input />
               </Form.Item>
             </Col>
-            <Form.Item name="rarity" hidden>
-              <InputNumber min={1} />
-            </Form.Item>
-            <Form.Item name="icon" hidden>
-              <Input />
-            </Form.Item>
+            <Col xs={24} md={8}>
+              <Form.Item label="主分类" name="item_type" rules={[{ required: true, message: '请选择主分类' }]}>
+                <Select options={buildSelectOptions(ITEM_TYPE_LABELS)} />
+              </Form.Item>
+            </Col>
+            {isMaterialForm ? (
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="子分类"
+                  name="item_sub_type"
+                  extra="选择「强化材料」后，该物品可在客户端装备强化面板作为消耗材料被选用。"
+                >
+                  <Select options={buildSelectOptions(MATERIAL_ITEM_SUB_TYPE_LABELS)} />
+                </Form.Item>
+              </Col>
+            ) : (
+              <Form.Item name="item_sub_type" hidden><Input /></Form.Item>
+            )}
+            <Form.Item name="rarity" hidden><InputNumber min={1} /></Form.Item>
+            <Form.Item name="quality" hidden><InputNumber min={1} /></Form.Item>
+            <Form.Item name="icon" hidden><Input /></Form.Item>
+            <Form.Item name="use_scope" hidden><Input /></Form.Item>
+            <Form.Item name="target_type" hidden><Input /></Form.Item>
             <Col xs={24} md={8}><Form.Item label="堆叠上限" name="max_stack"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="占格" name="occupy_slots"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="买价(铜)" name="buy_price_copper"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="卖价(铜)" name="sell_price_copper"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="回收价(铜)" name="recycle_price_copper"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={24}><Form.Item label="描述" name="desc"><Input.TextArea rows={3} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item label="效果类型" name="effect_type"><Input /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item label="效果值" name="effect_value"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={24}><Form.Item label="效果参数 JSON" name="effect_params_json"><Input.TextArea rows={3} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="可使用" name="usable" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item
+                label="描述"
+                name="desc"
+                extra="支持 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+              >
+                <Input.TextArea rows={3} />
+              </Form.Item>
+            </Col>
+
+            {isGiftBoxForm ? (
+              <Col span={24}>
+                <Divider orientation="left" plain>礼包内容</Divider>
+                <Form.Item
+                  name="gift_rewards"
+                  rules={[{
+                    validator: async (_rule, value: GiftBoxRewardEntry[] | undefined) => {
+                      if ((value ?? []).length > 0) {
+                        return;
+                      }
+                      throw new Error('请至少添加一条礼包奖励');
+                    },
+                  }]}
+                >
+                  <GiftBoxRewardEditor />
+                </Form.Item>
+                <Typography.Text type="secondary">
+                  分类为“礼包”时，玩家打开后将按下方列表固定发放奖励；无需再填写效果类型或 JSON。
+                </Typography.Text>
+              </Col>
+            ) : (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="使用行为" name="use_behavior">
+                    <Select options={ITEM_USE_BEHAVIOR_OPTIONS} />
+                  </Form.Item>
+                </Col>
+                {showUseAmount ? (
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={watchedUseBehavior === 'pet_hp_restore' ? '恢复数值' : '扩容格数'}
+                      name="use_amount"
+                      rules={[{ required: true, message: '请输入效果数值' }]}
+                    >
+                      <InputNumber min={1} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                ) : null}
+              </>
+            )}
+
+            <Col xs={12} md={6}><Form.Item label="可使用" name="usable" valuePropName="checked"><Switch disabled={isGiftBoxForm} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="可出售" name="can_sell" valuePropName="checked"><Switch /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="可丢弃" name="can_drop" valuePropName="checked"><Switch /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="可存仓" name="can_store" valuePropName="checked"><Switch /></Form.Item></Col>
@@ -343,9 +493,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
   );
 }
 
-// defaultItemValues 为普通物品新建表单提供默认值。
-// item_id / item_code 由页面在打开弹窗时自动生成，避免运营手填唯一字段。
-function defaultItemValues(itemID: number): ItemFormValues {
+function defaultItemValues(itemID: number): ItemEditorFormValues {
   return {
     item_id: itemID,
     item_code: `item_${itemID}`,
@@ -379,42 +527,8 @@ function defaultItemValues(itemID: number): ItemFormValues {
     recycle_price_copper: 0,
     price_type: 'base_coin',
     is_enabled: true,
-  };
-}
-
-function mapItemFormToPayload(values: ItemFormValues): AdminUpsertItemPayload {
-  return {
-    item_id: Number(values.item_id ?? 0),
-    item_code: values.item_code ?? '',
-    item_name: values.item_name ?? '',
-    item_type: values.item_type ?? '',
-    item_sub_type: values.item_sub_type ?? '',
-    quality: Number(values.quality ?? 1),
-    rarity: Number(values.rarity ?? 1),
-    icon: values.icon ?? '',
-    desc: values.desc ?? '',
-    max_stack: Number(values.max_stack ?? 1),
-    occupy_slots: Number(values.occupy_slots ?? 1),
-    auto_merge: Boolean(values.auto_merge),
-    sort_weight: Number(values.sort_weight ?? 0),
-    usable: Boolean(values.usable),
-    use_scope: values.use_scope ?? '',
-    target_type: values.target_type ?? '',
-    required_level: Number(values.required_level ?? 0),
-    required_scene_id: Number(values.required_scene_id ?? 0),
-    bind_type: values.bind_type ?? 'none',
-    can_sell: Boolean(values.can_sell),
-    can_drop: Boolean(values.can_drop),
-    can_store: Boolean(values.can_store),
-    can_trade: Boolean(values.can_trade),
-    expire_at_rule: values.expire_at_rule ?? '',
-    effect_type: values.effect_type ?? '',
-    effect_value: Number(values.effect_value ?? 0),
-    effect_params_json: values.effect_params_json ?? '{}',
-    buy_price_copper: Number(values.buy_price_copper ?? 0),
-    sell_price_copper: Number(values.sell_price_copper ?? 0),
-    recycle_price_copper: Number(values.recycle_price_copper ?? 0),
-    price_type: values.price_type ?? 'base_coin',
-    is_enabled: Boolean(values.is_enabled),
+    use_behavior: 'none',
+    use_amount: 1,
+    gift_rewards: [],
   };
 }

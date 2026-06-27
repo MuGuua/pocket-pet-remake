@@ -21,5 +21,8 @@ type Repository interface {
 	ListEquippedEntriesForItemID(ctx context.Context, itemID uint64) ([]EquippedTemplateRefreshEntry, error)
 	FindBagSlotIndexByItemUID(ctx context.Context, playerID uint64, containerType string, itemUID string) (uint32, error)
 	RefreshEquippedTemplateEntry(ctx context.Context, playerID uint64, equipSlot string, itemUID string, containerType string, recalc RecalcContext, currentProfile *player.Profile) error
-	EnhanceInstance(ctx context.Context, playerID uint64, itemUID string) (*EnhanceResult, error)
+	EnhanceInstance(ctx context.Context, playerID uint64, itemUID string, costItemID uint64) (*EnhanceResult, error)
+
+	GetEnhanceGoldCostConfigForAdmin(ctx context.Context) (*AdminEnhanceGoldCostConfigDetail, error)
+	UpsertEnhanceGoldCostConfigForAdmin(ctx context.Context, input AdminUpsertEnhanceGoldCostConfigInput) (*AdminEnhanceGoldCostConfigDetail, error)
 }

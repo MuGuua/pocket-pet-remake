@@ -159,11 +159,24 @@ SELECT
   COALESCE(idf.item_sub_type, ''),
   COALESCE(idf.quality, 1),
   COALESCE(idf.icon, ''),
+  COALESCE(idf.required_level, 0),
   COALESCE(eq.enhance_level, 0),
   COALESCE(idf.usable, FALSE),
   COALESCE(idf.target_type, ''),
   COALESCE(idf.effect_type, ''),
-  COALESCE(iee.equip_slot, '')
+  COALESCE(iee.equip_slot, ''),
+  COALESCE(idf."desc", ''),
+  COALESCE(iee.appearance_skin_id, ''),
+  COALESCE(iee.appearance_only, FALSE),
+  COALESCE(iee.base_hp, 0),
+  COALESCE(iee.base_mana, 0),
+  COALESCE(iee.base_atk, 0),
+  COALESCE(iee.base_def, 0),
+  COALESCE(iee.base_spd, 0),
+  COALESCE(iee.base_stats_json, '{}'::jsonb),
+  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  COALESCE(iee.can_enhance, FALSE),
+  COALESCE(iee.max_enhance_level, 0)
 FROM player_container_item pci
 LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 LEFT JOIN equipment_instance eq ON eq.item_uid = pci.item_uid
@@ -583,8 +596,19 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 	items := make([]bag.RuntimeItemSnapshot, 0)
 	for rows.Next() {
 		var (
-			value    bag.RuntimeItemSnapshot
-			expireAt sql.NullTime
+			value                    bag.RuntimeItemSnapshot
+			expireAt                 sql.NullTime
+			appearanceSkinID         string
+			appearanceOnly           bool
+			baseHP                   int64
+			baseMana                 int64
+			baseATK                  int64
+			baseDEF                  int64
+			baseSPD                  int64
+			baseStatsJSON            []byte
+			enhancePerLevelStatsJSON []byte
+			canEnhance               bool
+			maxEnhanceLevel          int64
 		)
 		if err := rows.Scan(
 			&value.SlotIndex,
@@ -598,11 +622,24 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			&value.ItemSubType,
 			&value.Quality,
 			&value.Icon,
+			&value.RequiredLevel,
 			&value.EnhanceLevel,
 			&value.Usable,
 			&value.TargetType,
 			&value.EffectType,
 			&value.EquipSlot,
+			&value.Description,
+			&appearanceSkinID,
+			&appearanceOnly,
+			&baseHP,
+			&baseMana,
+			&baseATK,
+			&baseDEF,
+			&baseSPD,
+			&baseStatsJSON,
+			&enhancePerLevelStatsJSON,
+			&canEnhance,
+			&maxEnhanceLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -610,6 +647,55 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			expireAtValue := expireAt.Time
 			value.ExpireAt = &expireAtValue
 		}
+		if strings.TrimSpace(value.EquipSlot) != "" {
+			bonus, err := computeRuntimeItemBonusFromEquipmentExtra(
+				value.EquipSlot,
+				appearanceSkinID,
+				appearanceOnly,
+				uint32(baseHP),
+				uint32(baseMana),
+				uint32(baseATK),
+				uint32(baseDEF),
+				uint32(baseSPD),
+				baseStatsJSON,
+				enhancePerLevelStatsJSON,
+				value.RequiredLevel,
+				value.EnhanceLevel,
+			)
+			if err != nil {
+				return nil, err
+			}
+			value.Bonus = runtimeItemBonusFromAggregate(bonus)
+			preview, previewErr := buildRuntimeEnhancePreview(
+				ctx,
+				r.db,
+				playerID,
+				value.ItemID,
+				canEnhance,
+				uint32(maxEnhanceLevel),
+				value.EnhanceLevel,
+				value.EquipSlot,
+				appearanceSkinID,
+				appearanceOnly,
+				uint32(baseHP),
+				uint32(baseMana),
+				uint32(baseATK),
+				uint32(baseDEF),
+				uint32(baseSPD),
+				baseStatsJSON,
+				enhancePerLevelStatsJSON,
+				value.RequiredLevel,
+			)
+			if previewErr != nil {
+				return nil, previewErr
+			}
+			value.EnhancePreview = preview
+		}
+		mentions, err := buildRuntimeDescriptionMentions(ctx, r.db, value.Description)
+		if err != nil {
+			return nil, err
+		}
+		value.DescriptionMentions = mentions
 		items = append(items, value)
 	}
 	if err := rows.Err(); err != nil {

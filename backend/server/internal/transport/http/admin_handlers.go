@@ -51,8 +51,9 @@ type AdminHandlers struct {
 	PetProgression      http.Handler
 	PetSkillSlotUnlock  http.Handler
 	PetCombatStatCaps      http.Handler
-	EquipmentDefinitions   http.Handler
-	Dashboard              http.Handler
+	EquipmentDefinitions          http.Handler
+	EquipmentEnhanceGoldCost      http.Handler
+	Dashboard                     http.Handler
 }
 
 type AdminLoginHandler struct {
@@ -115,7 +116,8 @@ func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, se
 		PetProgression:      &AdminPetProgressionHandler{adminService: adminService, petProgressionService: petProgressionService},
 		PetSkillSlotUnlock:  &AdminPetSkillSlotUnlockHandler{adminService: adminService, petService: petService},
 		PetCombatStatCaps:      &AdminPetCombatStatCapHandler{adminService: adminService, petService: petService},
-		EquipmentDefinitions:   &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
+		EquipmentDefinitions:      &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
+		EquipmentEnhanceGoldCost:  &AdminEquipmentEnhanceGoldCostHandler{adminService: adminService, equipmentService: equipmentService},
 	}
 }
 

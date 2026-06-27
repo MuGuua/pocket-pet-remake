@@ -73,6 +73,31 @@ export interface AdminMedicinePouchExtra {
   restore_lineup_pets: boolean;
 }
 
+export type EnhanceGoldIncrementMode = 'fixed' | 'percent';
+
+export interface AdminEquipmentEnhanceGoldCost {
+  is_enabled: boolean;
+  base_copper: number;
+  increment_mode: EnhanceGoldIncrementMode;
+  increment_fixed: number;
+  increment_percent: number;
+}
+
+export const ENHANCE_GOLD_INCREMENT_MODE_OPTIONS = [
+  { value: 'fixed' as const, label: '每级固定增加（铜）' },
+  { value: 'percent' as const, label: '每级百分比递增（复合）' },
+];
+
+export function defaultEquipmentEnhanceGoldCost(): AdminEquipmentEnhanceGoldCost {
+  return {
+    is_enabled: true,
+    base_copper: 100,
+    increment_mode: 'fixed',
+    increment_fixed: 200,
+    increment_percent: 0,
+  };
+}
+
 export interface AdminEquipmentSummary {
   item_id: number;
   item_code: string;
@@ -132,6 +157,7 @@ export interface AdminEquipmentDetail {
   base_spd: number;
   combat_stats: AdminEquipmentCombatStats;
   enhance_per_level_stats: Record<string, number>;
+  enhance_gold_cost: AdminEquipmentEnhanceGoldCost;
   socket_count: number;
   allowed_gem_types: string[];
   medicine_pouch?: AdminMedicinePouchExtra;
@@ -166,6 +192,7 @@ export interface AdminUpsertEquipmentPayload {
   base_spd: number;
   combat_stats: AdminEquipmentCombatStats;
   enhance_per_level_stats: Record<string, number>;
+  enhance_gold_cost: AdminEquipmentEnhanceGoldCost;
   socket_count: number;
   allowed_gem_types: string[];
   medicine_pouch?: AdminMedicinePouchExtra;
@@ -241,6 +268,7 @@ export function defaultEquipmentValues(itemID: number): AdminUpsertEquipmentPayl
     base_spd: 0,
     combat_stats: defaultAdminEquipmentCombatStats(),
     enhance_per_level_stats: { atk: 100 },
+    enhance_gold_cost: defaultEquipmentEnhanceGoldCost(),
     socket_count: 0,
     allowed_gem_types: [],
   };

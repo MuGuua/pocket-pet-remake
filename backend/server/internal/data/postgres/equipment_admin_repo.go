@@ -68,6 +68,11 @@ SELECT
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
   COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  iee.enhance_gold_cost_enabled,
+  iee.enhance_gold_base_copper,
+  iee.enhance_gold_increment_mode,
+  iee.enhance_gold_increment_fixed,
+  iee.enhance_gold_increment_percent,
   iee.socket_count,
   COALESCE(iee.allowed_gem_types_json, '[]'::jsonb),
   idf.created_at,
@@ -100,12 +105,17 @@ INSERT INTO item_equipment_extra (
   item_id, equip_slot, base_hp, base_mana, base_atk, base_def, base_spd,
   career_limit, pet_only, player_only, extra_rule_json,
   can_enhance, max_enhance_level, set_id, appearance_skin_id, appearance_only,
-  base_stats_json, enhance_per_level_stats_json, socket_count, allowed_gem_types_json
+  base_stats_json, enhance_per_level_stats_json,
+  enhance_gold_cost_enabled, enhance_gold_base_copper, enhance_gold_increment_mode,
+  enhance_gold_increment_fixed, enhance_gold_increment_percent,
+  socket_count, allowed_gem_types_json
 ) VALUES (
   $1,$2,$3,$4,$5,$6,$7,
   $8,FALSE,TRUE,'{}'::jsonb,
   $9,$10,$11,$12,$13,
-  $14::jsonb,$15::jsonb,$16,$17::jsonb
+  $14::jsonb,$15::jsonb,
+  $16,$17,$18,$19,$20,
+  $21,$22::jsonb
 )
 `
 
@@ -142,8 +152,13 @@ SET equip_slot = $2,
     appearance_only = $13,
     base_stats_json = $14::jsonb,
     enhance_per_level_stats_json = $15::jsonb,
-    socket_count = $16,
-    allowed_gem_types_json = $17::jsonb
+    enhance_gold_cost_enabled = $16,
+    enhance_gold_base_copper = $17,
+    enhance_gold_increment_mode = $18,
+    enhance_gold_increment_fixed = $19,
+    enhance_gold_increment_percent = $20,
+    socket_count = $21,
+    allowed_gem_types_json = $22::jsonb
 WHERE item_id = $1
 `
 
@@ -289,7 +304,10 @@ func (r *EquipmentRepository) CreateForAdmin(ctx context.Context, input equipmen
 		input.BaseHP, input.BaseMana, input.BaseATK, input.BaseDEF, input.BaseSPD,
 		input.CareerLimit,
 		input.CanEnhance, input.MaxEnhanceLevel, input.SetID, input.AppearanceSkinID, input.AppearanceOnly,
-		baseStatsJSON, enhanceJSON, input.SocketCount, gemTypesJSON,
+		baseStatsJSON, enhanceJSON,
+		input.EnhanceGoldCost.IsEnabled, input.EnhanceGoldCost.BaseCopper, input.EnhanceGoldCost.IncrementMode,
+		input.EnhanceGoldCost.IncrementFixed, input.EnhanceGoldCost.IncrementPercent,
+		input.SocketCount, gemTypesJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -332,7 +350,10 @@ func (r *EquipmentRepository) UpdateForAdmin(ctx context.Context, itemID uint64,
 		input.BaseHP, input.BaseMana, input.BaseATK, input.BaseDEF, input.BaseSPD,
 		input.CareerLimit,
 		input.CanEnhance, input.MaxEnhanceLevel, input.SetID, input.AppearanceSkinID, input.AppearanceOnly,
-		baseStatsJSON, enhanceJSON, input.SocketCount, gemTypesJSON,
+		baseStatsJSON, enhanceJSON,
+		input.EnhanceGoldCost.IsEnabled, input.EnhanceGoldCost.BaseCopper, input.EnhanceGoldCost.IncrementMode,
+		input.EnhanceGoldCost.IncrementFixed, input.EnhanceGoldCost.IncrementPercent,
+		input.SocketCount, gemTypesJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -426,6 +447,10 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 	var setID int64
 	var socketCount int32
 	var baseStatsRaw, enhanceRaw, gemTypesRaw []byte
+	var enhanceGoldEnabled bool
+	var enhanceGoldBase, enhanceGoldFixed int64
+	var enhanceGoldMode string
+	var enhanceGoldPercent int32
 	if err := scanner.Scan(
 		&detail.ItemID, &detail.ItemCode, &detail.ItemName, &detail.Desc, &detail.Icon,
 		&detail.Quality, &detail.Rarity, &detail.RequiredLevel, &detail.BindType,
@@ -433,7 +458,9 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 		&detail.EquipSlot, &detail.CareerLimit, &canEnhance, &maxEnhance, &setID,
 		&detail.AppearanceSkinID, &detail.AppearanceOnly,
 		&baseHP, &baseMana, &baseATK, &baseDEF, &baseSPD,
-		&baseStatsRaw, &enhanceRaw, &socketCount, &gemTypesRaw,
+		&baseStatsRaw, &enhanceRaw,
+		&enhanceGoldEnabled, &enhanceGoldBase, &enhanceGoldMode, &enhanceGoldFixed, &enhanceGoldPercent,
+		&socketCount, &gemTypesRaw,
 		&detail.CreatedAt, &detail.UpdatedAt,
 	); err != nil {
 		return equipment.AdminEquipmentDetail{}, err
@@ -457,6 +484,13 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 	if err != nil {
 		return equipment.AdminEquipmentDetail{}, err
 	}
+	detail.EnhanceGoldCost = equipment.AdminEquipmentEnhanceGoldCost{
+		IsEnabled:        enhanceGoldEnabled,
+		BaseCopper:       uint64(enhanceGoldBase),
+		IncrementMode:    enhanceGoldMode,
+		IncrementFixed:   uint64(enhanceGoldFixed),
+		IncrementPercent: uint32(enhanceGoldPercent),
+	}.Normalize()
 	detail.AllowedGemTypes, err = unmarshalStringSliceJSON(gemTypesRaw)
 	if err != nil {
 		return equipment.AdminEquipmentDetail{}, err

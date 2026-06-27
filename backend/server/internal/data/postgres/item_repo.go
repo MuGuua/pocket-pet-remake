@@ -376,3 +376,43 @@ func isItemDefinitionUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
+
+const runtimeItemNameByIDQuery = `
+SELECT COALESCE(item_name, '')
+FROM item_definition
+WHERE item_id = $1
+LIMIT 1
+`
+
+// loadItemNamesByIDs 批量读取物品模板名称，供介绍文案中的 {item:ID} 占位符解析。
+func loadItemNamesByIDs(ctx context.Context, db DBTX, itemIDs []uint64) (map[uint64]string, error) {
+	names := make(map[uint64]string, len(itemIDs))
+	for _, itemID := range itemIDs {
+		if itemID == 0 {
+		 continue
+		}
+		var itemName string
+		err := db.QueryRowContext(ctx, runtimeItemNameByIDQuery, itemID).Scan(&itemName)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		names[itemID] = itemName
+	}
+	return names, nil
+}
+
+// buildRuntimeDescriptionMentions 解析介绍文案中的 {item:ID} 并补齐服务端权威名称。
+func buildRuntimeDescriptionMentions(ctx context.Context, db DBTX, description string) ([]item.DescriptionMention, error) {
+	itemIDs := item.ExtractMentionItemIDs(description)
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+	names, err := loadItemNamesByIDs(ctx, db, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	return item.BuildDescriptionMentions(description, names), nil
+}

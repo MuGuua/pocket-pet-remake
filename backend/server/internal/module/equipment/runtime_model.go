@@ -1,6 +1,10 @@
 package equipment
 
-import "errors"
+import (
+	"errors"
+
+	"pocket-pet-remake/server/internal/module/item"
+)
 
 var (
 	ErrEquipmentNotFound       = errors.New("equipment instance not found")
@@ -21,9 +25,14 @@ type RuntimeEquippedItem struct {
 	ItemID        uint64            `json:"item_id"`
 	ItemName      string            `json:"item_name"`
 	Icon          string            `json:"icon"`
+	RequiredLevel    uint32            `json:"required_level"`
 	EnhanceLevel  uint32            `json:"enhance_level"`
 	AppearanceSkinID string         `json:"appearance_skin_id,omitempty"`
 	AppearanceOnly   bool           `json:"appearance_only"`
+	// Description 来自 item_definition.desc，供客户端详情面板展示后台编辑的介绍文案。
+	Description string `json:"description,omitempty"`
+	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。
+	DescriptionMentions []item.DescriptionMention `json:"description_mentions,omitempty"`
 	Bonus         BonusAggregate    `json:"bonus"`
 }
 

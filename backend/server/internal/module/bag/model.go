@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"pocket-pet-remake/server/internal/module/item"
 )
 
 var (
@@ -41,9 +43,13 @@ var (
 	ErrUseTargetNotFound = errors.New("use target not found")
 	// ErrItemUseNoEffect 表示目标当前状态已经是满值，继续使用不会产生正式效果。
 	ErrItemUseNoEffect = errors.New("item use has no effect")
+	// ErrUseItemTooFast 表示同一玩家两次主动使用物品之间的间隔不足，命中防刷限制。
+	ErrUseItemTooFast = errors.New("use item too fast")
 )
 
 const (
+	// RuntimeUseItemCooldown 限制同一玩家两次主动使用物品（含开礼包）之间的最短间隔。
+	RuntimeUseItemCooldown = time.Second
 	// ContainerTypeBag 表示玩家随身背包。
 	ContainerTypeBag = "bag"
 	// ContainerTypeWarehouse 表示玩家个人仓库。
@@ -191,11 +197,84 @@ type RuntimeItemSnapshot struct {
 	ItemSubType  string     `json:"item_sub_type"`
 	Quality      uint32     `json:"quality"`
 	Icon         string     `json:"icon"`
+	RequiredLevel uint32    `json:"required_level"`
 	EnhanceLevel uint32     `json:"enhance_level"`
 	Usable       bool       `json:"usable"`
 	TargetType   string     `json:"target_type"`
 	EffectType   string     `json:"effect_type"`
 	EquipSlot    string     `json:"equip_slot,omitempty"`
+	// Description 来自 item_definition.desc，供详情面板直接展示后台编辑的介绍文案。
+	Description string `json:"description,omitempty"`
+	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。
+	DescriptionMentions []item.DescriptionMention `json:"description_mentions,omitempty"`
+	// Bonus 为装备在当前强化等级下的属性加成合计（基础 + 强化），非装备保持零值。
+	Bonus RuntimeItemBonus `json:"bonus,omitempty"`
+	// EnhancePreview 为背包内未佩戴装备提供的强化面板预览；仅可强化且未达上限时有值。
+	EnhancePreview *RuntimeEnhancePreview `json:"enhance_preview,omitempty"`
+}
+
+// ItemSubTypeEquipmentEnhance 为强化材料子分类，与 item_definition.item_sub_type 对齐。
+const ItemSubTypeEquipmentEnhance = "equipment_enhance"
+
+// BagListCategoryEnhanceMaterial 为背包列表筛选强化材料时使用的 category 参数。
+const BagListCategoryEnhanceMaterial = "enhance_material"
+
+// RuntimeEnhancePreviewRow 描述强化预览表中的一行属性对比。
+type RuntimeEnhancePreviewRow struct {
+	Label   string `json:"label"`
+	Current string `json:"current"`
+	NextMin string `json:"next_min"`
+	NextMax string `json:"next_max"`
+}
+
+// RuntimeEnhanceMaterialOption 描述背包内可选的强化材料条目。
+type RuntimeEnhanceMaterialOption struct {
+	ItemID          uint64 `json:"item_id"`
+	ItemName        string `json:"item_name"`
+	OwnedQuantity   uint64 `json:"owned_quantity"`
+}
+
+// RuntimeEnhancePreview 描述客户端强化弹窗所需的权威预览数据。
+type RuntimeEnhancePreview struct {
+	CanEnhance              bool                           `json:"can_enhance"`
+	MaxEnhanceLevel         uint32                         `json:"max_enhance_level"`
+	SuccessRatePct          uint32                         `json:"success_rate_pct"`
+	CostGoldCopper          uint64                         `json:"cost_gold_copper"`
+	CostItemID              uint64                         `json:"cost_item_id"`
+	CostItemName            string                         `json:"cost_item_name"`
+	CostQuantity            uint64                         `json:"cost_quantity"`
+	OwnedCostQuantity       uint64                         `json:"owned_cost_quantity"`
+	EnhanceMaterialCategory string                         `json:"enhance_material_category"`
+	Materials               []RuntimeEnhanceMaterialOption `json:"materials"`
+	Rows                    []RuntimeEnhancePreviewRow     `json:"rows"`
+}
+
+// RuntimeItemBonus 描述单件装备在详情面板展示用的属性加成合计。
+type RuntimeItemBonus struct {
+	HPMax                    uint32 `json:"hp_max"`
+	MANA                     uint32 `json:"mana"`
+	ATK                      uint32 `json:"atk"`
+	DEF                      uint32 `json:"def"`
+	SPD                      uint32 `json:"spd"`
+	Spirit                   uint32 `json:"spirit"`
+	SpiritMax                uint32 `json:"spirit_max"`
+	HitPct                   uint32 `json:"hit_pct"`
+	DodgePct                 uint32 `json:"dodge_pct"`
+	CritRatePct              uint32 `json:"crit_rate_pct"`
+	CritDmgPct               uint32 `json:"crit_dmg_pct"`
+	PhysicalResistPct        uint32 `json:"physical_resist_pct"`
+	ReversePhysicalResistPct uint32 `json:"reverse_physical_resist_pct"`
+	SkillResistPct           uint32 `json:"skill_resist_pct"`
+	ReverseSkillResistPct    uint32 `json:"reverse_skill_resist_pct"`
+	ConfusionResistPct       uint32 `json:"confusion_resist_pct"`
+	SleepResistPct           uint32 `json:"sleep_resist_pct"`
+	ParalysisResistPct       uint32 `json:"paralysis_resist_pct"`
+	SealResistPct            uint32 `json:"seal_resist_pct"`
+	CurseResistPct           uint32 `json:"curse_resist_pct"`
+	CritDmgResistPct         uint32 `json:"crit_dmg_resist_pct"`
+	CritResistPct            uint32 `json:"crit_resist_pct"`
+	CharacterResistPct       uint32 `json:"character_resist_pct"`
+	PetResistPct             uint32 `json:"pet_resist_pct"`
 }
 
 // RuntimeContainerSnapshot 描述一个容器的完整权威快照。

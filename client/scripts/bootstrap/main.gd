@@ -11,7 +11,7 @@ const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
 const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
 const NPC_SHOP_PANEL_SCENE := preload("res://scenes/ui/npc_shop_panel.tscn")
-const RewardPopupScene := preload("res://scenes/ui/reward_popup.tscn")
+const RewardPopupScene := preload("res://scenes/ui/common/reward_popup.tscn")
 const LevelUpPopupScene := preload("res://scenes/ui/bag/level_up_popup.tscn")
 const PetLevelUpPopupScene := preload("res://scenes/ui/pet_level_up_popup.tscn")
 const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
@@ -51,7 +51,7 @@ const PLAYER_ENTITY_TYPE: int = 1
 @onready var transition_overlay: ColorRect = %TransitionOverlay
 
 # 奖励弹窗实例，战斗与任务结算后复用。
-var _reward_popup: CanvasLayer = null
+var _reward_popup: RewardPopup = null
 # 升级弹窗实例，经验升级后展示属性加成。
 var _level_up_popup: CanvasLayer = null
 # 宠物升级弹窗实例，战斗结算后逐只展示升级摘要。
@@ -808,7 +808,7 @@ func _log_pet_level_up_rewards(pet_rewards: Array) -> void:
 func _create_reward_popup() -> void:
 	if _reward_popup != null:
 		return
-	_reward_popup = RewardPopupScene.instantiate() as CanvasLayer
+	_reward_popup = RewardPopupScene.instantiate() as RewardPopup
 	if _reward_popup == null:
 		return
 	_reward_popup.name = "RewardPopup"
@@ -817,17 +817,17 @@ func _create_reward_popup() -> void:
 
 func _show_reward_popup(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
 	_create_reward_popup()
-	if _reward_popup != null and _reward_popup.has_method("show_rewards"):
-		_reward_popup.call("show_rewards", title_text, rewards, pet_rewards)
+	if _reward_popup != null:
+		_reward_popup.show_rewards(title_text, rewards, pet_rewards)
 
 
 ## 展示奖励弹窗并等待玩家关闭，避免后续刷新请求抢跑导致弹窗一闪而过。
 func _show_reward_popup_and_wait(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
 	_create_reward_popup()
-	if _reward_popup == null or not _reward_popup.has_method("show_rewards"):
+	if _reward_popup == null:
 		return
-	_reward_popup.call("show_rewards", title_text, rewards, pet_rewards)
-	if _reward_popup.visible and _reward_popup.has_signal("popup_closed"):
+	_reward_popup.show_rewards(title_text, rewards, pet_rewards)
+	if _reward_popup.visible:
 		await _reward_popup.popup_closed
 
 

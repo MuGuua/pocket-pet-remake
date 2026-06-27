@@ -514,6 +514,9 @@ func TestRouterHandleUseItemOpensRewardBoxAndPushesBagAndWallet(t *testing.T) {
 	if useResp.Result.Rewards[1].Type != "item" || useResp.Result.Rewards[1].ItemID != 2001 || useResp.Result.Rewards[1].Count != 1 {
 		t.Fatalf("useResp.Result.Rewards[1] = %#v, want item 2001 x1", useResp.Result.Rewards[1])
 	}
+	if useResp.Result.Rewards[1].ItemName != "新手精灵球" {
+		t.Fatalf("useResp.Result.Rewards[1].ItemName = %q, want 新手精灵球", useResp.Result.Rewards[1].ItemName)
+	}
 
 	var bagUpdate protocol.BagUpdatePush
 	if err := protocol.UnmarshalBody(conn.packets[1].Body, &bagUpdate); err != nil {

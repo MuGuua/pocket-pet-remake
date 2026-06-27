@@ -126,11 +126,64 @@ type AdminEquipmentDetail struct {
 	BaseSPD                   uint32                 `json:"base_spd"`
 	CombatStats               AdminCombatStats       `json:"combat_stats"`
 	EnhancePerLevelStats      map[string]uint32      `json:"enhance_per_level_stats"`
+	EnhanceGoldCost           AdminEquipmentEnhanceGoldCost `json:"enhance_gold_cost"`
 	SocketCount               uint32                 `json:"socket_count"`
 	AllowedGemTypes           []string               `json:"allowed_gem_types"`
 	MedicinePouch             *AdminMedicinePouchExtra `json:"medicine_pouch,omitempty"`
 	CreatedAt                 time.Time              `json:"created_at"`
 	UpdatedAt                 time.Time              `json:"updated_at"`
+}
+
+// AdminEquipmentEnhanceGoldCost 描述单件装备模板的强化铜币消耗公式。
+type AdminEquipmentEnhanceGoldCost struct {
+	IsEnabled        bool   `json:"is_enabled"`
+	BaseCopper       uint64 `json:"base_copper"`
+	IncrementMode    string `json:"increment_mode"`
+	IncrementFixed   uint64 `json:"increment_fixed"`
+	IncrementPercent uint32 `json:"increment_percent"`
+}
+
+// DefaultAdminEquipmentEnhanceGoldCost 返回新建可强化装备的默认铜币公式。
+func DefaultAdminEquipmentEnhanceGoldCost() AdminEquipmentEnhanceGoldCost {
+	return AdminEquipmentEnhanceGoldCost{
+		IsEnabled:      true,
+		BaseCopper:     100,
+		IncrementMode:  EnhanceGoldIncrementModeFixed,
+		IncrementFixed: 200,
+	}
+}
+
+// Normalize 清洗递增模式枚举。
+func (cfg AdminEquipmentEnhanceGoldCost) Normalize() AdminEquipmentEnhanceGoldCost {
+	cfg.IncrementMode = strings.ToLower(strings.TrimSpace(cfg.IncrementMode))
+	if cfg.IncrementMode != EnhanceGoldIncrementModePercent {
+		cfg.IncrementMode = EnhanceGoldIncrementModeFixed
+	}
+	return cfg
+}
+
+// ToRuntimeConfig 转换为运行时强化扣费使用的配置结构。
+func (cfg AdminEquipmentEnhanceGoldCost) ToRuntimeConfig() EnhanceGoldCostConfig {
+	cfg = cfg.Normalize()
+	return EnhanceGoldCostConfig{
+		IsEnabled:        cfg.IsEnabled,
+		BaseCopper:       cfg.BaseCopper,
+		IncrementMode:    cfg.IncrementMode,
+		IncrementFixed:   cfg.IncrementFixed,
+		IncrementPercent: cfg.IncrementPercent,
+	}
+}
+
+// Validate 校验单件装备的铜币公式参数。
+func (cfg AdminEquipmentEnhanceGoldCost) Validate() error {
+	cfg = cfg.Normalize()
+	if cfg.IncrementMode != EnhanceGoldIncrementModeFixed && cfg.IncrementMode != EnhanceGoldIncrementModePercent {
+		return ErrInvalidEnhanceGoldCostConfig
+	}
+	if cfg.IncrementPercent > 1000 {
+		return ErrInvalidEnhanceGoldCostConfig
+	}
+	return nil
 }
 
 // AdminUpsertEquipmentInput 描述后台创建/更新装备模板的请求体。
@@ -161,6 +214,7 @@ type AdminUpsertEquipmentInput struct {
 	BaseSPD              uint32                 `json:"base_spd"`
 	CombatStats          AdminCombatStats       `json:"combat_stats"`
 	EnhancePerLevelStats map[string]uint32      `json:"enhance_per_level_stats"`
+	EnhanceGoldCost      AdminEquipmentEnhanceGoldCost `json:"enhance_gold_cost"`
 	SocketCount          uint32                 `json:"socket_count"`
 	AllowedGemTypes      []string               `json:"allowed_gem_types"`
 	MedicinePouch        *AdminMedicinePouchExtra `json:"medicine_pouch,omitempty"`
@@ -213,8 +267,17 @@ func (input AdminUpsertEquipmentInput) Normalize() AdminUpsertEquipmentInput {
 	if !input.CanEnhance {
 		input.MaxEnhanceLevel = 0
 		input.EnhancePerLevelStats = map[string]uint32{}
-	} else if input.MaxEnhanceLevel == 0 {
-		input.MaxEnhanceLevel = 15
+		input.EnhanceGoldCost = AdminEquipmentEnhanceGoldCost{}
+	} else {
+		input.EnhanceGoldCost = input.EnhanceGoldCost.Normalize()
+		if input.EnhanceGoldCost.BaseCopper == 0 &&
+			input.EnhanceGoldCost.IncrementFixed == 0 &&
+			input.EnhanceGoldCost.IncrementPercent == 0 {
+			input.EnhanceGoldCost = DefaultAdminEquipmentEnhanceGoldCost()
+		}
+		if input.MaxEnhanceLevel == 0 {
+			input.MaxEnhanceLevel = 15
+		}
 	}
 	return input
 }
@@ -227,6 +290,11 @@ func (input AdminUpsertEquipmentInput) Validate() error {
 	}
 	if !IsValidEquipSlot(input.EquipSlot) {
 		return ErrInvalidAdminEquipmentInput
+	}
+	if input.CanEnhance {
+		if err := input.EnhanceGoldCost.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

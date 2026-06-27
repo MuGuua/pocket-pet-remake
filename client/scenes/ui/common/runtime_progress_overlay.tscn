@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://dm167xl2cpjfw"]
+
+[ext_resource type="Script" uid="uid://1qrgbe06rv4o" path="res://scripts/ui/common/runtime_progress_overlay.gd" id="1_script"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+
+[node name="RuntimeProgressOverlay" type="CanvasLayer" unique_id=850482557]
+layer = 45
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="." unique_id=999506613]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DimLayer" type="ColorRect" parent="Root" unique_id=1877946745]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.04, 0.08, 0.14, 0.72)
+
+[node name="CenterContainer" type="CenterContainer" parent="Root" unique_id=641987444]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="Root/CenterContainer" unique_id=1504890469]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="MarginContainer" type="MarginContainer" parent="Root/CenterContainer/PanelContainer" unique_id=118679485]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Root/CenterContainer/PanelContainer/MarginContainer" unique_id=1953089127]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Root/CenterContainer/PanelContainer/MarginContainer/VBox" unique_id=1074492420]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "加载中..."
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="Root/CenterContainer/PanelContainer/MarginContainer/VBox" unique_id=1799075171]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 12)
+layout_mode = 2
+show_percentage = false

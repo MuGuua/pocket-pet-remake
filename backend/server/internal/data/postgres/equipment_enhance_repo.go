@@ -10,6 +10,7 @@ import (
 
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/equipment"
+	"pocket-pet-remake/server/internal/module/wallet"
 )
 
 const runtimeEnhanceInstanceQuery = `
@@ -85,6 +86,7 @@ func (r *EquipmentRepository) EnhanceInstance(
 	ctx context.Context,
 	playerID uint64,
 	itemUID string,
+	costItemID uint64,
 ) (*equipment.EnhanceResult, error) {
 	normalizedUID := strings.TrimSpace(itemUID)
 	if normalizedUID == "" {
@@ -119,15 +121,41 @@ func (r *EquipmentRepository) EnhanceInstance(
 	}
 	targetLevel := oldLevel + 1
 
-	cost, err := loadRuntimeEnhanceCost(ctx, tx, targetLevel)
+	cost, err := loadRuntimeEnhanceCost(ctx, tx, instanceRow.ItemID, targetLevel)
 	if err != nil {
 		return nil, err
 	}
 	if cost == nil {
 		return nil, equipment.ErrEquipmentEnhanceConfigMissing
 	}
-	if err := consumeBagMaterialsByItemIDInTx(ctx, tx, playerID, bag.ContainerTypeBag, cost.CostItemID, cost.CostQuantity, "player_equipment_enhance"); err != nil {
+	resolvedCostItemID := cost.CostItemID
+	if costItemID > 0 {
+		resolvedCostItemID = costItemID
+	}
+	if err := validateEnhanceMaterialItemID(ctx, tx, resolvedCostItemID); err != nil {
 		return nil, err
+	}
+	if cost.CostGoldCopper > 0 {
+		if err := ensureRuntimeWalletAffordableInTx(ctx, tx, playerID, cost.CostGoldCopper); err != nil {
+			return nil, err
+		}
+	}
+	if err := consumeBagMaterialsByItemIDInTx(ctx, tx, playerID, bag.ContainerTypeBag, resolvedCostItemID, cost.CostQuantity, "player_equipment_enhance"); err != nil {
+		return nil, err
+	}
+	var walletSnapshot *wallet.Snapshot
+	if cost.CostGoldCopper > 0 {
+		adjustedWallet, err := adjustRuntimeWalletInTx(ctx, tx, playerID, wallet.RuntimeAdjustInput{
+			ChangeTotalCopper: -int64(cost.CostGoldCopper),
+			ReasonType:        "player_equipment_enhance",
+			ReasonRefID:       0,
+			OperatorType:      "player",
+			OperatorID:        playerID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		walletSnapshot = &adjustedWallet
 	}
 
 	successRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, tx, targetLevel)
@@ -167,6 +195,7 @@ func (r *EquipmentRepository) EnhanceInstance(
 		RollPct:     rollPct,
 		Item:        itemSnapshot,
 		AllEquipped: allEquipped,
+		Wallet:      walletSnapshot,
 	}, nil
 }
 
@@ -242,11 +271,11 @@ func loadRuntimeEnhanceInstanceRow(ctx context.Context, tx *sql.Tx, itemUID stri
 	return &row, nil
 }
 
-func loadRuntimeEnhanceCost(ctx context.Context, tx *sql.Tx, targetLevel uint32) (*equipment.EnhanceCost, error) {
+func loadRuntimeEnhanceCost(ctx context.Context, db DBTX, itemID uint64, targetLevel uint32) (*equipment.EnhanceCost, error) {
 	var cost equipment.EnhanceCost
 	var costItemID int64
 	var costQuantity int64
-	err := tx.QueryRowContext(ctx, runtimeEnhanceCostQuery, targetLevel).Scan(&costItemID, &costQuantity)
+	err := db.QueryRowContext(ctx, runtimeEnhanceCostQuery, targetLevel).Scan(&costItemID, &costQuantity)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -256,12 +285,19 @@ func loadRuntimeEnhanceCost(ctx context.Context, tx *sql.Tx, targetLevel uint32)
 	cost.TargetLevel = targetLevel
 	cost.CostItemID = uint64(costItemID)
 	cost.CostQuantity = uint64(costQuantity)
+	goldConfig, err := loadRuntimeEnhanceGoldCostConfigByItemID(ctx, db, itemID)
+	if err != nil {
+		return nil, err
+	}
+	if goldConfig != nil {
+		cost.CostGoldCopper = equipment.CalculateEnhanceGoldCost(targetLevel, *goldConfig)
+	}
 	return &cost, nil
 }
 
-func loadRuntimeEnhanceSuccessRate(ctx context.Context, tx *sql.Tx, targetLevel uint32) (uint32, error) {
+func loadRuntimeEnhanceSuccessRate(ctx context.Context, db DBTX, targetLevel uint32) (uint32, error) {
 	var successRatePct int64
-	err := tx.QueryRowContext(ctx, runtimeEnhanceSuccessRateQuery, targetLevel).Scan(&successRatePct)
+	err := db.QueryRowContext(ctx, runtimeEnhanceSuccessRateQuery, targetLevel).Scan(&successRatePct)
 	if errors.Is(err, sql.ErrNoRows) {
 		return equipment.DefaultEnhanceSuccessRate(targetLevel), nil
 	}
@@ -279,7 +315,7 @@ func buildRuntimeItemSnapshotFromEnhanceRow(row *runtimeEnhanceInstanceRow) (equ
 	if err != nil {
 		return equipment.RuntimeEquippedItem{}, err
 	}
-	return equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, ""), nil
+	return equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, "", ""), nil
 }
 
 // consumeBagMaterialsByItemIDInTx 按 item_id 跨格子扣减可堆叠材料，优先消耗 slot_index 较小的格子。
@@ -366,4 +402,81 @@ func consumeBagMaterialsByItemIDInTx(
 		}
 	}
 	return equipment.ErrEquipmentEnhanceMaterialInsufficient
+}
+
+const runtimeEnhanceMaterialSubTypeQuery = `
+SELECT COALESCE(item_sub_type, '')
+FROM item_definition
+WHERE item_id = $1
+  AND is_enabled = TRUE
+LIMIT 1
+`
+
+// validateEnhanceMaterialItemID 校验所选材料属于强化材料子分类。
+func validateEnhanceMaterialItemID(ctx context.Context, db DBTX, costItemID uint64) error {
+	if costItemID == 0 {
+		return equipment.ErrEquipmentEnhanceMaterialInvalid
+	}
+	var itemSubType string
+	err := db.QueryRowContext(ctx, runtimeEnhanceMaterialSubTypeQuery, costItemID).Scan(&itemSubType)
+	if errors.Is(err, sql.ErrNoRows) {
+		return equipment.ErrEquipmentEnhanceMaterialInvalid
+	}
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(itemSubType), bag.ItemSubTypeEquipmentEnhance) {
+		return equipment.ErrEquipmentEnhanceMaterialInvalid
+	}
+	return nil
+}
+
+// ensureRuntimeWalletAffordableInTx 校验玩家钱包总铜币是否足够支付强化铜币消耗。
+func ensureRuntimeWalletAffordableInTx(ctx context.Context, tx *sql.Tx, playerID uint64, needCopper uint64) error {
+	if needCopper == 0 {
+		return nil
+	}
+	var totalCopper uint64
+	err := tx.QueryRowContext(ctx, runtimeWalletQuery, playerID).Scan(&totalCopper)
+	if errors.Is(err, sql.ErrNoRows) {
+		return equipment.ErrEquipmentEnhanceWalletInsufficient
+	}
+	if err != nil {
+		return err
+	}
+	if totalCopper < needCopper {
+		return equipment.ErrEquipmentEnhanceWalletInsufficient
+	}
+	return nil
+}
+
+// adjustRuntimeWalletInTx 在同一数据库事务内扣减强化铜币并写入货币流水。
+func adjustRuntimeWalletInTx(ctx context.Context, tx *sql.Tx, playerID uint64, input wallet.RuntimeAdjustInput) (wallet.Snapshot, error) {
+	input = input.Normalize()
+	if playerID == 0 || input.ChangeTotalCopper == 0 || input.ReasonType == "" || input.OperatorType == "" {
+		return wallet.Snapshot{}, wallet.ErrInvalidRuntimeAdjustInput
+	}
+	var beforeTotal uint64
+	if err := tx.QueryRowContext(ctx, runtimeWalletQuery, playerID).Scan(&beforeTotal); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return wallet.Snapshot{}, wallet.ErrWalletNotFound
+		}
+		return wallet.Snapshot{}, err
+	}
+	var (
+		afterTotal uint64
+		version    uint64
+		createdAt  sql.NullTime
+		updatedAt  sql.NullTime
+	)
+	if err := tx.QueryRowContext(ctx, adjustWalletTotalQuery, playerID, input.ChangeTotalCopper).Scan(&afterTotal, &version, &createdAt, &updatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return wallet.Snapshot{}, equipment.ErrEquipmentEnhanceWalletInsufficient
+		}
+		return wallet.Snapshot{}, err
+	}
+	if _, err := tx.ExecContext(ctx, insertCurrencyChangeLogQuery, playerID, beforeTotal, input.ChangeTotalCopper, afterTotal, input.ReasonType, input.ReasonRefID, input.OperatorType, input.OperatorID); err != nil {
+		return wallet.Snapshot{}, err
+	}
+	return buildWalletSnapshot(afterTotal), nil
 }

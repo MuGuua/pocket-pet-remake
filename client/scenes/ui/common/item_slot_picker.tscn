@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://bqt6h84bb0hin"]
+
+[ext_resource type="Script" uid="uid://c8k2mitempicker01" path="res://scripts/ui/common/item_slot_picker.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_panel"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_panel"]
+texture = ExtResource("2_panel")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[node name="ItemSlotPicker" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="PanelRoot" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_right = 130.0
+offset_bottom = 78.0
+theme_override_styles/panel = SubResource("StyleBoxTexture_panel")
+
+[node name="ContentMargin" type="MarginContainer" parent="PanelRoot"]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="MainVBox" type="VBoxContainer" parent="PanelRoot/ContentMargin"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="TitleLabel" type="Label" parent="PanelRoot/ContentMargin/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 8
+text = "选择物品"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GridScroll" type="ScrollContainer" parent="PanelRoot/ContentMargin/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 0
+
+[node name="ItemGrid" type="GridContainer" parent="PanelRoot/ContentMargin/MainVBox/GridScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
+columns = 5

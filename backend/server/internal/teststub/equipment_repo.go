@@ -129,8 +129,29 @@ func (r *EquipmentRepository) RefreshEquippedTemplateEntry(_ context.Context, _ 
 	return nil
 }
 
-func (r *EquipmentRepository) EnhanceInstance(_ context.Context, _ uint64, _ string) (*equipment.EnhanceResult, error) {
+func (r *EquipmentRepository) EnhanceInstance(_ context.Context, _ uint64, _ string, _ uint64) (*equipment.EnhanceResult, error) {
 	return nil, equipment.ErrEquipmentNotFound
+}
+
+func (r *EquipmentRepository) GetEnhanceGoldCostConfigForAdmin(_ context.Context) (*equipment.AdminEnhanceGoldCostConfigDetail, error) {
+	config := equipment.EnhanceGoldCostConfig{
+		IsEnabled:      true,
+		BaseCopper:     500,
+		IncrementMode:  equipment.EnhanceGoldIncrementModeFixed,
+		IncrementFixed: 500,
+	}
+	return &equipment.AdminEnhanceGoldCostConfigDetail{
+		Config:  config,
+		Preview: equipment.BuildEnhanceGoldCostPreview(config, 15),
+	}, nil
+}
+
+func (r *EquipmentRepository) UpsertEnhanceGoldCostConfigForAdmin(_ context.Context, input equipment.AdminUpsertEnhanceGoldCostConfigInput) (*equipment.AdminEnhanceGoldCostConfigDetail, error) {
+	config := input.ToConfig(time.Now().UTC())
+	return &equipment.AdminEnhanceGoldCostConfigDetail{
+		Config:  config,
+		Preview: equipment.BuildEnhanceGoldCostPreview(config, 15),
+	}, nil
 }
 
 func buildStubEquipmentDetail(input equipment.AdminUpsertEquipmentInput, createdAt, updatedAt time.Time) equipment.AdminEquipmentDetail {
@@ -163,6 +184,7 @@ func buildStubEquipmentDetail(input equipment.AdminUpsertEquipmentInput, created
 		BaseSPD:              input.BaseSPD,
 		CombatStats:          input.CombatStats,
 		EnhancePerLevelStats: input.EnhancePerLevelStats,
+		EnhanceGoldCost:      input.EnhanceGoldCost,
 		SocketCount:          input.SocketCount,
 		AllowedGemTypes:      input.AllowedGemTypes,
 		MedicinePouch:        input.MedicinePouch,

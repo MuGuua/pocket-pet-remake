@@ -22,6 +22,8 @@ SELECT
   ei.enhance_level,
   idf.item_name,
   COALESCE(idf.icon, ''),
+  COALESCE(idf.required_level, 0),
+  COALESCE(idf."desc", ''),
   iee.appearance_skin_id,
   iee.appearance_only,
   iee.base_hp,
@@ -72,6 +74,7 @@ SELECT
   idf.bind_type,
   idf.item_name,
   COALESCE(idf.icon, ''),
+  COALESCE(idf."desc", ''),
   iee.equip_slot,
   iee.appearance_skin_id,
   iee.appearance_only,
@@ -101,6 +104,8 @@ SELECT
   ei.enhance_level,
   idf.item_name,
   COALESCE(idf.icon, ''),
+  COALESCE(idf.required_level, 0),
+  COALESCE(idf."desc", ''),
   iee.appearance_skin_id,
   iee.appearance_only,
   iee.base_hp,
@@ -174,6 +179,8 @@ type runtimeEquippedRow struct {
 	EnhanceLevel             uint32
 	ItemName                 string
 	Icon                     string
+	RequiredLevel            uint32
+	Description              string
 	AppearanceSkinID         string
 	AppearanceOnly           bool
 	BaseHP                   uint32
@@ -197,6 +204,7 @@ type runtimeBagEquipmentRow struct {
 	BindType                 string
 	ItemName                 string
 	Icon                     string
+	Description              string
 	EquipSlot                string
 	AppearanceSkinID         string
 	AppearanceOnly           bool
@@ -228,10 +236,24 @@ func (r *EquipmentRepository) ListEquipped(ctx context.Context, playerID uint64)
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, row.Icon))
+		items = append(items, equipment.ToRuntimeEquippedItem(
+			template,
+			row.ItemUID,
+			row.ItemID,
+			row.ItemName,
+			row.Icon,
+			row.Description,
+		))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	for index := range items {
+		mentions, err := buildRuntimeDescriptionMentions(ctx, r.db, items[index].Description)
+		if err != nil {
+			return nil, err
+		}
+		items[index].DescriptionMentions = mentions
 	}
 	return items, nil
 }
@@ -304,7 +326,14 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 		if err != nil {
 			return nil, err
 		}
-		item := equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName, existingRow.Icon)
+		item := equipment.ToRuntimeEquippedItem(
+			template,
+			existingRow.ItemUID,
+			existingRow.ItemID,
+			existingRow.ItemName,
+			existingRow.Icon,
+			existingRow.Description,
+		)
 		unequippedItem = &item
 	}
 
@@ -338,9 +367,16 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 		return nil, err
 	}
 	return &equipment.EquipFromBagResult{
-		EquippedSlot: equipment.ToRuntimeEquippedItem(equippedTemplate, itemUID, sourceRow.ItemID, sourceRow.ItemName, sourceRow.Icon),
-		Unequipped:   unequippedItem,
-		AllEquipped:  allEquipped,
+		EquippedSlot: equipment.ToRuntimeEquippedItem(
+			equippedTemplate,
+			itemUID,
+			sourceRow.ItemID,
+			sourceRow.ItemName,
+			sourceRow.Icon,
+			sourceRow.Description,
+		),
+		Unequipped:  unequippedItem,
+		AllEquipped: allEquipped,
 	}, nil
 }
 
@@ -398,7 +434,14 @@ func (r *EquipmentRepository) UnequipSlot(
 		return nil, err
 	}
 	return &equipment.UnequipSlotResult{
-		Unequipped:  equipment.ToRuntimeEquippedItem(template, existingRow.ItemUID, existingRow.ItemID, existingRow.ItemName, existingRow.Icon),
+		Unequipped: equipment.ToRuntimeEquippedItem(
+			template,
+			existingRow.ItemUID,
+			existingRow.ItemID,
+			existingRow.ItemName,
+			existingRow.Icon,
+			existingRow.Description,
+		),
 		AllEquipped: allEquipped,
 	}, nil
 }
@@ -584,6 +627,7 @@ func loadRuntimeBagEquipmentRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&row.BindType,
 		&row.ItemName,
 		&row.Icon,
+		&row.Description,
 		&row.EquipSlot,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
@@ -614,6 +658,7 @@ func loadRuntimeBagEquipmentRow(ctx context.Context, tx *sql.Tx, playerID uint64
 func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64, equipSlot string) (*runtimeEquippedRow, error) {
 	row := runtimeEquippedRow{}
 	var enhanceLevel int64
+	var requiredLevel int64
 	var baseHP, baseMana, baseATK, baseDEF, baseSPD int64
 	err := tx.QueryRowContext(ctx, runtimeEquippedSlotItemQuery, playerID, equipSlot).Scan(
 		&row.EquipSlot,
@@ -622,6 +667,8 @@ func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&enhanceLevel,
 		&row.ItemName,
 		&row.Icon,
+		&requiredLevel,
+		&row.Description,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
 		&baseHP,
@@ -639,6 +686,7 @@ func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		return nil, err
 	}
 	row.EnhanceLevel = uint32(enhanceLevel)
+	row.RequiredLevel = uint32(requiredLevel)
 	row.BaseHP = uint32(baseHP)
 	row.BaseMana = uint32(baseMana)
 	row.BaseATK = uint32(baseATK)
@@ -652,6 +700,7 @@ func scanRuntimeEquippedRow(scanner interface {
 }) (runtimeEquippedRow, error) {
 	var row runtimeEquippedRow
 	var enhanceLevel int64
+	var requiredLevel int64
 	var baseHP, baseMana, baseATK, baseDEF, baseSPD int64
 	err := scanner.Scan(
 		&row.EquipSlot,
@@ -660,6 +709,8 @@ func scanRuntimeEquippedRow(scanner interface {
 		&enhanceLevel,
 		&row.ItemName,
 		&row.Icon,
+		&requiredLevel,
+		&row.Description,
 		&row.AppearanceSkinID,
 		&row.AppearanceOnly,
 		&baseHP,
@@ -674,6 +725,7 @@ func scanRuntimeEquippedRow(scanner interface {
 		return runtimeEquippedRow{}, err
 	}
 	row.EnhanceLevel = uint32(enhanceLevel)
+	row.RequiredLevel = uint32(requiredLevel)
 	row.BaseHP = uint32(baseHP)
 	row.BaseMana = uint32(baseMana)
 	row.BaseATK = uint32(baseATK)
@@ -702,6 +754,7 @@ func (row *runtimeEquippedRow) toPieceTemplate() (equipment.EquippedPieceTemplat
 		BaseSPD:              row.BaseSPD,
 		CombatStats:          combatStats,
 		EnhancePerLevelStats: enhancePerLevel,
+		RequiredLevel:        row.RequiredLevel,
 		EnhanceLevel:         row.EnhanceLevel,
 	}, nil
 }
@@ -726,6 +779,7 @@ func (row *runtimeBagEquipmentRow) toPieceTemplate() (equipment.EquippedPieceTem
 		BaseSPD:              row.BaseSPD,
 		CombatStats:          combatStats,
 		EnhancePerLevelStats: enhancePerLevel,
+		RequiredLevel:        row.RequiredLevel,
 		EnhanceLevel:         row.EnhanceLevel,
 	}, nil
 }
@@ -769,9 +823,26 @@ func loadEquippedRuntimeItemsInTx(ctx context.Context, tx *sql.Tx, playerID uint
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, row.Icon))
+		items = append(items, equipment.ToRuntimeEquippedItem(
+			template,
+			row.ItemUID,
+			row.ItemID,
+			row.ItemName,
+			row.Icon,
+			row.Description,
+		))
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for index := range items {
+		mentions, err := buildRuntimeDescriptionMentions(ctx, tx, items[index].Description)
+		if err != nil {
+			return nil, err
+		}
+		items[index].DescriptionMentions = mentions
+	}
+	return items, nil
 }
 
 func consumeBagEquipmentSlot(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string, sourceRow *runtimeBagEquipmentRow) error {
@@ -1072,9 +1143,91 @@ func unmarshalEnhancePerLevelJSON(raw []byte) (map[string]uint32, error) {
 	if len(raw) == 0 {
 		return map[string]uint32{}, nil
 	}
-	payload := map[string]uint32{}
+	var payload map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, err
 	}
-	return payload, nil
+	result := make(map[string]uint32, len(payload))
+	for key, valueRaw := range payload {
+		var intValue int64
+		if err := json.Unmarshal(valueRaw, &intValue); err == nil {
+			if intValue > 0 {
+				result[key] = uint32(intValue)
+			}
+			continue
+		}
+		var floatValue float64
+		if err := json.Unmarshal(valueRaw, &floatValue); err == nil {
+			if floatValue > 0 {
+				result[key] = uint32(floatValue)
+			}
+		}
+	}
+	return result, nil
+}
+
+// computeRuntimeItemBonusFromEquipmentExtra 根据装备模板与实例强化等级计算详情展示用的属性合计。
+func computeRuntimeItemBonusFromEquipmentExtra(
+	equipSlot string,
+	appearanceSkinID string,
+	appearanceOnly bool,
+	baseHP uint32,
+	baseMana uint32,
+	baseATK uint32,
+	baseDEF uint32,
+	baseSPD uint32,
+	baseStatsJSON []byte,
+	enhancePerLevelStatsJSON []byte,
+	requiredLevel uint32,
+	enhanceLevel uint32,
+) (equipment.BonusAggregate, error) {
+	row := runtimeBagEquipmentRow{
+		EquipSlot:                equipSlot,
+		AppearanceSkinID:         appearanceSkinID,
+		AppearanceOnly:           appearanceOnly,
+		BaseHP:                   baseHP,
+		BaseMana:                 baseMana,
+		BaseATK:                  baseATK,
+		BaseDEF:                  baseDEF,
+		BaseSPD:                  baseSPD,
+		BaseStatsJSON:            baseStatsJSON,
+		EnhancePerLevelStatsJSON: enhancePerLevelStatsJSON,
+		RequiredLevel:            requiredLevel,
+		EnhanceLevel:             enhanceLevel,
+	}
+	template, err := row.toPieceTemplate()
+	if err != nil {
+		return equipment.BonusAggregate{}, err
+	}
+	return equipment.ComputePieceBonus(template), nil
+}
+
+// runtimeItemBonusFromAggregate 把装备领域加成转换为背包快照使用的结构，避免 bag 与 equipment 循环依赖。
+func runtimeItemBonusFromAggregate(bonus equipment.BonusAggregate) bag.RuntimeItemBonus {
+	return bag.RuntimeItemBonus{
+		HPMax:                    bonus.HPMax,
+		MANA:                     bonus.MANA,
+		ATK:                      bonus.ATK,
+		DEF:                      bonus.DEF,
+		SPD:                      bonus.SPD,
+		Spirit:                   bonus.Spirit,
+		SpiritMax:                bonus.SpiritMax,
+		HitPct:                   bonus.HitPct,
+		DodgePct:                 bonus.DodgePct,
+		CritRatePct:              bonus.CritRatePct,
+		CritDmgPct:               bonus.CritDmgPct,
+		PhysicalResistPct:        bonus.PhysicalResistPct,
+		ReversePhysicalResistPct: bonus.ReversePhysicalResistPct,
+		SkillResistPct:           bonus.SkillResistPct,
+		ReverseSkillResistPct:    bonus.ReverseSkillResistPct,
+		ConfusionResistPct:       bonus.ConfusionResistPct,
+		SleepResistPct:           bonus.SleepResistPct,
+		ParalysisResistPct:       bonus.ParalysisResistPct,
+		SealResistPct:            bonus.SealResistPct,
+		CurseResistPct:           bonus.CurseResistPct,
+		CritDmgResistPct:         bonus.CritDmgResistPct,
+		CritResistPct:            bonus.CritResistPct,
+		CharacterResistPct:       bonus.CharacterResistPct,
+		PetResistPct:             bonus.PetResistPct,
+	}
 }

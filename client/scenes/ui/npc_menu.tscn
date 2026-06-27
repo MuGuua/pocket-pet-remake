@@ -4,6 +4,7 @@
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_f1ye8"]
 
 [node name="NpcMenu" type="CanvasLayer" unique_id=999954984]
+visible = false
 script = ExtResource("1_hc3d0")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=234157491]

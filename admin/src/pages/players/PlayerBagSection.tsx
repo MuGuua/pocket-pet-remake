@@ -10,7 +10,6 @@ import {
   InputNumber,
   Modal,
   Row,
-  Segmented,
   Select,
   Space,
   Spin,
@@ -22,23 +21,19 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { useEffect, useMemo, useState } from 'react';
-import {
+import { fetchAdminBags,
   createAdminBagItem,
   deleteAdminBagItem,
   fetchAdminBagDetail,
-  fetchAdminBags,
   updateAdminBagItem,
 } from '../../services/bag';
-import { fetchAdminItems } from '../../services/item';
-import { fetchAdminEquipmentDefinitions } from '../../services/equipmentDefinition';
 import type {
   AdminBagDetail,
   AdminBagSummary,
   AdminCreateBagPayload,
   AdminUpdateBagPayload,
 } from '../../types/bag';
-import type { AdminItemSummary } from '../../types/item';
-import type { AdminEquipmentSummary } from '../../types/equipmentDefinition';
+import { GrantableItemSelect } from '../../components/GrantableItemSelect';
 import { CONTAINER_TYPE_LABELS, formatDisplayLabel, ITEM_TYPE_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
 
@@ -55,15 +50,6 @@ interface BagFormValues {
 interface PlayerBagSectionProps {
   playerId: number;
   playerName: string;
-}
-
-type GrantableItemCategory = 'all' | 'equipment' | 'other';
-
-interface GrantableItemOption {
-  item_id: number;
-  item_name: string;
-  item_type: string;
-  quality: number;
 }
 
 const containerTypeOptions = [
@@ -90,9 +76,9 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
   const [editingRecord, setEditingRecord] = useState<AdminBagDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
-  const [itemOptionsLoading, setItemOptionsLoading] = useState(false);
-  const [itemOptions, setItemOptions] = useState<GrantableItemOption[]>([]);
-  const [grantCategory, setGrantCategory] = useState<GrantableItemCategory>('all');
+  const [preferredItemID, setPreferredItemID] = useState<number | undefined>(undefined);
+  const [preferredItemName, setPreferredItemName] = useState('');
+  const [preferredItemType, setPreferredItemType] = useState('');
 
   useEffect(() => {
     void loadBags();
@@ -136,9 +122,11 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
     setEditorOpen(true);
     if (mode === 'create') {
       setEditingRecord(null);
+      setPreferredItemID(undefined);
+      setPreferredItemName('');
+      setPreferredItemType('');
       editorForm.resetFields();
       editorForm.setFieldsValue(defaultCreateValues(playerId));
-      await searchItemOptions('', 'all');
       return;
     }
     if (!recordID) {
@@ -148,66 +136,15 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
     try {
       const result = await fetchAdminBagDetail(recordID);
       setEditingRecord(result);
+      setPreferredItemID(result.item_id);
+      setPreferredItemName(result.item_name);
+      setPreferredItemType(result.item_type);
       editorForm.setFieldsValue(mapDetailToForm(result));
-      await searchItemOptions(result.item_name || String(result.item_id), grantCategory, result.item_id);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载容器编辑数据失败');
       setEditorOpen(false);
     } finally {
       setBagDetailLoading(false);
-    }
-  }
-
-  // 发放候选项需要同时覆盖普通物品和装备模板；装备要明确走正式模板，而不是让运营手填 item_id。
-  async function searchItemOptions(keyword: string, category: GrantableItemCategory, preferredItemID?: number) {
-    setItemOptionsLoading(true);
-    try {
-      const trimmedKeyword = keyword.trim() || undefined;
-      let nextItems: GrantableItemOption[] = [];
-      if (category === 'equipment') {
-        const result = await fetchAdminEquipmentDefinitions({
-          filters: { keyword: trimmedKeyword, is_enabled: 'true' },
-          page: 1,
-          pageSize: 20,
-        });
-        nextItems = result.items.map(mapEquipmentSummaryToGrantableOption);
-      } else if (category === 'other') {
-        const result = await fetchAdminItems({
-          filters: { keyword: trimmedKeyword, enabled: 'true', exclude_item_type: 'equipment' },
-          page: 1,
-          pageSize: 20,
-        });
-        nextItems = result.items.map(mapItemSummaryToGrantableOption);
-      } else {
-        const [itemResult, equipmentResult] = await Promise.all([
-          fetchAdminItems({
-            filters: { keyword: trimmedKeyword, enabled: 'true', exclude_item_type: 'equipment' },
-            page: 1,
-            pageSize: 20,
-          }),
-          fetchAdminEquipmentDefinitions({
-            filters: { keyword: trimmedKeyword, is_enabled: 'true' },
-            page: 1,
-            pageSize: 20,
-          }),
-        ]);
-        nextItems = [
-          ...itemResult.items.map(mapItemSummaryToGrantableOption),
-          ...equipmentResult.items.map(mapEquipmentSummaryToGrantableOption),
-        ];
-      }
-      if (preferredItemID && !nextItems.some((item) => item.item_id === preferredItemID)) {
-        const currentItem = itemOptions.find((item) => item.item_id === preferredItemID);
-        if (currentItem) {
-          nextItems.unshift(currentItem);
-        }
-      }
-      setItemOptions(deduplicateGrantableOptions(nextItems));
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载物品选项失败');
-      setItemOptions([]);
-    } finally {
-      setItemOptionsLoading(false);
     }
   }
 
@@ -395,21 +332,6 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
           <Form.Item name="item_uid" hidden>
             <Input />
           </Form.Item>
-          <Form.Item label="候选分类">
-            <Segmented<GrantableItemCategory>
-              block
-              options={[
-                { label: '全部', value: 'all' },
-                { label: '装备', value: 'equipment' },
-                { label: '其他', value: 'other' },
-              ]}
-              value={grantCategory}
-              onChange={(value) => {
-                setGrantCategory(value);
-                void searchItemOptions('', value);
-              }}
-            />
-          </Form.Item>
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="容器类型" name="container_type" rules={[{ required: true, message: '请选择容器类型' }]}>
@@ -417,22 +339,12 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="物品名称" name="item_id" rules={[{ required: true, message: '请选择物品' }]}>
-                <Select
-                  showSearch
-                  filterOption={false}
-                  loading={itemOptionsLoading}
-                  placeholder="输入物品名称或物品ID搜索"
-                  onSearch={(value) => void searchItemOptions(value, grantCategory)}
-                  onFocus={() => {
-                    if (itemOptions.length === 0) {
-                      void searchItemOptions('', grantCategory);
-                    }
-                  }}
-                  options={itemOptions.map((item) => ({
-                    label: `${item.item_name} (${item.item_id}) · ${formatDisplayLabel(ITEM_TYPE_LABELS, item.item_type)}`,
-                    value: item.item_id,
-                  }))}
+              <Form.Item label="物品" name="item_id" rules={[{ required: true, message: '请选择物品' }]}>
+                <GrantableItemSelect
+                  showCategoryFilter
+                  preferredItemID={preferredItemID}
+                  preferredItemName={preferredItemName}
+                  preferredItemType={preferredItemType}
                 />
               </Form.Item>
             </Col>
@@ -495,32 +407,4 @@ function mapFormToUpdatePayload(values: BagFormValues): AdminUpdateBagPayload {
     slot_index: values.slot_index ?? 0,
     item_uid: values.item_uid ?? '',
   };
-}
-
-function mapItemSummaryToGrantableOption(item: AdminItemSummary): GrantableItemOption {
-  return {
-    item_id: item.item_id,
-    item_name: item.item_name,
-    item_type: item.item_type,
-    quality: item.quality,
-  };
-}
-
-function mapEquipmentSummaryToGrantableOption(item: AdminEquipmentSummary): GrantableItemOption {
-  return {
-    item_id: item.item_id,
-    item_name: item.item_name,
-    item_type: 'equipment',
-    quality: item.quality,
-  };
-}
-
-function deduplicateGrantableOptions(items: GrantableItemOption[]): GrantableItemOption[] {
-  const nextMap = new Map<number, GrantableItemOption>();
-  items.forEach((item) => {
-    if (!nextMap.has(item.item_id)) {
-      nextMap.set(item.item_id, item);
-    }
-  });
-  return Array.from(nextMap.values());
 }

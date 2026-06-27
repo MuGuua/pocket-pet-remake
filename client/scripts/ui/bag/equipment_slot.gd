@@ -4,6 +4,7 @@ class_name EquipmentSlot
 const BAG_UI2_ATLAS_PATH: String = "res://asset/分类/ui/bagUI2.png"
 const REGION_EMPTY: Rect2 = Rect2(485.0, 504.0, 16.0, 16.0)
 const REGION_EQUIPPED: Rect2 = Rect2(506.0, 504.0, 16.0, 16.0)
+const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_hover_name.tscn")
 
 ## 对应服务端 equip_slot，例如 weapon、hat；枚举值必须与服务端字符串完全一致。
 @export_enum(
@@ -36,6 +37,10 @@ var _bg_rect: TextureRect = null
 var _placeholder_rect: TextureRect = null
 ## 已佩戴装备的图标。
 var _item_icon_rect: TextureRect = null
+## 右下角强化等级角标（仅 enhance_level > 0 时显示）。
+var _enhance_label: Label = null
+## 悬停时在槽位右上方展示装备名称的浮层。
+var _hover_name: BagItemHoverName = null
 
 
 func _ready() -> void:
@@ -44,16 +49,22 @@ func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_STOP
     _resolve_node_refs()
     _ensure_slot_textures()
+    if not mouse_entered.is_connected(_on_mouse_entered):
+        mouse_entered.connect(_on_mouse_entered)
+    if not mouse_exited.is_connected(_on_mouse_exited):
+        mouse_exited.connect(_on_mouse_exited)
+    _ensure_hover_name()
     _apply_visual_state()
 
 
 ## 写入一件已佩戴装备并刷新展示。
 func set_equipment(item: Dictionary) -> void:
     _equipment = item.duplicate(true)
-    tooltip_text = str(_equipment.get("item_name", ""))
+    tooltip_text = ""
     if _item_icon_rect != null:
         _item_icon_rect.texture = ItemIcons.resolve_texture(int(_equipment.get("item_id", 0)))
         _item_icon_rect.show()
+    BagUiMapper.apply_enhance_level_badge(_enhance_label, _equipment)
     _apply_visual_state()
 
 
@@ -61,9 +72,11 @@ func set_equipment(item: Dictionary) -> void:
 func clear_equipment() -> void:
     _equipment.clear()
     tooltip_text = ""
+    _hide_hover_name()
     if _item_icon_rect != null:
         _item_icon_rect.texture = null
         _item_icon_rect.hide()
+    BagUiMapper.apply_enhance_level_badge(_enhance_label, {})
     _apply_visual_state()
 
 
@@ -93,12 +106,44 @@ func _resolve_node_refs() -> void:
     _bg_rect = get_node_or_null("TextureRect") as TextureRect
     _placeholder_rect = get_node_or_null("TextureRect2") as TextureRect
     _item_icon_rect = get_node_or_null("CenterContainer/Control/ItemIcon") as TextureRect
+    _enhance_label = get_node_or_null("CenterContainer/Control/ItemEnhanceLevel") as Label
     if _bg_rect != null:
         _bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
     if _placeholder_rect != null:
         _placeholder_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
     if _item_icon_rect != null:
         _item_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    if _enhance_label != null:
+        _enhance_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+## 懒创建悬停名称浮层，供鼠标移入时在槽位右上方展示。
+func _ensure_hover_name() -> void:
+    if _hover_name != null:
+        return
+    _hover_name = BAG_ITEM_HOVER_NAME_SCENE.instantiate() as BagItemHoverName
+    if _hover_name == null:
+        return
+    add_child(_hover_name)
+
+
+## 鼠标移入且槽位有装备时，在右上方显示名称。
+func _on_mouse_entered() -> void:
+    if _equipment.is_empty() or _hover_name == null:
+        return
+    _hover_name.show_for_anchor(self, BagUiMapper.item_name(_equipment))
+
+
+## 鼠标移出槽位时隐藏悬停名称。
+func _on_mouse_exited() -> void:
+    _hide_hover_name()
+
+
+## 关闭悬停名称浮层。
+func _hide_hover_name() -> void:
+    if _hover_name == null:
+        return
+    _hover_name.hide_name()
 
 ## 返回当前槽位已佩戴装备快照，供详情弹层展示。
 func get_equipment() -> Dictionary:

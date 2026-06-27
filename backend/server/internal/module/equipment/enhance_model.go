@@ -1,20 +1,27 @@
 package equipment
 
-import "errors"
+import (
+	"errors"
 
-var (
-	ErrEquipmentEnhanceNotAllowed       = errors.New("equipment cannot be enhanced")
-	ErrEquipmentEnhanceMaxLevel         = errors.New("equipment enhance level already max")
-	ErrEquipmentEnhanceMaterialInsufficient = errors.New("insufficient enhance materials")
-	ErrEquipmentEnhanceConfigMissing    = errors.New("equipment enhance config missing")
-	ErrEquipmentEnhanceEquipped         = errors.New("equipment must be unequipped to enhance")
+	"pocket-pet-remake/server/internal/module/wallet"
 )
 
-// EnhanceCost 描述单次强化到目标等级所需的材料消耗。
+var (
+	ErrEquipmentEnhanceNotAllowed           = errors.New("equipment cannot be enhanced")
+	ErrEquipmentEnhanceMaxLevel             = errors.New("equipment enhance level already max")
+	ErrEquipmentEnhanceMaterialInsufficient = errors.New("insufficient enhance materials")
+	ErrEquipmentEnhanceMaterialInvalid      = errors.New("invalid enhance material item")
+	ErrEquipmentEnhanceWalletInsufficient   = errors.New("insufficient wallet balance for enhance")
+	ErrEquipmentEnhanceConfigMissing        = errors.New("equipment enhance config missing")
+	ErrEquipmentEnhanceEquipped             = errors.New("equipment must be unequipped to enhance")
+)
+
+// EnhanceCost 描述单次强化到目标等级所需的材料与铜币消耗。
 type EnhanceCost struct {
-	TargetLevel  uint32
-	CostItemID   uint64
-	CostQuantity uint64
+	TargetLevel    uint32
+	CostItemID     uint64
+	CostQuantity   uint64
+	CostGoldCopper uint64
 }
 
 // EnhanceSuccessConfig 描述强化到目标等级的成功概率。
@@ -32,6 +39,8 @@ type EnhanceResult struct {
 	RollPct     uint32                `json:"roll_pct"`
 	Item        RuntimeEquippedItem   `json:"item"`
 	AllEquipped []RuntimeEquippedItem `json:"all_equipped"`
+	// Wallet 在扣减强化铜币后返回最新钱包快照，供传输层推送客户端。
+	Wallet *wallet.Snapshot `json:"wallet,omitempty"`
 }
 
 // DefaultEnhanceSuccessRate 返回迁移种子默认成功率；数据库缺失时兜底。
