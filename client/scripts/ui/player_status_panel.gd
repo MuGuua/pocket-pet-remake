@@ -15,7 +15,7 @@ const DEFAULT_TAB_INDEX: int = 0
 ## 社会属性内容面板。
 @onready var social_attribute_panel: Control = $Control/VBoxContainer/SocialAttribute
 ## 场景中配置好的请求 loading；脚本只控制显隐，不创建或覆盖面板布局。
-@onready var request_loading: RequestLoadingOverlay = $RequestLoadingOverlay
+@onready var request_loading: RuntimeProgressOverlay = $RequestLoadingOverlay
 ## 人物状态面板的关闭按钮；优先使用场景显式节点名，兼容后续 UI 调整。
 @onready var close_button: BaseButton = _resolve_close_button()
 

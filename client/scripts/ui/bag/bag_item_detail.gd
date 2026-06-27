@@ -8,20 +8,30 @@ enum DetailContext {
 	EQUIPPED_ITEM,
 }
 
-const BAG_ITEM_MORE_MENU_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_more_menu.tscn")
+const ACTION_MENU_SCENE: PackedScene = preload(ActionMenuPopup.SCENE_PATH)
+## 物品名称高亮色，与背包悬停名称保持一致。
+const NAME_COLOR: Color = Color(1, 0.952941, 0.745098, 1)
+## 空态名称与引导文案色。
+const EMPTY_TEXT_COLOR: Color = Color(0.580392, 0.580392, 0.721569, 1)
+## 元信息标签前缀色（等级、类型、部位等）。
+const META_LABEL_COLOR_HEX: String = "#9494b8"
+## 元信息数值色。
+const META_VALUE_COLOR_HEX: String = "#f0d5b1"
+## 强化等级数值色。
+const ENHANCE_VALUE_COLOR_HEX: String = "#82d563"
 
 ## 物品名称标签；布局与样式在 bag_item_detail.tscn 中编辑。
 @onready var _name_label: Label = %NameLabel
 ## 佩戴等级标签。
-@onready var _level_label: Label = %LevelLabel
+@onready var _level_label: RichTextLabel = %LevelLabel
 ## 强化等级标签。
-@onready var _reinforcement_label: Label = %ReinforcementLabel
+@onready var _reinforcement_label: RichTextLabel = %ReinforcementLabel
 ## 等级与强化信息行容器。
 @onready var _meta_row2: HBoxContainer = %MetaRow2
 ## 物品类型标签。
-@onready var _type_label: Label = %TypeLabel
+@onready var _type_label: RichTextLabel = %TypeLabel
 ## 装备部位标签。
-@onready var _equip_slot_label: Label = %EquipSlotLabel
+@onready var _equip_slot_label: RichTextLabel = %EquipSlotLabel
 ## 物品描述区；支持 {item:ID} 占位符内联展示 icon。
 @onready var _description_label: ItemDescriptionView = %DescriptionLabel
 ## 左侧主操作按钮：打开 / 使用 / 装备 / 卸下。
@@ -38,7 +48,7 @@ var _context: DetailContext = DetailContext.BAG_ITEM
 ## 当前选中的服务端物品快照。
 var _item: Dictionary = {}
 ## 独立浮层更多菜单；运行时创建，不参与详情面板布局与尺寸。
-var _more_menu: BagItemMoreMenu = null
+var _more_menu: ActionMenuPopup = null
 
 
 ## 绑定场景内按钮信号，并初始化空态文案。
@@ -50,16 +60,26 @@ func _ready() -> void:
 	if _secondary_button != null and not _secondary_button.pressed.is_connected(_on_secondary_pressed):
 		_secondary_button.pressed.connect(_on_secondary_pressed)
 	_ensure_more_menu()
+	_apply_static_text_theme()
 	clear_item()
+
+
+## 初始化详情面板固定文本样式。
+func _apply_static_text_theme() -> void:
+	if _name_label != null:
+		_name_label.add_theme_color_override("font_color", NAME_COLOR)
+		_name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		_name_label.add_theme_constant_override("outline_size", 1)
 
 
 ## 懒创建更多菜单浮层，并挂到详情面板根节点下。
 func _ensure_more_menu() -> void:
 	if _more_menu != null:
 		return
-	_more_menu = BAG_ITEM_MORE_MENU_SCENE.instantiate() as BagItemMoreMenu
+	_more_menu = ACTION_MENU_SCENE.instantiate() as ActionMenuPopup
 	if _more_menu == null:
 		return
+	_more_menu.configure_actions(ActionMenuPopup.BAG_ITEM_ACTIONS)
 	add_child(_more_menu)
 	if not _more_menu.action_selected.is_connected(_on_more_menu_action_selected):
 		_more_menu.action_selected.connect(_on_more_menu_action_selected)
@@ -123,15 +143,16 @@ func _apply_item_snapshot(item: Dictionary) -> void:
 	_hide_more_menu()
 	if _name_label != null:
 		_name_label.text = BagUiMapper.item_name(_item)
+		_name_label.add_theme_color_override("font_color", NAME_COLOR)
 	_refresh_level_labels()
 	if _type_label != null:
 		if _context == DetailContext.EQUIPPED_ITEM:
-			_type_label.text = "类型：装备"
+			_set_meta_line(_type_label, "类型：", "装备")
 		else:
-			_type_label.text = BagUiMapper.item_type_text(_item)
+			_apply_meta_line_from_text(_type_label, BagUiMapper.item_type_text(_item), "类型：")
 	if _equip_slot_label != null:
 		var equip_slot_text: String = BagUiMapper.equip_slot_text(_item)
-		_equip_slot_label.text = equip_slot_text
+		_apply_meta_line_from_text(_equip_slot_label, equip_slot_text, "部位：")
 		_equip_slot_label.visible = not equip_slot_text.is_empty()
 	if _description_label != null:
 		_description_label.apply_item_snapshot(_item)
@@ -145,9 +166,10 @@ func clear_item() -> void:
 	_hide_more_menu()
 	if _name_label != null:
 		_name_label.text = "未选择物品"
+		_name_label.add_theme_color_override("font_color", EMPTY_TEXT_COLOR)
 	_refresh_level_labels()
 	if _type_label != null:
-		_type_label.text = "类型：-"
+		_set_meta_line(_type_label, "类型：", "-")
 	if _equip_slot_label != null:
 		_equip_slot_label.text = ""
 		_equip_slot_label.hide()
@@ -171,12 +193,48 @@ func _refresh_level_labels() -> void:
 		return
 	var level_text: String = BagUiMapper.required_level_text(_item)
 	if _level_label != null:
-		_level_label.text = level_text
+		_apply_meta_line_from_text(_level_label, level_text, "等级：")
 		_level_label.visible = not level_text.is_empty()
 	var enhance_text: String = BagUiMapper.enhance_level_text(_item)
 	if _reinforcement_label != null:
-		_reinforcement_label.text = enhance_text
+		_apply_meta_line_from_text(_reinforcement_label, enhance_text, "强化：", ENHANCE_VALUE_COLOR_HEX)
 		_reinforcement_label.visible = not enhance_text.is_empty()
+
+
+## 将「标签：数值」格式化为分色 BBCode 并写入元信息 RichTextLabel。
+func _apply_meta_line_from_text(
+	label: RichTextLabel,
+	full_text: String,
+	label_prefix: String,
+	value_color_hex: String = META_VALUE_COLOR_HEX
+) -> void:
+	if label == null:
+		return
+	if full_text.is_empty():
+		label.text = ""
+		return
+	var value_text: String = full_text
+	if full_text.begins_with(label_prefix):
+		value_text = full_text.substr(label_prefix.length())
+	_set_meta_line(label, label_prefix, value_text, value_color_hex)
+
+
+## 写入带标签前缀与数值分色的元信息行。
+func _set_meta_line(
+	label: RichTextLabel,
+	label_prefix: String,
+	value_text: String,
+	value_color_hex: String = META_VALUE_COLOR_HEX
+) -> void:
+	if label == null:
+		return
+	label.bbcode_enabled = true
+	label.text = "[color=%s]%s[/color][color=%s]%s[/color]" % [
+		META_LABEL_COLOR_HEX,
+		label_prefix,
+		value_color_hex,
+		value_text,
+	]
 
 
 ## 关闭更多菜单弹窗（若已打开）。

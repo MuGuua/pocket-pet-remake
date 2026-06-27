@@ -1,5 +1,5 @@
 class_name RewardPopup
-extends "res://scripts/ui/modal_popup_layer.gd"
+extends "res://scripts/ui/common/modal_popup_layer.gd"
 
 ## 通用奖励弹窗场景路径，供战斗结算、礼包开启等流程复用。
 const SCENE_PATH: String = "res://scenes/ui/common/reward_popup.tscn"

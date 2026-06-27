@@ -9,7 +9,7 @@ const BAG_UI2_ATLAS_PATH: String = "res://asset/分类/ui/bagUI2.png"
 const REGION_EMPTY: Rect2 = Rect2(485.0, 528.0, 16.0, 16.0)
 const REGION_FILLED: Rect2 = Rect2(485.0, 528.0, 16.0, 16.0)
 const REGION_SELECTED: Rect2 = Rect2(506.0, 528.0, 16.0, 16.0)
-const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_hover_name.tscn")
+const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload(BagItemHoverName.SCENE_PATH)
 
 @export var texture_empty: Texture2D
 @export var texture_filled: Texture2D

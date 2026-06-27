@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b2wjw7r065n80" path="res://scripts/ui/bag/bag_item_detail.gd" id="1_detail"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_gemxe"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
-[ext_resource type="Script" uid="uid://bmopqquagswcc" path="res://scripts/ui/bag/item_description_view.gd" id="4_desc_view"]
+[ext_resource type="Script" uid="uid://bmopqquagswcc" path="res://scripts/ui/common/item_description_view.gd" id="4_desc_view"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_on3p7"]
 texture = ExtResource("1_gemxe")
@@ -37,6 +37,9 @@ theme_override_constants/separation = 5
 [node name="NameLabel" type="Label" parent="MarginContainer/ContentVBox" unique_id=1881246273]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 10
 text = "圣品·夜游神之枪"
 
@@ -44,37 +47,49 @@ text = "圣品·夜游神之枪"
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="LevelLabel" type="Label" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1122569237]
+[node name="LevelLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1122569237]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/normal_font_size = 7
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 text = "等级：30"
 
-[node name="ReinforcementLabel" type="Label" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1151527130]
+[node name="ReinforcementLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1151527130]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/normal_font_size = 7
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 text = "强化：+15"
 
 [node name="MetaRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1556069148]
 layout_mode = 2
 
-[node name="TypeLabel" type="Label" parent="MarginContainer/ContentVBox/MetaRow" unique_id=598546605]
+[node name="TypeLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow" unique_id=598546605]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/normal_font_size = 7
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 text = "类型：-"
 
-[node name="EquipSlotLabel" type="Label" parent="MarginContainer/ContentVBox/MetaRow" unique_id=1481687263]
+[node name="EquipSlotLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow" unique_id=1481687263]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/normal_font_size = 7
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 text = "部位：-"
 
 [node name="DescriptionPanel" type="PanelContainer" parent="MarginContainer/ContentVBox" unique_id=798183545]

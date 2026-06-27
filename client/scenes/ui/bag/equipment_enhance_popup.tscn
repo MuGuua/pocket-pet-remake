@@ -517,16 +517,9 @@ theme_override_constants/margin_top = 3
 [node name="FooterRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin" unique_id=1445166007]
 layout_mode = 2
 theme_override_constants/separation = 8
-alignment = 2
+alignment = 1
 
 [node name="EnhanceButton" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin/FooterRow" unique_id=1163046176 instance=ExtResource("5_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "强化"
-
-[node name="ContinuousCheckbox" type="CheckBox" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin/FooterRow" unique_id=2132052715]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.94902, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 7
-text = "连续强化"

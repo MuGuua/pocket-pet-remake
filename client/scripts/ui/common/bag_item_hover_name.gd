@@ -3,6 +3,8 @@ class_name BagItemHoverName
 
 ## 名称标签底边与锚点控件顶边之间的垂直间距（像素）。
 const ANCHOR_GAP_Y: float = 2.0
+## 通用悬停名称场景路径。
+const SCENE_PATH: String = "res://scenes/ui/common/bag_item_hover_name.tscn"
 
 ## 悬停名称标签；右对齐显示，便于固定在物品右上方。
 @onready var _name_label: Label = %NameLabel

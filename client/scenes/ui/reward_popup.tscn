@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://4xpt4qdylxy4"]
+[gd_scene format=3 uid="uid://ncyg7n8vegmr"]
 
 [ext_resource type="Script" path="res://scripts/ui/reward_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]

@@ -7,13 +7,12 @@ const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
 const BAG_PANEL_SCENE := preload("res://scenes/ui/bag/bag_panel.tscn")
-const NPC_MENU_SCENE := preload("res://scenes/ui/npc_menu.tscn")
-const NPC_LIST_MENU_SCENE := preload("res://scenes/ui/npc_list_menu.tscn")
+const OPTION_LIST_PANEL_SCENE := preload(OptionListPanel.SCENE_PATH)
+const RUNTIME_PROGRESS_OVERLAY_SCENE := preload(RuntimeProgressOverlay.SCENE_PATH)
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
 const NPC_SHOP_PANEL_SCENE := preload("res://scenes/ui/npc_shop_panel.tscn")
 const RewardPopupScene := preload("res://scenes/ui/common/reward_popup.tscn")
-const LevelUpPopupScene := preload("res://scenes/ui/bag/level_up_popup.tscn")
-const PetLevelUpPopupScene := preload("res://scenes/ui/pet_level_up_popup.tscn")
+const InfoModalPopupScene := preload(InfoModalPopup.SCENE_PATH)
 const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
 # 返回登录页时使用的场景路径。
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
@@ -52,10 +51,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 
 # 奖励弹窗实例，战斗与任务结算后复用。
 var _reward_popup: RewardPopup = null
-# 升级弹窗实例，经验升级后展示属性加成。
-var _level_up_popup: CanvasLayer = null
-# 宠物升级弹窗实例，战斗结算后逐只展示升级摘要。
-var _pet_level_up_popup: CanvasLayer = null
+# 通用信息模态弹窗；玩家升级与宠物升级共用同一实例。
+var _info_modal_popup: InfoModalPopup = null
 # 当前挂载的世界控制器实例引用。
 var _world_controller: Node
 # 战斗表现场景实例；非战斗态时为 null。
@@ -75,9 +72,9 @@ var _redirecting_to_login: bool = false
 var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
 var _bag_panel: CanvasLayer
-var _npc_menu: CanvasLayer
-var _npc_list_menu: CanvasLayer
-var _pvp_target_menu: CanvasLayer
+var _npc_menu: OptionListPanel = null
+var _npc_list_menu: OptionListPanel = null
+var _pvp_target_menu: OptionListPanel = null
 var _pvp_invite_dialog: ConfirmationDialog
 var _opening_npc_menu_from_list: bool = false
 var _runtime_data_requested: bool = false
@@ -106,7 +103,7 @@ var _active_dialogue_node_id: String = ""
 # 当前剧情所属 NPC 名称，供动作节点播完后恢复对话面板标题使用。
 var _active_dialogue_npc_name: String = ""
 # NPC 交互/剧情请求的通用 loading 遮罩。
-var _npc_request_loading: RequestLoadingOverlay = null
+var _npc_request_loading: RuntimeProgressOverlay = null
 # 当前等待 NPC_MENU_RESP 的请求序列号。
 var _pending_npc_menu_seq: int = 0
 # 与 _pending_npc_menu_seq 对应的菜单回包缓存。
@@ -389,7 +386,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if nearby_npcs.is_empty():
 		return
 	_close_other_root_panels("npc_list")
-	_npc_list_menu.call("configure", "周围 NPC", nearby_npcs)
+	_npc_list_menu.configure("周围 NPC", nearby_npcs, {
+		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
+		"panel_min_width": 288,
+	})
 	_npc_list_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
 	get_viewport().set_input_as_handled()
@@ -715,38 +715,27 @@ func _create_runtime_ui() -> void:
 	_create_npc_shop_panel()
 	_create_pvp_invite_dialog()
 	_create_reward_popup()
-	_create_level_up_popup()
+	_create_info_modal_popup()
 	_create_cinematic_player()
 	_create_npc_request_loading()
 
 
-func _create_level_up_popup() -> void:
-	if _level_up_popup != null:
+func _create_info_modal_popup() -> void:
+	if _info_modal_popup != null:
 		return
-	_level_up_popup = LevelUpPopupScene.instantiate() as CanvasLayer
-	if _level_up_popup == null:
+	_info_modal_popup = InfoModalPopupScene.instantiate() as InfoModalPopup
+	if _info_modal_popup == null:
 		return
-	_level_up_popup.name = "LevelUpPopup"
-	add_child(_level_up_popup)
+	_info_modal_popup.name = "InfoModalPopup"
+	add_child(_info_modal_popup)
 
 
 func _show_level_up_popup_and_wait(level: int, bonus: Dictionary) -> void:
-	_create_level_up_popup()
-	if _level_up_popup == null or not _level_up_popup.has_method("show_level_up"):
+	_create_info_modal_popup()
+	if _info_modal_popup == null:
 		return
-	_level_up_popup.call("show_level_up", level, bonus)
-	if _level_up_popup.has_signal("popup_closed"):
-		await _level_up_popup.popup_closed
-
-
-func _create_pet_level_up_popup() -> void:
-	if _pet_level_up_popup != null:
-		return
-	_pet_level_up_popup = PetLevelUpPopupScene.instantiate() as CanvasLayer
-	if _pet_level_up_popup == null:
-		return
-	_pet_level_up_popup.name = "PetLevelUpPopup"
-	add_child(_pet_level_up_popup)
+	_info_modal_popup.show_player_level_up(level, bonus)
+	await _info_modal_popup.popup_closed
 
 
 ## 逐只展示战斗结算里升级过的宠物摘要；玩家点按关闭后再进入下一项。
@@ -764,12 +753,11 @@ func _show_pet_level_up_popups_and_wait(pet_rewards: Array) -> void:
 		var attr_points_gained: int = int(pet_reward.get("attr_points_gained", 0))
 		var free_attr_points: int = int(pet_reward.get("free_attr_points", 0))
 		var pet_name: String = _resolve_pet_display_name(pet_uid, pet_id)
-		_create_pet_level_up_popup()
-		if _pet_level_up_popup == null or not _pet_level_up_popup.has_method("show_pet_level_up"):
+		_create_info_modal_popup()
+		if _info_modal_popup == null:
 			continue
-		_pet_level_up_popup.call("show_pet_level_up", pet_name, level, attr_points_gained, free_attr_points)
-		if _pet_level_up_popup.has_signal("popup_closed"):
-			await _pet_level_up_popup.popup_closed
+		_info_modal_popup.show_pet_level_up(pet_name, level, attr_points_gained, free_attr_points)
+		await _info_modal_popup.popup_closed
 
 
 ## 根据本地宠物列表解析展示名；缺失时回退到 pet_id 或 pet_uid。
@@ -917,34 +905,39 @@ func _create_bag_panel() -> void:
 		_bag_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
 
 func _create_npc_menu() -> void:
-	_npc_menu = NPC_MENU_SCENE.instantiate() as CanvasLayer
+	_npc_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel
 	if _npc_menu == null:
 		return
+	_npc_menu.name = "NpcMenu"
 	add_child(_npc_menu)
-	if _npc_menu.has_signal("option_selected"):
-		_npc_menu.connect("option_selected", Callable(self, "_on_npc_menu_option_selected"))
-	if _npc_menu.has_signal("menu_closed"):
-		_npc_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+	if not _npc_menu.option_selected.is_connected(_on_npc_menu_option_selected):
+		_npc_menu.option_selected.connect(_on_npc_menu_option_selected)
+	if not _npc_menu.menu_closed.is_connected(_on_runtime_menu_closed):
+		_npc_menu.menu_closed.connect(_on_runtime_menu_closed)
+
 
 func _create_npc_list_menu() -> void:
-	_npc_list_menu = NPC_LIST_MENU_SCENE.instantiate() as CanvasLayer
+	_npc_list_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel
 	if _npc_list_menu == null:
 		return
+	_npc_list_menu.name = "NpcListMenu"
 	add_child(_npc_list_menu)
-	if _npc_list_menu.has_signal("npc_selected"):
-		_npc_list_menu.connect("npc_selected", Callable(self, "_on_npc_selected"))
-	if _npc_list_menu.has_signal("menu_closed"):
-		_npc_list_menu.connect("menu_closed", Callable(self, "_on_npc_list_closed"))
+	if not _npc_list_menu.option_selected.is_connected(_on_npc_selected):
+		_npc_list_menu.option_selected.connect(_on_npc_selected)
+	if not _npc_list_menu.menu_closed.is_connected(_on_npc_list_closed):
+		_npc_list_menu.menu_closed.connect(_on_npc_list_closed)
+
 
 func _create_pvp_target_menu() -> void:
-	_pvp_target_menu = NPC_LIST_MENU_SCENE.instantiate() as CanvasLayer
+	_pvp_target_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel
 	if _pvp_target_menu == null:
 		return
+	_pvp_target_menu.name = "PvpTargetMenu"
 	add_child(_pvp_target_menu)
-	if _pvp_target_menu.has_signal("npc_selected"):
-		_pvp_target_menu.connect("npc_selected", Callable(self, "_on_pvp_target_selected"))
-	if _pvp_target_menu.has_signal("menu_closed"):
-		_pvp_target_menu.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+	if not _pvp_target_menu.option_selected.is_connected(_on_pvp_target_selected):
+		_pvp_target_menu.option_selected.connect(_on_pvp_target_selected)
+	if not _pvp_target_menu.menu_closed.is_connected(_on_runtime_menu_closed):
+		_pvp_target_menu.menu_closed.connect(_on_runtime_menu_closed)
 
 func _create_pvp_invite_dialog() -> void:
 	_pvp_invite_dialog = ConfirmationDialog.new()
@@ -1190,7 +1183,10 @@ func _open_pvp_target_menu() -> void:
 		_append_log("附近没有可挑战的玩家。")
 		return
 	_close_other_root_panels("pvp_list")
-	_pvp_target_menu.call("configure", "选择挑战玩家", nearby_players)
+	_pvp_target_menu.configure("选择挑战玩家", nearby_players, {
+		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
+		"panel_min_width": 288,
+	})
 	_pvp_target_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
 
@@ -1198,7 +1194,9 @@ func _open_pvp_target_menu() -> void:
 func _create_npc_request_loading() -> void:
 	if _npc_request_loading != null:
 		return
-	_npc_request_loading = RequestLoadingOverlay.new()
+	_npc_request_loading = RUNTIME_PROGRESS_OVERLAY_SCENE.instantiate() as RuntimeProgressOverlay
+	if _npc_request_loading == null:
+		return
 	_npc_request_loading.name = "NpcRequestLoading"
 	add_child(_npc_request_loading)
 
@@ -1293,7 +1291,10 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 		return
 	var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
 	_close_other_root_panels("npc_menu")
-	_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+	_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
+		"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
+		"panel_min_width": 264,
+	})
 	_npc_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
 
@@ -1314,7 +1315,10 @@ func _handle_npc_action_payload(payload: Dictionary) -> void:
 	if payload.has("menu_entries") and _npc_menu != null:
 		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
 		_close_other_root_panels("npc_menu")
-		_npc_menu.call("configure", str(payload.get("npc_name", "NPC")), menu_options)
+		_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
+		"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
+		"panel_min_width": 264,
+	})
 		_npc_menu.call("open_menu")
 		_set_runtime_menu_locked(true)
 
@@ -1514,10 +1518,9 @@ func _suppress_settlement_input_leak() -> void:
 
 ## 判断升级或奖励结算弹窗是否正在展示。
 func _is_settlement_popup_active() -> bool:
-	var level_up_visible: bool = _level_up_popup != null and _level_up_popup.visible
-	var pet_level_up_visible: bool = _pet_level_up_popup != null and _pet_level_up_popup.visible
+	var info_modal_visible: bool = _info_modal_popup != null and _info_modal_popup.visible
 	var reward_visible: bool = _reward_popup != null and _reward_popup.visible
-	return level_up_visible or pet_level_up_visible or reward_visible
+	return info_modal_visible or reward_visible
 
 ## 判断结算弹窗是否应继续阻断快捷键与底层交互。
 func _is_settlement_input_blocked() -> bool:

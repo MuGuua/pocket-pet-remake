@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://dmxg0ackwawrn"]
+
+[ext_resource type="Script" uid="uid://bsvx7q3xypqwb" path="res://scripts/ui/common/menu_frame.gd" id="1_vc7u5"]
+
+[node name="MenuFrame" type="Control"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_vc7u5")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Top" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Bottom" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Left" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Right" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="TopLeft" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="TopRight" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="BottomLeft" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="BottomRight" type="TextureRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Content" type="MarginContainer" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

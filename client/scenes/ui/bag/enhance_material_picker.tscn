@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://cqyhegcenp6us"]
+[gd_scene format=3 uid="uid://bk27xht4ewbum"]
 
 [ext_resource type="Script" path="res://scripts/ui/bag/enhance_material_picker.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_ib33g"]
@@ -25,9 +25,9 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_owufn")
 [node name="ContentMargin" type="MarginContainer" parent="PanelRoot" unique_id=506208169]
 layout_mode = 2
 theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 4
+theme_override_constants/margin_top = -4
 theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_bottom = 0
 
 [node name="MainVBox" type="VBoxContainer" parent="PanelRoot/ContentMargin" unique_id=191229582]
 unique_name_in_owner = true

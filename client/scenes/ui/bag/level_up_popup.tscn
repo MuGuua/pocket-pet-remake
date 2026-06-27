@@ -1,12 +1,12 @@
-[gd_scene format=3 uid="uid://lr72pvud288e"]
+[gd_scene format=3 uid="uid://cm6hkjk2yd6jm"]
 
-[ext_resource type="Script" uid="uid://kc7fqd51ejar" path="res://scripts/ui/level_up_popup.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/level_up_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 
 [node name="LevelUpPopup" type="CanvasLayer" unique_id=308885397]
-visible = false
 layer = 131
+visible = false
 script = ExtResource("1_script")
 
 [node name="DimLayer" type="ColorRect" parent="." unique_id=628188009]

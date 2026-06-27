@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://dmtcei0m7hn18"]
+[gd_scene format=3 uid="uid://dbl88skquox8f"]
 
-[ext_resource type="Script" uid="uid://b7f08ybry1kmy" path="res://scripts/ui/bag/bag_item_more_menu.gd" id="1_more"]
+[ext_resource type="Script" path="res://scripts/ui/bag/bag_item_more_menu.gd" id="1_more"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="2_action_btn"]
 
 [node name="BagItemMoreMenu" type="Control" unique_id=515442383]

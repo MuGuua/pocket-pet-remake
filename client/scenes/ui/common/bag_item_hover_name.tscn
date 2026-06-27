@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://s7gshnte76to"]
 
-[ext_resource type="Script" path="res://scripts/ui/bag/bag_item_hover_name.gd" id="1_hover"]
+[ext_resource type="Script" path="res://scripts/ui/common/bag_item_hover_name.gd" id="1_hover"]
 
 [node name="BagItemHoverName" type="Control"]
 visible = false

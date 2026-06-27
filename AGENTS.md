@@ -58,6 +58,7 @@
 - 网络请求必须通过 `App`、`NetClient`、`HttpClient` 和 `MessageRouter` 流转，不要创建临时拼接的网络路径。
 - 新增地图、传送门、NPC 或任务交互时，应优先复用现有场景级基础脚本。
 - 新增 UI 或交互逻辑时，要确保它适配 `client/project.godot` 中定义的移动端视口。
+- **创建 UI 面板或交互组件前，必须先检查 `client/scenes/ui/common/` 与 `client/scripts/ui/common/` 是否已有可复用的通用样式或组件**（清单见 `client/scenes/ui/common/README.md`）。优先复用 `modal_popup_layer`、`RuntimeRootPanel`、`AnchoredPopupBase`、`ConfirmPromptPopup`、`InfoModalPopup`、`ActionMenuPopup`、`ItemSlotPicker`、`OptionListPanel`、`ItemDescriptionView`、`MenuFrame`、`RuntimeActionButton`、`RuntimeProgressOverlay`、`RewardPopup`、`BagItemHoverName` 等通用资源；只有在现有组件无法满足需求时，才新增专用 UI，并评估是否应沉淀为新的通用组件。
 - 除非任务明确要求，否则不要重命名自动加载单例、场景路径或资源路径。
 - loading 遮罩使用通用UI与对应脚本，所有场景都必须使用这个UI。所有与服务端的请求都必须通过这个UI进行。获取到数据以后再进行面板打开（打开以后直接是新数据，不能老数据变成新数据的过程，本地不再内存中缓存旧数据），动画渲染，npc交互菜单拉取等等，除了多人同屏功能.
 - 所有浮点数数值在ui面板，动画渲染的时候都转成int类型，不能直接使用float64类型。

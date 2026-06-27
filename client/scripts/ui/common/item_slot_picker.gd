@@ -1,4 +1,4 @@
-extends Control
+extends AnchoredPopupBase
 class_name ItemSlotPicker
 
 ## 通用物品格子选择浮层场景路径，可在强化材料、消耗品选择等流程复用。
@@ -23,12 +23,6 @@ const TITLE_HEIGHT: int = 14
 const MAIN_VBOX_SEPARATION: int = 3
 ## 面板 ContentMargin 四边留白（像素）。
 const CONTENT_MARGIN: int = 4
-## 面板相对锚点的默认间距（像素）。
-const ANCHOR_GAP: float = 6.0
-## 面板出现在锚点上方（水平居中）。
-const PLACEMENT_ABOVE: String = "above"
-## 面板出现在锚点右侧（顶部对齐，向下扩展时不遮挡按钮）。
-const PLACEMENT_RIGHT: String = "right"
 
 ## 默认网格列数，可被 open_near 的 config 覆盖。
 @export var grid_columns: int = 5
@@ -50,30 +44,18 @@ const PLACEMENT_RIGHT: String = "right"
 var _item_options: Array[Dictionary] = []
 ## 当前选中项的 item_id，用于高亮格子背景。
 var _selected_item_id: int = 0
-## 面板是否处于打开状态。
-var _picker_open: bool = false
-## 打开面板时的锚点控件，布局刷新后用于重新定位。
-var _anchor_control: Control = null
 ## 本次打开时使用的网格列数。
 var _active_grid_columns: int = 5
 ## 本次打开时允许的最大可视行数。
 var _active_max_visible_rows: int = 6
 ## 本次打开时选中后是否自动关闭。
 var _active_close_on_select: bool = true
-## 本次打开时的面板相对锚点方位。
-var _active_placement: String = PLACEMENT_ABOVE
-## 本次打开时面板与锚点之间的间距（像素）。
-var _active_anchor_gap: float = ANCHOR_GAP
-## 本次打开时相对默认定位的额外 X 偏移（像素）。
-var _active_position_offset_x: float = 0.0
-## 本次打开时相对默认定位的额外 Y 偏移（像素）。
-var _active_position_offset_y: float = 0.0
 
 
 ## 绑定网格参数；默认隐藏，由父级按需打开。
 func _ready() -> void:
+    super._ready()
     z_index = 18
-    mouse_filter = Control.MOUSE_FILTER_IGNORE
     _active_grid_columns = grid_columns
     _active_max_visible_rows = max_visible_rows
     _active_close_on_select = close_on_select
@@ -83,12 +65,8 @@ func _ready() -> void:
         _item_grid.add_theme_constant_override("v_separation", GRID_SEPARATION)
     if _title_label != null:
         _title_label.text = DEFAULT_TITLE
-    hide()
-
-
-## 选择面板当前是否展开。
-func is_open() -> bool:
-    return _picker_open
+    if not popup_closed.is_connected(_on_popup_closed):
+        popup_closed.connect(_on_popup_closed)
 
 
 ## 在锚点控件附近打开面板，并刷新可选物品列表。
@@ -97,7 +75,6 @@ func is_open() -> bool:
 func open_near(anchor: Control, items: Array, selected_item_id: int = 0, config: Dictionary = {}) -> void:
     if anchor == null:
         return
-    _apply_open_config(config)
     _item_options.clear()
     for item_variant: Variant in items:
         if item_variant is not Dictionary:
@@ -107,37 +84,27 @@ func open_near(anchor: Control, items: Array, selected_item_id: int = 0, config:
             continue
         _item_options.append(normalized_item)
     _selected_item_id = selected_item_id
-    _anchor_control = anchor
     _rebuild_item_grid()
-    _picker_open = true
-    top_level = true
-    show()
-    if get_parent() != null:
-        get_parent().move_child(self, get_parent().get_child_count() - 1)
+    _prepare_open(config)
+    _start_anchored_open(anchor)
     call_deferred("_refresh_panel_layout_and_position")
 
 
 ## 关闭物品选择面板。
 func hide_picker() -> void:
-    if not _picker_open:
-        return
-    _picker_open = false
-    _anchor_control = null
-    top_level = false
-    hide()
-    picker_closed.emit()
+    close_popup()
 
 
 ## 判断全局坐标是否落在选择面板整体区域内（含标题与边框）。
 func is_global_point_over_panel(global_point: Vector2) -> bool:
-    if not _picker_open or _panel_root == null:
+    if not is_open() or _panel_root == null:
         return false
     return _panel_root.get_global_rect().has_point(global_point)
 
 
 ## 判断全局坐标是否落在物品格子可视区域内。
 func is_global_point_over_item_cells(global_point: Vector2) -> bool:
-    if _item_grid == null or not _picker_open:
+    if _item_grid == null or not is_open():
         return false
     if _grid_scroll != null:
         if not _grid_scroll.get_global_rect().has_point(global_point):
@@ -165,8 +132,19 @@ static func normalize_item_option(option: Dictionary) -> Dictionary:
     return snapshot
 
 
-## 解析 open_near 传入的运行时配置。
-func _apply_open_config(config: Dictionary) -> void:
+## 返回用于定位的面板根节点。
+func _get_layout_root() -> Control:
+    return _panel_root
+
+
+## 解析物品选择面板专属 config，并交给基类处理锚点参数。
+func _prepare_open(config: Dictionary) -> void:
+    super._prepare_open(config)
+    _apply_picker_config(config)
+
+
+## 解析标题、网格列数、最大可视行数等运行时配置。
+func _apply_picker_config(config: Dictionary) -> void:
     var title_text: String = str(config.get("title", DEFAULT_TITLE))
     if title_text.is_empty():
         title_text = DEFAULT_TITLE
@@ -179,45 +157,8 @@ func _apply_open_config(config: Dictionary) -> void:
     if _active_max_visible_rows <= 0:
         _active_max_visible_rows = max_visible_rows
     _active_close_on_select = bool(config.get("close_on_select", close_on_select))
-    _active_placement = str(config.get("placement", PLACEMENT_ABOVE))
-    if _active_placement != PLACEMENT_RIGHT:
-        _active_placement = PLACEMENT_ABOVE
-    _active_anchor_gap = float(config.get("anchor_gap", ANCHOR_GAP))
-    if _active_anchor_gap < 0.0:
-        _active_anchor_gap = ANCHOR_GAP
-    _active_position_offset_x = float(config.get("position_offset_x", 0.0))
-    _active_position_offset_y = float(config.get("position_offset_y", 0.0))
     if _item_grid != null:
         _item_grid.columns = _active_grid_columns
-
-
-## 根据锚点按钮位置计算并应用面板坐标。
-func _apply_position_near(anchor: Control) -> void:
-    if anchor == null or not is_inside_tree():
-        return
-    var panel_size: Vector2 = _panel_root.size
-    if panel_size.x <= 0.0 or panel_size.y <= 0.0:
-        panel_size = _panel_root.get_combined_minimum_size()
-    if panel_size.x <= 0.0 or panel_size.y <= 0.0:
-        panel_size = size
-    var anchor_rect: Rect2 = anchor.get_global_rect()
-    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-    var global_x: float = 0.0
-    var global_y: float = 0.0
-    if _active_placement == PLACEMENT_RIGHT:
-        global_x = anchor_rect.position.x + anchor_rect.size.x + _active_anchor_gap
-        global_y = anchor_rect.position.y
-        if global_x + panel_size.x > viewport_size.x:
-            global_x = anchor_rect.position.x - panel_size.x - _active_anchor_gap
-    else:
-        global_x = anchor_rect.position.x + (anchor_rect.size.x - panel_size.x) * 0.5
-        global_y = anchor_rect.position.y - panel_size.y - _active_anchor_gap
-    global_x += _active_position_offset_x
-    global_y += _active_position_offset_y
-    global_x = clampf(global_x, 0.0, maxf(viewport_size.x - panel_size.x, 0.0))
-    global_y = clampf(global_y, 0.0, maxf(viewport_size.y - panel_size.y, 0.0))
-    size = panel_size
-    global_position = Vector2(global_x, global_y)
 
 
 ## 清空并重建物品格子。
@@ -308,3 +249,8 @@ func _on_item_cell_pressed(option_index: int) -> void:
     if _active_close_on_select:
         hide_picker()
     item_selected.emit(item)
+
+
+## 同步 picker_closed 信号，兼容旧监听方。
+func _on_popup_closed() -> void:
+    picker_closed.emit()

@@ -1,5 +1,5 @@
 class_name EquipmentEnhancePopup
-extends "res://scripts/ui/modal_popup_layer.gd"
+extends "res://scripts/ui/common/modal_popup_layer.gd"
 
 ## 装备强化弹窗场景路径。
 const SCENE_PATH: String = "res://scenes/ui/bag/equipment_enhance_popup.tscn"
@@ -32,7 +32,7 @@ const ENHANCE_PREVIEW_MAX_LABEL: String = "max"
 ## 满级预览右侧占位文案色。
 const ENHANCE_PREVIEW_MAX_COLOR: String = "#9494b8"
 ## 材料按钮悬停名称浮层场景。
-const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_hover_name.tscn")
+const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload(BagItemHoverName.SCENE_PATH)
 ## 未选中材料时，悬停材料按钮展示的提示文案。
 const MATERIAL_BUTTON_HOVER_HINT: String = "点击选择强化材料"
 ## 材料选择面板相对默认定位向上偏移（像素）。
@@ -57,16 +57,13 @@ signal enhance_presentation_finished
 @onready var _wallet_silver_amount_label: Label = %WalletSilverAmountLabel
 @onready var _wallet_copper_amount_label: Label = %WalletCopperAmountLabel
 @onready var _enhance_button: RuntimeActionButton = %EnhanceButton
-@onready var _continuous_checkbox: CheckBox = %ContinuousCheckbox
 @onready var _enhance_progress_bar: ProgressBar = %EnhanceProgressBar
 @onready var _enhance_result_label: Label = %EnhanceResultLabel
 
 ## 当前要强化的背包装备快照。
 var _item: Dictionary = {}
-## 本次计划连续强化的次数。
+## 本次计划强化的次数。
 var _enhance_times: int = 1
-## 是否勾选连续强化。
-var _continuous_enabled: bool = false
 ## 当前选中的强化材料 item_id，默认来自服务端 cost_item_id。
 var _selected_cost_item_id: int = 0
 ## 强化材料选择浮层。
@@ -97,7 +94,7 @@ var _enhance_progress_fill_style: StyleBoxFlat = null
 var _optimistic_copper_spent: int = 0
 
 
-## 初始化按钮与勾选框信号，并启用模态遮罩的空白区域关闭能力。
+## 初始化按钮信号，并启用模态遮罩的空白区域关闭能力。
 func _ready() -> void:
 	super._ready()
 	_init_preview_row_style()
@@ -107,8 +104,6 @@ func _ready() -> void:
 	_ensure_material_button_hover_name()
 	if _enhance_button != null and not _enhance_button.pressed.is_connected(_on_enhance_button_pressed):
 		_enhance_button.pressed.connect(_on_enhance_button_pressed)
-	if _continuous_checkbox != null and not _continuous_checkbox.toggled.is_connected(_on_continuous_toggled):
-		_continuous_checkbox.toggled.connect(_on_continuous_toggled)
 	if _material_select_button != null and not _material_select_button.pressed.is_connected(_on_material_select_button_pressed):
 		_material_select_button.pressed.connect(_on_material_select_button_pressed)
 		_material_select_button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -125,10 +120,7 @@ func show_equipment(item: Dictionary) -> void:
 	_reset_enhance_presentation_ui()
 	_item = item.duplicate(true)
 	_enhance_times = 1
-	_continuous_enabled = false
 	_selected_cost_item_id = int(_resolve_enhance_preview().get("cost_item_id", 0))
-	if _continuous_checkbox != null:
-		_continuous_checkbox.button_pressed = false
 	_refresh_all()
 	_set_content_mouse_ignore(true)
 	_open_modal()
@@ -321,19 +313,25 @@ func _refresh_material_and_cost() -> void:
 	var owned_count: int = int(preview.get("owned_cost_quantity", 0))
 	var need_count: int = int(preview.get("cost_quantity", 0)) * _enhance_times
 	if _material_icon != null:
-		var material_texture: Texture2D = ItemIcons.resolve_texture(cost_item_id)
-		_material_icon.texture = material_texture
-		_material_icon.visible = material_texture != null
+		if cost_item_id <= 0:
+			_material_icon.texture = null
+			_material_icon.hide()
+		else:
+			_material_icon.texture = ItemIcons.resolve_texture(cost_item_id)
+			_material_icon.show()
 	if _material_select_button != null:
 		_material_select_button.disabled = _enhance_presentation_active
 		_material_select_button.tooltip_text = ""
 	if _material_count_label != null:
-		var count_color: String = PREVIEW_NEXT_COLOR if owned_count >= need_count and need_count > 0 else MATERIAL_SHORT_COLOR
-		_material_count_label.text = "[color=%s]%s[/color]/%s" % [
-			count_color,
-			UiFormat.value_to_text(owned_count),
-			UiFormat.value_to_text(maxi(need_count, int(preview.get("cost_quantity", 0)))),
-		]
+		if cost_item_id <= 0:
+			_material_count_label.text = ""
+		else:
+			var count_color: String = PREVIEW_NEXT_COLOR if owned_count >= need_count and need_count > 0 else MATERIAL_SHORT_COLOR
+			_material_count_label.text = "[color=%s]%s[/color]/%s" % [
+				count_color,
+				UiFormat.value_to_text(owned_count),
+				UiFormat.value_to_text(maxi(need_count, int(preview.get("cost_quantity", 0)))),
+			]
 	var cost_copper: int = int(preview.get("cost_gold_copper", 0)) * _enhance_times
 	var wallet_components: Dictionary = _resolve_display_wallet_components()
 	var wallet_total_copper: int = int(wallet_components.get("total_copper", 0))
@@ -354,6 +352,9 @@ func _refresh_enhance_button_state() -> void:
 	if _enhance_button == null:
 		return
 	if _enhance_presentation_active:
+		_enhance_button.disabled = true
+		return
+	if _is_enhance_preview_at_max_level():
 		_enhance_button.disabled = true
 		return
 	var preview: Dictionary = _resolve_enhance_preview()
@@ -569,10 +570,6 @@ func _force_close_modal() -> void:
 	super._force_close_modal()
 
 
-func _on_continuous_toggled(toggled_on: bool) -> void:
-	_continuous_enabled = toggled_on
-
-
 ## 拦截模态输入：仅点击面板外遮罩区域时才关闭弹窗，避免面板内按钮触发 dismiss。
 func _input(event: InputEvent) -> void:
 	_handle_modal_dismiss_input(event)
@@ -654,11 +651,13 @@ func _on_enhance_button_pressed() -> void:
 		return
 	if _enhance_presentation_active:
 		return
+	if _is_enhance_preview_at_max_level():
+		return
 	var cost_item_id: int = _selected_cost_item_id
 	if cost_item_id <= 0:
 		cost_item_id = int(_resolve_enhance_preview().get("cost_item_id", 0))
 	_begin_enhance_presentation()
-	enhance_requested.emit(_item.duplicate(true), _enhance_times, _continuous_enabled, cost_item_id)
+	enhance_requested.emit(_item.duplicate(true), _enhance_times, false, cost_item_id)
 
 
 ## 点击强化后锁定弹窗交互，并启动 3 秒进度条动画。
@@ -873,7 +872,7 @@ func _cancel_enhance_presentation(force_unlock: bool) -> void:
 		_set_panel_interactive(true)
 
 
-## 递归禁用/启用弹窗内所有按钮与勾选框。
+## 递归禁用/启用弹窗内所有按钮。
 func _set_panel_interactive(enabled: bool) -> void:
 	var panel: Control = get_node_or_null("CenterContainer/PopupPanel") as Control
 	if panel == null:
@@ -884,13 +883,9 @@ func _set_panel_interactive(enabled: bool) -> void:
 			_enhance_button.disabled = true
 		if _material_select_button != null:
 			_material_select_button.disabled = true
-		if _continuous_checkbox != null:
-			_continuous_checkbox.disabled = true
 	else:
 		if _material_select_button != null:
 			_material_select_button.disabled = false
-		if _continuous_checkbox != null:
-			_continuous_checkbox.disabled = false
 		_refresh_enhance_button_state()
 
 

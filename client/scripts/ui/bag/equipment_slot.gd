@@ -4,7 +4,7 @@ class_name EquipmentSlot
 const BAG_UI2_ATLAS_PATH: String = "res://asset/分类/ui/bagUI2.png"
 const REGION_EMPTY: Rect2 = Rect2(485.0, 504.0, 16.0, 16.0)
 const REGION_EQUIPPED: Rect2 = Rect2(506.0, 504.0, 16.0, 16.0)
-const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload("res://scenes/ui/bag/bag_item_hover_name.tscn")
+const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload(BagItemHoverName.SCENE_PATH)
 
 ## 对应服务端 equip_slot，例如 weapon、hat；枚举值必须与服务端字符串完全一致。
 @export_enum(
