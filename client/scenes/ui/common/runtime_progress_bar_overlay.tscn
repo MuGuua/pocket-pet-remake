@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://d3smw2t2p8c4g"]
+
+[ext_resource type="Script" path="res://scripts/ui/common/runtime_progress_bar_overlay.gd" id="1_script"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+
+[node name="RuntimeProgressBarOverlay" type="CanvasLayer"]
+visible = false
+layer = 46
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="DimLayer" type="ColorRect" parent="Root"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.04, 0.08, 0.14, 0.72)
+
+[node name="CenterContainer" type="CenterContainer" parent="Root"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="ProgressPanel" type="PanelContainer" parent="Root/CenterContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="MarginContainer" type="MarginContainer" parent="Root/CenterContainer/ProgressPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Root/CenterContainer/ProgressPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Root/CenterContainer/ProgressPanel/MarginContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "打开中..."
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="Root/CenterContainer/ProgressPanel/MarginContainer/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 12)
+layout_mode = 2
+show_percentage = false

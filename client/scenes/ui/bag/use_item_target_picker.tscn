@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://useitemtargetpickerscn"]
+[gd_scene format=3 uid="uid://bs7axvu2ny5m8"]
 
 [ext_resource type="Script" uid="uid://useitemtargetpicker01" path="res://scripts/ui/bag/use_item_target_picker.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]

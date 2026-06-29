@@ -7,12 +7,11 @@ var _battle_controller: Node = null
 var _initialized_battle_id: int = 0
 var _state_update_running: bool = false
 var _state_update_queued: bool = false
-var _request_loading: BattleRequestLoading = null
+var _request_loading: RuntimeProgressOverlay = null
 
 func _ready() -> void:
-	_request_loading = BattleRequestLoading.new()
+	_request_loading = RuntimeProgressOverlay.new()
 	_request_loading.name = "BattleRequestLoading"
-	_request_loading.z_index = 120
 	add_child(_request_loading)
 
 ## 绑定主场景里的战斗控制器并订阅信号。

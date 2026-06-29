@@ -19,33 +19,6 @@ const CLICK_MARKER_WIDTH: float = 2.0
 const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
 ## 每帧最多记录的宠物跟随路径步数，防止主角锚点异常时在单帧 while 中卡死。
 const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
-const SCENE_CONFIGS: Dictionary = {
-	1: {
-		"scene_path": "res://scenes/maps/fashtown/roxus_house.tscn",
-		"grid_to_pixels": 24.0,
-	},
-	2: {
-		"scene_path": "res://scenes/maps/fashtown/east_road_of_shanguang_town.tscn",
-		"grid_to_pixels": 24.0,
-	},
-	3: {
-		"scene_path": "res://scenes/maps/fashtown/radiant_market.tscn",
-		"grid_to_pixels": 24.0,
-	},
-	4: {
-		"scene_path": "res://scenes/maps/fashtown/bei_lu.tscn",
-		"grid_to_pixels": 24.0,
-	},
-	5: {
-		"scene_path": "res://scenes/maps/fashtown/xue_xiao.tscn",
-		"grid_to_pixels": 24.0,
-	},
-	6: {
-		"scene_path": "res://scenes/maps/fashtown/da_guai_qu.tscn",
-		"grid_to_pixels": 24.0,
-	},
-}
-
 @onready var game_shell: Control = %GameShell
 @onready var game_viewport_container: SubViewportContainer = %GameViewportContainer
 @onready var game_viewport: SubViewport = %GameViewport
@@ -117,6 +90,14 @@ func _ready() -> void:
 	_ensure_click_destination_marker()
 	call_deferred("_refresh_game_layout")
 	_sync_local_player_battle_state()
+
+## 登录页已在主场景挂载前完成 ENTER_WORLD；主场景就绪后由此一次应用权威快照并加载地图。
+func apply_prepared_world_entry() -> void:
+	_use_scene_login_spawn_on_next_snapshot = true
+	_pending_player_facing_requested = true
+	_pending_player_facing_direction = Vector2.DOWN
+	_apply_authoritative_snapshot()
+	_emit_scene_loaded_if_changed(true)
 
 func handle_enter_world(payload: Dictionary) -> void:
 	var already_in_world: bool = int(GameState.scene_snapshot.get("scene_id", 0)) > 0
@@ -647,8 +628,7 @@ func _extract_self_position(player_snapshot: Dictionary) -> Vector2:
 	return Vector2(float(player_snapshot.get("x", 0.0)), float(player_snapshot.get("y", 0.0)))
 
 func _scene_config(scene_id: int) -> Dictionary:
-	var scene_config_variant: Variant = SCENE_CONFIGS.get(scene_id, {})
-	return scene_config_variant if scene_config_variant is Dictionary else {}
+	return WorldSceneRegistry.get_scene_config(scene_id)
 
 ## 把服务端权威场景坐标转换成 Godot 渲染像素坐标。
 ## 参数 scene_id 表示当前场景 ID；server_position 是以地图左上角为 (0,0) 的格子坐标；返回值是玩家父节点内的像素坐标。

@@ -15,7 +15,7 @@ const DEFAULT_TAB_INDEX: int = 0
 ## 社会属性内容面板。
 @onready var social_attribute_panel: Control = $Control/VBoxContainer/SocialAttribute
 ## 场景中配置好的请求 loading；脚本只控制显隐，不创建或覆盖面板布局。
-@onready var request_loading: RuntimeProgressOverlay = $RequestLoadingOverlay
+@onready var request_loading: GenericLoadingScene = $RequestLoadingOverlay
 ## 人物状态面板的关闭按钮；优先使用场景显式节点名，兼容后续 UI 调整。
 @onready var close_button: BaseButton = _resolve_close_button()
 
@@ -25,8 +25,10 @@ var _tab_buttons: Array[Button] = []
 var _tab_panels: Array[Control] = []
 ## 当前选中的分页索引。
 var _current_tab_index: int = DEFAULT_TAB_INDEX
-## 当前仍在等待回包的请求序列号集合，每次打开面板都会重新等待一组服务端数据。
+## 当前仍在等待回包的请求序列号集合，面板已打开后的二次刷新流程使用。
 var _pending_request_seqs: Dictionary = {}
+## 打开面板加载代次；关闭面板或重复打开时递增，用于取消进行中的 await。
+var _open_load_generation: int = 0
 
 
 ## 初始化按钮事件、订阅权威快照变化，并默认隐藏弹窗。
@@ -74,15 +76,32 @@ func _exit_tree() -> void:
         App.request_finished.disconnect(_on_request_finished)
 
 
-## 打开人物状态弹窗，并刷新为当前服务端权威快照。
+## 面板展示前拉取人物/背包/钱包快照；自身保持隐藏，由主场景负责 loading。
+func prepare_open_data() -> bool:
+    _open_load_generation += 1
+    var load_id: int = _open_load_generation
+    _pending_request_seqs.clear()
+    reset_to_default()
+    if not GameState.is_ws_authenticated:
+        return load_id == _open_load_generation
+    var status_seq: int = App.refresh_player_status()
+    var bag_seq: int = App.request_bag_list()
+    var wallet_seq: int = App.request_wallet()
+    var wait_result: Dictionary = await _wait_player_panel_open_requests(status_seq, bag_seq, wallet_seq)
+    if load_id != _open_load_generation:
+        return false
+    return bool(wait_result.get("all_succeeded", false))
+
+
+## 数据就绪后打开人物状态面板；不再在此处重复请求服务端。
 func open_menu() -> void:
     super.open_menu()
-    reset_to_default()
-    _request_panel_data()
+    refresh_panel_data()
 
 
 ## 关闭人物状态弹窗，并通知主场景解除菜单锁定。
 func close_menu() -> void:
+    _open_load_generation += 1
     _pending_request_seqs.clear()
     _hide_loading_overlay()
     super.close_menu()
@@ -186,7 +205,52 @@ func _apply_close_button_static_style(button: BaseButton) -> void:
             button_control.add_theme_stylebox_override("focus", normal_style)
 
 
-## 面板每次打开时向服务端重新拉取一次完整人物面板数据。
+## 并行等待人物状态、背包与钱包回包；打开面板前缩短总等待时间。
+func _wait_player_panel_open_requests(status_seq: int, bag_seq: int, wallet_seq: int) -> Dictionary:
+    var pending_cmds: Dictionary = {}
+    if status_seq > 0:
+        pending_cmds[status_seq] = CommandIds.ENTER_WORLD_REQ
+    if bag_seq > 0:
+        pending_cmds[bag_seq] = CommandIds.BAG_LIST_REQ
+    if wallet_seq > 0:
+        pending_cmds[wallet_seq] = CommandIds.WALLET_QUERY_REQ
+    if pending_cmds.is_empty():
+        return {
+            "status_succeeded": true,
+            "bag_succeeded": true,
+            "wallet_succeeded": true,
+            "all_succeeded": true,
+        }
+    var status_succeeded: bool = status_seq <= 0
+    var bag_succeeded: bool = bag_seq <= 0
+    var wallet_succeeded: bool = wallet_seq <= 0
+    while not pending_cmds.is_empty():
+        var result: Array = await App.request_finished
+        if result.size() < 5:
+            continue
+        var request_cmd: int = int(result[0])
+        var seq: int = int(result[1])
+        var succeeded: bool = bool(result[2])
+        if not pending_cmds.has(seq):
+            continue
+        if int(pending_cmds.get(seq, 0)) != request_cmd:
+            continue
+        pending_cmds.erase(seq)
+        if request_cmd == CommandIds.ENTER_WORLD_REQ and seq == status_seq:
+            status_succeeded = succeeded
+        elif request_cmd == CommandIds.BAG_LIST_REQ and seq == bag_seq:
+            bag_succeeded = succeeded
+        elif request_cmd == CommandIds.WALLET_QUERY_REQ and seq == wallet_seq:
+            wallet_succeeded = succeeded
+    return {
+        "status_succeeded": status_succeeded,
+        "bag_succeeded": bag_succeeded,
+        "wallet_succeeded": wallet_succeeded,
+        "all_succeeded": status_succeeded and bag_succeeded and wallet_succeeded,
+    }
+
+
+## 面板已打开时向服务端重新拉取一次完整人物面板数据。
 func _request_panel_data() -> void:
     if not GameState.is_ws_authenticated:
         refresh_panel_data()
@@ -227,13 +291,13 @@ func _on_request_finished(_request_cmd: int, seq: int, _ok: bool, _response_cmd:
 ## 显示人物面板请求 loading，提示用户正在等待服务端权威数据。
 func _show_loading_overlay() -> void:
     if request_loading != null:
-        request_loading.show_waiting("正在同步人物信息")
+        request_loading.show_waiting()
 
 
 ## 隐藏人物面板请求 loading。
 func _hide_loading_overlay() -> void:
     if request_loading != null:
-        request_loading.hide_overlay()
+        request_loading.hide_loading()
 
 
 ## 刷新战斗属性分页，所有数值均来自服务端玩家快照。

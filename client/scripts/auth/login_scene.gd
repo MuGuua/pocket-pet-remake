@@ -33,6 +33,10 @@ const TRANSITION_DURATION := 0.18
 var _login_flow_running: bool = false
 # 标记当前是否正在切换到主运行态场景。
 var _switching_scene: bool = false
+# 标记当前是否正在登录页等待世界与地图就绪。
+var _world_entry_flow_running: bool = false
+# 登录页全流程使用的 loading 遮罩（点击登录后立即展示）。
+var _login_loading: GenericLoadingScene = null
 
 # 初始化登录页并绑定登录链路所需信号。
 func _ready() -> void:
@@ -44,7 +48,7 @@ func _ready() -> void:
 	_append_log("点击“登录并进入世界”后会自动完成 HTTP 登录和实时连接。")
 	_refresh_view()
 	if GameState.is_ws_authenticated:
-		call_deferred("_enter_main_scene")
+		call_deferred("_prepare_world_entry_and_enter_main")
 
 # 绑定登录页依赖的按钮、输入框、应用信号和全局状态信号。
 func _connect_signals() -> void:
@@ -115,6 +119,7 @@ func _on_login_button_pressed() -> void:
 	GameState.reset_session_state()
 	NetClient.disconnect_from_server()
 	_set_login_busy(true)
+	_show_login_loading()
 	_append_log("开始登录账号 %s。" % account)
 
 	# 等待应用层完成 HTTP 登录请求。
@@ -126,6 +131,7 @@ func _on_login_button_pressed() -> void:
 		return
 
 	_append_log("HTTP 登录成功，开始建立实时连接。")
+	_show_login_loading()
 	# 发起 WebSocket 连接并等待后续自动鉴权。
 	var err := App.connect_ws()
 	if err != OK:
@@ -150,10 +156,10 @@ func _on_login_failed(message: String) -> void:
 func _on_server_result_logged(message: String) -> void:
 	_append_log("服务端结果: %s" % message)
 
-# 处理实时连接鉴权成功事件，并切换到主运行态场景。
+# 处理实时连接鉴权成功事件，并在登录页等待世界与地图就绪后再切主场景。
 func _on_session_authenticated(_payload: Dictionary) -> void:
-	_append_log("实时连接鉴权成功，正在进入主场景。")
-	_enter_main_scene()
+	_append_log("实时连接鉴权成功，正在加载世界数据。")
+	await _prepare_world_entry_and_enter_main()
 
 # 处理应用层普通提示消息，并在必要时结束登录忙碌态。
 func _on_notice_received(message: String) -> void:
@@ -205,8 +211,6 @@ func _refresh_view() -> void:
 	player_label.text = UiFormat.normalize_text(player_label.text)
 
 	hint_label.text = "演示账号: %s  演示密码: %s" % [DEMO_ACCOUNT, DEMO_PASSWORD]
-	if GameState.is_ws_authenticated:
-		hint_label.text = "实时会话已建立，正在切换主场景。"
 
 	login_button.text = "登录中..." if _login_flow_running else "登录并进入世界"
 	login_button.disabled = _login_flow_running
@@ -216,11 +220,107 @@ func _refresh_view() -> void:
 # 切换登录流程忙碌状态，并同步刷新界面。
 func _set_login_busy(busy: bool) -> void:
 	_login_flow_running = busy
+	if not busy and not _world_entry_flow_running:
+		_hide_login_loading()
 	_refresh_view()
 
 # 向登录页日志区域追加一条文本。
 func _append_log(message: String) -> void:
 	log_output.append_text(UiFormat.normalize_text(message) + "\n")
+
+# 懒创建登录页 loading 遮罩。
+func _ensure_login_loading() -> GenericLoadingScene:
+	if _login_loading == null:
+		var loading_scene: PackedScene = preload(GenericLoadingScene.SCENE_PATH)
+		_login_loading = loading_scene.instantiate() as GenericLoadingScene
+		if _login_loading != null:
+			add_child(_login_loading)
+	return _login_loading
+
+
+# 立即展示登录页 loading，并拦截点击。
+func _show_login_loading() -> void:
+	var loading_overlay: GenericLoadingScene = _ensure_login_loading()
+	if loading_overlay != null:
+		loading_overlay.show_loading()
+	transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+# 隐藏登录页 loading。
+func _hide_login_loading() -> void:
+	if _login_loading != null:
+		_login_loading.hide_loading()
+	if not _world_entry_flow_running and not _switching_scene:
+		transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+# 登录页完成 ENTER_WORLD 与地图预加载后再进入主场景，避免先看到空白星空背景。
+func _prepare_world_entry_and_enter_main() -> void:
+	if _world_entry_flow_running or _switching_scene:
+		return
+	_world_entry_flow_running = true
+	_set_login_busy(true)
+	_show_login_loading()
+
+	var request_seq: int = App.enter_world()
+	if request_seq <= 0:
+		_hide_login_loading()
+		_world_entry_flow_running = false
+		_set_login_busy(false)
+		_append_log("进入世界请求发送失败，请稍后重试。")
+		return
+
+	var wait_result: Dictionary = await _wait_app_request(CommandIds.ENTER_WORLD_REQ, request_seq)
+	if not bool(wait_result.get("succeeded", false)):
+		_hide_login_loading()
+		_world_entry_flow_running = false
+		_set_login_busy(false)
+		_append_log("进入世界失败，请稍后重试。")
+		return
+
+	var payload_variant: Variant = wait_result.get("payload", {})
+	var payload: Dictionary = payload_variant if payload_variant is Dictionary else {}
+	GameState.set_world_snapshot(payload)
+
+	var scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
+	if scene_id <= 0:
+		_hide_login_loading()
+		_world_entry_flow_running = false
+		_set_login_busy(false)
+		_append_log("服务端未返回有效场景信息，暂时无法进入世界。")
+		return
+
+	if not WorldSceneRegistry.can_load_scene_map(scene_id):
+		_hide_login_loading()
+		_world_entry_flow_running = false
+		_set_login_busy(false)
+		_append_log("场景 %d 的地图资源不可用，请联系管理员检查配置。" % scene_id)
+		return
+
+	GameState.world_entry_prepared = true
+	_append_log("世界与地图已就绪，正在进入主场景。")
+	await _enter_main_scene()
+	_world_entry_flow_running = false
+
+# 等待指定 App 请求完成并返回是否成功与载荷。
+func _wait_app_request(expected_cmd: int, expected_seq: int) -> Dictionary:
+	while expected_seq > 0:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		if request_cmd != expected_cmd or seq != expected_seq:
+			continue
+		return {
+			"succeeded": bool(result[2]),
+			"response_cmd": int(result[3]),
+			"payload": result[4],
+		}
+	return {
+		"succeeded": false,
+		"response_cmd": 0,
+		"payload": {},
+	}
 
 # 切换到主运行态场景，并在切换前播放淡出动画。
 func _enter_main_scene() -> void:

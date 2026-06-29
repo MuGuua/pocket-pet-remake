@@ -22,7 +22,9 @@
 | `item_slot_picker.tscn` | `item_slot_picker.gd` | 锚点旁弹出的物品格子选择浮层 |
 | `action_menu_popup.tscn` | `action_menu_popup.gd` | 锚点旁竖向动作菜单（背包「更多」等） |
 | `option_list_panel.tscn` | `option_list_panel.gd` | 居中选项列表面板（NPC 菜单 / 附近 NPC / PVP 目标） |
-| `runtime_progress_overlay.tscn` | `runtime_progress_overlay.gd` | 通用 Loading 遮罩：`show_waiting` 等待回包 / `play_progress` 进度动画 |
+| `runtime_progress_overlay.tscn` | `runtime_progress_overlay.gd` | 兼容壳：内部委托 `GenericLoadingScene`，保留 `show_waiting` / `play_progress` 旧接口 |
+| `runtime_progress_bar_overlay.tscn` | `runtime_progress_bar_overlay.gd` | 固定时长线性进度条；**开礼包**等需要 3 秒进度条演出的流程专用 |
+| `generic_loading_scene.tscn` | `generic_loading_scene.gd` | **标准**全屏 Loading：仅滚动动画 +「读取中」图字，不展示说明文案 |
 
 ## 组件
 
@@ -46,11 +48,26 @@ popup.show_prompt("丢弃物品", "确定要丢弃 [color=#82d563]新手长剑[/
 ```
 
 ```gdscript
+# 推荐：直接使用 GenericLoadingScene
+var loading: GenericLoadingScene = preload(GenericLoadingScene.SCENE_PATH).instantiate() as GenericLoadingScene
+add_child(loading)
+loading.show_loading()
+loading.hide_loading()
+```
+
+```gdscript
+# 兼容旧代码：RuntimeProgressOverlay 内部同样展示 GenericLoadingScene
 var overlay: RuntimeProgressOverlay = preload(RuntimeProgressOverlay.SCENE_PATH).instantiate() as RuntimeProgressOverlay
-# 等待服务端回包（超过 1 秒才显示，避免闪屏）
-overlay.show_waiting("正在获取 NPC 菜单...")
+add_child(overlay)
+overlay.show_waiting()
 overlay.hide_overlay()
-# 固定时长进度动画（如开礼包）
-await overlay.play_progress(3.0, "正在打开...")
-overlay.hide_progress()
+await overlay.play_progress(3.0)
+```
+
+```gdscript
+# 开礼包：使用独立进度条遮罩，保留 3 秒线性进度演出
+var box_progress: RuntimeProgressBarOverlay = preload(RuntimeProgressBarOverlay.SCENE_PATH).instantiate() as RuntimeProgressBarOverlay
+add_child(box_progress)
+await box_progress.play_progress(3.0, "打开中...")
+box_progress.hide_progress()
 ```

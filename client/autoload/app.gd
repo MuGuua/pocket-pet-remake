@@ -10,6 +10,8 @@ signal login_failed(message: String)
 signal session_authenticated(payload: Dictionary)
 # 收到通用提示信息后向外广播提示文本。
 signal notice_received(message: String)
+# 收到服务端 ERROR_PUSH 后向外广播，供主场景弹出信息模态。
+signal server_error_received(error_code: int, message: String)
 # 收到强制下线信息后向外广播原因。
 signal kicked(reason: String)
 # 断线重连状态发生变化后向外广播。
@@ -477,8 +479,9 @@ func _on_dev_message_received(cmd: int, seq: int, _code: int, payload: Dictionar
 		_emit_server_result_log(cmd, _format_ws_result_log(cmd, payload))
 		_log_battle_payload_debug(cmd, payload)
 		_log_bag_payload_debug(cmd, payload)
-	_resolve_request_completion(cmd, seq, _code, payload)
+	# 先路由业务处理器写入 GameState，再结束 request_finished，避免 UI 读到旧快照。
 	MessageRouter.route_message(cmd, payload)
+	_resolve_request_completion(cmd, seq, _code, payload)
 
 # 底层 WebSocket 建连成功后自动发起业务鉴权。
 func _on_websocket_opened() -> void:
@@ -557,6 +560,7 @@ func _on_force_offline_push(payload: Dictionary) -> void:
 func _on_error_push(payload: Dictionary) -> void:
 	var error_code: int = int(payload.get("code", 0))
 	var message := str(payload.get("msg", "server returned an error push"))
+	var display_message: String = ServerErrorMessages.format(error_code, message)
 	_emit_server_result_log(
 		CommandIds.ERROR_PUSH,
 		"ERROR code=%d msg=%s" % [error_code, message]
@@ -564,9 +568,10 @@ func _on_error_push(payload: Dictionary) -> void:
 	if _reconnect_in_progress:
 		_set_reconnect_in_progress(false)
 		GameState.set_ws_authenticated(false)
-		kicked.emit(message)
+		kicked.emit(display_message)
 		return
-	notice_received.emit(message)
+	server_error_received.emit(error_code, display_message)
+	notice_received.emit(display_message)
 
 # 处理服务端普通公告推送，并兼容不同字段名。
 func _on_notice_push(payload: Dictionary) -> void:

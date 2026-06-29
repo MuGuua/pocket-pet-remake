@@ -104,6 +104,12 @@ var _active_dialogue_node_id: String = ""
 var _active_dialogue_npc_name: String = ""
 # NPC 交互/剧情请求的通用 loading 遮罩。
 var _npc_request_loading: RuntimeProgressOverlay = null
+# 背包面板是否正在执行「先 loading 再打开」流程，避免重复点击。
+var _bag_panel_open_in_flight: bool = false
+# 人物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
+var _player_panel_open_in_flight: bool = false
+# 地图切换过渡期间是否正在展示全屏 loading。
+var _scene_transition_loading_active: bool = false
 # 当前等待 NPC_MENU_RESP 的请求序列号。
 var _pending_npc_menu_seq: int = 0
 # 与 _pending_npc_menu_seq 对应的菜单回包缓存。
@@ -141,7 +147,8 @@ func _ready() -> void:
 		return
 
 	_ensure_transition_canvas_layer()
-	_play_fade_in()
+	transition_overlay.color.a = 1.0
+	transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_mount_world_scene()
 	_register_routes()
 	_connect_signals()
@@ -149,8 +156,19 @@ func _ready() -> void:
 	_ensure_battle_modal_layer()
 	_sync_world_render_frame()
 	_append_log("主场景已就绪。")
-	_append_log("正在请求进入世界。")
-	App.enter_world()
+	if GameState.world_entry_prepared:
+		GameState.world_entry_prepared = false
+		_append_log("正在应用登录页已拉取的世界快照。")
+		if _world_controller != null and _world_controller.has_method("apply_prepared_world_entry"):
+			_world_controller.call("apply_prepared_world_entry")
+		else:
+			_append_log("世界控制器未就绪，改为重新请求进入世界。")
+			App.enter_world()
+		await _play_fade_in()
+	else:
+		_append_log("正在请求进入世界。")
+		App.enter_world()
+		_play_fade_in()
 	_refresh_view()
 
 # 退出主场景时注销当前注册的业务路由。
@@ -158,6 +176,8 @@ func _exit_tree() -> void:
 	_unregister_routes()
 	if App.notice_received.is_connected(_on_notice_received):
 		App.notice_received.disconnect(_on_notice_received)
+	if App.server_error_received.is_connected(_on_server_error_received):
+		App.server_error_received.disconnect(_on_server_error_received)
 	if App.kicked.is_connected(_on_kicked):
 		App.kicked.disconnect(_on_kicked)
 	if App.server_result_logged.is_connected(_on_server_result_logged):
@@ -308,6 +328,7 @@ func _unregister_routes() -> void:
 # 绑定主运行态依赖的应用信号、HUD 交互信号和全局状态信号。
 func _connect_signals() -> void:
 	App.notice_received.connect(_on_notice_received)
+	App.server_error_received.connect(_on_server_error_received)
 	App.kicked.connect(_on_kicked)
 	App.server_result_logged.connect(_on_server_result_logged)
 	App.session_authenticated.connect(_on_session_authenticated)
@@ -401,6 +422,28 @@ func _unhandled_input(event: InputEvent) -> void:
 # 处理服务端下发的普通提示信息。
 func _on_notice_received(message: String) -> void:
 	_append_log("提示: %s" % message)
+
+
+# 处理服务端 ERROR_PUSH，弹出信息模态供玩家确认。
+func _on_server_error_received(_error_code: int, message: String) -> void:
+	var display_message: String = message.strip_edges()
+	if display_message.is_empty():
+		return
+	await _show_server_error_info_popup(display_message)
+
+
+## 展示服务端错误信息模态；复用 InfoModalPopup，避免只写入 HUD 日志。
+func _show_server_error_info_popup(message: String) -> void:
+	_create_info_modal_popup()
+	if _info_modal_popup == null:
+		return
+	var lines: Array[String] = [message]
+	_info_modal_popup.show_info("提示", lines)
+	_set_runtime_menu_locked(true)
+	await get_tree().process_frame
+	if _info_modal_popup.visible:
+		await _info_modal_popup.popup_closed
+	_set_runtime_menu_locked(false)
 
 # 把统一格式的服务端请求结果写入运行态 HUD，便于边操作边核对服务端回包。
 func _on_server_result_logged(message: String) -> void:
@@ -702,7 +745,7 @@ func _on_hud_avatar_pressed() -> void:
 func _on_hud_bag_pressed() -> void:
 	if _is_battle_modal_active() or _is_settlement_input_blocked():
 		return
-	_toggle_root_runtime_panel(_bag_panel, "bag_panel")
+	await _open_bag_panel_prepared()
 
 # 向底部 HUD 日志区域追加一条文本。
 func _append_log(message: String) -> void:
@@ -1074,20 +1117,14 @@ func _on_main_menu_item_selected(item: Dictionary) -> void:
 		return
 	var label: String = str(item.get("label", ""))
 	if label == "物品行囊":
-		_close_other_root_panels("bag_panel")
 		if _main_menu != null and _main_menu.has_method("close_menu"):
 			_main_menu.call("close_menu")
-		if _bag_panel != null and _bag_panel.has_method("open_menu"):
-			_bag_panel.call("open_menu")
-			_set_runtime_menu_locked(true)
+		call_deferred("_open_bag_panel_prepared")
 		return
 	if label == "个人状态":
-		_close_other_root_panels("player_panel")
 		if _main_menu != null and _main_menu.has_method("close_menu"):
 			_main_menu.call("close_menu")
-		if _player_panel != null and _player_panel.has_method("open_menu"):
-			_player_panel.call("open_menu")
-			_set_runtime_menu_locked(true)
+		call_deferred("_open_player_panel_prepared")
 		return
 	if label != "全服竞技场":
 		return
@@ -1253,9 +1290,16 @@ func _create_npc_request_loading() -> void:
 	add_child(_npc_request_loading)
 
 ## 展示 NPC 相关请求的 loading 遮罩。
-func _show_npc_request_loading(tip_text: String) -> void:
+func _show_npc_request_loading() -> void:
 	if _npc_request_loading != null:
-		_npc_request_loading.show_waiting(tip_text)
+		_npc_request_loading.show_waiting()
+
+
+## 立即展示全屏 loading（无 1 秒延迟），用于背包打开等需要即时反馈的场景。
+func _show_npc_request_loading_immediate() -> void:
+	if _npc_request_loading != null:
+		_npc_request_loading.show_loading()
+
 
 ## 隐藏 NPC 相关请求的 loading 遮罩。
 func _hide_npc_request_loading() -> void:
@@ -1271,7 +1315,7 @@ func _begin_npc_menu_request(entity_id: int) -> void:
 	if request_seq <= 0:
 		return
 	_pending_npc_menu_seq = request_seq
-	_show_npc_request_loading("正在获取 NPC 菜单...")
+	_show_npc_request_loading()
 	call_deferred("_wait_npc_request", request_seq, CommandIds.NPC_MENU_REQ, "_finish_npc_menu_request")
 
 ## NPC 菜单回包到达后关闭 loading，并用最新菜单数据打开面板。
@@ -1293,7 +1337,7 @@ func _begin_npc_action_request(entity_id: int, entry_id: String) -> void:
 	if request_seq <= 0:
 		return
 	_pending_npc_action_seq = request_seq
-	_show_npc_request_loading("正在执行 NPC 操作...")
+	_show_npc_request_loading()
 	call_deferred("_wait_npc_request", request_seq, CommandIds.NPC_ACTION_REQ, "_finish_npc_action_request")
 
 ## 等待指定 NPC 相关请求完成，再回调 finish_method 处理 UI。
@@ -1450,7 +1494,7 @@ func _on_shop_buy_requested(item_id: int, _price_copper: int) -> void:
 			_npc_shop_panel.show_error_message("购买请求发送失败")
 		return
 	_pending_buy_item_seq = request_seq
-	_show_npc_request_loading("正在购买物品...")
+	_show_npc_request_loading()
 	call_deferred("_wait_npc_request", request_seq, CommandIds.BUY_ITEM_REQ, "_finish_buy_item_request")
 
 ## BUY_ITEM 回包到达后关闭 loading，并更新商店面板状态。
@@ -1499,7 +1543,7 @@ func _begin_dialogue_request(request_cmd: int, request_seq: int) -> void:
 		return
 	_pending_dialogue_request_seq = request_seq
 	_pending_dialogue_payload.clear()
-	_show_npc_request_loading("正在同步剧情...")
+	_show_npc_request_loading()
 	call_deferred("_wait_npc_request", request_seq, request_cmd, "_finish_dialogue_request")
 
 ## 响应对话面板继续按钮点击，先锁住面板输入，再向服务端请求下一节点。
@@ -1617,8 +1661,76 @@ func _toggle_root_runtime_panel(panel: CanvasLayer, panel_key: String) -> void:
 	if panel.visible:
 		panel.call("close_menu")
 		return
+	if panel_key == "bag_panel":
+		call_deferred("_open_bag_panel_prepared")
+		return
+	if panel_key == "player_panel":
+		call_deferred("_open_player_panel_prepared")
+		return
 	_close_other_root_panels(panel_key)
 	panel.call("open_menu")
+	_set_runtime_menu_locked(true)
+
+
+## 先展示全屏 loading 并拉取人物/背包/钱包权威快照，全部就绪后再打开人物状态面板。
+func _open_player_panel_prepared() -> void:
+	if _player_panel == null:
+		return
+	if _player_panel.visible:
+		_player_panel.call("close_menu")
+		return
+	if _player_panel_open_in_flight:
+		return
+	_player_panel_open_in_flight = true
+	_close_other_root_panels("player_panel")
+	_create_npc_request_loading()
+	_show_npc_request_loading_immediate()
+	var prepared: bool = false
+	var player_panel: CanvasLayer = _player_panel
+	if player_panel != null and player_panel.has_method("prepare_open_data"):
+		prepared = bool(await player_panel.call("prepare_open_data"))
+	elif _player_panel.has_method("prepare_open_data"):
+		var prepare_result: Variant = await _player_panel.call("prepare_open_data")
+		prepared = bool(prepare_result)
+	_hide_npc_request_loading()
+	_player_panel_open_in_flight = false
+	if not prepared:
+		return
+	if player_panel != null and player_panel.has_method("open_menu"):
+		player_panel.call("open_menu")
+	elif _player_panel.has_method("open_menu"):
+		_player_panel.call("open_menu")
+	_set_runtime_menu_locked(true)
+
+
+## 先展示全屏 loading 并拉取背包/装备数据，全部就绪后再打开背包面板。
+func _open_bag_panel_prepared() -> void:
+	if _bag_panel == null:
+		return
+	if _bag_panel.visible:
+		_bag_panel.call("close_menu")
+		return
+	if _bag_panel_open_in_flight:
+		return
+	_bag_panel_open_in_flight = true
+	_close_other_root_panels("bag_panel")
+	_create_npc_request_loading()
+	_show_npc_request_loading_immediate()
+	var prepared: bool = false
+	var bag_panel: BagPanel = _bag_panel as BagPanel
+	if bag_panel != null:
+		prepared = await bag_panel.prepare_open_data()
+	elif _bag_panel.has_method("prepare_open_data"):
+		var prepare_result: Variant = await _bag_panel.call("prepare_open_data")
+		prepared = bool(prepare_result)
+	_hide_npc_request_loading()
+	_bag_panel_open_in_flight = false
+	if not prepared:
+		return
+	if bag_panel != null:
+		bag_panel.open_menu()
+	elif _bag_panel.has_method("open_menu"):
+		_bag_panel.call("open_menu")
 	_set_runtime_menu_locked(true)
 
 func _has_blocking_ui_open(except: String = "") -> bool:

@@ -92,7 +92,6 @@ SELECT
   COALESCE(iee.weapon_skills_json, '[]'::jsonb),
   COALESCE(iee.enhance_per_level_weapon_skill_levels_json, '{}'::jsonb),
   COALESCE(iee.weapon_type, ''),
-  COALESCE(iee.weapon_type, ''),
   COALESCE(ei.enhance_level, 0),
   COALESCE(ei.is_damaged, FALSE)
 FROM player_container_item pci

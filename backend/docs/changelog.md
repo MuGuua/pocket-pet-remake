@@ -1,5 +1,10 @@
 # 最新变更记录
 
+## 2026-06-29
+- 客户端运行态面板打开链路继续统一 loading：`main.gd` 中「个人状态」快捷键与主菜单入口改为和背包一致，先展示全屏通用 loading，等待 `ENTER_WORLD_REQ + BAG_LIST_REQ + WALLET_QUERY_REQ` 权威数据就绪后再打开 `player_status_panel`；避免旧数据先展示、再闪成新数据
+- 客户端面板预加载判定继续收严：`player_status_panel.gd` 与 `bag_panel.gd` 在 opening loading 阶段必须等待各自依赖请求全部成功（人物面板：人物/背包/钱包；背包面板：背包/已穿戴装备）后才允许打开，避免某一条子请求失败时仍带旧快照展示
+- 背包已打开后的二次刷新继续收严：普通 `USE_ITEM` 与装备 `REPAIR` 不再在回包到达时立即结束 loading，而是等待后续背包快照真正写入 `GameState` 后再关闭 loading / 提示成功，减少旧数量、旧修复石库存或旧损坏状态闪现
+
 ## 2026-06-28
 - 强化成功率穿戴等级段：迁移 `070_equipment_enhance_success_required_level_band.sql`（`equipment_enhance_success_config` 复合主键 `target_level + required_level_min`，每10级穿戴段独立配置）；后台「强化成功率」Tab 增加穿戴等级段筛选；强化/预览按装备 `required_level` 解析段并查表；`enhance_preview` 新增 `required_level_band_label`
 - 强化材料锻造属性：迁移 `069_equipment_enhance_material_config.sql`（按 `item_id` 配置成功率模式/失败惩罚）；后台物品页在 `item_sub_type=equipment_enhance` 时展示「锻造属性」编辑器；Admin API `GET/PUT /api/admin/equipment-enhance-success-configs` + 物品模板页「强化成功率」Tab 维护 `equipment_enhance_success_config`；强化事务按所选材料计算有效成功率并在失败时分支（损坏 / 降级 / 无惩罚）；`enhance_preview.materials[]` 下发 `effective_success_rate_pct` / `failure_penalty_label`；强化回包新增 `failure_penalty`

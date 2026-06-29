@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://6i381sk6jye4" path="res://scenes/ui/status_panels/status_esistance.tscn" id="6_bk641"]
 [ext_resource type="PackedScene" uid="uid://b87jrqm1hldu1" path="res://scenes/ui/status_panels/social_attribute.tscn" id="7_xw5ed"]
 [ext_resource type="Script" uid="uid://d217uiaigs8mu" path="res://scripts/ui/player_status_panel.gd" id="8_player"]
-[ext_resource type="PackedScene" uid="uid://dm167xl2cpjfw" path="res://scenes/ui/common/runtime_progress_overlay.tscn" id="9_loading"]
+[ext_resource type="PackedScene" uid="uid://bbmrtwr0qog8c" path="res://scenes/ui/common/generic_loading_scene.tscn" id="9_loading"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_mvs75"]
 atlas = ExtResource("1_hqwm8")

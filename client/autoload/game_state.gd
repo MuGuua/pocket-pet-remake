@@ -63,6 +63,8 @@ var is_in_battle: bool = false
 var wild_encounter_config: Dictionary = {}
 # 当前人物已佩戴装备摘要列表。
 var equipped_items: Array = []
+# 登录页是否已在切主场景前完成 ENTER_WORLD 与地图预加载。
+var world_entry_prepared: bool = false
 
 # 清空当前会话和运行态数据，并广播会话变化。
 func reset_session_state() -> void:
@@ -94,6 +96,7 @@ func reset_runtime_state() -> void:
 	is_in_battle = false
 	wild_encounter_config = {}
 	equipped_items = []
+	world_entry_prepared = false
 	world_snapshot_changed.emit()
 	pets_changed.emit()
 	bag_changed.emit()
