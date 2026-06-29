@@ -7,6 +7,9 @@ import (
 
 // RollEnhanceSuccess 按目标等级成功率表掷骰，返回 roll(1~100) 与是否成功。
 func RollEnhanceSuccess(successRatePct uint32) (rollPct uint32, success bool, err error) {
+	if successRatePct >= 100 {
+		return 100, true, nil
+	}
 	if successRatePct > 100 {
 		successRatePct = 100
 	}

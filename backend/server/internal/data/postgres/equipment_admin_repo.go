@@ -52,6 +52,7 @@ SELECT
   idf.required_level,
   idf.bind_type,
   idf.can_sell,
+  idf.can_drop,
   idf.can_store,
   idf.is_enabled,
   iee.equip_slot,
@@ -68,6 +69,9 @@ SELECT
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
   COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  COALESCE(iee.weapon_skills_json, '[]'::jsonb),
+  COALESCE(iee.enhance_per_level_weapon_skill_levels_json, '{}'::jsonb),
+  COALESCE(iee.weapon_type, ''),
   iee.enhance_gold_cost_enabled,
   iee.enhance_gold_base_copper,
   iee.enhance_gold_increment_mode,
@@ -94,9 +98,9 @@ INSERT INTO item_definition (
 ) VALUES (
   $1,$2,$3,'equipment','', $4,$5,$6,$7,
   1,1,FALSE,0,FALSE,'','',
-  $8,0,$9,$10,FALSE,TRUE,$11,
+  $8,0,$9,$10,$11,$12,FALSE,
   '','',0,'{}'::jsonb,
-  0,0,0,'base_coin',$12
+  0,0,0,'base_coin',$13
 )
 `
 
@@ -106,6 +110,7 @@ INSERT INTO item_equipment_extra (
   career_limit, pet_only, player_only, extra_rule_json,
   can_enhance, max_enhance_level, set_id, appearance_skin_id, appearance_only,
   base_stats_json, enhance_per_level_stats_json,
+  weapon_skills_json, enhance_per_level_weapon_skill_levels_json, weapon_type,
   enhance_gold_cost_enabled, enhance_gold_base_copper, enhance_gold_increment_mode,
   enhance_gold_increment_fixed, enhance_gold_increment_percent,
   socket_count, allowed_gem_types_json
@@ -114,8 +119,9 @@ INSERT INTO item_equipment_extra (
   $8,FALSE,TRUE,'{}'::jsonb,
   $9,$10,$11,$12,$13,
   $14::jsonb,$15::jsonb,
-  $16,$17,$18,$19,$20,
-  $21,$22::jsonb
+  $16::jsonb,$17::jsonb,$18,
+  $19,$20,$21,$22,$23,
+  $24,$25::jsonb
 )
 `
 
@@ -130,8 +136,9 @@ SET item_code = $2,
     required_level = $8,
     bind_type = $9,
     can_sell = $10,
-    can_store = $11,
-    is_enabled = $12
+    can_drop = $11,
+    can_store = $12,
+    is_enabled = $13
 WHERE item_id = $1
   AND item_type = 'equipment'
 `
@@ -152,13 +159,16 @@ SET equip_slot = $2,
     appearance_only = $13,
     base_stats_json = $14::jsonb,
     enhance_per_level_stats_json = $15::jsonb,
-    enhance_gold_cost_enabled = $16,
-    enhance_gold_base_copper = $17,
-    enhance_gold_increment_mode = $18,
-    enhance_gold_increment_fixed = $19,
-    enhance_gold_increment_percent = $20,
-    socket_count = $21,
-    allowed_gem_types_json = $22::jsonb
+    weapon_skills_json = $16::jsonb,
+    enhance_per_level_weapon_skill_levels_json = $17::jsonb,
+    weapon_type = $18,
+    enhance_gold_cost_enabled = $19,
+    enhance_gold_base_copper = $20,
+    enhance_gold_increment_mode = $21,
+    enhance_gold_increment_fixed = $22,
+    enhance_gold_increment_percent = $23,
+    socket_count = $24,
+    allowed_gem_types_json = $25::jsonb
 WHERE item_id = $1
 `
 
@@ -286,32 +296,52 @@ func (r *EquipmentRepository) CreateForAdmin(ctx context.Context, input equipmen
 	if err != nil {
 		return nil, err
 	}
+	weaponSkillsJSON, err := marshalWeaponSkillsJSON(input.WeaponSkills)
+	if err != nil {
+		return nil, err
+	}
+	weaponSkillLevelsJSON, err := marshalUint32MapJSON(input.EnhancePerLevelWeaponSkillLevels)
+	if err != nil {
+		return nil, err
+	}
 	gemTypesJSON, err := marshalStringSliceJSON(input.AllowedGemTypes)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := r.db.ExecContext(ctx, insertAdminEquipmentItemQuery,
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(tx)
+	if _, err := tx.ExecContext(ctx, insertAdminEquipmentItemQuery,
 		input.ItemID, input.ItemCode, input.ItemName, input.Quality, input.Rarity, input.Icon, input.Desc,
-		input.RequiredLevel, input.BindType, input.CanSell, input.CanStore, input.IsEnabled,
+		input.RequiredLevel, input.BindType, input.CanSell, input.CanDrop, input.CanStore, input.IsEnabled,
 	); err != nil {
 		if isUniqueViolation(err) {
 			return nil, equipment.ErrEquipmentDefinitionConflict
 		}
 		return nil, err
 	}
-	if _, err := r.db.ExecContext(ctx, insertAdminEquipmentExtraQuery,
+	if _, err := tx.ExecContext(ctx, insertAdminEquipmentExtraQuery,
 		input.ItemID, input.EquipSlot,
 		input.BaseHP, input.BaseMana, input.BaseATK, input.BaseDEF, input.BaseSPD,
 		input.CareerLimit,
 		input.CanEnhance, input.MaxEnhanceLevel, input.SetID, input.AppearanceSkinID, input.AppearanceOnly,
-		baseStatsJSON, enhanceJSON,
+		baseStatsJSON, enhanceJSON, weaponSkillsJSON, weaponSkillLevelsJSON, input.WeaponType,
 		input.EnhanceGoldCost.IsEnabled, input.EnhanceGoldCost.BaseCopper, input.EnhanceGoldCost.IncrementMode,
 		input.EnhanceGoldCost.IncrementFixed, input.EnhanceGoldCost.IncrementPercent,
 		input.SocketCount, gemTypesJSON,
 	); err != nil {
 		return nil, err
 	}
-	if err := r.syncMedicinePouchExtra(ctx, input.ItemID, input); err != nil {
+	if err := r.syncMedicinePouchExtraWithDB(ctx, tx, input.ItemID, input); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return r.FindForAdminByItemID(ctx, input.ItemID)
@@ -327,13 +357,21 @@ func (r *EquipmentRepository) UpdateForAdmin(ctx context.Context, itemID uint64,
 	if err != nil {
 		return nil, err
 	}
+	weaponSkillsJSON, err := marshalWeaponSkillsJSON(input.WeaponSkills)
+	if err != nil {
+		return nil, err
+	}
+	weaponSkillLevelsJSON, err := marshalUint32MapJSON(input.EnhancePerLevelWeaponSkillLevels)
+	if err != nil {
+		return nil, err
+	}
 	gemTypesJSON, err := marshalStringSliceJSON(input.AllowedGemTypes)
 	if err != nil {
 		return nil, err
 	}
 	result, err := r.db.ExecContext(ctx, updateAdminEquipmentItemQuery,
 		itemID, input.ItemCode, input.ItemName, input.Quality, input.Rarity, input.Icon, input.Desc,
-		input.RequiredLevel, input.BindType, input.CanSell, input.CanStore, input.IsEnabled,
+		input.RequiredLevel, input.BindType, input.CanSell, input.CanDrop, input.CanStore, input.IsEnabled,
 	)
 	if err != nil {
 		return nil, err
@@ -350,7 +388,7 @@ func (r *EquipmentRepository) UpdateForAdmin(ctx context.Context, itemID uint64,
 		input.BaseHP, input.BaseMana, input.BaseATK, input.BaseDEF, input.BaseSPD,
 		input.CareerLimit,
 		input.CanEnhance, input.MaxEnhanceLevel, input.SetID, input.AppearanceSkinID, input.AppearanceOnly,
-		baseStatsJSON, enhanceJSON,
+		baseStatsJSON, enhanceJSON, weaponSkillsJSON, weaponSkillLevelsJSON, input.WeaponType,
 		input.EnhanceGoldCost.IsEnabled, input.EnhanceGoldCost.BaseCopper, input.EnhanceGoldCost.IncrementMode,
 		input.EnhanceGoldCost.IncrementFixed, input.EnhanceGoldCost.IncrementPercent,
 		input.SocketCount, gemTypesJSON,
@@ -379,8 +417,12 @@ func (r *EquipmentRepository) DeleteForAdmin(ctx context.Context, itemID uint64)
 }
 
 func (r *EquipmentRepository) syncMedicinePouchExtra(ctx context.Context, itemID uint64, input equipment.AdminUpsertEquipmentInput) error {
+	return r.syncMedicinePouchExtraWithDB(ctx, r.db, itemID, input)
+}
+
+func (r *EquipmentRepository) syncMedicinePouchExtraWithDB(ctx context.Context, db DBTX, itemID uint64, input equipment.AdminUpsertEquipmentInput) error {
 	if input.EquipSlot != string(equipment.EquipSlotMedicinePouch) {
-		_, err := r.db.ExecContext(ctx, deleteMedicinePouchExtraQuery, itemID)
+		_, err := db.ExecContext(ctx, deleteMedicinePouchExtraQuery, itemID)
 		return err
 	}
 	pouch := input.MedicinePouch
@@ -390,7 +432,7 @@ func (r *EquipmentRepository) syncMedicinePouchExtra(ctx context.Context, itemID
 			RestorePetHP: true, RestorePetSpirit: true,
 		}
 	}
-	_, err := r.db.ExecContext(ctx, upsertMedicinePouchExtraQuery,
+	_, err := db.ExecContext(ctx, upsertMedicinePouchExtraQuery,
 		itemID,
 		pouch.RestorePlayerHP, pouch.RestorePlayerSpirit, pouch.RestorePlayerVigor,
 		pouch.RestorePetHP, pouch.RestorePetSpirit, pouch.RestoreLineupPets,
@@ -446,7 +488,7 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 	var maxEnhance int32
 	var setID int64
 	var socketCount int32
-	var baseStatsRaw, enhanceRaw, gemTypesRaw []byte
+	var baseStatsRaw, enhanceRaw, weaponSkillsRaw, weaponSkillLevelsRaw, gemTypesRaw []byte
 	var enhanceGoldEnabled bool
 	var enhanceGoldBase, enhanceGoldFixed int64
 	var enhanceGoldMode string
@@ -454,11 +496,11 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 	if err := scanner.Scan(
 		&detail.ItemID, &detail.ItemCode, &detail.ItemName, &detail.Desc, &detail.Icon,
 		&detail.Quality, &detail.Rarity, &detail.RequiredLevel, &detail.BindType,
-		&detail.CanSell, &detail.CanStore, &detail.IsEnabled,
+		&detail.CanSell, &detail.CanDrop, &detail.CanStore, &detail.IsEnabled,
 		&detail.EquipSlot, &detail.CareerLimit, &canEnhance, &maxEnhance, &setID,
 		&detail.AppearanceSkinID, &detail.AppearanceOnly,
 		&baseHP, &baseMana, &baseATK, &baseDEF, &baseSPD,
-		&baseStatsRaw, &enhanceRaw,
+		&baseStatsRaw, &enhanceRaw, &weaponSkillsRaw, &weaponSkillLevelsRaw, &detail.WeaponType,
 		&enhanceGoldEnabled, &enhanceGoldBase, &enhanceGoldMode, &enhanceGoldFixed, &enhanceGoldPercent,
 		&socketCount, &gemTypesRaw,
 		&detail.CreatedAt, &detail.UpdatedAt,
@@ -481,6 +523,14 @@ func scanAdminEquipmentDetailRow(scanner adminEquipmentScanner) (equipment.Admin
 	}
 	detail.CombatStats = combatStats
 	detail.EnhancePerLevelStats, err = unmarshalUint32MapJSON(enhanceRaw)
+	if err != nil {
+		return equipment.AdminEquipmentDetail{}, err
+	}
+	detail.WeaponSkills, err = unmarshalWeaponSkillsJSON(weaponSkillsRaw)
+	if err != nil {
+		return equipment.AdminEquipmentDetail{}, err
+	}
+	detail.EnhancePerLevelWeaponSkillLevels, err = unmarshalUint32MapJSON(weaponSkillLevelsRaw)
 	if err != nil {
 		return equipment.AdminEquipmentDetail{}, err
 	}
@@ -589,6 +639,28 @@ func unmarshalStringSliceJSON(raw []byte) ([]string, error) {
 	var result []string
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+func marshalWeaponSkillsJSON(values []equipment.AdminWeaponSkillConfig) (string, error) {
+	if values == nil {
+		values = []equipment.AdminWeaponSkillConfig{}
+	}
+	raw, err := json.Marshal(values)
+	return string(raw), err
+}
+
+func unmarshalWeaponSkillsJSON(raw []byte) ([]equipment.AdminWeaponSkillConfig, error) {
+	if len(raw) == 0 {
+		return []equipment.AdminWeaponSkillConfig{}, nil
+	}
+	var result []equipment.AdminWeaponSkillConfig
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return []equipment.AdminWeaponSkillConfig{}, nil
 	}
 	return result, nil
 }

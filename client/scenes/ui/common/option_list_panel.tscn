@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://coptionlistpanelscn"]
+[gd_scene format=3 uid="uid://bjypq1b7288cr"]
 
 [ext_resource type="Script" uid="uid://coptionlistpanel01" path="res://scripts/ui/common/option_list_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]

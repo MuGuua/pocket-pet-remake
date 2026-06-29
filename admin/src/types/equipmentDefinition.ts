@@ -73,6 +73,11 @@ export interface AdminMedicinePouchExtra {
   restore_lineup_pets: boolean;
 }
 
+export interface AdminEquipmentWeaponSkill {
+  skill_id: number;
+  base_level: number;
+}
+
 export type EnhanceGoldIncrementMode = 'fixed' | 'percent';
 
 export interface AdminEquipmentEnhanceGoldCost {
@@ -140,6 +145,7 @@ export interface AdminEquipmentDetail {
   required_level: number;
   bind_type: string;
   can_sell: boolean;
+  can_drop: boolean;
   can_store: boolean;
   is_enabled: boolean;
   equip_slot: string;
@@ -157,6 +163,9 @@ export interface AdminEquipmentDetail {
   base_spd: number;
   combat_stats: AdminEquipmentCombatStats;
   enhance_per_level_stats: Record<string, number>;
+  enhance_per_level_weapon_skill_levels: Record<string, number>;
+  weapon_skills: AdminEquipmentWeaponSkill[];
+  weapon_type?: string;
   enhance_gold_cost: AdminEquipmentEnhanceGoldCost;
   socket_count: number;
   allowed_gem_types: string[];
@@ -176,6 +185,7 @@ export interface AdminUpsertEquipmentPayload {
   required_level: number;
   bind_type: string;
   can_sell: boolean;
+  can_drop: boolean;
   can_store: boolean;
   is_enabled: boolean;
   equip_slot: string;
@@ -192,6 +202,9 @@ export interface AdminUpsertEquipmentPayload {
   base_spd: number;
   combat_stats: AdminEquipmentCombatStats;
   enhance_per_level_stats: Record<string, number>;
+  enhance_per_level_weapon_skill_levels: Record<string, number>;
+  weapon_skills: AdminEquipmentWeaponSkill[];
+  weapon_type?: string;
   enhance_gold_cost: AdminEquipmentEnhanceGoldCost;
   socket_count: number;
   allowed_gem_types: string[];
@@ -252,6 +265,7 @@ export function defaultEquipmentValues(itemID: number): AdminUpsertEquipmentPayl
     required_level: 1,
     bind_type: 'none',
     can_sell: true,
+    can_drop: true,
     can_store: true,
     is_enabled: true,
     equip_slot: 'weapon',
@@ -268,6 +282,8 @@ export function defaultEquipmentValues(itemID: number): AdminUpsertEquipmentPayl
     base_spd: 0,
     combat_stats: defaultAdminEquipmentCombatStats(),
     enhance_per_level_stats: { atk: 100 },
+    enhance_per_level_weapon_skill_levels: {},
+    weapon_skills: [],
     enhance_gold_cost: defaultEquipmentEnhanceGoldCost(),
     socket_count: 0,
     allowed_gem_types: [],

@@ -8,6 +8,7 @@ import (
 
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/platform/idgen"
+	"pocket-pet-remake/server/internal/protocol"
 )
 
 type Hub struct {
@@ -68,7 +69,19 @@ func (h *Hub) serveConn(conn *Connection) {
 			continue
 		}
 		if err := h.router.Handle(conn, payload); err != nil {
-			h.logger.Printf("handle websocket message conn_id=%s err=%v", conn.ID(), err)
+			packet, decodeErr := protocol.DecodePacket(payload)
+			if decodeErr == nil {
+				h.logger.Printf(
+					"handle websocket message conn_id=%s cmd=%s(%d) seq=%d err=%v",
+					conn.ID(),
+					wsCmdName(packet.Cmd),
+					packet.Cmd,
+					packet.Seq,
+					err,
+				)
+			} else {
+				h.logger.Printf("handle websocket message conn_id=%s err=%v", conn.ID(), err)
+			}
 			return
 		}
 	}

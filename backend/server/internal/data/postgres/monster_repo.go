@@ -866,16 +866,24 @@ func statusTextFromEnabled(enabled bool) string {
 }
 
 const listMonsterBattleRewardsQuery = `
-SELECT id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
-FROM monster_battle_reward
-ORDER BY monster_id ASC, sort_order ASC, id ASC
+SELECT
+  mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
+  mbr.exp_value, mbr.sort_order, mbr.status, mbr.grant_once,
+  COALESCE(idf.item_name, '') AS item_name
+FROM monster_battle_reward mbr
+LEFT JOIN item_definition idf ON idf.item_id = mbr.item_id
+ORDER BY mbr.monster_id ASC, mbr.sort_order ASC, mbr.id ASC
 `
 
 const listMonsterBattleRewardsByMonsterIDQuery = `
-SELECT id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
-FROM monster_battle_reward
-WHERE monster_id = $1
-ORDER BY sort_order ASC, id ASC
+SELECT
+  mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
+  mbr.exp_value, mbr.sort_order, mbr.status, mbr.grant_once,
+  COALESCE(idf.item_name, '') AS item_name
+FROM monster_battle_reward mbr
+LEFT JOIN item_definition idf ON idf.item_id = mbr.item_id
+WHERE mbr.monster_id = $1
+ORDER BY mbr.sort_order ASC, mbr.id ASC
 `
 
 const deleteMonsterBattleRewardsByMonsterIDQuery = `
@@ -923,9 +931,8 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(ctx context.Context, 
 	if _, err := tx.ExecContext(ctx, deleteMonsterBattleRewardsByMonsterIDQuery, monsterID); err != nil {
 		return nil, err
 	}
-	result := make([]monster.BattleRewardEntry, 0, len(rewards))
 	for _, reward := range rewards {
-		row := tx.QueryRowContext(
+		if _, err := tx.ExecContext(
 			ctx,
 			insertMonsterBattleRewardQuery,
 			monsterID,
@@ -937,17 +944,14 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(ctx context.Context, 
 			reward.SortOrder,
 			reward.Status,
 			reward.GrantOnce,
-		)
-		entry, err := scanMonsterBattleRewardRow(row)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
-		result = append(result, entry)
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return r.ListBattleRewardsByMonsterID(ctx, monsterID)
 }
 
 func scanMonsterBattleRewardRows(rows *sql.Rows) ([]monster.BattleRewardEntry, error) {
@@ -986,7 +990,10 @@ func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry,
 	var entry monster.BattleRewardEntry
 	var monsterID, sortOrder, status, grantOnce int64
 	var itemID, quantity, expValue int64
-	if err := rows.Scan(&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue, &sortOrder, &status, &grantOnce); err != nil {
+	if err := rows.Scan(
+		&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue,
+		&sortOrder, &status, &grantOnce, &entry.ItemName,
+	); err != nil {
 		return monster.BattleRewardEntry{}, err
 	}
 	entry.MonsterID = uint32(monsterID)

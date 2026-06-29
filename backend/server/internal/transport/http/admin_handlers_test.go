@@ -860,7 +860,7 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	playerService := player.NewService(playerRepo, skillService, progressionService, nil)
 	bagService := bag.NewService(teststub.NewBagRepository())
 	itemService := item.NewService(teststub.NewItemRepository())
-	equipmentService := equipment.NewService(teststub.NewEquipmentRepository(), progressionService, playerRepo, teststub.NewPetRepository())
+	equipmentService := equipment.NewService(teststub.NewEquipmentRepository(), progressionService, playerRepo, teststub.NewPetRepository(), skillService)
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	npcDialogueService := npcdialogue.NewService(teststub.NewNPCDialogueRepository(), nil)

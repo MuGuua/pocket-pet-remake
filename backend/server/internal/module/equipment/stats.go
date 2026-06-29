@@ -1,6 +1,8 @@
 package equipment
 
 import (
+	"strings"
+
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/progression"
@@ -16,10 +18,14 @@ type EquippedPieceTemplate struct {
 	BaseATK              uint32
 	BaseDEF              uint32
 	BaseSPD              uint32
-	CombatStats          AdminCombatStats
-	EnhancePerLevelStats map[string]uint32
-	RequiredLevel        uint32
-	EnhanceLevel         uint32
+	CombatStats                      AdminCombatStats
+	EnhancePerLevelStats             map[string]uint32
+	EnhancePerLevelWeaponSkillLevels map[string]uint32
+	WeaponSkillConfigs               []AdminWeaponSkillConfig
+	WeaponType                       string
+	RequiredLevel                    uint32
+	EnhanceLevel                     uint32
+	IsDamaged                        bool
 }
 
 // RecalcContext 携带重算所需的成长层与封顶配置。
@@ -248,10 +254,52 @@ func ToRuntimeEquippedItem(
 		ItemName:         itemName,
 		Icon:             icon,
 		EnhanceLevel:     template.EnhanceLevel,
+		IsDamaged:        template.IsDamaged,
 		RequiredLevel:    template.RequiredLevel,
 		AppearanceSkinID: template.AppearanceSkinID,
 		AppearanceOnly:   template.AppearanceOnly,
 		Description:      description,
 		Bonus:            ComputePieceBonus(template),
+		WeaponSkills: ResolveWeaponSkills(
+			template.WeaponSkillConfigs,
+			template.EnhancePerLevelWeaponSkillLevels,
+			template.EnhanceLevel,
+		),
+		WeaponType: template.WeaponType,
 	}
+}
+
+// ExtractWeaponTypeFromEquipped 从当前佩戴的武器槽位读取武器类型（剑/枪/法杖）。
+func ExtractWeaponTypeFromEquipped(items []RuntimeEquippedItem) string {
+	for _, item := range items {
+		if !IsWeaponEquipSlot(EquipSlot(item.EquipSlot)) {
+			continue
+		}
+		if weaponType := strings.TrimSpace(item.WeaponType); weaponType != "" {
+			return weaponType
+		}
+	}
+	return ""
+}
+
+// ExtractWeaponSkillsFromEquipped 从全身已佩戴装备中提取武器附加技能（含有效等级）。
+func ExtractWeaponSkillsFromEquipped(items []RuntimeEquippedItem) []RuntimeWeaponSkill {
+	result := make([]RuntimeWeaponSkill, 0)
+	seen := make(map[uint32]struct{})
+	for _, item := range items {
+		if !IsWeaponEquipSlot(EquipSlot(item.EquipSlot)) {
+			continue
+		}
+		for _, weaponSkill := range item.WeaponSkills {
+			if weaponSkill.SkillID == 0 {
+				continue
+			}
+			if _, exists := seen[weaponSkill.SkillID]; exists {
+				continue
+			}
+			seen[weaponSkill.SkillID] = struct{}{}
+			result = append(result, weaponSkill)
+		}
+	}
+	return result
 }

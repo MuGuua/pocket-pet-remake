@@ -18,6 +18,7 @@ import (
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/playerskill"
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/skill"
@@ -35,6 +36,7 @@ type Bundle struct {
 	Equipment    equipment.Repository
 	Monsters     monster.Repository
 	Skills       skill.Repository
+	PlayerSkills playerskill.Repository
 	Players      player.Repository
 	Progression     progression.Repository
 	PetProgression  petprogression.Repository
@@ -70,6 +72,7 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 		Equipment:    pgrepo.NewEquipmentRepository(deps.Postgres),
 		Monsters:     pgrepo.NewMonsterRepository(deps.Postgres),
 		Skills:       pgrepo.NewSkillRepository(deps.Postgres),
+		PlayerSkills: pgrepo.NewPlayerSkillProgressRepository(deps.Postgres),
 		Players:      pgrepo.NewPlayerRepository(deps.Postgres),
 		Progression:    pgrepo.NewProgressionRepository(deps.Postgres),
 		PetProgression: pgrepo.NewPetProgressionRepository(deps.Postgres),

@@ -910,6 +910,8 @@ func (r *PetRepository) ListForAdmin(_ context.Context, query pet.AdminListQuery
 				PlayerID:   playerID,
 				PlayerName: fmt.Sprintf("Player%d", playerID),
 				PetID:      item.PetID,
+				PetName:    fmt.Sprintf("PetTemplate%d", item.PetID),
+				CustomName: "",
 				Level:      item.Level,
 				Quality:    item.Quality,
 				HP:         item.HP,
@@ -941,6 +943,8 @@ func (r *PetRepository) FindAdminDetailByPetUID(_ context.Context, petUID uint64
 				PlayerID:   playerID,
 				PlayerName: fmt.Sprintf("Player%d", playerID),
 				PetID:      item.PetID,
+				PetName:    fmt.Sprintf("PetTemplate%d", item.PetID),
+				CustomName: "",
 				Level:      item.Level,
 				Exp:        item.Exp,
 				Quality:    item.Quality,
@@ -1752,7 +1756,7 @@ func (r *BagRepository) GrantRuntimeItem(_ context.Context, playerID uint64, con
 	}, nil
 }
 
-func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*bag.RuntimeUseResult, error) {
+func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64, targetItemUID string) (*bag.RuntimeUseResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -1983,6 +1987,64 @@ func (r *BagRepository) ConsumeRuntimeItemStack(_ context.Context, playerID uint
 	_ = reasonType
 	_ = reasonRefID
 	return r.ListRuntimeContainer(context.Background(), playerID, containerType)
+}
+
+func (r *BagRepository) DropRuntimeItem(_ context.Context, playerID uint64, containerType string, slotIndex uint32, itemUID string, quantity uint64) (*bag.RuntimeDropResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	itemUID = strings.TrimSpace(itemUID)
+	if quantity == 0 {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	var (
+		recordID uint64
+		source   bag.AdminItemDetail
+		found    bool
+	)
+	for currentRecordID, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != containerType {
+			continue
+		}
+		if itemUID != "" {
+			if current.ItemUID != itemUID {
+				continue
+			}
+		} else if current.SlotIndex != slotIndex {
+			continue
+		}
+		recordID = currentRecordID
+		source = current
+		found = true
+		break
+	}
+	if !found {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if itemUID != "" && slotIndex > 0 && source.SlotIndex != slotIndex {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if quantity > source.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if source.ItemUID != "" && quantity != source.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if quantity == source.Quantity {
+		delete(r.items, recordID)
+	} else {
+		source.Quantity -= quantity
+		source.UpdatedAt = time.Now()
+		r.items[recordID] = source
+	}
+	return &bag.RuntimeDropResult{
+		ContainerType: containerType,
+		SlotIndex:     source.SlotIndex,
+		ItemUID:       source.ItemUID,
+		ItemID:        source.ItemID,
+		ItemName:      source.ItemName,
+		DroppedQty:    quantity,
+	}, nil
 }
 
 func bagPlayerName(playerID uint64) string {

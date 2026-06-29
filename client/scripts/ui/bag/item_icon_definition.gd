@@ -16,37 +16,37 @@ class_name ItemIconDefinition
 
 ## 返回详情/格子等静态展示用的首帧或静态贴图。
 func resolve_preview_texture() -> Texture2D:
-    if static_texture != null:
-        return static_texture
-    if sprite_frames == null:
-        return null
-    var animation_name: String = _resolve_animation_name()
-    if animation_name.is_empty():
-        return null
-    if sprite_frames.get_frame_count(animation_name) <= 0:
-        return null
-    return sprite_frames.get_frame_texture(animation_name, 0)
+	if static_texture != null:
+		return static_texture
+	if sprite_frames == null:
+		return null
+	var animation_name: String = _resolve_animation_name()
+	if animation_name.is_empty():
+		return null
+	if sprite_frames.get_frame_count(animation_name) <= 0:
+		return null
+	return sprite_frames.get_frame_texture(animation_name, 0)
 
 
 ## 当前定义是否包含可播放的帧动画。
 func is_animated() -> bool:
-    if sprite_frames == null:
-        return false
-    return not sprite_frames.get_animation_names().is_empty()
+	if sprite_frames == null:
+		return false
+	return not sprite_frames.get_animation_names().is_empty()
 
 
 ## 解析实际使用的动画名：优先 export 字段，否则取第一个动画。
 func resolve_animation_name() -> String:
-    return _resolve_animation_name()
+	return _resolve_animation_name()
 
 
 func _resolve_animation_name() -> String:
-    if sprite_frames == null:
-        return ""
-    var trimmed_animation: String = animation.strip_edges()
-    if not trimmed_animation.is_empty() and sprite_frames.has_animation(trimmed_animation):
-        return trimmed_animation
-    var animation_names: PackedStringArray = sprite_frames.get_animation_names()
-    if animation_names.is_empty():
-        return ""
-    return animation_names[0]
+	if sprite_frames == null:
+		return ""
+	var trimmed_animation: String = animation.strip_edges()
+	if not trimmed_animation.is_empty() and sprite_frames.has_animation(trimmed_animation):
+		return trimmed_animation
+	var animation_names: PackedStringArray = sprite_frames.get_animation_names()
+	if animation_names.is_empty():
+		return ""
+	return animation_names[0]

@@ -1,6 +1,7 @@
 import { requestJSON } from './http';
 import type {
   AdminCreatePetPayload,
+  AdminGrantPetFromTemplatePayload,
   AdminPetDetail,
   AdminPetListFilters,
   AdminPetListResult,
@@ -29,6 +30,14 @@ export async function fetchAdminPets(params: {
 
 export async function fetchAdminPetDetail(petUID: number): Promise<AdminPetDetail> {
   return requestJSON<AdminPetDetail>({ url: `/api/admin/pets/${petUID}`, method: 'GET' });
+}
+
+export async function grantAdminPetFromTemplate(payload: AdminGrantPetFromTemplatePayload): Promise<AdminPetDetail> {
+  return requestJSON<AdminPetDetail>({
+    url: '/api/admin/pets/grant-from-template',
+    method: 'POST',
+    data: payload,
+  });
 }
 
 export async function createAdminPet(payload: AdminCreatePetPayload): Promise<AdminPetDetail> {

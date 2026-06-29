@@ -82,6 +82,10 @@ const PLAYER_UNEQUIP_RESP: int = 2075
 const PLAYER_EQUIPMENT_ENHANCE_REQ: int = 2076
 # 人物装备强化响应消息号。
 const PLAYER_EQUIPMENT_ENHANCE_RESP: int = 2077
+# 人物装备修复请求消息号。
+const PLAYER_EQUIPMENT_REPAIR_REQ: int = 2078
+# 人物装备修复响应消息号。
+const PLAYER_EQUIPMENT_REPAIR_RESP: int = 2079
 
 # 宠物列表请求消息号。
 const PET_LIST_REQ: int = 3001
@@ -141,6 +145,10 @@ const BAG_UPDATE_PUSH: int = 5011
 const USE_ITEM_REQ: int = 5021
 # 使用物品响应消息号。
 const USE_ITEM_RESP: int = 5022
+# 丢弃物品请求消息号。
+const DROP_ITEM_REQ: int = 5121
+# 丢弃物品响应消息号。
+const DROP_ITEM_RESP: int = 5122
 # 容器列表请求消息号，可用于单独查询仓库等容器。
 const CONTAINER_LIST_REQ: int = 5031
 # 容器列表响应消息号。
@@ -274,6 +282,10 @@ static func name_of(cmd: int) -> String:
 			return "PLAYER_EQUIPMENT_ENHANCE_REQ"
 		PLAYER_EQUIPMENT_ENHANCE_RESP:
 			return "PLAYER_EQUIPMENT_ENHANCE_RESP"
+		PLAYER_EQUIPMENT_REPAIR_REQ:
+			return "PLAYER_EQUIPMENT_REPAIR_REQ"
+		PLAYER_EQUIPMENT_REPAIR_RESP:
+			return "PLAYER_EQUIPMENT_REPAIR_RESP"
 		PET_LIST_REQ:
 			return "PET_LIST_REQ"
 		PET_LIST_RESP:
@@ -330,6 +342,10 @@ static func name_of(cmd: int) -> String:
 			return "USE_ITEM_REQ"
 		USE_ITEM_RESP:
 			return "USE_ITEM_RESP"
+		DROP_ITEM_REQ:
+			return "DROP_ITEM_REQ"
+		DROP_ITEM_RESP:
+			return "DROP_ITEM_RESP"
 		CONTAINER_LIST_REQ:
 			return "CONTAINER_LIST_REQ"
 		CONTAINER_LIST_RESP:
@@ -387,6 +403,26 @@ static func should_log_result(cmd: int) -> bool:
 			return false
 		_:
 			return true
+
+
+# 判断消息是否属于背包/装备/钱包链路，便于调试构建下输出完整 JSON。
+static func is_bag_related(cmd: int) -> bool:
+	match cmd:
+		BAG_LIST_REQ, BAG_LIST_RESP, BAG_UPDATE_PUSH, \
+		USE_ITEM_REQ, USE_ITEM_RESP, \
+		DROP_ITEM_REQ, DROP_ITEM_RESP, \
+		BAG_TO_WAREHOUSE_REQ, BAG_TO_WAREHOUSE_RESP, \
+		WAREHOUSE_TO_BAG_REQ, WAREHOUSE_TO_BAG_RESP, \
+		WALLET_QUERY_REQ, WALLET_QUERY_RESP, \
+		BUY_ITEM_REQ, BUY_ITEM_RESP, \
+		PLAYER_EQUIPMENT_LIST_REQ, PLAYER_EQUIPMENT_LIST_RESP, \
+		PLAYER_EQUIP_REQ, PLAYER_EQUIP_RESP, \
+		PLAYER_UNEQUIP_REQ, PLAYER_UNEQUIP_RESP, \
+		PLAYER_EQUIPMENT_ENHANCE_REQ, PLAYER_EQUIPMENT_ENHANCE_RESP, \
+		PLAYER_EQUIPMENT_REPAIR_REQ, PLAYER_EQUIPMENT_REPAIR_RESP:
+			return true
+		_:
+			return false
 
 
 # 判断消息是否属于战斗链路（开战入口、回合动作、状态推送、PVP 与重连恢复）。

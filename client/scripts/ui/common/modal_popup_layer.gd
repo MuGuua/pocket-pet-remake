@@ -7,6 +7,12 @@ signal popup_closed()
 var _dim_layer: ColorRect = null
 ## 是否已安排延迟解锁，避免关闭弹窗的同一次输入穿透到底层。
 var _deferred_unlock_pending: bool = false
+## 弹窗打开时的 process 帧号；打开当帧及下一帧忽略空白关闭，避免战斗结算同帧输入把弹窗立刻关掉。
+var _modal_open_frame: int = -1
+## 已通过空白/全局输入完成关闭的那次物理事件；同一次点击只关闭最顶层一个弹窗。
+static var _blank_dismiss_consumed_event: InputEvent = null
+## 是否已安排在本帧末尾清空白关闭去重标记。
+static var _blank_dismiss_reset_scheduled: bool = false
 
 
 func _ready() -> void:
@@ -22,6 +28,7 @@ func _ready() -> void:
 
 ## 打开模态弹窗并锁定世界交互。
 func _open_modal() -> void:
+	_modal_open_frame = Engine.get_process_frames()
 	show()
 	_enable_modal_input_listeners()
 	_set_runtime_input_locked(true)
@@ -56,13 +63,12 @@ func _disable_modal_input_listeners() -> void:
 	set_process_unhandled_input(false)
 
 
-## 在输入链路最前端吞掉事件；只有“按下类”输入会关闭弹窗。
+## 在输入链路最前端吞掉事件；只有“按下类”输入会尝试空白关闭。
 func _consume_modal_input(event: InputEvent) -> void:
 	if not visible or not _is_topmost_runtime_modal():
 		return
 	get_viewport().set_input_as_handled()
-	if _is_dismiss_event(event):
-		_dismiss_modal()
+	_try_blank_dismiss(event)
 
 
 func _shortcut_input(event: InputEvent) -> void:
@@ -82,8 +88,36 @@ func _on_dim_layer_gui_input(event: InputEvent) -> void:
 		return
 	if _dim_layer != null:
 		_dim_layer.accept_event()
-	if _is_dismiss_event(event):
-		_dismiss_modal()
+	_try_blank_dismiss(event)
+
+
+## 空白区域关闭：仅最顶层弹窗响应，且同一次物理输入只关闭一层。
+func _try_blank_dismiss(event: InputEvent) -> void:
+	if not _is_dismiss_event(event):
+		return
+	if not _can_dismiss_modal_now():
+		return
+	if not _is_topmost_runtime_modal():
+		return
+	if _blank_dismiss_consumed_event == event:
+		return
+	_blank_dismiss_consumed_event = event
+	_schedule_blank_dismiss_reset()
+	_dismiss_modal()
+
+
+## 帧末清空白关闭去重，避免影响下一次点击。
+func _schedule_blank_dismiss_reset() -> void:
+	if _blank_dismiss_reset_scheduled:
+		return
+	_blank_dismiss_reset_scheduled = true
+	call_deferred("_reset_blank_dismiss_consumed_event")
+
+
+## 重置空白关闭去重状态，供下一帧新的物理点击使用。
+static func _reset_blank_dismiss_consumed_event() -> void:
+	_blank_dismiss_consumed_event = null
+	_blank_dismiss_reset_scheduled = false
 
 
 ## 多个模态弹窗同时可见时，仅最顶层（layer 最高）响应空白关闭。
@@ -151,6 +185,13 @@ func _is_dismiss_event(event: InputEvent) -> bool:
 	if event is InputEventJoypadButton:
 		return event.pressed
 	return false
+
+
+## 弹窗刚打开时忽略空白关闭，避免战斗卸载/结算同帧残留点击把升级弹窗闪关。
+func _can_dismiss_modal_now() -> bool:
+	if _modal_open_frame < 0:
+		return true
+	return Engine.get_process_frames() > _modal_open_frame + 1
 
 
 func _set_runtime_input_locked(locked: bool) -> void:

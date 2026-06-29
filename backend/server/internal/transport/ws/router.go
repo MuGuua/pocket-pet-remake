@@ -164,6 +164,14 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
 		}
 		return r.bagHandler.HandleUseItem(conn, packet)
+	case protocol.CmdDropItemReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleDropItem(conn, packet)
 	case protocol.CmdContainerListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
@@ -265,6 +273,14 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
 		}
 		return r.equipmentHandler.HandleEnhance(conn, packet)
+	case protocol.CmdPlayerEquipmentRepairReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.equipmentHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "equipment handler unavailable")
+		}
+		return r.equipmentHandler.HandleRepair(conn, packet)
 	case protocol.CmdBattleActionReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

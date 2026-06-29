@@ -43,7 +43,8 @@ type effectiveStats struct {
 	VulnerabilityPct     uint32
 	PhysicalResistPct    uint32
 	SkillResistPct       uint32
-	ReverseSkillResistPct uint32
+	ReverseSkillResistPct  uint32
+	ReversePhysicalResistPct uint32
 	GenericShieldPct     uint32
 	CharacterResistPct   uint32
 	PetResistPct         uint32
@@ -62,8 +63,9 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 	if speedMultiplierPct == 0 {
 		speedMultiplierPct = 100
 	}
-	if a.statusSpeedMultiplierPct > 0 {
-		speedMultiplierPct = speedMultiplierPct * a.statusSpeedMultiplierPct / 100
+	derived := a.statusDerived
+	if derived.SpeedMultiplierPct > 0 && derived.SpeedMultiplierPct < 100 {
+		speedMultiplierPct = speedMultiplierPct * derived.SpeedMultiplierPct / 100
 	}
 	speed := applyPercentModifier(int32(a.spd)+a.speedFlatBonus, speedMultiplierPct, a.globalMultiplierPct)
 	mana := applyPercentModifier(int32(a.mana)+a.manaFlatBonus, a.manaMultiplierPct, a.globalMultiplierPct)
@@ -71,35 +73,96 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 	if guard == 0 {
 		guard = uint32(maxInt32(defense, 0))
 	}
-	return effectiveStats{
-		UnitClass:             a.unitClass,
-		Attack:                attack,
-		Defense:               defense,
-		Speed:                 speed,
-		Mana:                  mana,
-		CurrentHP:             int32(a.hp),
-		MaxHP:                 int32(a.hpMax),
-		HitPct:                a.hitPct,
-		DodgePct:              a.dodgeRatePct,
-		CritRatePct:           a.critRatePct + a.statusCritRateBonusPct,
-		CritDmgPct:            a.critDmgPct,
-		CritResistPct:         a.critResistPct,
-		CritDmgResistPct:      a.critDmgResistPct,
-		ArmorBroken:           a.statusArmorBroken,
-		VulnerabilityPct:      a.statusVulnerabilityPct,
-		PhysicalResistPct:     a.physicalResistPct,
-		SkillResistPct:        a.skillResistPct,
-		ReverseSkillResistPct: a.reverseSkillResistPct,
-		GenericShieldPct:      a.genericShieldPct,
-		CharacterResistPct:    a.characterResistPct,
-		PetResistPct:          a.petResistPct,
-		MercenaryResistPct:    a.mercenaryResistPct,
-		Guard:                 guard,
-		TalentDmgPct:          a.talentDmgPct,
-		TalentReducePct:       a.talentReducePct,
-		ElementAdvPct:         a.elementAdvPct,
-		ElementPenaltyPct:     a.elementPenaltyPct,
+
+	hitPct := a.hitPct
+	if derived.HitPenalty >= hitPct {
+		hitPct = 0
+	} else {
+		hitPct -= derived.HitPenalty
 	}
+	dodgePct := a.dodgeRatePct + a.dodgePct
+	if derived.DodgePenalty >= dodgePct {
+		dodgePct = 0
+	} else {
+		dodgePct -= derived.DodgePenalty
+	}
+	critDmgPct := a.critDmgPct
+	if derived.CritDmgPenalty >= critDmgPct {
+		critDmgPct = 100
+	} else {
+		critDmgPct -= derived.CritDmgPenalty
+	}
+	critDmgPct = clampCritDmgPct(critDmgPct)
+
+	physicalResist := a.physicalResistPct
+	if derived.PhysicalResistPenalty >= physicalResist {
+		physicalResist = 0
+	} else {
+		physicalResist -= derived.PhysicalResistPenalty
+	}
+	skillResist := a.skillResistPct
+	if derived.SkillResistPenalty >= skillResist {
+		skillResist = 0
+	} else {
+		skillResist -= derived.SkillResistPenalty
+	}
+	reversePhysical := a.reversePhysicalResistPct
+	if derived.ReversePhysicalResistPenalty >= reversePhysical {
+		reversePhysical = 0
+	} else {
+		reversePhysical -= derived.ReversePhysicalResistPenalty
+	}
+	reverseSkill := a.reverseSkillResistPct
+	if derived.ReverseSkillResistPenalty >= reverseSkill {
+		reverseSkill = 0
+	} else {
+		reverseSkill -= derived.ReverseSkillResistPenalty
+	}
+
+	return effectiveStats{
+		UnitClass:              a.unitClass,
+		Attack:                 attack,
+		Defense:                defense,
+		Speed:                  speed,
+		Mana:                   mana,
+		CurrentHP:              int32(a.hp),
+		MaxHP:                  int32(a.hpMax),
+		HitPct:                 hitPct,
+		DodgePct:               dodgePct,
+		CritRatePct:            a.critRatePct + derived.CritRateBonusPct,
+		CritDmgPct:             critDmgPct,
+		CritResistPct:          a.critResistPct,
+		CritDmgResistPct:       a.critDmgResistPct,
+		ArmorBroken:            derived.ArmorBroken,
+		VulnerabilityPct:       derived.VulnerabilityPct,
+		PhysicalResistPct:      physicalResist,
+		SkillResistPct:         skillResist,
+		ReversePhysicalResistPct: reversePhysical,
+		ReverseSkillResistPct: reverseSkill,
+		GenericShieldPct:       a.genericShieldPct,
+		CharacterResistPct:     a.characterResistPct,
+		PetResistPct:           a.petResistPct,
+		MercenaryResistPct:     a.mercenaryResistPct,
+		Guard:                  guard,
+		TalentDmgPct:           a.talentDmgPct,
+		TalentReducePct:        a.talentReducePct,
+		ElementAdvPct:          a.elementAdvPct,
+		ElementPenaltyPct:      a.elementPenaltyPct,
+	}
+}
+
+// pocketAttackerPanel 为口袋伤害公式选择进攻面板：攻击 > 法力 > 速度。
+func pocketAttackerPanel(attackerStats effectiveStats, skill skillDef) int64 {
+	if skill.AttackPct > 0 || (skill.SkillMult > 0 && skill.ManaPct == 0 && skill.SpeedPct == 0) {
+		return int64(attackerStats.Attack)
+	}
+	if skill.ManaPct > 0 {
+		return int64(attackerStats.Mana)
+	}
+	if skill.SpeedPct > 0 {
+		return int64(attackerStats.Speed)
+	}
+	return int64(attackerStats.Attack)
 }
 
 func buildPocketDamageInput(attacker *actorRuntime, target *actorRuntime, skill skillDef) pocketDamageInput {
@@ -121,8 +184,9 @@ func buildPocketDamageInput(attacker *actorRuntime, target *actorRuntime, skill 
 	elementAdvantaged := attackerStats.ElementAdvPct > 0
 	elementDisadvantaged := !elementAdvantaged && targetStats.ElementPenaltyPct > 0
 	isAOE := skill.TargetRule == targetEnemyAll || skill.TargetRule == targetEnemyMulti
+	attackerPanel := pocketAttackerPanel(attackerStats, skill)
 	return pocketDamageInput{
-		AttackerPanel:        int64(attackerStats.Attack),
+		AttackerPanel:        attackerPanel,
 		DefenderPanel:        int64(targetStats.Defense),
 		SkillMult:            skill.SkillMult,
 		AttackScalePct:       skill.AttackPct,
@@ -253,10 +317,49 @@ func maxUint32(left uint32, right uint32) uint32 {
 }
 
 func calculateHealAmount(caster effectiveStats, skill skillDef) int32 {
-	heal := caster.MaxHP * skill.HealPct / 100
+	var heal int32
+	switch {
+	case skill.SkillType == "heal" && skill.HealPct > 0:
+		// 治疗技 heal_pct 存法力倍率×10（如 30 表示法力×300%）。
+		heal = caster.Mana * skill.HealPct / 10
+	case skill.HealPct > 0:
+		heal = caster.MaxHP * skill.HealPct / 100
+	}
 	heal += skill.FixedHeal
 	if heal < 1 {
 		return 1
 	}
 	return heal
+}
+
+// calculateCompositePanelRaw 按攻击/法力/速度面板百分比加算技能基础伤害。
+func calculateCompositePanelRaw(attacker effectiveStats, skill skillDef) int64 {
+	var raw int64
+	if skill.AttackPct > 0 {
+		raw += int64(attacker.Attack) * int64(skill.AttackPct) / 100
+	}
+	if skill.ManaPct > 0 {
+		raw += int64(attacker.Mana) * int64(skill.ManaPct) / 100
+	}
+	if skill.SpeedPct > 0 {
+		raw += int64(attacker.Speed) * int64(skill.SpeedPct) / 100
+	}
+	return raw
+}
+
+// calculateCompositeSkillDamage 多面板技能伤害；ignore_defense 为真时视为真伤。
+func calculateCompositeSkillDamage(attacker effectiveStats, target effectiveStats, skill skillDef, isAOE bool) int32 {
+	raw := calculateCompositePanelRaw(attacker, skill)
+	if raw < 1 {
+		return 1
+	}
+	if skill.IgnoreDefense {
+		return int32(raw)
+	}
+	denom := calculatePocketDamageDenominator(target.Guard, isAOE)
+	damage := int64(math.Round(float64(raw) / denom * 0.5))
+	if damage < 1 {
+		return 1
+	}
+	return int32(damage)
 }

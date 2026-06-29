@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="UnitSkin" format=3 uid="uid://cetir7ir2q4oq"]
+
+[ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_hx0cv"]
+[ext_resource type="Texture2D" uid="uid://d3v470j4tlhty" path="res://asset/分类/宠物/两图宠物/830.png" id="2_hx0cv"]
+[ext_resource type="Texture2D" uid="uid://da78ms6kfrw" path="res://asset/分类/宠物/两图宠物/831.png" id="3_ygold"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vbk74"]
+atlas = ExtResource("2_hx0cv")
+region = Rect2(0, 0, 59, 79)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8qsfw"]
+atlas = ExtResource("2_hx0cv")
+region = Rect2(59, 0, 59, 79)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5x5vv"]
+atlas = ExtResource("3_ygold")
+region = Rect2(0, 0, 136, 93)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cxi0n"]
+atlas = ExtResource("3_ygold")
+region = Rect2(136, 0, 136, 93)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j77ue"]
+atlas = ExtResource("3_ygold")
+region = Rect2(0, 0, 136, 93)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bpoib"]
+atlas = ExtResource("3_ygold")
+region = Rect2(136, 0, 136, 93)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_gdyo5"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vbk74")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8qsfw")
+}],
+"loop": 1,
+"name": &"战斗待机",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5x5vv")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_cxi0n")
+}],
+"loop": 1,
+"name": &"技能",
+"speed": 4.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j77ue")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bpoib")
+}],
+"loop": 1,
+"name": &"攻击",
+"speed": 4.0
+}]
+
+[resource]
+script = ExtResource("1_hx0cv")
+skin_id = "白色幻影chj_830"
+sprite_frames = SubResource("SpriteFrames_gdyo5")
+animation_flip_h = {
+"战斗待机": true,
+"技能": true,
+"普攻": true
+}
+chj_path = "res://asset/chj/830.chj"
+chj_display_scale = Vector2(0.8, 0.8)
+chj_walk_anim_speed = 80.0
+chj_skill_path = "res://asset/chj/487.chj"
+world_battle_animation = "战斗待机"
+sprite_offset = Vector2(-13, 7)
+sprite_scale = Vector2(0.8, 0.8)

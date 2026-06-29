@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemIconDefinition" format=3 uid="uid://6tneb8ieql6b"]
+
+[ext_resource type="Script" uid="uid://bvosos6ibkn1g" path="res://scripts/ui/bag/item_icon_definition.gd" id="1_6v06n"]
+[ext_resource type="Texture2D" uid="uid://bpjy8fgviqxul" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/Full Spritesheet/16x16.png" id="2_gb0v0"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6v06n"]
+atlas = ExtResource("2_gb0v0")
+region = Rect2(112, 160, 16, 16)
+
+[resource]
+script = ExtResource("1_6v06n")
+item_id = 10002
+static_texture = SubResource("AtlasTexture_6v06n")

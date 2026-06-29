@@ -33,6 +33,8 @@ type BattleRewardEntry struct {
 	Status     uint32 `json:"status"`
 	// GrantOnce 为 1 时表示该物品奖励每名玩家仅首次获得，之后战斗不再重复发放。
 	GrantOnce uint32 `json:"grant_once"`
+	// ItemName 仅后台列表展示用，来自 item_definition 关联查询，不入库。
+	ItemName string `json:"item_name,omitempty"`
 }
 
 // AdminBattleRewardInput 是后台批量保存怪物战斗奖励时使用的输入项。

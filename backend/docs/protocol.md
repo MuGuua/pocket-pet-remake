@@ -1238,6 +1238,43 @@
 }
 ```
 
+### 5121 DROP_ITEM_REQ（已实现）
+
+玩家主动丢弃背包/仓库容器内物品。服务端以当前 WebSocket 会话的 `player_id` 为准，不接受客户端传玩家 ID。
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 3,
+  "quantity": 2,
+  "item_uid": "eq_10001"
+}
+```
+
+- `container_type` 当前支持 `bag` / `warehouse`
+- `slot_index` 为服务端权威格子编号；非实例化可堆叠物品按 `slot_index + quantity` 支持部分丢弃
+- `item_uid` 可选；实例化物品（装备等）应传该字段，服务端会按 `player_id + container_type + item_uid` 定位唯一条目
+- 实例化物品必须整件丢弃，即 `quantity` 必须等于该格数量；已穿戴实例不可丢弃
+- 服务端会校验 `item_definition.can_drop=true`，不可丢弃物品返回错误
+
+### 5122 DROP_ITEM_RESP（已实现）
+
+```json
+{
+  "container_type": "bag",
+  "slot_index": 3,
+  "item_uid": "eq_10001",
+  "item_id": 2002,
+  "item_name": "训练护腕",
+  "dropped_quantity": 1
+}
+```
+
+- 成功后服务端会在事务内扣减或删除 `player_container_item`，实例化装备还会同步删除 `equipment_instance`
+- 服务端会写入 `item_change_log`，`change_type` 为 `drop_reduce` 或 `drop_remove`，`reason_type=item_drop`
+- 成功响应后当前连接还会继续收到 `5011 BAG_UPDATE_PUSH`；分页背包 UI 应等待最新 `5002 BAG_LIST_RESP` 或完整容器快照落地后再关闭 loading，避免先展示旧数据
+- 典型错误：空格子返回 `item slot is empty`；数量非法返回 `invalid drop item request`；不可丢弃或已穿戴返回 `item cannot be dropped`
+
 ### 4001 BATTLE_ACTION_REQ
 
 战斗动作只提交意图，伤害、回合推进和胜负均由服务端结算：

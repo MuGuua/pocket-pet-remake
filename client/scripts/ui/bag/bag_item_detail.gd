@@ -32,6 +32,8 @@ const ENHANCE_VALUE_COLOR_HEX: String = "#82d563"
 @onready var _type_label: RichTextLabel = %TypeLabel
 ## 装备部位标签。
 @onready var _equip_slot_label: RichTextLabel = %EquipSlotLabel
+## 损坏状态标签；仅在装备已损坏时显示。
+@onready var _damaged_label: RichTextLabel = %DamagedLabel
 ## 物品描述区；支持 {item:ID} 占位符内联展示 icon。
 @onready var _description_label: ItemDescriptionView = %DescriptionLabel
 ## 左侧主操作按钮：打开 / 使用 / 装备 / 卸下。
@@ -99,6 +101,8 @@ func _input(event: InputEvent) -> void:
 	if not _is_outside_close_event(event):
 		return
 	var click_pos: Vector2 = _event_global_position(event)
+	if _more_menu.is_global_point_over_menu(click_pos):
+		return
 	if _more_menu.is_global_point_over_action_buttons(click_pos):
 		return
 	if _secondary_button != null and _secondary_button.get_global_rect().has_point(click_pos):
@@ -154,8 +158,10 @@ func _apply_item_snapshot(item: Dictionary) -> void:
 		var equip_slot_text: String = BagUiMapper.equip_slot_text(_item)
 		_apply_meta_line_from_text(_equip_slot_label, equip_slot_text, "部位：")
 		_equip_slot_label.visible = not equip_slot_text.is_empty()
+	_refresh_damaged_label()
 	if _description_label != null:
 		_description_label.apply_item_snapshot(_item)
+	_refresh_more_menu_actions()
 	_refresh_actions()
 
 
@@ -173,6 +179,9 @@ func clear_item() -> void:
 	if _equip_slot_label != null:
 		_equip_slot_label.text = ""
 		_equip_slot_label.hide()
+	if _damaged_label != null:
+		_damaged_label.text = ""
+		_damaged_label.hide()
 	if _description_label != null:
 		_description_label.apply_empty_hint("点击物品或已装备槽位查看详情。")
 	_refresh_actions()
@@ -199,6 +208,18 @@ func _refresh_level_labels() -> void:
 	if _reinforcement_label != null:
 		_apply_meta_line_from_text(_reinforcement_label, enhance_text, "强化：", ENHANCE_VALUE_COLOR_HEX)
 		_reinforcement_label.visible = not enhance_text.is_empty()
+
+
+## 刷新损坏状态标签；正常装备隐藏，损坏后在类型下方展示「已损坏」。
+func _refresh_damaged_label() -> void:
+	if _damaged_label == null:
+		return
+	var show_damaged: bool = not _item.is_empty() and BagUiMapper.is_damaged(_item)
+	_damaged_label.visible = show_damaged
+	if not show_damaged:
+		_damaged_label.text = ""
+		return
+	_set_meta_line(_damaged_label, "状态：", "已损坏", "#ff6b6b")
 
 
 ## 将「标签：数值」格式化为分色 BBCode 并写入元信息 RichTextLabel。
@@ -251,7 +272,26 @@ func _show_more_menu() -> void:
 	if _more_menu == null or _secondary_button == null:
 		return
 	_more_menu.open_near(_secondary_button)
-	set_process_input(true)
+	set_process_input(false)
+	call_deferred("_enable_more_menu_input")
+
+
+## 延迟开启全局点击监听，避免与打开菜单的同一次按下事件互相冲突。
+func _enable_more_menu_input() -> void:
+	if _more_menu != null and _more_menu.is_open():
+		set_process_input(true)
+
+
+## 按当前物品快照刷新「更多」菜单里各动作的可见与启用态。
+func _refresh_more_menu_actions() -> void:
+	if _more_menu == null:
+		return
+	_more_menu.configure_actions([
+		# 丢弃是否允许必须以服务端最终校验为准；这里保持按钮可点，避免 can_drop 缺失或为 false 时静默无反馈。
+		{"key": "drop", "label": "丢弃", "disabled": false},
+		{"key": "give", "label": "给人", "disabled": true},
+		{"key": "share", "label": "分享", "disabled": true},
+	])
 
 
 ## 刷新主按钮、强化按钮与次按钮的文案和可见性。
@@ -283,7 +323,7 @@ func _refresh_enhance_button() -> void:
 		not _item.is_empty()
 		and _context == DetailContext.BAG_ITEM
 	)
-	var show_enhance: bool = show_slot and BagUiMapper.is_equipment(_item)
+	var show_enhance: bool = show_slot and BagUiMapper.is_equipment(_item) and not BagUiMapper.is_damaged(_item)
 	if _enhance_slot != null:
 		_enhance_slot.visible = show_slot
 	_enhance_button.visible = show_enhance
@@ -316,6 +356,8 @@ func _resolve_primary_action_label() -> String:
 		return "卸下"
 	if BagUiMapper.is_box_item(_item):
 		return "打开"
+	if BagUiMapper.is_equipment(_item) and BagUiMapper.is_damaged(_item):
+		return "修复"
 	if BagUiMapper.is_equipment(_item):
 		return "装备"
 	return "使用"
@@ -325,6 +367,8 @@ func _resolve_primary_action_label() -> String:
 func _resolve_primary_action_key() -> String:
 	if _context == DetailContext.EQUIPPED_ITEM:
 		return "unequip"
+	if BagUiMapper.is_equipment(_item) and BagUiMapper.is_damaged(_item):
+		return "repair"
 	if BagUiMapper.is_box_item(_item):
 		return "open"
 	return "use"
@@ -370,8 +414,17 @@ func _on_secondary_pressed() -> void:
 		_show_more_menu()
 
 
-## 转发更多菜单内按钮点击。
+## 转发更多菜单内按钮点击；先关菜单并延迟一帧再派发，避免同一次触屏抬起误触后续确认遮罩。
 func _on_more_menu_action_selected(action_key: String) -> void:
+	if _item.is_empty():
+		return
+	_hide_more_menu()
+	set_process_input(false)
+	call_deferred("_emit_more_menu_action", action_key)
+
+
+## 延迟派发更多菜单动作，等待当前触屏/鼠标输入链路结束。
+func _emit_more_menu_action(action_key: String) -> void:
 	if _item.is_empty():
 		return
 	action_requested.emit(action_key, _item.duplicate(true))

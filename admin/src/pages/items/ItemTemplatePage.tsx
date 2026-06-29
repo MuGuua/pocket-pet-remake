@@ -2,6 +2,7 @@ import { Card, Tabs, Typography } from 'antd';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { EquipmentDefinitionPage } from '../equipment/EquipmentDefinitionPage';
+import { EquipmentEnhanceSuccessPage } from '../equipment/EquipmentEnhanceSuccessPage';
 import { ItemDefinitionPage } from './ItemDefinitionPage';
 
 const ITEM_TEMPLATE_TABS = [
@@ -14,6 +15,11 @@ const ITEM_TEMPLATE_TABS = [
     key: 'equipment',
     label: '装备',
     children: <EquipmentDefinitionPage embedded />,
+  },
+  {
+    key: 'enhance-success',
+    label: '强化成功率',
+    children: <EquipmentEnhanceSuccessPage embedded />,
   },
 ];
 

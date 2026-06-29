@@ -15,6 +15,7 @@ var (
 	ErrEquipmentBagItemInvalid = errors.New("bag item is not equippable equipment")
 	ErrEquipmentNotOwned       = errors.New("equipment not owned by player")
 	ErrEquipmentBagFull        = errors.New("bag has no empty slot for unequipped item")
+	ErrEquipmentDamaged        = errors.New("equipment is damaged")
 )
 
 // RuntimeEquippedItem 描述玩家当前佩戴的单件装备实例与模板摘要。
@@ -27,13 +28,16 @@ type RuntimeEquippedItem struct {
 	Icon          string            `json:"icon"`
 	RequiredLevel    uint32            `json:"required_level"`
 	EnhanceLevel  uint32            `json:"enhance_level"`
+	IsDamaged     bool              `json:"is_damaged,omitempty"`
 	AppearanceSkinID string         `json:"appearance_skin_id,omitempty"`
 	AppearanceOnly   bool           `json:"appearance_only"`
 	// Description 来自 item_definition.desc，供客户端详情面板展示后台编辑的介绍文案。
 	Description string `json:"description,omitempty"`
 	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。
 	DescriptionMentions []item.DescriptionMention `json:"description_mentions,omitempty"`
-	Bonus         BonusAggregate    `json:"bonus"`
+	Bonus         BonusAggregate       `json:"bonus"`
+	WeaponSkills  []RuntimeWeaponSkill `json:"weapon_skills,omitempty"`
+	WeaponType    string               `json:"weapon_type,omitempty"`
 }
 
 // BonusAggregate 汇总单件或全身装备的固定数值加成。

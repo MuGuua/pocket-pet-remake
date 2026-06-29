@@ -222,7 +222,7 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
-	result, err := h.bagService.UseRuntimeItem(context.Background(), sess.PlayerID, request.ContainerType, request.SlotIndex, request.Quantity, request.TargetPetUID, request.TargetPlayerID)
+	result, err := h.bagService.UseRuntimeItem(context.Background(), sess.PlayerID, request.ContainerType, request.SlotIndex, request.Quantity, request.TargetPetUID, request.TargetPlayerID, request.TargetItemUID)
 	if err != nil {
 		switch {
 		case errors.Is(err, bag.ErrInvalidContainerType), errors.Is(err, bag.ErrInvalidTransferQuantity):
@@ -278,6 +278,8 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 			NewPetHP:             result.Result.NewPetHP,
 			UnlockedTalismanSlot: result.Result.UnlockedTalismanSlot,
 			Rewards:              toProtocolUseItemRewards(result.Result.Rewards),
+			AppliedEffects:       toProtocolUseItemAppliedEffects(result.Result.AppliedEffects),
+			NeedsWalletPush:      result.Result.NeedsWalletPush,
 		},
 	})
 	if err != nil {
@@ -320,6 +322,60 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 	}
 	if walletSnapshot != nil {
 		_ = pushWalletUpdatePacket(conn, *walletSnapshot, "item_use_reward", result.ItemID)
+	} else if result.Result.NeedsWalletPush {
+		if runtimeWallet, walletErr := h.walletService.GetRuntimeWallet(context.Background(), sess.PlayerID); walletErr == nil && runtimeWallet != nil {
+			_ = pushWalletUpdatePacket(conn, *runtimeWallet, "item_use", result.ItemID)
+		}
+	}
+	return nil
+}
+
+// HandleDropItem 执行背包物品主动丢弃，并在成功后推送最新容器快照。
+func (h *BagHandler) HandleDropItem(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.DropItemReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid drop item body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	logBagEquipPacket("req", conn.ID(), sess.PlayerID, protocol.CmdDropItemReq, packet.Seq, request)
+	result, err := h.bagService.DropRuntimeItem(context.Background(), sess.PlayerID, request.ContainerType, request.SlotIndex, request.ItemUID, request.Quantity)
+	if err != nil {
+		logBagEquipPacket("error", conn.ID(), sess.PlayerID, protocol.CmdDropItemReq, packet.Seq, map[string]any{
+			"request": request,
+			"error":   err.Error(),
+		})
+		switch {
+		case errors.Is(err, bag.ErrInvalidContainerType), errors.Is(err, bag.ErrInvalidTransferQuantity):
+			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "invalid drop item request", err)
+		case errors.Is(err, bag.ErrContainerItemNotFound):
+			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "item slot is empty", err)
+		case errors.Is(err, bag.ErrItemNotDroppable):
+			return sendError(conn, packet.Seq, errcode.WSCodeBagRequestInvalid, "item cannot be dropped", err)
+		default:
+			return sendError(conn, packet.Seq, errcode.WSCodeBagListFailed, "drop item failed", err)
+		}
+	}
+	response := protocol.DropItemResp{
+		ContainerType: result.ContainerType,
+		SlotIndex:     result.SlotIndex,
+		ItemUID:       result.ItemUID,
+		ItemID:        result.ItemID,
+		ItemName:      result.ItemName,
+		DroppedQty:    result.DroppedQty,
+	}
+	logBagEquipPacket("resp", conn.ID(), sess.PlayerID, protocol.CmdDropItemResp, packet.Seq, response)
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdDropItemResp, packet.Seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	if snapshot, snapshotErr := h.bagService.ListRuntimeContainer(context.Background(), sess.PlayerID, result.ContainerType); snapshotErr == nil && snapshot != nil {
+		_ = conn.SendPacket(mustJSONPacket(protocol.CmdBagUpdatePush, 0, buildContainerUpdatePush(*snapshot)))
 	}
 	return nil
 }
@@ -387,6 +443,20 @@ func toProtocolUseItemRewards(values []bag.RuntimeRewardItem) []protocol.QuestRe
 			ItemName: value.ItemName,
 			Count:    value.Count,
 			PetID:    value.PetID,
+		})
+	}
+	return result
+}
+
+func toProtocolUseItemAppliedEffects(values []bag.RuntimeAppliedUseEffect) []protocol.UseItemAppliedEffect {
+	result := make([]protocol.UseItemAppliedEffect, 0, len(values))
+	for _, value := range values {
+		result = append(result, protocol.UseItemAppliedEffect{
+			Category:  value.Category,
+			FieldKey:  value.FieldKey,
+			Operation: value.Operation,
+			Value:     value.Value,
+			BoolValue: value.BoolValue,
 		})
 	}
 	return result

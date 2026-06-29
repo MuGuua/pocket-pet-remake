@@ -2,6 +2,7 @@ package bag
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 )
@@ -153,7 +154,7 @@ func (s *Service) GrantRuntimeItem(ctx context.Context, playerID uint64, contain
 
 // UseRuntimeItem 执行玩家主动使用背包物品的正式链路。
 // 目标宠物、目标玩家等动态目标也统一从这里往下传，确保真正生效的对象由服务端权威判定。
-func (s *Service) UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*RuntimeUseResult, error) {
+func (s *Service) UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64, targetItemUID string) (*RuntimeUseResult, error) {
 	if playerID == 0 || slotIndex == 0 || quantity == 0 {
 		return nil, ErrInvalidTransferQuantity
 	}
@@ -164,7 +165,24 @@ func (s *Service) UseRuntimeItem(ctx context.Context, playerID uint64, container
 	if err := s.acquireRuntimeUseItemSlot(playerID); err != nil {
 		return nil, err
 	}
-	return s.repo.UseRuntimeItem(ctx, playerID, normalizedContainerType, slotIndex, quantity, targetPetUID, targetPlayerID)
+	return s.repo.UseRuntimeItem(ctx, playerID, normalizedContainerType, slotIndex, quantity, targetPetUID, targetPlayerID, strings.TrimSpace(targetItemUID))
+}
+
+// DropRuntimeItem 执行玩家主动丢弃背包/仓库格子物品的正式链路。
+// itemUID 非空时按实例唯一标识定位格子；否则按 slotIndex 定位，可堆叠物支持部分 quantity 丢弃。
+func (s *Service) DropRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, itemUID string, quantity uint64) (*RuntimeDropResult, error) {
+	itemUID = strings.TrimSpace(itemUID)
+	if playerID == 0 || quantity == 0 {
+		return nil, ErrInvalidTransferQuantity
+	}
+	if itemUID == "" && slotIndex == 0 {
+		return nil, ErrInvalidTransferQuantity
+	}
+	normalizedContainerType, err := NormalizeRuntimeContainerType(containerType)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.DropRuntimeItem(ctx, playerID, normalizedContainerType, slotIndex, itemUID, quantity)
 }
 
 // acquireRuntimeUseItemSlot 占用一次主动使用物品的时间片；同一玩家在冷却期内再次使用会返回 ErrUseItemTooFast。

@@ -23,6 +23,7 @@ import (
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/playerskill"
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
@@ -77,12 +78,13 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := progressionService.RefreshRuntimeCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load player progression runtime cache: %w", err)
 	}
-	equipmentService := equipment.NewService(repos.Equipment, progressionService, repos.Players, repos.Pets)
+	equipmentService := equipment.NewService(repos.Equipment, progressionService, repos.Players, repos.Pets, skillService)
 	petProgressionService := petprogression.NewService(repos.PetProgression)
 	if err := petProgressionService.RefreshRuntimeCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load pet progression runtime cache: %w", err)
 	}
 	playerService := player.NewService(repos.Players, skillService, progressionService, equipmentService)
+	playerSkillService := playerskill.NewService(repos.PlayerSkills)
 	petService := pet.NewService(repos.Pets, skillService, repos.Monsters, petProgressionService)
 	questService := quest.NewService(repos.Quests)
 	unlockService := unlock.NewService(repos.Unlocks)
@@ -108,7 +110,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	petHandler := wstransport.NewPetHandler(sessionService, petService, petProgressionService)
 	playerHandler := wstransport.NewPlayerHandler(sessionService, playerService)
 	equipmentHandler := wstransport.NewEquipmentHandler(sessionService, equipmentService)
-	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, itemService)
+	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, equipmentService, playerSkillService, itemService)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)

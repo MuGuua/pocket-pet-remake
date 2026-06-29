@@ -3,11 +3,11 @@
 [ext_resource type="Script" uid="uid://bvosos6ibkn1g" path="res://scripts/ui/bag/item_icon_definition.gd" id="1_definition"]
 [ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="2_atlas_source"]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_7qpht"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_aisnx"]
 atlas = ExtResource("2_atlas_source")
 region = Rect2(324, 0, 18, 18)
 
 [resource]
 script = ExtResource("1_definition")
 item_id = 10001
-static_texture = SubResource("AtlasTexture_7qpht")
+static_texture = SubResource("AtlasTexture_aisnx")

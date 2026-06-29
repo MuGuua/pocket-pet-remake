@@ -4,7 +4,7 @@ extends "res://scripts/ui/common/modal_popup_layer.gd"
 ## 装备强化弹窗场景路径。
 const SCENE_PATH: String = "res://scenes/ui/bag/equipment_enhance_popup.tscn"
 ## 通用物品格子选择面板场景。
-const ITEM_SLOT_PICKER_SCENE: PackedScene = preload(ItemSlotPicker.SCENE_PATH)
+const ITEM_SLOT_PICKER_SCENE: PackedScene = preload("res://scenes/ui/common/item_slot_picker.tscn")
 ## 预览区属性行高亮色。
 const PREVIEW_NEXT_COLOR: String = "#63c64d"
 ## 成功率文案高亮色。
@@ -32,7 +32,7 @@ const ENHANCE_PREVIEW_MAX_LABEL: String = "max"
 ## 满级预览右侧占位文案色。
 const ENHANCE_PREVIEW_MAX_COLOR: String = "#9494b8"
 ## 材料按钮悬停名称浮层场景。
-const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload(BagItemHoverName.SCENE_PATH)
+const BAG_ITEM_HOVER_NAME_SCENE: PackedScene = preload("res://scenes/ui/common/bag_item_hover_name.tscn")
 ## 未选中材料时，悬停材料按钮展示的提示文案。
 const MATERIAL_BUTTON_HOVER_HINT: String = "点击选择强化材料"
 ## 材料选择面板相对默认定位向上偏移（像素）。
@@ -86,6 +86,8 @@ var _enhance_response_ready: bool = false
 var _enhance_response_ok: bool = false
 ## 强化玩法是否成功（业务层 success 字段）。
 var _enhance_response_success: bool = false
+## 强化失败时服务端返回的惩罚类型：damage / level_down / none。
+var _enhance_failure_penalty: String = "damage"
 ## 强化进度条 tween。
 var _enhance_progress_tween: Tween = null
 ## 强化进度条 fill 样式（运行时改色）。
@@ -141,12 +143,9 @@ func refresh_current_item(item: Dictionary) -> void:
 		_selected_cost_item_id = int(preview.get("cost_item_id", 0))
 	_apply_selected_material_to_preview()
 	if was_presentation_active:
-		_refresh_item_header()
-		_refresh_preview_rows()
-		_refresh_success_rate()
-		_refresh_material_and_cost()
-	else:
-		_refresh_all()
+		# 演出进行中只更新快照；预览数值与结果文案在进度结束后一并刷新。
+		return
+	_refresh_all()
 
 
 ## 读取当前选中的强化材料 item_id，供强化请求使用。
@@ -154,15 +153,20 @@ func get_selected_cost_item_id() -> int:
 	return _selected_cost_item_id
 
 
-## 强化请求回包到达后写入结果；进度条与回包都就绪时再展示文案。
-func notify_enhance_response(ok: bool, success: bool) -> void:
+## 强化请求回包到达后写入结果；进度条与回包都就绪时再同步刷新数值并展示文案。
+func notify_enhance_response(ok: bool, success: bool, failure_penalty: String = "damage", payload: Dictionary = {}) -> void:
 	if not _enhance_presentation_active:
 		return
 	if not ok:
 		_optimistic_copper_spent = 0
+	else:
+		_apply_enhance_response_payload(payload, success, failure_penalty)
 	_enhance_response_ready = true
 	_enhance_response_ok = ok
 	_enhance_response_success = success
+	_enhance_failure_penalty = failure_penalty.strip_edges()
+	if _enhance_failure_penalty.is_empty():
+		_enhance_failure_penalty = "damage"
 	_try_finish_enhance_presentation()
 
 
@@ -178,6 +182,7 @@ func _refresh_all() -> void:
 	_refresh_success_rate()
 	_refresh_material_and_cost()
 	_refresh_enhance_button_state()
+	_set_content_mouse_ignore(true)
 
 
 ## 刷新顶部装备信息区。
@@ -300,7 +305,12 @@ func _refresh_success_rate() -> void:
 		return
 	var preview: Dictionary = _resolve_enhance_preview()
 	var success_rate: int = int(preview.get("success_rate_pct", 0))
+	# var band_label: String = str(preview.get("required_level_band_label", "")).strip_edges()
 	_success_rate_label.text = "强化成功率: %s%%" % UiFormat.value_to_text(success_rate)
+	# if band_label.is_empty():
+	# 	_success_rate_label.text = "强化成功率: %s%%" % UiFormat.value_to_text(success_rate)
+	# else:
+	# 	_success_rate_label.text = "强化成功率(%s): %s%%" % [band_label, UiFormat.value_to_text(success_rate)]
 	_success_rate_label.add_theme_color_override("font_color", Color(SUCCESS_RATE_COLOR))
 
 
@@ -459,16 +469,51 @@ func _init_preview_arrow_texture() -> void:
 ## 在材料列表中查找指定 item_id 的条目。
 func _find_material_option(item_id: int) -> Dictionary:
 	var preview: Dictionary = _resolve_enhance_preview()
-	var materials_variant: Variant = preview.get("materials", [])
-	if materials_variant is not Array:
-		return {}
-	for material_variant: Variant in materials_variant as Array:
+	var materials: Array = _resolve_picker_materials(preview)
+	for material_variant: Variant in materials:
 		if material_variant is not Dictionary:
 			continue
 		var material: Dictionary = material_variant as Dictionary
 		if int(material.get("item_id", 0)) == item_id:
 			return material
 	return {}
+
+
+## 解析材料选择面板可选列表；preview 缺失时回退到背包内强化材料。
+func _resolve_picker_materials(preview: Dictionary) -> Array:
+	var materials_variant: Variant = preview.get("materials", [])
+	if materials_variant is Array:
+		var preview_materials: Array = materials_variant as Array
+		if not preview_materials.is_empty():
+			return preview_materials
+	return _collect_enhance_material_options_from_bag()
+
+
+## 从当前背包快照收集强化材料子类物品，供 preview 缺失 materials 时兜底。
+func _collect_enhance_material_options_from_bag() -> Array:
+	var results: Array = []
+	var seen_item_ids: Dictionary = {}
+	for item_variant: Variant in GameState.bag_items:
+		if item_variant is not Dictionary:
+			continue
+		var bag_item: Dictionary = item_variant as Dictionary
+		if str(bag_item.get("item_sub_type", "")) != "equipment_enhance":
+			continue
+		var item_id: int = BagUiMapper.item_id(bag_item)
+		if item_id <= 0 or seen_item_ids.has(item_id):
+			continue
+		var owned_quantity: int = BagUiMapper.quantity(bag_item)
+		if owned_quantity <= 0:
+			continue
+		seen_item_ids[item_id] = true
+		results.append({
+			"item_id": item_id,
+			"item_name": BagUiMapper.item_name(bag_item),
+			"owned_quantity": owned_quantity,
+			"quantity": owned_quantity,
+			"is_stackable": BagUiMapper.is_stackable(bag_item),
+		})
+	return results
 
 
 ## 将当前选中材料写回本地 preview 快照，供 UI 刷新使用。
@@ -485,6 +530,9 @@ func _apply_selected_material_to_preview() -> void:
 	preview["cost_item_id"] = _selected_cost_item_id
 	preview["cost_item_name"] = str(material.get("item_name", preview.get("cost_item_name", "")))
 	preview["owned_cost_quantity"] = int(material.get("owned_quantity", 0))
+	var effective_rate: int = int(material.get("effective_success_rate_pct", preview.get("success_rate_pct", 0)))
+	if effective_rate > 0:
+		preview["success_rate_pct"] = effective_rate
 	_item["enhance_preview"] = preview
 
 
@@ -498,17 +546,14 @@ func _on_material_select_button_pressed() -> void:
 		_hide_material_picker()
 		return
 	var preview: Dictionary = _resolve_enhance_preview()
-	var materials_variant: Variant = preview.get("materials", [])
-	var materials: Array = []
-	if materials_variant is Array:
-		materials = materials_variant as Array
+	var materials: Array = _resolve_picker_materials(preview)
 	if materials.is_empty():
 		App.notice_received.emit("背包中没有可用的强化材料。")
 		return
 	var selected_id: int = _selected_cost_item_id
 	if selected_id <= 0:
 		selected_id = int(preview.get("cost_item_id", 0))
-	_material_picker.open_near(
+	_material_picker.open_picker_near(
 		_material_select_button,
 		materials,
 		selected_id,
@@ -551,6 +596,7 @@ func _try_close_material_picker_for_event(event: InputEvent) -> bool:
 func _on_material_picker_selected(item: Dictionary) -> void:
 	_selected_cost_item_id = BagUiMapper.item_id(item)
 	_apply_selected_material_to_preview()
+	_refresh_success_rate()
 	_refresh_material_and_cost()
 	_refresh_enhance_button_state()
 
@@ -561,11 +607,13 @@ func _on_material_picker_closed() -> void:
 
 ## 关闭弹窗时同步收起材料面板与悬停提示，避免 top_level 浮层残留。
 func _close_modal() -> void:
+	_cancel_enhance_presentation(true)
 	_hide_material_picker()
 	super._close_modal()
 
 
 func _force_close_modal() -> void:
+	_cancel_enhance_presentation(true)
 	_hide_material_picker()
 	super._force_close_modal()
 
@@ -631,7 +679,7 @@ func _set_content_mouse_ignore(ignore: bool) -> void:
 	var panel: Control = get_node_or_null("CenterContainer/PopupPanel") as Control
 	if panel == null:
 		return
-	_apply_panel_mouse_filters(panel, not ignore)
+	_apply_panel_mouse_filters(panel, ignore)
 
 
 ## 递归设置面板内控件鼠标过滤；交互控件必须保持 STOP，避免点击穿透到遮罩。
@@ -668,6 +716,7 @@ func _begin_enhance_presentation() -> void:
 	_enhance_response_ready = false
 	_enhance_response_ok = false
 	_enhance_response_success = false
+	_enhance_failure_penalty = "damage"
 	if _material_picker != null and _material_picker.is_open():
 		_hide_material_picker()
 	_reset_enhance_result_label()
@@ -726,18 +775,116 @@ func _wallet_components_from_total_copper(total_copper: int) -> Dictionary:
 	}
 
 
-## 进度条与回包都就绪后展示右侧结果文案，并恢复可操作状态。
+## 进度条与回包都就绪后，同步刷新预览数值与结果文案。
 func _try_finish_enhance_presentation() -> void:
 	if not _enhance_presentation_active:
 		return
 	if not _enhance_progress_finished or not _enhance_response_ready:
 		return
+	_refresh_item_header()
+	_refresh_preview_rows()
+	_refresh_success_rate()
+	_refresh_material_and_cost()
 	_show_enhance_result_text()
 	_enhance_presentation_active = false
 	_block_dismiss = false
 	_set_panel_interactive(true)
 	_refresh_enhance_button_state()
 	enhance_presentation_finished.emit()
+
+
+## 将强化回包中的等级/损坏/属性同步到本地快照，便于与结果文案同时刷新预览区。
+func _apply_enhance_response_payload(payload: Dictionary, success: bool, failure_penalty: String) -> void:
+	if payload.is_empty():
+		return
+	var new_level: int = int(payload.get("new_level", BagUiMapper.enhance_level(_item)))
+	_item["enhance_level"] = new_level
+	var item_variant: Variant = payload.get("item", null)
+	if item_variant is Dictionary:
+		var item_snap: Dictionary = item_variant as Dictionary
+		if item_snap.has("is_damaged"):
+			_item["is_damaged"] = bool(item_snap.get("is_damaged", false))
+		var bonus_variant: Variant = item_snap.get("bonus", null)
+		if bonus_variant is Dictionary:
+			_item["bonus"] = bonus_variant
+	if not _preview_already_reflects_level(new_level):
+		_sync_enhance_preview_after_result(new_level, success, failure_penalty)
+	elif failure_penalty == "damage":
+		_mark_enhance_preview_damaged()
+
+
+## 判断预览区强化等级行是否已与服务端新等级一致。
+func _preview_already_reflects_level(level: int) -> bool:
+	if level < 0:
+		return false
+	var preview: Dictionary = _resolve_enhance_preview()
+	var rows_variant: Variant = preview.get("rows", [])
+	if rows_variant is not Array:
+		return false
+	var expected_text: String = "+%s" % UiFormat.value_to_text(level)
+	for row_variant: Variant in rows_variant as Array:
+		if row_variant is not Dictionary:
+			continue
+		var row: Dictionary = row_variant as Dictionary
+		if str(row.get("label", "")) != "强化等级":
+			continue
+		return str(row.get("current", "")) == expected_text
+	return false
+
+
+## 强化失败且装备损坏时，仅关闭预览区的可强化状态。
+func _mark_enhance_preview_damaged() -> void:
+	var preview_variant: Variant = _item.get("enhance_preview", null)
+	if preview_variant is not Dictionary:
+		return
+	var preview: Dictionary = (preview_variant as Dictionary).duplicate(true)
+	preview["can_enhance"] = false
+	_item["enhance_preview"] = preview
+
+
+## 按强化结果推进预览行：成功/降级时左侧数值切到原右侧预览，满级时右侧显示 max。
+func _sync_enhance_preview_after_result(new_level: int, success: bool, failure_penalty: String) -> void:
+	var preview_variant: Variant = _item.get("enhance_preview", null)
+	if preview_variant is not Dictionary:
+		return
+	var preview: Dictionary = (preview_variant as Dictionary).duplicate(true)
+	var max_level: int = int(preview.get("max_enhance_level", 0))
+	if failure_penalty == "damage":
+		preview["can_enhance"] = false
+		_item["is_damaged"] = true
+	var rows_variant: Variant = preview.get("rows", [])
+	if rows_variant is not Array:
+		_item["enhance_preview"] = preview
+		return
+	var should_promote_current: bool = success or failure_penalty == "level_down"
+	var at_max: bool = max_level > 0 and new_level >= max_level
+	var synced_rows: Array = []
+	for row_variant: Variant in rows_variant as Array:
+		if row_variant is not Dictionary:
+			continue
+		var row: Dictionary = (row_variant as Dictionary).duplicate(true)
+		var label: String = str(row.get("label", ""))
+		if label == "强化等级":
+			row["current"] = "+%s" % UiFormat.value_to_text(new_level)
+			if at_max:
+				row["next_min"] = ENHANCE_PREVIEW_MAX_LABEL
+				row["next_max"] = ENHANCE_PREVIEW_MAX_LABEL
+			else:
+				var next_level_text: String = "+%s" % UiFormat.value_to_text(new_level + 1)
+				row["next_min"] = next_level_text
+				row["next_max"] = next_level_text
+		elif should_promote_current:
+			var promoted_value: String = str(row.get("next_min", row.get("current", "")))
+			if not promoted_value.is_empty() and promoted_value != ENHANCE_PREVIEW_MAX_LABEL:
+				row["current"] = promoted_value
+			if at_max:
+				row["next_min"] = ENHANCE_PREVIEW_MAX_LABEL
+				row["next_max"] = ENHANCE_PREVIEW_MAX_LABEL
+		synced_rows.append(row)
+	preview["rows"] = synced_rows
+	if at_max:
+		preview["can_enhance"] = false
+	_item["enhance_preview"] = preview
 
 
 ## 在进度条右侧展示强化成功/失败文案，并将进度条着色为绿/红。
@@ -748,13 +895,27 @@ func _show_enhance_result_text() -> void:
 	if _enhance_progress_bar != null:
 		_enhance_progress_bar.value = 100.0
 	if not _enhance_response_ok or not _enhance_response_success:
-		_enhance_result_label.text = "强化失败"
+		if not _enhance_response_ok:
+			_enhance_result_label.text = "强化请求失败"
+		else:
+			_enhance_result_label.text = _resolve_enhance_failure_result_text()
 		_enhance_result_label.add_theme_color_override("font_color", Color(ENHANCE_RESULT_FAILURE_COLOR))
 		_set_enhance_progress_fill_color(Color(ENHANCE_PROGRESS_FAILURE_COLOR))
 		return
 	_enhance_result_label.text = "强化成功"
 	_enhance_result_label.add_theme_color_override("font_color", Color(ENHANCE_RESULT_SUCCESS_COLOR))
 	_set_enhance_progress_fill_color(Color(ENHANCE_PROGRESS_SUCCESS_COLOR))
+
+
+## 根据服务端 failure_penalty 生成强化失败结果文案。
+func _resolve_enhance_failure_result_text() -> String:
+	match _enhance_failure_penalty:
+		"level_down":
+			return "强化失败，等级降低"
+		"none":
+			return "强化失败"
+		_:
+			return "强化失败，装备已损坏"
 
 
 ## 播放强化进度条线性动画，结束后尝试展示结果。
@@ -795,6 +956,10 @@ func _on_dim_layer_gui_input(event: InputEvent) -> void:
 	if not _is_dismiss_event(event):
 		return
 	if _try_close_material_picker_for_event(event):
+		return
+	if _material_picker != null and _material_picker.is_open():
+		return
+	if _should_keep_modal_open_for_event(event):
 		return
 	_dismiss_modal()
 
@@ -886,6 +1051,7 @@ func _set_panel_interactive(enabled: bool) -> void:
 	else:
 		if _material_select_button != null:
 			_material_select_button.disabled = false
+		_set_content_mouse_ignore(true)
 		_refresh_enhance_button_state()
 
 

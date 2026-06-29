@@ -1,6 +1,19 @@
 # 最新变更记录
 
+## 2026-06-28
+- 强化成功率穿戴等级段：迁移 `070_equipment_enhance_success_required_level_band.sql`（`equipment_enhance_success_config` 复合主键 `target_level + required_level_min`，每10级穿戴段独立配置）；后台「强化成功率」Tab 增加穿戴等级段筛选；强化/预览按装备 `required_level` 解析段并查表；`enhance_preview` 新增 `required_level_band_label`
+- 强化材料锻造属性：迁移 `069_equipment_enhance_material_config.sql`（按 `item_id` 配置成功率模式/失败惩罚）；后台物品页在 `item_sub_type=equipment_enhance` 时展示「锻造属性」编辑器；Admin API `GET/PUT /api/admin/equipment-enhance-success-configs` + 物品模板页「强化成功率」Tab 维护 `equipment_enhance_success_config`；强化事务按所选材料计算有效成功率并在失败时分支（损坏 / 降级 / 无惩罚）；`enhance_preview.materials[]` 下发 `effective_success_rate_pct` / `failure_penalty_label`；强化回包新增 `failure_penalty`
+- 装备强化失败损坏与修复：迁移 `068_equipment_damaged_repair.sql`（`equipment_instance.is_damaged`、修复宝石 3202、`equipment_repair_cost`）；强化失败时将实例标记为损坏（等级不变、材料仍消耗）；损坏装备不可佩戴/不可强化；WS `2078/2079` 修复接口消耗修复宝石 ×1 清除损坏；背包快照新增 `is_damaged` / `repair_preview`；客户端背包格子红色损坏样式、详情「已损坏」标签、主按钮「修复」+ 确认弹窗
+
 ## 2026-06-27
+- 消耗品使用效果列表化：后台 `effect_params_json.use_effects[]` 支持人物/宠物/装备/系统多类字段配置；服务端 `use_effects` 通用执行器在同一事务内落地（兼容旧版 `pet_hp_restore` / 扩容 / 神符槽等单效果）；`5021 USE_ITEM_REQ` 新增可选 `target_item_uid`（装备类效果目标）；`5022` 回包新增 `applied_effects` / `needs_wallet_push`；客户端背包新增目标选择弹窗，支持 `pet_single` 选宠与 `equipment_single` 选装备后再 USE_ITEM
+- 背包丢弃实例化物品：`DROP_ITEM_REQ` 新增 `item_uid`；服务端按 `player_id + container_type + item_uid` 定位格子并整格丢弃，同步删除 `equipment_instance`；客户端实例化物品（含多件相同装备）丢弃时传 `item_uid`
+- 背包丢弃可堆叠物品：确认弹窗新增数量选择（-/+/最大），客户端按所选 `quantity` 部分丢弃；`DROP_ITEM_RESP` 回传 `item_uid` 供提示与刷新
+- 战斗/奖励弹窗物品名：4013 结算包 `rewards[]` 在构建时通过 `itemService` 补全缺失的 `item_name`（战斗快照回退路径此前只有 `item_id`）；客户端 `RewardPopup` 在服务端字段缺失时从 `GameState` 背包/已佩戴快照兜底
+- 背包丢弃：`5121/5122 DROP_ITEM` 服务端权威丢弃（校验 `can_drop`、写变更日志、推送 `5011`）；客户端「更多 → 丢弃」二次确认后走 loading 请求；背包快照新增 `can_drop` 字段供 UI 控制丢弃按钮
+- 系统装备管理「可丢弃」：后台装备模板表单新增 `can_drop` 开关（新建默认开启）；Admin API 与 `item_definition.can_drop` 读写贯通，修复创建时 `can_store`/`is_enabled` 占位错位
+- 丢弃确认弹窗：`ConfirmPromptPopup` 关闭基类全局 `_input` 吞事件，修复确定/取消按钮点击无响应
+- 丢弃回包刷新：`App._request_cmd_for_response` 补齐 `DROP_ITEM_RESP -> DROP_ITEM_REQ` 映射，修复丢弃成功后 UI 一直等待超时、背包不刷新；`BagController.drop_item_responded` 作为 UI 完成兜底，并修正 `_finish_drop_action` 提前 return
 - 装备强化铜币消耗：迁移 `065_equipment_enhance_cost_gold_copper.sql` 为 `equipment_enhance_cost` 增加 `cost_gold_copper`（总铜币真值）；`enhance_preview.cost_gold_copper` 由服务端填充；强化成功/失败均扣铜币并推送 `WALLET_UPDATE_PUSH`；客户端强化页展示消耗铜币与当前金/银/铜余额，余额不足时禁用强化按钮
 - 装备强化铜币公式可配置：迁移 `067_item_equipment_enhance_gold_cost.sql` 在 `item_equipment_extra` 增加每件装备独立的强化铜币公式（默认基础 100 铜、每级固定 +200）；运行时按装备模板 `item_id` 计算 `enhance_preview.cost_gold_copper` 与强化扣费；系统装备管理页「编辑装备」弹窗内可配置并预览 +1~+15 消耗
 

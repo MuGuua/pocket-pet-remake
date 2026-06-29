@@ -17,7 +17,7 @@ func TestServiceSubmitCaptureRequiresMonsterService(t *testing.T) {
 		{PetUID: 20001, PetID: 101, Level: 5, HP: 90, HPMax: 90, ATK: 10, DEF: 10, SPD: 8, MANA: 10, SkillIDs: []uint32{1001}},
 	}
 	enemy := world.Entity{EntityID: 90006, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}

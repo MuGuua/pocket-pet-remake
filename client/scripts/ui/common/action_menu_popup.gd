@@ -34,6 +34,8 @@ var _action_buttons: Dictionary = {}
 func _ready() -> void:
     super._ready()
     z_index = 16
+    if _content_root != null:
+        _content_root.mouse_filter = Control.MOUSE_FILTER_STOP
     if not popup_closed.is_connected(_on_popup_closed):
         popup_closed.connect(_on_popup_closed)
 
@@ -77,6 +79,14 @@ func is_global_point_over_action_buttons(global_point: Vector2) -> bool:
         if button.get_global_rect().has_point(global_point):
             return true
     return false
+
+
+## 判断全局坐标是否落在整个动作菜单区域内，避免点击菜单空白时被误判为“点外部”。
+func is_global_point_over_menu(global_point: Vector2) -> bool:
+    var layout_root: Control = _get_layout_root()
+    if layout_root == null or not is_open():
+        return false
+    return layout_root.get_global_rect().has_point(global_point)
 
 
 ## 返回用于定位的菜单根节点。

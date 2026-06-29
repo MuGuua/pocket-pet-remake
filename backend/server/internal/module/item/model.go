@@ -108,9 +108,10 @@ type AdminItemDetail struct {
 	SellPriceCopper    uint64    `json:"sell_price_copper"`
 	RecyclePriceCopper uint64    `json:"recycle_price_copper"`
 	PriceType          string    `json:"price_type"`
-	IsEnabled          bool      `json:"is_enabled"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	IsEnabled             bool                        `json:"is_enabled"`
+	EnhanceMaterialConfig *AdminEnhanceMaterialConfig `json:"enhance_material_config,omitempty"`
+	CreatedAt             time.Time                   `json:"created_at"`
+	UpdatedAt             time.Time                   `json:"updated_at"`
 }
 
 // AdminUpsertItemInput 描述后台新增或编辑物品模板时允许提交的通用字段。
@@ -146,8 +147,9 @@ type AdminUpsertItemInput struct {
 	BuyPriceCopper     uint64 `json:"buy_price_copper"`
 	SellPriceCopper    uint64 `json:"sell_price_copper"`
 	RecyclePriceCopper uint64 `json:"recycle_price_copper"`
-	PriceType          string `json:"price_type"`
-	IsEnabled          bool   `json:"is_enabled"`
+	PriceType             string                                `json:"price_type"`
+	IsEnabled             bool                        `json:"is_enabled"`
+	EnhanceMaterialConfig *AdminEnhanceMaterialConfig `json:"enhance_material_config,omitempty"`
 }
 
 // Normalize 收口后台表单默认值，避免空字符串和 0 值把数据库写成无意义的正式配置。

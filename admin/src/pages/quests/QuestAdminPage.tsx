@@ -23,6 +23,9 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { QuestRewardEditor } from '../../components/QuestRewardEditor';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import {
   createAdminPlayerQuest,
   createAdminQuestTemplate,
@@ -72,7 +75,7 @@ interface TemplateFormValues {
   status: number;
   pre_quest_ids_text: string;
   stages: QuestStageFormItem[];
-  rewards_text: string;
+  rewards: AdminQuestRewardInput[];
 }
 
 interface PlayerQuestFormValues {
@@ -326,6 +329,9 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="任务ID">{detail.quest_id}</Descriptions.Item>
             <Descriptions.Item label="模板名">{detail.name}</Descriptions.Item>
             <Descriptions.Item label="标题" span={2}>{detail.title}</Descriptions.Item>
+            <Descriptions.Item label="描述" span={2}>
+              <RichTextDisplay value={detail.description} />
+            </Descriptions.Item>
             <Descriptions.Item label="类型">{formatDisplayLabel(QUEST_TYPE_LABELS, detail.quest_type)}</Descriptions.Item>
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
             <Descriptions.Item label="接取方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.accept_mode)}</Descriptions.Item>
@@ -372,7 +378,11 @@ function QuestTemplatePanel() {
             <Col xs={24} md={editingRecord ? 12 : 8}><Form.Item label="模板名" name="name" rules={[{ required: true, message: '请输入模板名' }]}><Input /></Form.Item></Col>
             <Col xs={24} md={editingRecord ? 12 : 8}><Form.Item label="任务类型" name="quest_type" rules={[{ required: true, message: '请选择任务类型' }]}><Select options={questTypeOptions} /></Form.Item></Col>
             <Col span={24}><Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}><Input /></Form.Item></Col>
-            <Col span={24}><Form.Item label="描述" name="description"><Input.TextArea rows={3} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端任务详情会原样渲染。">
+                <RichTextEditor rows={4} />
+              </Form.Item>
+            </Col>
             <Col xs={12} md={6}><Form.Item label="章节" name="chapter"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
@@ -401,7 +411,11 @@ function QuestTemplatePanel() {
                 <QuestStageEditor questID={editingQuestID} />
               </Form.Item>
             </Col>
-            <Col span={24}><Form.Item label="奖励配置 JSON" name="rewards_text" extra='支持经验、铜币与物品。示例: [{"type":"exp","value":100,"item_id":0,"count":0},{"type":"gold","value":50,"item_id":0,"count":0},{"type":"item","value":0,"item_id":2001,"count":2}]'><Input.TextArea rows={6} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item label="任务奖励" name="rewards">
+                <QuestRewardEditor />
+              </Form.Item>
+            </Col>
           </Row>
           </Form>
         </Spin>
@@ -647,7 +661,7 @@ function defaultTemplateValues(): TemplateFormValues {
     status: 1,
     pre_quest_ids_text: '[]',
     stages: createDefaultQuestStages(),
-    rewards_text: JSON.stringify([{ type: 'exp', value: 50, item_id: 0, count: 0 }], null, 2),
+    rewards: [{ type: 'exp', value: 50, item_id: 0, count: 0 }],
   };
 }
 
@@ -680,7 +694,7 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     status: detail.status,
     pre_quest_ids_text: JSON.stringify(detail.pre_quest_ids ?? [], null, 2),
     stages: apiObjectivesToStages(detail.objectives),
-    rewards_text: JSON.stringify(detail.rewards ?? [], null, 2),
+    rewards: detail.rewards ?? [],
   };
 }
 
@@ -713,7 +727,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     status: values.status,
     pre_quest_ids: parseJSONArray<number[]>(values.pre_quest_ids_text, []),
     objectives: stagesToApiObjectives(values.stages ?? []),
-    rewards: parseJSONArray<AdminQuestRewardInput[]>(values.rewards_text, []),
+    rewards: values.rewards ?? [],
   };
 }
 

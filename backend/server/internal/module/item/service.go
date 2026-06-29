@@ -60,6 +60,11 @@ func (s *Service) CreateAdminItem(ctx context.Context, input AdminUpsertItemInpu
 	if input.ItemID == 0 || input.ItemCode == "" || input.ItemName == "" || input.ItemType == "" {
 		return nil, ErrInvalidAdminItemInput
 	}
+	if input.EnhanceMaterialConfig != nil {
+		if err := input.EnhanceMaterialConfig.Validate(); err != nil {
+			return nil, ErrInvalidAdminItemInput
+		}
+	}
 	return s.repo.CreateForAdmin(ctx, input)
 }
 
@@ -68,6 +73,11 @@ func (s *Service) UpdateAdminItem(ctx context.Context, itemID uint64, input Admi
 	input = input.Normalize()
 	if itemID == 0 || input.ItemCode == "" || input.ItemName == "" || input.ItemType == "" {
 		return nil, ErrInvalidAdminItemInput
+	}
+	if input.EnhanceMaterialConfig != nil {
+		if err := input.EnhanceMaterialConfig.Validate(); err != nil {
+			return nil, ErrInvalidAdminItemInput
+		}
 	}
 	result, err := s.repo.UpdateForAdmin(ctx, itemID, input)
 	if err != nil {

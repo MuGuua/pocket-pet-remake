@@ -33,6 +33,8 @@ var (
 	ErrInvalidContainerMove = errors.New("invalid container move")
 	// ErrItemNotUsable 表示玩家尝试使用一个未声明可使用或当前不支持主动使用的物品。
 	ErrItemNotUsable = errors.New("item not usable")
+	// ErrItemNotDroppable 表示物品模板未允许丢弃，或当前实例状态不满足丢弃条件。
+	ErrItemNotDroppable = errors.New("item not droppable")
 	// ErrContainerCapacityLimit 表示扩容类道具命中了容器最大上限，不能再继续增加容量。
 	ErrContainerCapacityLimit = errors.New("container capacity limit reached")
 	// ErrUnsupportedItemEffect 表示模板虽然允许使用，但服务端尚未接入该效果类型的正式处理逻辑。
@@ -199,7 +201,9 @@ type RuntimeItemSnapshot struct {
 	Icon         string     `json:"icon"`
 	RequiredLevel uint32    `json:"required_level"`
 	EnhanceLevel uint32     `json:"enhance_level"`
+	IsDamaged    bool       `json:"is_damaged,omitempty"`
 	Usable       bool       `json:"usable"`
+	CanDrop      bool       `json:"can_drop"`
 	TargetType   string     `json:"target_type"`
 	EffectType   string     `json:"effect_type"`
 	EquipSlot    string     `json:"equip_slot,omitempty"`
@@ -211,6 +215,20 @@ type RuntimeItemSnapshot struct {
 	Bonus RuntimeItemBonus `json:"bonus,omitempty"`
 	// EnhancePreview 为背包内未佩戴装备提供的强化面板预览；仅可强化且未达上限时有值。
 	EnhancePreview *RuntimeEnhancePreview `json:"enhance_preview,omitempty"`
+	// RepairPreview 为背包内损坏装备提供的修复预览；仅 is_damaged 为 true 时有值。
+	RepairPreview *RuntimeRepairPreview `json:"repair_preview,omitempty"`
+}
+
+// ItemSubTypeEquipmentRepair 为修复材料子分类，与 item_definition.item_sub_type 对齐。
+const ItemSubTypeEquipmentRepair = "equipment_repair"
+
+// RuntimeRepairPreview 描述客户端修复弹窗所需的权威预览数据。
+type RuntimeRepairPreview struct {
+	CanRepair           bool   `json:"can_repair"`
+	CostItemID          uint64 `json:"cost_item_id"`
+	CostItemName        string `json:"cost_item_name"`
+	CostQuantity        uint64 `json:"cost_quantity"`
+	OwnedCostQuantity   uint64 `json:"owned_cost_quantity"`
 }
 
 // ItemSubTypeEquipmentEnhance 为强化材料子分类，与 item_definition.item_sub_type 对齐。
@@ -229,9 +247,13 @@ type RuntimeEnhancePreviewRow struct {
 
 // RuntimeEnhanceMaterialOption 描述背包内可选的强化材料条目。
 type RuntimeEnhanceMaterialOption struct {
-	ItemID          uint64 `json:"item_id"`
-	ItemName        string `json:"item_name"`
-	OwnedQuantity   uint64 `json:"owned_quantity"`
+	ItemID                  uint64 `json:"item_id"`
+	ItemName                string `json:"item_name"`
+	OwnedQuantity           uint64 `json:"owned_quantity"`
+	EffectiveSuccessRatePct uint32 `json:"effective_success_rate_pct"`
+	FailurePenalty          string `json:"failure_penalty"`
+	FailurePenaltyLabel     string `json:"failure_penalty_label"`
+	Description             string `json:"description,omitempty"`
 }
 
 // RuntimeEnhancePreview 描述客户端强化弹窗所需的权威预览数据。
@@ -239,6 +261,9 @@ type RuntimeEnhancePreview struct {
 	CanEnhance              bool                           `json:"can_enhance"`
 	MaxEnhanceLevel         uint32                         `json:"max_enhance_level"`
 	SuccessRatePct          uint32                         `json:"success_rate_pct"`
+	RequiredLevel           uint32                         `json:"required_level"`
+	RequiredLevelBandMin    uint32                         `json:"required_level_band_min"`
+	RequiredLevelBandLabel  string                         `json:"required_level_band_label"`
 	CostGoldCopper          uint64                         `json:"cost_gold_copper"`
 	CostItemID              uint64                         `json:"cost_item_id"`
 	CostItemName            string                         `json:"cost_item_name"`
@@ -326,6 +351,16 @@ type RuntimeGrantResult struct {
 
 // RuntimeUseResult 描述一次主动使用物品后的权威结果。
 // 当前第一版先覆盖扩容类功能道具，后续可继续往 Result 中追加宠物治疗、角色恢复等效果字段。
+// RuntimeDropResult 描述玩家主动丢弃容器格子物品后的权威结果。
+type RuntimeDropResult struct {
+	ContainerType string `json:"container_type"`
+	SlotIndex     uint32 `json:"slot_index"`
+	ItemUID       string `json:"item_uid,omitempty"`
+	ItemID        uint64 `json:"item_id"`
+	ItemName      string `json:"item_name"`
+	DroppedQty    uint64 `json:"dropped_quantity"`
+}
+
 type RuntimeUseResult struct {
 	ContainerType string           `json:"container_type"`
 	SlotIndex     uint32           `json:"slot_index"`
@@ -347,6 +382,8 @@ type RuntimeUseEffect struct {
 	// UnlockedTalismanSlot 描述神符类道具解锁的槽位键。
 	UnlockedTalismanSlot string              `json:"unlocked_talisman_slot,omitempty"`
 	Rewards              []RuntimeRewardItem `json:"rewards,omitempty"`
+	AppliedEffects       []RuntimeAppliedUseEffect `json:"applied_effects,omitempty"`
+	NeedsWalletPush      bool                      `json:"needs_wallet_push,omitempty"`
 	UpdatedPet   *RuntimePetSnapshot `json:"updated_pet,omitempty"`
 }
 

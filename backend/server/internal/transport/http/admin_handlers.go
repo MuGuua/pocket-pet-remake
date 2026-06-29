@@ -53,6 +53,7 @@ type AdminHandlers struct {
 	PetCombatStatCaps      http.Handler
 	EquipmentDefinitions          http.Handler
 	EquipmentEnhanceGoldCost      http.Handler
+	EquipmentEnhanceSuccess       http.Handler
 	Dashboard                     http.Handler
 }
 
@@ -118,6 +119,7 @@ func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, se
 		PetCombatStatCaps:      &AdminPetCombatStatCapHandler{adminService: adminService, petService: petService},
 		EquipmentDefinitions:      &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
 		EquipmentEnhanceGoldCost:  &AdminEquipmentEnhanceGoldCostHandler{adminService: adminService, equipmentService: equipmentService},
+		EquipmentEnhanceSuccess:   &AdminEquipmentEnhanceSuccessHandler{adminService: adminService, equipmentService: equipmentService},
 	}
 }
 
@@ -233,6 +235,14 @@ func (h *AdminPetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
 		}
+		return
+	}
+	if path == "/grant-from-template" {
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+			return
+		}
+		h.handleGrantFromTemplate(w, r)
 		return
 	}
 	petUID, err := parseUintPathID(path)
@@ -608,6 +618,30 @@ func (h *AdminPetHandler) handleDetail(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", detail)
+}
+
+func (h *AdminPetHandler) handleGrantFromTemplate(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var request pet.AdminGrantPetFromTemplateInput
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	created, err := h.petService.GrantAdminPetFromTemplate(r.Context(), request)
+	if err != nil {
+		switch {
+		case errors.Is(err, pet.ErrInvalidAdminPetInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid pet grant payload", nil)
+		case errors.Is(err, pet.ErrPetNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "player or pet not found", nil)
+		case errors.Is(err, pet.ErrPetUnusable):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "pet definition unavailable", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "grant pet from template failed", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", created)
 }
 
 func (h *AdminPetHandler) handleCreate(w http.ResponseWriter, r *http.Request) {

@@ -19,6 +19,7 @@ SELECT
   ei.item_uid,
   ei.item_id,
   ei.enhance_level,
+  COALESCE(ei.is_damaged, FALSE),
   ei.state,
   idf.item_name,
   iee.can_enhance,
@@ -31,7 +32,8 @@ SELECT
   iee.base_def,
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
-  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb)
+  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  COALESCE(idf.required_level, 0)
 FROM equipment_instance ei
 JOIN item_definition idf ON idf.item_id = ei.item_id
 JOIN item_equipment_extra iee ON iee.item_id = ei.item_id
@@ -58,14 +60,6 @@ WHERE target_level = $1
 LIMIT 1
 `
 
-const runtimeEnhanceSuccessRateQuery = `
-SELECT success_rate_pct
-FROM equipment_enhance_success_config
-WHERE target_level = $1
-  AND status = 1
-LIMIT 1
-`
-
 const runtimeUpdateEnhanceLevelQuery = `
 UPDATE equipment_instance
 SET enhance_level = $2,
@@ -74,11 +68,21 @@ WHERE item_uid = $1
   AND player_id = $3
 `
 
+const runtimeMarkEquipmentDamagedQuery = `
+UPDATE equipment_instance
+SET is_damaged = TRUE,
+    updated_at = CURRENT_TIMESTAMP
+WHERE item_uid = $1
+  AND player_id = $2
+`
+
 type runtimeEnhanceInstanceRow struct {
 	runtimeEquippedRow
 	State           string
+	IsDamaged       bool
 	CanEnhance      bool
 	MaxEnhanceLevel uint32
+	RequiredLevel   uint32
 }
 
 // EnhanceInstance 消耗强化材料并尝试提升背包内未佩戴装备实例的强化等级。
@@ -114,6 +118,9 @@ func (r *EquipmentRepository) EnhanceInstance(
 	}
 	if !instanceRow.CanEnhance || instanceRow.MaxEnhanceLevel == 0 {
 		return nil, equipment.ErrEquipmentEnhanceNotAllowed
+	}
+	if instanceRow.IsDamaged {
+		return nil, equipment.ErrEquipmentEnhanceDamaged
 	}
 	oldLevel := instanceRow.EnhanceLevel
 	if oldLevel >= instanceRow.MaxEnhanceLevel {
@@ -158,22 +165,53 @@ func (r *EquipmentRepository) EnhanceInstance(
 		walletSnapshot = &adjustedWallet
 	}
 
-	successRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, tx, targetLevel)
+	successRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, tx, targetLevel, instanceRow.RequiredLevel)
 	if err != nil {
 		return nil, err
 	}
-	rollPct, success, err := equipment.RollEnhanceSuccess(successRatePct)
+	materialCfg, err := loadRuntimeEnhanceMaterialConfig(ctx, tx, resolvedCostItemID)
+	if err != nil {
+		return nil, err
+	}
+	effectiveRatePct := equipment.ResolveEffectiveSuccessRatePct(successRatePct, materialCfg)
+	rollPct, success, err := equipment.RollEnhanceSuccess(effectiveRatePct)
 	if err != nil {
 		return nil, err
 	}
 
 	newLevel := oldLevel
+	failurePenalty := materialCfg.FailurePenalty
 	if success {
 		newLevel = targetLevel
 		if _, err := tx.ExecContext(ctx, runtimeUpdateEnhanceLevelQuery, normalizedUID, newLevel, playerID); err != nil {
 			return nil, err
 		}
 		instanceRow.EnhanceLevel = newLevel
+	} else {
+		switch materialCfg.FailurePenalty {
+		case equipment.EnhanceMaterialFailurePenaltyLevelDown:
+			delta := materialCfg.FailureLevelDelta
+			if delta == 0 {
+				delta = 1
+			}
+			if oldLevel > delta {
+				newLevel = oldLevel - delta
+			} else {
+				newLevel = 0
+			}
+			if _, err := tx.ExecContext(ctx, runtimeUpdateEnhanceLevelQuery, normalizedUID, newLevel, playerID); err != nil {
+				return nil, err
+			}
+			instanceRow.EnhanceLevel = newLevel
+		case equipment.EnhanceMaterialFailurePenaltyNone:
+			// 失败但不改变等级与损坏状态。
+		default:
+			if _, err := tx.ExecContext(ctx, runtimeMarkEquipmentDamagedQuery, normalizedUID, playerID); err != nil {
+				return nil, err
+			}
+			instanceRow.IsDamaged = true
+			failurePenalty = equipment.EnhanceMaterialFailurePenaltyDamage
+		}
 	}
 
 	itemSnapshot, err := buildRuntimeItemSnapshotFromEnhanceRow(instanceRow)
@@ -188,14 +226,15 @@ func (r *EquipmentRepository) EnhanceInstance(
 		return nil, err
 	}
 	return &equipment.EnhanceResult{
-		Success:     success,
-		OldLevel:    oldLevel,
-		NewLevel:    newLevel,
-		RatePct:     successRatePct,
-		RollPct:     rollPct,
-		Item:        itemSnapshot,
-		AllEquipped: allEquipped,
-		Wallet:      walletSnapshot,
+		Success:        success,
+		OldLevel:       oldLevel,
+		NewLevel:       newLevel,
+		RatePct:        effectiveRatePct,
+		RollPct:        rollPct,
+		FailurePenalty: failurePenalty,
+		Item:           itemSnapshot,
+		AllEquipped:    allEquipped,
+		Wallet:         walletSnapshot,
 	}, nil
 }
 
@@ -235,12 +274,15 @@ func loadRuntimeEnhanceInstanceRow(ctx context.Context, tx *sql.Tx, itemUID stri
 	var row runtimeEnhanceInstanceRow
 	var enhanceLevel int64
 	var maxEnhanceLevel int64
+	var isDamaged bool
+	var requiredLevel int64
 	var baseHP, baseMana, baseATK, baseDEF, baseSPD int64
 	err := tx.QueryRowContext(ctx, runtimeEnhanceInstanceQuery, itemUID, playerID).Scan(
 		&row.EquipSlot,
 		&row.ItemUID,
 		&row.ItemID,
 		&enhanceLevel,
+		&isDamaged,
 		&row.State,
 		&row.ItemName,
 		&row.CanEnhance,
@@ -254,6 +296,7 @@ func loadRuntimeEnhanceInstanceRow(ctx context.Context, tx *sql.Tx, itemUID stri
 		&baseSPD,
 		&row.BaseStatsJSON,
 		&row.EnhancePerLevelStatsJSON,
+		&requiredLevel,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -262,7 +305,9 @@ func loadRuntimeEnhanceInstanceRow(ctx context.Context, tx *sql.Tx, itemUID stri
 		return nil, err
 	}
 	row.EnhanceLevel = uint32(enhanceLevel)
+	row.IsDamaged = isDamaged
 	row.MaxEnhanceLevel = uint32(maxEnhanceLevel)
+	row.RequiredLevel = uint32(requiredLevel)
 	row.BaseHP = uint32(baseHP)
 	row.BaseMana = uint32(baseMana)
 	row.BaseATK = uint32(baseATK)
@@ -295,18 +340,6 @@ func loadRuntimeEnhanceCost(ctx context.Context, db DBTX, itemID uint64, targetL
 	return &cost, nil
 }
 
-func loadRuntimeEnhanceSuccessRate(ctx context.Context, db DBTX, targetLevel uint32) (uint32, error) {
-	var successRatePct int64
-	err := db.QueryRowContext(ctx, runtimeEnhanceSuccessRateQuery, targetLevel).Scan(&successRatePct)
-	if errors.Is(err, sql.ErrNoRows) {
-		return equipment.DefaultEnhanceSuccessRate(targetLevel), nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	return uint32(successRatePct), nil
-}
-
 func buildRuntimeItemSnapshotFromEnhanceRow(row *runtimeEnhanceInstanceRow) (equipment.RuntimeEquippedItem, error) {
 	if row == nil {
 		return equipment.RuntimeEquippedItem{}, equipment.ErrEquipmentNotFound
@@ -315,6 +348,7 @@ func buildRuntimeItemSnapshotFromEnhanceRow(row *runtimeEnhanceInstanceRow) (equ
 	if err != nil {
 		return equipment.RuntimeEquippedItem{}, err
 	}
+	template.IsDamaged = row.IsDamaged
 	return equipment.ToRuntimeEquippedItem(template, row.ItemUID, row.ItemID, row.ItemName, "", ""), nil
 }
 

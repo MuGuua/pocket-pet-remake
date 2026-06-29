@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3 uid="uid://dmjs3qd3blec8"]
+[gd_scene format=3 uid="uid://dmjs3qd3blec8"]
 
 [ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_f6ayu"]
 [ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="1_o7twh"]
@@ -21,6 +21,10 @@ border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_3swwj"]
 load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f6ayu"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(324, 0, 18, 18)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_62pgn"]
 atlas = SubResource("CompressedTexture2D_3swwj")
@@ -108,483 +112,514 @@ load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e
 atlas = SubResource("CompressedTexture2D_87lvc")
 region = Rect2(702, 0, 18, 18)
 
-[node name="MarginContainer3" type="MarginContainer"]
+[node name="MarginContainer3" type="MarginContainer" unique_id=943491550]
 custom_minimum_size = Vector2(0, 400)
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 14
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1644860254]
 custom_minimum_size = Vector2(0, 465)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bk641")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=1665257771]
 layout_mode = 2
 
-[node name="生命" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="等级" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=832253999]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/生命"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/等级" unique_id=446163635]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/生命/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/等级/HBoxContainer" unique_id=1071269656]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/生命/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/等级/HBoxContainer/PanelContainer" unique_id=619420067]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_f6ayu")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/等级/HBoxContainer" unique_id=932221243]
+layout_mode = 2
+text = "等级："
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/等级/HBoxContainer" unique_id=205522830]
+layout_mode = 2
+text = "0"
+vertical_alignment = 1
+
+[node name="生命" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1029560063]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/生命" unique_id=1097938044]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/生命/HBoxContainer" unique_id=797869745]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = -7
+theme_override_constants/margin_bottom = 6
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/生命/HBoxContainer/PanelContainer" unique_id=736880730]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_62pgn")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer" unique_id=1141622323]
 layout_mode = 2
 text = "生命："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer" unique_id=871579148]
 layout_mode = 2
 text = "1500000"
 vertical_alignment = 1
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer"]
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer" unique_id=1342782918]
 layout_mode = 2
 text = "/"
 
-[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer"]
+[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/生命/HBoxContainer" unique_id=1563835842]
 layout_mode = 2
 text = "1500000"
 
-[node name="精力" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="精力" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1422600862]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/精力"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/精力" unique_id=74320962]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/精力/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/精力/HBoxContainer" unique_id=759620049]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/精力/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/精力/HBoxContainer/PanelContainer" unique_id=1022295369]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_x8vg5")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer" unique_id=1830578762]
 layout_mode = 2
 text = "精力："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer" unique_id=951062976]
 layout_mode = 2
 text = "1000"
 vertical_alignment = 1
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer"]
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer" unique_id=1277831612]
 layout_mode = 2
 text = "/"
 vertical_alignment = 1
 
-[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer"]
+[node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/精力/HBoxContainer" unique_id=1831573350]
 layout_mode = 2
 text = "1000"
 vertical_alignment = 1
 
-[node name="元素属性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="元素属性" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=373295253]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/元素属性"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/元素属性" unique_id=1984647627]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer" unique_id=219634938]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer/PanelContainer" unique_id=321895413]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_et72w")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer" unique_id=179328365]
 layout_mode = 2
 text = "元素属性："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/元素属性/HBoxContainer" unique_id=801427692]
 layout_mode = 2
 text = "风"
 vertical_alignment = 1
 
-[node name="经验" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="经验" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=2145269013]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/经验"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/经验" unique_id=894313624]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/经验/HBoxContainer" unique_id=271158625]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/经验/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/经验/HBoxContainer/PanelContainer" unique_id=1631319542]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_avgeb")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer" unique_id=2112964982]
 layout_mode = 2
 text = "经验："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer" unique_id=1125945312]
 layout_mode = 2
 text = "0"
 vertical_alignment = 1
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer"]
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/经验/HBoxContainer" unique_id=487990462]
 layout_mode = 2
 text = "（满级）"
 vertical_alignment = 1
 
-[node name="飞升" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="飞升" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1809917935]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/飞升"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/飞升" unique_id=348353964]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer" unique_id=894440622]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer/PanelContainer" unique_id=529449561]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_xd24f")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer" unique_id=248179042]
 layout_mode = 2
 text = "飞升："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer" unique_id=1207504385]
 layout_mode = 2
 text = "4500000"
 vertical_alignment = 1
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer"]
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/飞升/HBoxContainer" unique_id=1035472552]
 layout_mode = 2
 text = "(100%)"
 vertical_alignment = 1
 
-[node name="转职" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="转职" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=353857612]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/转职"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/转职" unique_id=954327758]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/转职/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/转职/HBoxContainer" unique_id=675619791]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/转职/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/转职/HBoxContainer/PanelContainer" unique_id=774533914]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_gc3wf")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer" unique_id=1335593860]
 layout_mode = 2
 text = "转职："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer" unique_id=1131023596]
 layout_mode = 2
 text = "0"
 vertical_alignment = 1
 
-[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer"]
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/转职/HBoxContainer" unique_id=1123120134]
 layout_mode = 2
 text = "（满级）"
 vertical_alignment = 1
 
-[node name="攻击和防御" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="攻击和防御" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1440298218]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御" unique_id=1339563613]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer" unique_id=1159547321]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer" unique_id=1396165723]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer/PanelContainer" unique_id=1585628022]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_3u3oy")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer" unique_id=1393169010]
 layout_mode = 2
 text = "攻击："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer" unique_id=1664097752]
 layout_mode = 2
 text = "20000"
 vertical_alignment = 1
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer"]
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer" unique_id=1405804614]
 custom_minimum_size = Vector2(155, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2" unique_id=248566227]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2/PanelContainer" unique_id=1811170586]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_j2m3n")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2" unique_id=223948164]
 layout_mode = 2
 text = "防御："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/攻击和防御/HBoxContainer/HBoxContainer2" unique_id=1607273093]
 layout_mode = 2
 text = "50000"
 vertical_alignment = 1
 
-[node name="速度和法力" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="速度和法力" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=341620021]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力" unique_id=1613886842]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer" unique_id=523221376]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer" unique_id=1153650150]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer/PanelContainer" unique_id=2067825385]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_74u10")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer" unique_id=2131941705]
 layout_mode = 2
 text = "速度："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer" unique_id=1366650428]
 layout_mode = 2
 text = "100000"
 vertical_alignment = 1
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer"]
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer" unique_id=1225349088]
 custom_minimum_size = Vector2(155, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2" unique_id=1490962755]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2/PanelContainer" unique_id=998043470]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_jdfs7")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2" unique_id=804700874]
 layout_mode = 2
 text = "法力："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/速度和法力/HBoxContainer/HBoxContainer2" unique_id=1153775472]
 layout_mode = 2
 text = "50000"
 vertical_alignment = 1
 
-[node name="命中和闪避" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="命中和闪避" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1033469030]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避" unique_id=196053399]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer" unique_id=7011024]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer" unique_id=491606779]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer/PanelContainer" unique_id=376045902]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_c3mjb")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer" unique_id=937290953]
 layout_mode = 2
 text = "命中："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer" unique_id=859178460]
 layout_mode = 2
 text = "200"
 vertical_alignment = 1
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer"]
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer" unique_id=1615227418]
 custom_minimum_size = Vector2(155, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2" unique_id=1017181935]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2/PanelContainer" unique_id=988262715]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_w62oa")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2" unique_id=219336755]
 layout_mode = 2
 text = "闪避："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/命中和闪避/HBoxContainer/HBoxContainer2" unique_id=1876204933]
 layout_mode = 2
 text = "200"
 vertical_alignment = 1
 
-[node name="致命和爆伤" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
+[node name="致命和爆伤" type="PanelContainer" parent="PanelContainer/VBoxContainer" unique_id=1629352109]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤" unique_id=1740715715]
 custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer" unique_id=170804861]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer" unique_id=587359124]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer/PanelContainer" unique_id=1558264911]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_5ll8x")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer" unique_id=1804060034]
 layout_mode = 2
 text = "致命："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer" unique_id=1453347712]
 layout_mode = 2
 text = "150"
 vertical_alignment = 1
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer"]
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer" unique_id=855385110]
 custom_minimum_size = Vector2(155, 0)
 layout_mode = 2
 
-[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2"]
+[node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2" unique_id=2113879436]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = -7
 theme_override_constants/margin_bottom = 6
 
-[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2/PanelContainer"]
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2/PanelContainer" unique_id=1210204950]
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_fe5g0")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2"]
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2" unique_id=864476355]
 layout_mode = 2
 text = "爆伤："
 
-[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2"]
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2" unique_id=54539691]
 layout_mode = 2
 text = "2000%"
 vertical_alignment = 1

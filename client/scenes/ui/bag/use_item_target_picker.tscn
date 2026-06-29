@@ -1,0 +1,72 @@
+[gd_scene load_steps=4 format=3 uid="uid://useitemtargetpickerscn"]
+
+[ext_resource type="Script" uid="uid://useitemtargetpicker01" path="res://scripts/ui/bag/use_item_target_picker.gd" id="1_script"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
+
+[node name="UseItemTargetPicker" type="CanvasLayer"]
+visible = false
+layer = 134
+script = ExtResource("1_script")
+
+[node name="DimLayer" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.039215688, 0.078431375, 0.14117648, 0.20392157)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(220, 0)
+custom_maximum_size = Vector2(240, 360)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 10
+text = "选择目标"
+horizontal_alignment = 1
+
+[node name="ListScroll" type="ScrollContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ListContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ListScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="EmptyLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ListScroll/ListContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.780392, 0.733333, 0.690196, 1)
+theme_override_font_sizes/font_size = 8
+text = "暂无可选目标"
+horizontal_alignment = 1
+
+[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox" instance=ExtResource("3_action_btn")]
+unique_name_in_owner = true
+layout_mode = 2
+button_label = "取消"

@@ -23,6 +23,8 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import { NPCDialogueConfigDrawer } from './NPCDialogueConfigDrawer';
 import {
   createAdminNPCMenuEntry,
@@ -519,7 +521,9 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
             <Descriptions.Item label="菜单状态">{formatDisplayLabel(NPC_MENU_STATE_LABELS, detail.state)}</Descriptions.Item>
             <Descriptions.Item label="动作类型">{formatDisplayLabel(NPC_ACTION_RESULT_LABELS, detail.action_result_type)}</Descriptions.Item>
             <Descriptions.Item label="固定战实体ID">{detail.battle_encounter_entity_id || '-'}</Descriptions.Item>
-            <Descriptions.Item label="提示文案">{detail.action_notice || '-'}</Descriptions.Item>
+            <Descriptions.Item label="提示文案">
+              <RichTextDisplay value={detail.action_notice} />
+            </Descriptions.Item>
           </Descriptions>
         ) : null}
       </Drawer>
@@ -670,11 +674,15 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
                     </Col>
                     {!isBattleEntry ? (
                       <Col span={24}>
-                        <Form.Item label="提示文案" name="action_notice"><Input.TextArea rows={3} /></Form.Item>
+                        <Form.Item label="提示文案" name="action_notice" extra="玩家点击菜单前看到的提示，支持 BBCode 富文本。">
+                          <RichTextEditor rows={3} />
+                        </Form.Item>
                       </Col>
                     ) : (
                       <Col span={24}>
-                        <Form.Item label="提示文案（可选）" name="action_notice"><Input.TextArea rows={2} placeholder="挑战菜单通常无需提示文案" /></Form.Item>
+                        <Form.Item label="提示文案（可选）" name="action_notice" extra="支持 BBCode 富文本。">
+                          <RichTextEditor rows={2} placeholder="挑战菜单通常无需提示文案" />
+                        </Form.Item>
                       </Col>
                     )}
                   </Row>

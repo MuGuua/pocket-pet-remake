@@ -10,20 +10,22 @@ import {
   InputNumber,
   Modal,
   Row,
+  Select,
   Space,
   Spin,
   Switch,
   Table,
+  Tag,
   Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
+import { GrantPetFromTemplateModal } from '../../components/GrantPetFromTemplateModal';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
-  createAdminPet,
   deleteAdminPet,
   fetchAdminPetDetail,
   fetchAdminPets,
@@ -31,13 +33,12 @@ import {
 } from '../../services/pet';
 import { updateAdminPlayerPetLineup } from '../../services/player';
 import type { AdminPetDetail, AdminPetListFilters, AdminPetSummary } from '../../types/pet';
+import { formatPetQualityLabel, getPetQualityTagColor, PET_QUALITY_OPTIONS } from '../../constants/petQuality';
 import { ADMIN_PET_COMBAT_STAT_FIELDS } from '../../types/petCombatStats';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 import {
-  defaultPetInstanceCreateValues,
   formatPetDateTime,
   mapPetDetailToForm,
-  mapPetFormToCreatePayload,
   mapPetFormToUpdatePayload,
   type PetInstanceFormValues,
 } from './petInstanceFormUtils';
@@ -57,6 +58,7 @@ export function PlayerPetListPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<AdminPetDetail | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [grantModalOpen, setGrantModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminPetDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
@@ -97,14 +99,10 @@ export function PlayerPetListPage() {
     }
   }
 
-  async function handleOpenEditor(mode: 'create' | 'edit', petUID?: number) {
+  async function handleOpenEditor(petUID: number) {
     setEditorOpen(true);
-    if (mode === 'create') {
-      setEditingRecord(null);
-      editorForm.resetFields();
-      editorForm.setFieldsValue(defaultPetInstanceCreateValues(0));
-      return;
-    }
+    setEditingRecord(null);
+    editorForm.resetFields();
     if (!petUID) {
       return;
     }
@@ -122,24 +120,18 @@ export function PlayerPetListPage() {
   }
 
   async function handleSubmitEditor(values: PetInstanceFormValues) {
+    if (!editingRecord) {
+      return;
+    }
     setSaving(true);
     try {
-      if (editingRecord) {
-        await updateAdminPet(editingRecord.pet_uid, mapPetFormToUpdatePayload(values, skillReferenceMap));
-        message.success('宠物更新成功');
-      } else {
-        if (!values.player_id || values.player_id <= 0) {
-          message.error('请填写有效的所属玩家ID');
-          return;
-        }
-        await createAdminPet(mapPetFormToCreatePayload(values, skillReferenceMap));
-        message.success('宠物创建成功');
-      }
+      await updateAdminPet(editingRecord.pet_uid, mapPetFormToUpdatePayload(values, skillReferenceMap));
+      message.success('宠物更新成功');
       setEditorOpen(false);
       setEditingRecord(null);
       editorForm.resetFields();
       await loadPets(filters, page, pageSize);
-      if (detail && editingRecord?.pet_uid === detail.pet_uid) {
+      if (detail && editingRecord.pet_uid === detail.pet_uid) {
         setDetail(await fetchAdminPetDetail(detail.pet_uid));
       }
     } catch (error) {
@@ -191,7 +183,12 @@ export function PlayerPetListPage() {
       { title: '玩家名', dataIndex: 'player_name', width: 120 },
       { title: '宠物ID', dataIndex: 'pet_id', width: 90 },
       { title: '等级', dataIndex: 'level', width: 70 },
-      { title: '品质', dataIndex: 'quality', width: 70 },
+      {
+        title: '品质',
+        dataIndex: 'quality',
+        width: 100,
+        render: (value: number) => <Tag color={getPetQualityTagColor(value)}>{formatPetQualityLabel(value)}</Tag>,
+      },
       { title: '生命', width: 100, render: (_value, record) => `${record.hp}/${record.hp_max}` },
       { title: '攻/防/速', width: 110, render: (_value, record) => `${record.atk}/${record.def}/${record.spd}` },
       {
@@ -226,7 +223,7 @@ export function PlayerPetListPage() {
               loading={deletingID === record.pet_uid}
               actions={[
                 { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.pet_uid) },
-                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.pet_uid) },
+                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor(record.pet_uid) },
                 {
                   key: 'delete',
                   label: '删除',
@@ -282,7 +279,7 @@ export function PlayerPetListPage() {
               >
                 重置
               </Button>
-              <Button type="primary" onClick={() => void handleOpenEditor('create')}>新增宠物</Button>
+              <Button type="primary" onClick={() => setGrantModalOpen(true)}>新增宠物</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -324,7 +321,7 @@ export function PlayerPetListPage() {
             buttonType="default"
             loading={deletingID === detail.pet_uid}
             actions={[
-              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', detail.pet_uid) },
+              { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor(detail.pet_uid) },
               {
                 key: 'delete',
                 label: '删除',
@@ -349,7 +346,9 @@ export function PlayerPetListPage() {
               <Descriptions.Item label="宠物ID">{detail.pet_id}</Descriptions.Item>
               <Descriptions.Item label="等级">{detail.level}</Descriptions.Item>
               <Descriptions.Item label="经验">{detail.exp}</Descriptions.Item>
-              <Descriptions.Item label="品质">{detail.quality}</Descriptions.Item>
+              <Descriptions.Item label="品质">
+                <Tag color={getPetQualityTagColor(detail.quality)}>{formatPetQualityLabel(detail.quality)}</Tag>
+              </Descriptions.Item>
               <Descriptions.Item label="出战">
                 <Switch
                   checked={detail.in_lineup}
@@ -379,8 +378,14 @@ export function PlayerPetListPage() {
         ) : null}
       </Drawer>
 
+      <GrantPetFromTemplateModal
+        open={grantModalOpen}
+        onCancel={() => setGrantModalOpen(false)}
+        onSuccess={() => void loadPets(filters, page, pageSize)}
+      />
+
       <Modal
-        title={editingRecord ? `编辑宠物 · ${editingRecord.pet_uid}` : '新增宠物实例'}
+        title={editingRecord ? `编辑宠物 · ${editingRecord.pet_uid}` : '编辑宠物'}
         open={editorOpen}
         onCancel={() => {
           setEditorOpen(false);
@@ -393,22 +398,11 @@ export function PlayerPetListPage() {
         width={860}
         style={{ top: FIXED_FORM_MODAL_TOP }}
         styles={FIXED_FORM_MODAL_STYLES}
-        okText={editingRecord ? '保存修改' : '创建宠物'}
+        okText="保存修改"
         cancelText="取消"
       >
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
           <Row gutter={16}>
-            {!editingRecord ? (
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="所属玩家ID"
-                  name="player_id"
-                  rules={[{ required: true, message: '请输入所属玩家ID' }]}
-                >
-                  <InputNumber min={1} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-            ) : null}
             <Col xs={24} md={12}>
               <Form.Item label="宠物ID" name="pet_id" rules={[{ required: true, message: '请输入宠物ID' }]}>
                 <InputNumber min={1} style={{ width: '100%' }} />
@@ -416,7 +410,11 @@ export function PlayerPetListPage() {
             </Col>
             <Col xs={12} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="经验" name="exp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} md={6}>
+              <Form.Item label="品质" name="quality" rules={[{ required: true, message: '请选择品质' }]}>
+                <Select options={PET_QUALITY_OPTIONS.map((item) => ({ value: item.value, label: item.label }))} />
+              </Form.Item>
+            </Col>
             <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="生命" name="hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="生命上限" name="hp_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>

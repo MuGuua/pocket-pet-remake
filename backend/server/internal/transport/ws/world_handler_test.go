@@ -166,7 +166,7 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	worldHandler := NewWorldHandler(sessionService, nil, nil, questService, nil, nil, nil, nil)
 	petHandler := NewPetHandler(sessionService, nil, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, nil, nil, questService, npcService, nil, battle.NewService(nil), teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, nil, nil, nil, nil, nil, questService, npcService, nil, battle.NewService(nil), teststub.NewBattleRepository(), nil, nil)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, nil), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, nil, nil, nil, nil, nil), sessionService)
 
 	conn := &fakeConn{id: "conn-2"}
@@ -1258,12 +1258,12 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if character.UnitClass != battle.ActorUnitClassCharacter {
 		t.Fatalf("character.UnitClass = %d, want %d", character.UnitClass, battle.ActorUnitClassCharacter)
 	}
-	if len(character.SkillIDs) != 2 {
-		t.Fatalf("len(character.SkillIDs) = %d, want 2", len(character.SkillIDs))
-	}
-	if len(character.Skills) != 2 {
-		t.Fatalf("len(character.Skills) = %d, want 2", len(character.Skills))
-	}
+  if len(character.SkillIDs) != 1 {
+    t.Fatalf("len(character.SkillIDs) = %d, want 1", len(character.SkillIDs))
+  }
+  if len(character.Skills) != 1 {
+    t.Fatalf("len(character.Skills) = %d, want 1", len(character.Skills))
+  }
 	if character.Skills[0].TargetType != "enemy_single" {
 		t.Fatalf("character.Skills[0].TargetType = %q, want %q", character.Skills[0].TargetType, "enemy_single")
 	}
@@ -1273,15 +1273,15 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if firstPet.LineupIndex != 0 {
 		t.Fatalf("firstPet.LineupIndex = %d, want 0", firstPet.LineupIndex)
 	}
-	if len(start.Allies[2].Skills) != 2 {
-		t.Fatalf("len(start.Allies[2].Skills) = %d, want 2", len(start.Allies[2].Skills))
-	}
-	if start.Allies[2].Skills[1].TargetType != "ally_single" {
-		t.Fatalf("start.Allies[2].Skills[1].TargetType = %q, want %q", start.Allies[2].Skills[1].TargetType, "ally_single")
-	}
-	if start.Allies[2].Skills[1].AnimationKey != "heal" || start.Allies[2].Skills[1].Projectile {
-		t.Fatalf("start.Allies[2].Skills[1] = %#v, want heal animation without projectile", start.Allies[2].Skills[1])
-	}
+  if len(start.Allies[2].Skills) != 1 {
+    t.Fatalf("len(start.Allies[2].Skills) = %d, want 1", len(start.Allies[2].Skills))
+  }
+  if start.Allies[2].Skills[0].TargetType != "ally_single" {
+    t.Fatalf("start.Allies[2].Skills[0].TargetType = %q, want %q", start.Allies[2].Skills[0].TargetType, "ally_single")
+  }
+  if start.Allies[2].Skills[0].AnimationKey != "heal" || start.Allies[2].Skills[0].Projectile {
+    t.Fatalf("start.Allies[2].Skills[0] = %#v, want heal animation without projectile", start.Allies[2].Skills[0])
+  }
 
 	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
 		OpID:       1,
@@ -1481,7 +1481,7 @@ func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 	questService := quest.NewService(teststub.NewQuestRepository())
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, nil, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, nil, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository(), nil, nil)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 
 	conn := &fakeConn{id: "disconnect-battle-conn"}
@@ -1507,7 +1507,7 @@ func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 		t.Fatal("findInteractTarget() = false, want nearby npc")
 	}
 
-	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	start, err := battleService.StartPVE(ctx, profile, lineup, target, battle.EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -1578,7 +1578,7 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository(), nil, nil)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
 	firstConn := &fakeConn{id: "reconnect-old-conn"}
@@ -1603,7 +1603,7 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 		Pos:        world.Vec2i{X: profile.PosX + 1, Y: profile.PosY},
 		Name:       "ReconnectBattleNPC",
 	}
-	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	start, err := battleService.StartPVE(ctx, profile, lineup, target, battle.EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -1680,7 +1680,7 @@ func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
 	battleService := battle.NewService(nil)
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battleService, teststub.NewBattleRepository(), nil, nil)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, nil, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
@@ -1706,7 +1706,7 @@ func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T
 		Pos:        world.Vec2i{X: profile.PosX + 1, Y: profile.PosY},
 		Name:       "ReconnectResultNPC",
 	}
-	start, err := battleService.StartPVE(ctx, profile, lineup, target)
+	start, err := battleService.StartPVE(ctx, profile, lineup, target, battle.EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -1765,7 +1765,7 @@ func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) 
 	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, nil, nil)
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(nil), teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(nil), teststub.NewBattleRepository(), nil, nil)
 	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, nil, worldService, npcService)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 
@@ -1848,7 +1848,7 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	worldHandler := NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService, nil)
 	petHandler := NewPetHandler(sessionService, petService, nil)
 	npcService := npc.NewService(teststub.NewNPCRepository())
-	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(monsterService), teststub.NewBattleRepository())
+	battleHandler := NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcdialogue.NewService(teststub.NewNPCDialogueRepository(), &npcdialogue.QuestServiceAdapter{Service: questService}), battle.NewService(monsterService), teststub.NewBattleRepository(), nil, nil)
 	bagHandler := NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, nil, worldService, npcService)
 	router := NewRouter(&AuthHandler{sessionService: sessionService}, worldHandler, petHandler, NewPlayerHandler(sessionService, playerService), nil, battleHandler, bagHandler, NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService), sessionService)
 

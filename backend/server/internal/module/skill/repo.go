@@ -11,4 +11,6 @@ type Repository interface {
 	DeleteForAdmin(ctx context.Context, skillID uint32) error
 	ListEnabledRuntimeDefinitions(ctx context.Context) ([]RuntimeDefinition, error)
 	MapUsableSkillIDs(ctx context.Context, skillIDs []uint32) (map[uint32]bool, error)
+	MapSkillCategoriesByIDs(ctx context.Context, skillIDs []uint32) (map[uint32]string, error)
+	MapSkillWeaponDisciplinesByIDs(ctx context.Context, skillIDs []uint32) (map[uint32]string, error)
 }

@@ -24,6 +24,7 @@ type AdminListQuery struct {
 	Category string
 	Type     string
 	Enabled  *bool
+	OrderBy  string
 	Page     uint32
 	PageSize uint32
 }
@@ -42,6 +43,7 @@ func (q AdminListQuery) Normalize() AdminListQuery {
 	q.Name = strings.TrimSpace(q.Name)
 	q.Category = strings.TrimSpace(q.Category)
 	q.Type = strings.TrimSpace(q.Type)
+	q.OrderBy = strings.TrimSpace(q.OrderBy)
 	return q
 }
 
@@ -135,11 +137,14 @@ type AdminPresentation struct {
 
 // AdminDetail 是详情抽屉所需的完整模板信息。
 type AdminDetail struct {
-	SkillID         uint32             `json:"skill_id"`
-	SkillCode       string             `json:"skill_code"`
-	SkillName       string             `json:"skill_name"`
-	SkillCategory   string             `json:"skill_category"`
-	SkillType       string             `json:"skill_type"`
+	SkillID           uint32             `json:"skill_id"`
+	SkillCode         string             `json:"skill_code"`
+	SkillName         string             `json:"skill_name"`
+	SkillCategory     string             `json:"skill_category"`
+	WeaponDiscipline  string             `json:"weapon_discipline"`
+	LearnExpRequired  uint32             `json:"learn_exp_required"`
+	LearnExpPerUse    uint32             `json:"learn_exp_per_use"`
+	SkillType         string             `json:"skill_type"`
 	Description     string             `json:"description"`
 	AcquireMethod   string             `json:"acquire_method"`
 	IsBasicAttack   bool               `json:"is_basic_attack"`
@@ -156,11 +161,14 @@ type AdminDetail struct {
 
 // AdminUpsertInput 描述后台新增或编辑系统技能模板时提交的字段。
 type AdminUpsertInput struct {
-	SkillID       uint32 `json:"skill_id"`
-	SkillCode     string `json:"skill_code"`
-	SkillName     string `json:"skill_name"`
-	SkillCategory string `json:"skill_category"`
-	SkillType     string `json:"skill_type"`
+	SkillID          uint32 `json:"skill_id"`
+	SkillCode        string `json:"skill_code"`
+	SkillName        string `json:"skill_name"`
+	SkillCategory    string `json:"skill_category"`
+	WeaponDiscipline string `json:"weapon_discipline"`
+	LearnExpRequired uint32 `json:"learn_exp_required"`
+	LearnExpPerUse   uint32 `json:"learn_exp_per_use"`
+	SkillType        string `json:"skill_type"`
 	Description   string `json:"description"`
 	AcquireMethod string `json:"acquire_method"`
 	IsBasicAttack bool   `json:"is_basic_attack"`
@@ -221,6 +229,7 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	input.SkillCode = strings.TrimSpace(input.SkillCode)
 	input.SkillName = strings.TrimSpace(input.SkillName)
 	input.SkillCategory = strings.TrimSpace(input.SkillCategory)
+	input.WeaponDiscipline = strings.TrimSpace(input.WeaponDiscipline)
 	input.SkillType = strings.TrimSpace(input.SkillType)
 	input.Description = strings.TrimSpace(input.Description)
 	input.AcquireMethod = strings.TrimSpace(input.AcquireMethod)
@@ -230,7 +239,15 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	input.CastColor = strings.TrimSpace(input.CastColor)
 	input.ImpactColor = strings.TrimSpace(input.ImpactColor)
 	if input.SkillCategory == "" {
-		input.SkillCategory = "common"
+		input.SkillCategory = CategoryCommon
+	}
+	if !IsValidCategory(input.SkillCategory) {
+		input.SkillCategory = CategoryCommon
+	}
+	if input.SkillCategory == CategoryWeapon {
+		if input.LearnExpPerUse == 0 {
+			input.LearnExpPerUse = 1
+		}
 	}
 	if input.SkillType == "" {
 		input.SkillType = "attack"
@@ -256,6 +273,11 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 // RuntimeDefinition 是战斗运行时读取的技能模板快照。
 type RuntimeDefinition struct {
 	SkillID                uint32
+	SkillType              string
+	SkillCategory          string
+	WeaponDiscipline       string
+	LearnExpRequired       uint32
+	LearnExpPerUse         uint32
 	SkillName              string
 	TargetType             string
 	TargetCount            uint32

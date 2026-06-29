@@ -133,6 +133,10 @@ func (r *EquipmentRepository) EnhanceInstance(_ context.Context, _ uint64, _ str
 	return nil, equipment.ErrEquipmentNotFound
 }
 
+func (r *EquipmentRepository) RepairInstance(_ context.Context, _ uint64, _ string) (*equipment.RepairResult, error) {
+	return nil, equipment.ErrEquipmentNotFound
+}
+
 func (r *EquipmentRepository) GetEnhanceGoldCostConfigForAdmin(_ context.Context) (*equipment.AdminEnhanceGoldCostConfigDetail, error) {
 	config := equipment.EnhanceGoldCostConfig{
 		IsEnabled:      true,
@@ -154,6 +158,56 @@ func (r *EquipmentRepository) UpsertEnhanceGoldCostConfigForAdmin(_ context.Cont
 	}, nil
 }
 
+func (r *EquipmentRepository) ListEnhanceSuccessConfigsForAdmin(_ context.Context, requiredLevelMin *uint32) (*equipment.AdminEnhanceSuccessConfigList, error) {
+	items := make([]equipment.AdminEnhanceSuccessConfig, 0)
+	now := time.Now().UTC()
+	bandMins := equipment.ListEnhanceRequiredLevelBandMins()
+	if requiredLevelMin != nil && *requiredLevelMin > 0 {
+		bandMins = []uint32{*requiredLevelMin}
+	}
+	for _, bandMin := range bandMins {
+		for level := uint32(1); level <= equipment.MaxEnhanceTargetLevel; level++ {
+			bandIndex := (bandMin - 1) / equipment.EnhanceRequiredLevelBandSize
+			baseRate := equipment.DefaultEnhanceSuccessRate(level)
+			penalty := bandIndex * 5
+			rate := baseRate
+			if rate > penalty {
+				rate -= penalty
+			} else {
+				rate = 1
+			}
+			item := equipment.AdminEnhanceSuccessConfig{
+				TargetLevel:      level,
+				RequiredLevelMin: bandMin,
+				SuccessRatePct:   rate,
+				Description:      "",
+				Status:           1,
+				UpdatedAt:        now,
+			}
+			item.FillRequiredLevelBandDisplay()
+			items = append(items, item)
+		}
+	}
+	return &equipment.AdminEnhanceSuccessConfigList{Items: items}, nil
+}
+
+func (r *EquipmentRepository) UpsertEnhanceSuccessConfigForAdmin(_ context.Context, targetLevel uint32, requiredLevelMin uint32, input equipment.AdminUpsertEnhanceSuccessConfigInput) (*equipment.AdminEnhanceSuccessConfig, error) {
+	normalized := input.Normalize()
+	if err := normalized.Validate(targetLevel, requiredLevelMin); err != nil {
+		return nil, err
+	}
+	item := &equipment.AdminEnhanceSuccessConfig{
+		TargetLevel:      targetLevel,
+		RequiredLevelMin: requiredLevelMin,
+		SuccessRatePct:   normalized.SuccessRatePct,
+		Description:      normalized.Description,
+		Status:           normalized.Status,
+		UpdatedAt:      time.Now().UTC(),
+	}
+	item.FillRequiredLevelBandDisplay()
+	return item, nil
+}
+
 func buildStubEquipmentDetail(input equipment.AdminUpsertEquipmentInput, createdAt, updatedAt time.Time) equipment.AdminEquipmentDetail {
 	input = input.Normalize()
 	return equipment.AdminEquipmentDetail{
@@ -167,6 +221,7 @@ func buildStubEquipmentDetail(input equipment.AdminUpsertEquipmentInput, created
 		RequiredLevel:        input.RequiredLevel,
 		BindType:             input.BindType,
 		CanSell:              input.CanSell,
+		CanDrop:              input.CanDrop,
 		CanStore:             input.CanStore,
 		IsEnabled:            input.IsEnabled,
 		EquipSlot:            input.EquipSlot,

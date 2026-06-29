@@ -414,9 +414,10 @@ type NPCDialogueItem struct {
 	Icon     string `json:"icon,omitempty"`
 }
 
-// ItemDescriptionMention 描述物品介绍文案中通过 {item:ID} 引入的其他物品。
+// ItemDescriptionMention 描述文案中通过 {item:ID} / {pet:ID} 引入的其他模板。
 type ItemDescriptionMention struct {
-	ItemID   uint64 `json:"item_id"`
+	ItemID   uint64 `json:"item_id,omitempty"`
+	PetID    uint64 `json:"pet_id,omitempty"`
 	ItemName string `json:"item_name"`
 }
 
@@ -552,6 +553,7 @@ type PlayerEquippedItemSnapshot struct {
 	Icon             string                       `json:"icon,omitempty"`
 	RequiredLevel    uint32                       `json:"required_level"`
 	EnhanceLevel     uint32                       `json:"enhance_level"`
+	IsDamaged        bool                         `json:"is_damaged,omitempty"`
 	AppearanceSkinID string                       `json:"appearance_skin_id,omitempty"`
 	AppearanceOnly   bool                         `json:"appearance_only"`
 	Description           string                       `json:"description,omitempty"`
@@ -594,14 +596,24 @@ type PlayerEquipmentEnhanceReq struct {
 }
 
 type PlayerEquipmentEnhanceResp struct {
-	Success     bool                         `json:"success"`
-	OldLevel    uint32                       `json:"old_level"`
-	NewLevel    uint32                       `json:"new_level"`
-	RatePct     uint32                       `json:"rate_pct"`
-	RollPct     uint32                       `json:"roll_pct"`
+	Success        bool                         `json:"success"`
+	OldLevel       uint32                       `json:"old_level"`
+	NewLevel       uint32                       `json:"new_level"`
+	RatePct        uint32                       `json:"rate_pct"`
+	RollPct        uint32                       `json:"roll_pct"`
+	FailurePenalty string                       `json:"failure_penalty,omitempty"`
+	Item           PlayerEquippedItemSnapshot   `json:"item"`
+	AllEquipped    []PlayerEquippedItemSnapshot `json:"all_equipped"`
+	Player         *PlayerSnapshot              `json:"player,omitempty"`
+}
+
+type PlayerEquipmentRepairReq struct {
+	ItemUID string `json:"item_uid"`
+}
+
+type PlayerEquipmentRepairResp struct {
 	Item        PlayerEquippedItemSnapshot   `json:"item"`
 	AllEquipped []PlayerEquippedItemSnapshot `json:"all_equipped"`
-	Player      *PlayerSnapshot              `json:"player,omitempty"`
 }
 
 type BattleActorSnapshot struct {
@@ -635,6 +647,7 @@ type BattleSkillSnapshot struct {
 	ImpactColor   string `json:"impact_color"`
 	Projectile    bool   `json:"projectile"`
 	IsBasicAttack bool   `json:"is_basic_attack"`
+	Level         uint32 `json:"level,omitempty"`
 }
 
 type BattleStartPush struct {
@@ -743,7 +756,18 @@ type BattleResultPush struct {
 	CaptureSuccess   bool              `json:"capture_success,omitempty"`
 	CaptureMonsterID uint32            `json:"capture_monster_id,omitempty"`
 	CapturedPetID    uint32            `json:"captured_pet_id,omitempty"`
-	CapturedPetUID   uint64            `json:"captured_pet_uid,omitempty"`
+	CapturedPetUID   uint64                    `json:"captured_pet_uid,omitempty"`
+	SkillProgress    []BattleSkillProgressPush `json:"skill_progress,omitempty"`
+}
+
+// BattleSkillProgressPush 描述战斗结算弹窗中展示的武器技能学习进度。
+type BattleSkillProgressPush struct {
+	SkillID          uint32 `json:"skill_id"`
+	SkillName        string `json:"skill_name"`
+	SkillExp         uint32 `json:"skill_exp"`
+	LearnExpRequired uint32 `json:"learn_exp_required"`
+	ExpGained        uint32 `json:"exp_gained"`
+	NewlyLearned     bool   `json:"newly_learned"`
 }
 
 type BattlePetReward struct {
@@ -771,19 +795,30 @@ type UseItemReq struct {
 	Quantity       uint64         `json:"quantity"`
 	TargetPetUID   uint64         `json:"target_pet_uid,omitempty"`
 	TargetPlayerID uint64         `json:"target_player_id,omitempty"`
+	TargetItemUID  string         `json:"target_item_uid,omitempty"`
 	ExtraArgs      map[string]any `json:"extra_args,omitempty"`
 }
 
+type UseItemAppliedEffect struct {
+	Category  string `json:"category"`
+	FieldKey  string `json:"field_key"`
+	Operation string `json:"operation"`
+	Value     int64  `json:"value,omitempty"`
+	BoolValue bool   `json:"bool_value,omitempty"`
+}
+
 type UseItemResult struct {
-	EffectType           string        `json:"effect_type"`
-	ExpandTarget         string        `json:"expand_target,omitempty"`
-	ExpandSlots          uint32        `json:"expand_slots,omitempty"`
-	NewCapacity          uint32        `json:"new_capacity,omitempty"`
-	TargetPetUID         uint64        `json:"target_pet_uid,omitempty"`
-	RestoredHP           uint32        `json:"restored_hp,omitempty"`
-	NewPetHP             uint32        `json:"new_pet_hp,omitempty"`
-	UnlockedTalismanSlot string        `json:"unlocked_talisman_slot,omitempty"`
-	Rewards              []QuestReward `json:"rewards,omitempty"`
+	EffectType           string                 `json:"effect_type"`
+	ExpandTarget         string                 `json:"expand_target,omitempty"`
+	ExpandSlots          uint32                 `json:"expand_slots,omitempty"`
+	NewCapacity          uint32                 `json:"new_capacity,omitempty"`
+	TargetPetUID         uint64                 `json:"target_pet_uid,omitempty"`
+	RestoredHP           uint32                 `json:"restored_hp,omitempty"`
+	NewPetHP             uint32                 `json:"new_pet_hp,omitempty"`
+	UnlockedTalismanSlot string                 `json:"unlocked_talisman_slot,omitempty"`
+	Rewards              []QuestReward          `json:"rewards,omitempty"`
+	AppliedEffects       []UseItemAppliedEffect `json:"applied_effects,omitempty"`
+	NeedsWalletPush      bool                   `json:"needs_wallet_push,omitempty"`
 }
 
 type UseItemResp struct {
@@ -792,6 +827,25 @@ type UseItemResp struct {
 	ItemID        uint64        `json:"item_id"`
 	UsedQuantity  uint64        `json:"used_quantity"`
 	Result        UseItemResult `json:"result"`
+}
+
+// DropItemReq 描述玩家主动丢弃容器格子物品的请求。
+// 实例化物品（item_uid 非空）应优先传 item_uid 定位唯一背包条目；可堆叠物品按 slot_index + quantity 部分丢弃。
+type DropItemReq struct {
+	ContainerType string `json:"container_type"`
+	SlotIndex     uint32 `json:"slot_index"`
+	ItemUID       string `json:"item_uid,omitempty"`
+	Quantity      uint64 `json:"quantity"`
+}
+
+// DropItemResp 描述丢弃成功后客户端用于提示与刷新格子的摘要。
+type DropItemResp struct {
+	ContainerType string `json:"container_type"`
+	SlotIndex     uint32 `json:"slot_index"`
+	ItemUID       string `json:"item_uid,omitempty"`
+	ItemID        uint64 `json:"item_id"`
+	ItemName      string `json:"item_name"`
+	DroppedQty    uint64 `json:"dropped_quantity"`
 }
 
 type ContainerListReq struct {
@@ -880,7 +934,9 @@ type ContainerItemSnapshot struct {
 	Icon          string `json:"icon,omitempty"`
 	RequiredLevel uint32 `json:"required_level"`
 	EnhanceLevel  uint32 `json:"enhance_level"`
+	IsDamaged     bool   `json:"is_damaged,omitempty"`
 	Usable       bool   `json:"usable"`
+	CanDrop      bool   `json:"can_drop"`
 	TargetType   string `json:"target_type"`
 	EffectType   string `json:"effect_type"`
 	EquipSlot    string `json:"equip_slot,omitempty"`
@@ -888,6 +944,7 @@ type ContainerItemSnapshot struct {
 	DescriptionMentions   []ItemDescriptionMention     `json:"description_mentions,omitempty"`
 	Bonus                 PlayerEquipmentBonusSnapshot `json:"bonus,omitempty"`
 	EnhancePreview        *EnhancePreviewSnapshot      `json:"enhance_preview,omitempty"`
+	RepairPreview         *RepairPreviewSnapshot       `json:"repair_preview,omitempty"`
 }
 
 // EnhancePreviewRowSnapshot 描述强化预览表中的一行属性对比。
@@ -900,17 +957,24 @@ type EnhancePreviewRowSnapshot struct {
 
 // EnhanceMaterialOptionSnapshot 描述背包内可选强化材料。
 type EnhanceMaterialOptionSnapshot struct {
-	ItemID        uint64 `json:"item_id"`
-	ItemName      string `json:"item_name"`
-	OwnedQuantity uint64 `json:"owned_quantity"`
+	ItemID                  uint64 `json:"item_id"`
+	ItemName                string `json:"item_name"`
+	OwnedQuantity           uint64 `json:"owned_quantity"`
+	EffectiveSuccessRatePct uint32 `json:"effective_success_rate_pct"`
+	FailurePenalty          string `json:"failure_penalty"`
+	FailurePenaltyLabel     string `json:"failure_penalty_label"`
+	Description             string `json:"description,omitempty"`
 }
 
 // EnhancePreviewSnapshot 描述客户端强化弹窗所需的权威预览数据。
 type EnhancePreviewSnapshot struct {
-	CanEnhance              bool                            `json:"can_enhance"`
-	MaxEnhanceLevel         uint32                          `json:"max_enhance_level"`
-	SuccessRatePct          uint32                          `json:"success_rate_pct"`
-	CostGoldCopper          uint64                          `json:"cost_gold_copper"`
+	CanEnhance             bool                            `json:"can_enhance"`
+	MaxEnhanceLevel        uint32                          `json:"max_enhance_level"`
+	SuccessRatePct         uint32                          `json:"success_rate_pct"`
+	RequiredLevel          uint32                          `json:"required_level"`
+	RequiredLevelBandMin   uint32                          `json:"required_level_band_min"`
+	RequiredLevelBandLabel string                          `json:"required_level_band_label"`
+	CostGoldCopper         uint64                          `json:"cost_gold_copper"`
 	CostItemID              uint64                          `json:"cost_item_id"`
 	CostItemName            string                          `json:"cost_item_name"`
 	CostQuantity            uint64                          `json:"cost_quantity"`
@@ -918,6 +982,15 @@ type EnhancePreviewSnapshot struct {
 	EnhanceMaterialCategory string                          `json:"enhance_material_category"`
 	Materials               []EnhanceMaterialOptionSnapshot `json:"materials"`
 	Rows                    []EnhancePreviewRowSnapshot     `json:"rows"`
+}
+
+// RepairPreviewSnapshot 描述客户端修复弹窗所需的权威预览数据。
+type RepairPreviewSnapshot struct {
+	CanRepair         bool   `json:"can_repair"`
+	CostItemID        uint64 `json:"cost_item_id"`
+	CostItemName      string `json:"cost_item_name"`
+	CostQuantity      uint64 `json:"cost_quantity"`
+	OwnedCostQuantity uint64 `json:"owned_cost_quantity"`
 }
 
 type ContainerSnapshot struct {

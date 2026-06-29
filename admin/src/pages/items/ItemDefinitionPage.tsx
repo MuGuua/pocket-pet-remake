@@ -21,15 +21,26 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
-import { GiftBoxRewardEditor } from '../../components/GiftBoxRewardEditor';
+import { ConsumableEffectEditor } from '../../components/ConsumableEffectEditor';
+import { EnhanceMaterialConfigEditor } from '../../components/EnhanceMaterialConfigEditor';
+import { GiftBoxRewardEditor, formatGiftBoxRewardRowSummary } from '../../components/GiftBoxRewardEditor';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import { createAdminItem, deleteAdminItem, fetchAdminItemDetail, fetchAdminItems, updateAdminItem } from '../../services/item';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import type { AdminItemDetail, AdminItemListFilters, AdminItemSummary } from '../../types/item';
-import { ITEM_USE_BEHAVIOR_OPTIONS, parseGiftBoxRewards, resolveItemUseBehavior, type GiftBoxRewardEntry } from '../../types/giftBoxReward';
+import type { ConsumableEffectEntry } from '../../types/consumableEffect';
+import {
+  formatConsumableEffectCategoryLabel,
+  formatConsumableEffectEntryLabel,
+  parseConsumableEffects,
+} from '../../types/consumableEffect';
+import { parseGiftBoxRewards, type GiftBoxRewardEntry } from '../../types/giftBoxReward';
+import { defaultEnhanceMaterialConfig, formatEnhanceMaterialConfigSummary } from '../../types/enhanceMaterialConfig';
 import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, ITEM_SUB_TYPE_LABELS, ITEM_TYPE_LABELS, MATERIAL_ITEM_SUB_TYPE_LABELS } from '../../utils/displayLabels';
 import {
+  formatConsumableEffectSummary,
   formatGiftRewardSummary,
-  formatUseBehaviorLabel,
   mapItemDetailToFormValues,
   mapItemFormToPayload,
   type ItemEditorFormValues,
@@ -45,7 +56,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
   const [filterForm] = Form.useForm<AdminItemListFilters>();
   const [editorForm] = Form.useForm<ItemEditorFormValues>();
   const watchedItemType = Form.useWatch('item_type', editorForm);
-  const watchedUseBehavior = Form.useWatch('use_behavior', editorForm);
+  const watchedItemSubType = Form.useWatch('item_sub_type', editorForm);
   const [filters, setFilters] = useState<AdminItemListFilters>({});
   const [rows, setRows] = useState<AdminItemSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -61,9 +72,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
 
   const isGiftBoxForm = watchedItemType === 'box';
   const isMaterialForm = watchedItemType === 'material';
-  const showUseAmount = watchedUseBehavior === 'pet_hp_restore'
-    || watchedUseBehavior === 'bag_expand'
-    || watchedUseBehavior === 'warehouse_expand';
+  const isEnhanceMaterialForm = isMaterialForm && watchedItemSubType === 'equipment_enhance';
 
   useEffect(() => {
     void loadItems(filters, page, pageSize);
@@ -172,13 +181,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
 
   async function loadNextItemID(): Promise<number> {
     try {
-      const result = await fetchAdminItems({
-        filters: {
-          exclude_item_type: excludeItemType,
-        },
-        page: 1,
-        pageSize: 1,
-      });
+      const result = await fetchAdminItems({ filters: {}, page: 1, pageSize: 1 });
       const currentMaxItemID = result.items[0]?.item_id ?? 10000;
       return currentMaxItemID + 1;
     } catch (error) {
@@ -192,6 +195,31 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     [detail],
   );
 
+  const detailUseEffects = useMemo(
+    () => (detail && detail.item_type !== 'box'
+      ? parseConsumableEffects(detail.effect_type, detail.effect_value, detail.effect_params_json)
+      : []),
+    [detail],
+  );
+
+  const detailUseEffectColumns = useMemo<ColumnsType<ConsumableEffectEntry>>(
+    () => [
+      {
+        title: '大类',
+        dataIndex: 'category',
+        key: 'category',
+        width: 90,
+        render: (category: ConsumableEffectEntry['category']) => formatConsumableEffectCategoryLabel(category),
+      },
+      {
+        title: '效果',
+        key: 'effect',
+        render: (_value, record) => formatConsumableEffectEntryLabel(record),
+      },
+    ],
+    [],
+  );
+
   const detailGiftRewardColumns = useMemo<ColumnsType<GiftBoxRewardEntry>>(
     () => [
       {
@@ -199,17 +227,20 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
         dataIndex: 'type',
         key: 'type',
         width: 100,
-        render: (value: GiftBoxRewardEntry['type']) => (value === 'gold' ? '金币' : '物品'),
+        render: (value: GiftBoxRewardEntry['type']) => {
+          if (value === 'gold') {
+            return '金币';
+          }
+          if (value === 'pet') {
+            return '宠物';
+          }
+          return '物品';
+        },
       },
       {
         title: '内容',
         key: 'content',
-        render: (_value, record) => {
-          if (record.type === 'gold') {
-            return `铜币 ${record.value ?? 0}`;
-          }
-          return `${record.item_name?.trim() || `物品ID ${record.item_id ?? 0}`} × ${record.count ?? 1}`;
-        },
+        render: (_value, record) => formatGiftBoxRewardRowSummary(record),
       },
     ],
     [],
@@ -314,16 +345,30 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
               <Descriptions.Item label="占格">{detail.occupy_slots}</Descriptions.Item>
               <Descriptions.Item label="买价(铜)">{detail.buy_price_copper}</Descriptions.Item>
               <Descriptions.Item label="卖价(铜)">{detail.sell_price_copper}</Descriptions.Item>
-              <Descriptions.Item label="使用行为" span={2}>
+              <Descriptions.Item label="使用效果" span={2}>
                 {detail.item_type === 'box'
                   ? '打开获得礼包内容'
-                  : formatUseBehaviorLabel(resolveItemUseBehavior(detail.effect_type, detail.effect_value))}
+                  : detail.item_sub_type === 'equipment_enhance'
+                    ? '强化材料（无使用效果）'
+                    : formatConsumableEffectSummary(detailUseEffects)}
               </Descriptions.Item>
-              {detail.item_type !== 'box' && detail.effect_value > 0 ? (
-                <Descriptions.Item label="效果数值">{detail.effect_value}</Descriptions.Item>
+              {detail.item_sub_type === 'equipment_enhance' ? (
+                <Descriptions.Item label="锻造属性" span={2}>
+                  {formatEnhanceMaterialConfigSummary(detail.enhance_material_config ?? {
+                    success_rate_mode: 'base',
+                    success_rate_bonus_pct: 0,
+                    success_rate_override_pct: 0,
+                    guaranteed_success: false,
+                    failure_penalty: 'damage',
+                    failure_level_delta: 1,
+                    description: '',
+                  })}
+                </Descriptions.Item>
               ) : null}
               <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
-              <Descriptions.Item label="说明" span={2}>{detail.desc || '-'}</Descriptions.Item>
+              <Descriptions.Item label="说明" span={2}>
+                <RichTextDisplay value={detail.desc} />
+              </Descriptions.Item>
             </Descriptions>
             {detail.item_type === 'box' ? (
               <>
@@ -338,7 +383,29 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
                   locale={{ emptyText: '尚未配置礼包内容' }}
                 />
               </>
-            ) : null}
+            ) : detail.item_sub_type === 'equipment_enhance' ? (
+              <>
+                <Divider orientation="left" plain>锻造属性</Divider>
+                <Typography.Text type="secondary">
+                  {formatEnhanceMaterialConfigSummary(detail.enhance_material_config ?? defaultEnhanceMaterialConfig())}
+                </Typography.Text>
+                {detail.enhance_material_config?.description ? (
+                  <RichTextDisplay value={detail.enhance_material_config.description} />
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Divider orientation="left" plain>使用效果</Divider>
+                <Table
+                  size="small"
+                  rowKey={(_record, index) => String(index)}
+                  columns={detailUseEffectColumns}
+                  dataSource={detailUseEffects}
+                  pagination={false}
+                  locale={{ emptyText: '尚未配置使用效果' }}
+                />
+              </>
+            )}
           </Space>
         )}
       </Drawer>
@@ -363,7 +430,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
             if (changedValues.item_type === 'box') {
               editorForm.setFieldsValue({
                 usable: true,
-                use_behavior: 'none',
+                use_effects: [],
                 gift_rewards: editorForm.getFieldValue('gift_rewards') ?? [],
                 item_sub_type: 'gift_box',
               });
@@ -432,13 +499,23 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
               <Form.Item
                 label="描述"
                 name="desc"
-                extra="支持 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+                extra="支持 BBCode 富文本与 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
               >
-                <Input.TextArea rows={3} />
+                <RichTextEditor rows={4} placeholder="例如：恢复HP [color=green]+300[/color]" />
               </Form.Item>
             </Col>
 
-            {isGiftBoxForm ? (
+            {isEnhanceMaterialForm ? (
+              <Col span={24}>
+                <Divider orientation="left" plain>锻造属性</Divider>
+                <Form.Item name="enhance_material_config">
+                  <EnhanceMaterialConfigEditor />
+                </Form.Item>
+                <Typography.Text type="secondary">
+                  子分类为「强化材料」时，客户端强化弹窗会按此处配置计算成功率与失败惩罚。
+                </Typography.Text>
+              </Col>
+            ) : isGiftBoxForm ? (
               <Col span={24}>
                 <Divider orientation="left" plain>礼包内容</Divider>
                 <Form.Item
@@ -459,24 +536,15 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
                 </Typography.Text>
               </Col>
             ) : (
-              <>
-                <Col xs={24} md={12}>
-                  <Form.Item label="使用行为" name="use_behavior">
-                    <Select options={ITEM_USE_BEHAVIOR_OPTIONS} />
-                  </Form.Item>
-                </Col>
-                {showUseAmount ? (
-                  <Col xs={24} md={12}>
-                    <Form.Item
-                      label={watchedUseBehavior === 'pet_hp_restore' ? '恢复数值' : '扩容格数'}
-                      name="use_amount"
-                      rules={[{ required: true, message: '请输入效果数值' }]}
-                    >
-                      <InputNumber min={1} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                ) : null}
-              </>
+              <Col span={24}>
+                <Divider orientation="left" plain>使用效果</Divider>
+                <Form.Item name="use_effects">
+                  <ConsumableEffectEditor />
+                </Form.Item>
+                <Typography.Text type="secondary">
+                  支持配置多条效果；单条旧版行为（如宠物回血、背包扩容）保存时仍兼容现有服务端 effect_type。
+                </Typography.Text>
+              </Col>
             )}
 
             <Col xs={12} md={6}><Form.Item label="可使用" name="usable" valuePropName="checked"><Switch disabled={isGiftBoxForm} /></Form.Item></Col>
@@ -527,8 +595,8 @@ function defaultItemValues(itemID: number): ItemEditorFormValues {
     recycle_price_copper: 0,
     price_type: 'base_coin',
     is_enabled: true,
-    use_behavior: 'none',
-    use_amount: 1,
+    use_effects: [],
     gift_rewards: [],
+    enhance_material_config: defaultEnhanceMaterialConfig(),
   };
 }

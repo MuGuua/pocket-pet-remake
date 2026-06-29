@@ -1,4 +1,4 @@
-import { fetchAdminSkillDefinitions } from '../services/skillDefinition';
+import { fetchAllAdminSkillDefinitions } from '../services/skillDefinition';
 
 // SkillReferenceMap 缓存 skill_id 与 skill_name 的双向映射，供后台技能展示与录入。
 export interface SkillReferenceMap {
@@ -11,12 +11,12 @@ const emptySkillReferenceMap: SkillReferenceMap = {
   nameToId: {},
 };
 
-// loadSkillReferenceMap 拉取系统技能模板，构建 id/name 映射表。
+// loadSkillReferenceMap 分页拉取全部系统技能模板，构建 id/name 映射表。
 export async function loadSkillReferenceMap(): Promise<SkillReferenceMap> {
-  const result = await fetchAdminSkillDefinitions({ page: 1, pageSize: 100 });
+  const items = await fetchAllAdminSkillDefinitions();
   const idToName: Record<number, string> = {};
   const nameToId: Record<string, number> = {};
-  for (const item of result.items) {
+  for (const item of items) {
     idToName[item.skill_id] = item.skill_name;
     nameToId[item.skill_name.trim()] = item.skill_id;
   }

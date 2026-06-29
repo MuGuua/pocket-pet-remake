@@ -3,8 +3,11 @@ import type {
   AdminSkillDetail,
   AdminSkillListFilters,
   AdminSkillListResult,
+  AdminSkillSummary,
   AdminUpsertSkillPayload,
 } from '../types/skillDefinition';
+
+const ADMIN_SKILL_LIST_PAGE_SIZE = 100;
 
 export async function fetchAdminSkillDefinitions(params: {
   filters?: AdminSkillListFilters;
@@ -17,9 +20,28 @@ export async function fetchAdminSkillDefinitions(params: {
   if (params.filters?.category?.trim()) query.set('category', params.filters.category.trim());
   if (params.filters?.skill_type?.trim()) query.set('skill_type', params.filters.skill_type.trim());
   if (params.filters?.enabled) query.set('enabled', params.filters.enabled);
+  if (params.filters?.order_by?.trim()) query.set('order_by', params.filters.order_by.trim());
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminSkillListResult>({ url: `/api/admin/skill-definitions?${query.toString()}`, method: 'GET' });
+}
+
+/** 分页拉取全部技能模板，避免列表接口单页上限导致名称映射缺失。 */
+export async function fetchAllAdminSkillDefinitions(filters?: AdminSkillListFilters): Promise<AdminSkillSummary[]> {
+  const items: AdminSkillSummary[] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await fetchAdminSkillDefinitions({
+      filters,
+      page,
+      pageSize: ADMIN_SKILL_LIST_PAGE_SIZE,
+    });
+    items.push(...result.items);
+    total = result.total;
+    page += 1;
+  } while (items.length < total);
+  return items;
 }
 
 export async function fetchAdminSkillDefinitionDetail(skillID: number): Promise<AdminSkillDetail> {

@@ -143,6 +143,32 @@ func (r *SkillRepository) MapUsableSkillIDs(_ context.Context, skillIDs []uint32
 	return result, nil
 }
 
+func (r *SkillRepository) MapSkillCategoriesByIDs(_ context.Context, skillIDs []uint32) (map[uint32]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make(map[uint32]string, len(skillIDs))
+	for _, skillID := range skillIDs {
+		current, ok := r.definitions[skillID]
+		if ok {
+			result[skillID] = current.SkillCategory
+		}
+	}
+	return result, nil
+}
+
+func (r *SkillRepository) MapSkillWeaponDisciplinesByIDs(_ context.Context, skillIDs []uint32) (map[uint32]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make(map[uint32]string, len(skillIDs))
+	for _, skillID := range skillIDs {
+		current, ok := r.definitions[skillID]
+		if ok {
+			result[skillID] = current.WeaponDiscipline
+		}
+	}
+	return result, nil
+}
+
 func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) skill.AdminDetail {
 	statusText := "停用"
 	if input.IsEnabled {
@@ -150,7 +176,9 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 	}
 	return skill.AdminDetail{
 		SkillID: input.SkillID, SkillCode: input.SkillCode, SkillName: input.SkillName,
-		SkillCategory: input.SkillCategory, SkillType: input.SkillType,
+		SkillCategory: input.SkillCategory, WeaponDiscipline: input.WeaponDiscipline,
+		LearnExpRequired: input.LearnExpRequired, LearnExpPerUse: input.LearnExpPerUse,
+		SkillType: input.SkillType,
 		Description: input.Description, AcquireMethod: input.AcquireMethod,
 		IsBasicAttack: input.IsBasicAttack, IsEnabled: input.IsEnabled, StatusText: statusText, SortWeight: input.SortWeight,
 		TargetRule: skill.AdminTargetRule{TargetType: input.TargetType, TargetCount: input.TargetCount, PreferredTargetHP: input.PreferredTargetHP},
@@ -186,7 +214,9 @@ func adminSummaryFromSkillDetail(detail skill.AdminDetail) skill.AdminSummary {
 
 func runtimeFromSkillDetail(detail skill.AdminDetail) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
-		SkillID: detail.SkillID, SkillName: detail.SkillName,
+		SkillID: detail.SkillID, SkillType: detail.SkillType, SkillCategory: detail.SkillCategory, WeaponDiscipline: detail.WeaponDiscipline,
+		LearnExpRequired: detail.LearnExpRequired, LearnExpPerUse: detail.LearnExpPerUse,
+		SkillName: detail.SkillName,
 		TargetType: detail.TargetRule.TargetType, TargetCount: detail.TargetRule.TargetCount, PreferredTargetHP: detail.TargetRule.PreferredTargetHP,
 		AnimationKey: detail.Presentation.AnimationKey, SkillVisualID: detail.Presentation.SkillVisualID, CastColor: detail.Presentation.CastColor, ImpactColor: detail.Presentation.ImpactColor, Projectile: detail.Presentation.Projectile,
 		IsSkillAttack: detail.Formula.IsSkillAttack, EnergyCost: detail.Formula.EnergyCost,

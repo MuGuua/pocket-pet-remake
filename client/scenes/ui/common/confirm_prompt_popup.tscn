@@ -62,6 +62,38 @@ text = "正文内容"
 fit_content = true
 scroll_active = false
 
+[node name="QuantityRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1849205511]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205512 instance=ExtResource("3_action_btn")]
+unique_name_in_owner = true
+layout_mode = 2
+button_label = "-"
+
+[node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205513]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
+theme_override_font_sizes/font_size = 10
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="QuantityIncreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205514 instance=ExtResource("3_action_btn")]
+unique_name_in_owner = true
+layout_mode = 2
+button_label = "+"
+
+[node name="QuantityMaxButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205515 instance=ExtResource("3_action_btn")]
+unique_name_in_owner = true
+layout_mode = 2
+button_label = "最大"
+
 [node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=283968727]
 layout_mode = 2
 theme_override_constants/separation = 8

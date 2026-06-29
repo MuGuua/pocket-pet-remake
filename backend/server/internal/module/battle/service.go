@@ -58,6 +58,9 @@ type activeBattle struct {
 	commandDeadline      time.Time
 	stateHistory         []StateSnapshot
 	monsterService       *monster.Service
+	characterSkillInput  CharacterBattleSkillInput
+	skillProgressStates  map[uint32]*battleSkillProgressState
+	initialEnemyCount    uint32
 }
 
 type actorRuntime struct {
@@ -84,6 +87,8 @@ type actorRuntime struct {
 	hitPct        uint32
 	dodgeRatePct  uint32
 	skillIDs      []uint32
+	skillLevels   map[uint32]uint32
+	learningWeaponSkills map[uint32]struct{}
 	critRatePct   uint32
 	critDmgPct    uint32
 	statuses      map[uint32]*statusRuntime
@@ -129,6 +134,8 @@ type actorRuntime struct {
 	statusArmorBroken        bool
 	statusSpeedMultiplierPct uint32
 	statusCritRateBonusPct   uint32
+	statusResistBlessingBonus uint32
+	statusDerived             statusDerivedModifiers
 
 	// Passive fields are runtime-owned so later pet templates, buffs, or gear
 	// can modify them without changing the combat flow entry points again.
@@ -140,12 +147,14 @@ type actorRuntime struct {
 	reviveHPPct   uint32
 	controlImmune bool
 	reviveUsed    bool
+	reflectPct    uint32
 }
 
 type statusRuntime struct {
 	statusID       uint32
 	remainingRound uint32
 	potency        int32
+	modifiers      statusModifierProfile
 }
 
 // combatAttributeTemplate centralizes the non-persistent runtime-facing battle
@@ -241,7 +250,7 @@ func (s *Service) IsPlayerInActiveBattle(playerID uint64) bool {
 
 const pvpChallengeTimeout = 30 * time.Second
 
-func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity) (*StartSnapshot, error) {
+func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, enemy world.Entity, characterSkills CharacterBattleSkillInput) (*StartSnapshot, error) {
 	if profile == nil {
 		return nil, ErrTargetUnavailable
 	}
@@ -267,7 +276,7 @@ func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup 
 		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
 		// 单人 PVE 现在始终由人物作为我方权威入口开战，宠物编队再按原顺序追加，
 		// 这样客户端和服务端都能围绕同一个人物 actor 组织后续动作与表现。
-		allies:         buildSoloPVEAllies(profile, lineup),
+		allies:         buildSoloPVEAllies(profile, lineup, characterSkills),
 		enemies:        s.buildEnemyTeam(ctx, profile, enemy),
 		plannedActs:    make(map[uint64]ActionRequest),
 		monsterService: s.monsterService,
@@ -277,13 +286,15 @@ func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup 
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
 	}
+	battle.initialEnemyCount = uint32(len(battle.enemies))
 
+	battle.initSkillProgressTracker(characterSkills, mergePlayerCharacterSkills(profile, characterSkills))
 	s.activeByPlayer[profile.PlayerID] = battle
 	return battle.toStartSnapshot(), nil
 }
 
 // StartPVEWildEncounter 在客户端暗雷上报通过后，按 scene_id 解析刷怪并开启 PVE。
-func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, encounter *monster.RuntimeWildEncounter) (*StartSnapshot, error) {
+func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, encounter *monster.RuntimeWildEncounter, characterSkills CharacterBattleSkillInput) (*StartSnapshot, error) {
 	if profile == nil || encounter == nil || len(encounter.Slots) == 0 {
 		return nil, ErrWildEncounterUnavailable
 	}
@@ -313,7 +324,7 @@ func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Pro
 		participantPlayerIDs: []uint64{profile.PlayerID},
 		returnSceneID:        profile.SceneID,
 		returnPos:            world.Vec2i{X: profile.PosX, Y: profile.PosY},
-		allies:               buildSoloPVEAllies(profile, lineup),
+		allies:               buildSoloPVEAllies(profile, lineup, characterSkills),
 		enemies:              s.buildEnemyTeamFromSlots(ctx, profile, virtualEnemy, encounter.Slots),
 		plannedActs:          make(map[uint64]ActionRequest),
 		monsterService:       s.monsterService,
@@ -323,13 +334,15 @@ func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Pro
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
 	}
+	battle.initialEnemyCount = uint32(len(battle.enemies))
 
+	battle.initSkillProgressTracker(characterSkills, mergePlayerCharacterSkills(profile, characterSkills))
 	s.activeByPlayer[profile.PlayerID] = battle
 	return battle.toStartSnapshot(), nil
 }
 
 // StartPVEWildEncounterByScene 校验 scene_id 对应暗雷配置后开战。
-func (s *Service) StartPVEWildEncounterByScene(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, sceneID uint32) (*StartSnapshot, error) {
+func (s *Service) StartPVEWildEncounterByScene(ctx context.Context, profile *player.Profile, lineup []pet.LineupPet, sceneID uint32, characterSkills CharacterBattleSkillInput) (*StartSnapshot, error) {
 	if s.monsterService == nil || sceneID == 0 {
 		return nil, ErrWildEncounterUnavailable
 	}
@@ -337,7 +350,7 @@ func (s *Service) StartPVEWildEncounterByScene(ctx context.Context, profile *pla
 	if err != nil {
 		return nil, err
 	}
-	return s.StartPVEWildEncounter(ctx, profile, lineup, encounter)
+	return s.StartPVEWildEncounter(ctx, profile, lineup, encounter, characterSkills)
 }
 
 // StartPVP creates one shared authoritative battle for two online players.
@@ -1200,7 +1213,7 @@ func (a *actorRuntime) initRuntimeDefaults() {
 // buildPlayerCharacterActor is not wired into the current StartPVE flow yet,
 // but landing it now gives the upcoming solo-character PVE work one stable
 // service-side entry point instead of mixing character stats into pet builders.
-func buildPlayerCharacterActor(profile *player.Profile, actorType uint32) *actorRuntime {
+func buildPlayerCharacterActor(profile *player.Profile, actorType uint32, input CharacterBattleSkillInput) *actorRuntime {
 	if profile == nil {
 		return nil
 	}
@@ -1209,16 +1222,18 @@ func buildPlayerCharacterActor(profile *player.Profile, actorType uint32) *actor
 	if skinID == "" {
 		skinID = player.DefaultPlayerSkinID
 	}
+	merged := mergePlayerCharacterSkills(profile, input)
 	actor := &actorRuntime{
-		actorID:       profile.PlayerID,
-		actorType:     actorType,
-		unitClass:     ActorUnitClassCharacter,
-		ownerPlayerID: profile.PlayerID,
-		skinID:        skinID,
-		name:          profile.Name,
-		level:         maxUint32(profile.Level, 1),
-		// 人物技能优先从持久化玩家档案读取；只有旧数据尚未迁移时才回退到默认模板。
-		skillIDs: playerCharacterSkillIDs(profile),
+		actorID:              profile.PlayerID,
+		actorType:            actorType,
+		unitClass:            ActorUnitClassCharacter,
+		ownerPlayerID:        profile.PlayerID,
+		skinID:               skinID,
+		name:                 profile.Name,
+		level:                maxUint32(profile.Level, 1),
+		skillIDs:             merged.SkillIDs,
+		skillLevels:          merged.SkillLevels,
+		learningWeaponSkills: merged.LearningSkillIDs,
 	}
 	actor.initRuntimeDefaults()
 	actor.applyCombatTemplate(attributes)
@@ -1251,9 +1266,9 @@ func playerCharacterSkillIDs(profile *player.Profile) []uint32 {
 	return append([]uint32{}, profile.SkillIDs...)
 }
 
-func buildSoloPVEAllies(profile *player.Profile, lineup []pet.LineupPet) []*actorRuntime {
+func buildSoloPVEAllies(profile *player.Profile, lineup []pet.LineupPet, input CharacterBattleSkillInput) []*actorRuntime {
 	allies := make([]*actorRuntime, 0, len(lineup)+1)
-	if characterActor := buildPlayerCharacterActor(profile, PlayerActorType); characterActor != nil {
+	if characterActor := buildPlayerCharacterActor(profile, PlayerActorType, input); characterActor != nil {
 		allies = append(allies, characterActor)
 	}
 	allies = append(allies, buildPlayerTeam(profile, lineup, PlayerActorType)...)
@@ -1287,6 +1302,7 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 		if item.HPMax > 0 {
 			actor.hpMax = item.HPMax
 		}
+		ensureBattleReadyPetActor(actor)
 		if item.SpiritMax > 0 {
 			actor.spiritMax = item.SpiritMax
 			if item.Spirit > 0 {
@@ -1299,6 +1315,24 @@ func buildPlayerTeam(profile *player.Profile, lineup []pet.LineupPet, actorType 
 		configurePassiveProfile(actor)
 	}
 	return allies
+}
+
+// ensureBattleReadyPetActor 修正进入战斗时的 0 血状态，避免宠物仅展示形象却无法下达指令。
+func ensureBattleReadyPetActor(actor *actorRuntime) {
+	if actor == nil {
+		return
+	}
+	if actor.hpMax == 0 && actor.hp > 0 {
+		actor.hpMax = actor.hp
+	}
+	if actor.hpMax > 0 && actor.hp == 0 {
+		actor.hp = actor.hpMax
+		return
+	}
+	if actor.hpMax == 0 {
+		actor.hpMax = 1
+		actor.hp = 1
+	}
 }
 
 func (s *Service) buildEnemyTeam(ctx context.Context, profile *player.Profile, enemy world.Entity) []*actorRuntime {
@@ -1409,9 +1443,10 @@ func configurePassiveProfile(actor *actorRuntime) {
 	if actor == nil {
 		return
 	}
-	// The current project does not have a full passive repository yet, so we use
-	// small deterministic demo profiles to validate the server-authoritative
-	// passive pipeline before data-driven passive loading lands.
+	if applySkillPassives(actor) {
+		return
+	}
+	// 兼容旧演示宠物：未配置数据库被动时仍走硬编码样例。
 	switch actor.petID {
 	case 101:
 		actor.lifestealPct = 12
@@ -1530,6 +1565,7 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 	}
 	actor := decision.actor
 	action := decision.action
+	requestedSkillID := action.SkillID
 	skillID := action.SkillID
 	if skillID == 0 || !actor.hasSkill(skillID) || actor.hasStatus(StatusSeal) {
 		skillID = DefaultAttackSkillID
@@ -1539,12 +1575,15 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skillID = DefaultAttackSkillID
 		skill, _ = getSkillDef(skillID)
 	}
+	if skill.isPassiveSkill() {
+		return nil
+	}
 	if skill.EnergyCost > 0 && !actor.canSpendSpirit(skill.EnergyCost) {
 		skillID = DefaultAttackSkillID
 		skill, _ = getSkillDef(skillID)
 	}
 	target := b.resolveDecisionTarget(actor, action.TargetID, skill)
-	if target == nil && skill.TargetRule != targetEnemyAll {
+	if target == nil && skill.TargetRule != targetEnemyAll && skill.TargetRule != targetAllyAll && !skill.isHealSkill() && !skill.prefersRandomMultiTarget() {
 		return nil
 	}
 	if b.hasWinner() {
@@ -1565,32 +1604,11 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		SkillID:   skillID,
 		Label:     fmt.Sprintf("%s 使用了 %s。", actor.name, skill.Name),
 	}}
+	b.recordWeaponSkillUse(actor, requestedSkillID, skillID)
+	events = append(events, b.applyOnCastSelfBuffs(actor, skillID, skill)...)
 
-	if skill.HealPct > 0 {
-		healValue := calculateHealAmount(actor.effectiveStats(), skill)
-		restored := target.restoreHP(healValue)
-		events = append(events, Event{
-			EventType: EventTypeHeal,
-			SourceID:  actor.actorID,
-			TargetID:  target.actorID,
-			SkillID:   skillID,
-			Value:     restored,
-			Label:     fmt.Sprintf("%s 恢复了 %d 点生命。", target.name, restored),
-		})
-		if !target.isDead() && skill.CritBoostRounds > 0 && skill.CritBoostPct > 0 {
-			if target.applyStatus(StatusCritBoost, skill.CritBoostRounds, int32(skill.CritBoostPct)) {
-				events = append(events, Event{
-					EventType: EventTypeApplyStatus,
-					SourceID:  actor.actorID,
-					TargetID:  target.actorID,
-					SkillID:   skillID,
-					StateID:   StatusCritBoost,
-					Value:     int32(skill.CritBoostPct),
-					Label:     fmt.Sprintf("%s 的暴击率提升了 %d%%。", target.name, skill.CritBoostPct),
-				})
-			}
-		}
-		return events
+	if skill.isHealSkill() {
+		return append(events, b.resolveHealSkill(actor, target, skillID, skill)...)
 	}
 	if skill.TargetRule == targetEnemyAll && target == nil {
 		for _, multiTarget := range b.resolveAllEnemyTargets(actor) {
@@ -1601,8 +1619,9 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		}
 		return events
 	}
-	if skill.TargetRule == targetEnemyMulti && target != nil {
-		for _, multiTarget := range b.resolveMultiEnemyTargets(actor, target, skill.TargetCount) {
+	if skill.TargetRule == targetEnemyMulti && (target != nil || skill.prefersRandomMultiTarget()) {
+		multiTargets := b.resolveMultiEnemyTargets(actor, target, skill)
+		for _, multiTarget := range multiTargets {
 			if b.hasWinner() {
 				break
 			}
@@ -1611,6 +1630,89 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		return events
 	}
 	events = append(events, b.resolveDamageSkill(actor, target, skillID, skill, true, true, true)...)
+	return events
+}
+
+// resolveHealSkill 结算治疗类技能，支持单体/全体队友与施法后自我增益。
+func (b *activeBattle) resolveHealSkill(actor *actorRuntime, target *actorRuntime, skillID uint32, skill skillDef) []Event {
+	if actor == nil {
+		return nil
+	}
+
+	targets := make([]*actorRuntime, 0, 4)
+	switch skill.TargetRule {
+	case targetAllyAll:
+		targets = b.resolveAllAllyTargets(actor)
+	case targetSelf:
+		targets = []*actorRuntime{actor}
+	case targetAllySingle:
+		if target != nil {
+			targets = []*actorRuntime{target}
+		} else if skill.PreferredTargetHP == "lowest" {
+			targets = []*actorRuntime{b.lowestHPActor(b.resolveAllAllyTargets(actor))}
+		}
+	default:
+		if target != nil {
+			targets = []*actorRuntime{target}
+		} else {
+			targets = []*actorRuntime{actor}
+		}
+	}
+
+	events := make([]Event, 0, len(targets)+2)
+	casterStats := actor.effectiveStats()
+	for _, healTarget := range targets {
+		if healTarget == nil || healTarget.isDead() {
+			continue
+		}
+		healValue := calculateHealAmount(casterStats, skill)
+		restored := healTarget.restoreHP(healValue)
+		if restored <= 0 {
+			continue
+		}
+		events = append(events, Event{
+			EventType: EventTypeHeal,
+			SourceID:  actor.actorID,
+			TargetID:  healTarget.actorID,
+			SkillID:   skillID,
+			Value:     restored,
+			Label:     fmt.Sprintf("%s 恢复了 %d 点生命。", healTarget.name, restored),
+		})
+	}
+	return events
+}
+
+// applyOnCastSelfBuffs 处理施法瞬间作用于自身的数值增益（如光之洗礼抗性、霞光加速、冷血抗性）。
+func (b *activeBattle) applyOnCastSelfBuffs(actor *actorRuntime, skillID uint32, skill skillDef) []Event {
+	if actor == nil {
+		return nil
+	}
+	events := make([]Event, 0, 2)
+	if skill.ControlStatusID == StatusResistBlessing && skill.ControlRounds > 0 {
+		profile := defaultStatusProfile(StatusResistBlessing)
+		potency := int32(skill.ControlPower)
+		if potency <= 0 {
+			potency = 200
+		}
+		if actor.applyStatusWithProfile(StatusResistBlessing, skill.ControlRounds, potency, profile) {
+			actor.refreshStatusDerivedModifiers()
+			events = append(events, Event{
+				EventType: EventTypeApplyStatus,
+				SourceID:  actor.actorID,
+				TargetID:  actor.actorID,
+				SkillID:   skillID,
+				StateID:   StatusResistBlessing,
+				Value:     potency,
+				Label:     actor.name + statusApplyLabel(StatusResistBlessing),
+			})
+		}
+	}
+	if strings.HasPrefix(skill.Name, "霞光") && skill.SpeedPct > 0 {
+		actor.speedFlatBonus += int32(skill.SpeedPct)
+	}
+	if strings.HasPrefix(skill.Name, "冷血") && skill.SealPower > 0 {
+		addAllStatusResist(actor, skill.SealPower)
+	}
 	return events
 }
 
@@ -1623,7 +1725,23 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 	// Evasion is checked on the authoritative server before any damage, on-hit
 	// status, lifesteal, or counter logic so later passive layers share one
 	// consistent "attack connected or not" branch.
-	if dodgeChancePct := b.calculateDodgeChancePct(actor, target); dodgeChancePct > 0 && b.rollChance(dodgeChancePct, target.actorID+83, actor.actorID+89) {
+	if skill.isJudgmentSkill() && skill.ControlChancePct > 0 {
+		if b.rollChance(skill.ControlChancePct, actor.actorID+119, target.actorID+127) {
+			healAmount := maxInt32(int32(target.hpMax)*15/100, 1)
+			restored := target.restoreHP(healAmount)
+			return []Event{{
+				EventType: EventTypeDodge,
+				SourceID:  actor.actorID,
+				TargetID:  target.actorID,
+				SkillID:   skillID,
+				Value:     restored,
+				Label:     fmt.Sprintf("%s 使用 %s 失手了，%s 恢复了 %d 点生命。", actor.name, skill.Name, target.name, restored),
+			}}
+		}
+	}
+	if skill.isGuaranteedHit() {
+		// 必中技能跳过闪避判定。
+	} else if dodgeChancePct := b.calculateDodgeChancePct(actor, target, skill.SkillCritAdd); dodgeChancePct > 0 && b.rollChance(dodgeChancePct, target.actorID+83, actor.actorID+89) {
 		return []Event{{
 			EventType: EventTypeDodge,
 			SourceID:  target.actorID,
@@ -1676,6 +1794,48 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 				Value:     restored,
 				Label:     fmt.Sprintf("%s 通过吸血恢复了 %d 点生命。", actor.name, restored),
 			})
+		}
+	}
+
+	if skill.isSoulDevourSkill() && skill.ControlPower > 0 && !target.isDead() {
+		drained := target.spendSpirit(skill.ControlPower)
+		if drained > 0 {
+			events = append(events, Event{
+				EventType: EventTypeUseSkill,
+				SourceID:  actor.actorID,
+				TargetID:  target.actorID,
+				SkillID:   skillID,
+				Value:     int32(drained),
+				Label:     fmt.Sprintf("%s 被噬魂吸走了 %d 点精力。", target.name, drained),
+			})
+		}
+	}
+
+	if actualDamage > 0 && target.reflectPct > 0 && !actor.isDead() {
+		reflectDamage := maxInt32(int32(actualDamage)*int32(target.reflectPct)/100, 1)
+		reflected := actor.applyDamage(reflectDamage)
+		if reflected > 0 {
+			events = append(events, Event{
+				EventType: EventTypeDamage,
+				SourceID:  target.actorID,
+				TargetID:  actor.actorID,
+				SkillID:   skillID,
+				Value:     reflectDamage,
+				Label:     fmt.Sprintf("%s 的刺甲反弹了 %d 点伤害。", target.name, reflected),
+			})
+			if actor.isDead() {
+				if b.tryRevive(actor, &events, target.actorID, skillID) {
+					// 反弹致死时仍允许涅槃等复活被动介入。
+				} else {
+					events = append(events, Event{
+						EventType: EventTypeDefeat,
+						SourceID:  target.actorID,
+						TargetID:  actor.actorID,
+						SkillID:   skillID,
+						Label:     actor.name + " 倒下了。",
+					})
+				}
+			}
 		}
 	}
 
@@ -1796,15 +1956,16 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 			})
 		}
 	}
-	if chancePct := resolveControlApplyChance(skill.ControlChancePct, skill.ControlPower, target.statusResistPct(skill.ControlStatusID)); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
-		if target.applyStatus(skill.ControlStatusID, skill.ControlRounds, 0) {
+	if chancePct := resolveSignatureStatusApplyChance(skill.ControlChancePct, skill.ControlPower, statusApplyResistPct(target, skill.ControlStatusID)); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
+		profile := defaultStatusProfile(skill.ControlStatusID)
+		if target.applyStatusWithProfile(skill.ControlStatusID, skill.ControlRounds, 0, profile) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
 				SourceID:  actor.actorID,
 				TargetID:  target.actorID,
 				SkillID:   skillID,
 				StateID:   skill.ControlStatusID,
-				Label:     target.name + controlStatusApplyLabel(skill.ControlStatusID),
+				Label:     target.name + statusApplyLabel(skill.ControlStatusID),
 			})
 		}
 	}
@@ -1904,6 +2065,9 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 	if win && b.battleType == BattleTypePVE {
 		rewardGold, rewardPlayerExp, rewardPetExp, dropItems, dropTexts = b.buildPVERewards()
 	}
+	if win {
+		b.finalizeSkillProgressOnWin()
+	}
 	for _, actor := range b.allies {
 		// 结算持久化仍然只写回真实宠物，人物 actor 的生命与奖励由玩家档案单独承担。
 		if actor == nil || actor.petUID == 0 {
@@ -1928,6 +2092,7 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 		RewardPlayerExp:      rewardPlayerExp,
 		DropItems:            append([]DropReward{}, dropItems...),
 		DropTexts:            append([]string{}, dropTexts...),
+		SkillProgressUpdates: b.collectSkillProgressUpdates(),
 	}
 }
 
@@ -2161,11 +2326,20 @@ func (b *activeBattle) normalizeRequestedTarget(actor *actorRuntime, targetID ui
 }
 
 func (b *activeBattle) resolveSkillTarget(actor *actorRuntime, targetID uint64, skill skillDef) *actorRuntime {
+	if skill.TargetRule == targetSelf {
+		return actor
+	}
 	if skill.TargetRule == targetAllySingle {
+		if skill.PreferredTargetHP == "lowest" {
+			return b.lowestHPActor(b.resolveAllAllyTargets(actor))
+		}
 		if actor.actorType == PlayerActorType {
 			return b.findLivingActorFromList(b.allies, targetID)
 		}
 		return b.findLivingActorFromList(b.enemies, targetID)
+	}
+	if skill.TargetRule == targetAllyAll {
+		return nil
 	}
 	if skill.TargetRule == targetEnemyAll {
 		return nil
@@ -2177,12 +2351,32 @@ func (b *activeBattle) resolveSkillTarget(actor *actorRuntime, targetID uint64, 
 }
 
 func (b *activeBattle) resolveDecisionTarget(actor *actorRuntime, targetID uint64, skill skillDef) *actorRuntime {
-	// Confusion is resolved server-side right before execution so the client
-	// cannot predict or override the forced random target.
-	if actor.hasStatus(StatusConfusion) {
+	if actor.isConfused() {
 		return b.randomConfusionTarget(actor)
 	}
+	if skill.isRampageSkill() {
+		return b.randomEnemyTarget(actor)
+	}
 	return b.resolveSkillTarget(actor, targetID, skill)
+}
+
+func (b *activeBattle) resolveAllAllyTargets(actor *actorRuntime) []*actorRuntime {
+	if actor == nil {
+		return nil
+	}
+	if actor.actorType == PlayerActorType {
+		return b.livingActors(b.allies)
+	}
+	return b.livingActors(b.enemies)
+}
+
+func (b *activeBattle) randomEnemyTarget(actor *actorRuntime) *actorRuntime {
+	candidates := b.resolveAllEnemyTargets(actor)
+	if len(candidates) == 0 {
+		return nil
+	}
+	rng := rand.New(rand.NewSource(int64(b.battleID) + int64(b.round)*191 + int64(actor.actorID)))
+	return candidates[rng.Intn(len(candidates))]
 }
 
 func (b *activeBattle) resolveAllEnemyTargets(actor *actorRuntime) []*actorRuntime {
@@ -2195,12 +2389,16 @@ func (b *activeBattle) resolveAllEnemyTargets(actor *actorRuntime) []*actorRunti
 	return b.livingActors(b.allies)
 }
 
-func (b *activeBattle) resolveMultiEnemyTargets(actor *actorRuntime, primary *actorRuntime, count uint32) []*actorRuntime {
-	if actor == nil || primary == nil {
-		return nil
-	}
+func (b *activeBattle) resolveMultiEnemyTargets(actor *actorRuntime, primary *actorRuntime, skill skillDef) []*actorRuntime {
+	count := skill.TargetCount
 	if count == 0 {
 		count = 1
+	}
+	if skill.prefersRandomMultiTarget() {
+		return b.resolveRandomEnemyTargets(actor, count)
+	}
+	if actor == nil || primary == nil {
+		return nil
 	}
 	candidates := b.resolveAllEnemyTargets(actor)
 	if len(candidates) == 0 {
@@ -2222,6 +2420,22 @@ func (b *activeBattle) resolveMultiEnemyTargets(actor *actorRuntime, primary *ac
 		seen[candidate.actorID] = true
 	}
 	return result
+}
+
+func (b *activeBattle) resolveRandomEnemyTargets(actor *actorRuntime, count uint32) []*actorRuntime {
+	candidates := b.resolveAllEnemyTargets(actor)
+	if len(candidates) == 0 || count == 0 {
+		return nil
+	}
+	if uint32(len(candidates)) <= count {
+		return candidates
+	}
+	rng := rand.New(rand.NewSource(int64(b.battleID) + int64(b.round)*197 + int64(actor.actorID)))
+	shuffled := append([]*actorRuntime{}, candidates...)
+	rng.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+	return shuffled[:count]
 }
 
 func (b *activeBattle) findActor(actorID uint64) *actorRuntime {
@@ -2342,13 +2556,13 @@ func (b *activeBattle) rollChance(chancePct uint32, sourceID, targetID uint64) b
 // calculateDodgeChancePct resolves the final dodge branch from the newly added
 // hit and dodge attributes plus any passive dodge bonus already present on the
 // runtime. Hit directly subtracts from the target's dodge budget.
-func (b *activeBattle) calculateDodgeChancePct(attacker *actorRuntime, target *actorRuntime) uint32 {
+func (b *activeBattle) calculateDodgeChancePct(attacker *actorRuntime, target *actorRuntime, skillHitBonus uint32) uint32 {
 	if attacker == nil || target == nil {
 		return 0
 	}
 	attackerStats := attacker.effectiveStats()
 	targetStats := target.effectiveStats()
-	finalChance := int32(targetStats.DodgePct) + int32(target.dodgePct) - int32(attackerStats.HitPct)
+	finalChance := int32(targetStats.DodgePct) + int32(target.dodgePct) - int32(attackerStats.HitPct) - int32(skillHitBonus)
 	if finalChance < 0 {
 		return 0
 	}
@@ -2456,6 +2670,9 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 			if def.isBasicAttackSkill() {
 				continue
 			}
+			if def.isPassiveSkill() {
+				continue
+			}
 			skillSnapshots = append(skillSnapshots, SkillSnapshot{
 				SkillID:       skillID,
 				Name:          def.Name,
@@ -2467,6 +2684,7 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 				ImpactColor:   def.ImpactColor,
 				Projectile:    def.Projectile,
 				IsBasicAttack: def.isBasicAttackSkill(),
+				Level:         a.skillLevels[skillID],
 			})
 			continue
 		}
@@ -2547,6 +2765,11 @@ func (a *actorRuntime) effectiveSpeed() uint32 {
 }
 
 func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, _ uint64, _ uint32) (int32, bool) {
+	if skill.usesCompositePanelDamage() {
+		isAOE := skill.TargetRule == targetEnemyAll || skill.TargetRule == targetEnemyMulti
+		damage := calculateCompositeSkillDamage(a.effectiveStats(), target.effectiveStats(), skill, isAOE)
+		return damage, false
+	}
 	if !skill.usesPocketPanelScaling() && skill.FixedDamage > 0 {
 		damage := skill.FixedDamage
 		if damage < 1 {
@@ -2619,32 +2842,50 @@ func (a *actorRuntime) statusResistPct(statusID uint32) uint32 {
 	if a == nil {
 		return 0
 	}
+	base := uint32(0)
 	switch statusID {
 	case StatusConfusion:
-		return a.confusionResistPct
+		base = a.confusionResistPct
 	case StatusSleep:
-		return a.sleepResistPct
+		base = a.sleepResistPct
 	case StatusParalysis:
-		return a.paralysisResistPct
+		base = a.paralysisResistPct
 	case StatusSeal:
-		return a.sealResistPct
+		base = a.sealResistPct
 	case StatusCurse:
-		return a.curseResistPct
+		base = a.curseResistPct
 	default:
-		return 0
+		base = 0
 	}
+	return base + a.statusDerived.ResistBlessingBonus
+}
+
+func (a *actorRuntime) isConfused() bool {
+	return a.hasStatus(StatusConfusion) || a.hasStatus(StatusBloodConfusion)
 }
 
 func (a *actorRuntime) applyStatus(statusID uint32, rounds uint32, potency int32) bool {
+	return a.applyStatusWithProfile(statusID, rounds, potency, defaultStatusProfile(statusID))
+}
+
+func (a *actorRuntime) applyStatusWithProfile(statusID uint32, rounds uint32, potency int32, profile statusModifierProfile) bool {
 	if rounds == 0 || a.isDead() {
 		return false
 	}
 	if a.controlImmune && isControlStatus(statusID) {
 		return false
 	}
+	if profile.NonStackable && a.hasStatus(statusID) {
+		return false
+	}
 	current, exists := a.statuses[statusID]
 	if !exists || current.remainingRound <= rounds {
-		a.statuses[statusID] = &statusRuntime{statusID: statusID, remainingRound: rounds, potency: potency}
+		a.statuses[statusID] = &statusRuntime{
+			statusID:       statusID,
+			remainingRound: rounds,
+			potency:        potency,
+			modifiers:      profile,
+		}
 		a.refreshStatusDerivedModifiers()
 		return true
 	}
@@ -2716,7 +2957,9 @@ func controlStatusApplyLabel(statusID uint32) string {
 
 func isControlStatus(statusID uint32) bool {
 	switch statusID {
-	case StatusStun, StatusBind, StatusSleep, StatusParalysis, StatusConfusion, StatusSeal:
+	case StatusStun, StatusBind, StatusSleep, StatusParalysis, StatusConfusion, StatusSeal,
+		StatusHolyRepentance, StatusElectrified, StatusBloodConfusion,
+		StatusPhantomFlash, StatusCharmWind, StatusDemonPower:
 		return true
 	default:
 		return false
@@ -2724,34 +2967,13 @@ func isControlStatus(statusID uint32) bool {
 }
 
 func (a *actorRuntime) refreshStatusDerivedModifiers() {
-	// We rebuild all status-derived fields from the authoritative status map so
-	// status expiry and overwrite rules cannot leave stale battle modifiers on
-	// the actor runtime.
-	a.statusVulnerabilityPct = 0
-	a.statusArmorBroken = false
-	a.statusSpeedMultiplierPct = 100
-	a.statusCritRateBonusPct = 0
-	for _, status := range a.statuses {
-		if status == nil || status.remainingRound == 0 {
-			continue
-		}
-		switch status.statusID {
-		case StatusVulnerability:
-			a.statusVulnerabilityPct = maxUint32(a.statusVulnerabilityPct, uint32(maxInt32(status.potency, 0)))
-		case StatusArmorBreak:
-			a.statusArmorBroken = true
-		case StatusSlow:
-			slowMultiplierPct := uint32(maxInt32(status.potency, 0))
-			if slowMultiplierPct == 0 {
-				slowMultiplierPct = 100
-			}
-			if slowMultiplierPct < a.statusSpeedMultiplierPct {
-				a.statusSpeedMultiplierPct = slowMultiplierPct
-			}
-		case StatusCritBoost:
-			a.statusCritRateBonusPct = maxUint32(a.statusCritRateBonusPct, uint32(maxInt32(status.potency, 0)))
-		}
-	}
+	a.statusDerived = a.collectStatusDerivedModifiers()
+	// 兼容旧字段读取路径（逐步迁移到 statusDerived）。
+	a.statusVulnerabilityPct = a.statusDerived.VulnerabilityPct
+	a.statusArmorBroken = a.statusDerived.ArmorBroken
+	a.statusSpeedMultiplierPct = a.statusDerived.SpeedMultiplierPct
+	a.statusCritRateBonusPct = a.statusDerived.CritRateBonusPct
+	a.statusResistBlessingBonus = a.statusDerived.ResistBlessingBonus
 }
 
 func maxInt32(left int32, right int32) int32 {

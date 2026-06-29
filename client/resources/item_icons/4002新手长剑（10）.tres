@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemIconDefinition" format=3 uid="uid://c4q8gmk1nkvcb"]
+
+[ext_resource type="Script" uid="uid://bvosos6ibkn1g" path="res://scripts/ui/bag/item_icon_definition.gd" id="1_d11ix"]
+[ext_resource type="Texture2D" uid="uid://d4nffdrjjudbv" path="res://asset/分类/武器/pixel items0.png" id="2_5oc16"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_aff0f"]
+atlas = ExtResource("2_5oc16")
+region = Rect2(100, 196, 24, 24)
+
+[resource]
+script = ExtResource("1_d11ix")
+item_id = 4002
+static_texture = SubResource("AtlasTexture_aff0f")

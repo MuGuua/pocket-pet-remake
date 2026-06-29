@@ -64,7 +64,7 @@
 |------|------|
 | `player_equipment_slot` | 玩家已佩戴映射 |
 | `equipment_enhance_rule` | 强化每级属性增量（可按模板或品质复用） |
-| `equipment_enhance_success_config` | 强化目标等级 → 成功率（全局，见 §6.4） |
+| `equipment_enhance_success_config` | 穿戴等级段 + 强化目标等级 → 成功率（见 §6.4） |
 | `equipment_enhance_cost` | 强化材料消耗（按目标等级） |
 | `equipment_socket_config` | 模板镶嵌孔数量与允许宝石类型 |
 | `equipment_instance_socket` | 实例各孔当前嵌入物 |
@@ -262,11 +262,16 @@ piece = template.base_stats
 | 加成方式 | **线性**：每级固定增量，总加成 = 增量 × 当前等级 |
 | 实例字段 | `equipment_instance.enhance_level`（已有） |
 | 失败惩罚 | **等级不降**；已消耗材料不返还 |
-| 成功率 | 按 **目标强化等级** 查表（见 §6.4） |
+| 成功率 | 按 **穿戴等级段 + 目标强化等级** 查表（见 §6.4） |
 
 ### 6.4 强化成功率（已确认）
 
-从 `enhance_level = N-1` 强化到 `N` 的成功概率：
+从 `enhance_level = N-1` 强化到 `N` 的成功概率，需同时匹配：
+
+1. 装备 `required_level` 所属穿戴段（1~10、11~20、21~30…，每10级一段）
+2. 目标强化等级 N
+
+**1~10 级穿戴段默认成功率：**
 
 | 目标等级 N | 成功率 |
 |------------|--------|
@@ -286,7 +291,7 @@ piece = template.base_stats
 | +14 | 15% |
 | +15 | 10% |
 
-持久化到 `equipment_enhance_success_config(target_level, success_rate_pct)`，Admin 可微调；默认种子写入上表。
+持久化到 `equipment_enhance_success_config(target_level, required_level_min, success_rate_pct)`；后台 **物品模板 → 强化成功率** Tab 先选穿戴等级段再编辑（API：`GET /api/admin/equipment-enhance-success-configs?required_level_min=`、`PUT /api/admin/equipment-enhance-success-configs/{required_level_min}/{target_level}`）。迁移 `070` 会为 11~91 段生成默认种子（在 1~10 段基础上每升一段整体 -5%，下限 1%）。
 
 服务端 `Enhance` 流程：扣材料 → 掷骰 → 成功则 `enhance_level++` 并重算属性 → 响应 `{ success, new_level, rate_pct }`。
 
@@ -337,7 +342,7 @@ Admin 配置示例：
 
 1. **仅允许未佩戴状态**：实例 `state=bag`、不在 `player_equipment_slot`、且位于背包 `player_container_item`；已佩戴装备须先卸下。
 2. 校验 `can_enhance`、`enhance_level < max_enhance_level`、材料足够。
-3. 读取 `equipment_enhance_success_config[enhance_level+1]` 掷骰。
+3. 读取 `equipment_enhance_success_config[required_level_band_min, enhance_level+1]` 掷骰（缺失时回退 1~10 段，再回退代码默认）。
 4. 成功：`enhance_level++`；失败：等级不变（**不掉级**）。强化本身不重算玩家属性，佩戴/卸下时再重算。
 5. 材料无论成败均消耗（除非模板配置保护符，二期）。
 

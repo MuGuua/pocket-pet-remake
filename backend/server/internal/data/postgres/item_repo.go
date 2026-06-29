@@ -229,11 +229,33 @@ func (r *ItemRepository) FindAdminDetailByItemID(ctx context.Context, itemID uin
 	if err != nil {
 		return nil, err
 	}
+	if detail != nil && strings.EqualFold(detail.ItemSubType, "equipment_enhance") {
+		cfg, loadErr := loadAdminEnhanceMaterialConfig(ctx, r.db, itemID)
+		if loadErr != nil {
+			return nil, loadErr
+		}
+		if cfg == nil {
+			defaultCfg := item.DefaultAdminEnhanceMaterialConfig()
+			detail.EnhanceMaterialConfig = &defaultCfg
+		} else {
+			detail.EnhanceMaterialConfig = cfg
+		}
+	}
 	return detail, nil
 }
 
 func (r *ItemRepository) CreateForAdmin(ctx context.Context, input item.AdminUpsertItemInput) (*item.AdminItemDetail, error) {
-	if _, err := r.db.ExecContext(ctx, insertAdminItemQuery,
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(tx)
+
+	if _, err := tx.ExecContext(ctx, insertAdminItemQuery,
 		input.ItemID, input.ItemCode, input.ItemName, input.ItemType, input.ItemSubType,
 		input.Quality, input.Rarity, input.Icon, input.Desc, input.MaxStack, input.OccupySlots,
 		input.AutoMerge, input.SortWeight, input.Usable, input.UseScope, input.TargetType,
@@ -247,11 +269,27 @@ func (r *ItemRepository) CreateForAdmin(ctx context.Context, input item.AdminUps
 		}
 		return nil, err
 	}
+	if err := syncAdminEnhanceMaterialConfig(ctx, tx, input.ItemID, input.ItemSubType, input.EnhanceMaterialConfig); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return r.FindAdminDetailByItemID(ctx, input.ItemID)
 }
 
 func (r *ItemRepository) UpdateForAdmin(ctx context.Context, itemID uint64, input item.AdminUpsertItemInput) (*item.AdminItemDetail, error) {
-	result, err := r.db.ExecContext(ctx, updateAdminItemQuery,
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(tx)
+
+	result, err := tx.ExecContext(ctx, updateAdminItemQuery,
 		itemID, input.ItemCode, input.ItemName, input.ItemType, input.ItemSubType,
 		input.Quality, input.Rarity, input.Icon, input.Desc, input.MaxStack, input.OccupySlots,
 		input.AutoMerge, input.SortWeight, input.Usable, input.UseScope, input.TargetType,
@@ -272,6 +310,12 @@ func (r *ItemRepository) UpdateForAdmin(ctx context.Context, itemID uint64, inpu
 	}
 	if rowsAffected == 0 {
 		return nil, item.ErrItemDefinitionNotFound
+	}
+	if err := syncAdminEnhanceMaterialConfig(ctx, tx, itemID, input.ItemSubType, input.EnhanceMaterialConfig); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return r.FindAdminDetailByItemID(ctx, itemID)
 }
@@ -404,15 +448,47 @@ func loadItemNamesByIDs(ctx context.Context, db DBTX, itemIDs []uint64) (map[uin
 	return names, nil
 }
 
-// buildRuntimeDescriptionMentions 解析介绍文案中的 {item:ID} 并补齐服务端权威名称。
+const runtimePetNameByIDQuery = `
+SELECT COALESCE(pet_name, '')
+FROM pet_definition
+WHERE pet_id = $1
+LIMIT 1
+`
+
+// loadPetNamesByIDs 批量读取宠物模板名称，供介绍文案中的 {pet:ID} 占位符解析。
+func loadPetNamesByIDs(ctx context.Context, db DBTX, petIDs []uint64) (map[uint64]string, error) {
+	names := make(map[uint64]string, len(petIDs))
+	for _, petID := range petIDs {
+		if petID == 0 {
+			continue
+		}
+		var petName string
+		err := db.QueryRowContext(ctx, runtimePetNameByIDQuery, petID).Scan(&petName)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		names[petID] = petName
+	}
+	return names, nil
+}
+
+// buildRuntimeDescriptionMentions 解析介绍文案中的 {item:ID}/{pet:ID} 并补齐服务端权威名称。
 func buildRuntimeDescriptionMentions(ctx context.Context, db DBTX, description string) ([]item.DescriptionMention, error) {
 	itemIDs := item.ExtractMentionItemIDs(description)
-	if len(itemIDs) == 0 {
+	petIDs := item.ExtractMentionPetIDs(description)
+	if len(itemIDs) == 0 && len(petIDs) == 0 {
 		return nil, nil
 	}
-	names, err := loadItemNamesByIDs(ctx, db, itemIDs)
+	itemNames, err := loadItemNamesByIDs(ctx, db, itemIDs)
 	if err != nil {
 		return nil, err
 	}
-	return item.BuildDescriptionMentions(description, names), nil
+	petNames, err := loadPetNamesByIDs(ctx, db, petIDs)
+	if err != nil {
+		return nil, err
+	}
+	return item.BuildDescriptionMentions(description, itemNames, petNames), nil
 }

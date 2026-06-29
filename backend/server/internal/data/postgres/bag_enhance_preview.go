@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/bag"
+	"pocket-pet-remake/server/internal/module/equipment"
 )
 
 const runtimeBagOwnedItemQuantityQuery = `
@@ -86,13 +87,22 @@ func buildRuntimeEnhancePreview(
 	baseStatsJSON []byte,
 	enhancePerLevelStatsJSON []byte,
 	requiredLevel uint32,
+	isDamaged bool,
 ) (*bag.RuntimeEnhancePreview, error) {
-	if equipSlot == "" {
-		return nil, nil
-	}
 	materials, err := loadRuntimeBagEnhanceMaterials(ctx, db, playerID, bag.ContainerTypeBag)
 	if err != nil {
 		return nil, err
+	}
+	if equipSlot == "" {
+		preview := &bag.RuntimeEnhancePreview{
+			CanEnhance:              false,
+			MaxEnhanceLevel:         maxEnhanceLevel,
+			EnhanceMaterialCategory: bag.ItemSubTypeEquipmentEnhance,
+			Materials:               materials,
+			Rows:                    []bag.RuntimeEnhancePreviewRow{},
+		}
+		applyDefaultEnhancePreviewCostHint(preview, materials)
+		return preview, nil
 	}
 	preview := &bag.RuntimeEnhancePreview{
 		CanEnhance:              false,
@@ -100,6 +110,10 @@ func buildRuntimeEnhancePreview(
 		EnhanceMaterialCategory: bag.ItemSubTypeEquipmentEnhance,
 		Materials:               materials,
 		Rows:                    []bag.RuntimeEnhancePreviewRow{},
+	}
+	if isDamaged {
+		applyDefaultEnhancePreviewCostHint(preview, materials)
+		return preview, nil
 	}
 	if maxEnhanceLevel == 0 {
 		return preview, nil
@@ -168,10 +182,17 @@ func buildRuntimeEnhancePreview(
 		applyDefaultEnhancePreviewCostHint(preview, materials)
 		return preview, nil
 	}
-	successRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, db, targetLevel)
+	successRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, db, targetLevel, requiredLevel)
 	if err != nil {
 		return nil, err
 	}
+	if err := enrichRuntimeEnhanceMaterialOptions(ctx, db, targetLevel, requiredLevel, materials); err != nil {
+		return nil, err
+	}
+	preview.Materials = materials
+	preview.RequiredLevel = requiredLevel
+	preview.RequiredLevelBandMin = equipment.ResolveRequiredLevelBandMin(requiredLevel)
+	preview.RequiredLevelBandLabel = equipment.FormatRequiredLevelBandLabel(preview.RequiredLevelBandMin)
 	ownedQuantity, err := loadRuntimeBagOwnedItemQuantity(ctx, db, playerID, bag.ContainerTypeBag, cost.CostItemID)
 	if err != nil {
 		return nil, err
@@ -181,7 +202,7 @@ func buildRuntimeEnhancePreview(
 		return nil, err
 	}
 	preview.CanEnhance = true
-	preview.SuccessRatePct = successRatePct
+	preview.SuccessRatePct = resolvePreviewSuccessRatePct(successRatePct, materials, cost.CostItemID)
 	preview.CostItemID = cost.CostItemID
 	preview.CostItemName = costItemName
 	preview.CostQuantity = cost.CostQuantity
@@ -259,6 +280,46 @@ func buildRuntimeEnhancePreviewRowsAtMax(
 		})
 	}
 	return rows
+}
+
+func enrichRuntimeEnhanceMaterialOptions(
+	ctx context.Context,
+	db DBTX,
+	targetLevel uint32,
+	requiredLevel uint32,
+	materials []bag.RuntimeEnhanceMaterialOption,
+) error {
+	baseRatePct, err := loadRuntimeEnhanceSuccessRate(ctx, db, targetLevel, requiredLevel)
+	if err != nil {
+		return err
+	}
+	for index := range materials {
+		cfg, cfgErr := loadRuntimeEnhanceMaterialConfig(ctx, db, materials[index].ItemID)
+		if cfgErr != nil {
+			return cfgErr
+		}
+		materials[index].EffectiveSuccessRatePct = equipment.ResolveEffectiveSuccessRatePct(baseRatePct, cfg)
+		materials[index].FailurePenalty = cfg.FailurePenalty
+		if materials[index].FailurePenalty == "" {
+			materials[index].FailurePenalty = equipment.EnhanceMaterialFailurePenaltyDamage
+		}
+		materials[index].FailurePenaltyLabel = equipment.FormatEnhanceFailurePenaltyLabel(cfg.FailurePenalty, cfg.FailureLevelDelta)
+		materials[index].Description = cfg.Description
+	}
+	return nil
+}
+
+func resolvePreviewSuccessRatePct(
+	baseRatePct uint32,
+	materials []bag.RuntimeEnhanceMaterialOption,
+	costItemID uint64,
+) uint32 {
+	for _, material := range materials {
+		if material.ItemID == costItemID && material.EffectiveSuccessRatePct > 0 {
+			return material.EffectiveSuccessRatePct
+		}
+	}
+	return baseRatePct
 }
 
 func loadRuntimeBagEnhanceMaterials(

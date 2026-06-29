@@ -271,6 +271,8 @@ SELECT
   pp.player_id,
   p.name,
   pp.pet_id,
+  COALESCE(pd.pet_name, ''),
+  COALESCE(pp.custom_name, ''),
   pp.level,
   pp.quality,
   pp.hp,
@@ -284,6 +286,7 @@ SELECT
   pp.created_at
 FROM player_pet pp
 JOIN player p ON p.id = pp.player_id
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
 `
 
 const adminPetDetailQuery = `
@@ -292,6 +295,8 @@ SELECT
   pp.player_id,
   p.name,
   pp.pet_id,
+  COALESCE(pd.pet_name, ''),
+  COALESCE(pp.custom_name, ''),
   pp.level,
   pp.exp,
   pp.quality,
@@ -331,6 +336,7 @@ SELECT
   pp.updated_at
 FROM player_pet pp
 JOIN player p ON p.id = pp.player_id
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
 WHERE pp.id = $1
 LIMIT 1
 `
@@ -422,7 +428,8 @@ SET pet_id = $2,
     talent_dmg_pct = $33,
     talent_reduce_pct = $34,
     element_adv_pct = $35,
-    element_penalty_pct = $36
+    element_penalty_pct = $36,
+    custom_name = $37
 WHERE id = $1
 `
 
@@ -764,9 +771,12 @@ func (r *PetRepository) insertRuntimePet(
 		AptitudeProfile: definition.AptitudeProfile,
 		Aptitudes:       splitAptitudes,
 	}, petprogression.DefaultConvertRates())
+	combat = resolveGrantedPetCombatStats(combat, definition)
 	hp := combat.HPMax
 	if definition.HP > 0 && definition.HP <= combat.HPMax {
 		hp = definition.HP
+	} else if hp == 0 && combat.HPMax > 0 {
+		hp = combat.HPMax
 	}
 	innateSkillIDs := decodeSkillIDJSONArray(definition.InnateSkillIDsJSON)
 	normalSkillIDs := decodeSkillIDJSONArray(definition.NormalSkillIDsJSON)
@@ -876,7 +886,7 @@ func (r *PetRepository) ListForAdmin(ctx context.Context, query pet.AdminListQue
 	for rows.Next() {
 		var item pet.AdminPetSummary
 		var petUID, playerID, petID, level, quality, hp, hpMax, atk, def, spd, mana int64
-		if err := rows.Scan(&petUID, &playerID, &item.PlayerName, &petID, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &item.InLineup, &item.UpdatedAt, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&petUID, &playerID, &item.PlayerName, &petID, &item.PetName, &item.CustomName, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &item.InLineup, &item.UpdatedAt, &item.CreatedAt); err != nil {
 			return nil, err
 		}
 		item.PetUID = uint64(petUID)
@@ -908,7 +918,7 @@ func (r *PetRepository) FindAdminDetailByPetUID(ctx context.Context, petUID uint
 	var guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
 	var skillIDsJSON []byte
 	err := r.db.QueryRowContext(ctx, adminPetDetailQuery, petUID).Scan(
-		&uid, &playerID, &detail.PlayerName, &petID, &level, &exp, &quality,
+		&uid, &playerID, &detail.PlayerName, &petID, &detail.PetName, &detail.CustomName, &level, &exp, &quality,
 		&hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
 		&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
 		&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
@@ -1071,6 +1081,7 @@ func (r *PetRepository) UpdateForAdmin(ctx context.Context, petUID uint64, input
 		input.TalentReducePct,
 		input.ElementAdvPct,
 		input.ElementPenaltyPct,
+		input.CustomName,
 	)
 	if err != nil {
 		return nil, err
@@ -1409,6 +1420,31 @@ func buildBaseExtraAptitudes(definition *runtimePetDefinitionRow, total pet.Grow
 		BaseSPDApt:  total.SPDApt,
 		BaseMANAApt: total.MANAApt,
 	})
+}
+
+// resolveGrantedPetCombatStats 在成长公式尚未产生有效属性时（典型为 1 级、分配点为 0），
+// 回退到宠物模板基础战斗值，避免新发放实例 hp=0 导致战斗内被判定死亡。
+func resolveGrantedPetCombatStats(calculated petprogression.CombatStats, definition *runtimePetDefinitionRow) petprogression.CombatStats {
+	if calculated.HPMax > 0 {
+		return calculated
+	}
+	if definition == nil {
+		return calculated
+	}
+	fallback := petprogression.CombatStats{
+		HPMax: definition.HPMax,
+		ATK:   definition.ATK,
+		DEF:   definition.DEF,
+		SPD:   definition.SPD,
+		MANA:  definition.MANA,
+	}
+	if fallback.HPMax == 0 && definition.HP > 0 {
+		fallback.HPMax = definition.HP
+	}
+	if fallback.HPMax == 0 {
+		fallback.HPMax = 1
+	}
+	return fallback
 }
 
 func joinConditions(conditions []string) string {

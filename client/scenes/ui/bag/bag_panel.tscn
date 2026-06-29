@@ -276,7 +276,6 @@ region = Rect2(555, 501, 10, 9)
 texture = SubResource("AtlasTexture_fdui7")
 
 [node name="BagPanel" type="CanvasLayer" unique_id=1561311213]
-visible = false
 script = ExtResource("1_bagpanel")
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=1850279401]

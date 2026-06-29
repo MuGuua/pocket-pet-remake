@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import {
   createAdminPetSkillSlotUnlockItem,
   deleteAdminPetSkillSlotUnlockItem,
@@ -188,8 +189,8 @@ export function PetSkillSlotUnlockPage() {
           <Form.Item label="道具ID" name="item_id" rules={[{ required: true, message: '请输入道具ID' }]}>
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item label="说明" name="description">
-            <Input.TextArea rows={2} />
+          <Form.Item label="说明" name="description" extra="支持 BBCode 富文本。">
+            <RichTextEditor rows={2} showPreview={false} />
           </Form.Item>
           <Form.Item label="启用" name="status_enabled" valuePropName="checked">
             <Switch />

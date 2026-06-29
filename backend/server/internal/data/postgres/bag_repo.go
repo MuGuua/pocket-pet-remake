@@ -161,7 +161,9 @@ SELECT
   COALESCE(idf.icon, ''),
   COALESCE(idf.required_level, 0),
   COALESCE(eq.enhance_level, 0),
+  COALESCE(eq.is_damaged, FALSE),
   COALESCE(idf.usable, FALSE),
+  COALESCE(idf.can_drop, FALSE),
   COALESCE(idf.target_type, ''),
   COALESCE(idf.effect_type, ''),
   COALESCE(iee.equip_slot, ''),
@@ -286,7 +288,8 @@ const runtimeGrantItemDefinitionQuery = `
 SELECT
   COALESCE(item_name, ''),
   COALESCE(max_stack, 1),
-  COALESCE(bind_type, 'none')
+  COALESCE(bind_type, 'none'),
+  COALESCE(item_type, '')
 FROM item_definition
 WHERE item_id = $1
 LIMIT 1
@@ -316,6 +319,56 @@ WHERE pci.player_id = $1
   AND pci.container_type = $2
   AND pci.slot_index = $3
 LIMIT 1
+`
+
+const runtimeDropItemQuery = `
+SELECT
+  pci.id,
+  pci.slot_index,
+  pci.item_id,
+  COALESCE(pci.item_uid, ''),
+  pci.quantity,
+  pci.is_bound,
+  COALESCE(idf.item_name, ''),
+  COALESCE(idf.can_drop, FALSE)
+FROM player_container_item pci
+JOIN item_definition idf ON idf.item_id = pci.item_id
+WHERE pci.player_id = $1
+  AND pci.container_type = $2
+  AND pci.slot_index = $3
+LIMIT 1
+`
+
+const runtimeDropItemByUIDQuery = `
+SELECT
+  pci.id,
+  pci.slot_index,
+  pci.item_id,
+  COALESCE(pci.item_uid, ''),
+  pci.quantity,
+  pci.is_bound,
+  COALESCE(idf.item_name, ''),
+  COALESCE(idf.can_drop, FALSE)
+FROM player_container_item pci
+JOIN item_definition idf ON idf.item_id = pci.item_id
+WHERE pci.player_id = $1
+  AND pci.container_type = $2
+  AND pci.item_uid = $3
+LIMIT 1
+`
+
+const runtimeDropItemEquippedQuery = `
+SELECT 1
+FROM player_equipment_slot
+WHERE player_id = $1
+  AND item_uid = $2
+LIMIT 1
+`
+
+const runtimeDeleteEquipmentInstanceQuery = `
+DELETE FROM equipment_instance
+WHERE player_id = $1
+  AND item_uid = $2
 `
 
 const runtimePetUseTargetQuery = `
@@ -598,6 +651,7 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 		var (
 			value                    bag.RuntimeItemSnapshot
 			expireAt                 sql.NullTime
+			isDamaged                bool
 			appearanceSkinID         string
 			appearanceOnly           bool
 			baseHP                   int64
@@ -624,7 +678,9 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			&value.Icon,
 			&value.RequiredLevel,
 			&value.EnhanceLevel,
+			&isDamaged,
 			&value.Usable,
+			&value.CanDrop,
 			&value.TargetType,
 			&value.EffectType,
 			&value.EquipSlot,
@@ -647,7 +703,9 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			expireAtValue := expireAt.Time
 			value.ExpireAt = &expireAtValue
 		}
-		if strings.TrimSpace(value.EquipSlot) != "" {
+		value.IsDamaged = isDamaged
+		isEquipmentItem := strings.EqualFold(strings.TrimSpace(value.ItemType), "equipment")
+		if isEquipmentItem && strings.TrimSpace(value.EquipSlot) != "" {
 			bonus, err := computeRuntimeItemBonusFromEquipmentExtra(
 				value.EquipSlot,
 				appearanceSkinID,
@@ -666,6 +724,8 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 				return nil, err
 			}
 			value.Bonus = runtimeItemBonusFromAggregate(bonus)
+		}
+		if isEquipmentItem {
 			preview, previewErr := buildRuntimeEnhancePreview(
 				ctx,
 				r.db,
@@ -685,11 +745,17 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 				baseStatsJSON,
 				enhancePerLevelStatsJSON,
 				value.RequiredLevel,
+				isDamaged,
 			)
 			if previewErr != nil {
 				return nil, previewErr
 			}
 			value.EnhancePreview = preview
+			repairPreview, repairErr := buildRuntimeRepairPreview(ctx, r.db, playerID, isDamaged)
+			if repairErr != nil {
+				return nil, repairErr
+			}
+			value.RepairPreview = repairPreview
 		}
 		mentions, err := buildRuntimeDescriptionMentions(ctx, r.db, value.Description)
 		if err != nil {
@@ -1171,9 +1237,16 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 	}
 
 	grantedSlotIndex := uint32(0)
+	grantedItemUID := ""
 	remainingQuantity := quantity
 	isBound := itemDef.BindType != "" && !strings.EqualFold(itemDef.BindType, "none")
-	if itemDef.MaxStack > 1 {
+	isEquipmentGrant := isGrantEquipmentItemType(itemDef.ItemType)
+	if isEquipmentGrant {
+		// 装备模板必须实例化后才能强化/修复，禁止按普通堆叠物发放。
+		if itemDef.MaxStack != 1 {
+			return nil, bag.ErrBagItemNotFound
+		}
+	} else if itemDef.MaxStack > 1 {
 		for _, targetRow := range targetRows {
 			if targetRow.ItemID != itemID || targetRow.ItemUID != "" || targetRow.IsBound != isBound {
 				continue
@@ -1217,10 +1290,30 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 			return nil, bag.ErrContainerCapacityFull
 		}
 		stackQuantity := remainingQuantity
-		if itemDef.MaxStack > 1 {
+		if !isEquipmentGrant && itemDef.MaxStack > 1 {
 			stackQuantity = minUint64(itemDef.MaxStack, remainingQuantity)
 		}
-		if _, err := tx.ExecContext(ctx, runtimeTransferInsertItemQuery,
+		if isEquipmentGrant {
+			itemUID, err := insertRuntimeBagEquipmentGrantInTx(
+				ctx,
+				tx,
+				playerID,
+				containerType,
+				slotIndex,
+				itemID,
+				itemDef.BindType,
+				isBound,
+				reasonType,
+				reasonRefID,
+				operatorType,
+				operatorID,
+			)
+			if err != nil {
+				return nil, err
+			}
+			grantedItemUID = itemUID
+			stackQuantity = 1
+		} else if _, err := tx.ExecContext(ctx, runtimeTransferInsertItemQuery,
 			playerID,
 			containerType,
 			slotIndex,
@@ -1234,8 +1327,7 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 				return nil, bag.ErrContainerCapacityFull
 			}
 			return nil, err
-		}
-		if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
+		} else if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
 			PlayerID:      playerID,
 			ContainerType: containerType,
 			SlotIndex:     slotIndex,
@@ -1255,7 +1347,7 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 		targetRows = append(targetRows, transferTargetRow{
 			SlotIndex: slotIndex,
 			ItemID:    itemID,
-			ItemUID:   "",
+			ItemUID:   grantedItemUID,
 			Quantity:  stackQuantity,
 			IsBound:   isBound,
 		})
@@ -1270,7 +1362,7 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 		ContainerType: containerType,
 		ItemID:        itemID,
 		ItemName:      itemDef.ItemName,
-		ItemUID:       "",
+		ItemUID:       grantedItemUID,
 		GrantedQty:    quantity,
 		SlotIndex:     grantedSlotIndex,
 	}, nil
@@ -1278,7 +1370,7 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 
 // UseRuntimeItem 处理玩家主动使用格子物品。
 // 这里统一在同一个数据库事务里完成扣道具、结算效果与日志写入，避免背包和目标状态分叉。
-func (r *BagRepository) UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*bag.RuntimeUseResult, error) {
+func (r *BagRepository) UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64, targetItemUID string) (*bag.RuntimeUseResult, error) {
 	beginner, ok := r.db.(txBeginner)
 	if !ok {
 		return nil, fmt.Errorf("postgres transaction is unavailable")
@@ -1306,7 +1398,7 @@ func (r *BagRepository) UseRuntimeItem(ctx context.Context, playerID uint64, con
 		return nil, bag.ErrItemNotUsable
 	}
 
-	useResult, err := applyRuntimeItemEffect(ctx, tx, playerID, sourceRow, quantity, targetPetUID, targetPlayerID)
+	useResult, err := applyRuntimeItemEffect(ctx, tx, playerID, sourceRow, quantity, targetPetUID, targetPlayerID, targetItemUID)
 	if err != nil {
 		return nil, err
 	}
@@ -1362,6 +1454,123 @@ func (r *BagRepository) UseRuntimeItem(ctx context.Context, playerID uint64, con
 		ItemID:        sourceRow.ItemID,
 		UsedQuantity:  quantity,
 		Result:        useResult,
+	}, nil
+}
+
+// DropRuntimeItem 处理玩家主动丢弃格子物品，按模板 can_drop 与服务端数量规则扣减并写日志。
+// itemUID 非空时按背包实例唯一标识定位；实例化物品整格丢弃并同步删除 equipment_instance。
+func (r *BagRepository) DropRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, itemUID string, quantity uint64) (*bag.RuntimeDropResult, error) {
+	itemUID = strings.TrimSpace(itemUID)
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(tx)
+
+	var sourceRow *dropItemSourceRow
+	if itemUID != "" {
+		sourceRow, err = loadDropItemSourceRowByUID(ctx, tx, playerID, containerType, itemUID)
+		if err != nil {
+			return nil, err
+		}
+		if sourceRow == nil {
+			// fall through to not found
+		} else if slotIndex > 0 && sourceRow.SlotIndex != slotIndex {
+			return nil, bag.ErrContainerItemNotFound
+		}
+	} else {
+		if slotIndex == 0 {
+			return nil, bag.ErrInvalidTransferQuantity
+		}
+		sourceRow, err = loadDropItemSourceRow(ctx, tx, playerID, containerType, slotIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if sourceRow == nil {
+		return nil, bag.ErrContainerItemNotFound
+	}
+	if quantity == 0 || quantity > sourceRow.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if sourceRow.ItemUID != "" && quantity != sourceRow.Quantity {
+		return nil, bag.ErrInvalidTransferQuantity
+	}
+	if !sourceRow.CanDrop {
+		return nil, bag.ErrItemNotDroppable
+	}
+	if sourceRow.ItemUID != "" {
+		equipped, equippedErr := isRuntimeDropItemEquipped(ctx, tx, playerID, sourceRow.ItemUID)
+		if equippedErr != nil {
+			return nil, equippedErr
+		}
+		if equipped {
+			return nil, bag.ErrItemNotDroppable
+		}
+	}
+
+	resolvedSlotIndex := sourceRow.SlotIndex
+	if quantity == sourceRow.Quantity {
+		if _, err := tx.ExecContext(ctx, runtimeTransferDeleteItemQuery, sourceRow.RecordID); err != nil {
+			return nil, err
+		}
+		if sourceRow.ItemUID != "" {
+			if _, err := tx.ExecContext(ctx, runtimeDeleteEquipmentInstanceQuery, playerID, sourceRow.ItemUID); err != nil {
+				return nil, err
+			}
+		}
+		if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
+			PlayerID:      playerID,
+			ContainerType: containerType,
+			SlotIndex:     resolvedSlotIndex,
+			ChangeType:    "drop_remove",
+			ItemID:        sourceRow.ItemID,
+			ItemUID:       sourceRow.ItemUID,
+			BeforeQty:     sourceRow.Quantity,
+			ChangeQty:     -int64(quantity),
+			AfterQty:      0,
+			ReasonType:    "item_drop",
+			OperatorType:  "player",
+			OperatorID:    playerID,
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := updateTransferItemQuantity(ctx, tx, sourceRow.RecordID, sourceRow.Quantity-quantity); err != nil {
+			return nil, err
+		}
+		if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
+			PlayerID:      playerID,
+			ContainerType: containerType,
+			SlotIndex:     resolvedSlotIndex,
+			ChangeType:    "drop_reduce",
+			ItemID:        sourceRow.ItemID,
+			ItemUID:       sourceRow.ItemUID,
+			BeforeQty:     sourceRow.Quantity,
+			ChangeQty:     -int64(quantity),
+			AfterQty:      sourceRow.Quantity - quantity,
+			ReasonType:    "item_drop",
+			OperatorType:  "player",
+			OperatorID:    playerID,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &bag.RuntimeDropResult{
+		ContainerType: containerType,
+		SlotIndex:     resolvedSlotIndex,
+		ItemUID:       sourceRow.ItemUID,
+		ItemID:        sourceRow.ItemID,
+		ItemName:      sourceRow.ItemName,
+		DroppedQty:    quantity,
 	}, nil
 }
 
@@ -1542,6 +1751,7 @@ type grantItemDefinitionRow struct {
 	ItemName string
 	MaxStack uint64
 	BindType string
+	ItemType string
 }
 
 type useItemSourceRow struct {
@@ -1560,6 +1770,17 @@ type useItemSourceRow struct {
 	EffectParams []byte
 	ExpandTarget string
 	ExpandSlots  uint32
+}
+
+type dropItemSourceRow struct {
+	RecordID  int64
+	SlotIndex uint32
+	ItemID    uint64
+	ItemUID   string
+	Quantity  uint64
+	IsBound   bool
+	ItemName  string
+	CanDrop   bool
 }
 
 type runtimeUseTargetPetRow struct {
@@ -1644,6 +1865,58 @@ func loadUseItemSourceRow(ctx context.Context, tx *sql.Tx, playerID uint64, cont
 		return nil, err
 	}
 	return &value, nil
+}
+
+func loadDropItemSourceRow(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string, slotIndex uint32) (*dropItemSourceRow, error) {
+	var value dropItemSourceRow
+	if err := tx.QueryRowContext(ctx, runtimeDropItemQuery, playerID, containerType, slotIndex).Scan(
+		&value.RecordID,
+		&value.SlotIndex,
+		&value.ItemID,
+		&value.ItemUID,
+		&value.Quantity,
+		&value.IsBound,
+		&value.ItemName,
+		&value.CanDrop,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &value, nil
+}
+
+func loadDropItemSourceRowByUID(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string, itemUID string) (*dropItemSourceRow, error) {
+	var value dropItemSourceRow
+	if err := tx.QueryRowContext(ctx, runtimeDropItemByUIDQuery, playerID, containerType, itemUID).Scan(
+		&value.RecordID,
+		&value.SlotIndex,
+		&value.ItemID,
+		&value.ItemUID,
+		&value.Quantity,
+		&value.IsBound,
+		&value.ItemName,
+		&value.CanDrop,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &value, nil
+}
+
+func isRuntimeDropItemEquipped(ctx context.Context, tx *sql.Tx, playerID uint64, itemUID string) (bool, error) {
+	var marker int
+	err := tx.QueryRowContext(ctx, runtimeDropItemEquippedQuery, playerID, itemUID).Scan(&marker)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func loadRuntimeUseTargetPetRow(ctx context.Context, tx *sql.Tx, playerID uint64, petUID uint64) (*runtimeUseTargetPetRow, error) {
@@ -1755,7 +2028,12 @@ func loadSortRows(ctx context.Context, tx *sql.Tx, playerID uint64, containerTyp
 
 func loadGrantItemDefinition(ctx context.Context, tx *sql.Tx, itemID uint64) (*grantItemDefinitionRow, error) {
 	var value grantItemDefinitionRow
-	if err := tx.QueryRowContext(ctx, runtimeGrantItemDefinitionQuery, itemID).Scan(&value.ItemName, &value.MaxStack, &value.BindType); err != nil {
+	if err := tx.QueryRowContext(ctx, runtimeGrantItemDefinitionQuery, itemID).Scan(
+		&value.ItemName,
+		&value.MaxStack,
+		&value.BindType,
+		&value.ItemType,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -1765,6 +2043,65 @@ func loadGrantItemDefinition(ctx context.Context, tx *sql.Tx, itemID uint64) (*g
 		value.MaxStack = 1
 	}
 	return &value, nil
+}
+
+func isGrantEquipmentItemType(itemType string) bool {
+	return strings.EqualFold(strings.TrimSpace(itemType), "equipment")
+}
+
+// insertRuntimeBagEquipmentGrantInTx 为背包发放可强化装备时创建 equipment_instance 并绑定 item_uid。
+func insertRuntimeBagEquipmentGrantInTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	playerID uint64,
+	containerType string,
+	slotIndex uint32,
+	itemID uint64,
+	bindType string,
+	isBound bool,
+	reasonType string,
+	reasonRefID uint64,
+	operatorType string,
+	operatorID uint64,
+) (string, error) {
+	itemUID := generateEquipmentItemUID(playerID)
+	normalizedBindType := strings.TrimSpace(bindType)
+	if normalizedBindType == "" {
+		normalizedBindType = "none"
+	}
+	if _, err := tx.ExecContext(ctx, insertEquipmentInstanceQuery, itemUID, playerID, itemID, normalizedBindType, "bag"); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, runtimeTransferInsertItemQuery,
+		playerID,
+		containerType,
+		slotIndex,
+		itemID,
+		itemUID,
+		1,
+		isBound,
+		nil,
+	); err != nil {
+		return "", err
+	}
+	if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
+		PlayerID:      playerID,
+		ContainerType: containerType,
+		SlotIndex:     slotIndex,
+		ChangeType:    "reward_add_equipment",
+		ItemID:        itemID,
+		ItemUID:       itemUID,
+		BeforeQty:     0,
+		ChangeQty:     1,
+		AfterQty:      1,
+		ReasonType:    reasonType,
+		ReasonRefID:   reasonRefID,
+		OperatorType:  operatorType,
+		OperatorID:    operatorID,
+	}); err != nil {
+		return "", err
+	}
+	return itemUID, nil
 }
 
 func grantAdminItemToContainer(
@@ -1778,8 +2115,12 @@ func grantAdminItemToContainer(
 	recordID := int64(0)
 	grantedSlotIndex := uint32(0)
 	remainingQuantity := input.Quantity
-
-	if itemDef.MaxStack > 1 {
+	isEquipmentGrant := isGrantEquipmentItemType(itemDef.ItemType)
+	if isEquipmentGrant {
+		if itemDef.MaxStack != 1 {
+			return 0, 0, bag.ErrBagItemNotFound
+		}
+	} else if itemDef.MaxStack > 1 {
 		for _, targetRow := range targetRows {
 			if targetRow.ItemID != input.ItemID || targetRow.ItemUID != "" || targetRow.IsBound != input.IsBound {
 				continue
@@ -1806,8 +2147,45 @@ func grantAdminItemToContainer(
 			return 0, 0, bag.ErrContainerCapacityFull
 		}
 		stackQuantity := remainingQuantity
-		if itemDef.MaxStack > 1 {
+		if !isEquipmentGrant && itemDef.MaxStack > 1 {
 			stackQuantity = minUint64(itemDef.MaxStack, remainingQuantity)
+		}
+		if isEquipmentGrant {
+			itemUID, err := insertRuntimeBagEquipmentGrantInTx(
+				ctx,
+				tx,
+				input.PlayerID,
+				input.ContainerType,
+				slotIndex,
+				input.ItemID,
+				itemDef.BindType,
+				input.IsBound,
+				"admin_grant",
+				0,
+				"admin",
+				0,
+			)
+			if err != nil {
+				return 0, 0, err
+			}
+			if err := tx.QueryRowContext(ctx, `
+SELECT id FROM player_container_item
+WHERE player_id = $1 AND container_type = $2 AND slot_index = $3
+LIMIT 1
+`, input.PlayerID, input.ContainerType, slotIndex).Scan(&recordID); err != nil {
+				return 0, 0, err
+			}
+			targetRows = append(targetRows, transferTargetRow{
+				RecordID:  recordID,
+				SlotIndex: slotIndex,
+				ItemID:    input.ItemID,
+				ItemUID:   itemUID,
+				Quantity:  1,
+				IsBound:   input.IsBound,
+			})
+			grantedSlotIndex = slotIndex
+			remainingQuantity -= 1
+			continue
 		}
 		if err := tx.QueryRowContext(ctx, insertAdminBagItemQuery,
 			input.PlayerID,
@@ -1871,7 +2249,14 @@ func insertContainerExpandLog(ctx context.Context, tx *sql.Tx, playerID uint64, 
 	return err
 }
 
-func applyRuntimeItemEffect(ctx context.Context, tx *sql.Tx, playerID uint64, sourceRow *useItemSourceRow, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (bag.RuntimeUseEffect, error) {
+func applyRuntimeItemEffect(ctx context.Context, tx *sql.Tx, playerID uint64, sourceRow *useItemSourceRow, quantity uint64, targetPetUID uint64, targetPlayerID uint64, targetItemUID string) (bag.RuntimeUseEffect, error) {
+	configuredEffects, err := parseConfiguredUseEffectsFromSourceRow(sourceRow)
+	if err != nil {
+		return bag.RuntimeUseEffect{}, bag.ErrUnsupportedItemEffect
+	}
+	if len(configuredEffects) > 0 {
+		return applyRuntimeConfiguredUseEffects(ctx, tx, playerID, sourceRow, quantity, targetPetUID, targetPlayerID, targetItemUID, configuredEffects)
+	}
 	switch normalizedEffectType := strings.TrimSpace(sourceRow.EffectType); normalizedEffectType {
 	case "bag_expand", "warehouse_expand", "expand":
 		return applyRuntimeExpandEffect(ctx, tx, playerID, sourceRow, quantity)
@@ -1894,6 +2279,7 @@ type runtimeRewardBoxParams struct {
 		ItemName string `json:"item_name"`
 		Count    uint64 `json:"count"`
 		PetID    uint64 `json:"pet_id"`
+		PetName  string `json:"pet_name"`
 	} `json:"rewards"`
 }
 
@@ -1924,6 +2310,11 @@ func applyRuntimeRewardBoxEffect(sourceRow *useItemSourceRow, quantity uint64) (
 			ItemName: configuredReward.ItemName,
 			Count:    configuredReward.Count,
 			PetID:    configuredReward.PetID,
+		}
+		if strings.EqualFold(rewardType, "pet") {
+			if petName := strings.TrimSpace(configuredReward.PetName); petName != "" {
+				rewardItem.ItemName = petName
+			}
 		}
 		if rewardItem.Value > 0 {
 			rewardItem.Value = rewardItem.Value * quantity

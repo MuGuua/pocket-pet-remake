@@ -20,6 +20,25 @@ export async function fetchAdminPetDefinitions(params: {
   return requestJSON<AdminPetDefinitionListResult>({ url: `/api/admin/pet-definitions?${query.toString()}`, method: 'GET' });
 }
 
+/** 分页拉取全部已启用系统宠物模板，供发放宠物下拉使用。 */
+export async function fetchAllEnabledAdminPetDefinitions(): Promise<AdminPetDefinitionListResult['items']> {
+  const pageSize = 100;
+  const items: AdminPetDefinitionListResult['items'] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await fetchAdminPetDefinitions({
+      filters: { enabled: 'true' },
+      page,
+      pageSize,
+    });
+    items.push(...result.items);
+    total = result.total;
+    page += 1;
+  } while (items.length < total);
+  return items;
+}
+
 export async function fetchAdminPetDefinitionDetail(petID: number): Promise<AdminPetDefinitionDetail> {
   return requestJSON<AdminPetDefinitionDetail>({ url: `/api/admin/pet-definitions/${petID}`, method: 'GET' });
 }

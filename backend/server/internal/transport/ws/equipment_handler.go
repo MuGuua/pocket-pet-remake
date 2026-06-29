@@ -124,13 +124,14 @@ func (h *EquipmentHandler) HandleEnhance(conn packetSender, packet *protocol.Pac
 		return mapEquipmentEnhanceError(conn, packet.Seq, err)
 	}
 	response := protocol.PlayerEquipmentEnhanceResp{
-		Success:     result.Success,
-		OldLevel:    result.OldLevel,
-		NewLevel:    result.NewLevel,
-		RatePct:     result.RatePct,
-		RollPct:     result.RollPct,
-		Item:        toProtocolEquippedItem(result.Item),
-		AllEquipped: toProtocolEquippedItems(result.AllEquipped),
+		Success:        result.Success,
+		OldLevel:       result.OldLevel,
+		NewLevel:       result.NewLevel,
+		RatePct:        result.RatePct,
+		RollPct:        result.RollPct,
+		FailurePenalty: result.FailurePenalty,
+		Item:           toProtocolEquippedItem(result.Item),
+		AllEquipped:    toProtocolEquippedItems(result.AllEquipped),
 	}
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdPlayerEquipmentEnhanceResp, packet.Seq, errcode.WSCodeSuccess, response)
 	if err != nil {
@@ -145,12 +146,41 @@ func (h *EquipmentHandler) HandleEnhance(conn packetSender, packet *protocol.Pac
 	return nil
 }
 
+// HandleRepair 消耗修复宝石并恢复损坏装备。
+func (h *EquipmentHandler) HandleRepair(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.PlayerEquipmentRepairReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid player equipment repair body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	if h.equipmentService == nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "equipment service unavailable")
+	}
+	result, err := h.equipmentService.RepairInstance(context.Background(), sess.PlayerID, request.ItemUID)
+	if err != nil {
+		return mapEquipmentRepairError(conn, packet.Seq, err)
+	}
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdPlayerEquipmentRepairResp, packet.Seq, errcode.WSCodeSuccess, protocol.PlayerEquipmentRepairResp{
+		Item:        toProtocolEquippedItem(result.Item),
+		AllEquipped: toProtocolEquippedItems(result.AllEquipped),
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(responsePacket)
+}
+
 func mapEquipmentEnhanceError(conn packetSender, seq uint32, err error) error {
 	switch {
 	case errors.Is(err, equipment.ErrEquipmentNotFound):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment not found")
 	case errors.Is(err, equipment.ErrEquipmentEnhanceEquipped):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment must be unequipped to enhance")
+	case errors.Is(err, equipment.ErrEquipmentEnhanceDamaged):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment is damaged and cannot be enhanced")
 	case errors.Is(err, equipment.ErrEquipmentEnhanceNotAllowed):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment cannot be enhanced")
 	case errors.Is(err, equipment.ErrEquipmentEnhanceMaxLevel):
@@ -170,12 +200,33 @@ func mapEquipmentEnhanceError(conn packetSender, seq uint32, err error) error {
 	}
 }
 
+func mapEquipmentRepairError(conn packetSender, seq uint32, err error) error {
+	switch {
+	case errors.Is(err, equipment.ErrEquipmentNotFound):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment not found")
+	case errors.Is(err, equipment.ErrEquipmentRepairEquipped):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment must be unequipped to repair")
+	case errors.Is(err, equipment.ErrEquipmentRepairNotDamaged):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment is not damaged")
+	case errors.Is(err, equipment.ErrEquipmentRepairMaterialInsufficient):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "insufficient repair materials")
+	case errors.Is(err, equipment.ErrEquipmentRepairMaterialInvalid):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "invalid repair material item")
+	case errors.Is(err, equipment.ErrEquipmentRepairConfigMissing):
+		return sendError(conn, seq, errcode.WSCodeInteractFailed, "repair config missing")
+	default:
+		return sendError(conn, seq, errcode.WSCodeInteractFailed, "equipment repair failed")
+	}
+}
+
 func mapEquipmentError(conn packetSender, seq uint32, err error) error {
 	switch {
 	case errors.Is(err, bag.ErrContainerItemNotFound):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "bag item not found")
 	case errors.Is(err, equipment.ErrEquipmentBagItemInvalid):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "invalid equipment item")
+	case errors.Is(err, equipment.ErrEquipmentDamaged):
+		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "equipment is damaged")
 	case errors.Is(err, equipment.ErrEquipmentLevelTooLow):
 		return sendError(conn, seq, errcode.WSCodeInvalidPacket, "player level too low")
 	case errors.Is(err, equipment.ErrEquipmentSlotMismatch):
@@ -190,7 +241,7 @@ func mapEquipmentError(conn packetSender, seq uint32, err error) error {
 		// 兜底分支说明错误没有命中任何已知业务校验；这里必须把真实错误打印出来，
 		// 方便排查数据库迁移缺失、事务写入失败或属性重算等服务端权威链路问题。
 		log.Printf("[equipment-error] seq=%d err=%v", seq, err)
-		return sendError(conn, seq, errcode.WSCodeInteractFailed, "equipment operation failed")
+		return sendError(conn, seq, errcode.WSCodeInteractFailed, "equipment operation failed", err)
 	}
 }
 
@@ -223,6 +274,7 @@ func toProtocolEquippedItem(item equipment.RuntimeEquippedItem) protocol.PlayerE
 		Icon:             item.Icon,
 		RequiredLevel:    item.RequiredLevel,
 		EnhanceLevel:     item.EnhanceLevel,
+		IsDamaged:        item.IsDamaged,
 		AppearanceSkinID: item.AppearanceSkinID,
 		AppearanceOnly:   item.AppearanceOnly,
 		Description:           item.Description,

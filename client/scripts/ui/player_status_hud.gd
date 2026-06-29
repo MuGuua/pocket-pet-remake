@@ -126,9 +126,11 @@ func _apply_bar_values() -> void:
 		mp_max = max(1, mp_current)
 
 	exp_current = int(GameState.player_snapshot.get("exp", 0))
-	exp_max = int(GameState.player_snapshot.get("exp_to_next", 0))
+	var exp_to_next: int = int(GameState.player_snapshot.get("exp_to_next", 0))
+	var player_level: int = int(GameState.player_snapshot.get("level", 0))
+	# exp_to_next 是「还差多少」，进度条上限应为本级总需求 = 当前经验 + 剩余经验。
+	exp_max = exp_current + exp_to_next
 	if exp_max <= 0:
-		var player_level: int = int(GameState.player_snapshot.get("level", 0))
 		if player_level >= 100:
 			exp_current = 1
 			exp_max = 1

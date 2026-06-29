@@ -238,6 +238,7 @@ func _hide_loading_overlay() -> void:
 
 ## 刷新战斗属性分页，所有数值均来自服务端玩家快照。
 func _refresh_battle_attributes(player: Dictionary) -> void:
+    _set_label_text(battle_attributes_panel, "PanelContainer/VBoxContainer/等级/HBoxContainer/Label2", _snapshot_text(player, ["level"], "0"))
     _set_label_text(battle_attributes_panel, "PanelContainer/VBoxContainer/生命/HBoxContainer/Label2", _snapshot_text(player, ["hp"], "0"))
     _set_label_text(battle_attributes_panel, "PanelContainer/VBoxContainer/生命/HBoxContainer/Label4", _snapshot_text(player, ["hp_max"], "0"))
     _set_label_text(battle_attributes_panel, "PanelContainer/VBoxContainer/精力/HBoxContainer/Label2", _snapshot_text(player, ["vigor"], "0"))
@@ -324,15 +325,24 @@ func _snapshot_percent_suffix(snapshot: Dictionary, keys: Array[String], default
     return "(%s)" % text
 
 
-## 构建经验后缀，优先展示距离下一级所需经验，满级时显示满级。
+## 构建经验后缀，展示「当前经验 / 本级升级所需总经验」；满级时显示满级。
 func _build_exp_suffix(snapshot: Dictionary) -> String:
     var level: int = int(snapshot.get("level", 0))
-    var exp_to_next: int = int(snapshot.get("exp_to_next", 0))
-    if exp_to_next > 0:
-        return "/%s" % _format_value(exp_to_next)
     if level >= 100:
         return "（满级）"
+    var exp_required: int = _resolve_level_exp_required(snapshot)
+    if exp_required > 0:
+        return "/%s" % _format_value(exp_required)
     return ""
+
+
+## 计算当前等级升到下一级所需的总经验；服务端 exp_to_next = exp_required - exp。
+func _resolve_level_exp_required(snapshot: Dictionary) -> int:
+    var exp_current: int = int(snapshot.get("exp", 0))
+    var exp_to_next: int = int(snapshot.get("exp_to_next", 0))
+    if exp_to_next > 0:
+        return exp_current + exp_to_next
+    return exp_current
 
 
 ## 构建背包容量文案，优先使用服务端容器容量，缺失时退回当前物品数量。

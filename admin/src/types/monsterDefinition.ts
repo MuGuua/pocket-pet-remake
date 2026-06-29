@@ -90,6 +90,19 @@ export interface AdminMonsterBattleRewardEntry {
   reward_type: 'exp' | 'item' | 'gold';
   exp_target: 'player' | 'pet';
   item_id: number;
+  item_name?: string;
+  quantity: number;
+  exp_value: number;
+  sort_order: number;
+  status: number;
+  grant_once?: number;
+}
+
+/** 保存战斗奖励时提交给服务端的条目（不含 id、monster_id、item_name 等展示字段）。 */
+export interface AdminMonsterBattleRewardSaveEntry {
+  reward_type: 'exp' | 'item' | 'gold';
+  exp_target: 'player' | 'pet';
+  item_id: number;
   quantity: number;
   exp_value: number;
   sort_order: number;
@@ -98,5 +111,5 @@ export interface AdminMonsterBattleRewardEntry {
 }
 
 export interface AdminReplaceMonsterBattleRewardsPayload {
-  rewards: AdminMonsterBattleRewardEntry[];
+  rewards: AdminMonsterBattleRewardSaveEntry[];
 }

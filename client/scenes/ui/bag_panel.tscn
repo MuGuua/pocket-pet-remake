@@ -39,7 +39,6 @@ texture_margin_bottom = 32.0
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_i337v"]
 
 [node name="BagPanel" type="CanvasLayer" unique_id=2020859994]
-visible = false
 script = ExtResource("1_bag_panel")
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=1807068148]

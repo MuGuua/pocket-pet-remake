@@ -35,7 +35,7 @@ func TestSubmitBasicAttackWithoutLoadoutSkill(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, nil, enemy)
+	start, err := svc.StartPVE(ctx, profile, nil, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -83,7 +83,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	// 选用双怪配置避免人物+宠物三人首轮直接秒杀目标，确保治疗断言能落到下一轮。
 	enemy := world.Entity{EntityID: 90006, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -229,7 +229,7 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -257,7 +257,7 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	}
 
 	svc = NewService(nil)
-	start, err = svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err = svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE(timeout case) error = %v", err)
 	}
@@ -307,7 +307,7 @@ func TestServiceAllTargetSkillHitsMultipleEnemies(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90004, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -379,7 +379,7 @@ func TestBuildPlayerCharacterActorUsesProfileATK(t *testing.T) {
 		HP:       200,
 		HPMax:    200,
 	}
-	actor := buildPlayerCharacterActor(profile, PlayerActorType)
+	actor := buildPlayerCharacterActor(profile, PlayerActorType, EmptyCharacterBattleSkillInput())
 	if actor == nil {
 		t.Fatal("buildPlayerCharacterActor() = nil, want runtime actor")
 	}
@@ -394,7 +394,7 @@ func TestBuildPlayerCharacterActorUsesProfileATK(t *testing.T) {
 
 func TestBuildPlayerCharacterActorIncludesRequestedAttributes(t *testing.T) {
 	profile := &player.Profile{PlayerID: 40001, Name: "SoloHero"}
-	actor := buildPlayerCharacterActor(profile, PlayerActorType)
+	actor := buildPlayerCharacterActor(profile, PlayerActorType, EmptyCharacterBattleSkillInput())
 	if actor == nil {
 		t.Fatal("buildPlayerCharacterActor() = nil, want runtime actor")
 	}
@@ -510,7 +510,7 @@ func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90004, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
@@ -656,7 +656,7 @@ func TestServiceStartPVEIncludesCharacterWithoutLineup(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 5, Y: 5}, Name: "GuideNPC"}
 
-	start, err := svc.StartPVE(ctx, profile, nil, enemy)
+	start, err := svc.StartPVE(ctx, profile, nil, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE(no lineup) error = %v", err)
 	}
@@ -694,7 +694,7 @@ func TestResolveRoundSkipsUnactedAlliesWhenEnemiesEliminated(t *testing.T) {
 	}
 	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "WeakMob"}
 
-	start, err := svc.StartPVE(ctx, profile, lineup, enemy)
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}

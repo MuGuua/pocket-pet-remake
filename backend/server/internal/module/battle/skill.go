@@ -1,5 +1,7 @@
 package battle
 
+import "strings"
+
 type skillTargetRule uint32
 
 const (
@@ -7,11 +9,14 @@ const (
 	targetAllySingle  skillTargetRule = 2
 	targetEnemyAll    skillTargetRule = 3
 	targetEnemyMulti  skillTargetRule = 4
+	targetAllyAll     skillTargetRule = 5
+	targetSelf        skillTargetRule = 6
 )
 
 type skillDef struct {
 	ID                     uint32
 	Name                   string
+	SkillType              string
 	TargetRule             skillTargetRule
 	AnimationKey           string
 	SkillVisualID          string
@@ -222,6 +227,10 @@ func (r skillTargetRule) protocolName() string {
 	switch r {
 	case targetAllySingle:
 		return "ally_single"
+	case targetAllyAll:
+		return "ally_all"
+	case targetSelf:
+		return "self"
 	case targetEnemyAll:
 		return "enemy_all"
 	case targetEnemyMulti:
@@ -229,4 +238,72 @@ func (r skillTargetRule) protocolName() string {
 	default:
 		return "enemy_single"
 	}
+}
+
+// isPassiveSkill 判断是否为常驻被动（support 且零消耗），不应出现在可选技能列表。
+func (d skillDef) isPassiveSkill() bool {
+	return d.SkillType == "support" && d.EnergyCost == 0
+}
+
+// isHealSkill 判断是否为治疗类主动技能。
+func (d skillDef) isHealSkill() bool {
+	if d.SkillType == "heal" {
+		return true
+	}
+	if d.isPassiveSkill() {
+		return false
+	}
+	return d.FixedHeal > 0 || (d.HealPct > 0 && d.SkillType != "attack")
+}
+
+// usesManaPanel 是否以法力面板参与口袋伤害公式。
+// 仅当 attack_pct 未配置且非法力复合面板技时，才用法力替代攻击面板。
+func (d skillDef) usesManaPanel() bool {
+	if d.AttackPct > 0 || d.usesCompositePanelDamage() {
+		return false
+	}
+	return d.ManaPct > 0
+}
+
+// isJudgmentSkill 审判系：control_chance 表示失手概率。
+func (d skillDef) isJudgmentSkill() bool {
+	return strings.HasPrefix(d.Name, "审判")
+}
+
+// isRampageSkill 暴走系：随机攻击一名敌人。
+func (d skillDef) isRampageSkill() bool {
+	return strings.HasPrefix(d.Name, "暴走")
+}
+
+// isGuaranteedHit 圣技/魂技系列在资料中标注为必中。
+func (d skillDef) isGuaranteedHit() bool {
+	return strings.HasPrefix(d.Name, "圣技") || strings.HasPrefix(d.Name, "魂技")
+}
+
+// usesCompositePanelDamage 多面板加算伤害（攻击/法力/速度百分比叠加）。
+func (d skillDef) usesCompositePanelDamage() bool {
+	if d.SkillType != "attack" || d.SkillMult > 0 {
+		return false
+	}
+	panels := 0
+	if d.AttackPct > 0 {
+		panels++
+	}
+	if d.ManaPct > 0 {
+		panels++
+	}
+	if d.SpeedPct > 0 {
+		panels++
+	}
+	return panels >= 2
+}
+
+// prefersRandomMultiTarget 双体技能随机选取目标（不依赖玩家点选主目标）。
+func (d skillDef) prefersRandomMultiTarget() bool {
+	return d.TargetRule == targetEnemyMulti && d.PreferredTargetHP == "random"
+}
+
+// isSoulDevourSkill 噬魂系：control_power 表示扣除目标精力。
+func (d skillDef) isSoulDevourSkill() bool {
+	return strings.HasPrefix(d.Name, "噬魂")
 }

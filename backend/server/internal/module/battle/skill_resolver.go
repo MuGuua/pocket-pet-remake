@@ -24,6 +24,7 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 	return skillDef{
 		ID:                     item.SkillID,
 		Name:                   item.SkillName,
+		SkillType:              item.SkillType,
 		TargetRule:             targetRuleFromProtocolName(item.TargetType),
 		AnimationKey:           item.AnimationKey,
 		SkillVisualID:          item.SkillVisualID,
@@ -106,6 +107,10 @@ func targetRuleFromProtocolName(name string) skillTargetRule {
 	switch name {
 	case "ally_single":
 		return targetAllySingle
+	case "ally_all":
+		return targetAllyAll
+	case "self":
+		return targetSelf
 	case "enemy_all":
 		return targetEnemyAll
 	case "enemy_multi":

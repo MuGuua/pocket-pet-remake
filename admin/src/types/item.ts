@@ -1,3 +1,5 @@
+import type { EnhanceMaterialConfig } from './enhanceMaterialConfig';
+
 export interface AdminItemSummary {
   item_id: number;
   item_code: string;
@@ -58,6 +60,7 @@ export interface AdminItemDetail {
   recycle_price_copper: number;
   price_type: string;
   is_enabled: boolean;
+  enhance_material_config?: EnhanceMaterialConfig;
   created_at: string;
   updated_at: string;
 }

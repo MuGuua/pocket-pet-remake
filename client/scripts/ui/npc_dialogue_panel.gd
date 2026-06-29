@@ -15,10 +15,12 @@ const _CHAR_INTERVAL_SEC: float = 0.035
 const _ITEM_ICON_SIZE: int = 12
 ## 物品图集兜底路径；优先使用服务端 item_definition.icon。
 const _ITEM_ATLAS_TEXTURE_PATH: String = "res://asset/分类/武器/pixel items0.png"
-## 说话人角标内边距，用于动态计算面板宽度。
-const _SPEAKER_PANEL_PADDING: float = 20.0
+## 说话人角标水平内边距，用于动态计算面板宽度。
+const _SPEAKER_PANEL_PADDING_X: float = 20.0
+## 说话人角标垂直内边距，用于压紧框体高度。
+const _SPEAKER_PANEL_PADDING_Y: float = 4.0
 ## 说话人角标头像尺寸。
-const _SPEAKER_ICON_SIZE: int = 28
+const _SPEAKER_ICON_SIZE: int = 22
 
 @onready var _root: Control = $Root
 @onready var _dim_layer: ColorRect = $Root/DimLayer
@@ -27,11 +29,11 @@ const _SPEAKER_ICON_SIZE: int = 28
 @onready var _npc_speaker_label: RichTextLabel = %NpcSpeakerLabel
 @onready var _player_speaker_panel: PanelContainer = %PlayerSpeakerPanel
 @onready var _player_speaker_label: RichTextLabel = %PlayerSpeakerLabel
-@onready var _content_label: RichTextLabel = $Root/DialogueVBox/Panel/Margin/Layout/ContentLabel
-@onready var _item_mention_container: HBoxContainer = $Root/DialogueVBox/Panel/Margin/Layout/ItemMentionContainer
-@onready var _options_container: VBoxContainer = $Root/DialogueVBox/Panel/Margin/Layout/OptionsContainer
-@onready var _continue_button: RuntimeActionButton = $Root/DialogueVBox/Panel/Margin/Layout/ContinueButton
-@onready var _status_label: Label = $Root/DialogueVBox/Panel/Margin/Layout/StatusLabel
+@onready var _content_label: RichTextLabel = $Root/DialogueVBox/Panel/Layout/ContentLabel
+@onready var _item_mention_container: HBoxContainer = $Root/DialogueVBox/Panel/Layout/ItemMentionContainer
+@onready var _options_container: VBoxContainer = $Root/DialogueVBox/Panel/Layout/OptionsContainer
+@onready var _continue_button: RuntimeActionButton = $Root/DialogueVBox/Panel/Layout/ContinueButton
+@onready var _status_label: Label = $Root/DialogueVBox/Panel/Layout/StatusLabel
 
 ## 当前剧情节点 ID，供按钮回调原样带回服务端做权威校验。
 var _current_node_id: String = ""
@@ -123,10 +125,11 @@ func show_waiting_state(status_text: String) -> void:
 	if _continue_button != null:
 		_continue_button.visible = false
 		_continue_button.disabled = true
-	for child_variant: Variant in _options_container.get_children():
-		if child_variant is Button:
-			var option_button: Button = child_variant as Button
-			option_button.disabled = true
+	if _options_container != null:
+		for child_variant: Variant in _options_container.get_children():
+			if child_variant is Button:
+				var option_button: Button = child_variant as Button
+				option_button.disabled = true
 	if _status_label != null:
 		_status_label.text = status_text
 
@@ -170,6 +173,8 @@ func _process(delta: float) -> void:
 
 ## 根据服务端选项配置动态创建一个移动端友好的按钮。
 func _add_option_button(option_payload: Dictionary) -> void:
+	if _options_container == null:
+		return
 	var option_button: Button = Button.new()
 	option_button.text = str(option_payload.get("text", option_payload.get("option_text", "继续")))
 	DialogueActionButtonTheme.apply(option_button, true)
@@ -178,6 +183,8 @@ func _add_option_button(option_payload: Dictionary) -> void:
 
 ## 清空上一节点残留的所有选项按钮，避免旧分支数据污染新节点展示。
 func _clear_option_buttons() -> void:
+	if _options_container == null:
+		return
 	for child_variant: Variant in _options_container.get_children():
 		if child_variant is Node:
 			var child_node: Node = child_variant as Node
@@ -244,7 +251,10 @@ func _apply_content_text(full_text: String, content_format: String) -> void:
 	if _content_label == null:
 		return
 	_content_label.clear()
-	if content_format == "bbcode":
+	var resolved_format: String = content_format.strip_edges().to_lower()
+	if resolved_format != "bbcode" and RichTextContent.contains_bbcode(full_text):
+		resolved_format = "bbcode"
+	if resolved_format == "bbcode":
 		_content_label.bbcode_enabled = true
 	else:
 		_content_label.bbcode_enabled = false
@@ -374,12 +384,11 @@ func _configure_speaker_panels(
 	_remeasure_speaker_panel(_npc_speaker_panel, _npc_speaker_label)
 	_remeasure_speaker_panel(_player_speaker_panel, _player_speaker_label)
 
-## 布局完成后重新测量角标宽度，确保 HBox 左右对齐准确。
+## 布局完成后重新测量角标尺寸，确保 HBox 左右对齐准确且高度紧凑。
 func _remeasure_speaker_panel(panel: PanelContainer, label: RichTextLabel) -> void:
 	if panel == null or label == null or not panel.visible:
 		return
-	var panel_width: float = label.get_content_width() + _SPEAKER_PANEL_PADDING
-	panel.custom_minimum_size = Vector2(panel_width, 0.0)
+	panel.custom_minimum_size = _resolve_speaker_panel_size(label)
 
 ## 配置单个说话人角标：只改内容宽度，位置交给 HBoxContainer + Spacer 处理。
 func _configure_single_speaker_panel(
@@ -409,9 +418,16 @@ func _configure_single_speaker_panel(
 			label.add_image(speaker_portrait, _SPEAKER_ICON_SIZE, _SPEAKER_ICON_SIZE)
 			label.append_text(" ")
 		label.append_text(speaker_name)
-	var panel_width: float = label.get_content_width() + _SPEAKER_PANEL_PADDING
-	panel.custom_minimum_size = Vector2(panel_width, 0.0)
+	panel.custom_minimum_size = _resolve_speaker_panel_size(label)
 	panel.show()
+
+
+## 根据标签内容计算说话人角标尺寸；宽度保持原逻辑，仅额外压紧高度。
+func _resolve_speaker_panel_size(label: RichTextLabel) -> Vector2:
+	var panel_width: float = label.get_content_width() + _SPEAKER_PANEL_PADDING_X
+	var content_height: float = maxf(label.get_content_height(), float(_SPEAKER_ICON_SIZE))
+	var panel_height: float = content_height + _SPEAKER_PANEL_PADDING_Y
+	return Vector2(panel_width, panel_height)
 
 ## 处理面板与遮罩层的点击：第一次跳过打字，第二次请求下一节点。
 func _on_advance_gui_input(event: InputEvent) -> void:

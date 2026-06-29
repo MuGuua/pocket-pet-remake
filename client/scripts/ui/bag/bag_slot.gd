@@ -25,6 +25,8 @@ var _icon_rect: TextureRect = null
 var _count_label: Label = null
 ## 右下角强化等级角标（仅装备且 enhance_level > 0 时显示）。
 var _enhance_label: Label = null
+## 损坏装备红色遮罩层。
+var _damaged_overlay: ColorRect = null
 ## 悬停时在格子右上方展示物品名称的浮层。
 var _hover_name: BagItemHoverName = null
 
@@ -62,6 +64,7 @@ func set_item(item: Dictionary) -> void:
 		else:
 			_count_label.text = EMPTY_TEXT
 	BagUiMapper.apply_enhance_level_badge(_enhance_label, _item)
+	BagUiMapper.apply_damaged_slot_style(_icon_rect, _damaged_overlay, _item)
 	_apply_visual_state()
 
 
@@ -79,6 +82,7 @@ func clear_item() -> void:
 		_count_label.text = EMPTY_TEXT
 		_count_label.hide()
 	BagUiMapper.apply_enhance_level_badge(_enhance_label, {})
+	BagUiMapper.apply_damaged_slot_style(_icon_rect, _damaged_overlay, {})
 	_apply_visual_state()
 
 
@@ -110,6 +114,7 @@ func _resolve_node_refs() -> void:
 	_icon_rect = get_node_or_null("CenterContainer/Control/ItemImage") as TextureRect
 	_count_label = get_node_or_null("CenterContainer/Control/ItemQuantity") as Label
 	_enhance_label = get_node_or_null("CenterContainer/Control/ItemEnhanceLevel") as Label
+	_damaged_overlay = get_node_or_null("CenterContainer/Control/ItemDamagedOverlay") as ColorRect
 	if _bg_rect != null:
 		_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _icon_rect != null:
@@ -118,6 +123,8 @@ func _resolve_node_refs() -> void:
 		_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _enhance_label != null:
 		_enhance_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _damaged_overlay != null:
+		_damaged_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 ## 懒创建悬停名称浮层，供鼠标移入时在格子右上方展示。

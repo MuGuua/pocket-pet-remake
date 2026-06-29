@@ -338,6 +338,28 @@ func (s *Service) GetAdminPetDetail(ctx context.Context, petUID uint64) (*AdminP
 	return result, nil
 }
 
+// GrantAdminPetFromTemplate 按启用的系统宠物模板发放一只初始宠物实例（资质/技能/等级由服务端模板链路计算）。
+func (s *Service) GrantAdminPetFromTemplate(ctx context.Context, input AdminGrantPetFromTemplateInput) (*AdminPetDetail, error) {
+	if input.PlayerID == 0 || input.PetID == 0 {
+		return nil, ErrInvalidAdminPetInput
+	}
+	usableMap, err := s.repo.MapUsablePetDefinitionIDs(ctx, []uint32{input.PetID})
+	if err != nil {
+		return nil, err
+	}
+	if !usableMap[input.PetID] {
+		return nil, ErrPetUnusable
+	}
+	granted, err := s.repo.GrantRuntimePet(ctx, input.PlayerID, input.PetID, "admin_grant", 0, "admin", 0)
+	if err != nil {
+		return nil, err
+	}
+	if granted == nil {
+		return nil, ErrPetNotFound
+	}
+	return s.GetAdminPetDetail(ctx, granted.Pet.PetUID)
+}
+
 func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput) (*AdminPetDetail, error) {
 	caps, err := s.repo.LoadCombatStatCaps(ctx)
 	if err != nil {

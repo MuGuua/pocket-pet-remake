@@ -20,6 +20,7 @@ SELECT
   ei.item_uid,
   ei.item_id,
   ei.enhance_level,
+  COALESCE(ei.is_damaged, FALSE),
   idf.item_name,
   COALESCE(idf.icon, ''),
   COALESCE(idf.required_level, 0),
@@ -32,7 +33,10 @@ SELECT
   iee.base_def,
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
-  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb)
+  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  COALESCE(iee.weapon_skills_json, '[]'::jsonb),
+  COALESCE(iee.enhance_per_level_weapon_skill_levels_json, '{}'::jsonb),
+  COALESCE(iee.weapon_type, '')
 FROM player_equipment_slot pes
 JOIN equipment_instance ei ON ei.item_uid = pes.item_uid
 JOIN item_definition idf ON idf.item_id = ei.item_id
@@ -85,7 +89,12 @@ SELECT
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
   COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
-  COALESCE(ei.enhance_level, 0)
+  COALESCE(iee.weapon_skills_json, '[]'::jsonb),
+  COALESCE(iee.enhance_per_level_weapon_skill_levels_json, '{}'::jsonb),
+  COALESCE(iee.weapon_type, ''),
+  COALESCE(iee.weapon_type, ''),
+  COALESCE(ei.enhance_level, 0),
+  COALESCE(ei.is_damaged, FALSE)
 FROM player_container_item pci
 JOIN item_definition idf ON idf.item_id = pci.item_id
 JOIN item_equipment_extra iee ON iee.item_id = pci.item_id
@@ -102,6 +111,7 @@ SELECT
   ei.item_uid,
   ei.item_id,
   ei.enhance_level,
+  COALESCE(ei.is_damaged, FALSE),
   idf.item_name,
   COALESCE(idf.icon, ''),
   COALESCE(idf.required_level, 0),
@@ -114,7 +124,10 @@ SELECT
   iee.base_def,
   iee.base_spd,
   COALESCE(iee.base_stats_json, '{}'::jsonb),
-  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb)
+  COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
+  COALESCE(iee.weapon_skills_json, '[]'::jsonb),
+  COALESCE(iee.enhance_per_level_weapon_skill_levels_json, '{}'::jsonb),
+  COALESCE(iee.weapon_type, '')
 FROM player_equipment_slot pes
 JOIN equipment_instance ei ON ei.item_uid = pes.item_uid
 JOIN item_definition idf ON idf.item_id = ei.item_id
@@ -188,8 +201,12 @@ type runtimeEquippedRow struct {
 	BaseATK                  uint32
 	BaseDEF                  uint32
 	BaseSPD                  uint32
-	BaseStatsJSON            []byte
-	EnhancePerLevelStatsJSON []byte
+	BaseStatsJSON                        []byte
+	EnhancePerLevelStatsJSON             []byte
+	WeaponSkillsJSON                     []byte
+	EnhancePerLevelWeaponSkillLevelsJSON []byte
+	WeaponType                           string
+	IsDamaged                            bool
 }
 
 type runtimeBagEquipmentRow struct {
@@ -213,9 +230,13 @@ type runtimeBagEquipmentRow struct {
 	BaseATK                  uint32
 	BaseDEF                  uint32
 	BaseSPD                  uint32
-	BaseStatsJSON            []byte
-	EnhancePerLevelStatsJSON []byte
-	EnhanceLevel             uint32
+	BaseStatsJSON                        []byte
+	EnhancePerLevelStatsJSON             []byte
+	WeaponSkillsJSON                     []byte
+	EnhancePerLevelWeaponSkillLevelsJSON []byte
+	WeaponType                           string
+	EnhanceLevel                         uint32
+	IsDamaged                            bool
 }
 
 // ListEquipped 返回玩家当前全身已佩戴装备。
@@ -292,6 +313,9 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 	}
 	if !equipment.IsValidEquipSlot(sourceRow.EquipSlot) {
 		return nil, equipment.ErrEquipmentSlotMismatch
+	}
+	if sourceRow.IsDamaged {
+		return nil, equipment.ErrEquipmentDamaged
 	}
 
 	itemUID := strings.TrimSpace(sourceRow.ItemUID)
@@ -638,7 +662,11 @@ func loadRuntimeBagEquipmentRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&baseSPD,
 		&row.BaseStatsJSON,
 		&row.EnhancePerLevelStatsJSON,
+		&row.WeaponSkillsJSON,
+		&row.EnhancePerLevelWeaponSkillLevelsJSON,
+		&row.WeaponType,
 		&row.EnhanceLevel,
+		&row.IsDamaged,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -665,6 +693,7 @@ func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&row.ItemUID,
 		&row.ItemID,
 		&enhanceLevel,
+		&row.IsDamaged,
 		&row.ItemName,
 		&row.Icon,
 		&requiredLevel,
@@ -678,6 +707,9 @@ func loadRuntimeEquippedSlotRow(ctx context.Context, tx *sql.Tx, playerID uint64
 		&baseSPD,
 		&row.BaseStatsJSON,
 		&row.EnhancePerLevelStatsJSON,
+		&row.WeaponSkillsJSON,
+		&row.EnhancePerLevelWeaponSkillLevelsJSON,
+		&row.WeaponType,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -707,6 +739,7 @@ func scanRuntimeEquippedRow(scanner interface {
 		&row.ItemUID,
 		&row.ItemID,
 		&enhanceLevel,
+		&row.IsDamaged,
 		&row.ItemName,
 		&row.Icon,
 		&requiredLevel,
@@ -720,6 +753,9 @@ func scanRuntimeEquippedRow(scanner interface {
 		&baseSPD,
 		&row.BaseStatsJSON,
 		&row.EnhancePerLevelStatsJSON,
+		&row.WeaponSkillsJSON,
+		&row.EnhancePerLevelWeaponSkillLevelsJSON,
+		&row.WeaponType,
 	)
 	if err != nil {
 		return runtimeEquippedRow{}, err
@@ -735,52 +771,98 @@ func scanRuntimeEquippedRow(scanner interface {
 }
 
 func (row *runtimeEquippedRow) toPieceTemplate() (equipment.EquippedPieceTemplate, error) {
-	combatStats, err := unmarshalEquipmentCombatStatsJSON(row.BaseStatsJSON)
-	if err != nil {
-		return equipment.EquippedPieceTemplate{}, err
-	}
-	enhancePerLevel, err := unmarshalEnhancePerLevelJSON(row.EnhancePerLevelStatsJSON)
-	if err != nil {
-		return equipment.EquippedPieceTemplate{}, err
-	}
-	return equipment.EquippedPieceTemplate{
-		EquipSlot:            equipment.EquipSlot(row.EquipSlot),
-		AppearanceOnly:       row.AppearanceOnly,
-		AppearanceSkinID:     row.AppearanceSkinID,
-		BaseHP:               row.BaseHP,
-		BaseMana:             row.BaseMana,
-		BaseATK:              row.BaseATK,
-		BaseDEF:              row.BaseDEF,
-		BaseSPD:              row.BaseSPD,
-		CombatStats:          combatStats,
-		EnhancePerLevelStats: enhancePerLevel,
-		RequiredLevel:        row.RequiredLevel,
-		EnhanceLevel:         row.EnhanceLevel,
-	}, nil
+	return buildEquipmentPieceTemplate(
+		row.EquipSlot,
+		row.AppearanceOnly,
+		row.AppearanceSkinID,
+		row.BaseHP,
+		row.BaseMana,
+		row.BaseATK,
+		row.BaseDEF,
+		row.BaseSPD,
+		row.BaseStatsJSON,
+		row.EnhancePerLevelStatsJSON,
+		row.WeaponSkillsJSON,
+		row.EnhancePerLevelWeaponSkillLevelsJSON,
+		row.WeaponType,
+		row.RequiredLevel,
+		row.EnhanceLevel,
+		row.IsDamaged,
+	)
 }
 
 func (row *runtimeBagEquipmentRow) toPieceTemplate() (equipment.EquippedPieceTemplate, error) {
-	combatStats, err := unmarshalEquipmentCombatStatsJSON(row.BaseStatsJSON)
+	return buildEquipmentPieceTemplate(
+		row.EquipSlot,
+		row.AppearanceOnly,
+		row.AppearanceSkinID,
+		row.BaseHP,
+		row.BaseMana,
+		row.BaseATK,
+		row.BaseDEF,
+		row.BaseSPD,
+		row.BaseStatsJSON,
+		row.EnhancePerLevelStatsJSON,
+		row.WeaponSkillsJSON,
+		row.EnhancePerLevelWeaponSkillLevelsJSON,
+		row.WeaponType,
+		row.RequiredLevel,
+		row.EnhanceLevel,
+		row.IsDamaged,
+	)
+}
+
+func buildEquipmentPieceTemplate(
+	equipSlot string,
+	appearanceOnly bool,
+	appearanceSkinID string,
+	baseHP uint32,
+	baseMana uint32,
+	baseATK uint32,
+	baseDEF uint32,
+	baseSPD uint32,
+	baseStatsJSON []byte,
+	enhancePerLevelStatsJSON []byte,
+	weaponSkillsJSON []byte,
+	enhancePerLevelWeaponSkillLevelsJSON []byte,
+	weaponType string,
+	requiredLevel uint32,
+	enhanceLevel uint32,
+	isDamaged bool,
+) (equipment.EquippedPieceTemplate, error) {
+	combatStats, err := unmarshalEquipmentCombatStatsJSON(baseStatsJSON)
 	if err != nil {
 		return equipment.EquippedPieceTemplate{}, err
 	}
-	enhancePerLevel, err := unmarshalEnhancePerLevelJSON(row.EnhancePerLevelStatsJSON)
+	enhancePerLevel, err := unmarshalEnhancePerLevelJSON(enhancePerLevelStatsJSON)
+	if err != nil {
+		return equipment.EquippedPieceTemplate{}, err
+	}
+	weaponSkillConfigs, err := unmarshalWeaponSkillsJSON(weaponSkillsJSON)
+	if err != nil {
+		return equipment.EquippedPieceTemplate{}, err
+	}
+	weaponSkillLevels, err := unmarshalEnhancePerLevelJSON(enhancePerLevelWeaponSkillLevelsJSON)
 	if err != nil {
 		return equipment.EquippedPieceTemplate{}, err
 	}
 	return equipment.EquippedPieceTemplate{
-		EquipSlot:            equipment.EquipSlot(row.EquipSlot),
-		AppearanceOnly:       row.AppearanceOnly,
-		AppearanceSkinID:     row.AppearanceSkinID,
-		BaseHP:               row.BaseHP,
-		BaseMana:             row.BaseMana,
-		BaseATK:              row.BaseATK,
-		BaseDEF:              row.BaseDEF,
-		BaseSPD:              row.BaseSPD,
-		CombatStats:          combatStats,
-		EnhancePerLevelStats: enhancePerLevel,
-		RequiredLevel:        row.RequiredLevel,
-		EnhanceLevel:         row.EnhanceLevel,
+		EquipSlot:                        equipment.EquipSlot(equipSlot),
+		AppearanceOnly:                   appearanceOnly,
+		AppearanceSkinID:                 appearanceSkinID,
+		BaseHP:                           baseHP,
+		BaseMana:                         baseMana,
+		BaseATK:                          baseATK,
+		BaseDEF:                          baseDEF,
+		BaseSPD:                          baseSPD,
+		CombatStats:                      combatStats,
+		EnhancePerLevelStats:             enhancePerLevel,
+		EnhancePerLevelWeaponSkillLevels: weaponSkillLevels,
+		WeaponSkillConfigs:               weaponSkillConfigs,
+		WeaponType:                       strings.TrimSpace(weaponType),
+		RequiredLevel:                    requiredLevel,
+		EnhanceLevel:                     enhanceLevel,
+		IsDamaged:                        isDamaged,
 	}, nil
 }
 

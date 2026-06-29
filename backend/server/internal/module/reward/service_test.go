@@ -168,8 +168,12 @@ func (r *rewardTestBagRepo) GrantRuntimeItem(_ context.Context, _ uint64, _ stri
 	}, nil
 }
 
-func (r *rewardTestBagRepo) UseRuntimeItem(context.Context, uint64, string, uint32, uint64, uint64, uint64) (*bag.RuntimeUseResult, error) {
+func (r *rewardTestBagRepo) UseRuntimeItem(context.Context, uint64, string, uint32, uint64, uint64, uint64, string) (*bag.RuntimeUseResult, error) {
 	panic("unexpected UseRuntimeItem call")
+}
+
+func (r *rewardTestBagRepo) DropRuntimeItem(context.Context, uint64, string, uint32, string, uint64) (*bag.RuntimeDropResult, error) {
+	panic("unexpected DropRuntimeItem call")
 }
 
 func (r *rewardTestBagRepo) ConsumeRuntimeItemStack(_ context.Context, _ uint64, _ string, slotIndex uint32, quantity uint64, _ string, _ uint64) (*bag.RuntimeContainerSnapshot, error) {

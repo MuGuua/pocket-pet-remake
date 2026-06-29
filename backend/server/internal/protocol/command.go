@@ -39,6 +39,8 @@ const (
 	CmdPlayerUnequipResp      uint16 = 2075
 	CmdPlayerEquipmentEnhanceReq  uint16 = 2076
 	CmdPlayerEquipmentEnhanceResp uint16 = 2077
+	CmdPlayerEquipmentRepairReq   uint16 = 2078
+	CmdPlayerEquipmentRepairResp  uint16 = 2079
 	CmdPetListReq             uint16 = 3001
 	CmdPetListResp            uint16 = 3002
 	CmdPetUpdatePush          uint16 = 3011
@@ -67,6 +69,8 @@ const (
 	CmdBagUpdatePush          uint16 = 5011
 	CmdUseItemReq             uint16 = 5021
 	CmdUseItemResp            uint16 = 5022
+	CmdDropItemReq            uint16 = 5121
+	CmdDropItemResp           uint16 = 5122
 	CmdContainerListReq       uint16 = 5031
 	CmdContainerListResp      uint16 = 5032
 	CmdBagToWarehouseReq      uint16 = 5041

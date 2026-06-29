@@ -1,10 +1,10 @@
-[gd_resource type="StyleBoxTexture" load_steps=2 format=3 uid="uid://cas61vsp4shl2"]
+[gd_resource type="StyleBoxTexture" format=3 uid="uid://cas61vsp4shl2"]
 
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_7jjgl"]
 
 [resource]
 texture = ExtResource("1_7jjgl")
-texture_margin_left = 20.0
-texture_margin_top = 20.0
-texture_margin_right = 20.0
-texture_margin_bottom = 20.0
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0

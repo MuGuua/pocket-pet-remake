@@ -69,6 +69,39 @@ func (s *Service) ValidateEnabledSkillIDs(ctx context.Context, skillIDs []uint32
 	return nil
 }
 
+// ValidateWeaponSkillReferences 校验装备引用的武器技能均存在、启用且分类为 weapon。
+func (s *Service) ValidateWeaponSkillReferences(ctx context.Context, skillIDs []uint32) error {
+	if len(skillIDs) == 0 {
+		return nil
+	}
+	usableMap, err := s.repo.MapUsableSkillIDs(ctx, skillIDs)
+	if err != nil {
+		return err
+	}
+	categoryMap, err := s.repo.MapSkillCategoriesByIDs(ctx, skillIDs)
+	if err != nil {
+		return err
+	}
+	for _, skillID := range skillIDs {
+		if skillID == 0 || !usableMap[skillID] {
+			return fmt.Errorf("%w: skill_id=%d", ErrInvalidSkillReference, skillID)
+		}
+		if categoryMap[skillID] != CategoryWeapon {
+			return fmt.Errorf("%w: skill_id=%d category=%s", ErrInvalidSkillReference, skillID, categoryMap[skillID])
+		}
+	}
+	disciplineMap, err := s.repo.MapSkillWeaponDisciplinesByIDs(ctx, skillIDs)
+	if err != nil {
+		return err
+	}
+	for _, skillID := range skillIDs {
+		if !IsValidWeaponDiscipline(disciplineMap[skillID]) {
+			return fmt.Errorf("%w: skill_id=%d missing weapon_discipline", ErrInvalidSkillReference, skillID)
+		}
+	}
+	return nil
+}
+
 // ListAdminSkillDefinitions 返回后台技能模板分页列表。
 func (s *Service) ListAdminSkillDefinitions(ctx context.Context, query AdminListQuery) (*AdminList, error) {
 	result, err := s.repo.ListForAdmin(ctx, query.Normalize())

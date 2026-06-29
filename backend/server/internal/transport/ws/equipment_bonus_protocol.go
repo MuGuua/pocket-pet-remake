@@ -82,7 +82,9 @@ func toProtocolContainerItemSnapshot(item bag.RuntimeItemSnapshot) protocol.Cont
 		Icon:                item.Icon,
 		RequiredLevel:       item.RequiredLevel,
 		EnhanceLevel:        item.EnhanceLevel,
+		IsDamaged:           item.IsDamaged,
 		Usable:              item.Usable,
+		CanDrop:             item.CanDrop,
 		TargetType:          item.TargetType,
 		EffectType:          item.EffectType,
 		EquipSlot:           item.EquipSlot,
@@ -90,6 +92,7 @@ func toProtocolContainerItemSnapshot(item bag.RuntimeItemSnapshot) protocol.Cont
 		DescriptionMentions: toProtocolDescriptionMentions(item.DescriptionMentions),
 		Bonus:               toProtocolEquipmentBonusFromRuntimeItem(item.Bonus),
 		EnhancePreview:      toProtocolEnhancePreview(item.EnhancePreview),
+		RepairPreview:       toProtocolRepairPreview(item.RepairPreview),
 	}
 }
 
@@ -100,9 +103,13 @@ func toProtocolEnhancePreview(preview *bag.RuntimeEnhancePreview) *protocol.Enha
 	materials := make([]protocol.EnhanceMaterialOptionSnapshot, 0, len(preview.Materials))
 	for _, material := range preview.Materials {
 		materials = append(materials, protocol.EnhanceMaterialOptionSnapshot{
-			ItemID:        material.ItemID,
-			ItemName:      material.ItemName,
-			OwnedQuantity: material.OwnedQuantity,
+			ItemID:                  material.ItemID,
+			ItemName:                material.ItemName,
+			OwnedQuantity:           material.OwnedQuantity,
+			EffectiveSuccessRatePct: material.EffectiveSuccessRatePct,
+			FailurePenalty:          material.FailurePenalty,
+			FailurePenaltyLabel:     material.FailurePenaltyLabel,
+			Description:             material.Description,
 		})
 	}
 	rows := make([]protocol.EnhancePreviewRowSnapshot, 0, len(preview.Rows))
@@ -115,10 +122,13 @@ func toProtocolEnhancePreview(preview *bag.RuntimeEnhancePreview) *protocol.Enha
 		})
 	}
 	return &protocol.EnhancePreviewSnapshot{
-		CanEnhance:              preview.CanEnhance,
-		MaxEnhanceLevel:         preview.MaxEnhanceLevel,
-		SuccessRatePct:          preview.SuccessRatePct,
-		CostGoldCopper:          preview.CostGoldCopper,
+		CanEnhance:             preview.CanEnhance,
+		MaxEnhanceLevel:        preview.MaxEnhanceLevel,
+		SuccessRatePct:         preview.SuccessRatePct,
+		RequiredLevel:          preview.RequiredLevel,
+		RequiredLevelBandMin:   preview.RequiredLevelBandMin,
+		RequiredLevelBandLabel: preview.RequiredLevelBandLabel,
+		CostGoldCopper:         preview.CostGoldCopper,
 		CostItemID:              preview.CostItemID,
 		CostItemName:            preview.CostItemName,
 		CostQuantity:            preview.CostQuantity,
@@ -126,6 +136,19 @@ func toProtocolEnhancePreview(preview *bag.RuntimeEnhancePreview) *protocol.Enha
 		EnhanceMaterialCategory: preview.EnhanceMaterialCategory,
 		Materials:               materials,
 		Rows:                    rows,
+	}
+}
+
+func toProtocolRepairPreview(preview *bag.RuntimeRepairPreview) *protocol.RepairPreviewSnapshot {
+	if preview == nil {
+		return nil
+	}
+	return &protocol.RepairPreviewSnapshot{
+		CanRepair:         preview.CanRepair,
+		CostItemID:        preview.CostItemID,
+		CostItemName:      preview.CostItemName,
+		CostQuantity:      preview.CostQuantity,
+		OwnedCostQuantity: preview.OwnedCostQuantity,
 	}
 }
 

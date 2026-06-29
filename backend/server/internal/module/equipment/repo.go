@@ -22,7 +22,10 @@ type Repository interface {
 	FindBagSlotIndexByItemUID(ctx context.Context, playerID uint64, containerType string, itemUID string) (uint32, error)
 	RefreshEquippedTemplateEntry(ctx context.Context, playerID uint64, equipSlot string, itemUID string, containerType string, recalc RecalcContext, currentProfile *player.Profile) error
 	EnhanceInstance(ctx context.Context, playerID uint64, itemUID string, costItemID uint64) (*EnhanceResult, error)
+	RepairInstance(ctx context.Context, playerID uint64, itemUID string) (*RepairResult, error)
 
 	GetEnhanceGoldCostConfigForAdmin(ctx context.Context) (*AdminEnhanceGoldCostConfigDetail, error)
 	UpsertEnhanceGoldCostConfigForAdmin(ctx context.Context, input AdminUpsertEnhanceGoldCostConfigInput) (*AdminEnhanceGoldCostConfigDetail, error)
+	ListEnhanceSuccessConfigsForAdmin(ctx context.Context, requiredLevelMin *uint32) (*AdminEnhanceSuccessConfigList, error)
+	UpsertEnhanceSuccessConfigForAdmin(ctx context.Context, targetLevel uint32, requiredLevelMin uint32, input AdminUpsertEnhanceSuccessConfigInput) (*AdminEnhanceSuccessConfig, error)
 }

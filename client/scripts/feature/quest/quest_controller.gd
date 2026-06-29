@@ -46,7 +46,8 @@ func handle_quest_submit_response(payload: Dictionary) -> void:
 	var rewards_variant: Variant = payload.get("rewards", [])
 	var rewards: Array = rewards_variant if rewards_variant is Array else []
 	var level_up_count: int = int(payload.get("level_up_count", 0))
-	if level_up_count > 0 or not rewards.is_empty():
+	var attr_points_gained: int = int(payload.get("attr_points_gained", 0))
+	if level_up_count > 0 or attr_points_gained > 0 or not rewards.is_empty():
 		quest_settlement_popup_requested.emit(payload)
 	App.request_quest_list()
 

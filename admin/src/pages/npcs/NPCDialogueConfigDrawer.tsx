@@ -21,7 +21,6 @@ import {
   message,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { fetchAdminItems } from '../../services/item';
 import {
   createAdminNPCDialogue,
   deleteAdminNPCDialogue,
@@ -36,8 +35,9 @@ import type {
   AdminNPCDialogueOption,
   AdminUpdateNPCDialoguePayload,
 } from '../../types/npc';
-import type { AdminItemSummary } from '../../types/item';
 import type React from 'react';
+import { RichTextEditor } from '../../components/RichTextEditor';
+import { containsBbcode } from '../../utils/richTextBbcode';
 
 interface DialogueEditorFormValues {
   entity_id: number;
@@ -368,71 +368,12 @@ interface DialogueEditorFieldsProps {
 function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEditorFieldsProps) {
   const editorForm = Form.useFormInstance<DialogueEditorFormValues>();
   const speakerOptions: Array<{ label: string; value: string }> = buildSpeakerOptions(npcSpeakerName);
-  const [itemPickerOpen, setItemPickerOpen] = useState(false);
-  const [itemPickerNodeIndex, setItemPickerNodeIndex] = useState<number | null>(null);
-  const [itemKeyword, setItemKeyword] = useState('');
-  const [itemPage, setItemPage] = useState(1);
-  const [itemTotal, setItemTotal] = useState(0);
-  const [itemLoading, setItemLoading] = useState(false);
-  const [itemRows, setItemRows] = useState<AdminItemSummary[]>([]);
-  const [itemPreviewMap, setItemPreviewMap] = useState<Record<number, AdminItemSummary>>({});
   const [draggingNodeIndex, setDraggingNodeIndex] = useState<number | null>(null);
   const [dragOverNodeIndex, setDragOverNodeIndex] = useState<number | null>(null);
   const [draggingOptionKey, setDraggingOptionKey] = useState<string | null>(null);
   const [dragOverOptionKey, setDragOverOptionKey] = useState<string | null>(null);
   const [expandedNodeKeys, setExpandedNodeKeys] = useState<Record<string, boolean>>({});
   const [expandedOptionKeys, setExpandedOptionKeys] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (!itemPickerOpen) {
-      return;
-    }
-    void loadItemPickerRows(itemKeyword, itemPage);
-  }, [itemPickerOpen, itemKeyword, itemPage]);
-
-  async function loadItemPickerRows(keyword: string, page: number): Promise<void> {
-    setItemLoading(true);
-    try {
-      const result = await fetchAdminItems({
-        filters: { keyword, enabled: 'true' },
-        page,
-        pageSize: 48,
-      });
-      setItemRows(result.items);
-      setItemTotal(result.total);
-      setItemPreviewMap((previous) => mergeItemPreviewMap(previous, result.items));
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载系统物品失败');
-      setItemRows([]);
-      setItemTotal(0);
-    } finally {
-      setItemLoading(false);
-    }
-  }
-
-  function handleOpenItemPicker(nodeIndex: number): void {
-    setItemPickerNodeIndex(nodeIndex);
-    setItemPickerOpen(true);
-  }
-
-  function handleInsertPlayerName(nodeIndex: number): void {
-    insertNodeContentToken(nodeIndex, '{player_name}');
-  }
-
-  function handleSelectItem(item: AdminItemSummary): void {
-    if (itemPickerNodeIndex === null) {
-      return;
-    }
-    setItemPreviewMap((previous) => mergeItemPreviewMap(previous, [item]));
-    insertNodeContentToken(itemPickerNodeIndex, `{item:${item.item_id}}`);
-    setItemPickerOpen(false);
-  }
-
-  function insertNodeContentToken(nodeIndex: number, token: string): void {
-    const currentContent: string = String(editorForm.getFieldValue(['nodes', nodeIndex, 'content']) ?? '');
-    const separator: string = currentContent === '' || currentContent.endsWith(' ') ? '' : ' ';
-    editorForm.setFieldValue(['nodes', nodeIndex, 'content'], `${currentContent}${separator}${token}`);
-  }
 
   // 节点 ID、线性跳转和排序都由当前表单列表顺序统一生成，避免运营手填引用关系。
   function applySequentialNodeLayout(nextNodes: AdminNPCDialogueNode[]): void {
@@ -874,26 +815,15 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                             <Form.Item
                               label="对白/说明内容"
                               name={[field.name, 'content']}
-                              extra="可写：欢迎 {player_name}，这是 {item:1001}。物品名和 icon 会从 item_definition 读取。"
+                              extra="支持 BBCode 富文本；可写：欢迎 {player_name}，这是 {item:1001}。物品名和 icon 会从 item_definition 读取。"
                             >
-                              <Input.TextArea rows={isChoiceNode ? 3 : 4} disabled={isActionNode || isEndNode} placeholder={isChoiceNode ? '给玩家看的分支提示文案' : '填写本节点要显示的台词'} />
+                              <RichTextEditor
+                                rows={isChoiceNode ? 3 : 4}
+                                disabled={isActionNode || isEndNode}
+                                placeholder={isChoiceNode ? '给玩家看的分支提示文案' : '填写本节点要显示的台词'}
+                                enablePlayerNameMention
+                              />
                             </Form.Item>
-                            {isActionNode || isEndNode ? null : (
-                              <Space direction="vertical" size={8} style={{ width: '100%', marginBottom: 16 }}>
-                                <Space wrap>
-                                  <Button size="small" onClick={() => handleOpenItemPicker(field.name)}>导入物品</Button>
-                                  <Button size="small" onClick={() => handleInsertPlayerName(field.name)}>@玩家</Button>
-                                </Space>
-                                <Form.Item noStyle shouldUpdate>
-                                  {() => (
-                                    <DialogueContentPreview
-                                      content={String(editorForm.getFieldValue(['nodes', field.name, 'content']) ?? '')}
-                                      itemMap={itemPreviewMap}
-                                    />
-                                  )}
-                                </Form.Item>
-                              </Space>
-                            )}
                           </Col>
                           <Col xs={24} md={8}>
                             <Form.Item label="下一节点">
@@ -1067,73 +997,6 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
           </Space>
         )}
       </Form.List>
-      <Modal
-        title="导入系统物品"
-        open={itemPickerOpen}
-        onCancel={() => setItemPickerOpen(false)}
-        footer={null}
-        width={860}
-        style={{ top: FIXED_FORM_MODAL_TOP }}
-        styles={FIXED_FORM_MODAL_STYLES}
-        destroyOnClose
-      >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          <Input.Search
-            allowClear
-            placeholder="搜索物品ID、编码或名称"
-            enterButton="搜索"
-            onSearch={(value) => {
-              setItemKeyword(value);
-              setItemPage(1);
-            }}
-          />
-          <Spin spinning={itemLoading}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
-                gap: 12,
-                maxHeight: 420,
-                overflow: 'auto',
-                paddingRight: 4,
-              }}
-            >
-              {itemRows.map((item) => (
-                <Tooltip
-                  key={item.item_id}
-                  title={(
-                    <Space direction="vertical" size={2}>
-                      <span>{item.item_name}</span>
-                      <span>ID：{item.item_id}</span>
-                      <span>{item.desc || '暂无介绍'}</span>
-                    </Space>
-                  )}
-                >
-                  <Button
-                    onClick={() => handleSelectItem(item)}
-                    style={{ height: 112, padding: 8, whiteSpace: 'normal' }}
-                  >
-                    <Space direction="vertical" size={6} align="center" style={{ width: '100%' }}>
-                      <ItemIcon icon={item.icon} />
-                      <Typography.Text ellipsis style={{ width: '100%', textAlign: 'center', fontSize: 12 }}>
-                        {item.item_name}
-                      </Typography.Text>
-                    </Space>
-                  </Button>
-                </Tooltip>
-              ))}
-            </div>
-          </Spin>
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Typography.Text type="secondary">共 {itemTotal} 个系统物品</Typography.Text>
-            <Space>
-              <Button disabled={itemPage <= 1} onClick={() => setItemPage((value) => Math.max(1, value - 1))}>上一页</Button>
-              <Typography.Text>第 {itemPage} 页</Typography.Text>
-              <Button disabled={itemPage * 48 >= itemTotal} onClick={() => setItemPage((value) => value + 1)}>下一页</Button>
-            </Space>
-          </Space>
-        </Space>
-      </Modal>
     </>
   );
 }
@@ -1154,7 +1017,7 @@ function defaultDialogueFormValues(entityId: number, entryId: string, entryTitle
         node_type: 'line',
         speaker: npcSpeakerName,
         content: '这里填写第一句对白。',
-        content_format: 'plain',
+        content_format: 'bbcode',
         portrait_key: '',
         next_node_id: '',
         client_animation_key: '',
@@ -1169,7 +1032,7 @@ function defaultDialogueFormValues(entityId: number, entryId: string, entryTitle
         node_type: 'end',
         speaker: '',
         content: '',
-        content_format: 'plain',
+        content_format: 'bbcode',
         portrait_key: '',
         next_node_id: '',
         client_animation_key: '',
@@ -1189,7 +1052,7 @@ function defaultDialogueNode(sortOrder: number, npcSpeakerName: string): AdminNP
     node_type: 'line',
     speaker: npcSpeakerName,
     content: '',
-    content_format: 'plain',
+    content_format: 'bbcode',
     portrait_key: '',
     next_node_id: '',
     client_animation_key: '',
@@ -1224,7 +1087,7 @@ function mapDialogueDetailToForm(detail: AdminNPCDialogueDetail, npcSpeakerName:
     nodes: detail.nodes.map((node: AdminNPCDialogueNode) => ({
       ...node,
       speaker: normalizeSpeakerForForm(node.speaker, npcSpeakerName),
-      content_format: node.content_format || 'plain',
+      content_format: resolveDialogueContentFormat(node.content, node.content_format),
       conditions: node.conditions ?? {},
       effects: node.effects ?? {},
       options: node.options.map((option: AdminNPCDialogueOption) => ({
@@ -1265,88 +1128,14 @@ function normalizeSpeakerForForm(speaker: string, npcSpeakerName: string): strin
   return trimmedSpeaker;
 }
 
-function mergeItemPreviewMap(previous: Record<number, AdminItemSummary>, items: AdminItemSummary[]): Record<number, AdminItemSummary> {
-  const nextMap: Record<number, AdminItemSummary> = { ...previous };
-  items.forEach((item) => {
-    nextMap[item.item_id] = item;
-  });
-  return nextMap;
-}
-
-function DialogueContentPreview({ content, itemMap }: { content: string; itemMap: Record<number, AdminItemSummary> }) {
-  const fragments = renderDialogueContentFragments(content, itemMap);
-  return (
-    <Card size="small" title="对话预览（客户端最终效果）" bodyStyle={{ padding: 12 }}>
-      <Space wrap size={6}>
-        {fragments.length > 0 ? fragments : <Typography.Text type="secondary">暂无对白内容</Typography.Text>}
-      </Space>
-    </Card>
-  );
-}
-
-function renderDialogueContentFragments(content: string, itemMap: Record<number, AdminItemSummary>): React.ReactNode[] {
-  const fragments: React.ReactNode[] = [];
-  const tokenPattern = /(\{player_name\}|\{item:(\d+)\})/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null = tokenPattern.exec(content);
-  while (match) {
-    if (match.index > lastIndex) {
-      fragments.push(<span key={`text-${lastIndex}`}>{content.slice(lastIndex, match.index)}</span>);
-    }
-    if (match[1] === '{player_name}') {
-      fragments.push(<Typography.Text key={`player-${match.index}`} strong>玩家</Typography.Text>);
-    } else {
-      const itemID = Number(match[2]);
-      const item = itemMap[itemID];
-      fragments.push(<ItemMentionChip key={`item-${match.index}-${itemID}`} itemID={itemID} item={item} />);
-    }
-    lastIndex = match.index + match[0].length;
-    match = tokenPattern.exec(content);
+function resolveDialogueContentFormat(content: string, contentFormat: string | undefined): string {
+  if (contentFormat === 'bbcode') {
+    return 'bbcode';
   }
-  if (lastIndex < content.length) {
-    fragments.push(<span key={`text-${lastIndex}`}>{content.slice(lastIndex)}</span>);
+  if (containsBbcode(content)) {
+    return 'bbcode';
   }
-  return fragments;
-}
-
-function ItemMentionChip({ itemID, item }: { itemID: number; item?: AdminItemSummary }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, verticalAlign: 'middle' }}>
-      <ItemIcon icon={item?.icon ?? ''} size={20} />
-      <Typography.Text strong>{item?.item_name ?? `物品${itemID}`}</Typography.Text>
-    </span>
-  );
-}
-
-function ItemIcon({ icon, size = 32 }: { icon: string; size?: number }) {
-  const imageSrc = toAdminImageSrc(icon);
-  if (!imageSrc) {
-    return (
-      <span
-        style={{
-          width: size,
-          height: size,
-          display: 'inline-grid',
-          placeItems: 'center',
-          borderRadius: 6,
-          background: '#f5f5f5',
-          border: '1px solid #d9d9d9',
-          fontSize: Math.max(12, Math.floor(size * 0.5)),
-        }}
-      >
-        物
-      </span>
-    );
-  }
-  return <img src={imageSrc} alt="" style={{ width: size, height: size, objectFit: 'contain' }} />;
-}
-
-function toAdminImageSrc(icon: string): string {
-  const trimmedIcon = icon.trim();
-  if (trimmedIcon === '' || trimmedIcon.startsWith('res://')) {
-    return '';
-  }
-  return trimmedIcon;
+  return 'plain';
 }
 
 // 这里统一清洗表单结构，确保空白输入不会直接以脏数据写回数据库。
@@ -1364,7 +1153,7 @@ function normalizeDialogueFormValues(values: DialogueEditorFormValues): Dialogue
       node_type: node.node_type,
       speaker: node.speaker.trim(),
       content: node.content.trim(),
-      content_format: node.content_format || 'plain',
+      content_format: resolveDialogueContentFormat(node.content, node.content_format),
       portrait_key: node.portrait_key.trim(),
       next_node_id: '',
       client_animation_key: node.client_animation_key.trim(),

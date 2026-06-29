@@ -5,6 +5,8 @@ export interface AdminPetSummary {
   player_id: number;
   player_name: string;
   pet_id: number;
+  pet_name: string;
+  custom_name: string;
   level: number;
   quality: number;
   hp: number;
@@ -30,6 +32,8 @@ export interface AdminPetDetail extends AdminPetCombatStats {
   player_id: number;
   player_name: string;
   pet_id: number;
+  pet_name: string;
+  custom_name: string;
   level: number;
   exp: number;
   quality: number;
@@ -51,6 +55,11 @@ export interface AdminPetListFilters {
   pet_id?: string;
 }
 
+export interface AdminGrantPetFromTemplatePayload {
+  player_id: number;
+  pet_id: number;
+}
+
 export interface AdminCreatePetPayload extends AdminPetCombatStats {
   player_id: number;
   pet_id: number;
@@ -68,6 +77,7 @@ export interface AdminCreatePetPayload extends AdminPetCombatStats {
 
 export interface AdminUpdatePetPayload extends AdminPetCombatStats {
   pet_id: number;
+  custom_name: string;
   level: number;
   exp: number;
   quality: number;

@@ -29,7 +29,8 @@ func _ready() -> void:
 
 ## 展示标题与多行纯文本摘要。
 ## config 可选键：title_font_size、content_font_size、confirm_label。
-func show_info(title_text: String, lines: Array, config: Dictionary = {}) -> void:
+## 返回是否已成功调度打开弹窗。
+func show_info(title_text: String, lines: Array, config: Dictionary = {}) -> bool:
     var title_font_size: int = int(config.get("title_font_size", DEFAULT_TITLE_FONT_SIZE))
     var content_font_size: int = int(config.get("content_font_size", DEFAULT_CONTENT_FONT_SIZE))
     var confirm_label: String = str(config.get("confirm_label", DEFAULT_CONFIRM_LABEL))
@@ -38,31 +39,37 @@ func show_info(title_text: String, lines: Array, config: Dictionary = {}) -> voi
     if _confirm_button != null:
         _confirm_button.set_button_label(confirm_label)
     _apply_interactive_nodes()
-    _open_modal()
+    call_deferred("_open_modal")
+    return true
 
 
 ## 展示玩家升级结果；level 为升级后的当前等级，bonus 为服务端属性加成摘要。
-func show_player_level_up(level: int, bonus: Dictionary) -> void:
-    if level <= 0:
-        return
+## 等级缺失时回退到 GameState 权威快照；无法解析等级时返回 false。
+func show_player_level_up(level: int, bonus: Dictionary) -> bool:
+    var resolved_level: int = level
+    if resolved_level <= 0:
+        resolved_level = int(GameState.player_snapshot.get("level", 0))
+    if resolved_level <= 0:
+        return false
     var hp_gain: int = int(bonus.get("hp_max", 0))
     var atk_gain: int = int(bonus.get("atk", 0))
     var mana_gain: int = int(bonus.get("mana", 0))
     var spd_gain: int = int(bonus.get("spd", 0))
     var lines: Array[String] = [
-        "恭喜你升到了%d级" % level,
+        "恭喜你升到了%d级" % resolved_level,
         "最大生命值增加：%d" % hp_gain,
         "攻击力增加：%d" % atk_gain,
         "法力增加：%d" % mana_gain,
         "速度增加：%d" % spd_gain,
     ]
-    show_info("", lines, {"content_font_size": 10})
+    return show_info("", lines, {"content_font_size": 10})
 
 
 ## 展示单只宠物升级结果；pet_name 为展示名，level 为升级后的当前等级。
-func show_pet_level_up(pet_name: String, level: int, attr_points_gained: int, free_attr_points: int) -> void:
+## 等级缺失时不弹窗并返回 false。
+func show_pet_level_up(pet_name: String, level: int, attr_points_gained: int, free_attr_points: int) -> bool:
     if level <= 0:
-        return
+        return false
     var resolved_name: String = pet_name.strip_edges()
     if resolved_name.is_empty():
         resolved_name = "你的宠物"
@@ -71,7 +78,7 @@ func show_pet_level_up(pet_name: String, level: int, attr_points_gained: int, fr
         "获得自由属性点：%d" % attr_points_gained,
         "当前可用自由点：%d" % free_attr_points,
     ]
-    show_info(resolved_name, lines, {
+    return show_info(resolved_name, lines, {
         "title_font_size": 18,
         "content_font_size": 18,
     })
@@ -130,9 +137,22 @@ func _clear_content_lines() -> void:
         child.queue_free()
 
 
-## 追加一行居中纯文本。
+## 追加一行居中正文；含 BBCode 时用 RichTextLabel，否则沿用 Label。
 func _append_content_line(text: String, font_size: int) -> void:
     if _content_list == null:
+        return
+    if RichTextContent.contains_bbcode(text):
+        var rich_label: RichTextLabel = RichTextLabel.new()
+        rich_label.bbcode_enabled = true
+        rich_label.text = text
+        rich_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        rich_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        rich_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        rich_label.add_theme_font_size_override("normal_font_size", font_size)
+        rich_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        rich_label.scroll_active = false
+        rich_label.fit_content = true
+        _content_list.add_child(rich_label)
         return
     var row_label: Label = Label.new()
     row_label.text = text

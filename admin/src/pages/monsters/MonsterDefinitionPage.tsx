@@ -21,6 +21,13 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
+import { RichTextEditor } from '../../components/RichTextEditor';
+import {
+  createDefaultMonsterBattleRewardEntry,
+  mapMonsterBattleRewardPayload,
+  MonsterBattleRewardEditor,
+} from '../../components/MonsterBattleRewardEditor';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
@@ -192,7 +199,9 @@ export function MonsterDefinitionPage() {
     setRewardLoading(true);
     try {
       const items = await fetchAdminMonsterBattleRewards(record.monster_id);
-      rewardForm.setFieldsValue({ rewards: items.length > 0 ? items : [defaultMonsterBattleRewardRow()] });
+      rewardForm.setFieldsValue({
+        rewards: items.length > 0 ? items : [createDefaultMonsterBattleRewardEntry()],
+      });
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载战斗奖励配置失败');
       setRewardEditorOpen(false);
@@ -314,7 +323,9 @@ export function MonsterDefinitionPage() {
               <Descriptions.Item label="名称">{detail.monster_name}</Descriptions.Item>
               <Descriptions.Item label="战斗外观ID">{detail.skin_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
-              <Descriptions.Item label="描述" span={2}>{detail.description || '-'}</Descriptions.Item>
+              <Descriptions.Item label="描述" span={2}>
+                <RichTextDisplay value={detail.description} />
+              </Descriptions.Item>
             </Descriptions>
             <Descriptions bordered column={2} size="small" title="战斗数值">
               <Descriptions.Item label="等级">{detail.base_stats.level}</Descriptions.Item>
@@ -387,7 +398,11 @@ export function MonsterDefinitionPage() {
                 <Input placeholder="例如：史莱姆_001" />
               </Form.Item>
             </Col>
-            <Col span={24}><Form.Item label="描述" name="description"><Input.TextArea rows={2} /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端图鉴/详情会原样渲染。">
+                <RichTextEditor rows={3} />
+              </Form.Item>
+            </Col>
             <Col xs={24} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="品质" name="quality"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="当前生命" name="hp"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
@@ -440,148 +455,28 @@ export function MonsterDefinitionPage() {
           <Typography.Text type="secondary">正在加载战斗奖励配置...</Typography.Text>
         ) : (
           <Form form={rewardForm} layout="vertical" onFinish={(values) => void handleSubmitBattleRewards(values)}>
-            <Typography.Paragraph type="secondary">
-              支持经验、铜币与物品奖励，保存后将覆盖该怪物全部战斗奖励配置。
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+              配置该怪物战斗胜利后的固定奖励。保存后将覆盖原有全部条目；停用条目不会发放。
             </Typography.Paragraph>
-            <Form.List name="rewards">
-              {(fields, { add, remove }) => (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  {fields.map((field, index) => (
-                    <Card
-                      key={field.key}
-                      size="small"
-                      title={`奖励 ${index + 1}`}
-                      extra={<Button type="link" danger onClick={() => remove(field.name)}>删除</Button>}
-                    >
-                      <Row gutter={12}>
-                        <Col xs={24} md={6}>
-                          <Form.Item label="奖励类型" name={[field.name, 'reward_type']} rules={[{ required: true, message: '请选择奖励类型' }]}>
-                            <Select options={[{ label: '经验', value: 'exp' }, { label: '铜币', value: 'gold' }, { label: '物品', value: 'item' }]} />
-                          </Form.Item>
-                        </Col>
-                        <Form.Item noStyle shouldUpdate>
-                          {() => {
-                            const rewardType = rewardForm.getFieldValue(['rewards', field.name, 'reward_type']) as string | undefined;
-                            if (rewardType === 'item') {
-                              return (
-                                <>
-                                  <Col xs={24} md={6}>
-                                    <Form.Item label="物品ID" name={[field.name, 'item_id']} rules={[{ required: true, message: '请输入物品ID' }]}>
-                                      <InputNumber min={1} style={{ width: '100%' }} />
-                                    </Form.Item>
-                                  </Col>
-                                  <Col xs={24} md={6}>
-                                    <Form.Item label="数量" name={[field.name, 'quantity']} rules={[{ required: true, message: '请输入数量' }]}>
-                                      <InputNumber min={1} style={{ width: '100%' }} />
-                                    </Form.Item>
-                                  </Col>
-                                  <Col xs={24} md={6}>
-                                    <Form.Item label="唯一掉落" name={[field.name, 'grant_once']} tooltip="开启后每名玩家仅首次获得该物品，之后战斗不再重复发放。">
-                                      <Select options={[{ label: '否', value: 0 }, { label: '是', value: 1 }]} />
-                                    </Form.Item>
-                                  </Col>
-                                </>
-                              );
-                            }
-                            if (rewardType === 'gold') {
-                              return (
-                                <Col xs={24} md={6}>
-                                  <Form.Item label="铜币数量" name={[field.name, 'exp_value']} rules={[{ required: true, message: '请输入铜币数量' }]}>
-                                    <InputNumber min={1} style={{ width: '100%' }} />
-                                  </Form.Item>
-                                </Col>
-                              );
-                            }
-                            return (
-                              <>
-                                <Col xs={24} md={6}>
-                                  <Form.Item label="经验目标" name={[field.name, 'exp_target']} rules={[{ required: true, message: '请选择经验目标' }]}>
-                                    <Select options={[{ label: '角色', value: 'player' }, { label: '宠物', value: 'pet' }]} />
-                                  </Form.Item>
-                                </Col>
-                                <Col xs={24} md={6}>
-                                  <Form.Item label="经验值" name={[field.name, 'exp_value']} rules={[{ required: true, message: '请输入经验值' }]}>
-                                    <InputNumber min={1} style={{ width: '100%' }} />
-                                  </Form.Item>
-                                </Col>
-                              </>
-                            );
-                          }}
-                        </Form.Item>
-                        <Col xs={12} md={4}>
-                          <Form.Item label="排序" name={[field.name, 'sort_order']}>
-                            <InputNumber min={1} style={{ width: '100%' }} />
-                          </Form.Item>
-                        </Col>
-                        <Col xs={12} md={4}>
-                          <Form.Item label="状态" name={[field.name, 'status']}>
-                            <Select options={[{ label: '启用', value: 1 }, { label: '停用', value: 0 }]} />
-                          </Form.Item>
-                        </Col>
-                      </Row>
-                    </Card>
-                  ))}
-                  <Button type="dashed" block onClick={() => add(defaultMonsterBattleRewardRow())}>
-                    新增奖励
-                  </Button>
-                </Space>
-              )}
-            </Form.List>
+            <Form.Item
+              name="rewards"
+              rules={[
+                {
+                  validator: async (_, rewardList: AdminMonsterBattleRewardEntry[] | undefined) => {
+                    if (!rewardList || rewardList.length === 0) {
+                      throw new Error('至少配置一条战斗奖励');
+                    }
+                  },
+                },
+              ]}
+            >
+              <MonsterBattleRewardEditor />
+            </Form.Item>
           </Form>
         )}
       </Modal>
     </Space>
   );
-}
-
-function mapMonsterBattleRewardPayload(item: AdminMonsterBattleRewardEntry, index: number): AdminMonsterBattleRewardEntry {
-  const sortOrder: number = item.sort_order > 0 ? item.sort_order : index + 1;
-  const status: number = item.status ?? 1;
-  if (item.reward_type === 'item') {
-    return {
-      reward_type: 'item',
-      exp_target: 'player',
-      item_id: Number(item.item_id ?? 0),
-      quantity: Number(item.quantity ?? 0),
-      exp_value: 0,
-      sort_order: sortOrder,
-      status,
-      grant_once: Number(item.grant_once ?? 0) > 0 ? 1 : 0,
-    };
-  }
-  if (item.reward_type === 'gold') {
-    return {
-      reward_type: 'gold',
-      exp_target: 'player',
-      item_id: 0,
-      quantity: 0,
-      exp_value: Number(item.exp_value ?? 0),
-      sort_order: sortOrder,
-      status,
-    };
-  }
-  return {
-    reward_type: 'exp',
-    exp_target: item.exp_target || 'player',
-    item_id: 0,
-    quantity: 0,
-    exp_value: Number(item.exp_value ?? 0),
-    sort_order: sortOrder,
-    status,
-  };
-}
-
-function defaultMonsterBattleRewardRow(): AdminMonsterBattleRewardEntry {
-  return {
-    reward_type: 'exp',
-    exp_target: 'player',
-    item_id: 0,
-    quantity: 0,
-    exp_value: 10,
-    sort_order: 1,
-    status: 1,
-    grant_once: 0,
-  };
 }
 
 function defaultMonsterDefinitionValues(): MonsterDefinitionFormValues {

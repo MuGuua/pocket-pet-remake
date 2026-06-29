@@ -52,6 +52,13 @@ const (
 	StatusSleep         uint32 = 10
 	StatusParalysis     uint32 = 11
 	StatusConfusion     uint32 = 12
+	StatusResistBlessing uint32 = 13
+	StatusHolyRepentance uint32 = 14
+	StatusElectrified    uint32 = 15
+	StatusBloodConfusion uint32 = 16
+	StatusPhantomFlash   uint32 = 17
+	StatusCharmWind      uint32 = 18
+	StatusDemonPower     uint32 = 19
 
 	DefaultAttackSkillID    uint32 = 1001
 	DefaultCharacterSkillID uint32 = 1101
@@ -127,6 +134,7 @@ type SkillSnapshot struct {
 	ImpactColor  string
 	Projectile   bool
 	IsBasicAttack bool
+	Level        uint32
 }
 
 type StartSnapshot struct {
@@ -202,6 +210,17 @@ type DropReward struct {
 	GrantOnce bool
 }
 
+// SkillProgressUpdate 描述战斗结束后应持久化的武器技能经验变更。
+type SkillProgressUpdate struct {
+	SkillID          uint32
+	SkillName        string
+	ExpGained        uint32
+	FinalExp         uint32
+	FinalLevel       uint32
+	NewlyLearned     bool
+	LearnExpRequired uint32
+}
+
 type ResultSnapshot struct {
 	BattleID             uint64
 	BattleType           uint32
@@ -218,6 +237,7 @@ type ResultSnapshot struct {
 	CaptureSuccess       bool
 	CaptureMonsterID     uint32
 	CapturedPetID        uint32
+	SkillProgressUpdates []SkillProgressUpdate
 }
 
 type ActionRequest struct {

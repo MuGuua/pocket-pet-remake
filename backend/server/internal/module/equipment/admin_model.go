@@ -109,6 +109,7 @@ type AdminEquipmentDetail struct {
 	RequiredLevel             uint32                 `json:"required_level"`
 	BindType                  string                 `json:"bind_type"`
 	CanSell                   bool                   `json:"can_sell"`
+	CanDrop                   bool                   `json:"can_drop"`
 	CanStore                  bool                   `json:"can_store"`
 	IsEnabled                 bool                   `json:"is_enabled"`
 	EquipSlot                 string                 `json:"equip_slot"`
@@ -125,7 +126,10 @@ type AdminEquipmentDetail struct {
 	BaseDEF                   uint32                 `json:"base_def"`
 	BaseSPD                   uint32                 `json:"base_spd"`
 	CombatStats               AdminCombatStats       `json:"combat_stats"`
-	EnhancePerLevelStats      map[string]uint32      `json:"enhance_per_level_stats"`
+	EnhancePerLevelStats           map[string]uint32            `json:"enhance_per_level_stats"`
+	EnhancePerLevelWeaponSkillLevels map[string]uint32          `json:"enhance_per_level_weapon_skill_levels"`
+	WeaponSkills                   []AdminWeaponSkillConfig     `json:"weapon_skills"`
+	WeaponType                     string                       `json:"weapon_type"`
 	EnhanceGoldCost           AdminEquipmentEnhanceGoldCost `json:"enhance_gold_cost"`
 	SocketCount               uint32                 `json:"socket_count"`
 	AllowedGemTypes           []string               `json:"allowed_gem_types"`
@@ -198,6 +202,7 @@ type AdminUpsertEquipmentInput struct {
 	RequiredLevel        uint32                 `json:"required_level"`
 	BindType             string                 `json:"bind_type"`
 	CanSell              bool                   `json:"can_sell"`
+	CanDrop              bool                   `json:"can_drop"`
 	CanStore             bool                   `json:"can_store"`
 	IsEnabled            bool                   `json:"is_enabled"`
 	EquipSlot            string                 `json:"equip_slot"`
@@ -214,6 +219,9 @@ type AdminUpsertEquipmentInput struct {
 	BaseSPD              uint32                 `json:"base_spd"`
 	CombatStats          AdminCombatStats       `json:"combat_stats"`
 	EnhancePerLevelStats map[string]uint32      `json:"enhance_per_level_stats"`
+	EnhancePerLevelWeaponSkillLevels map[string]uint32 `json:"enhance_per_level_weapon_skill_levels"`
+	WeaponSkills         []AdminWeaponSkillConfig `json:"weapon_skills"`
+	WeaponType           string                 `json:"weapon_type"`
 	EnhanceGoldCost      AdminEquipmentEnhanceGoldCost `json:"enhance_gold_cost"`
 	SocketCount          uint32                 `json:"socket_count"`
 	AllowedGemTypes      []string               `json:"allowed_gem_types"`
@@ -230,6 +238,7 @@ func (input AdminUpsertEquipmentInput) Normalize() AdminUpsertEquipmentInput {
 	input.EquipSlot = strings.TrimSpace(input.EquipSlot)
 	input.CareerLimit = strings.TrimSpace(input.CareerLimit)
 	input.AppearanceSkinID = strings.TrimSpace(input.AppearanceSkinID)
+	input.WeaponType = strings.TrimSpace(input.WeaponType)
 	if input.Quality == 0 {
 		input.Quality = 1
 	}
@@ -241,6 +250,14 @@ func (input AdminUpsertEquipmentInput) Normalize() AdminUpsertEquipmentInput {
 	}
 	if input.EnhancePerLevelStats == nil {
 		input.EnhancePerLevelStats = map[string]uint32{}
+	}
+	if input.EnhancePerLevelWeaponSkillLevels == nil {
+		input.EnhancePerLevelWeaponSkillLevels = map[string]uint32{}
+	} else {
+		input.EnhancePerLevelWeaponSkillLevels = NormalizeEnhancePerLevelWeaponSkillLevels(input.EnhancePerLevelWeaponSkillLevels)
+	}
+	if input.WeaponSkills == nil {
+		input.WeaponSkills = []AdminWeaponSkillConfig{}
 	}
 	if input.AllowedGemTypes == nil {
 		input.AllowedGemTypes = []string{}
@@ -267,6 +284,7 @@ func (input AdminUpsertEquipmentInput) Normalize() AdminUpsertEquipmentInput {
 	if !input.CanEnhance {
 		input.MaxEnhanceLevel = 0
 		input.EnhancePerLevelStats = map[string]uint32{}
+		input.EnhancePerLevelWeaponSkillLevels = map[string]uint32{}
 		input.EnhanceGoldCost = AdminEquipmentEnhanceGoldCost{}
 	} else {
 		input.EnhanceGoldCost = input.EnhanceGoldCost.Normalize()
@@ -278,6 +296,11 @@ func (input AdminUpsertEquipmentInput) Normalize() AdminUpsertEquipmentInput {
 		if input.MaxEnhanceLevel == 0 {
 			input.MaxEnhanceLevel = 15
 		}
+	}
+	if !IsWeaponEquipSlot(slot) {
+		input.WeaponSkills = []AdminWeaponSkillConfig{}
+		input.EnhancePerLevelWeaponSkillLevels = map[string]uint32{}
+		input.WeaponType = ""
 	}
 	return input
 }
@@ -295,6 +318,9 @@ func (input AdminUpsertEquipmentInput) Validate() error {
 		if err := input.EnhanceGoldCost.Validate(); err != nil {
 			return err
 		}
+	}
+	if IsWeaponEquipSlot(EquipSlot(input.EquipSlot)) && len(input.WeaponSkills) > 0 && !IsValidWeaponType(input.WeaponType) {
+		return ErrInvalidAdminEquipmentInput
 	}
 	return nil
 }

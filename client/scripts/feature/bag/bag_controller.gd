@@ -2,8 +2,12 @@ extends Node
 
 # 背包数据刷新后向外广播当前物品总数。
 signal bag_updated(count: int)
+# 容器完整快照写入 GameState 后广播，供带 loading 的 UI 等待新数据落地。
+signal container_snapshot_applied(container_type: String)
 # 商店购买回包到达后向外广播完整载荷。
 signal buy_item_responded(payload: Dictionary)
+# 丢弃物品成功回包到达后向外广播完整载荷；UI 仍需等待后续容器快照刷新后再结束 loading。
+signal drop_item_responded(payload: Dictionary)
 
 # 处理背包列表响应，并把物品数组写入全局状态。
 func handle_bag_list(payload: Dictionary) -> void:
@@ -13,28 +17,38 @@ func handle_bag_list(payload: Dictionary) -> void:
 
 # 处理单个背包物品更新推送，并把结果合并进全局状态。
 func handle_bag_update(payload: Dictionary) -> void:
+    var container_type: String = str(payload.get("container_type", "bag"))
     var updates_variant: Variant = payload.get("updates", [])
     if updates_variant is Array:
+        var updates: Array = updates_variant
         GameState.apply_container_updates(
-            str(payload.get("container_type", "bag")),
-            updates_variant,
+            container_type,
+            updates,
             int(payload.get("capacity", 0)),
             int(payload.get("max_capacity", 0)),
             int(payload.get("used_slots", -1))
         )
-        _refresh_paginated_bag_page_if_needed(str(payload.get("container_type", "bag")))
+        _refresh_paginated_bag_page_if_needed(container_type)
+        _emit_bag_updated()
+        if not updates.is_empty():
+            container_snapshot_applied.emit(container_type)
     else:
         # 兼容 item 字段和直接物品结构两种旧载荷格式。
         var item_variant: Variant = payload.get("item", payload)
         var item: Dictionary = item_variant if item_variant is Dictionary else {}
         GameState.upsert_bag_item(item)
-    _emit_bag_updated()
+        _emit_bag_updated()
 
 
 # 处理使用物品响应。
 # 当前真正的容器变化仍以后续 `5011 BAG_UPDATE_PUSH` 为准，这里先保留入口方便 UI 后续接结果提示。
 func handle_use_item_response(_payload: Dictionary) -> void:
     _emit_bag_updated()
+
+
+# 处理丢弃物品成功响应；背包刷新与结束 loading 由 BagPanel 统一编排。
+func handle_drop_item_response(payload: Dictionary) -> void:
+    drop_item_responded.emit(payload if payload is Dictionary else {})
 
 
 # 处理仓库等其他容器的完整快照响应。
@@ -60,7 +74,9 @@ func handle_buy_item_response(payload: Dictionary) -> void:
 
 func _apply_container_payload(payload: Dictionary) -> void:
     var container_variant: Variant = payload.get("container", {})
+    var applied_container_type: String = "bag"
     if container_variant is Dictionary and not container_variant.is_empty():
+        applied_container_type = str(container_variant.get("container_type", "bag"))
         GameState.set_container_snapshot(container_variant)
     else:
         # 兼容旧协议仍然直接返回 items 数组的情况。
@@ -69,6 +85,7 @@ func _apply_container_payload(payload: Dictionary) -> void:
         GameState.set_bag_items(items)
     _apply_wallet_payload(payload)
     _emit_bag_updated()
+    container_snapshot_applied.emit(applied_container_type)
 
 
 func _apply_equipped_payload(payload: Dictionary) -> void:

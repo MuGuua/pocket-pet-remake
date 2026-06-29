@@ -50,6 +50,16 @@ func handle_enhance_response(payload: Dictionary) -> void:
 	equipment_updated.emit()
 
 
+# 处理人物装备修复响应。
+func handle_repair_response(payload: Dictionary) -> void:
+	var all_equipped_variant: Variant = payload.get("all_equipped", [])
+	if all_equipped_variant is Array:
+		GameState.set_equipped_items(all_equipped_variant as Array)
+	if GameState.is_ws_authenticated:
+		App.request_bag_list()
+	equipment_updated.emit()
+
+
 ## 合并佩戴/卸下后的玩家属性与全身装备，并刷新背包快照。
 func _apply_equipment_mutation_response(payload: Dictionary) -> void:
 	var player_variant: Variant = payload.get("player", {})

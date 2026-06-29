@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UnitSkin" load_steps=10 format=3 uid="uid://bvdxxrcs3b37k"]
+[gd_resource type="Resource" script_class="UnitSkin" format=3 uid="uid://bvdxxrcs3b37k"]
 
 [ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_l1apr"]
 [ext_resource type="Texture2D" uid="uid://ciu2r8uqu61gy" path="res://asset/分类/宠物/两图宠物/486.png" id="2_0krmq"]
@@ -24,7 +24,7 @@ region = Rect2(49, 0, 49, 51)
 atlas = ExtResource("2_q1mdc")
 region = Rect2(98, 0, 49, 51)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_chj_battle_only"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_q1mdc"]
 animations = [{
 "frames": [{
 "duration": 1.0,
@@ -33,7 +33,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_y1vyo")
 }],
-"loop": true,
+"loop": 1,
 "name": &"战斗待机",
 "speed": 5.0
 }, {
@@ -47,7 +47,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_l0r5b")
 }],
-"loop": true,
+"loop": 1,
 "name": &"技能",
 "speed": 4.0
 }, {
@@ -61,7 +61,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_l0r5b")
 }],
-"loop": true,
+"loop": 1,
 "name": &"攻击",
 "speed": 4.0
 }]
@@ -69,7 +69,7 @@ animations = [{
 [resource]
 script = ExtResource("1_l1apr")
 skin_id = "狮子王chj_486"
-sprite_frames = SubResource("SpriteFrames_chj_battle_only")
+sprite_frames = SubResource("SpriteFrames_q1mdc")
 animation_flip_h = {
 "战斗待机": true,
 "技能": true,

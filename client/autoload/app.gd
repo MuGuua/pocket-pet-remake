@@ -236,6 +236,15 @@ func request_player_equipment_enhance(item_uid: String, cost_item_id: int = 0) -
 		payload
 	)
 
+# 修复指定 item_uid 的损坏人物装备实例。
+func request_player_equipment_repair(item_uid: String) -> int:
+	return _send_command(
+		CommandIds.PLAYER_EQUIPMENT_REPAIR_REQ,
+		{
+			"item_uid": item_uid,
+		}
+	)
+
 # 请求刷新当前玩家的背包摘要。
 # page/category/page_size 仅对新版背包 UI 生效；旧调用不传时默认仍返回第 1 页、28 条、全部分类。
 func request_bag_list(page: int = 1, page_size: int = 28, category: String = "all") -> int:
@@ -264,7 +273,8 @@ func request_wallet() -> int:
 
 # 请求主动使用当前容器格子中的物品。
 # target_pet_uid 在 target_type=pet_single 的道具（治疗、神符解锁等）上必填。
-func request_use_item(container_type: String, slot_index: int, quantity: int = 1, target_pet_uid: int = 0) -> int:
+# target_item_uid 在 target_type=equipment_single 的道具（修理、强化相关）上必填。
+func request_use_item(container_type: String, slot_index: int, quantity: int = 1, target_pet_uid: int = 0, target_item_uid: String = "") -> int:
 	var payload: Dictionary = {
 		"container_type": container_type,
 		"slot_index": slot_index,
@@ -272,7 +282,22 @@ func request_use_item(container_type: String, slot_index: int, quantity: int = 1
 	}
 	if target_pet_uid > 0:
 		payload["target_pet_uid"] = target_pet_uid
+	var normalized_item_uid: String = target_item_uid.strip_edges()
+	if not normalized_item_uid.is_empty():
+		payload["target_item_uid"] = normalized_item_uid
 	return _send_command(CommandIds.USE_ITEM_REQ, payload)
+
+# 请求丢弃当前容器格子中的物品；实例化物品应传 item_uid，可堆叠物品可传部分 quantity。
+func request_drop_item(container_type: String, slot_index: int, quantity: int = 1, item_uid: String = "") -> int:
+	var payload: Dictionary = {
+		"container_type": container_type,
+		"slot_index": slot_index,
+		"quantity": quantity,
+	}
+	var normalized_uid: String = item_uid.strip_edges()
+	if not normalized_uid.is_empty():
+		payload["item_uid"] = normalized_uid
+	return _send_command(CommandIds.DROP_ITEM_REQ, payload)
 
 # 请求把背包指定格子的部分或全部物品存入仓库。
 func request_bag_to_warehouse(entity_id: int, from_slot_index: int, quantity: int) -> int:
@@ -451,7 +476,8 @@ func _on_dev_message_received(cmd: int, seq: int, _code: int, payload: Dictionar
 	if CommandIds.should_log_result(cmd):
 		_emit_server_result_log(cmd, _format_ws_result_log(cmd, payload))
 		_log_battle_payload_debug(cmd, payload)
-	_resolve_request_completion(cmd, seq, payload)
+		_log_bag_payload_debug(cmd, payload)
+	_resolve_request_completion(cmd, seq, _code, payload)
 	MessageRouter.route_message(cmd, payload)
 
 # 底层 WebSocket 建连成功后自动发起业务鉴权。
@@ -529,7 +555,12 @@ func _on_force_offline_push(payload: Dictionary) -> void:
 
 # 处理服务端错误推送，并转为统一提示事件。
 func _on_error_push(payload: Dictionary) -> void:
+	var error_code: int = int(payload.get("code", 0))
 	var message := str(payload.get("msg", "server returned an error push"))
+	_emit_server_result_log(
+		CommandIds.ERROR_PUSH,
+		"ERROR code=%d msg=%s" % [error_code, message]
+	)
 	if _reconnect_in_progress:
 		_set_reconnect_in_progress(false)
 		GameState.set_ws_authenticated(false)
@@ -568,6 +599,7 @@ func _send_command(cmd: int, payload: Dictionary) -> int:
 	if CommandIds.should_log_result(cmd):
 		_emit_server_result_log(cmd, _format_ws_request_log(cmd, payload))
 		_log_battle_payload_debug(cmd, payload)
+		_log_bag_payload_debug(cmd, payload)
 	var seq := NetClient.send_command(cmd, payload)
 	if seq > 0:
 		_pending_request_cmds_by_seq[seq] = cmd
@@ -579,7 +611,7 @@ func _send_command(cmd: int, payload: Dictionary) -> int:
 
 
 # 根据收到的回包消息，结束对应请求的等待状态。这样 UI 可以在数据真正准备好之后再显示。
-func _resolve_request_completion(cmd: int, seq: int, payload: Dictionary) -> void:
+func _resolve_request_completion(cmd: int, seq: int, code: int, payload: Dictionary) -> void:
 	if cmd == CommandIds.ERROR_PUSH:
 		var failed_request_cmd := int(_pending_request_cmds_by_seq.get(seq, 0))
 		if failed_request_cmd != 0:
@@ -600,7 +632,8 @@ func _resolve_request_completion(cmd: int, seq: int, payload: Dictionary) -> voi
 	if matched_seq == 0:
 		return
 	_pending_request_cmds_by_seq.erase(matched_seq)
-	request_finished.emit(request_cmd, matched_seq, true, cmd, payload)
+	var succeeded: bool = code == 0
+	request_finished.emit(request_cmd, matched_seq, succeeded, cmd, payload)
 
 
 # 把响应消息号映射回最初发出的请求消息号，供等待中的 UI 找到自己的回包。
@@ -638,6 +671,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.PLAYER_UNEQUIP_REQ
 		CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP:
 			return CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ
+		CommandIds.PLAYER_EQUIPMENT_REPAIR_RESP:
+			return CommandIds.PLAYER_EQUIPMENT_REPAIR_REQ
 		CommandIds.PET_ARTIFACT_EQUIP_RESP:
 			return CommandIds.PET_ARTIFACT_EQUIP_REQ
 		CommandIds.PET_ARTIFACT_UNEQUIP_RESP:
@@ -646,6 +681,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.PET_SKILL_DETAIL_REQ
 		CommandIds.USE_ITEM_RESP:
 			return CommandIds.USE_ITEM_REQ
+		CommandIds.DROP_ITEM_RESP:
+			return CommandIds.DROP_ITEM_REQ
 		CommandIds.BATTLE_ACTION_RESP:
 			return CommandIds.BATTLE_ACTION_REQ
 		CommandIds.PVP_CHALLENGE_RESP:
@@ -738,6 +775,15 @@ func _log_battle_payload_debug(cmd: int, payload: Dictionary) -> void:
 	print("[BattleNet][DEBUG_PAYLOAD][%s]\n%s" % [CommandIds.name_of(cmd), _format_battle_payload_json(payload)])
 
 
+# 调试构建下把背包/装备/丢弃载荷完整 JSON 输出到控制台。
+func _log_bag_payload_debug(cmd: int, payload: Dictionary) -> void:
+	if not OS.is_debug_build():
+		return
+	if not CommandIds.is_bag_related(cmd):
+		return
+	print("[BagNet][DEBUG_PAYLOAD][%s]\n%s" % [CommandIds.name_of(cmd), _format_battle_payload_json(payload)])
+
+
 # 组装 WebSocket 请求结果日志；只保留摘要字段，完整 JSON 见 _log_battle_payload_debug。
 func _format_ws_result_log(cmd: int, payload: Dictionary) -> String:
 	var summary := "%s" % CommandIds.name_of(cmd)
@@ -783,6 +829,30 @@ func _format_ws_result_log(cmd: int, payload: Dictionary) -> String:
 		summary += " round=%s" % str(payload.get("round", 0))
 	if payload.has("phase"):
 		summary += " phase=%s" % str(payload.get("phase", ""))
+	if payload.has("code"):
+		summary += " code=%s" % str(payload.get("code", 0))
+	if payload.has("item_id"):
+		summary += " item_id=%s" % str(payload.get("item_id", 0))
+	if payload.has("item_name"):
+		summary += " item_name=%s" % str(payload.get("item_name", ""))
+	if payload.has("item_uid"):
+		summary += " item_uid=%s" % str(payload.get("item_uid", ""))
+	if payload.has("slot_index"):
+		summary += " slot_index=%s" % str(payload.get("slot_index", 0))
+	if payload.has("quantity"):
+		summary += " quantity=%s" % str(payload.get("quantity", 0))
+	if payload.has("dropped_quantity"):
+		summary += " dropped_quantity=%s" % str(payload.get("dropped_quantity", 0))
+	if payload.has("used_quantity"):
+		summary += " used_quantity=%s" % str(payload.get("used_quantity", 0))
+	if payload.has("container_type"):
+		summary += " container_type=%s" % str(payload.get("container_type", ""))
+	if payload.has("items"):
+		var items_variant: Variant = payload.get("items", [])
+		if items_variant is Array:
+			summary += " items=%d" % items_variant.size()
+	if payload.has("success"):
+		summary += " success=%s" % str(bool(payload.get("success", false)))
 	return summary
 
 
@@ -799,6 +869,22 @@ func _format_ws_request_log(cmd: int, payload: Dictionary) -> String:
 		summary += " quest_id=%s" % str(payload.get("quest_id", 0))
 	if payload.has("battle_id"):
 		summary += " battle_id=%s" % str(payload.get("battle_id", 0))
+	if payload.has("container_type"):
+		summary += " container_type=%s" % str(payload.get("container_type", ""))
+	if payload.has("slot_index"):
+		summary += " slot_index=%s" % str(payload.get("slot_index", 0))
+	if payload.has("bag_slot_index"):
+		summary += " bag_slot_index=%s" % str(payload.get("bag_slot_index", 0))
+	if payload.has("item_uid"):
+		summary += " item_uid=%s" % str(payload.get("item_uid", ""))
+	if payload.has("item_id"):
+		summary += " item_id=%s" % str(payload.get("item_id", 0))
+	if payload.has("quantity"):
+		summary += " quantity=%s" % str(payload.get("quantity", 0))
+	if payload.has("equip_slot"):
+		summary += " equip_slot=%s" % str(payload.get("equip_slot", ""))
+	if payload.has("cost_item_id"):
+		summary += " cost_item_id=%s" % str(payload.get("cost_item_id", 0))
 	if payload.has("pet_uids"):
 		var pet_uids_variant: Variant = payload.get("pet_uids", [])
 		if pet_uids_variant is Array:

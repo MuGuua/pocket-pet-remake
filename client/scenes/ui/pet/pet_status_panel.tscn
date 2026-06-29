@@ -1,0 +1,438 @@
+[gd_scene format=3 uid="uid://dvp14xw8qf4g5"]
+
+[ext_resource type="Texture2D" uid="uid://hudiisqw2jr5" path="res://asset/分类/ui/下拉按钮.png" id="1_b4hb2"]
+[ext_resource type="Texture2D" uid="uid://kxkj8edhsh44" path="res://asset/分类/宠物/两图宠物/758.png" id="2_bkwt6"]
+[ext_resource type="Texture2D" uid="uid://d3v470j4tlhty" path="res://asset/分类/宠物/两图宠物/830.png" id="3_2277l"]
+[ext_resource type="Texture2D" uid="uid://bbqwx3hxipgfl" path="res://asset/分类/宠物/两图宠物/305.png" id="4_qy1sh"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fjtt8"]
+atlas = SubResource("CompressedTexture2D_n3uqk")
+region = Rect2(387, 29, 176, 291)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
+texture = SubResource("AtlasTexture_fjtt8")
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_bkwt6"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fi3ju"]
+atlas = SubResource("CompressedTexture2D_bkwt6")
+region = Rect2(272, 208, 17, 16)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_2277l"]
+texture = SubResource("AtlasTexture_fi3ju")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_qy1sh"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_v7su5"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_xvjvq"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_4bnwa"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx6cj"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i7iau"]
+bg_color = Color(0.007843138, 0.07450981, 0.20784314, 0.84705883)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_tx6cj"]
+texture = ExtResource("1_b4hb2")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f8dlf"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_2277l"]
+load_path = "res://.godot/imported/魔法阵.png-981683f3305cee15cbda77135f46f4f7.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2hnwu"]
+atlas = ExtResource("2_bkwt6")
+region = Rect2(0, 0, 68, 78)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bhnpi"]
+atlas = ExtResource("2_bkwt6")
+region = Rect2(68, 0, 68, 78)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_qy1sh"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2hnwu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bhnpi")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 3.0
+}]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h8ylg"]
+bg_color = Color(0.4952492, 0.5752493, 0.9125591, 0.27450982)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tx6cj"]
+atlas = ExtResource("2_bkwt6")
+region = Rect2(0, 0, 68, 78)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_i7iau"]
+atlas = ExtResource("3_2277l")
+region = Rect2(0, 0, 56, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f8dlf"]
+atlas = ExtResource("4_qy1sh")
+region = Rect2(0, 0, 39, 51)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ehdik"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_a5yub"]
+bg_color = Color(0.6743078, 0.6001148, 0.2782295, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_v7su5"]
+bg_color = Color(0.894408, 0.43773705, 0.47937775, 1)
+
+[node name="Control" type="CanvasLayer" unique_id=1147085773]
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=77391200]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -115.0
+offset_top = -184.5
+offset_right = 65.0
+offset_bottom = 94.5
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.3, 1.3)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=1013119518]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=1915715733]
+layout_mode = 2
+
+[node name="Title" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1694877725]
+layout_mode = 2
+theme_override_constants/margin_top = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/Title" unique_id=57812799]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=375654909]
+custom_minimum_size = Vector2(63, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1652365896]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
+theme_override_font_sizes/font_size = 11
+text = "宠物信息"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Control2" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1183064158]
+custom_minimum_size = Vector2(37, 0)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1318063362]
+custom_minimum_size = Vector2(20, 18)
+custom_maximum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/normal = SubResource("StyleBoxTexture_2277l")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_qy1sh")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_v7su5")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_xvjvq")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_4bnwa")
+
+[node name="DisplayPanel" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1086472372]
+custom_minimum_size = Vector2(180, 90)
+custom_maximum_size = Vector2(180, 100)
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
+
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel" unique_id=1079352986]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tx6cj")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer" unique_id=930522958]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer" unique_id=1030104627]
+custom_minimum_size = Vector2(100, 12)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_i7iau")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer" unique_id=1162159005]
+custom_maximum_size = Vector2(100, 12)
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="PetName" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=2114362760]
+custom_minimum_size = Vector2(58, 12)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 7
+text = "天空之王"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PetLevel" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1520792920]
+custom_minimum_size = Vector2(26, 12)
+custom_maximum_size = Vector2(10, 12)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 7
+text = "12级"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=231935582]
+custom_minimum_size = Vector2(12, 12)
+custom_maximum_size = Vector2(12, 12)
+layout_mode = 2
+mouse_filter = 1
+theme_override_styles/normal = SubResource("StyleBoxTexture_tx6cj")
+
+[node name="PanelContainer2" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer" unique_id=1771738664]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_f8dlf")
+
+[node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2" unique_id=937978233]
+custom_minimum_size = Vector2(110, 74)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+
+[node name="HBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control" unique_id=737523293]
+custom_minimum_size = Vector2(110, 70)
+custom_maximum_size = Vector2(-1, 70)
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 74.0
+
+[node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer" unique_id=1602564124]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control" unique_id=940489478]
+modulate = Color(1, 1, 1, 0.44705883)
+custom_minimum_size = Vector2(50, 12)
+layout_mode = 0
+offset_top = 53.0
+offset_right = 110.0
+offset_bottom = 65.0
+size_flags_vertical = 10
+texture = SubResource("CompressedTexture2D_2277l")
+expand_mode = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control" unique_id=1328519479]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 0
+offset_top = 4.0
+offset_right = 110.0
+offset_bottom = 4.0
+
+[node name="Pet" type="AnimatedSprite2D" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=1378988410]
+position = Vector2(51.892303, 26.161531)
+scale = Vector2(0.7457013, 0.7694281)
+sprite_frames = SubResource("SpriteFrames_qy1sh")
+autoplay = "default"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer" unique_id=1801679108]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="DataPanel" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=435905459]
+custom_minimum_size = Vector2(180, 157)
+custom_maximum_size = Vector2(180, 157)
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel" unique_id=1408329610]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="宠物列表" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer" unique_id=1928187423]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_h8ylg")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表" unique_id=2065318763]
+layout_mode = 2
+theme_override_constants/margin_left = 1
+theme_override_constants/margin_top = 1
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 1
+
+[node name="GridContainer" type="GridContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer" unique_id=1655612917]
+layout_mode = 2
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
+columns = 2
+
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=613055149]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer/Button" unique_id=205274470]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1411535912]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer/Button2" unique_id=908980340]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_i7iau")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Button3" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1284793320]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer/Button3" unique_id=528718118]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+texture = SubResource("AtlasTexture_f8dlf")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Button4" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=456949626]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="Button5" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1139397637]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="Button6" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=213766159]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="Button7" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=204151495]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="Button8" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=477873649]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+
+[node name="PanelContainer2" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer" unique_id=1670865182]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_ehdik")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2" unique_id=2031534910]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer" unique_id=1391191588]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+alignment = 1
+
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/HBoxContainer" unique_id=1241695082]
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_a5yub")
+text = "基础属性"
+
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/HBoxContainer" unique_id=416643654]
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_a5yub")
+text = "状态抗性"
+
+[node name="Button3" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/HBoxContainer" unique_id=260445129]
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_a5yub")
+text = "资质技能"
+
+[node name="Button4" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/HBoxContainer" unique_id=818896443]
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_a5yub")
+text = "法宝装备"
+
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer" unique_id=760365994]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_1v26t")
+
+[node name="资质技能" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/PanelContainer" unique_id=2001666701]
+layout_mode = 2
+
+[node name="PanelContainer2" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer" unique_id=1199923089]
+custom_minimum_size = Vector2(0, 126)
+layout_mode = 2
+
+[node name="Button5" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/PanelContainer2" unique_id=342836779]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_v7su5")
+text = "加点"
+
+[node name="Button6" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/PanelContainer2" unique_id=1516398866]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_v7su5")
+text = "合成"
+
+[node name="Button7" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/PanelContainer2/VBoxContainer/PanelContainer2" unique_id=628247070]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 7
+theme_override_styles/normal = SubResource("StyleBoxFlat_v7su5")
+text = "放生"

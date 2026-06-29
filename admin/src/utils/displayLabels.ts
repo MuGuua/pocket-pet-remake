@@ -95,10 +95,44 @@ export const MATERIAL_ITEM_SUB_TYPE_LABELS: Record<string, string> = {
 /** 技能分类 */
 export const SKILL_CATEGORY_LABELS: Record<string, string> = {
   common: '通用',
-  character: '人物',
-  pet: '宠物',
+  character: '人物技能',
+  weapon: '武器技能',
+  pet: '宠物技能',
   monster: '怪物',
 };
+
+export const SKILL_CATEGORY_OPTIONS = [
+  { value: 'character', label: '人物技能' },
+  { value: 'weapon', label: '武器技能' },
+  { value: 'pet', label: '宠物技能' },
+  { value: 'common', label: '通用' },
+  { value: 'monster', label: '怪物' },
+];
+
+/** 武器类型 / 武器技能流派 */
+export const WEAPON_TYPE_LABELS: Record<string, string> = {
+  sword: '剑',
+  spear: '枪',
+  staff: '法杖',
+};
+
+export const WEAPON_TYPE_OPTIONS = [
+  { value: 'sword', label: '剑' },
+  { value: 'spear', label: '枪' },
+  { value: 'staff', label: '法杖' },
+];
+
+export const WEAPON_DISCIPLINE_LABELS: Record<string, string> = {
+  sword: '剑类技能',
+  spear: '枪类技能',
+  staff: '法杖类技能',
+};
+
+export const WEAPON_DISCIPLINE_OPTIONS = [
+  { value: 'sword', label: '剑类技能' },
+  { value: 'spear', label: '枪类技能' },
+  { value: 'staff', label: '法杖类技能' },
+];
 
 /** 技能类型 */
 export const SKILL_TYPE_LABELS: Record<string, string> = {
@@ -124,7 +158,7 @@ export const PREFERRED_TARGET_LABELS: Record<string, string> = {
   highest: '生命最高',
 };
 
-/** 战斗控制状态 ID（与后端 battle.Status* 常量一致） */
+/** 战斗控制/签名状态 ID（与后端 battle.Status* 常量一致） */
 export const BATTLE_CONTROL_STATUS_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 2, label: '2 · 封印' },
   { value: 3, label: '3 · 眩晕' },
@@ -132,10 +166,20 @@ export const BATTLE_CONTROL_STATUS_OPTIONS: Array<{ value: number; label: string
   { value: 10, label: '10 · 睡眠' },
   { value: 11, label: '11 · 麻痹' },
   { value: 12, label: '12 · 混乱' },
+  { value: 13, label: '13 · 光之洗礼' },
+  { value: 14, label: '14 · 圣光忏悔' },
+  { value: 15, label: '15 · 感电' },
+  { value: 16, label: '16 · 混乱之血' },
+  { value: 17, label: '17 · 幻影闪击' },
+  { value: 18, label: '18 · 魅惑之风' },
+  { value: 19, label: '19 · 恶魔之力' },
 ];
 
-/** 根据控制状态 ID 返回中文名称 */
+/** 根据控制状态 ID 返回中文名称；未知 ID 原样返回数字字符串。 */
 export function formatControlStatusLabel(statusID: number): string {
+  if (!statusID) {
+    return '无';
+  }
   const matched = BATTLE_CONTROL_STATUS_OPTIONS.find((item) => item.value === statusID);
   return matched?.label ?? String(statusID);
 }
@@ -169,6 +213,13 @@ export function formatDisplayLabel(labels: Record<string, string>, value: string
 export function buildSelectOptions(labels: Record<string, string>): Array<{ label: string; value: string }> {
   return Object.entries(labels).map(([value, label]) => ({ label, value }));
 }
+
+export const SKILL_TYPE_OPTIONS = buildSelectOptions(SKILL_TYPE_LABELS);
+export const TARGET_TYPE_OPTIONS = buildSelectOptions(TARGET_TYPE_LABELS);
+export const PREFERRED_TARGET_OPTIONS = [
+  { value: '', label: '默认 / 不指定' },
+  ...buildSelectOptions(PREFERRED_TARGET_LABELS),
+];
 
 /**
  * 生成带「全部」项的筛选下拉选项。

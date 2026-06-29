@@ -22,6 +22,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { EquipmentEnhanceGoldCostEditor } from '../../components/EquipmentEnhanceGoldCostEditor';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import { ITEM_QUALITY_OPTIONS, formatItemQualityLabel } from '../../constants/itemQuality';
 import {
   createAdminEquipmentDefinition,
@@ -30,13 +32,16 @@ import {
   fetchAdminEquipmentDefinitions,
   updateAdminEquipmentDefinition,
 } from '../../services/equipmentDefinition';
+import { fetchAdminItems } from '../../services/item';
+import { fetchAdminSkillDefinitions } from '../../services/skillDefinition';
 import type {
   AdminEquipmentDetail,
   AdminEquipmentListFilters,
   AdminEquipmentSummary,
+  AdminEquipmentWeaponSkill,
   AdminUpsertEquipmentPayload,
 } from '../../types/equipmentDefinition';
-import { BIND_TYPE_LABELS, buildSelectOptions, formatDisplayLabel } from '../../utils/displayLabels';
+import { BIND_TYPE_LABELS, WEAPON_TYPE_LABELS, WEAPON_TYPE_OPTIONS, buildSelectOptions, formatDisplayLabel } from '../../utils/displayLabels';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 import {
   ADMIN_EQUIPMENT_COMBAT_STAT_FIELDS,
@@ -51,6 +56,18 @@ interface EquipmentFormValues extends AdminUpsertEquipmentPayload {
   allowed_gem_types_text: string;
   property_entries: EquipmentPropertyEntry[];
   enhance_entries: EquipmentPropertyEntry[];
+  weapon_skill_entries: WeaponSkillEntry[];
+  weapon_skill_enhance_entries: WeaponSkillEnhanceEntry[];
+}
+
+interface WeaponSkillEntry {
+  skill_id: number;
+  base_level: number;
+}
+
+interface WeaponSkillEnhanceEntry {
+  skill_id: number;
+  level_per_enhance: number;
 }
 
 interface EquipmentDefinitionPageProps {
@@ -124,13 +141,39 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
   const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(null);
   const [enhanceEditorOpen, setEnhanceEditorOpen] = useState(false);
   const [editingEnhanceKey, setEditingEnhanceKey] = useState<string | null>(null);
+  const [weaponSkillEditorOpen, setWeaponSkillEditorOpen] = useState(false);
+  const [editingWeaponSkillID, setEditingWeaponSkillID] = useState<number | null>(null);
+  const [weaponSkillEnhanceEditorOpen, setWeaponSkillEnhanceEditorOpen] = useState(false);
+  const [editingWeaponSkillEnhanceID, setEditingWeaponSkillEnhanceID] = useState<number | null>(null);
+  const [weaponSkillOptions, setWeaponSkillOptions] = useState<Array<{ value: number; label: string }>>([]);
+  const [weaponSkillEditorForm] = Form.useForm<{ skill_id: number; base_level: number }>();
+  const [weaponSkillEnhanceEditorForm] = Form.useForm<{ skill_id: number; level_per_enhance: number }>();
   const equipSlot = Form.useWatch('equip_slot', editorForm);
   const propertyEntries = Form.useWatch('property_entries', editorForm) ?? [];
   const enhanceEntries = Form.useWatch('enhance_entries', editorForm) ?? [];
+  const weaponSkillEntries = Form.useWatch('weapon_skill_entries', editorForm) ?? [];
+  const weaponSkillEnhanceEntries = Form.useWatch('weapon_skill_enhance_entries', editorForm) ?? [];
+  const isWeaponSlot = equipSlot === 'weapon' || equipSlot === 'class_weapon';
 
   useEffect(() => {
     void loadRows(filters, page, pageSize);
   }, [filters, page, pageSize]);
+
+  useEffect(() => {
+    if (!editorOpen || !isWeaponSlot) {
+      return;
+    }
+    void loadWeaponSkillOptions();
+  }, [editorOpen, isWeaponSlot]);
+
+  async function loadWeaponSkillOptions() {
+    try {
+      const result = await fetchAdminSkillDefinitions({ filters: { category: 'weapon', enabled: 'true' }, page: 1, pageSize: 100 });
+      setWeaponSkillOptions(result.items.map((item) => ({ value: item.skill_id, label: `${item.skill_name} (#${item.skill_id})` })));
+    } catch {
+      setWeaponSkillOptions([]);
+    }
+  }
 
   async function loadRows(nextFilters: AdminEquipmentListFilters, nextPage: number, nextPageSize: number) {
     setLoading(true);
@@ -272,8 +315,77 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
     const currentEntries: EquipmentPropertyEntry[] = editorForm.getFieldValue('enhance_entries') ?? [];
     editorForm.setFieldValue(
       'enhance_entries',
-      currentEntries.filter((entry) => entry.key != propertyKey),
-    )
+      currentEntries.filter((entry) => entry.key !== propertyKey),
+    );
+  }
+
+  function handleOpenWeaponSkillEditor(skillID?: number) {
+    const currentEntries: WeaponSkillEntry[] = editorForm.getFieldValue('weapon_skill_entries') ?? [];
+    const currentEntry = skillID ? currentEntries.find((entry) => entry.skill_id === skillID) : null;
+    setEditingWeaponSkillID(skillID ?? null);
+    weaponSkillEditorForm.setFieldsValue({
+      skill_id: currentEntry?.skill_id ?? 0,
+      base_level: currentEntry?.base_level ?? 0,
+    });
+    setWeaponSkillEditorOpen(true);
+  }
+
+  function handleSubmitWeaponSkillEditor(values: { skill_id: number; base_level: number }) {
+    const skillID = Number(values.skill_id ?? 0);
+    if (skillID <= 0) {
+      message.error('请选择武器技能');
+      return;
+    }
+    const currentEntries: WeaponSkillEntry[] = editorForm.getFieldValue('weapon_skill_entries') ?? [];
+    const nextEntries = currentEntries.filter((entry) => entry.skill_id !== editingWeaponSkillID && entry.skill_id !== skillID);
+    nextEntries.push({ skill_id: skillID, base_level: Number(values.base_level ?? 0) });
+    editorForm.setFieldValue('weapon_skill_entries', nextEntries.sort((left, right) => left.skill_id - right.skill_id));
+    setWeaponSkillEditorOpen(false);
+    setEditingWeaponSkillID(null);
+    weaponSkillEditorForm.resetFields();
+  }
+
+  function handleDeleteWeaponSkill(skillID: number) {
+    const currentEntries: WeaponSkillEntry[] = editorForm.getFieldValue('weapon_skill_entries') ?? [];
+    editorForm.setFieldValue('weapon_skill_entries', currentEntries.filter((entry) => entry.skill_id !== skillID));
+    const enhanceEntriesValue: WeaponSkillEnhanceEntry[] = editorForm.getFieldValue('weapon_skill_enhance_entries') ?? [];
+    editorForm.setFieldValue('weapon_skill_enhance_entries', enhanceEntriesValue.filter((entry) => entry.skill_id !== skillID));
+  }
+
+  function handleOpenWeaponSkillEnhanceEditor(skillID?: number) {
+    const currentEntries: WeaponSkillEnhanceEntry[] = editorForm.getFieldValue('weapon_skill_enhance_entries') ?? [];
+    const currentEntry = skillID ? currentEntries.find((entry) => entry.skill_id === skillID) : null;
+    setEditingWeaponSkillEnhanceID(skillID ?? null);
+    weaponSkillEnhanceEditorForm.setFieldsValue({
+      skill_id: currentEntry?.skill_id ?? 0,
+      level_per_enhance: currentEntry?.level_per_enhance ?? 1,
+    });
+    setWeaponSkillEnhanceEditorOpen(true);
+  }
+
+  function handleSubmitWeaponSkillEnhanceEditor(values: { skill_id: number; level_per_enhance: number }) {
+    const skillID = Number(values.skill_id ?? 0);
+    if (skillID <= 0) {
+      message.error('请选择武器技能');
+      return;
+    }
+    const configuredSkills: WeaponSkillEntry[] = editorForm.getFieldValue('weapon_skill_entries') ?? [];
+    if (!configuredSkills.some((entry) => entry.skill_id === skillID)) {
+      message.error('请先在武器附加技能中配置该技能');
+      return;
+    }
+    const currentEntries: WeaponSkillEnhanceEntry[] = editorForm.getFieldValue('weapon_skill_enhance_entries') ?? [];
+    const nextEntries = currentEntries.filter((entry) => entry.skill_id !== editingWeaponSkillEnhanceID && entry.skill_id !== skillID);
+    nextEntries.push({ skill_id: skillID, level_per_enhance: Number(values.level_per_enhance ?? 0) });
+    editorForm.setFieldValue('weapon_skill_enhance_entries', nextEntries.sort((left, right) => left.skill_id - right.skill_id));
+    setWeaponSkillEnhanceEditorOpen(false);
+    setEditingWeaponSkillEnhanceID(null);
+    weaponSkillEnhanceEditorForm.resetFields();
+  }
+
+  function handleDeleteWeaponSkillEnhance(skillID: number) {
+    const currentEntries: WeaponSkillEnhanceEntry[] = editorForm.getFieldValue('weapon_skill_enhance_entries') ?? [];
+    editorForm.setFieldValue('weapon_skill_enhance_entries', currentEntries.filter((entry) => entry.skill_id !== skillID));
   }
 
   async function handleDelete(itemID: number) {
@@ -290,11 +402,11 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
     }
   }
 
-  // 新建装备模板时统一基于服务端当前最大 item_id 自动分配下一个可用编号，
-  // 避免运营手填导致重复或跳号，同时确保翻页/筛选后依然取到全量列表里的最大值。
+  // 新建装备模板时基于 item_definition 全表最大 item_id 分配下一个编号，
+  // 避免只统计装备列表时漏掉普通物品/半成品模板占用的 ID 导致 409 冲突。
   async function loadNextEquipmentItemID(): Promise<number> {
     try {
-      const result = await fetchAdminEquipmentDefinitions({ filters: {}, page: 1, pageSize: 1 });
+      const result = await fetchAdminItems({ filters: {}, page: 1, pageSize: 1 });
       const currentMaxItemID = result.items[0]?.item_id ?? 4000;
       return currentMaxItemID + 1;
     } catch (error) {
@@ -517,15 +629,21 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
               <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
               <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
               <Descriptions.Item label="部位">{detail.equip_slot_label}</Descriptions.Item>
+              {(detail.equip_slot === 'weapon' || detail.equip_slot === 'class_weapon') && detail.weapon_type ? (
+                <Descriptions.Item label="武器类型">{formatDisplayLabel(WEAPON_TYPE_LABELS, detail.weapon_type)}</Descriptions.Item>
+              ) : null}
               <Descriptions.Item label="佩戴等级">{detail.required_level}</Descriptions.Item>
               <Descriptions.Item label="品质">{formatItemQualityLabel(detail.quality)}</Descriptions.Item>
               <Descriptions.Item label="绑定类型">{formatDisplayLabel(BIND_TYPE_LABELS, detail.bind_type)}</Descriptions.Item>
+              <Descriptions.Item label="可丢弃">{detail.can_drop ? '是' : '否'}</Descriptions.Item>
               <Descriptions.Item label="强化">{detail.can_enhance ? `最高 +${detail.max_enhance_level}` : '不可强化'}</Descriptions.Item>
               <Descriptions.Item label="套装ID">{detail.set_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="五维" span={2}>
                 {`生命${detail.base_hp} / 法力${detail.base_mana} / 攻${detail.base_atk} / 防${detail.base_def} / 速${detail.base_spd}`}
               </Descriptions.Item>
-              <Descriptions.Item label="介绍" span={2}>{detail.desc || '-'}</Descriptions.Item>
+              <Descriptions.Item label="介绍" span={2}>
+                <RichTextDisplay value={detail.desc} />
+              </Descriptions.Item>
             </Descriptions>
             {!detail.appearance_only ? (
               <Descriptions bordered column={2} size="small" title="次要战斗属性">
@@ -606,9 +724,9 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
               <Form.Item
                 label="介绍"
                 name="desc"
-                extra="支持 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+                extra="支持 BBCode 富文本与 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
               >
-                <Input.TextArea rows={2} />
+                <RichTextEditor rows={4} placeholder="例如：攻击 [color=green]+50[/color]" />
               </Form.Item>
             </Col>
             <Form.Item name="icon" hidden>
@@ -621,9 +739,10 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
             </Col>
             <Col xs={24} md={8}><Form.Item label="套装ID" name="set_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="职业限制" name="career_limit"><Input placeholder="留空表示不限" /></Form.Item></Col>
-            <Col xs={8} md={4}><Form.Item label="可出售" name="can_sell" valuePropName="checked"><Switch /></Form.Item></Col>
-            <Col xs={8} md={4}><Form.Item label="可存仓" name="can_store" valuePropName="checked"><Switch /></Form.Item></Col>
-            <Col xs={8} md={4}><Form.Item label="启用" name="is_enabled" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="可出售" name="can_sell" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="可丢弃" name="can_drop" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="可存仓" name="can_store" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item label="启用" name="is_enabled" valuePropName="checked"><Switch /></Form.Item></Col>
           </Row>
 
           {isCostume ? (
@@ -704,6 +823,103 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
                   locale={{ emptyText: '当前没有强化成长属性，可按需添加' }}
                 />
               </Space>
+              {isWeaponSlot ? (
+                <>
+                  <Divider plain>武器类型</Divider>
+                  <Row gutter={16}>
+                    <Col xs={24} md={8}>
+                      <Form.Item
+                        label="武器类型"
+                        name="weapon_type"
+                        extra="已学会的武器技能需在战斗中装备同类型武器才能使用。"
+                        rules={weaponSkillEntries.length > 0 ? [{ required: true, message: '配置了武器技能时必须选择武器类型' }] : []}
+                      >
+                        <Select allowClear options={WEAPON_TYPE_OPTIONS} placeholder="剑 / 枪 / 法杖" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Divider plain>武器附加技能</Divider>
+                  <Form.Item name="weapon_skill_entries" hidden>
+                    <Input />
+                  </Form.Item>
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Typography.Text type="secondary">
+                      仅可引用系统技能分类为「武器技能」的模板；基础等级为 +0 强化时的技能等级。
+                    </Typography.Text>
+                    <Button type="dashed" onClick={() => handleOpenWeaponSkillEditor()}>
+                      添加武器技能
+                    </Button>
+                    <Table<WeaponSkillEntry>
+                      rowKey="skill_id"
+                      size="small"
+                      columns={[
+                        {
+                          title: '技能',
+                          dataIndex: 'skill_id',
+                          render: (value: number) => weaponSkillOptions.find((item) => item.value === value)?.label ?? `#${value}`,
+                        },
+                        { title: '基础等级', dataIndex: 'base_level', width: 100 },
+                        {
+                          title: '操作',
+                          key: 'actions',
+                          width: 140,
+                          render: (_value, record) => (
+                            <Space size={8}>
+                              <Button size="small" onClick={() => handleOpenWeaponSkillEditor(record.skill_id)}>编辑</Button>
+                              <Button size="small" danger onClick={() => handleDeleteWeaponSkill(record.skill_id)}>删除</Button>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                      dataSource={weaponSkillEntries}
+                      pagination={false}
+                      locale={{ emptyText: '尚未配置武器附加技能' }}
+                    />
+                  </Space>
+                  <Divider plain>武器技能强化成长</Divider>
+                  <Form.Item name="weapon_skill_enhance_entries" hidden>
+                    <Input />
+                  </Form.Item>
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Typography.Text type="secondary">
+                      配置每强化 1 级时，对应武器技能等级增加多少；有效等级 = 基础等级 + 强化等级 × 每级成长。
+                    </Typography.Text>
+                    <Button
+                      type="dashed"
+                      onClick={() => handleOpenWeaponSkillEnhanceEditor()}
+                      disabled={!Boolean(editorForm.getFieldValue('can_enhance')) || weaponSkillEntries.length === 0}
+                    >
+                      添加强化技能等级成长
+                    </Button>
+                    <Table<WeaponSkillEnhanceEntry>
+                      rowKey="skill_id"
+                      size="small"
+                      columns={[
+                        {
+                          title: '武器技能',
+                          dataIndex: 'skill_id',
+                          render: (value: number) => weaponSkillOptions.find((item) => item.value === value)?.label ?? `#${value}`,
+                        },
+                        { title: '每级增加等级', dataIndex: 'level_per_enhance', width: 120 },
+                        {
+                          title: '操作',
+                          key: 'actions',
+                          width: 140,
+                          render: (_value, record) => (
+                            <Space size={8}>
+                              <Button size="small" onClick={() => handleOpenWeaponSkillEnhanceEditor(record.skill_id)}>编辑</Button>
+                              <Button size="small" danger onClick={() => handleDeleteWeaponSkillEnhance(record.skill_id)}>删除</Button>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                      dataSource={weaponSkillEnhanceEntries}
+                      pagination={false}
+                      locale={{ emptyText: '尚未配置武器技能强化成长' }}
+                    />
+                  </Space>
+                </>
+              ) : null}
             </>
           ) : null}
         </Form>
@@ -742,6 +958,67 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
             name="property_value"
             rules={[{ required: true, message: '请输入数值' }]}
           >
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingWeaponSkillID ? '编辑武器技能' : '添加武器技能'}
+        open={weaponSkillEditorOpen}
+        onCancel={() => {
+          setWeaponSkillEditorOpen(false);
+          setEditingWeaponSkillID(null);
+          weaponSkillEditorForm.resetFields();
+        }}
+        onOk={() => weaponSkillEditorForm.submit()}
+        destroyOnClose
+        okText="确定"
+        cancelText="取消"
+      >
+        <Form form={weaponSkillEditorForm} layout="vertical" onFinish={handleSubmitWeaponSkillEditor}>
+          <Form.Item label="武器技能" name="skill_id" rules={[{ required: true, message: '请选择武器技能' }]}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={weaponSkillOptions.map((option) => ({
+                ...option,
+                disabled: option.value !== editingWeaponSkillID && weaponSkillEntries.some((entry: WeaponSkillEntry) => entry.skill_id === option.value),
+              }))}
+              placeholder="选择系统武器技能"
+            />
+          </Form.Item>
+          <Form.Item label="基础等级" name="base_level" rules={[{ required: true, message: '请输入基础等级' }]}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={editingWeaponSkillEnhanceID ? '编辑武器技能强化成长' : '添加武器技能强化成长'}
+        open={weaponSkillEnhanceEditorOpen}
+        onCancel={() => {
+          setWeaponSkillEnhanceEditorOpen(false);
+          setEditingWeaponSkillEnhanceID(null);
+          weaponSkillEnhanceEditorForm.resetFields();
+        }}
+        onOk={() => weaponSkillEnhanceEditorForm.submit()}
+        destroyOnClose
+        okText="确定"
+        cancelText="取消"
+      >
+        <Form form={weaponSkillEnhanceEditorForm} layout="vertical" onFinish={handleSubmitWeaponSkillEnhanceEditor}>
+          <Form.Item label="武器技能" name="skill_id" rules={[{ required: true, message: '请选择武器技能' }]}>
+            <Select
+              options={weaponSkillEntries.map((entry: WeaponSkillEntry) => ({
+                value: entry.skill_id,
+                label: weaponSkillOptions.find((item) => item.value === entry.skill_id)?.label ?? `#${entry.skill_id}`,
+                disabled: entry.skill_id !== editingWeaponSkillEnhanceID && weaponSkillEnhanceEntries.some((item: WeaponSkillEnhanceEntry) => item.skill_id === entry.skill_id),
+              }))}
+              placeholder="选择已配置的武器技能"
+            />
+          </Form.Item>
+          <Form.Item label="每强化 1 级增加等级" name="level_per_enhance" rules={[{ required: true, message: '请输入每级成长' }]}>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
@@ -796,6 +1073,8 @@ function mapDetailToForm(detail: AdminEquipmentDetail): EquipmentFormValues {
     medicine_pouch: detail.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(detail),
     enhance_entries: buildEnhanceEntries(detail.enhance_per_level_stats ?? {}),
+    weapon_skill_entries: buildWeaponSkillEntries(detail.weapon_skills ?? []),
+    weapon_skill_enhance_entries: buildWeaponSkillEnhanceEntries(detail.enhance_per_level_weapon_skill_levels ?? {}),
     enhance_gold_cost: detail.enhance_gold_cost ?? defaultEquipmentEnhanceGoldCost(),
   };
 }
@@ -807,6 +1086,8 @@ function mapPayloadToForm(payload: AdminUpsertEquipmentPayload): EquipmentFormVa
     medicine_pouch: payload.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(payload),
     enhance_entries: buildEnhanceEntries(payload.enhance_per_level_stats ?? {}),
+    weapon_skill_entries: buildWeaponSkillEntries(payload.weapon_skills ?? []),
+    weapon_skill_enhance_entries: buildWeaponSkillEnhanceEntries(payload.enhance_per_level_weapon_skill_levels ?? {}),
     enhance_gold_cost: payload.enhance_gold_cost ?? defaultEquipmentEnhanceGoldCost(),
   };
 }
@@ -828,6 +1109,7 @@ function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayl
     required_level: Number(values.required_level ?? 0),
     bind_type: values.bind_type ?? 'none',
     can_sell: Boolean(values.can_sell),
+    can_drop: Boolean(values.can_drop),
     can_store: Boolean(values.can_store),
     is_enabled: Boolean(values.is_enabled),
     equip_slot: values.equip_slot ?? '',
@@ -844,6 +1126,9 @@ function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayl
     base_spd: propertyValues.base_spd,
     combat_stats: propertyValues.combat_stats,
     enhance_per_level_stats: enhanceStats,
+    enhance_per_level_weapon_skill_levels: buildWeaponSkillEnhanceMap(values.weapon_skill_enhance_entries ?? []),
+    weapon_skills: buildWeaponSkillPayload(values.weapon_skill_entries ?? []),
+    weapon_type: values.weapon_type ?? '',
     enhance_gold_cost: values.can_enhance
       ? {
           is_enabled: Boolean(values.enhance_gold_cost?.is_enabled),
@@ -940,6 +1225,36 @@ function buildEnhanceStatsMap(entries: EquipmentPropertyEntry[]): Record<string,
     const value = Number(entry.value ?? 0);
     if (value > 0) {
       result[entry.key] = value;
+    }
+  });
+  return result;
+}
+
+function buildWeaponSkillEntries(items: AdminEquipmentWeaponSkill[]): WeaponSkillEntry[] {
+  return items
+    .filter((item) => item.skill_id > 0)
+    .map((item) => ({ skill_id: item.skill_id, base_level: Number(item.base_level ?? 0) }))
+    .sort((left, right) => left.skill_id - right.skill_id);
+}
+
+function buildWeaponSkillPayload(entries: WeaponSkillEntry[]): AdminEquipmentWeaponSkill[] {
+  return entries
+    .filter((entry) => entry.skill_id > 0)
+    .map((entry) => ({ skill_id: entry.skill_id, base_level: Number(entry.base_level ?? 0) }));
+}
+
+function buildWeaponSkillEnhanceEntries(levels: Record<string, number>): WeaponSkillEnhanceEntry[] {
+  return Object.entries(levels)
+    .map(([skillID, value]) => ({ skill_id: Number(skillID), level_per_enhance: Number(value) }))
+    .filter((entry) => entry.skill_id > 0 && entry.level_per_enhance > 0)
+    .sort((left, right) => left.skill_id - right.skill_id);
+}
+
+function buildWeaponSkillEnhanceMap(entries: WeaponSkillEnhanceEntry[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  entries.forEach((entry) => {
+    if (entry.skill_id > 0 && entry.level_per_enhance > 0) {
+      result[String(entry.skill_id)] = entry.level_per_enhance;
     }
   });
   return result;

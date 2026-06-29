@@ -8,6 +8,7 @@ import (
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/progression"
+	"pocket-pet-remake/server/internal/module/skill"
 )
 
 // CombatCapsLoader 加载人物/宠物共用战斗属性封顶表。
@@ -27,15 +28,23 @@ type Service struct {
 	players           player.Repository
 	combatCapsLoader  CombatCapsLoader
 	battleChecker     ActiveBattleChecker
+	skills            *skill.Service
 }
 
 // NewService 构造装备服务。
-func NewService(repo Repository, progressionService *progression.Service, players player.Repository, combatCapsLoader CombatCapsLoader) *Service {
+func NewService(
+	repo Repository,
+	progressionService *progression.Service,
+	players player.Repository,
+	combatCapsLoader CombatCapsLoader,
+	skills *skill.Service,
+) *Service {
 	return &Service{
 		repo:             repo,
 		progression:      progressionService,
 		players:          players,
 		combatCapsLoader: combatCapsLoader,
+		skills:           skills,
 	}
 }
 
@@ -78,6 +87,9 @@ func (s *Service) CreateAdminEquipmentDefinition(ctx context.Context, input Admi
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
+	if err := s.validateAdminWeaponSkills(ctx, input); err != nil {
+		return nil, err
+	}
 	return s.repo.CreateForAdmin(ctx, input)
 }
 
@@ -88,6 +100,9 @@ func (s *Service) UpdateAdminEquipmentDefinition(ctx context.Context, itemID uin
 		return nil, ErrInvalidAdminEquipmentInput
 	}
 	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+	if err := s.validateAdminWeaponSkills(ctx, input); err != nil {
 		return nil, err
 	}
 	result, err := s.repo.UpdateForAdmin(ctx, itemID, input)
@@ -106,6 +121,17 @@ func (s *Service) UpdateAdminEquipmentDefinition(ctx context.Context, itemID uin
 // DeleteAdminEquipmentDefinition 停用装备模板（软删 is_enabled=false）。
 func (s *Service) DeleteAdminEquipmentDefinition(ctx context.Context, itemID uint64) error {
 	return s.repo.DeleteForAdmin(ctx, itemID)
+}
+
+func (s *Service) validateAdminWeaponSkills(ctx context.Context, input AdminUpsertEquipmentInput) error {
+	input = input.Normalize()
+	if len(input.WeaponSkills) == 0 {
+		return nil
+	}
+	if s.skills == nil {
+		return ErrInvalidAdminEquipmentInput
+	}
+	return s.skills.ValidateWeaponSkillReferences(ctx, CollectWeaponSkillIDs(input.WeaponSkills))
 }
 
 // ListEquipped 返回玩家当前全身已佩戴装备摘要。
@@ -174,6 +200,14 @@ func (s *Service) UnequipSlot(ctx context.Context, playerID uint64, equipSlot st
 	return result, updatedProfile, nil
 }
 
+// RepairInstance 消耗修复宝石并恢复损坏装备为正常状态；仅允许未佩戴且位于背包中的实例。
+func (s *Service) RepairInstance(ctx context.Context, playerID uint64, itemUID string) (*RepairResult, error) {
+	if strings.TrimSpace(itemUID) == "" {
+		return nil, ErrEquipmentNotFound
+	}
+	return s.repo.RepairInstance(ctx, playerID, itemUID)
+}
+
 // EnhanceInstance 消耗材料并尝试强化指定装备实例；仅允许未佩戴且位于背包中的实例。
 func (s *Service) EnhanceInstance(ctx context.Context, playerID uint64, itemUID string, costItemID uint64) (*EnhanceResult, error) {
 	if strings.TrimSpace(itemUID) == "" {
@@ -194,6 +228,45 @@ func (s *Service) UpdateAdminEnhanceGoldCostConfig(ctx context.Context, input Ad
 		return nil, err
 	}
 	return s.repo.UpsertEnhanceGoldCostConfigForAdmin(ctx, input)
+}
+
+// ListAdminEnhanceSuccessConfigs 返回全局强化成功率配置列表，可按穿戴等级段筛选。
+func (s *Service) ListAdminEnhanceSuccessConfigs(ctx context.Context, requiredLevelMin *uint32) (*AdminEnhanceSuccessConfigList, error) {
+	if requiredLevelMin != nil && *requiredLevelMin > 0 && !IsValidEnhanceRequiredLevelBandMin(*requiredLevelMin) {
+		return nil, ErrInvalidEnhanceSuccessConfig
+	}
+	result, err := s.repo.ListEnhanceSuccessConfigsForAdmin(ctx, requiredLevelMin)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return &AdminEnhanceSuccessConfigList{Items: []AdminEnhanceSuccessConfig{}}, nil
+	}
+	for index := range result.Items {
+		result.Items[index].FillRequiredLevelBandDisplay()
+	}
+	return result, nil
+}
+
+// UpsertAdminEnhanceSuccessConfig 更新指定穿戴等级段与目标强化等级的全局成功率。
+func (s *Service) UpsertAdminEnhanceSuccessConfig(
+	ctx context.Context,
+	targetLevel uint32,
+	requiredLevelMin uint32,
+	input AdminUpsertEnhanceSuccessConfigInput,
+) (*AdminEnhanceSuccessConfig, error) {
+	input = input.Normalize()
+	if err := input.Validate(targetLevel, requiredLevelMin); err != nil {
+		return nil, err
+	}
+	result, err := s.repo.UpsertEnhanceSuccessConfigForAdmin(ctx, targetLevel, requiredLevelMin, input)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		result.FillRequiredLevelBandDisplay()
+	}
+	return result, err
 }
 
 func (s *Service) buildRecalcContext(ctx context.Context, playerID uint64) (RecalcContext, *player.Profile, error) {

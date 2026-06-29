@@ -1,10 +1,12 @@
 /** 礼包开启后写入 effect_params_json.rewards 的单条奖励配置。 */
 export interface GiftBoxRewardEntry {
-  type: 'item' | 'gold';
+  type: 'item' | 'gold' | 'pet';
   item_id?: number;
   item_name?: string;
   count?: number;
   value?: number;
+  pet_id?: number;
+  pet_name?: string;
 }
 
 /** 非礼包类物品在后台表单里展示的使用行为。 */
@@ -26,6 +28,7 @@ export const ITEM_USE_BEHAVIOR_OPTIONS: Array<{ value: ItemUseBehavior; label: s
 export const GIFT_BOX_REWARD_TYPE_OPTIONS = [
   { value: 'item', label: '物品' },
   { value: 'gold', label: '金币（铜币）' },
+  { value: 'pet', label: '宠物' },
 ] as const;
 
 export function isGiftBoxItemType(itemType: string, effectType?: string): boolean {
@@ -66,6 +69,13 @@ export function serializeGiftBoxRewards(rewards: GiftBoxRewardEntry[]): string {
         return {
           type: 'gold',
           value: Number(entry.value ?? 0),
+        };
+      }
+      if (entry.type === 'pet') {
+        return {
+          type: 'pet',
+          pet_id: Number(entry.pet_id ?? 0),
+          pet_name: entry.pet_name ?? '',
         };
       }
       return {
@@ -132,6 +142,17 @@ function normalizeGiftBoxRewardEntry(entry: unknown): GiftBoxRewardEntry | null 
       item_id: itemID,
       item_name: String(record.item_name ?? ''),
       count,
+    };
+  }
+  if (rewardType === 'pet') {
+    const petID = Number(record.pet_id ?? 0);
+    if (petID <= 0) {
+      return null;
+    }
+    return {
+      type: 'pet',
+      pet_id: petID,
+      pet_name: String(record.pet_name ?? ''),
     };
   }
   return null;

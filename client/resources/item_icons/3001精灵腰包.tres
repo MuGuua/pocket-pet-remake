@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemIconDefinition" format=3 uid="uid://d1wvmthp3qid7"]
+
+[ext_resource type="Script" uid="uid://bvosos6ibkn1g" path="res://scripts/ui/bag/item_icon_definition.gd" id="1_7rma7"]
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="2_7rma7"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7rma7"]
+atlas = ExtResource("2_7rma7")
+region = Rect2(126, 0, 18, 18)
+
+[resource]
+script = ExtResource("1_7rma7")
+item_id = 3001
+static_texture = SubResource("AtlasTexture_7rma7")

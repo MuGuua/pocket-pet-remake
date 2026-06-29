@@ -12,6 +12,7 @@ import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenc
 export interface PetInstanceFormValues extends AdminPetCombatStats {
   player_id?: number;
   pet_id: number;
+  custom_name: string;
   level: number;
   exp: number;
   quality: number;
@@ -28,6 +29,7 @@ export function defaultPetInstanceCreateValues(playerId: number): PetInstanceFor
   return {
     player_id: playerId,
     pet_id: 101,
+    custom_name: '',
     level: 1,
     exp: 0,
     quality: 1,
@@ -45,6 +47,7 @@ export function defaultPetInstanceCreateValues(playerId: number): PetInstanceFor
 export function mapPetDetailToForm(detail: AdminPetDetail, skillReferenceMap: SkillReferenceMap): PetInstanceFormValues {
   return {
     pet_id: detail.pet_id,
+    custom_name: detail.custom_name ?? '',
     level: detail.level,
     exp: detail.exp,
     quality: detail.quality,
@@ -132,6 +135,7 @@ export function mapPetFormToCreatePayload(values: PetInstanceFormValues, skillRe
 export function mapPetFormToUpdatePayload(values: PetInstanceFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePetPayload {
   return {
     pet_id: values.pet_id,
+    custom_name: values.custom_name ?? '',
     level: values.level,
     exp: values.exp,
     quality: values.quality,

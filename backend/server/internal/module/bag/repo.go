@@ -15,7 +15,8 @@ type Repository interface {
 	SortRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*RuntimeSortResult, error)
 	MoveRuntimeItem(ctx context.Context, playerID uint64, containerType string, fromSlotIndex uint32, toSlotIndex uint32, quantity uint64) (*RuntimeMoveResult, error)
 	GrantRuntimeItem(ctx context.Context, playerID uint64, containerType string, itemID uint64, quantity uint64, reasonType string, reasonRefID uint64, operatorType string, operatorID uint64) (*RuntimeGrantResult, error)
-	UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64) (*RuntimeUseResult, error)
+	UseRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, targetPetUID uint64, targetPlayerID uint64, targetItemUID string) (*RuntimeUseResult, error)
+	DropRuntimeItem(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, itemUID string, quantity uint64) (*RuntimeDropResult, error)
 	ConsumeRuntimeItemStack(ctx context.Context, playerID uint64, containerType string, slotIndex uint32, quantity uint64, reasonType string, reasonRefID uint64) (*RuntimeContainerSnapshot, error)
 	// PlayerHasEverOwnedItem 判断玩家是否已获得过指定道具，供唯一战斗掉落去重。
 	PlayerHasEverOwnedItem(ctx context.Context, playerID uint64, itemID uint64) (bool, error)

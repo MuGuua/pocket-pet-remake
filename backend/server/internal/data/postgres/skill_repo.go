@@ -28,6 +28,9 @@ const skillDefinitionSelectColumns = `
   skill_code,
   skill_name,
   skill_category,
+  weapon_discipline,
+  learn_exp_required,
+  learn_exp_per_use,
   skill_type,
   description,
   acquire_method,
@@ -103,7 +106,7 @@ FROM skill_definition
 `
 
 const skillDefinitionInsertColumns = `
-  skill_id, skill_code, skill_name, skill_category, skill_type, description, acquire_method,
+  skill_id, skill_code, skill_name, skill_category, weapon_discipline, learn_exp_required, learn_exp_per_use, skill_type, description, acquire_method,
   target_type, target_count, preferred_target_hp,
   animation_key, skill_visual_id, cast_color, impact_color, projectile,
   is_skill_attack, is_basic_attack, energy_cost, allow_crit, ignore_defense, skill_mult, skill_crit_add,
@@ -121,7 +124,7 @@ const skillDefinitionInsertColumns = `
 `
 
 const skillDefinitionInsertPlaceholders = `
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60,$61
 `
 
 const insertSkillDefinitionQuery = `
@@ -134,64 +137,74 @@ UPDATE skill_definition
 SET skill_code = $2,
     skill_name = $3,
     skill_category = $4,
-    skill_type = $5,
-    description = $6,
-    acquire_method = $7,
-    target_type = $8,
-    target_count = $9,
-    preferred_target_hp = $10,
-    animation_key = $11,
-    skill_visual_id = $12,
-    cast_color = $13,
-    impact_color = $14,
-    projectile = $15,
-    is_skill_attack = $16,
-    is_basic_attack = $17,
-    energy_cost = $18,
-    allow_crit = $19,
-    ignore_defense = $20,
-    skill_mult = $21,
-    skill_crit_add = $22,
-    attack_pct = $23,
-    mana_pct = $24,
-    defense_pct = $25,
-    speed_pct = $26,
-    target_current_hp_pct = $27,
-    fixed_damage = $28,
-    heal_pct = $29,
-    fixed_heal = $30,
-    armor_break_pct = $31,
-    vulnerability_pct = $32,
-    bleed_chance_pct = $33,
-    bleed_rounds = $34,
-    bleed_damage = $35,
-    seal_chance_pct = $36,
-    seal_power = $37,
-    seal_rounds = $38,
-    vulnerability_chance_pct = $39,
-    vulnerability_rounds = $40,
-    vulnerability_apply_pct = $41,
-    armor_break_chance_pct = $42,
-    armor_break_rounds = $43,
-    slow_chance_pct = $44,
-    slow_rounds = $45,
-    slow_multiplier_pct = $46,
-    crit_boost_rounds = $47,
-    crit_boost_pct = $48,
-    curse_chance_pct = $49,
-    curse_rounds = $50,
-    curse_damage = $51,
-    curse_mana_pct = $52,
-    control_chance_pct = $53,
-    control_power = $54,
-    control_rounds = $55,
-    control_status_id = $56,
-    sort_weight = $57,
-    status = $58
+    weapon_discipline = $5,
+    learn_exp_required = $6,
+    learn_exp_per_use = $7,
+    skill_type = $8,
+    description = $9,
+    acquire_method = $10,
+    target_type = $11,
+    target_count = $12,
+    preferred_target_hp = $13,
+    animation_key = $14,
+    skill_visual_id = $15,
+    cast_color = $16,
+    impact_color = $17,
+    projectile = $18,
+    is_skill_attack = $19,
+    is_basic_attack = $20,
+    energy_cost = $21,
+    allow_crit = $22,
+    ignore_defense = $23,
+    skill_mult = $24,
+    skill_crit_add = $25,
+    attack_pct = $26,
+    mana_pct = $27,
+    defense_pct = $28,
+    speed_pct = $29,
+    target_current_hp_pct = $30,
+    fixed_damage = $31,
+    heal_pct = $32,
+    fixed_heal = $33,
+    armor_break_pct = $34,
+    vulnerability_pct = $35,
+    bleed_chance_pct = $36,
+    bleed_rounds = $37,
+    bleed_damage = $38,
+    seal_chance_pct = $39,
+    seal_power = $40,
+    seal_rounds = $41,
+    vulnerability_chance_pct = $42,
+    vulnerability_rounds = $43,
+    vulnerability_apply_pct = $44,
+    armor_break_chance_pct = $45,
+    armor_break_rounds = $46,
+    slow_chance_pct = $47,
+    slow_rounds = $48,
+    slow_multiplier_pct = $49,
+    crit_boost_rounds = $50,
+    crit_boost_pct = $51,
+    curse_chance_pct = $52,
+    curse_rounds = $53,
+    curse_damage = $54,
+    curse_mana_pct = $55,
+    control_chance_pct = $56,
+    control_power = $57,
+    control_rounds = $58,
+    control_status_id = $59,
+    sort_weight = $60,
+    status = $61
 WHERE skill_id = $1
 `
 
 const deleteSkillDefinitionQuery = `DELETE FROM skill_definition WHERE skill_id = $1`
+
+func adminSkillListOrderClause(orderBy string) string {
+	if orderBy == "skill_id_desc" {
+		return ` ORDER BY skill_id DESC`
+	}
+	return ` ORDER BY sort_weight ASC, skill_id ASC`
+}
 
 func (r *SkillRepository) ListForAdmin(ctx context.Context, query skill.AdminListQuery) (*skill.AdminList, error) {
 	query = query.Normalize()
@@ -228,7 +241,7 @@ func (r *SkillRepository) ListForAdmin(ctx context.Context, query skill.AdminLis
 	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM skill_definition `+whereClause, args...).Scan(&total); err != nil {
 		return nil, err
 	}
-	listQuery := adminSkillListBaseQuery + whereClause + ` ORDER BY sort_weight ASC, skill_id ASC LIMIT ` + nextArg(query.PageSize) + ` OFFSET ` + nextArg((query.Page-1)*query.PageSize)
+	listQuery := adminSkillListBaseQuery + whereClause + adminSkillListOrderClause(query.OrderBy) + ` LIMIT ` + nextArg(query.PageSize) + ` OFFSET ` + nextArg((query.Page-1)*query.PageSize)
 	rows, err := r.db.QueryContext(ctx, listQuery, args...)
 	if err != nil {
 		return nil, err
@@ -364,6 +377,93 @@ func (r *SkillRepository) MapUsableSkillIDs(ctx context.Context, skillIDs []uint
 	return result, rows.Err()
 }
 
+// MapSkillCategoriesByIDs 批量读取 skill_id 对应的 skill_category，供装备武器技能引用校验。
+func (r *SkillRepository) MapSkillCategoriesByIDs(ctx context.Context, skillIDs []uint32) (map[uint32]string, error) {
+	result := make(map[uint32]string, len(skillIDs))
+	if len(skillIDs) == 0 {
+		return result, nil
+	}
+	unique := make([]uint32, 0, len(skillIDs))
+	seen := make(map[uint32]struct{}, len(skillIDs))
+	for _, skillID := range skillIDs {
+		if skillID == 0 {
+			continue
+		}
+		if _, exists := seen[skillID]; exists {
+			continue
+		}
+		seen[skillID] = struct{}{}
+		unique = append(unique, skillID)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	args := make([]any, len(unique))
+	placeholders := make([]string, len(unique))
+	for index, skillID := range unique {
+		args[index] = skillID
+		placeholders[index] = fmt.Sprintf("$%d", index+1)
+	}
+	query := fmt.Sprintf(`SELECT skill_id, skill_category FROM skill_definition WHERE skill_id IN (%s)`, strings.Join(placeholders, ","))
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var skillID int64
+		var category string
+		if err := rows.Scan(&skillID, &category); err != nil {
+			return nil, err
+		}
+		result[uint32(skillID)] = category
+	}
+	return result, rows.Err()
+}
+
+func (r *SkillRepository) MapSkillWeaponDisciplinesByIDs(ctx context.Context, skillIDs []uint32) (map[uint32]string, error) {
+	result := make(map[uint32]string, len(skillIDs))
+	if len(skillIDs) == 0 {
+		return result, nil
+	}
+	unique := make([]uint32, 0, len(skillIDs))
+	seen := make(map[uint32]struct{}, len(skillIDs))
+	for _, skillID := range skillIDs {
+		if skillID == 0 {
+			continue
+		}
+		if _, exists := seen[skillID]; exists {
+			continue
+		}
+		seen[skillID] = struct{}{}
+		unique = append(unique, skillID)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	args := make([]any, len(unique))
+	placeholders := make([]string, len(unique))
+	for index, skillID := range unique {
+		args[index] = skillID
+		placeholders[index] = fmt.Sprintf("$%d", index+1)
+	}
+	query := fmt.Sprintf(`SELECT skill_id, weapon_discipline FROM skill_definition WHERE skill_id IN (%s)`, strings.Join(placeholders, ","))
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var skillID int64
+		var discipline string
+		if err := rows.Scan(&skillID, &discipline); err != nil {
+			return nil, err
+		}
+		result[uint32(skillID)] = discipline
+	}
+	return result, rows.Err()
+}
+
 func skillStatusFromEnabled(enabled bool) int64 {
 	if enabled {
 		return 1
@@ -373,7 +473,7 @@ func skillStatusFromEnabled(enabled bool) int64 {
 
 func skillUpsertArgs(skillID uint32, input skill.AdminUpsertInput, status int64) []any {
 	return []any{
-		skillID, input.SkillCode, input.SkillName, input.SkillCategory, input.SkillType, input.Description, input.AcquireMethod,
+		skillID, input.SkillCode, input.SkillName, input.SkillCategory, input.WeaponDiscipline, input.LearnExpRequired, input.LearnExpPerUse, input.SkillType, input.Description, input.AcquireMethod,
 		input.TargetType, input.TargetCount, input.PreferredTargetHP,
 		input.AnimationKey, input.SkillVisualID, input.CastColor, input.ImpactColor, input.Projectile,
 		input.IsSkillAttack, input.IsBasicAttack, input.EnergyCost, input.AllowCrit, input.IgnoreDefense,
@@ -416,6 +516,9 @@ type skillDefinitionRow struct {
 	skillCode     string
 	skillName     string
 	skillCategory string
+	weaponDiscipline string
+	learnExpRequired int64
+	learnExpPerUse int64
 	skillType     string
 	description   string
 	acquireMethod string
@@ -479,7 +582,7 @@ func scanSkillDefinitionRow(scanner interface {
 }) (skillDefinitionRow, error) {
 	var row skillDefinitionRow
 	err := scanner.Scan(
-		&row.skillID, &row.skillCode, &row.skillName, &row.skillCategory, &row.skillType, &row.description, &row.acquireMethod,
+		&row.skillID, &row.skillCode, &row.skillName, &row.skillCategory, &row.weaponDiscipline, &row.learnExpRequired, &row.learnExpPerUse, &row.skillType, &row.description, &row.acquireMethod,
 		&row.targetType, &row.targetCount, &row.preferredHP,
 		&row.animationKey, &row.skillVisualID, &row.castColor, &row.impactColor, &row.projectile,
 		&row.isSkillAttack, &row.isBasicAttack, &row.energyCost, &row.allowCrit, &row.ignoreDefense,
@@ -520,8 +623,11 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 		SkillID:       uint32(raw.skillID),
 		SkillCode:     raw.skillCode,
 		SkillName:     raw.skillName,
-		SkillCategory: raw.skillCategory,
-		SkillType:     raw.skillType,
+		SkillCategory:    raw.skillCategory,
+		WeaponDiscipline: raw.weaponDiscipline,
+		LearnExpRequired: uint32(raw.learnExpRequired),
+		LearnExpPerUse:   uint32(raw.learnExpPerUse),
+		SkillType:        raw.skillType,
 		Description:   raw.description,
 		AcquireMethod: raw.acquireMethod,
 		IsBasicAttack: raw.isBasicAttack,
@@ -597,6 +703,11 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
 		SkillID:                uint32(raw.skillID),
+		SkillType:              raw.skillType,
+		SkillCategory:          raw.skillCategory,
+		WeaponDiscipline:       raw.weaponDiscipline,
+		LearnExpRequired:       uint32(raw.learnExpRequired),
+		LearnExpPerUse:         uint32(raw.learnExpPerUse),
 		SkillName:              raw.skillName,
 		TargetType:             raw.targetType,
 		TargetCount:            uint32(raw.targetCount),

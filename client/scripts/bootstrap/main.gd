@@ -232,6 +232,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.PLAYER_EQUIP_RESP, Callable(player_controller, "handle_equip_response"))
 	MessageRouter.register_handler(CommandIds.PLAYER_UNEQUIP_RESP, Callable(player_controller, "handle_unequip_response"))
 	MessageRouter.register_handler(CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP, Callable(player_controller, "handle_enhance_response"))
+	MessageRouter.register_handler(CommandIds.PLAYER_EQUIPMENT_REPAIR_RESP, Callable(player_controller, "handle_repair_response"))
 
 	MessageRouter.register_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
 	MessageRouter.register_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
@@ -241,6 +242,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.BAG_LIST_RESP, Callable(bag_controller, "handle_bag_list"))
 	MessageRouter.register_handler(CommandIds.BAG_UPDATE_PUSH, Callable(bag_controller, "handle_bag_update"))
 	MessageRouter.register_handler(CommandIds.USE_ITEM_RESP, Callable(bag_controller, "handle_use_item_response"))
+	MessageRouter.register_handler(CommandIds.DROP_ITEM_RESP, Callable(bag_controller, "handle_drop_item_response"))
 	MessageRouter.register_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
 	MessageRouter.register_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
 	MessageRouter.register_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
@@ -283,6 +285,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIP_RESP, Callable(player_controller, "handle_equip_response"))
 	MessageRouter.unregister_handler(CommandIds.PLAYER_UNEQUIP_RESP, Callable(player_controller, "handle_unequip_response"))
 	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIPMENT_ENHANCE_RESP, Callable(player_controller, "handle_enhance_response"))
+	MessageRouter.unregister_handler(CommandIds.PLAYER_EQUIPMENT_REPAIR_RESP, Callable(player_controller, "handle_repair_response"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_ACTION_RESP, Callable(battle_controller, "handle_battle_action_response"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_START_PUSH, Callable(battle_controller, "handle_battle_start"))
 	MessageRouter.unregister_handler(CommandIds.BATTLE_STATE_PUSH, Callable(battle_controller, "handle_battle_state"))
@@ -290,6 +293,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.BAG_LIST_RESP, Callable(bag_controller, "handle_bag_list"))
 	MessageRouter.unregister_handler(CommandIds.BAG_UPDATE_PUSH, Callable(bag_controller, "handle_bag_update"))
 	MessageRouter.unregister_handler(CommandIds.USE_ITEM_RESP, Callable(bag_controller, "handle_use_item_response"))
+	MessageRouter.unregister_handler(CommandIds.DROP_ITEM_RESP, Callable(bag_controller, "handle_drop_item_response"))
 	MessageRouter.unregister_handler(CommandIds.CONTAINER_LIST_RESP, Callable(bag_controller, "handle_container_list"))
 	MessageRouter.unregister_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
 	MessageRouter.unregister_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
@@ -555,8 +559,8 @@ func _dismiss_battle_modal(payload: Dictionary) -> void:
 ## 展示战斗胜利后的升级弹窗、宠物升级弹窗与奖励弹窗，并刷新权威数据。
 func _present_battle_settlement(payload: Dictionary) -> void:
 	var flow_id: int = _popup_flow_generation
-	if int(payload.get("level_up_count", 0)) > 0:
-		var player_level: int = int(payload.get("player_level", 0))
+	if _should_show_player_level_up_popup(payload):
+		var player_level: int = _resolve_player_level_for_popup(payload)
 		var bonus_variant: Variant = payload.get("level_up_bonus", {})
 		var bonus: Dictionary = bonus_variant if bonus_variant is Dictionary else {}
 		await _show_level_up_popup_and_wait(player_level, bonus)
@@ -571,7 +575,7 @@ func _present_battle_settlement(payload: Dictionary) -> void:
 	if _should_show_battle_reward_popup(payload, popup_rewards, pet_rewards):
 		if flow_id != _popup_flow_generation:
 			return
-		await _show_reward_popup_and_wait("", popup_rewards, pet_rewards)
+		await _show_reward_popup_and_wait("", popup_rewards, pet_rewards, _collect_battle_skill_progress(payload))
 	var reward_gold: int = int(payload.get("reward_gold", 0))
 	var reward_player_exp: int = int(payload.get("reward_player_exp", 0))
 	var drop_texts_variant: Variant = payload.get("drop_texts", [])
@@ -734,8 +738,11 @@ func _show_level_up_popup_and_wait(level: int, bonus: Dictionary) -> void:
 	_create_info_modal_popup()
 	if _info_modal_popup == null:
 		return
-	_info_modal_popup.show_player_level_up(level, bonus)
-	await _info_modal_popup.popup_closed
+	if not _info_modal_popup.show_player_level_up(level, bonus):
+		return
+	await get_tree().process_frame
+	if _info_modal_popup.visible:
+		await _info_modal_popup.popup_closed
 
 
 ## 逐只展示战斗结算里升级过的宠物摘要；玩家点按关闭后再进入下一项。
@@ -756,8 +763,11 @@ func _show_pet_level_up_popups_and_wait(pet_rewards: Array) -> void:
 		_create_info_modal_popup()
 		if _info_modal_popup == null:
 			continue
-		_info_modal_popup.show_pet_level_up(pet_name, level, attr_points_gained, free_attr_points)
-		await _info_modal_popup.popup_closed
+		if not _info_modal_popup.show_pet_level_up(pet_name, level, attr_points_gained, free_attr_points):
+			continue
+		await get_tree().process_frame
+		if _info_modal_popup.visible:
+			await _info_modal_popup.popup_closed
 
 
 ## 根据本地宠物列表解析展示名；缺失时回退到 pet_id 或 pet_uid。
@@ -803,18 +813,18 @@ func _create_reward_popup() -> void:
 	add_child(_reward_popup)
 
 
-func _show_reward_popup(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
+func _show_reward_popup(title_text: String, rewards: Array, pet_rewards: Array = [], skill_progress_rewards: Array = []) -> void:
 	_create_reward_popup()
 	if _reward_popup != null:
-		_reward_popup.show_rewards(title_text, rewards, pet_rewards)
+		_reward_popup.show_rewards(title_text, rewards, pet_rewards, "", skill_progress_rewards)
 
 
 ## 展示奖励弹窗并等待玩家关闭，避免后续刷新请求抢跑导致弹窗一闪而过。
-func _show_reward_popup_and_wait(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
+func _show_reward_popup_and_wait(title_text: String, rewards: Array, pet_rewards: Array = [], skill_progress_rewards: Array = []) -> void:
 	_create_reward_popup()
 	if _reward_popup == null:
 		return
-	_reward_popup.show_rewards(title_text, rewards, pet_rewards)
+	_reward_popup.show_rewards(title_text, rewards, pet_rewards, "", skill_progress_rewards)
 	if _reward_popup.visible:
 		await _reward_popup.popup_closed
 
@@ -838,11 +848,25 @@ func _collect_battle_popup_rewards(payload: Dictionary) -> Array:
 	return normalized
 
 
+## 从战斗结算包提取武器技能学习进度，供奖励弹窗展示。
+func _collect_battle_skill_progress(payload: Dictionary) -> Array:
+	var progress_variant: Variant = payload.get("skill_progress", [])
+	if progress_variant is not Array:
+		return []
+	var normalized: Array = []
+	for item_variant: Variant in progress_variant as Array:
+		if item_variant is Dictionary:
+			normalized.append(item_variant)
+	return normalized
+
+
 ## 判断战斗胜利后是否应弹出奖励面板；需与 RewardPopup 的可展示规则保持一致。
 func _should_show_battle_reward_popup(payload: Dictionary, popup_rewards: Array, pet_rewards: Array) -> bool:
 	if not bool(payload.get("win", false)):
 		return false
 	if not popup_rewards.is_empty():
+		return true
+	if not _collect_battle_skill_progress(payload).is_empty():
 		return true
 	if int(payload.get("reward_player_exp", 0)) > 0 or int(payload.get("reward_gold", 0)) > 0:
 		return true
@@ -857,8 +881,8 @@ func _should_show_battle_reward_popup(payload: Dictionary, popup_rewards: Array,
 
 func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
 	var flow_id: int = _popup_flow_generation
-	if int(payload.get("level_up_count", 0)) > 0:
-		var player_level: int = int(payload.get("player_level", 0))
+	if _should_show_player_level_up_popup(payload):
+		var player_level: int = _resolve_player_level_for_popup(payload)
 		var bonus_variant: Variant = payload.get("level_up_bonus", {})
 		var bonus: Dictionary = bonus_variant if bonus_variant is Dictionary else {}
 		await _show_level_up_popup_and_wait(player_level, bonus)
@@ -870,8 +894,28 @@ func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
 		if flow_id != _popup_flow_generation:
 			return
 		_show_reward_popup("", rewards, [])
-	if int(payload.get("level_up_count", 0)) > 0:
+	if _should_show_player_level_up_popup(payload):
 		App.refresh_player_status()
+
+
+## 判断结算包是否应展示玩家升级弹窗；优先看 level_up_count，其次看是否发放了升级属性点。
+func _should_show_player_level_up_popup(payload: Dictionary) -> bool:
+	if int(payload.get("level_up_count", 0)) > 0:
+		return true
+	if int(payload.get("attr_points_gained", 0)) > 0:
+		return true
+	return false
+
+
+## 从结算包与本地权威快照解析升级后的玩家等级，供升级弹窗展示。
+func _resolve_player_level_for_popup(payload: Dictionary) -> int:
+	var player_level: int = int(payload.get("player_level", 0))
+	if player_level > 0:
+		return player_level
+	var snapshot_level: int = int(GameState.player_snapshot.get("level", 0))
+	if snapshot_level > 0:
+		return snapshot_level
+	return 0
 
 
 func _on_reward_popup_requested(title_text: String, rewards: Array, pet_rewards: Array = []) -> void:
@@ -903,6 +947,14 @@ func _create_bag_panel() -> void:
 	add_child(_bag_panel)
 	if _bag_panel.has_signal("menu_closed"):
 		_bag_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+	if bag_controller.has_signal("drop_item_responded") and _bag_panel.has_method("on_drop_item_responded"):
+		var drop_responded_handler: Callable = Callable(_bag_panel, "on_drop_item_responded")
+		if not bag_controller.drop_item_responded.is_connected(drop_responded_handler):
+			bag_controller.drop_item_responded.connect(drop_responded_handler)
+	if bag_controller.has_signal("container_snapshot_applied") and _bag_panel.has_method("on_bag_snapshot_applied"):
+		var snapshot_applied_handler: Callable = Callable(_bag_panel, "on_bag_snapshot_applied")
+		if not bag_controller.container_snapshot_applied.is_connected(snapshot_applied_handler):
+			bag_controller.container_snapshot_applied.connect(snapshot_applied_handler)
 
 func _create_npc_menu() -> void:
 	_npc_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel

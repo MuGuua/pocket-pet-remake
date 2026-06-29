@@ -196,6 +196,12 @@ func (q AdminListQuery) Normalize() AdminListQuery {
 	return q
 }
 
+// AdminGrantPetFromTemplateInput 描述运营按系统宠物模板给玩家发放初始宠物。
+type AdminGrantPetFromTemplateInput struct {
+	PlayerID uint64 `json:"player_id"`
+	PetID    uint32 `json:"pet_id"`
+}
+
 type AdminCreatePetInput struct {
 	PlayerID uint64   `json:"player_id"`
 	PetID    uint32   `json:"pet_id"`
@@ -238,8 +244,9 @@ func (input AdminCreatePetInput) Normalize() AdminCreatePetInput {
 }
 
 type AdminUpdatePetInput struct {
-	PetID    uint32   `json:"pet_id"`
-	Level    uint32   `json:"level"`
+	PetID      uint32   `json:"pet_id"`
+	CustomName string   `json:"custom_name"`
+	Level      uint32   `json:"level"`
 	Exp      uint64   `json:"exp"`
 	Quality  uint32   `json:"quality"`
 	HP       uint32   `json:"hp"`
@@ -253,6 +260,7 @@ type AdminUpdatePetInput struct {
 }
 
 func (input AdminUpdatePetInput) Normalize() AdminUpdatePetInput {
+	input.CustomName = strings.TrimSpace(input.CustomName)
 	if input.Level == 0 {
 		input.Level = 1
 	}
@@ -281,6 +289,8 @@ type AdminPetSummary struct {
 	PlayerID   uint64    `json:"player_id"`
 	PlayerName string    `json:"player_name"`
 	PetID      uint32    `json:"pet_id"`
+	PetName    string    `json:"pet_name"`
+	CustomName string    `json:"custom_name"`
 	Level      uint32    `json:"level"`
 	Quality    uint32    `json:"quality"`
 	HP         uint32    `json:"hp"`
@@ -306,6 +316,8 @@ type AdminPetDetail struct {
 	PlayerID   uint64     `json:"player_id"`
 	PlayerName string     `json:"player_name"`
 	PetID      uint32     `json:"pet_id"`
+	PetName    string     `json:"pet_name"`
+	CustomName string     `json:"custom_name"`
 	Level      uint32     `json:"level"`
 	Exp        uint64     `json:"exp"`
 	Quality    uint32     `json:"quality"`

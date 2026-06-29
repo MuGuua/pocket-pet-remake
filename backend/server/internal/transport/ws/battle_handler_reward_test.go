@@ -20,7 +20,7 @@ func TestApplyBattleResultSideEffectsSkipsDuplicateGrantButSyncsProfile(t *testi
 
 	playerService := teststub.NewTestPlayerService()
 	battleRepo := teststub.NewBattleRepository()
-	handler := NewBattleHandler(nil, playerService, nil, nil, nil, nil, nil, nil, nil, battle.NewService(nil), battleRepo)
+	handler := NewBattleHandler(nil, playerService, nil, nil, nil, nil, nil, nil, nil, battle.NewService(nil), battleRepo, nil, nil)
 
 	ctx := context.Background()
 	result := &battle.ResultSnapshot{
@@ -99,7 +99,7 @@ func TestBuildBattleGrantEntriesSkipsOwnedUniqueItems(t *testing.T) {
 
 	bagRepo := teststub.NewBagRepository()
 	bagService := bag.NewService(bagRepo)
-	handler := NewBattleHandler(nil, nil, nil, bagService, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewBattleHandler(nil, nil, nil, bagService, nil, nil, nil, nil, nil, battle.NewService(nil), teststub.NewBattleRepository(), nil, nil)
 
 	ctx := context.Background()
 	uniqueItemID := uint64(5101)
@@ -155,7 +155,7 @@ func TestEnsureNextBattleIDAvoidsReusingPersistedBattleID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	start, err := battleService.StartPVE(ctx, profile, nil, world.Entity{EntityID: 90001, EntityType: 2, Name: "GuideNPC"})
+	start, err := battleService.StartPVE(ctx, profile, nil, world.Entity{EntityID: 90001, EntityType: 2, Name: "GuideNPC"}, battle.EmptyCharacterBattleSkillInput())
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
