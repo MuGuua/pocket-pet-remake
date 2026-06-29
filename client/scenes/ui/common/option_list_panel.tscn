@@ -1,41 +1,64 @@
 [gd_scene format=3 uid="uid://bjypq1b7288cr"]
 
-[ext_resource type="Script" uid="uid://coptionlistpanel01" path="res://scripts/ui/common/option_list_panel.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://c81lc3h7rri7q" path="res://scripts/ui/common/option_list_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 
-[node name="OptionListPanel" type="CanvasLayer"]
-visible = false
+[node name="OptionListPanel" type="CanvasLayer" unique_id=981623259]
 script = ExtResource("1_script")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
-anchors_preset = 8
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=115694773]
+custom_minimum_size = Vector2(240, 0)
+custom_maximum_size = Vector2(240, -1)
+anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -132.0
-offset_top = -88.0
+offset_top = -110.0
 offset_right = 132.0
-offset_bottom = 88.0
+offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
-
-[node name="PanelContainer" type="PanelContainer" parent="MarginContainer"]
-custom_minimum_size = Vector2(264, 0)
-layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/PanelContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=317903980]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
-[node name="TitleLabel" type="Label" parent="MarginContainer/PanelContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer" unique_id=318576458]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
-text = "选项"
+text = "选项:"
 
-[node name="ButtonsContainer" type="VBoxContainer" parent="MarginContainer/PanelContainer/VBoxContainer"]
+[node name="OptionsScroll" type="ScrollContainer" parent="PanelContainer/VBoxContainer" unique_id=884422110]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_vertical = 0
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 0
+
+[node name="ButtonsContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll" unique_id=1131629079]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="CloseRow" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=772211009]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CloseSpacer" type="Control" parent="PanelContainer/VBoxContainer/CloseRow" unique_id=991122334]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="CloseButton" parent="PanelContainer/VBoxContainer/CloseRow" unique_id=164704164 instance=ExtResource("3_action_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 18)
+custom_maximum_size = Vector2(40, 18)
+layout_mode = 2
+size_flags_horizontal = 8
+button_label = "关闭"

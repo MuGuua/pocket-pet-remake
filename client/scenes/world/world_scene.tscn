@@ -1,10 +1,40 @@
-[gd_scene load_steps=4 format=3 uid="uid://b78e5qmxskj4o"]
+[gd_scene format=3 uid="uid://b78e5qmxskj4o"]
 
 [ext_resource type="Script" uid="uid://bn067bvbimtqm" path="res://scripts/feature/world/world_controller.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="2_player"]
+[ext_resource type="Texture2D" uid="uid://dovttf2s4mgls" path="res://asset/分类/新补充图标/p.png" id="2_u3fl5"]
 [ext_resource type="Texture2D" uid="uid://b51n5el6b7x4a" path="res://asset/分类/ui/星空背景.png" id="3_bg"]
 
-[node name="WorldScene" type="Control"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_nphnh"]
+atlas = ExtResource("2_u3fl5")
+region = Rect2(0, 0, 12, 12)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j1ur5"]
+atlas = ExtResource("2_u3fl5")
+region = Rect2(12, 0, 12, 12)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d0smt"]
+atlas = ExtResource("2_u3fl5")
+region = Rect2(24, 0, 12, 12)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_5sn4l"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nphnh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j1ur5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d0smt")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]
+
+[node name="WorldScene" type="Control" unique_id=1240853802]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,8 +42,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
+click_marker_sprite_frames = SubResource("SpriteFrames_5sn4l")
 
-[node name="GameShell" type="Control" parent="."]
+[node name="GameShell" type="Control" parent="." unique_id=870412148]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -22,34 +53,33 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="GameViewportContainer" type="SubViewportContainer" parent="GameShell"]
+[node name="GameViewportContainer" type="SubViewportContainer" parent="GameShell" unique_id=687664915]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 260.0
 offset_bottom = 480.0
-stretch = false
 
-[node name="GameViewport" type="SubViewport" parent="GameShell/GameViewportContainer"]
+[node name="GameViewport" type="SubViewport" parent="GameShell/GameViewportContainer" unique_id=889733137]
 unique_name_in_owner = true
 handle_input_locally = false
 size = Vector2i(260, 480)
 render_target_update_mode = 4
 
-[node name="BackgroundFill" type="Sprite2D" parent="GameShell/GameViewportContainer/GameViewport"]
+[node name="BackgroundFill" type="Sprite2D" parent="GameShell/GameViewportContainer/GameViewport" unique_id=454914013]
 unique_name_in_owner = true
 z_index = -100
 z_as_relative = false
 texture = ExtResource("3_bg")
 centered = false
 
-[node name="GameRoot" type="Node2D" parent="GameShell/GameViewportContainer/GameViewport"]
+[node name="GameRoot" type="Node2D" parent="GameShell/GameViewportContainer/GameViewport" unique_id=641456916]
 unique_name_in_owner = true
 
-[node name="Player" parent="GameShell/GameViewportContainer/GameViewport" instance=ExtResource("2_player")]
+[node name="Player" parent="GameShell/GameViewportContainer/GameViewport" unique_id=926785186 instance=ExtResource("2_player")]
 unique_name_in_owner = true
 position = Vector2(128, 279)
 
-[node name="MapLoadingOverlay" type="ColorRect" parent="."]
+[node name="MapLoadingOverlay" type="ColorRect" parent="." unique_id=141878371]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1

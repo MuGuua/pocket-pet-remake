@@ -15,12 +15,14 @@ const _CHAR_INTERVAL_SEC: float = 0.035
 const _ITEM_ICON_SIZE: int = 12
 ## 物品图集兜底路径；优先使用服务端 item_definition.icon。
 const _ITEM_ATLAS_TEXTURE_PATH: String = "res://asset/分类/武器/pixel items0.png"
-## 说话人角标水平内边距，用于动态计算面板宽度。
-const _SPEAKER_PANEL_PADDING_X: float = 20.0
-## 说话人角标垂直内边距，用于压紧框体高度。
-const _SPEAKER_PANEL_PADDING_Y: float = 4.0
-## 说话人角标头像尺寸。
-const _SPEAKER_ICON_SIZE: int = 22
+## 说话人角标左侧内边距，用于动态计算面板宽度并让头像更贴近左缘。
+const _SPEAKER_PANEL_PADDING_LEFT: float = 4.0
+## 说话人角标右侧内边距，用于动态计算面板宽度。
+const _SPEAKER_PANEL_PADDING_RIGHT: float = 8.0
+## 说话人角标垂直内边距，用于压紧框体高度（与 SpeakerRow 24px 上限匹配）。
+const _SPEAKER_PANEL_PADDING_Y: float = 2.0
+## 说话人角标头像尺寸；框体变矮后需同步缩小，避免顶到上下边框。
+const _SPEAKER_ICON_SIZE: int = 15
 
 @onready var _root: Control = $Root
 @onready var _dim_layer: ColorRect = $Root/DimLayer
@@ -424,7 +426,11 @@ func _configure_single_speaker_panel(
 
 ## 根据标签内容计算说话人角标尺寸；宽度保持原逻辑，仅额外压紧高度。
 func _resolve_speaker_panel_size(label: RichTextLabel) -> Vector2:
-	var panel_width: float = label.get_content_width() + _SPEAKER_PANEL_PADDING_X
+	var panel_width: float = (
+		label.get_content_width()
+		+ _SPEAKER_PANEL_PADDING_LEFT
+		+ _SPEAKER_PANEL_PADDING_RIGHT
+	)
 	var content_height: float = maxf(label.get_content_height(), float(_SPEAKER_ICON_SIZE))
 	var panel_height: float = content_height + _SPEAKER_PANEL_PADDING_Y
 	return Vector2(panel_width, panel_height)

@@ -19,6 +19,15 @@ const CLICK_MARKER_WIDTH: float = 2.0
 const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
 ## 每帧最多记录的宠物跟随路径步数，防止主角锚点异常时在单帧 while 中卡死。
 const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
+
+@export_group("点击移动反馈")
+## 点击地面时播放的精灵帧动画；在检查器拖入 SpriteFrames 后优先于 Line2D 圆环。
+@export var click_marker_sprite_frames: SpriteFrames = null
+## 精灵帧动画名，需存在于 click_marker_sprite_frames 中。
+@export var click_marker_animation: String = "default"
+## 落点特效整体缩放。
+@export var click_marker_scale: Vector2 = Vector2(1.0, 1.0)
+
 @onready var game_shell: Control = %GameShell
 @onready var game_viewport_container: SubViewportContainer = %GameViewportContainer
 @onready var game_viewport: SubViewport = %GameViewport
@@ -56,6 +65,7 @@ var _navigation_grid: AStarGrid2D
 var _navigation_layer: TileMapLayer
 var _navigation_region: Rect2i = Rect2i()
 var _click_destination_marker_root: Node2D
+var _click_destination_marker_sprite: AnimatedSprite2D
 var _click_destination_marker_ring: Line2D
 var _click_destination_marker_cross: Line2D
 var _click_destination_marker_tween: Tween
@@ -968,13 +978,24 @@ func _ensure_click_destination_marker() -> void:
 	if game_root == null:
 		return
 
-	# 落点特效由一个圆环和十字组成，避免新增贴图资源，便于后续统一换肤。
 	_click_destination_marker_root = Node2D.new()
 	_click_destination_marker_root.name = "ClickDestinationMarker"
 	_click_destination_marker_root.visible = false
 	_click_destination_marker_root.z_index = 500
 	game_root.add_child(_click_destination_marker_root)
 
+	if _uses_click_marker_sprite():
+		_click_destination_marker_sprite = AnimatedSprite2D.new()
+		_click_destination_marker_sprite.name = "Sprite"
+		_click_destination_marker_sprite.centered = true
+		_click_destination_marker_sprite.sprite_frames = click_marker_sprite_frames
+		_click_destination_marker_sprite.visible = false
+		if not _click_destination_marker_sprite.animation_finished.is_connected(_on_click_marker_animation_finished):
+			_click_destination_marker_sprite.animation_finished.connect(_on_click_marker_animation_finished)
+		_click_destination_marker_root.add_child(_click_destination_marker_sprite)
+		return
+
+	# 未配置 SpriteFrames 时，继续使用程序化 Line2D 圆环 + 十字作为兜底反馈。
 	_click_destination_marker_ring = Line2D.new()
 	_click_destination_marker_ring.name = "Ring"
 	_click_destination_marker_ring.width = CLICK_MARKER_WIDTH
@@ -998,6 +1019,22 @@ func _ensure_click_destination_marker() -> void:
 	])
 	_click_destination_marker_root.add_child(_click_destination_marker_cross)
 
+## 是否已配置精灵帧版点击反馈。
+func _uses_click_marker_sprite() -> bool:
+	return click_marker_sprite_frames != null
+
+## 解析点击反馈应播放的精灵动画名；配置缺失时回退到资源内首个动画。
+func _resolve_click_marker_animation_name() -> String:
+	if click_marker_sprite_frames == null:
+		return ""
+	var configured_name: String = click_marker_animation.strip_edges()
+	if not configured_name.is_empty() and click_marker_sprite_frames.has_animation(configured_name):
+		return configured_name
+	var animation_names: PackedStringArray = click_marker_sprite_frames.get_animation_names()
+	if animation_names.is_empty():
+		return ""
+	return animation_names[0]
+
 func _build_click_marker_ring_points() -> PackedVector2Array:
 	var ring_points := PackedVector2Array()
 	var segment_count: int = 20
@@ -1010,7 +1047,33 @@ func _show_click_destination_marker(world_position: Vector2) -> void:
 	_ensure_click_destination_marker()
 	if _click_destination_marker_root == null:
 		return
+	if _uses_click_marker_sprite():
+		_show_click_destination_marker_sprite(world_position)
+		return
+	_show_click_destination_marker_legacy(world_position)
 
+## 播放精灵帧版点击落点反馈。
+func _show_click_destination_marker_sprite(world_position: Vector2) -> void:
+	if _click_destination_marker_sprite == null:
+		return
+	if _click_destination_marker_tween != null:
+		_click_destination_marker_tween.kill()
+		_click_destination_marker_tween = null
+	var animation_name: String = _resolve_click_marker_animation_name()
+	if animation_name.is_empty():
+		return
+	_click_destination_marker_root.visible = true
+	_click_destination_marker_root.position = world_position
+	_click_destination_marker_root.scale = click_marker_scale
+	_click_destination_marker_root.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	_click_destination_marker_sprite.visible = true
+	_click_destination_marker_sprite.stop()
+	_click_destination_marker_sprite.animation = animation_name
+	_click_destination_marker_sprite.frame = 0
+	_click_destination_marker_sprite.play(animation_name)
+
+## 播放 Line2D 程序化圆环版点击落点反馈（未配置 SpriteFrames 时使用）。
+func _show_click_destination_marker_legacy(world_position: Vector2) -> void:
 	if _click_destination_marker_tween != null:
 		_click_destination_marker_tween.kill()
 
@@ -1040,6 +1103,12 @@ func _show_click_destination_marker(world_position: Vector2) -> void:
 		CLICK_MARKER_ANIMATION_DURATION * 0.7
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	_click_destination_marker_tween.finished.connect(_hide_click_destination_marker, CONNECT_ONE_SHOT)
+
+## 精灵帧动画播完后隐藏落点特效。
+func _on_click_marker_animation_finished() -> void:
+	if _click_destination_marker_sprite != null:
+		_click_destination_marker_sprite.stop()
+	_hide_click_destination_marker()
 
 func _hide_click_destination_marker() -> void:
 	if _click_destination_marker_root == null:

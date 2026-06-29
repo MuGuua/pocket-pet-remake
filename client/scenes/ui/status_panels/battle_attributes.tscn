@@ -112,6 +112,10 @@ load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e
 atlas = SubResource("CompressedTexture2D_87lvc")
 region = Rect2(702, 0, 18, 18)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_3swwj"]
+atlas = SubResource("CompressedTexture2D_87lvc")
+region = Rect2(666, 0, 18, 18)
+
 [node name="MarginContainer3" type="MarginContainer" unique_id=943491550]
 custom_minimum_size = Vector2(0, 400)
 theme_override_constants/margin_left = 14
@@ -612,6 +616,13 @@ theme_override_constants/margin_bottom = 6
 custom_minimum_size = Vector2(35, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_fe5g0")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/致命和爆伤/HBoxContainer/HBoxContainer2/PanelContainer" unique_id=2085689943]
+custom_minimum_size = Vector2(35, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_3swwj")
 expand_mode = 1
 stretch_mode = 4
 

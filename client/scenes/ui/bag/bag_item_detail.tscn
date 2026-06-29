@@ -54,9 +54,9 @@ custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 7
 bbcode_enabled = true
+text = "等级：30"
 fit_content = true
 scroll_active = false
-text = "等级：30"
 
 [node name="ReinforcementLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1151527130]
 unique_name_in_owner = true
@@ -64,9 +64,9 @@ custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 7
 bbcode_enabled = true
+text = "强化：+15"
 fit_content = true
 scroll_active = false
-text = "强化：+15"
 
 [node name="MetaRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1556069148]
 layout_mode = 2
@@ -78,9 +78,9 @@ custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 7
 bbcode_enabled = true
+text = "类型：-"
 fit_content = true
 scroll_active = false
-text = "类型：-"
 
 [node name="EquipSlotLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow" unique_id=1481687263]
 unique_name_in_owner = true
@@ -88,9 +88,9 @@ custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 7
 bbcode_enabled = true
+text = "部位：-"
 fit_content = true
 scroll_active = false
-text = "部位：-"
 
 [node name="DamagedLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox" unique_id=1881246274]
 unique_name_in_owner = true
@@ -98,9 +98,9 @@ visible = false
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 7
 bbcode_enabled = true
+text = "状态：已损坏"
 fit_content = true
 scroll_active = false
-text = "状态：已损坏"
 
 [node name="DescriptionPanel" type="PanelContainer" parent="MarginContainer/ContentVBox" unique_id=798183545]
 custom_minimum_size = Vector2(0, 90)
@@ -149,6 +149,8 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_right = 0.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
 button_label = "强化"

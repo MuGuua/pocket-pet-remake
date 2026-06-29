@@ -1,24 +1,22 @@
 [gd_scene format=3 uid="uid://no5fcpe83nga"]
 
-[ext_resource type="Script" uid="uid://dropitempopupgd01" path="res://scripts/ui/bag/drop_item_popup.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://cb71s1c8w2rq3" path="res://scripts/ui/bag/drop_item_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 
-[node name="DropItemPopup" type="CanvasLayer"]
-visible = false
+[node name="DropItemPopup" type="CanvasLayer" unique_id=337411058]
 layer = 135
 script = ExtResource("1_script")
 
-[node name="DimLayer" type="ColorRect" parent="."]
+[node name="DimLayer" type="ColorRect" parent="." unique_id=652268236]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 color = Color(0.039215688, 0.078431375, 0.14117648, 0.45)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=587678443]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -26,18 +24,17 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=726695498]
 custom_minimum_size = Vector2(220, 0)
-custom_maximum_size = Vector2(240, 320)
+custom_maximum_size = Vector2(180, 320)
 layout_mode = 2
-mouse_filter = 0
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer"]
+[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=1267158157]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1553892917]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -46,24 +43,24 @@ theme_override_font_sizes/font_size = 10
 text = "丢弃物品"
 horizontal_alignment = 1
 
-[node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1416073400]
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="ItemIcon" type="TextureRect" parent="CenterContainer/PanelContainer/RootVBox/ItemRow"]
+[node name="ItemIcon" type="TextureRect" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=18028213]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ItemInfoVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ItemRow"]
+[node name="ItemInfoVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=81857428]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
 
-[node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox"]
+[node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1883863541]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
@@ -71,37 +68,37 @@ theme_override_font_sizes/font_size = 9
 text = "物品名称"
 autowrap_mode = 2
 
-[node name="ItemMetaLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox"]
+[node name="ItemMetaLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1969716579]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.780392, 0.733333, 0.690196, 1)
 theme_override_font_sizes/font_size = 7
 text = "类型"
 
-[node name="WarningLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="WarningLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox" unique_id=501603370]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.780392, 0.733333, 0.690196, 1)
 theme_override_font_sizes/normal_font_size = 8
 bbcode_enabled = true
+text = "确定要丢弃吗？"
 fit_content = true
 scroll_active = false
-text = "确定要丢弃吗？"
 
-[node name="QuantityRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="QuantityRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1766973041]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 6
 alignment = 1
 
-[node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" instance=ExtResource("3_action_btn")]
+[node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=971663049 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "-"
 
-[node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow"]
+[node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1368186059]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(36, 0)
 layout_mode = 2
@@ -111,27 +108,27 @@ text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="QuantityIncreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" instance=ExtResource("3_action_btn")]
+[node name="QuantityIncreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1365482220 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "+"
 
-[node name="QuantityMaxButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" instance=ExtResource("3_action_btn")]
+[node name="QuantityMaxButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=588127125 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "最大"
 
-[node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=647962095]
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" instance=ExtResource("3_action_btn")]
+[node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=296625635 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "丢弃"
 
-[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" instance=ExtResource("3_action_btn")]
+[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=124034863 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 button_label = "取消"

@@ -1,0 +1,510 @@
+[gd_scene format=3 uid="uid://qnheckn0nsm0"]
+
+[ext_resource type="Texture2D" uid="uid://8a4l7ldbfjj1" path="res://asset/分类/菜单表情/菜单图标2.png" id="1_da17f"]
+[ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_urqiu"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
+bg_color = Color(0.6, 0.6, 0.6, 0.07450981)
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_3swwj"]
+load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_62pgn"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(360, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2rkc1"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(324, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8554c"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(594, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_co84h"]
+atlas = ExtResource("1_da17f")
+region = Rect2(198, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tmw47"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(324, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dhh1k"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(36, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_o75ja"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(90, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5gkfp"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(540, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f4nqc"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(306, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_oc05d"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(288, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w7jp2"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(342, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8650u"]
+atlas = SubResource("CompressedTexture2D_3swwj")
+region = Rect2(666, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vbe5b"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(702, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ectxx"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(666, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j7xft"]
+atlas = ExtResource("2_urqiu")
+region = Rect2(702, 0, 18, 18)
+
+[node name="PanelContainer" type="PanelContainer" unique_id=1736326926]
+custom_minimum_size = Vector2(130, 130)
+custom_maximum_size = Vector2(130, 130)
+offset_right = 130.0
+offset_bottom = 130.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1v26t")
+
+[node name="基础属性" type="MarginContainer" parent="." unique_id=666780084]
+layout_mode = 2
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="基础属性" unique_id=1300073357]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="生命" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=2023753501]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/生命" unique_id=117975534]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_62pgn")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/生命" unique_id=1486734293]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "生命："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/生命" unique_id=398965311]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "1500000"
+vertical_alignment = 1
+
+[node name="Label3" type="Label" parent="基础属性/VBoxContainer/生命" unique_id=1703159644]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "/"
+
+[node name="Label4" type="Label" parent="基础属性/VBoxContainer/生命" unique_id=68806172]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "1500000"
+
+[node name="元素属性" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=425515926]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/元素属性" unique_id=246112694]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_2rkc1")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/元素属性" unique_id=1635323365]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "元素属性："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/元素属性" unique_id=273467791]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "火"
+vertical_alignment = 1
+
+[node name="精力" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=488410313]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/精力" unique_id=748806467]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_8554c")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/精力" unique_id=1101620225]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "精力："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/精力" unique_id=1386314474]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "1000"
+vertical_alignment = 1
+
+[node name="Label3" type="Label" parent="基础属性/VBoxContainer/精力" unique_id=1620883281]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "/"
+
+[node name="Label4" type="Label" parent="基础属性/VBoxContainer/精力" unique_id=1035825430]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "1000"
+
+[node name="经验" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=41560587]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/经验" unique_id=1649340206]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_co84h")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/经验" unique_id=1007527343]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "经验："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/经验" unique_id=2068974324]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "58888（28.33%）"
+vertical_alignment = 1
+
+[node name="修炼与守护等级" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=771666066]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="修炼" type="HBoxContainer" parent="基础属性/VBoxContainer/修炼与守护等级" unique_id=1414392535]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="基础属性/VBoxContainer/修炼与守护等级/修炼" unique_id=1252366390]
+layout_mode = 2
+
+[node name="TextureRect2" type="TextureRect" parent="基础属性/VBoxContainer/修炼与守护等级/修炼/PanelContainer" unique_id=657606168]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_tmw47")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/修炼与守护等级/修炼/PanelContainer" unique_id=373540338]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_co84h")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/修炼与守护等级/修炼" unique_id=1486634415]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "修炼："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/修炼与守护等级/修炼" unique_id=315478079]
+custom_minimum_size = Vector2(22, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "0"
+vertical_alignment = 1
+
+[node name="守护等级" type="HBoxContainer" parent="基础属性/VBoxContainer/修炼与守护等级" unique_id=1130516813]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/修炼与守护等级/守护等级" unique_id=1438408726]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_co84h")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/修炼与守护等级/守护等级" unique_id=1890054710]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "守护等级："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/修炼与守护等级/守护等级" unique_id=25231652]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "120"
+vertical_alignment = 1
+
+[node name="攻击与防御" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=202676603]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="攻击" type="HBoxContainer" parent="基础属性/VBoxContainer/攻击与防御" unique_id=177893121]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/攻击与防御/攻击" unique_id=1031355192]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_dhh1k")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/攻击与防御/攻击" unique_id=33024083]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "攻击："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/攻击与防御/攻击" unique_id=930220592]
+custom_minimum_size = Vector2(22, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "250000"
+vertical_alignment = 1
+
+[node name="防御" type="HBoxContainer" parent="基础属性/VBoxContainer/攻击与防御" unique_id=542101511]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/攻击与防御/防御" unique_id=2102694614]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_o75ja")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/攻击与防御/防御" unique_id=503688096]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "防御："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/攻击与防御/防御" unique_id=829769881]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "250000"
+vertical_alignment = 1
+
+[node name="速度与法力" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=2070551933]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="速度" type="HBoxContainer" parent="基础属性/VBoxContainer/速度与法力" unique_id=297703300]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/速度与法力/速度" unique_id=1487401087]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_5gkfp")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/速度与法力/速度" unique_id=60115180]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "速度："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/速度与法力/速度" unique_id=398781989]
+custom_minimum_size = Vector2(22, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "30000"
+vertical_alignment = 1
+
+[node name="法力" type="HBoxContainer" parent="基础属性/VBoxContainer/速度与法力" unique_id=2031350838]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/速度与法力/法力" unique_id=1816819569]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_f4nqc")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/速度与法力/法力" unique_id=918566569]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "法力："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/速度与法力/法力" unique_id=840955593]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "50000"
+vertical_alignment = 1
+
+[node name="命中与闪避" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=424984331]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="命中" type="HBoxContainer" parent="基础属性/VBoxContainer/命中与闪避" unique_id=463984153]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/命中与闪避/命中" unique_id=614813164]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_oc05d")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/命中与闪避/命中" unique_id=1490906996]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "命中："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/命中与闪避/命中" unique_id=1897878981]
+custom_minimum_size = Vector2(22, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "118"
+vertical_alignment = 1
+
+[node name="闪避" type="HBoxContainer" parent="基础属性/VBoxContainer/命中与闪避" unique_id=462813640]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/命中与闪避/闪避" unique_id=1030270791]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_w7jp2")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/命中与闪避/闪避" unique_id=1128134618]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "闪避："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/命中与闪避/闪避" unique_id=994915344]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "24"
+vertical_alignment = 1
+
+[node name="致命与爆伤" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=1092387867]
+custom_maximum_size = Vector2(-1, 10)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="致命" type="HBoxContainer" parent="基础属性/VBoxContainer/致命与爆伤" unique_id=1724757890]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/致命与爆伤/致命" unique_id=768261429]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_8650u")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/致命与爆伤/致命" unique_id=1600758359]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "致命："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/致命与爆伤/致命" unique_id=258199681]
+custom_minimum_size = Vector2(22, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "150"
+vertical_alignment = 1
+
+[node name="爆伤" type="HBoxContainer" parent="基础属性/VBoxContainer/致命与爆伤" unique_id=257999757]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="基础属性/VBoxContainer/致命与爆伤/爆伤" unique_id=999078309]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/致命与爆伤/爆伤/PanelContainer" unique_id=149573977]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_vbe5b")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect2" type="TextureRect" parent="基础属性/VBoxContainer/致命与爆伤/爆伤/PanelContainer" unique_id=1947266208]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_ectxx")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/致命与爆伤/爆伤" unique_id=946981866]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "爆伤："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/致命与爆伤/爆伤" unique_id=2050746263]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "2000%"
+vertical_alignment = 1
+
+[node name="里世界潜力" type="HBoxContainer" parent="基础属性/VBoxContainer" unique_id=1138915739]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="基础属性/VBoxContainer/里世界潜力" unique_id=225049608]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_j7xft")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="基础属性/VBoxContainer/里世界潜力" unique_id=311620866]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "里世界潜力："
+
+[node name="Label2" type="Label" parent="基础属性/VBoxContainer/里世界潜力" unique_id=2042260363]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "10073"
+vertical_alignment = 1
+
+[node name="Label3" type="Label" parent="基础属性/VBoxContainer/里世界潜力" unique_id=1379298741]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "已强化完成"

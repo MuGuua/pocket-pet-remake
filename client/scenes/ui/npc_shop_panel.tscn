@@ -1,14 +1,14 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://dgkmo4spou5ct"]
 
-[ext_resource type="Script" path="res://scripts/ui/npc_shop_panel.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://be26x55a4k0nf" path="res://scripts/ui/npc_shop_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_wv165"]
 
-[node name="NPCShopPanel" type="CanvasLayer"]
-visible = false
+[node name="NPCShopPanel" type="CanvasLayer" unique_id=365153277]
 layer = 25
 script = ExtResource("1_script")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=420902208]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,14 +17,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="DimLayer" type="ColorRect" parent="Root"]
+[node name="DimLayer" type="ColorRect" parent="Root" unique_id=2057957]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.62)
 
-[node name="Panel" type="PanelContainer" parent="Root"]
-layout_mode = 0
+[node name="Panel" type="PanelContainer" parent="Root" unique_id=860815640]
+custom_maximum_size = Vector2(220, 300)
+layout_mode = 1
+anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -37,34 +39,28 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="Margin" type="MarginContainer" parent="Root/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="Layout" type="VBoxContainer" parent="Root/Panel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="Root/Panel" unique_id=837972393]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TitleLabel" type="Label" parent="Root/Panel/Margin/Layout"]
+[node name="TitleLabel" type="Label" parent="Root/Panel/Layout" unique_id=1368533425]
 layout_mode = 2
 text = "商店"
 horizontal_alignment = 1
 
-[node name="WalletLabel" type="Label" parent="Root/Panel/Margin/Layout"]
+[node name="WalletLabel" type="Label" parent="Root/Panel/Layout" unique_id=494882650]
 layout_mode = 2
 text = "持有货币：0"
 
-[node name="GoodsContainer" type="VBoxContainer" parent="Root/Panel/Margin/Layout"]
+[node name="GoodsContainer" type="VBoxContainer" parent="Root/Panel/Layout" unique_id=186687862]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="StatusLabel" type="Label" parent="Root/Panel/Margin/Layout"]
+[node name="StatusLabel" type="Label" parent="Root/Panel/Layout" unique_id=1593304376]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="CloseButton" type="Button" parent="Root/Panel/Margin/Layout"]
+[node name="RuntimeActionButton" parent="Root/Panel/Layout" unique_id=2063865073 instance=ExtResource("3_wv165")]
 layout_mode = 2
-text = "关闭"
+size_flags_horizontal = 6
+size_flags_vertical = 4

@@ -1,0 +1,198 @@
+[gd_scene format=3 uid="uid://m6pdabmokwih"]
+
+[ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_dm5ub"]
+[ext_resource type="PackedScene" uid="uid://bdvpwxunw84bo" path="res://scenes/ui/pet/skill_button.tscn" id="2_o0mde"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
+bg_color = Color(0.6, 0.6, 0.6, 0.07450981)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_o0mde"]
+atlas = ExtResource("2_dm5ub")
+region = Rect2(36, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_42g6y"]
+atlas = ExtResource("2_dm5ub")
+region = Rect2(360, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dm5ub"]
+atlas = ExtResource("2_dm5ub")
+region = Rect2(540, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j7ppe"]
+atlas = ExtResource("2_dm5ub")
+region = Rect2(594, 0, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e3o4x"]
+atlas = ExtResource("2_dm5ub")
+region = Rect2(90, 0, 18, 18)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx6cj"]
+bg_color = Color(0.06666667, 0.16470589, 0.33333334, 0.43529412)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="PanelContainer" type="PanelContainer" unique_id=1736326926]
+custom_minimum_size = Vector2(130, 130)
+custom_maximum_size = Vector2(130, 130)
+offset_right = 130.0
+offset_bottom = 130.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1v26t")
+
+[node name="资质与技能" type="MarginContainer" parent="." unique_id=666780084]
+layout_mode = 2
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="资质与技能" unique_id=1300073357]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="攻击资质" type="HBoxContainer" parent="资质与技能/VBoxContainer" unique_id=1414392535]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/攻击资质" unique_id=373540338]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_o0mde")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/攻击资质" unique_id=1486634415]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "攻击资质："
+
+[node name="Label2" type="Label" parent="资质与技能/VBoxContainer/攻击资质" unique_id=315478079]
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 5
+text = "2590（+336）+93241（+30%）"
+vertical_alignment = 1
+
+[node name="生命资质" type="HBoxContainer" parent="资质与技能/VBoxContainer" unique_id=446400436]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/生命资质" unique_id=936206903]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_42g6y")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/生命资质" unique_id=1145987344]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "生命资质："
+
+[node name="Label2" type="Label" parent="资质与技能/VBoxContainer/生命资质" unique_id=961563797]
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 5
+text = "2590（+336）+93241（+30%）"
+vertical_alignment = 1
+
+[node name="速度资质" type="HBoxContainer" parent="资质与技能/VBoxContainer" unique_id=959083902]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/速度资质" unique_id=1326853166]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_dm5ub")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/速度资质" unique_id=1306953265]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "速度资质："
+
+[node name="Label2" type="Label" parent="资质与技能/VBoxContainer/速度资质" unique_id=1456183999]
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 5
+text = "2590（+336）+93241（+30%）"
+vertical_alignment = 1
+
+[node name="法力资质" type="HBoxContainer" parent="资质与技能/VBoxContainer" unique_id=1338506820]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/法力资质" unique_id=1848542929]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_j7ppe")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/法力资质" unique_id=852990593]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "法力资质："
+
+[node name="Label2" type="Label" parent="资质与技能/VBoxContainer/法力资质" unique_id=1417530586]
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 5
+text = "803（+336）+93241（+30%）"
+vertical_alignment = 1
+
+[node name="防御资质" type="HBoxContainer" parent="资质与技能/VBoxContainer" unique_id=1200848428]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/防御资质" unique_id=1231255390]
+custom_minimum_size = Vector2(10, 10)
+custom_maximum_size = Vector2(10, 10)
+layout_mode = 2
+texture = SubResource("AtlasTexture_e3o4x")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/防御资质" unique_id=430356657]
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "防御资质："
+
+[node name="Label2" type="Label" parent="资质与技能/VBoxContainer/防御资质" unique_id=106822560]
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 5
+text = "2590（+336）+93241（+30%）"
+vertical_alignment = 1
+
+[node name="技能面板" type="MarginContainer" parent="资质与技能/VBoxContainer" unique_id=815892146]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 1
+theme_override_constants/margin_right = 1
+theme_override_constants/margin_bottom = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="资质与技能/VBoxContainer/技能面板" unique_id=1739836379]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tx6cj")
+
+[node name="MarginContainer" type="MarginContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer" unique_id=1512195339]
+layout_mode = 2
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 2
+theme_override_constants/margin_bottom = 2
+
+[node name="GridContainer" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer" unique_id=1454133839]
+layout_mode = 2
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 2
+columns = 6
+
+[node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/GridContainer" unique_id=1271741053 instance=ExtResource("2_o0mde")]
+layout_mode = 2
