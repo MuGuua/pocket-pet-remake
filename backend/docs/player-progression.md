@@ -63,6 +63,19 @@
 - `backend/server/migrations/035_player_level_progression.sql`
 - `backend/server/migrations/036_admin_player_progression_permissions.sql`
 - `backend/server/migrations/043_player_level_combat_bonus.sql`
+- `backend/server/migrations/080_update_player_level_exp_curve.sql`（1~100 级升级经验曲线）
+
+### 3.0 等级经验曲线（1~100）
+
+`player_level_config.exp_required` 按等级配置「当前等级升到下一级」所需经验，权威数据在数据库，服务端 `progression` 模块启动时加载缓存。
+
+| 阶段 | 等级区间 | 曲线特征 |
+|------|----------|----------|
+| 新手 | 1~27 | 线性平缓增长，单级数百~数千经验 |
+| 中期 | 28~59 | 指数爬升，50 级附近出现跳涨，单级可达近百万 |
+| 后期 | 60~100 | 79 级后单级跃升至 270 万以上；80 级后约 5% 稳步递增；99→100 单级约 640 万；全等级累计约 5200 万 |
+
+完整 99 条 `exp_required` 见迁移 `080_update_player_level_exp_curve.sql`；运营可在后台 `/player-progression` 微调单级数值。
 
 ### 3.1 配置表
 
