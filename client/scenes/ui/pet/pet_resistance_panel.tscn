@@ -2,9 +2,10 @@
 
 [ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_dm5ub"]
 [ext_resource type="PackedScene" uid="uid://bdvpwxunw84bo" path="res://scenes/ui/pet/skill_button.tscn" id="2_o0mde"]
+[ext_resource type="Theme" uid="uid://dishtikvukgt4" path="res://scenes/ui/pet/pet_skill_button_theme.tres" id="3_dm5ub"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
-bg_color = Color(0.6, 0.6, 0.6, 0.07450981)
+bg_color = Color(0.6, 0.6, 0.6, 0.05490196)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_o0mde"]
 atlas = ExtResource("2_dm5ub")
@@ -32,6 +33,17 @@ corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_o0mde"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y1mnv"]
+atlas = SubResource("CompressedTexture2D_o0mde")
+region = Rect2(203, 180, 46, 9)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rkwb1"]
+atlas = SubResource("CompressedTexture2D_o0mde")
+region = Rect2(281, 180, 44, 9)
 
 [node name="PanelContainer" type="PanelContainer" unique_id=1736326926]
 custom_minimum_size = Vector2(130, 130)
@@ -191,6 +203,31 @@ theme_override_constants/margin_bottom = 2
 [node name="VBoxContainer" type="VBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer" unique_id=2135176445]
 layout_mode = 2
 
+[node name="HBoxContainer" type="HBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=1023830222]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=486064972]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_y1mnv")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=382750549]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 6
+text = "宠物技能"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TextureRect2" type="TextureRect" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=588888246]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+texture = SubResource("AtlasTexture_rkwb1")
+expand_mode = 1
+stretch_mode = 4
+
 [node name="GridContainer" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=1454133839]
 layout_mode = 2
 theme_override_constants/h_separation = 3
@@ -199,6 +236,7 @@ columns = 6
 
 [node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1271741053 instance=ExtResource("2_o0mde")]
 layout_mode = 2
+theme = ExtResource("3_dm5ub")
 
 [node name="Button2" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=2016119033 instance=ExtResource("2_o0mde")]
 layout_mode = 2

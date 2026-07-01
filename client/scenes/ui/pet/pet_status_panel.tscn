@@ -47,10 +47,9 @@ bg_color = Color(0.007843138, 0.07450981, 0.20784314, 0.84705883)
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_tx6cj"]
 texture = ExtResource("1_b4hb2")
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f8dlf"]
-bg_color = Color(0.6, 0.6, 0.6, 0)
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_tlnns"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_2277l"]
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_a0tyk"]
 load_path = "res://.godot/imported/魔法阵.png-981683f3305cee15cbda77135f46f4f7.ctex"
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_2hnwu"]
@@ -226,7 +225,7 @@ theme_override_styles/normal = SubResource("StyleBoxTexture_tx6cj")
 [node name="PanelContainer2" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer" unique_id=1771738664]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_f8dlf")
+theme_override_styles/panel = SubResource("StyleBoxTexture_tlnns")
 
 [node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2" unique_id=937978233]
 custom_minimum_size = Vector2(110, 74)
@@ -253,7 +252,7 @@ offset_top = 53.0
 offset_right = 110.0
 offset_bottom = 65.0
 size_flags_vertical = 10
-texture = SubResource("CompressedTexture2D_2277l")
+texture = SubResource("CompressedTexture2D_a0tyk")
 expand_mode = 1
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control" unique_id=1328519479]

@@ -2,12 +2,20 @@
 
 [ext_resource type="Script" uid="uid://mmt00s53tam" path="res://scripts/ui/bag/bag_slot.gd" id="1_bagslot"]
 [ext_resource type="Texture2D" uid="uid://bfi02xl85inkq" path="res://asset/分类/ui/bagUI.png" id="1_jkamp"]
+[ext_resource type="Texture2D" uid="uid://bg7kgmud53t26" path="res://asset/分类/新补充图标/ico.png" id="3_c886m"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_pag2s"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_empty"]
 atlas = ExtResource("1_jkamp")
 region = Rect2(485, 528, 16, 16)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y1mnv"]
+bg_color = Color(0.12225222, 0.12225225, 0.12225217, 0.5882353)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q0sm6"]
+atlas = ExtResource("3_c886m")
+region = Rect2(80, 48, 16, 16)
 
 [node name="Slot" type="Button" unique_id=320579853]
 custom_minimum_size = Vector2(22, 22)
@@ -130,3 +138,27 @@ theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 8
 horizontal_alignment = 2
 vertical_alignment = 2
+
+[node name="Damaged" type="PanelContainer" parent="." unique_id=53523117]
+visible = false
+custom_minimum_size = Vector2(19, 19)
+custom_maximum_size = Vector2(19, 19)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -9.5
+offset_top = -9.5
+offset_right = 9.5
+offset_bottom = 9.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")
+
+[node name="DamagedImage" type="TextureRect" parent="Damaged" unique_id=345535242]
+layout_mode = 2
+texture = SubResource("AtlasTexture_q0sm6")
+expand_mode = 1
+stretch_mode = 4

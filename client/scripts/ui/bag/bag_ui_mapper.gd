@@ -228,12 +228,22 @@ static func apply_enhance_level_badge(label: Label, item: Dictionary) -> void:
     label.text = badge_text
 
 
-## 刷新背包格子损坏样式：图标变暗并显示红色遮罩。
-static func apply_damaged_slot_style(icon_rect: CanvasItem, overlay: CanvasItem, item: Dictionary) -> void:
+## 刷新背包格子损坏样式：图标变暗，并在已损坏装备上显示 Damaged 蒙版。
+## damaged_badge 为 slot.tscn 根节点下的 Damaged 面板；传入时优先使用该蒙版，并关闭旧版红色遮罩。
+static func apply_damaged_slot_style(
+        icon_rect: CanvasItem,
+        overlay: CanvasItem,
+        item: Dictionary,
+        damaged_badge: CanvasItem = null
+) -> void:
     var damaged: bool = is_damaged(item) and is_equipment(item)
     if icon_rect != null:
         icon_rect.modulate = Color(0.72, 0.52, 0.52, 1.0) if damaged else Color(1, 1, 1, 1)
-    if overlay != null:
+    if damaged_badge != null:
+        damaged_badge.visible = damaged
+        if overlay != null:
+            overlay.visible = false
+    elif overlay != null:
         overlay.visible = damaged
 
 
