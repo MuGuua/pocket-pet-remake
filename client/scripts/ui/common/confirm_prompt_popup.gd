@@ -91,6 +91,7 @@ func get_selected_quantity() -> int:
 func close_prompt() -> void:
 	if not visible:
 		return
+	get_viewport().set_input_as_handled()
 	_notify_host_suppress_input_leak()
 	_close_modal()
 
@@ -183,6 +184,7 @@ func _on_quantity_max_pressed() -> void:
 func _close_with_result(is_confirmed: bool, _source: String = "unknown") -> void:
 	if not visible:
 		return
+	get_viewport().set_input_as_handled()
 	_notify_host_suppress_input_leak()
 	if is_confirmed:
 		confirmed.emit()

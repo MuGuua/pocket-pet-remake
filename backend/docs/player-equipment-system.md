@@ -341,17 +341,24 @@ Admin 配置示例：
 ### 7.3 强化 ENHANCE
 
 1. **仅允许未佩戴状态**：实例 `state=bag`、不在 `player_equipment_slot`、且位于背包 `player_container_item`；已佩戴装备须先卸下。
-2. 校验 `can_enhance`、`enhance_level < max_enhance_level`、材料足够。
+2. 校验 `can_enhance`、`enhance_level < max_enhance_level`、`is_damaged=false`、材料足够。
 3. 读取 `equipment_enhance_success_config[required_level_band_min, enhance_level+1]` 掷骰（缺失时回退 1~10 段，再回退代码默认）。
-4. 成功：`enhance_level++`；失败：等级不变（**不掉级**）。强化本身不重算玩家属性，佩戴/卸下时再重算。
-5. 材料无论成败均消耗（除非模板配置保护符，二期）。
+4. 成功：`enhance_level++`；失败：按所选强化材料的 `failure_penalty` 处理，默认 `damage` 会写入 `equipment_instance.is_damaged=true`，`level_down` 降级，`none` 不改变等级与损坏状态。
+5. 材料与铜币无论成败均消耗；强化本身不重算玩家属性，佩戴/卸下时再重算。
 
-### 7.4 镶嵌 SOCKET
+### 7.4 修复 REPAIR
+
+1. **仅允许未佩戴状态**：实例 `state=bag`、不在 `player_equipment_slot`、且位于背包 `player_container_item`；已佩戴装备须先卸下。
+2. 校验 `equipment_instance.is_damaged=true`，并读取启用状态的 `equipment_repair_cost`。
+3. 消耗 `item_sub_type=equipment_repair` 的修复材料后，将 `equipment_instance.is_damaged` 清为 `false`。
+4. 响应返回修复后的装备快照；客户端再按当前页码与筛选条件刷新背包，确保损坏标记和修复材料数量均来自服务端最新快照。
+
+### 7.5 镶嵌 SOCKET
 
 1. 校验孔位空闲、`gem` 类型允许、背包有宝石。
 2. 写 `equipment_instance_socket`，消耗宝石，重算属性。
 
-### 7.5 取下镶嵌 UNSOCKET
+### 7.6 取下镶嵌 UNSOCKET
 
 1. 校验该孔已有 `gem_item_id`。
 2. 清空孔位，**将宝石完整退回背包**（无损、不降级、不损坏）。
@@ -371,12 +378,11 @@ Admin 配置示例：
 | `2075` | S→C | `PLAYER_UNEQUIP_RESP` |
 | `2076` | C→S | `PLAYER_EQUIPMENT_ENHANCE_REQ` `{ item_uid, cost_item_id? }`；`cost_item_id` 须为 `item_sub_type=equipment_enhance` 的强化材料 |
 | `2077` | S→C | `PLAYER_EQUIPMENT_ENHANCE_RESP` |
-| `2078` | C→S | `PLAYER_EQUIPMENT_SOCKET_REQ` `{ item_uid, socket_index, bag_slot_index }` |
-| `2079` | S→C | `PLAYER_EQUIPMENT_SOCKET_RESP` |
-| `2080` | C→S | `PLAYER_EQUIPMENT_UNSOCKET_REQ` `{ item_uid, socket_index }` |
-| `2081` | S→C | `PLAYER_EQUIPMENT_UNSOCKET_RESP` |
+| `2078` | C→S | `PLAYER_EQUIPMENT_REPAIR_REQ` `{ item_uid }`；仅修复未佩戴且位于背包的损坏装备 |
+| `2079` | S→C | `PLAYER_EQUIPMENT_REPAIR_RESP`，返回 `item` 与 `all_equipped` |
+| `2080+` | 预留 | 镶嵌 / 取下镶嵌后续实现时另行分配，禁止复用已占用的 `2078/2079` |
 
-`EnterWorld` / `PlayerSnapshot` 增加可选字段 `equipped_items[]`（slot + item_uid + item_id + enhance_level + 展示用属性摘要），避免进场景后再发一次列表。
+`EnterWorld` / `PlayerSnapshot` 增加可选字段 `equipped_items[]`（slot + item_uid + item_id + enhance_level + is_damaged + 展示用属性摘要），避免进场景后再发一次列表。
 
 ---
 

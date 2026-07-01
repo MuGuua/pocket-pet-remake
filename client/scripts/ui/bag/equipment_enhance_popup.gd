@@ -948,6 +948,7 @@ func _play_enhance_progress_animation() -> void:
 func _on_dim_layer_gui_input(event: InputEvent) -> void:
 	if not visible or not _is_topmost_runtime_modal():
 		return
+	get_viewport().set_input_as_handled()
 	var dim_layer: ColorRect = get_node_or_null("DimLayer") as ColorRect
 	if dim_layer != null:
 		dim_layer.accept_event()

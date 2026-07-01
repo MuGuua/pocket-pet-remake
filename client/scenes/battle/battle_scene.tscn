@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://uwvv5qh86u3g"]
+[gd_scene format=3 uid="uid://uwvv5qh86u3g"]
 
 [ext_resource type="Script" uid="uid://fsyqvf70tmac" path="res://scripts/feature/battle/battle_scene.gd" id="0_scene"]
 [ext_resource type="Script" uid="uid://dsevvt38eprmg" path="res://scripts/feature/battle/battle_network_provider.gd" id="1"]
@@ -107,7 +107,7 @@ texture_margin_bottom = 15.0
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_43ebt"]
 
-[node name="BattleScene" type="Control"]
+[node name="BattleScene" type="Control" unique_id=118392081]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -116,7 +116,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("0_scene")
 
-[node name="Bg" type="Control" parent="."]
+[node name="Bg" type="Control" parent="." unique_id=2016797166]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -125,7 +125,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PanelContainer" type="Control" parent="Bg"]
+[node name="PanelContainer" type="Control" parent="Bg" unique_id=32121588]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -134,7 +134,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="TextureRect2" type="TextureRect" parent="Bg/PanelContainer"]
+[node name="TextureRect2" type="TextureRect" parent="Bg/PanelContainer" unique_id=1480968987]
 custom_minimum_size = Vector2(200, 112)
 layout_mode = 0
 offset_left = 30.0
@@ -147,14 +147,14 @@ mouse_filter = 2
 texture = ExtResource("2_2wmvw")
 expand_mode = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="Bg/PanelContainer"]
+[node name="PanelContainer" type="PanelContainer" parent="Bg/PanelContainer" unique_id=540876885]
 layout_mode = 0
 offset_right = 260.0
 offset_bottom = 480.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_ww1p6")
 
-[node name="BattlefieldRoot" type="Control" parent="."]
+[node name="BattlefieldRoot" type="Control" parent="." unique_id=493730974]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -164,16 +164,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="UnitLayer" type="Node2D" parent="BattlefieldRoot"]
+[node name="UnitLayer" type="Node2D" parent="BattlefieldRoot" unique_id=1075241157]
 unique_name_in_owner = true
 
-[node name="EffectLayer" type="Node2D" parent="BattlefieldRoot"]
+[node name="EffectLayer" type="Node2D" parent="BattlefieldRoot" unique_id=1944377422]
 unique_name_in_owner = true
 
-[node name="FloatingTextLayer" type="Node2D" parent="BattlefieldRoot"]
+[node name="FloatingTextLayer" type="Node2D" parent="BattlefieldRoot" unique_id=1291067897]
 unique_name_in_owner = true
 
-[node name="UILayer" type="Control" parent="."]
+[node name="UILayer" type="Control" parent="." unique_id=154336698]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -182,7 +182,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="CommandStatusBar" type="PanelContainer" parent="UILayer"]
+[node name="CommandStatusBar" type="PanelContainer" parent="UILayer" unique_id=572195129]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
@@ -196,27 +196,26 @@ mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_ww1p6")
 script = ExtResource("6")
 
-[node name="StatusMargin" type="MarginContainer" parent="UILayer/CommandStatusBar"]
+[node name="StatusMargin" type="MarginContainer" parent="UILayer/CommandStatusBar" unique_id=1646323915]
 layout_mode = 2
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 4
 theme_override_constants/margin_bottom = 2
 
-[node name="StatusLabel" type="RichTextLabel" parent="UILayer/CommandStatusBar/StatusMargin"]
+[node name="StatusLabel" type="RichTextLabel" parent="UILayer/CommandStatusBar/StatusMargin" unique_id=899308823]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 16
+size_flags_horizontal = 3
+theme_override_font_sizes/normal_font_size = 13
 bbcode_enabled = true
 text = "请选择人物操作：25秒"
-fit_content = false
 scroll_active = false
 autowrap_mode = 0
-size_flags_horizontal = 3
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ActionLogPanel" type="PanelContainer" parent="UILayer"]
+[node name="ActionLogPanel" type="PanelContainer" parent="UILayer" unique_id=487651684]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
@@ -235,7 +234,7 @@ script = ExtResource("4")
 log_font_size = 9
 line_height = 11.0
 
-[node name="LogMargin" type="MarginContainer" parent="UILayer/ActionLogPanel"]
+[node name="LogMargin" type="MarginContainer" parent="UILayer/ActionLogPanel" unique_id=1064654595]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/margin_left = 4
@@ -243,23 +242,23 @@ theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 4
 theme_override_constants/margin_bottom = 2
 
-[node name="LogVBox" type="VBoxContainer" parent="UILayer/ActionLogPanel/LogMargin"]
+[node name="LogVBox" type="VBoxContainer" parent="UILayer/ActionLogPanel/LogMargin" unique_id=1255179654]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 2
 
-[node name="LogLinesRoot" type="VBoxContainer" parent="UILayer/ActionLogPanel/LogMargin/LogVBox"]
+[node name="LogLinesRoot" type="VBoxContainer" parent="UILayer/ActionLogPanel/LogMargin/LogVBox" unique_id=589802950]
 unique_name_in_owner = true
-clip_contents = true
 custom_minimum_size = Vector2(0, 51)
+clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 1
 alignment = 2
 
-[node name="ActionPanel" type="PanelContainer" parent="UILayer"]
+[node name="ActionPanel" type="PanelContainer" parent="UILayer" unique_id=2022334259]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
@@ -275,59 +274,58 @@ grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxEmpty_cywj5")
 script = ExtResource("3")
 
-[node name="ActionMargin" type="MarginContainer" parent="UILayer/ActionPanel"]
+[node name="ActionMargin" type="MarginContainer" parent="UILayer/ActionPanel" unique_id=233947682]
 layout_mode = 2
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 4
 theme_override_constants/margin_bottom = 4
 
-[node name="ActionVBox" type="VBoxContainer" parent="UILayer/ActionPanel/ActionMargin"]
+[node name="ActionVBox" type="VBoxContainer" parent="UILayer/ActionPanel/ActionMargin" unique_id=1205505131]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox"]
-custom_minimum_size = Vector2(0, 52)
+[node name="PanelContainer" type="PanelContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox" unique_id=1986808873]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_7hnyd")
 
-[node name="ButtonRow" type="HBoxContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer"]
+[node name="ButtonRow" type="HBoxContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer" unique_id=469007977]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="AttackButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
+[node name="AttackButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=2099984467]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxEmpty_7hnyd")
 
-[node name="SkillButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
+[node name="SkillButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1017588627]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxEmpty_dddu7")
 
-[node name="ItemButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
+[node name="ItemButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=571100429]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxEmpty_3511k")
 
-[node name="AutoButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
+[node name="AutoButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1352302089]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxEmpty_puhd7")
 
-[node name="EscapeButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow"]
+[node name="EscapeButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=468408827]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxEmpty_mpswg")
 
-[node name="SelectionOverlay" type="Control" parent="UILayer"]
+[node name="SelectionOverlay" type="Control" parent="UILayer" unique_id=1096433752]
 unique_name_in_owner = true
 z_index = 20
 layout_mode = 1
@@ -338,7 +336,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ChoiceBackdrop" type="ColorRect" parent="UILayer/SelectionOverlay"]
+[node name="ChoiceBackdrop" type="ColorRect" parent="UILayer/SelectionOverlay" unique_id=853812172]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -348,7 +346,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.45)
 
-[node name="ChoiceModalCenter" type="CenterContainer" parent="UILayer/SelectionOverlay"]
+[node name="ChoiceModalCenter" type="CenterContainer" parent="UILayer/SelectionOverlay" unique_id=1100317882]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -359,39 +357,39 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter"]
+[node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter" unique_id=312578488]
 custom_minimum_size = Vector2(176, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_choice_popup")
 
-[node name="ChoiceModalMargin" type="MarginContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal"]
+[node name="ChoiceModalMargin" type="MarginContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal" unique_id=1032438068]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 6
 
-[node name="ChoiceModalVBox" type="VBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin"]
+[node name="ChoiceModalVBox" type="VBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin" unique_id=2006631420]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="ChoiceListVBox" type="VBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox"]
+[node name="ChoiceListVBox" type="VBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=1516234375]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="ChoicePageBar" type="HBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox"]
+[node name="ChoicePageBar" type="HBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=993441602]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 alignment = 1
 
-[node name="ChoicePrevButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar"]
+[node name="ChoicePrevButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1692660577]
 unique_name_in_owner = true
 layout_mode = 2
 text = "上一页"
 
-[node name="ChoicePageLabel" type="Label" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar"]
+[node name="ChoicePageLabel" type="Label" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=931677179]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 0)
 layout_mode = 2
@@ -399,35 +397,36 @@ text = "1 / 1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ChoiceNextButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar"]
+[node name="ChoiceNextButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1162737527]
 unique_name_in_owner = true
 layout_mode = 2
 text = "下一页"
 
-[node name="ChoiceCancelButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox"]
+[node name="ChoiceCancelButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=1652907511]
 unique_name_in_owner = true
 layout_mode = 2
 text = "取消"
 
-[node name="TargetCancelBar" type="HBoxContainer" parent="UILayer/SelectionOverlay"]
+[node name="TargetCancelBar" type="HBoxContainer" parent="UILayer/SelectionOverlay" unique_id=1771081969]
 unique_name_in_owner = true
+custom_maximum_size = Vector2(-1, 30)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -112.0
-offset_top = 88.0
-offset_right = 112.0
-offset_bottom = 120.0
+offset_left = -123.0
+offset_top = 117.0
+offset_right = 123.0
+offset_bottom = 147.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
 alignment = 1
 
-[node name="TargetConfirmButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar"]
+[node name="TargetConfirmButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=332848194]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(84, 28)
 layout_mode = 2
@@ -438,12 +437,12 @@ theme_override_styles/hover_pressed = SubResource("StyleBoxTexture_dddu7")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_7s01p")
 text = "确定"
 
-[node name="Control" type="Control" parent="UILayer/SelectionOverlay/TargetCancelBar"]
-custom_minimum_size = Vector2(20, 0)
+[node name="Control" type="Control" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=734815763]
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="TargetCancelButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar"]
+[node name="TargetCancelButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=442412752]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(84, 28)
 layout_mode = 2
@@ -454,13 +453,13 @@ theme_override_styles/hover_pressed = SubResource("StyleBoxTexture_puhd7")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_43ebt")
 text = "取消"
 
-[node name="BattleNetworkProvider" type="Node" parent="."]
+[node name="BattleNetworkProvider" type="Node" parent="." unique_id=726256167]
 unique_name_in_owner = true
 script = ExtResource("1")
 
-[node name="BattleContentRegistry" type="Node" parent="."]
+[node name="BattleContentRegistry" type="Node" parent="." unique_id=2049935610]
 unique_name_in_owner = true
 script = ExtResource("5")
 
-[node name="BattleDirector" type="Node" parent="."]
+[node name="BattleDirector" type="Node" parent="." unique_id=1677150535]
 script = ExtResource("2")

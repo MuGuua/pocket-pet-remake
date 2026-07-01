@@ -68,6 +68,7 @@ func _on_backdrop_gui_input(event: InputEvent) -> void:
         return
     if not _is_dismiss_event(event):
         return
+    get_viewport().set_input_as_handled()
     if _backdrop != null:
         _backdrop.accept_event()
     if _dismiss_top_overlay():

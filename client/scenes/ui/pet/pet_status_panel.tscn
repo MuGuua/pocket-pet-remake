@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dvp14xw8qf4g5"]
 
 [ext_resource type="Texture2D" uid="uid://hudiisqw2jr5" path="res://asset/分类/ui/下拉按钮.png" id="1_b4hb2"]
+[ext_resource type="Script" path="res://scripts/ui/pet_status_panel.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://kxkj8edhsh44" path="res://asset/分类/宠物/两图宠物/758.png" id="2_bkwt6"]
 [ext_resource type="PackedScene" uid="uid://uxhuljc2fmlb" path="res://scenes/ui/pet/pet_choice_button.tscn" id="3_2277l"]
 [ext_resource type="Texture2D" uid="uid://d25yv8iqkj30p" path="res://asset/分类/ui/button_PNG/CGB02-blue_L_btn.png" id="4_xvjvq"]
@@ -112,6 +113,8 @@ texture = ExtResource("8_bmldw")
 texture = ExtResource("8_bmldw")
 
 [node name="Control" type="CanvasLayer" unique_id=1147085773]
+visible = false
+script = ExtResource("1_script")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=77391200]
 anchors_preset = 8

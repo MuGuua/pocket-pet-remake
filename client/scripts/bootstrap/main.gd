@@ -6,6 +6,7 @@ const WORLD_SCENE := preload("res://scenes/world/world_scene.tscn")
 const BATTLE_SCENE := preload("res://scenes/battle/battle_scene.tscn")
 const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
+const PET_PANEL_SCENE := preload("res://scenes/ui/pet/pet_status_panel.tscn")
 const BAG_PANEL_SCENE := preload("res://scenes/ui/bag/bag_panel.tscn")
 const OPTION_LIST_PANEL_SCENE := preload(OptionListPanel.SCENE_PATH)
 const RUNTIME_PROGRESS_OVERLAY_SCENE := preload(RuntimeProgressOverlay.SCENE_PATH)
@@ -71,6 +72,7 @@ var _grid_spread_transition: GridSpreadTransition = null
 var _redirecting_to_login: bool = false
 var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
+var _pet_panel: CanvasLayer
 var _bag_panel: CanvasLayer
 var _npc_menu: OptionListPanel = null
 var _npc_list_menu: OptionListPanel = null
@@ -108,6 +110,8 @@ var _npc_request_loading: RuntimeProgressOverlay = null
 var _bag_panel_open_in_flight: bool = false
 # 人物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _player_panel_open_in_flight: bool = false
+# 宠物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
+var _pet_panel_open_in_flight: bool = false
 # 地图切换过渡期间是否正在展示全屏 loading。
 var _scene_transition_loading_active: bool = false
 # 当前等待 NPC_MENU_RESP 的请求序列号。
@@ -369,6 +373,8 @@ func _connect_signals() -> void:
 	NetClient.websocket_closed.connect(_on_websocket_closed)
 	if hud_root.has_signal("avatar_pressed"):
 		hud_root.connect("avatar_pressed", Callable(self, "_on_hud_avatar_pressed"))
+	if hud_root.has_signal("pet_pressed"):
+		hud_root.connect("pet_pressed", Callable(self, "_on_hud_pet_pressed"))
 	if hud_root.has_signal("bag_pressed"):
 		hud_root.connect("bag_pressed", Callable(self, "_on_hud_bag_pressed"))
 
@@ -741,6 +747,12 @@ func _on_hud_avatar_pressed() -> void:
 		return
 	_toggle_root_runtime_panel(_player_panel, "player_panel")
 
+## 点击宠物 HUD 时打开宠物状态面板，打开前会先拉取服务端最新宠物列表。
+func _on_hud_pet_pressed() -> void:
+	if _is_battle_modal_active() or _is_settlement_input_blocked():
+		return
+	await _open_pet_panel_prepared()
+
 ## 点击右下角背包常驻按钮时打开背包，沿用主菜单中的背包面板与服务端刷新逻辑。
 func _on_hud_bag_pressed() -> void:
 	if _is_battle_modal_active() or _is_settlement_input_blocked():
@@ -754,6 +766,7 @@ func _append_log(message: String) -> void:
 func _create_runtime_ui() -> void:
 	_create_main_menu()
 	_create_player_panel()
+	_create_pet_panel()
 	_create_bag_panel()
 	_create_npc_menu()
 	_create_npc_list_menu()
@@ -983,6 +996,15 @@ func _create_player_panel() -> void:
 	if _player_panel.has_signal("menu_closed"):
 		_player_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
 
+## 创建宠物状态面板，并接入运行时根面板关闭信号。
+func _create_pet_panel() -> void:
+	_pet_panel = PET_PANEL_SCENE.instantiate() as CanvasLayer
+	if _pet_panel == null:
+		return
+	add_child(_pet_panel)
+	if _pet_panel.has_signal("menu_closed"):
+		_pet_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
+
 func _create_bag_panel() -> void:
 	_bag_panel = BAG_PANEL_SCENE.instantiate() as CanvasLayer
 	if _bag_panel == null:
@@ -1125,6 +1147,11 @@ func _on_main_menu_item_selected(item: Dictionary) -> void:
 		if _main_menu != null and _main_menu.has_method("close_menu"):
 			_main_menu.call("close_menu")
 		call_deferred("_open_player_panel_prepared")
+		return
+	if label == "宠物指令":
+		if _main_menu != null and _main_menu.has_method("close_menu"):
+			_main_menu.call("close_menu")
+		call_deferred("_open_pet_panel_prepared")
 		return
 	if label != "全服竞技场":
 		return
@@ -1626,7 +1653,7 @@ func _is_settlement_input_blocked() -> bool:
 
 ## 关闭所有运行时菜单；战斗中传入 keep_world_locked=true 避免误解锁世界输入。
 func _close_runtime_menus(keep_world_locked: bool = false) -> void:
-	for layer in [_main_menu, _player_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
+	for layer in [_main_menu, _player_panel, _pet_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
 		if layer != null and layer.has_method("close_menu"):
 			layer.call("close_menu")
 	if _pvp_invite_dialog != null:
@@ -1640,6 +1667,7 @@ func _close_other_root_panels(keep_key: String) -> void:
 	var panel_entries: Array[Array] = [
 		["main_menu", _main_menu],
 		["player_panel", _player_panel],
+		["pet_panel", _pet_panel],
 		["bag_panel", _bag_panel],
 		["npc_menu", _npc_menu],
 		["npc_list", _npc_list_menu],
@@ -1666,6 +1694,9 @@ func _toggle_root_runtime_panel(panel: CanvasLayer, panel_key: String) -> void:
 		return
 	if panel_key == "player_panel":
 		call_deferred("_open_player_panel_prepared")
+		return
+	if panel_key == "pet_panel":
+		call_deferred("_open_pet_panel_prepared")
 		return
 	_close_other_root_panels(panel_key)
 	panel.call("open_menu")
@@ -1733,10 +1764,38 @@ func _open_bag_panel_prepared() -> void:
 		_bag_panel.call("open_menu")
 	_set_runtime_menu_locked(true)
 
+## 先展示全屏 loading 并拉取宠物列表，权威快照就绪后再打开宠物状态面板。
+func _open_pet_panel_prepared() -> void:
+	if _pet_panel == null:
+		return
+	if _pet_panel.visible:
+		_pet_panel.call("close_menu")
+		return
+	if _pet_panel_open_in_flight:
+		return
+	_pet_panel_open_in_flight = true
+	_close_other_root_panels("pet_panel")
+	_create_npc_request_loading()
+	_show_npc_request_loading_immediate()
+	var prepared: bool = false
+	var pet_panel: CanvasLayer = _pet_panel
+	if pet_panel != null and pet_panel.has_method("prepare_open_data"):
+		var prepare_result: Variant = await pet_panel.call("prepare_open_data")
+		prepared = bool(prepare_result)
+	_hide_npc_request_loading()
+	_pet_panel_open_in_flight = false
+	if not prepared:
+		return
+	if pet_panel != null and pet_panel.has_method("open_menu"):
+		pet_panel.call("open_menu")
+	_set_runtime_menu_locked(true)
+
 func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "main_menu" and _main_menu != null and _main_menu.visible:
 		return true
 	if except != "player_panel" and _player_panel != null and _player_panel.visible:
+		return true
+	if except != "pet_panel" and _pet_panel != null and _pet_panel.visible:
 		return true
 	if except != "bag_panel" and _bag_panel != null and _bag_panel.visible:
 		return true

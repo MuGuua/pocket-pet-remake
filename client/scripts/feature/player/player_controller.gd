@@ -45,8 +45,7 @@ func handle_enhance_response(payload: Dictionary) -> void:
 	var all_equipped_variant: Variant = payload.get("all_equipped", [])
 	if all_equipped_variant is Array:
 		GameState.set_equipped_items(all_equipped_variant as Array)
-	if GameState.is_ws_authenticated:
-		App.request_bag_list()
+	# 强化由发起操作的背包面板按当前页和筛选条件补拉快照，避免这里默认刷新第 1 页 all 分类。
 	equipment_updated.emit()
 
 
@@ -55,8 +54,7 @@ func handle_repair_response(payload: Dictionary) -> void:
 	var all_equipped_variant: Variant = payload.get("all_equipped", [])
 	if all_equipped_variant is Array:
 		GameState.set_equipped_items(all_equipped_variant as Array)
-	if GameState.is_ws_authenticated:
-		App.request_bag_list()
+	# 修复由发起操作的背包面板按当前页和筛选条件补拉快照，避免修复后错误切回第 1 页。
 	equipment_updated.emit()
 
 

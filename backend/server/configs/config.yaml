@@ -13,7 +13,8 @@ heartbeat:
 
 # PostgreSQL 运行配置。
 postgres:
-  dsn: "postgres://postgres:postgres_pocket_pet@38.76.179.44:5432/pocket_pet?sslmode=disable"
+  # dsn: "postgres://postgres:postgres_pocket_pet@38.76.179.44:5432/pocket_pet?sslmode=disable"
+  dsn: "postgres://postgres:postgres_pocket_pet@117.72.124.51:5432/pocket_pet?sslmode=disable"
   max_open_conns: 20
   max_idle_conns: 10
   conn_max_lifetime_seconds: 1800

@@ -86,6 +86,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_dim_layer_gui_input(event: InputEvent) -> void:
 	if not visible or not _is_topmost_runtime_modal():
 		return
+	get_viewport().set_input_as_handled()
 	if _dim_layer != null:
 		_dim_layer.accept_event()
 	_try_blank_dismiss(event)
@@ -138,6 +139,7 @@ func _is_topmost_runtime_modal() -> bool:
 
 
 func _dismiss_modal() -> void:
+	get_viewport().set_input_as_handled()
 	_notify_host_suppress_input_leak()
 	_close_modal()
 	popup_closed.emit()
@@ -147,6 +149,7 @@ func _dismiss_modal() -> void:
 func force_close_popup() -> void:
 	if not visible:
 		return
+	get_viewport().set_input_as_handled()
 	_notify_host_suppress_input_leak()
 	_force_close_modal()
 	popup_closed.emit()

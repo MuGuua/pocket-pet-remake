@@ -119,6 +119,7 @@ func _dismiss_modal() -> void:
 
 ## 发送选中结果并关闭弹窗。
 func _emit_target_selected(result: Dictionary) -> void:
+    get_viewport().set_input_as_handled()
     target_selected.emit(result)
     _notify_host_suppress_input_leak()
     _close_modal()
@@ -127,6 +128,7 @@ func _emit_target_selected(result: Dictionary) -> void:
 
 ## 发送取消并关闭弹窗。
 func _emit_target_cancelled() -> void:
+    get_viewport().set_input_as_handled()
     target_cancelled.emit()
     _notify_host_suppress_input_leak()
     _close_modal()

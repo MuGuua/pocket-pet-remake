@@ -111,10 +111,6 @@ func buildRuntimeEnhancePreview(
 		Materials:               materials,
 		Rows:                    []bag.RuntimeEnhancePreviewRow{},
 	}
-	if isDamaged {
-		applyDefaultEnhancePreviewCostHint(preview, materials)
-		return preview, nil
-	}
 	if maxEnhanceLevel == 0 {
 		return preview, nil
 	}
@@ -170,7 +166,8 @@ func buildRuntimeEnhancePreview(
 		currentSnapshot,
 		runtimeItemBonusFromAggregate(nextBonus),
 	)
-	if !canEnhance {
+	// 损坏装备不能继续强化，但详情页仍要展示当前等级与下一等级预览，避免强化失败后面板信息突然消失。
+	if isDamaged || !canEnhance {
 		applyDefaultEnhancePreviewCostHint(preview, materials)
 		return preview, nil
 	}

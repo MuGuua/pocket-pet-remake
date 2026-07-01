@@ -13,6 +13,7 @@ signal prompt_finished(result: Dictionary)
 @onready var _warning_label: RichTextLabel = %WarningLabel
 @onready var _confirm_button: RuntimeActionButton = %ConfirmButton
 @onready var _cancel_button: RuntimeActionButton = %CancelButton
+@onready var _dim_layer: ColorRect = $DimLayer
 
 ## 当前待修复装备快照。
 var _item: Dictionary = {}
@@ -24,6 +25,8 @@ var _prompt_active: bool = false
 func _ready() -> void:
     visible = false
     add_to_group("runtime_modal_popup")
+    if _dim_layer != null and not _dim_layer.gui_input.is_connected(_on_dim_layer_gui_input):
+        _dim_layer.gui_input.connect(_on_dim_layer_gui_input)
     if _confirm_button != null and not _confirm_button.pressed.is_connected(_on_confirm_pressed):
         _confirm_button.pressed.connect(_on_confirm_pressed)
     if _cancel_button != null and not _cancel_button.pressed.is_connected(_on_cancel_pressed):
@@ -55,6 +58,51 @@ func force_close_popup() -> void:
     if not visible:
         return
     _finish_prompt(false)
+
+
+## 点击空白遮罩时只关闭当前最上层修复弹窗，并吞掉本次输入避免穿透到底层按钮。
+func _on_dim_layer_gui_input(event: InputEvent) -> void:
+    if not visible or not _prompt_active:
+        return
+    if not _is_topmost_runtime_modal():
+        return
+    if not _is_dismiss_event(event):
+        return
+    get_viewport().set_input_as_handled()
+    if _dim_layer != null:
+        _dim_layer.accept_event()
+    _finish_prompt(false)
+
+
+## 判断是否为“按下类”关闭输入，移动端触摸与桌面鼠标统一处理。
+func _is_dismiss_event(event: InputEvent) -> bool:
+    if event is InputEventScreenTouch:
+        return (event as InputEventScreenTouch).pressed
+    if event is InputEventMouseButton:
+        return (event as InputEventMouseButton).pressed
+    if event is InputEventKey:
+        var key_event: InputEventKey = event as InputEventKey
+        return key_event.pressed and not key_event.echo
+    if event is InputEventJoypadButton:
+        return (event as InputEventJoypadButton).pressed
+    return false
+
+
+## 多个运行时弹窗同时可见时，仅 layer/节点顺序最高的弹窗响应空白关闭。
+func _is_topmost_runtime_modal() -> bool:
+    var top_modal: Node = null
+    var top_order: int = -2147483648
+    for node_variant: Variant in get_tree().get_nodes_in_group("runtime_modal_popup"):
+        if not (node_variant is CanvasLayer):
+            continue
+        var modal_layer: CanvasLayer = node_variant as CanvasLayer
+        if not modal_layer.visible:
+            continue
+        var modal_order: int = modal_layer.layer * 1000 + modal_layer.get_index()
+        if modal_order >= top_order:
+            top_order = modal_order
+            top_modal = modal_layer
+    return top_modal == self
 
 
 ## 刷新物品图标、名称与修复消耗文案。
@@ -98,6 +146,7 @@ func _on_cancel_pressed() -> void:
 func _finish_prompt(confirmed: bool) -> void:
     if not _prompt_active:
         return
+    get_viewport().set_input_as_handled()
     _prompt_active = false
     hide()
     _set_runtime_input_locked(false)

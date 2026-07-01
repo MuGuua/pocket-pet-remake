@@ -12,10 +12,15 @@ import (
 )
 
 const runtimeRepairCostQuery = `
-SELECT cost_item_id, cost_quantity
-FROM equipment_repair_cost
-WHERE status = 1
-ORDER BY cost_item_id ASC
+SELECT
+  erc.cost_item_id,
+  erc.cost_quantity
+FROM equipment_repair_cost erc
+JOIN item_definition idf ON idf.item_id = erc.cost_item_id
+WHERE erc.status = 1
+  AND idf.is_enabled = TRUE
+  AND LOWER(TRIM(idf.item_sub_type)) = $1
+ORDER BY erc.cost_item_id ASC
 LIMIT 1
 `
 
@@ -116,7 +121,9 @@ func loadRuntimeRepairCost(ctx context.Context, db DBTX) (*equipment.RepairCost,
 	var cost equipment.RepairCost
 	var costItemID int64
 	var costQuantity int64
-	err := db.QueryRowContext(ctx, runtimeRepairCostQuery).Scan(&costItemID, &costQuantity)
+	// 修复配置必须指向 item_sub_type=equipment_repair 的正式道具。
+	// 这里在读取阶段过滤掉历史脏配置，避免误取到更小 item_id 的非修复材料后让玩家修复失败。
+	err := db.QueryRowContext(ctx, runtimeRepairCostQuery, bag.ItemSubTypeEquipmentRepair).Scan(&costItemID, &costQuantity)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

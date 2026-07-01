@@ -3,6 +3,7 @@ package bag
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 )
@@ -101,6 +102,27 @@ func (r *dropRuntimeItemRepo) DropRuntimeItem(_ context.Context, playerID uint64
 	}, nil
 }
 
+// listRuntimeContainerRetryRepo 用于模拟远端 PostgreSQL 首次读快照时断开连接。
+// 该查询是只读快照读取，服务层允许对瞬时网络错误重试一次。
+type listRuntimeContainerRetryRepo struct {
+	useItemRateLimitRepo
+	calls int
+	errs  []error
+}
+
+func (r *listRuntimeContainerRetryRepo) ListRuntimeContainer(_ context.Context, _ uint64, containerType string) (*RuntimeContainerSnapshot, error) {
+	r.calls++
+	if len(r.errs) >= r.calls && r.errs[r.calls-1] != nil {
+		return nil, r.errs[r.calls-1]
+	}
+	return &RuntimeContainerSnapshot{
+		ContainerType: containerType,
+		Capacity:      24,
+		MaxCapacity:   48,
+		Items:         []RuntimeItemSnapshot{},
+	}, nil
+}
+
 func TestUseRuntimeItemRateLimitBlocksSecondCallWithinOneSecond(t *testing.T) {
 	repo := &useItemRateLimitRepo{}
 	service := NewService(repo)
@@ -141,6 +163,34 @@ func TestUseRuntimeItemRateLimitAllowsCallAfterCooldown(t *testing.T) {
 	}
 	if repo.calls != 2 {
 		t.Fatalf("repo.calls = %d, want 2", repo.calls)
+	}
+}
+
+func TestListRuntimeContainerRetriesTransientEOFOnce(t *testing.T) {
+	repo := &listRuntimeContainerRetryRepo{errs: []error{io.ErrUnexpectedEOF}}
+	service := NewService(repo)
+
+	result, err := service.ListRuntimeContainer(context.Background(), 10001, ContainerTypeBag)
+	if err != nil {
+		t.Fatalf("ListRuntimeContainer() error = %v, want nil after transient retry", err)
+	}
+	if repo.calls != 2 {
+		t.Fatalf("repo.calls = %d, want 2 after one transient retry", repo.calls)
+	}
+	if result == nil || result.ContainerType != ContainerTypeBag {
+		t.Fatalf("result = %#v, want normalized bag snapshot", result)
+	}
+}
+
+func TestListRuntimeContainerDoesNotRetryBusinessError(t *testing.T) {
+	repo := &listRuntimeContainerRetryRepo{errs: []error{ErrContainerNotFound}}
+	service := NewService(repo)
+
+	if _, err := service.ListRuntimeContainer(context.Background(), 10001, ContainerTypeBag); !errors.Is(err, ErrContainerNotFound) {
+		t.Fatalf("ListRuntimeContainer() error = %v, want ErrContainerNotFound", err)
+	}
+	if repo.calls != 1 {
+		t.Fatalf("repo.calls = %d, want 1 because business errors must not retry", repo.calls)
 	}
 }
 

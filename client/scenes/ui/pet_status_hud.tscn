@@ -1,0 +1,95 @@
+[gd_scene format=3 uid="uid://b3b8oimufog6p"]
+
+[ext_resource type="Script" path="res://scripts/ui/pet_status_hud.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.0627451, 0.0941176, 0.14902, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.631373, 0.819608, 0.980392, 0.35)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
+bg_color = Color(0.101960786, 0.13333334, 0.2, 0.95)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_fill"]
+bg_color = Color(0.8627451, 0.19607843, 0.18431373, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="PetStatusHud" type="PanelContainer"]
+custom_minimum_size = Vector2(148, 46)
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 3
+
+[node name="HBox" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PetButton" type="TextureButton" parent="Margin/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+stretch_mode = 0
+
+[node name="PetTexture" type="TextureRect" parent="Margin/HBox/PetButton"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = -2.0
+offset_bottom = -2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBox" type="VBoxContainer" parent="Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="NameLabel" type="Label" parent="Margin/HBox/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 15)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.81960785, 0.9019608, 0.9607843, 1)
+theme_override_font_sizes/font_size = 11
+text = "宠物"
+vertical_alignment = 1
+clip_text = true
+
+[node name="HpBar" type="ProgressBar" parent="Margin/HBox/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 8)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hp_fill")
+max_value = 1.0
+value = 1.0
+show_percentage = false

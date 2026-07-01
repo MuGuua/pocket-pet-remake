@@ -26,9 +26,25 @@ region = Rect2(272, 208, 17, 16)
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bu7xo"]
 texture = SubResource("AtlasTexture_fi3ju")
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_krklo"]
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_a27n1"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cw7q7"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_kk56t"]
+atlas = SubResource("CompressedTexture2D_a27n1")
+region = Rect2(272, 208, 16, 16)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_fw8hn"]
+texture = SubResource("AtlasTexture_kk56t")
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_hswpw"]
+load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_08wlw"]
+atlas = SubResource("CompressedTexture2D_hswpw")
+region = Rect2(272, 208, 16, 16)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_edt8y"]
+texture = SubResource("AtlasTexture_08wlw")
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2qbur"]
 
@@ -258,6 +274,8 @@ texture_margin_top = 4.0
 texture_margin_right = 4.0
 texture_margin_bottom = 4.0
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_krklo"]
+
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_q05hs"]
 load_path = "res://.godot/imported/bagUI2.png-0e22add6ab8c2b8f482b3b559d8a1c30.ctex"
 
@@ -331,8 +349,8 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_styles/normal = SubResource("StyleBoxTexture_bu7xo")
-theme_override_styles/pressed = SubResource("StyleBoxEmpty_krklo")
-theme_override_styles/hover = SubResource("StyleBoxEmpty_cw7q7")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_fw8hn")
+theme_override_styles/hover = SubResource("StyleBoxTexture_edt8y")
 theme_override_styles/disabled = SubResource("StyleBoxEmpty_2qbur")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_05nox")
 

@@ -2,10 +2,15 @@ package bag
 
 import (
 	"context"
+	"database/sql/driver"
+	"errors"
+	"io"
 	"strings"
 	"sync"
 	"time"
 )
+
+const runtimeContainerSnapshotMaxAttempts = 2
 
 // Service 负责把后台背包管理请求收口到统一领域入口。
 // HTTP handler 只解析参数，默认值、空结果与存在性判断都在这里处理。
@@ -80,7 +85,7 @@ func (s *Service) ListRuntimeContainer(ctx context.Context, playerID uint64, con
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.repo.ListRuntimeContainer(ctx, playerID, normalizedContainerType)
+	result, err := s.listRuntimeContainerWithRetry(ctx, playerID, normalizedContainerType)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +98,44 @@ func (s *Service) ListRuntimeContainer(ctx context.Context, playerID uint64, con
 	}
 	result.UsedSlots = uint32(len(result.Items))
 	return result, nil
+}
+
+// listRuntimeContainerWithRetry 只为背包快照的只读查询做一次瞬断重试。
+// 移动端客户端打开背包、战斗结算后刷新背包等流程都依赖这份服务端权威快照；
+// 远端 PostgreSQL 偶发关闭空闲连接时，第一次查询可能返回 unexpected EOF 或网络超时，
+// 这里重试一次可以让 database/sql 丢弃坏连接并重新取一条可用连接，避免把临时断流直接暴露给玩家。
+func (s *Service) listRuntimeContainerWithRetry(ctx context.Context, playerID uint64, containerType string) (*RuntimeContainerSnapshot, error) {
+	var lastErr error
+	for attempt := 1; attempt <= runtimeContainerSnapshotMaxAttempts; attempt++ {
+		result, err := s.repo.ListRuntimeContainer(ctx, playerID, containerType)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if attempt == runtimeContainerSnapshotMaxAttempts || !isRetryableRuntimeContainerSnapshotError(err) {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+// isRetryableRuntimeContainerSnapshotError 判断一次背包快照失败是否更像数据库连接瞬断。
+// 业务校验类错误不重试，避免隐藏真实的数据问题；只对驱动坏连接、EOF、读超时等网络层错误重试。
+func isRetryableRuntimeContainerSnapshotError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	if errors.Is(err, driver.ErrBadConn) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unexpected eof") ||
+		strings.Contains(message, "operation timed out") ||
+		strings.Contains(message, "connection reset by peer") ||
+		strings.Contains(message, "broken pipe")
 }
 
 // MoveRuntimeItemBetweenContainers 执行背包与仓库之间的权威移动逻辑。

@@ -13,6 +13,7 @@ const REWARD_POPUP_SCENE: PackedScene = preload("res://scenes/ui/common/reward_p
 const EQUIPMENT_ENHANCE_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/equipment_enhance_popup.tscn")
 const DROP_ITEM_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/drop_item_popup.tscn")
 const REPAIR_EQUIPMENT_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/repair_equipment_popup.tscn")
+const INFO_MODAL_POPUP_SCENE: PackedScene = preload(InfoModalPopup.SCENE_PATH)
 const USE_ITEM_TARGET_PICKER_SCENE: PackedScene = preload("res://scenes/ui/bag/use_item_target_picker.tscn")
 ## 礼包打开进度条播放时长（秒）。
 const BOX_OPEN_PROGRESS_DURATION_SEC: float = 3.0
@@ -93,6 +94,8 @@ var _enhance_target_item_uid: String = ""
 var _enhance_request_handler: Callable = Callable()
 ## 装备修复确认弹窗。
 var _repair_popup: RepairEquipmentPopup = null
+## 装备修复成功后的信息弹窗；复用通用 InfoModalPopup，避免只给短暂 notice。
+var _repair_success_popup: InfoModalPopup = null
 ## 是否正在执行装备修复请求。
 var _repair_in_flight: bool = false
 ## 当前修复请求 seq。
@@ -324,6 +327,7 @@ func close_menu() -> void:
 	_hide_enhance_popup()
 	_hide_drop_popup()
 	_hide_repair_popup()
+	_hide_repair_success_popup()
 	_end_box_open_deferred_refresh(false)
 	_hide_detail_popup()
 	super.close_menu()
@@ -645,6 +649,7 @@ func _on_detail_dim_gui_input(event: InputEvent) -> void:
 		return
 	if not _is_dismiss_event(event):
 		return
+	get_viewport().set_input_as_handled()
 	if _detail_dim != null:
 		_detail_dim.accept_event()
 	_hide_detail_popup()
@@ -1407,9 +1412,11 @@ func _hide_enhance_popup() -> void:
 		_enhance_popup.force_close_popup()
 
 
-## 强化演出结束后同步背包最新快照到弹窗。
+## 强化演出结束后再拉取背包最新快照，确保格子损坏/等级变化与结果文案同一时机出现。
 func _on_enhance_presentation_finished() -> void:
-	_refresh_enhance_popup_if_open()
+	var refresh_seq: int = _send_current_bag_page_request()
+	if refresh_seq <= 0:
+		App.notice_received.emit("背包刷新请求发送失败，请稍后手动刷新。")
 
 
 ## 用户点击空白区域关闭强化弹窗时，同步清理本地追踪状态。
@@ -1490,7 +1497,8 @@ func _handle_enhance_request_finished(
 ) -> void:
 	if request_cmd != CommandIds.PLAYER_EQUIPMENT_ENHANCE_REQ:
 		return
-	if _enhance_popup != null and _enhance_popup.is_enhance_presentation_active():
+	var handled_by_presentation: bool = _enhance_popup != null and _enhance_popup.is_enhance_presentation_active()
+	if handled_by_presentation:
 		var enhance_success: bool = ok and bool(payload.get("success", false))
 		var failure_penalty: String = str(payload.get("failure_penalty", "damage"))
 		_enhance_popup.notify_enhance_response(ok, enhance_success, failure_penalty, payload)
@@ -1500,10 +1508,14 @@ func _handle_enhance_request_finished(
 		var error_message: String = str(payload.get("msg", payload.get("message", "强化请求失败。")))
 		if error_message.is_empty():
 			error_message = "强化请求失败。"
-		if _enhance_popup == null or not _enhance_popup.is_enhance_presentation_active():
+		if not handled_by_presentation:
 			App.notice_received.emit(error_message)
 		return
-	if _enhance_popup == null or not _enhance_popup.is_enhance_presentation_active():
+	# 强化结果会改变装备等级、损坏状态和材料数量；演出结束后再按当前页/筛选补拉，避免背包格子提前跳变。
+	if not handled_by_presentation:
+		var refresh_seq: int = _send_current_bag_page_request()
+		if refresh_seq <= 0:
+			App.notice_received.emit("背包刷新请求发送失败，请稍后手动刷新。")
 		if bool(payload.get("success", false)):
 			var new_level: int = int(payload.get("new_level", 0))
 			App.notice_received.emit("强化成功，当前等级 +%s。" % UiFormat.value_to_text(new_level))
@@ -1535,6 +1547,23 @@ func _ensure_repair_popup() -> void:
 func _hide_repair_popup() -> void:
 	if _repair_popup != null and _repair_popup.visible:
 		_repair_popup.force_close_popup()
+
+
+## 懒创建修复成功信息弹窗；该弹窗只展示服务端确认后的结果，不参与修复请求发送。
+func _ensure_repair_success_popup() -> void:
+	if _repair_success_popup != null:
+		return
+	_repair_success_popup = INFO_MODAL_POPUP_SCENE.instantiate() as InfoModalPopup
+	if _repair_success_popup == null:
+		return
+	add_child(_repair_success_popup)
+	move_child(_repair_success_popup, get_child_count() - 1)
+
+
+## 关闭修复成功信息弹窗；背包整体关闭时调用，避免独立 CanvasLayer 残留。
+func _hide_repair_success_popup() -> void:
+	if _repair_success_popup != null and _repair_success_popup.visible:
+		_repair_success_popup.close_popup()
 
 
 ## 损坏装备修复：专用确认弹窗 + 服务端 REPAIR 权威链路。
@@ -1612,6 +1641,10 @@ func _handle_repair_request_finished(
 		return
 	_repair_waiting_bag_refresh = true
 	_repair_response_payload = payload.duplicate(true)
+	# 修复结果会改变装备损坏状态和修复材料数量；必须按玩家当前停留的页码与分类刷新快照。
+	var refresh_seq: int = _send_current_bag_page_request()
+	if refresh_seq <= 0:
+		_finish_repair_action(false, {"msg": "背包刷新请求发送失败，请稍后再试。"})
 
 
 ## 结束修复流程：隐藏 loading，并根据结果提示玩家。
@@ -1639,10 +1672,31 @@ func _finish_repair_action(response_ok: bool, response_payload: Dictionary) -> v
 		item_name = str((item_variant as Dictionary).get("item_name", "")).strip_edges()
 	if item_name.is_empty():
 		item_name = "装备"
-	App.notice_received.emit("已修复：%s" % item_name)
+	_show_repair_success_popup(item_name)
 	_selected_slot_index = 0
 	_selected_item = {}
 	_refresh_panel()
+
+
+## 展示修复成功信息弹窗；若弹窗实例化失败，则回退到全局 notice，避免玩家完全收不到结果提示。
+func _show_repair_success_popup(item_name: String) -> void:
+	var resolved_item_name: String = item_name.strip_edges()
+	if resolved_item_name.is_empty():
+		resolved_item_name = "装备"
+	_ensure_repair_success_popup()
+	if _repair_success_popup == null:
+		App.notice_received.emit("已修复：%s" % resolved_item_name)
+		return
+	move_child(_repair_success_popup, get_child_count() - 1)
+	var lines: Array[String] = [
+		"已修复：%s" % resolved_item_name,
+		"装备已恢复正常，可以继续佩戴或强化。",
+	]
+	_repair_success_popup.show_info("修复成功", lines, {
+		"title_font_size": 12,
+		"content_font_size": 10,
+		"confirm_label": "知道了",
+	})
 
 
 ## 修复成功后等待背包快照刷新完成，再结束 loading 和提示结果。
