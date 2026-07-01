@@ -188,11 +188,47 @@ theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="GridContainer" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer" unique_id=1454133839]
+[node name="VBoxContainer" type="VBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer" unique_id=2135176445]
+layout_mode = 2
+
+[node name="GridContainer" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=1454133839]
 layout_mode = 2
 theme_override_constants/h_separation = 3
 theme_override_constants/v_separation = 2
 columns = 6
 
-[node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/GridContainer" unique_id=1271741053 instance=ExtResource("2_o0mde")]
+[node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1271741053 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button2" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=2016119033 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button3" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1787741550 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button4" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=2124029819 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button5" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=996405689 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button6" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=541164725 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button7" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1170937890 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button8" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1060150215 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button9" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1757955836 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button10" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=558158466 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button11" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1140193125 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button12" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1922429234 instance=ExtResource("2_o0mde")]
 layout_mode = 2

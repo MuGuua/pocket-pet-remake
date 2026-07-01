@@ -1,5 +1,8 @@
 [gd_scene format=3 uid="uid://bdvpwxunw84bo"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y4yrt"]
+
 [node name="Button" type="Button" unique_id=1271741053]
 custom_minimum_size = Vector2(18, 18)
+theme_override_styles/normal = SubResource("StyleBoxFlat_y4yrt")
 toggle_mode = true

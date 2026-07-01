@@ -306,6 +306,27 @@ columns = 2
 [node name="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1563053846 instance=ExtResource("3_2277l")]
 layout_mode = 2
 
+[node name="Button2" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1034221521 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button3" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1371482650 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button4" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1408524076 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button5" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1883584396 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button6" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=125673250 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button7" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=223673156 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
+[node name="Button8" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1324694260 instance=ExtResource("3_2277l")]
+layout_mode = 2
+
 [node name="数据" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer" unique_id=1670865182]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -377,10 +398,10 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_a5yub")
 
 [node name="基础属性" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板" unique_id=1736326926 instance=ExtResource("6_xvjvq")]
+visible = false
 layout_mode = 2
 
 [node name="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板" unique_id=1193948438 instance=ExtResource("7_bmldw")]
-visible = false
 layout_mode = 2
 
 [node name="其他按钮" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer" unique_id=1199923089]

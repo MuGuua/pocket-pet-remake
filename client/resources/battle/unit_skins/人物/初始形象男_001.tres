@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UnitSkin" load_steps=29 format=3 uid="uid://dp4e0611d8e1v"]
+[gd_resource type="Resource" script_class="UnitSkin" format=3 uid="uid://dp4e0611d8e1v"]
 
 [ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_y4yrt"]
 [ext_resource type="Texture2D" uid="uid://dghfuqxnmkrj0" path="res://asset/分类/小部件/默认角色/男/53.png" id="2_01lcd"]
@@ -88,18 +88,6 @@ region = Rect2(338, 0, 26, 39)
 atlas = ExtResource("3_loqsb")
 region = Rect2(0, 0, 34, 39)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_kwdul"]
-atlas = ExtResource("3_loqsb")
-region = Rect2(34, 0, 34, 39)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_3jnk8"]
-atlas = ExtResource("3_loqsb")
-region = Rect2(68, 0, 34, 39)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_wt4rf"]
-atlas = ExtResource("3_loqsb")
-region = Rect2(102, 0, 34, 39)
-
 [sub_resource type="SpriteFrames" id="SpriteFrames_duelist"]
 animations = [{
 "frames": [{
@@ -112,7 +100,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_3mvc4")
 }],
-"loop": true,
+"loop": 1,
 "name": &"向上走",
 "speed": 5.0
 }, {
@@ -126,7 +114,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_hrogn")
 }],
-"loop": true,
+"loop": 1,
 "name": &"向下走",
 "speed": 5.0
 }, {
@@ -140,7 +128,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_aatko")
 }],
-"loop": true,
+"loop": 1,
 "name": &"向右走",
 "speed": 5.0
 }, {
@@ -154,7 +142,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_e2gno")
 }],
-"loop": true,
+"loop": 1,
 "name": &"向左走",
 "speed": 5.0
 }, {
@@ -162,7 +150,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_2fgq1")
 }],
-"loop": true,
+"loop": 1,
 "name": &"待机上",
 "speed": 5.0
 }, {
@@ -170,7 +158,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_j31ed")
 }],
-"loop": true,
+"loop": 1,
 "name": &"待机下",
 "speed": 5.0
 }, {
@@ -178,7 +166,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_dyn4w")
 }],
-"loop": true,
+"loop": 1,
 "name": &"待机右",
 "speed": 5.0
 }, {
@@ -186,7 +174,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_wskpi")
 }],
-"loop": true,
+"loop": 1,
 "name": &"待机左",
 "speed": 5.0
 }, {
@@ -197,7 +185,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_xqfvm")
 }],
-"loop": true,
+"loop": 1,
 "name": &"战斗待机",
 "speed": 4.0
 }, {
@@ -208,24 +196,15 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_twa1c")
 }],
-"loop": false,
+"loop": 0,
 "name": &"技能",
 "speed": 8.0
 }, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_duk2i")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_kwdul")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_3jnk8")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_wt4rf")
 }],
-"loop": false,
+"loop": 0,
 "name": &"普攻",
 "speed": 8.0
 }]
