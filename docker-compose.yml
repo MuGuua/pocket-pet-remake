@@ -4,12 +4,11 @@ services:
     environment:
       POSTGRES_DB: pocket_pet
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: postgres_pocket_pet
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/server/migrations/001_init_schema.sql:/docker-entrypoint-initdb.d/001_init_schema.sql:ro
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d pocket_pet"]
       interval: 5s
@@ -17,7 +16,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7.0.14
+    image: redis:7.4.1
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
