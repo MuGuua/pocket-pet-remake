@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://b3b8oimufog6p"]
 
-[ext_resource type="Script" path="res://scripts/ui/pet_status_hud.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://vco0cfw0tf13" path="res://scripts/ui/pet_status_hud.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://bvoloxh3jme4a" path="res://asset/WenrexaAssetsUI_SciFI/PNG/Button02.png" id="2_vh06w"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.0627451, 0.0941176, 0.14902, 0.82)
@@ -13,6 +14,13 @@ corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_y1mnv"]
+texture = ExtResource("2_vh06w")
+texture_margin_left = 5.0
+texture_margin_top = 5.0
+texture_margin_right = 5.0
+texture_margin_bottom = 5.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
 bg_color = Color(0.101960786, 0.13333334, 0.2, 0.95)
@@ -28,23 +36,27 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[node name="PetStatusHud" type="PanelContainer"]
+[node name="PetStatusHud" type="PanelContainer" unique_id=2057247650]
 custom_minimum_size = Vector2(148, 46)
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("1_script")
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="." unique_id=611900891]
 layout_mode = 2
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 3
 
-[node name="HBox" type="HBoxContainer" parent="Margin"]
+[node name="HBox" type="HBoxContainer" parent="Margin" unique_id=335655457]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="PetButton" type="TextureButton" parent="Margin/HBox"]
+[node name="PanelContainer" type="PanelContainer" parent="Margin/HBox" unique_id=472728096]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_y1mnv")
+
+[node name="PetButton" type="TextureButton" parent="Margin/HBox/PanelContainer" unique_id=584941501]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
@@ -52,7 +64,7 @@ focus_mode = 0
 mouse_default_cursor_shape = 2
 stretch_mode = 0
 
-[node name="PetTexture" type="TextureRect" parent="Margin/HBox/PetButton"]
+[node name="PetTexture" type="TextureRect" parent="Margin/HBox/PanelContainer/PetButton" unique_id=1431723465]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -68,12 +80,12 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBox" type="VBoxContainer" parent="Margin/HBox"]
+[node name="VBox" type="VBoxContainer" parent="Margin/HBox" unique_id=1682480649]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 3
 
-[node name="NameLabel" type="Label" parent="Margin/HBox/VBox"]
+[node name="NameLabel" type="Label" parent="Margin/HBox/VBox" unique_id=1037397437]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 15)
 layout_mode = 2
@@ -83,7 +95,7 @@ text = "宠物"
 vertical_alignment = 1
 clip_text = true
 
-[node name="HpBar" type="ProgressBar" parent="Margin/HBox/VBox"]
+[node name="HpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=451876426]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 8)
 layout_mode = 2

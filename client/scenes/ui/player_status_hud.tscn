@@ -1,6 +1,7 @@
-[gd_scene load_steps=7 format=3 uid="uid://fei6e0dy6v42"]
+[gd_scene format=3 uid="uid://fei6e0dy6v42"]
 
-[ext_resource type="Script" path="res://scripts/ui/player_status_hud.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://b0uh7cutiu4cq" path="res://scripts/ui/player_status_hud.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://bvoloxh3jme4a" path="res://asset/WenrexaAssetsUI_SciFI/PNG/Button02.png" id="2_4erph"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.0627451, 0.0941176, 0.14902, 0.82)
@@ -13,6 +14,13 @@ corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_y1mnv"]
+texture = ExtResource("2_4erph")
+texture_margin_left = 5.0
+texture_margin_top = 5.0
+texture_margin_right = 5.0
+texture_margin_bottom = 5.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
 bg_color = Color(0.101960786, 0.13333334, 0.2, 0.95)
@@ -42,23 +50,27 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[node name="PlayerStatusHud" type="PanelContainer"]
+[node name="PlayerStatusHud" type="PanelContainer" unique_id=946201253]
 custom_minimum_size = Vector2(196, 82)
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("1_script")
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="." unique_id=1772379406]
 layout_mode = 2
 theme_override_constants/margin_left = 5
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 4
 
-[node name="HBox" type="HBoxContainer" parent="Margin"]
+[node name="HBox" type="HBoxContainer" parent="Margin" unique_id=1374357820]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="AvatarButton" type="TextureButton" parent="Margin/HBox"]
+[node name="PanelContainer" type="PanelContainer" parent="Margin/HBox" unique_id=1236140898]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_y1mnv")
+
+[node name="AvatarButton" type="TextureButton" parent="Margin/HBox/PanelContainer" unique_id=734011091]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
@@ -66,7 +78,7 @@ focus_mode = 0
 mouse_default_cursor_shape = 2
 stretch_mode = 0
 
-[node name="AvatarTexture" type="TextureRect" parent="Margin/HBox/AvatarButton"]
+[node name="AvatarTexture" type="TextureRect" parent="Margin/HBox/PanelContainer/AvatarButton" unique_id=1638344666]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -82,12 +94,12 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="BarsVBox" type="VBoxContainer" parent="Margin/HBox"]
+[node name="BarsVBox" type="VBoxContainer" parent="Margin/HBox" unique_id=1661911502]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 3
 
-[node name="HpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox"]
+[node name="HpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=37289016]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(134, 9)
 layout_mode = 2
@@ -98,7 +110,7 @@ max_value = 1.0
 value = 1.0
 show_percentage = false
 
-[node name="MpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox"]
+[node name="MpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=189756278]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(134, 9)
 layout_mode = 2
@@ -109,7 +121,7 @@ max_value = 1.0
 value = 1.0
 show_percentage = false
 
-[node name="ExpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox"]
+[node name="ExpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=687643188]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(134, 9)
 layout_mode = 2
@@ -120,7 +132,7 @@ max_value = 1.0
 value = 0.5
 show_percentage = false
 
-[node name="CoordLabel" type="Label" parent="Margin/HBox/BarsVBox"]
+[node name="CoordLabel" type="Label" parent="Margin/HBox/BarsVBox" unique_id=1360432458]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81960785, 0.9019608, 0.9607843, 1)

@@ -13,10 +13,20 @@ var (
 	ErrPlayerNameDuplicated  = errors.New("player name duplicated")
 	ErrAccountNameDuplicated = errors.New("account name duplicated")
 	ErrInvalidAdminInput     = errors.New("invalid admin player input")
+	ErrInvalidRegisterInput  = errors.New("invalid register input")
 )
 
 // DefaultPlayerSkinID 是玩家尚未配置形象时的服务端默认资源 ID。
 const DefaultPlayerSkinID = "初始形象男_001"
+
+// DefaultFemalePlayerSkinID 是女性新玩家默认使用的初始形象资源 ID。
+const DefaultFemalePlayerSkinID = "初始形象女_002"
+
+// RegisterGenderMale 表示男性注册选项。
+const RegisterGenderMale = "male"
+
+// RegisterGenderFemale 表示女性注册选项。
+const RegisterGenderFemale = "female"
 
 // StarterProfile 描述新注册玩家的服务端权威初始战斗属性与背包容量。
 // 所有创建玩家入口都应复用这份配置，避免后台、仓储与数据库默认值各自维护一套口径。
@@ -62,10 +72,10 @@ func DefaultStarterProfile() StarterProfile {
 }
 
 type Profile struct {
-	PlayerID           uint64
-	Name               string
-	Level              uint32
-	Exp                uint64
+	PlayerID uint64
+	Name     string
+	Level    uint32
+	Exp      uint64
 	// ExpToNext 表示当前等级距离下一级还需要的经验，满级时为 0。
 	ExpToNext          uint64
 	FreeAttrPoints     uint32
@@ -120,6 +130,30 @@ type Profile struct {
 	BaseMANA     uint32
 	BaseHitPct   uint32
 	BaseDodgePct uint32
+}
+
+// RegisterInput 描述公开注册接口所需的最小字段。
+// 当前版本直接把账号名复用为玩家名，避免额外增加昵称流程。
+type RegisterInput struct {
+	AccountName string `json:"account"`
+	Password    string `json:"password"`
+	Gender      string `json:"gender"`
+}
+
+// Normalize 统一裁剪注册输入，并把性别规范成服务端内部枚举。
+func (input RegisterInput) Normalize() RegisterInput {
+	input.AccountName = strings.TrimSpace(input.AccountName)
+	input.Password = strings.TrimSpace(input.Password)
+	input.Gender = normalizeRegisterGender(input.Gender)
+	return input
+}
+
+// RegisterResult 描述公开注册成功后的最小角色摘要。
+type RegisterResult struct {
+	PlayerID    uint64 `json:"player_id"`
+	AccountName string `json:"account"`
+	PlayerName  string `json:"player_name"`
+	SkinID      string `json:"skin_id"`
 }
 
 // ExpGrantResult 描述一次经验发放后的玩家档案与升级摘要。
@@ -234,6 +268,23 @@ func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
 	return input
 }
 
+// resolveStarterSkinIDByGender 把注册性别映射成服务端权威初始形象。
+func resolveStarterSkinIDByGender(gender string) string {
+	if normalizeRegisterGender(gender) == RegisterGenderFemale {
+		return DefaultFemalePlayerSkinID
+	}
+	return DefaultPlayerSkinID
+}
+
+func normalizeRegisterGender(gender string) string {
+	switch strings.ToLower(strings.TrimSpace(gender)) {
+	case "female", "woman", "girl", "f", "女":
+		return RegisterGenderFemale
+	default:
+		return RegisterGenderMale
+	}
+}
+
 // ResolvedCreateStats 是创建玩家时最终落库的战斗属性快照。
 type ResolvedCreateStats struct {
 	HP           uint32
@@ -291,26 +342,26 @@ func (input AdminCreatePlayerInput) ResolveCreateStats() ResolvedCreateStats {
 // AdminUpdatePlayerInput 描述后台编辑玩家时允许修改的持久化字段。
 // 编辑接口要求传完整快照，减少部分字段漏传后出现新旧值混杂的问题。
 type AdminUpdatePlayerInput struct {
-	Name       string   `json:"name"`
-	Level      uint32   `json:"level"`
-	Exp        uint64   `json:"exp"`
-	Gold       uint64   `json:"gold"`
-	SceneID    uint32   `json:"scene_id"`
-	PosX       int32    `json:"pos_x"`
-	PosY       int32    `json:"pos_y"`
-	HP         uint32   `json:"hp"`
-	HPMax      uint32   `json:"hp_max"`
-	Vigor      uint32   `json:"vigor"`
-	VigorMax   uint32   `json:"vigor_max"`
-	Spirit     uint32   `json:"spirit"`
-	SpiritMax  uint32   `json:"spirit_max"`
-	ATK        uint32   `json:"atk"`
-	DEF        uint32   `json:"def"`
-	SPD        uint32   `json:"spd"`
-	MANA       uint32   `json:"mana"`
-	Status     uint32   `json:"status"`
-	SkillIDs   []uint32 `json:"skill_ids"`
-	SkinID     string   `json:"skin_id"`
+	Name      string   `json:"name"`
+	Level     uint32   `json:"level"`
+	Exp       uint64   `json:"exp"`
+	Gold      uint64   `json:"gold"`
+	SceneID   uint32   `json:"scene_id"`
+	PosX      int32    `json:"pos_x"`
+	PosY      int32    `json:"pos_y"`
+	HP        uint32   `json:"hp"`
+	HPMax     uint32   `json:"hp_max"`
+	Vigor     uint32   `json:"vigor"`
+	VigorMax  uint32   `json:"vigor_max"`
+	Spirit    uint32   `json:"spirit"`
+	SpiritMax uint32   `json:"spirit_max"`
+	ATK       uint32   `json:"atk"`
+	DEF       uint32   `json:"def"`
+	SPD       uint32   `json:"spd"`
+	MANA      uint32   `json:"mana"`
+	Status    uint32   `json:"status"`
+	SkillIDs  []uint32 `json:"skill_ids"`
+	SkinID    string   `json:"skin_id"`
 }
 
 func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
@@ -367,61 +418,61 @@ type AdminPlayerList struct {
 // AdminPlayerDetail 是后台详情页使用的玩家完整快照。
 // 它仍然来自数据库权威数据，不复用客户端 EnterWorld 协议，以便后台字段更清晰稳定。
 type AdminPlayerDetail struct {
-	PlayerID           uint64     `json:"player_id"`
-	AccountID          uint64     `json:"account_id"`
-	AccountName        string     `json:"account_name"`
-	Name               string     `json:"name"`
-	Level              uint32     `json:"level"`
-	Exp                uint64     `json:"exp"`
-	FreeAttrPoints     uint32     `json:"free_attr_points"`
-	Strength           uint32     `json:"strength"`
-	Vitality           uint32     `json:"vitality"`
-	Agility            uint32     `json:"agility"`
-	Mind               uint32     `json:"mind"`
-	Gold               uint64     `json:"gold"`
-	Status             uint32     `json:"status"`
-	StatusText         string     `json:"status_text"`
-	SceneID            uint32     `json:"scene_id"`
-	PosX               int32      `json:"pos_x"`
-	PosY               int32      `json:"pos_y"`
-	HP                 uint32     `json:"hp"`
-	HPMax              uint32     `json:"hp_max"`
-	Vigor              uint32     `json:"vigor"`
-	VigorMax           uint32     `json:"vigor_max"`
-	Spirit             uint32     `json:"spirit"`
-	SpiritMax          uint32     `json:"spirit_max"`
-	ATK                uint32     `json:"atk"`
-	DEF                uint32     `json:"def"`
-	SPD                uint32     `json:"spd"`
-	MANA               uint32     `json:"mana"`
-	HitPct             uint32     `json:"hit_pct"`
-	DodgePct           uint32     `json:"dodge_pct"`
-	CritRatePct        uint32     `json:"crit_rate_pct"`
-	CritDmgPct         uint32     `json:"crit_dmg_pct"`
-	PhysicalResistPct  uint32     `json:"physical_resist_pct"`
-	SkillResistPct     uint32     `json:"skill_resist_pct"`
-	ConfusionResistPct uint32     `json:"confusion_resist_pct"`
-	SleepResistPct     uint32     `json:"sleep_resist_pct"`
-	ParalysisResistPct uint32     `json:"paralysis_resist_pct"`
-	SealResistPct      uint32     `json:"seal_resist_pct"`
-	CurseResistPct     uint32     `json:"curse_resist_pct"`
-	CritResistPct      uint32     `json:"crit_resist_pct"`
-	CritDmgResistPct   uint32     `json:"crit_dmg_resist_pct"`
-	CharacterResistPct uint32     `json:"character_resist_pct"`
-	PetResistPct       uint32     `json:"pet_resist_pct"`
-	MercenaryResistPct uint32     `json:"mercenary_resist_pct"`
-	GenericShieldPct   uint32     `json:"generic_shield_pct"`
-	Guard              uint32     `json:"guard"`
-	TalentDmgPct       uint32     `json:"talent_dmg_pct"`
-	TalentReducePct    uint32     `json:"talent_reduce_pct"`
-	ElementAdvPct      uint32     `json:"element_adv_pct"`
-	ElementPenaltyPct  uint32     `json:"element_penalty_pct"`
-	SkillIDs           []uint32   `json:"skill_ids"`
-	SkinID             string     `json:"skin_id"`
+	PlayerID           uint64                    `json:"player_id"`
+	AccountID          uint64                    `json:"account_id"`
+	AccountName        string                    `json:"account_name"`
+	Name               string                    `json:"name"`
+	Level              uint32                    `json:"level"`
+	Exp                uint64                    `json:"exp"`
+	FreeAttrPoints     uint32                    `json:"free_attr_points"`
+	Strength           uint32                    `json:"strength"`
+	Vitality           uint32                    `json:"vitality"`
+	Agility            uint32                    `json:"agility"`
+	Mind               uint32                    `json:"mind"`
+	Gold               uint64                    `json:"gold"`
+	Status             uint32                    `json:"status"`
+	StatusText         string                    `json:"status_text"`
+	SceneID            uint32                    `json:"scene_id"`
+	PosX               int32                     `json:"pos_x"`
+	PosY               int32                     `json:"pos_y"`
+	HP                 uint32                    `json:"hp"`
+	HPMax              uint32                    `json:"hp_max"`
+	Vigor              uint32                    `json:"vigor"`
+	VigorMax           uint32                    `json:"vigor_max"`
+	Spirit             uint32                    `json:"spirit"`
+	SpiritMax          uint32                    `json:"spirit_max"`
+	ATK                uint32                    `json:"atk"`
+	DEF                uint32                    `json:"def"`
+	SPD                uint32                    `json:"spd"`
+	MANA               uint32                    `json:"mana"`
+	HitPct             uint32                    `json:"hit_pct"`
+	DodgePct           uint32                    `json:"dodge_pct"`
+	CritRatePct        uint32                    `json:"crit_rate_pct"`
+	CritDmgPct         uint32                    `json:"crit_dmg_pct"`
+	PhysicalResistPct  uint32                    `json:"physical_resist_pct"`
+	SkillResistPct     uint32                    `json:"skill_resist_pct"`
+	ConfusionResistPct uint32                    `json:"confusion_resist_pct"`
+	SleepResistPct     uint32                    `json:"sleep_resist_pct"`
+	ParalysisResistPct uint32                    `json:"paralysis_resist_pct"`
+	SealResistPct      uint32                    `json:"seal_resist_pct"`
+	CurseResistPct     uint32                    `json:"curse_resist_pct"`
+	CritResistPct      uint32                    `json:"crit_resist_pct"`
+	CritDmgResistPct   uint32                    `json:"crit_dmg_resist_pct"`
+	CharacterResistPct uint32                    `json:"character_resist_pct"`
+	PetResistPct       uint32                    `json:"pet_resist_pct"`
+	MercenaryResistPct uint32                    `json:"mercenary_resist_pct"`
+	GenericShieldPct   uint32                    `json:"generic_shield_pct"`
+	Guard              uint32                    `json:"guard"`
+	TalentDmgPct       uint32                    `json:"talent_dmg_pct"`
+	TalentReducePct    uint32                    `json:"talent_reduce_pct"`
+	ElementAdvPct      uint32                    `json:"element_adv_pct"`
+	ElementPenaltyPct  uint32                    `json:"element_penalty_pct"`
+	SkillIDs           []uint32                  `json:"skill_ids"`
+	SkinID             string                    `json:"skin_id"`
 	EquippedItems      []AdminPlayerEquippedItem `json:"equipped_items"`
-	LastLoginAt        *time.Time `json:"last_login_at"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	LastLoginAt        *time.Time                `json:"last_login_at"`
+	CreatedAt          time.Time                 `json:"created_at"`
+	UpdatedAt          time.Time                 `json:"updated_at"`
 }
 
 // AdminPlayerEquippedItem 描述后台玩家详情页里的单个装备槽状态。

@@ -157,6 +157,35 @@
 }
 ```
 
+### 注册
+- `POST /api/v1/auth/register`
+
+当前请求体：
+
+```json
+{
+  "account": "new_trainer",
+  "password": "pwd123456",
+  "gender": "female"
+}
+```
+
+当前响应格式：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "uuid": "trace-id",
+  "data": {
+    "player_id": 10003,
+    "account": "new_trainer",
+    "player_name": "new_trainer",
+    "skin_id": "初始形象女_002"
+  }
+}
+```
+
 当前响应格式：
 
 ```json

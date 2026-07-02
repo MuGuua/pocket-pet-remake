@@ -1,15 +1,16 @@
 extends Node
 
-# 默认请求服务端 HTTP 接口时使用的基础地址。
-const DEFAULT_BASE_URL: String = "http://127.0.0.1:8080"
+## 统一读取客户端当前启用的网络配置，避免本地 / 服务器地址分散在多个脚本里。
+const NetworkConfigScript = preload("res://autoload/network_config.gd")
 
 # 当前实际使用的 HTTP 基础地址。
-var _base_url: String = DEFAULT_BASE_URL
+var _base_url: String = ""
 # 负责发起 HTTP 请求的节点实例。
 var _request: HTTPRequest
 
 # 初始化 HTTPRequest 节点并挂到单例下。
 func _ready() -> void:
+	_base_url = NetworkConfigScript.get_http_base_url()
 	_request = HTTPRequest.new()
 	add_child(_request)
 	_configure_web_base_url()
@@ -18,7 +19,7 @@ func _ready() -> void:
 func set_base_url(base_url: String) -> void:
 	_base_url = base_url.trim_suffix("/")
 
-## Web 导出包运行在浏览器里时，使用当前页面主机访问本地 8080 后端。
+## Web 导出包运行在浏览器里时，使用当前页面主机访问当前启用配置中的 HTTP 端口。
 func _configure_web_base_url() -> void:
 	if not OS.has_feature("web"):
 		return
@@ -28,8 +29,7 @@ func _configure_web_base_url() -> void:
 	if hostname.strip_edges().is_empty():
 		return
 
-	var http_scheme: String = "https" if protocol == "https:" else "http"
-	set_base_url("%s://%s:8080" % [http_scheme, hostname])
+	set_base_url(NetworkConfigScript.build_web_http_base_url(protocol, hostname))
 
 # 发起登录接口请求，并返回统一字典结构结果。
 func login(account: String, password: String) -> Dictionary:
@@ -39,6 +39,18 @@ func login(account: String, password: String) -> Dictionary:
 		{
 			"account": account,
 			"password": password,
+		}
+	)
+
+# 发起注册接口请求，并返回统一字典结构结果。
+func register_account(account: String, password: String, gender: String) -> Dictionary:
+	return await _request_json(
+		"/api/v1/auth/register",
+		HTTPClient.METHOD_POST,
+		{
+			"account": account,
+			"password": password,
+			"gender": gender,
 		}
 	)
 

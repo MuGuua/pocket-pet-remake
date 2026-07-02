@@ -229,6 +229,23 @@ WHERE player_id = $1
 ORDER BY slot_index ASC
 `
 
+const runtimeContainerStackRowsQuery = `
+SELECT
+  pci.id,
+  pci.slot_index,
+  pci.item_id,
+  COALESCE(pci.item_uid, ''),
+  pci.quantity,
+  pci.is_bound,
+  pci.expire_at,
+  COALESCE(idf.max_stack, 1)
+FROM player_container_item pci
+LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
+WHERE pci.player_id = $1
+  AND pci.container_type = $2
+ORDER BY pci.slot_index ASC
+`
+
 const runtimeTransferUpdateQuantityQuery = `
 UPDATE player_container_item
 SET quantity = $2,
@@ -569,6 +586,9 @@ func (r *BagRepository) CreateForAdmin(ctx context.Context, input bag.AdminCreat
 	if err != nil {
 		return nil, err
 	}
+	if err := normalizeRuntimeContainers(ctx, tx, input.PlayerID, input.ContainerType); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -579,6 +599,10 @@ func (r *BagRepository) CreateForAdmin(ctx context.Context, input bag.AdminCreat
 }
 
 func (r *BagRepository) UpdateForAdmin(ctx context.Context, recordID uint64, input bag.AdminUpdateItemInput) (*bag.AdminItemDetail, error) {
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("postgres transaction is unavailable")
+	}
 	if ok, err := r.playerExists(ctx, input.PlayerID); err != nil {
 		return nil, err
 	} else if !ok {
@@ -589,7 +613,13 @@ func (r *BagRepository) UpdateForAdmin(ctx context.Context, recordID uint64, inp
 	} else if !ok {
 		return nil, bag.ErrBagItemNotFound
 	}
-	result, err := r.db.ExecContext(ctx, updateAdminBagItemQuery,
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(tx)
+
+	result, err := tx.ExecContext(ctx, updateAdminBagItemQuery,
 		recordID,
 		input.PlayerID,
 		input.ContainerType,
@@ -612,6 +642,12 @@ func (r *BagRepository) UpdateForAdmin(ctx context.Context, recordID uint64, inp
 	if rowsAffected == 0 {
 		return nil, bag.ErrBagItemNotFound
 	}
+	if err := normalizeRuntimeContainers(ctx, tx, input.PlayerID, input.ContainerType); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return r.FindAdminDetailByRecordID(ctx, recordID)
 }
 
@@ -631,6 +667,19 @@ func (r *BagRepository) DeleteForAdmin(ctx context.Context, recordID uint64) err
 }
 
 func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*bag.RuntimeContainerSnapshot, error) {
+	if beginner, ok := r.db.(txBeginner); ok {
+		tx, err := beginner.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer rollbackTx(tx)
+		if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
 	var snapshot bag.RuntimeContainerSnapshot
 	snapshot.ContainerType = containerType
 	if err := r.db.QueryRowContext(ctx, runtimeContainerMetaQuery, playerID, containerType).Scan(&snapshot.Capacity, &snapshot.MaxCapacity); err != nil {
@@ -936,6 +985,10 @@ func (r *BagRepository) TransferRuntimeItem(ctx context.Context, playerID uint64
 		}
 	}
 
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, fromContainerType, toContainerType); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -1005,6 +1058,10 @@ func (r *BagRepository) SortRuntimeContainer(ctx context.Context, playerID uint6
 		if err := updateTransferSlotIndex(ctx, tx, row.RecordID, uint32(index+1)); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1195,6 +1252,10 @@ func (r *BagRepository) MoveRuntimeItem(ctx context.Context, playerID uint64, co
 		}
 	}
 
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -1355,6 +1416,10 @@ func (r *BagRepository) GrantRuntimeItem(ctx context.Context, playerID uint64, c
 		remainingQuantity -= stackQuantity
 	}
 
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -1443,6 +1508,10 @@ func (r *BagRepository) UseRuntimeItem(ctx context.Context, playerID uint64, con
 		}); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1561,6 +1630,10 @@ func (r *BagRepository) DropRuntimeItem(ctx context.Context, playerID uint64, co
 		}
 	}
 
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -1642,6 +1715,10 @@ func (r *BagRepository) ConsumeRuntimeItemStack(ctx context.Context, playerID ui
 		}); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1735,6 +1812,17 @@ type transferTargetRow struct {
 	ItemUID   string
 	Quantity  uint64
 	IsBound   bool
+}
+
+type containerStackRow struct {
+	RecordID  int64
+	SlotIndex uint32
+	ItemID    uint64
+	ItemUID   string
+	Quantity  uint64
+	IsBound   bool
+	ExpireAt  sql.NullTime
+	MaxStack  uint64
 }
 
 type sortRow struct {
@@ -1987,6 +2075,38 @@ func loadTransferTargetRows(ctx context.Context, tx *sql.Tx, playerID uint64, co
 		var value transferTargetRow
 		if err := rows.Scan(&value.RecordID, &value.SlotIndex, &value.ItemID, &value.ItemUID, &value.Quantity, &value.IsBound); err != nil {
 			return nil, err
+		}
+		result = append(result, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func loadContainerStackRows(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string) ([]containerStackRow, error) {
+	rows, err := tx.QueryContext(ctx, runtimeContainerStackRowsQuery, playerID, containerType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]containerStackRow, 0)
+	for rows.Next() {
+		var value containerStackRow
+		if err := rows.Scan(
+			&value.RecordID,
+			&value.SlotIndex,
+			&value.ItemID,
+			&value.ItemUID,
+			&value.Quantity,
+			&value.IsBound,
+			&value.ExpireAt,
+			&value.MaxStack,
+		); err != nil {
+			return nil, err
+		}
+		if value.MaxStack == 0 {
+			value.MaxStack = 1
 		}
 		result = append(result, value)
 	}
@@ -2571,6 +2691,154 @@ func buildTransferReasonType(fromContainerType string, toContainerType string) s
 		return "warehouse_to_bag"
 	}
 	return "container_transfer"
+}
+
+type stackGroupKey struct {
+	ItemID          uint64
+	IsBound         bool
+	ExpireAtUnixNano int64
+}
+
+func normalizeRuntimeStackableContainer(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string) error {
+	capacity, err := loadTransferContainerCapacity(ctx, tx, playerID, containerType)
+	if err != nil {
+		return err
+	}
+	if capacity == 0 {
+		return nil
+	}
+	rows, err := loadContainerStackRows(ctx, tx, playerID, containerType)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	occupied := make(map[uint32]struct{}, len(rows))
+	grouped := make(map[stackGroupKey][]containerStackRow)
+	order := make([]stackGroupKey, 0)
+	for _, row := range rows {
+		occupied[row.SlotIndex] = struct{}{}
+		if row.ItemUID != "" || row.MaxStack <= 1 {
+			continue
+		}
+		expireAtUnixNano := int64(0)
+		if row.ExpireAt.Valid {
+			expireAtUnixNano = row.ExpireAt.Time.UTC().UnixNano()
+		}
+		key := stackGroupKey{
+			ItemID:           row.ItemID,
+			IsBound:          row.IsBound,
+			ExpireAtUnixNano: expireAtUnixNano,
+		}
+		if _, exists := grouped[key]; !exists {
+			order = append(order, key)
+		}
+		grouped[key] = append(grouped[key], row)
+	}
+
+	for _, key := range order {
+		groupRows := grouped[key]
+		if len(groupRows) == 0 {
+			continue
+		}
+		sort.SliceStable(groupRows, func(left int, right int) bool {
+			return groupRows[left].SlotIndex < groupRows[right].SlotIndex
+		})
+
+		totalQuantity := uint64(0)
+		for _, row := range groupRows {
+			totalQuantity += row.Quantity
+		}
+		if totalQuantity == 0 {
+			continue
+		}
+
+		maxStack := groupRows[0].MaxStack
+		requiredStackCount := int((totalQuantity + maxStack - 1) / maxStack)
+		remainingQuantity := totalQuantity
+
+		for index, row := range groupRows {
+			if index < requiredStackCount {
+				desiredQuantity := minUint64(maxStack, remainingQuantity)
+				if row.Quantity != desiredQuantity {
+					if err := updateTransferItemQuantity(ctx, tx, row.RecordID, desiredQuantity); err != nil {
+						return err
+					}
+				}
+				remainingQuantity -= desiredQuantity
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, runtimeTransferDeleteItemQuery, row.RecordID); err != nil {
+				return err
+			}
+			delete(occupied, row.SlotIndex)
+		}
+
+		templateRow := groupRows[0]
+		for remainingQuantity > 0 {
+			slotIndex := firstEmptySlotIndexByOccupied(occupied, capacity)
+			if slotIndex == 0 {
+				return bag.ErrContainerCapacityFull
+			}
+			stackQuantity := minUint64(maxStack, remainingQuantity)
+			if _, err := tx.ExecContext(
+				ctx,
+				runtimeTransferInsertItemQuery,
+				playerID,
+				containerType,
+				slotIndex,
+				templateRow.ItemID,
+				"",
+				stackQuantity,
+				templateRow.IsBound,
+				nullTimeValue(templateRow.ExpireAt),
+			); err != nil {
+				if isPlayerContainerItemUniqueViolation(err) {
+					return bag.ErrContainerCapacityFull
+				}
+				return err
+			}
+			occupied[slotIndex] = struct{}{}
+			remainingQuantity -= stackQuantity
+		}
+	}
+	return nil
+}
+
+func normalizeRuntimeContainers(ctx context.Context, tx *sql.Tx, playerID uint64, containerTypes ...string) error {
+	seen := make(map[string]struct{}, len(containerTypes))
+	for _, containerType := range containerTypes {
+		normalizedContainerType := strings.TrimSpace(containerType)
+		if normalizedContainerType == "" {
+			continue
+		}
+		if _, exists := seen[normalizedContainerType]; exists {
+			continue
+		}
+		seen[normalizedContainerType] = struct{}{}
+		if err := normalizeRuntimeStackableContainer(ctx, tx, playerID, normalizedContainerType); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func firstEmptySlotIndexByOccupied(occupied map[uint32]struct{}, capacity uint32) uint32 {
+	for slotIndex := uint32(1); slotIndex <= capacity; slotIndex++ {
+		if _, exists := occupied[slotIndex]; !exists {
+			return slotIndex
+		}
+	}
+	return 0
+}
+
+func nullTimeValue(value sql.NullTime) interface{} {
+	if value.Valid {
+		return value.Time
+	}
+	return nil
 }
 
 func firstEmptySlotIndex(rows []transferTargetRow, capacity uint32) uint32 {

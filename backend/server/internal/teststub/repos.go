@@ -1307,6 +1307,12 @@ func NewBagRepository() *BagRepository {
 			DemoPlayerID:  {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
 			RivalPlayerID: {bag.ContainerTypeBag: 30, bag.ContainerTypeWarehouse: 30},
 		},
+		itemMaxStacks: map[uint64]uint64{
+			2001: 99,
+			3001: 99,
+			3003: 99,
+			3004: 99,
+		},
 		uniqueObtained: map[string]struct{}{},
 		items: map[uint64]bag.AdminItemDetail{
 			30001: {RecordID: 30001, PlayerID: DemoPlayerID, PlayerName: "DemoTrainer", ContainerType: "bag", SlotIndex: 1, ItemID: 3003, ItemName: "宠物治疗药剂", ItemType: "consumable", Quantity: 3, CreatedAt: now, UpdatedAt: now},
@@ -1320,6 +1326,7 @@ func NewBagRepository() *BagRepository {
 type BagRepository struct {
 	mu             sync.RWMutex
 	capacities     map[uint64]map[string]uint32
+	itemMaxStacks  map[uint64]uint64
 	items          map[uint64]bag.AdminItemDetail
 	uniqueObtained map[string]struct{}
 	petRepo        *PetRepository
@@ -1332,6 +1339,157 @@ func (r *BagRepository) BindPetRepository(petRepo *PetRepository) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.petRepo = petRepo
+}
+
+func (r *BagRepository) itemMaxStack(itemID uint64, itemType string) uint64 {
+	if strings.EqualFold(strings.TrimSpace(itemType), "equipment") {
+		return 1
+	}
+	if r.itemMaxStacks != nil {
+		if value, exists := r.itemMaxStacks[itemID]; exists && value > 0 {
+			return value
+		}
+	}
+	return 1
+}
+
+func (r *BagRepository) normalizeContainerStacksLocked(playerID uint64, containerType string) {
+	type stackGroupKey struct {
+		itemID   uint64
+		isBound  bool
+		itemType string
+	}
+
+	grouped := make(map[stackGroupKey][]uint64)
+	orderedKeys := make([]stackGroupKey, 0)
+	occupied := make(map[uint32]struct{})
+	for recordID, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != containerType {
+			continue
+		}
+		occupied[current.SlotIndex] = struct{}{}
+		maxStack := r.itemMaxStack(current.ItemID, current.ItemType)
+		if current.ItemUID != "" || maxStack <= 1 {
+			continue
+		}
+		key := stackGroupKey{
+			itemID:   current.ItemID,
+			isBound:  current.IsBound,
+			itemType: current.ItemType,
+		}
+		if _, exists := grouped[key]; !exists {
+			orderedKeys = append(orderedKeys, key)
+		}
+		grouped[key] = append(grouped[key], recordID)
+	}
+
+	capacity := r.containerCapacity(playerID, containerType)
+	for _, key := range orderedKeys {
+		recordIDs := grouped[key]
+		sort.SliceStable(recordIDs, func(left int, right int) bool {
+			return r.items[recordIDs[left]].SlotIndex < r.items[recordIDs[right]].SlotIndex
+		})
+		if len(recordIDs) == 0 {
+			continue
+		}
+		maxStack := r.itemMaxStack(key.itemID, key.itemType)
+		totalQuantity := uint64(0)
+		for _, recordID := range recordIDs {
+			totalQuantity += r.items[recordID].Quantity
+		}
+		if totalQuantity == 0 {
+			continue
+		}
+		requiredStacks := int((totalQuantity + maxStack - 1) / maxStack)
+		remainingQuantity := totalQuantity
+		now := time.Now()
+		for index, recordID := range recordIDs {
+			current := r.items[recordID]
+			if index < requiredStacks {
+				desiredQuantity := remainingQuantity
+				if desiredQuantity > maxStack {
+					desiredQuantity = maxStack
+				}
+				if current.Quantity != desiredQuantity {
+					current.Quantity = desiredQuantity
+					current.UpdatedAt = now
+					r.items[recordID] = current
+				}
+				remainingQuantity -= desiredQuantity
+				continue
+			}
+			delete(r.items, recordID)
+			delete(occupied, current.SlotIndex)
+		}
+		template := r.items[recordIDs[0]]
+		for remainingQuantity > 0 {
+			slotIndex := uint32(1)
+			for {
+				if _, exists := occupied[slotIndex]; !exists {
+					break
+				}
+				slotIndex++
+				if slotIndex > capacity {
+					return
+				}
+			}
+			stackQuantity := remainingQuantity
+			if stackQuantity > maxStack {
+				stackQuantity = maxStack
+			}
+			recordID := r.nextID
+			r.nextID++
+			r.items[recordID] = bag.AdminItemDetail{
+				RecordID:      recordID,
+				PlayerID:      playerID,
+				PlayerName:    bagPlayerName(playerID),
+				ContainerType: containerType,
+				SlotIndex:     slotIndex,
+				ItemID:        template.ItemID,
+				ItemUID:       "",
+				ItemName:      template.ItemName,
+				ItemType:      template.ItemType,
+				Quantity:      stackQuantity,
+				IsBound:       template.IsBound,
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			}
+			occupied[slotIndex] = struct{}{}
+			remainingQuantity -= stackQuantity
+		}
+	}
+}
+
+func (r *BagRepository) buildRuntimeContainerSnapshotLocked(playerID uint64, containerType string) *bag.RuntimeContainerSnapshot {
+	items := make([]bag.RuntimeItemSnapshot, 0)
+	for _, current := range r.items {
+		if current.PlayerID != playerID || current.ContainerType != containerType {
+			continue
+		}
+		items = append(items, bag.RuntimeItemSnapshot{
+			SlotIndex:    current.SlotIndex,
+			ItemID:       current.ItemID,
+			ItemUID:      current.ItemUID,
+			Quantity:     current.Quantity,
+			IsBound:      current.IsBound,
+			ItemName:     current.ItemName,
+			ItemType:     current.ItemType,
+			ItemSubType:  "",
+			Quality:      1,
+			Icon:         "",
+			EnhanceLevel: 0,
+		})
+	}
+	sort.SliceStable(items, func(left int, right int) bool {
+		return items[left].SlotIndex < items[right].SlotIndex
+	})
+	return &bag.RuntimeContainerSnapshot{
+		ContainerType: containerType,
+		Capacity:      r.containerCapacity(playerID, containerType),
+		MaxCapacity:   300,
+		UsedSlots:     uint32(len(items)),
+		Items:         items,
+	}
 }
 
 func (r *BagRepository) ListForAdmin(_ context.Context, query bag.AdminListQuery) (*bag.AdminItemList, error) {
@@ -1393,6 +1551,7 @@ func (r *BagRepository) CreateForAdmin(_ context.Context, input bag.AdminCreateI
 			current.Quantity += input.Quantity
 			current.UpdatedAt = time.Now()
 			r.items[recordID] = current
+			r.normalizeContainerStacksLocked(input.PlayerID, input.ContainerType)
 			copied := current
 			return &copied, nil
 		}
@@ -1421,6 +1580,7 @@ func (r *BagRepository) CreateForAdmin(_ context.Context, input bag.AdminCreateI
 		ItemType: "consumable", Quantity: input.Quantity, IsBound: input.IsBound, CreatedAt: now, UpdatedAt: now,
 	}
 	r.items[recordID] = itemValue
+	r.normalizeContainerStacksLocked(input.PlayerID, input.ContainerType)
 	copied := itemValue
 	return &copied, nil
 }
@@ -1448,6 +1608,7 @@ func (r *BagRepository) UpdateForAdmin(_ context.Context, recordID uint64, input
 	current.IsBound = input.IsBound
 	current.UpdatedAt = time.Now()
 	r.items[recordID] = current
+	r.normalizeContainerStacksLocked(input.PlayerID, input.ContainerType)
 	copied := current
 	return &copied, nil
 }
@@ -1463,39 +1624,15 @@ func (r *BagRepository) DeleteForAdmin(_ context.Context, recordID uint64) error
 }
 
 func (r *BagRepository) ListRuntimeContainer(_ context.Context, playerID uint64, containerType string) (*bag.RuntimeContainerSnapshot, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	normalizedContainerType, err := bag.NormalizeRuntimeContainerType(containerType)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]bag.RuntimeItemSnapshot, 0)
-	for _, current := range r.items {
-		if current.PlayerID != playerID || current.ContainerType != normalizedContainerType {
-			continue
-		}
-		items = append(items, bag.RuntimeItemSnapshot{
-			SlotIndex:    current.SlotIndex,
-			ItemID:       current.ItemID,
-			ItemUID:      current.ItemUID,
-			Quantity:     current.Quantity,
-			IsBound:      current.IsBound,
-			ItemName:     current.ItemName,
-			ItemType:     current.ItemType,
-			ItemSubType:  "",
-			Quality:      1,
-			Icon:         "",
-			EnhanceLevel: 0,
-		})
-	}
-	return &bag.RuntimeContainerSnapshot{
-		ContainerType: normalizedContainerType,
-		Capacity:      r.containerCapacity(playerID, normalizedContainerType),
-		MaxCapacity:   300,
-		UsedSlots:     uint32(len(items)),
-		Items:         items,
-	}, nil
+	r.normalizeContainerStacksLocked(playerID, normalizedContainerType)
+	return r.buildRuntimeContainerSnapshotLocked(playerID, normalizedContainerType), nil
 }
 
 func (r *BagRepository) TransferRuntimeItem(_ context.Context, playerID uint64, fromContainerType string, toContainerType string, fromSlotIndex uint32, quantity uint64) (*bag.RuntimeTransferResult, error) {
@@ -1565,6 +1702,8 @@ func (r *BagRepository) TransferRuntimeItem(_ context.Context, playerID uint64, 
 		source.UpdatedAt = now
 		r.items[recordID] = source
 	}
+	r.normalizeContainerStacksLocked(playerID, fromContainerType)
+	r.normalizeContainerStacksLocked(playerID, toContainerType)
 
 	return &bag.RuntimeTransferResult{
 		MovedItemID:       source.ItemID,
@@ -1603,6 +1742,7 @@ func (r *BagRepository) SortRuntimeContainer(_ context.Context, playerID uint64,
 			}
 		}
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 	return &bag.RuntimeSortResult{ContainerType: containerType, Sorted: true}, nil
 }
 
@@ -1675,6 +1815,7 @@ func (r *BagRepository) MoveRuntimeItem(_ context.Context, playerID uint64, cont
 		r.items[sourceRecordID] = source
 		r.items[targetRecordID] = target
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 	return &bag.RuntimeMoveResult{
 		ContainerType: containerType,
 		FromSlotIndex: fromSlotIndex,
@@ -1708,6 +1849,7 @@ func (r *BagRepository) GrantRuntimeItem(_ context.Context, playerID uint64, con
 		mergeItem.Quantity += quantity
 		mergeItem.UpdatedAt = now
 		r.items[mergeRecordID] = mergeItem
+		r.normalizeContainerStacksLocked(playerID, containerType)
 		return &bag.RuntimeGrantResult{
 			ContainerType: containerType,
 			ItemID:        itemID,
@@ -1746,6 +1888,7 @@ func (r *BagRepository) GrantRuntimeItem(_ context.Context, playerID uint64, con
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 	return &bag.RuntimeGrantResult{
 		ContainerType: containerType,
 		ItemID:        itemID,
@@ -1859,6 +2002,7 @@ func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, conta
 			source.UpdatedAt = now
 			r.items[recordID] = source
 		}
+		r.normalizeContainerStacksLocked(playerID, containerType)
 		return &bag.RuntimeUseResult{
 			ContainerType: containerType,
 			SlotIndex:     slotIndex,
@@ -1894,6 +2038,7 @@ func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, conta
 			source.UpdatedAt = now
 			r.items[recordID] = source
 		}
+		r.normalizeContainerStacksLocked(playerID, containerType)
 		return &bag.RuntimeUseResult{
 			ContainerType: containerType,
 			SlotIndex:     slotIndex,
@@ -1936,6 +2081,7 @@ func (r *BagRepository) UseRuntimeItem(_ context.Context, playerID uint64, conta
 		source.UpdatedAt = now
 		r.items[recordID] = source
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 
 	return &bag.RuntimeUseResult{
 		ContainerType: containerType,
@@ -1984,9 +2130,10 @@ func (r *BagRepository) ConsumeRuntimeItemStack(_ context.Context, playerID uint
 		source.UpdatedAt = time.Now()
 		r.items[recordID] = source
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 	_ = reasonType
 	_ = reasonRefID
-	return r.ListRuntimeContainer(context.Background(), playerID, containerType)
+	return r.buildRuntimeContainerSnapshotLocked(playerID, containerType), nil
 }
 
 func (r *BagRepository) DropRuntimeItem(_ context.Context, playerID uint64, containerType string, slotIndex uint32, itemUID string, quantity uint64) (*bag.RuntimeDropResult, error) {
@@ -2037,6 +2184,7 @@ func (r *BagRepository) DropRuntimeItem(_ context.Context, playerID uint64, cont
 		source.UpdatedAt = time.Now()
 		r.items[recordID] = source
 	}
+	r.normalizeContainerStacksLocked(playerID, containerType)
 	return &bag.RuntimeDropResult{
 		ContainerType: containerType,
 		SlotIndex:     source.SlotIndex,

@@ -60,12 +60,49 @@ theme_override_font_sizes/font_size = 11
 placeholder_text = "请输入密码"
 secret = true
 
-[node name="LoginButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="ConfirmPasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "确认密码"
+
+[node name="ConfirmPasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+placeholder_text = "请再次输入密码"
+secret = true
+
+[node name="GenderLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "初始形象"
+
+[node name="GenderOptionButton" type="OptionButton" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+
+[node name="ActionButtons" type="HBoxContainer" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LoginButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 11
 text = "登录并进入世界"
+
+[node name="RegisterButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "注册"
 
 [node name="HintLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
 unique_name_in_owner = true

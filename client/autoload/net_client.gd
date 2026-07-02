@@ -1,5 +1,8 @@
 extends Node
 
+## 统一读取客户端当前启用的网络配置，避免本地 / 服务器地址分散在多个脚本里。
+const NetworkConfigScript = preload("res://autoload/network_config.gd")
+
 # 当网络连接状态变化时向外广播新的状态值。
 signal connection_state_changed(state: String)
 # WebSocket 连接成功建立后向外广播。
@@ -11,8 +14,6 @@ signal raw_packet_received(packet: PackedByteArray)
 # 收到开发态协议消息后向外广播消息号、序列号、错误码与载荷。
 signal dev_message_received(cmd: int, seq: int, code: int, payload: Dictionary)
 
-# 默认连接服务端时使用的 WebSocket 地址。
-const DEFAULT_WS_URL: String = "ws://127.0.0.1:8080/ws"
 # 当前二进制协议固定包头的总字节长度。
 const HEADER_SIZE: int = 26
 # CRC32 校验计算使用的多项式常量。
@@ -25,6 +26,8 @@ var dev_json_transport: bool = false
 var _socket: WebSocketPeer = WebSocketPeer.new()
 # 当前网络层记录的连接状态文本。
 var _state: String = "idle"
+# 当前默认连接服务端时使用的 WebSocket 地址。
+var _default_ws_url: String = ""
 # 发送命令时使用的自增序列号。
 var _next_seq: int = 1
 # 标记当前连接是否已完成业务鉴权。
@@ -36,6 +39,7 @@ var _last_heartbeat_sent_ms: int = 0
 
 # 让单例始终参与帧循环，以便持续轮询底层连接。
 func _ready() -> void:
+    _default_ws_url = NetworkConfigScript.get_ws_url()
     process_mode = Node.PROCESS_MODE_ALWAYS
     set_process(true)
 
@@ -44,13 +48,14 @@ func get_connection_state() -> String:
     return _state
 
 # 建立到服务端的 WebSocket 连接，并重置旧会话状态。
-func connect_to_server(url: String = DEFAULT_WS_URL) -> int:
+func connect_to_server(url: String = "") -> int:
     disconnect_from_server()
     _socket = WebSocketPeer.new()
     _authenticated = false
     _heartbeat_interval_sec = 0
     _last_heartbeat_sent_ms = 0
-    var connect_url: String = _resolve_connect_url(url)
+    var requested_url: String = url if not url.strip_edges().is_empty() else _default_ws_url
+    var connect_url: String = _resolve_connect_url(requested_url)
     var err: int = _socket.connect_to_url(connect_url)
     if err != OK:
         _set_state("error")
@@ -59,9 +64,9 @@ func connect_to_server(url: String = DEFAULT_WS_URL) -> int:
     _set_state("connecting")
     return OK
 
-## Web 导出包使用当前页面主机拼出 WebSocket 地址，方便本机和局域网手机调试。
+## Web 导出包使用当前页面主机拼出当前启用配置中的 WebSocket 地址。
 func _resolve_connect_url(url: String) -> String:
-    if not OS.has_feature("web") or url != DEFAULT_WS_URL:
+    if not OS.has_feature("web") or url != _default_ws_url:
         return url
 
     var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
@@ -69,8 +74,7 @@ func _resolve_connect_url(url: String) -> String:
     if hostname.strip_edges().is_empty():
         return url
 
-    var ws_scheme: String = "wss" if protocol == "https:" else "ws"
-    return "%s://%s:8080/ws" % [ws_scheme, hostname]
+    return NetworkConfigScript.build_web_ws_url(protocol, hostname)
 
 # 主动关闭当前连接，并清空鉴权与心跳相关状态。
 func disconnect_from_server(code: int = 1000, reason: String = "") -> void:

@@ -2,9 +2,10 @@ package httptransport
 
 import "net/http"
 
-func NewRouter(loginHandler *LoginHandler, adminHandlers AdminHandlers, wsHandler http.Handler) http.Handler {
+func NewRouter(loginHandler *LoginHandler, registerHandler *RegisterHandler, adminHandlers AdminHandlers, wsHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/auth/login", loginHandler)
+	mux.Handle("/api/v1/auth/register", registerHandler)
 	mux.Handle("/api/admin/auth/login", adminHandlers.Login)
 	mux.Handle("/api/admin/me", adminHandlers.Me)
 	mux.Handle("/api/admin/healthz", adminHandlers.Health)

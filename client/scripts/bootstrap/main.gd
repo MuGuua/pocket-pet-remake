@@ -14,6 +14,7 @@ const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.ts
 const NPC_SHOP_PANEL_SCENE := preload("res://scenes/ui/npc_shop_panel.tscn")
 const RewardPopupScene := preload("res://scenes/ui/common/reward_popup.tscn")
 const InfoModalPopupScene := preload(InfoModalPopup.SCENE_PATH)
+const ConfirmPromptPopupScene := preload(ConfirmPromptPopup.SCENE_PATH)
 const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
 # 返回登录页时使用的场景路径。
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
@@ -54,6 +55,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 var _reward_popup: RewardPopup = null
 # 通用信息模态弹窗；玩家升级与宠物升级共用同一实例。
 var _info_modal_popup: InfoModalPopup = null
+# 退出游戏前使用的二次确认弹窗，避免误触设置菜单直接关闭客户端。
+var _quit_confirm_popup: ConfirmPromptPopup = null
 # 当前挂载的世界控制器实例引用。
 var _world_controller: Node
 # 战斗表现场景实例；非战斗态时为 null。
@@ -377,6 +380,10 @@ func _connect_signals() -> void:
 		hud_root.connect("pet_pressed", Callable(self, "_on_hud_pet_pressed"))
 	if hud_root.has_signal("bag_pressed"):
 		hud_root.connect("bag_pressed", Callable(self, "_on_hud_bag_pressed"))
+	if hud_root.has_signal("return_to_login_pressed"):
+		hud_root.connect("return_to_login_pressed", Callable(self, "_on_hud_return_to_login_pressed"))
+	if hud_root.has_signal("quit_game_pressed"):
+		hud_root.connect("quit_game_pressed", Callable(self, "_on_hud_quit_game_pressed"))
 
 func _unhandled_input(event: InputEvent) -> void:
 	# 升级/奖励弹窗展示或刚关闭当帧，吞掉快捷键，避免误开其它菜单。
@@ -758,6 +765,44 @@ func _on_hud_bag_pressed() -> void:
 	if _is_battle_modal_active() or _is_settlement_input_blocked():
 		return
 	await _open_bag_panel_prepared()
+
+## 点击设置菜单中的“返回登录页”时，沿用现有切场景清理链路。
+func _on_hud_return_to_login_pressed() -> void:
+	call_deferred("_return_to_login_scene")
+
+## 点击设置菜单中的“退出游戏”时，先弹出确认框，避免误触直接关闭客户端。
+func _on_hud_quit_game_pressed() -> void:
+	_ensure_quit_confirm_popup()
+	if _quit_confirm_popup == null:
+		return
+	_quit_confirm_popup.show_prompt("退出游戏", "确定要退出当前游戏吗？", {
+		"confirm_label": "退出",
+		"cancel_label": "取消",
+	})
+
+
+## 懒创建退出确认弹窗，并把确认动作绑定到真正的退出链路。
+func _ensure_quit_confirm_popup() -> void:
+	if _quit_confirm_popup != null:
+		return
+	_quit_confirm_popup = ConfirmPromptPopupScene.instantiate() as ConfirmPromptPopup
+	if _quit_confirm_popup == null:
+		return
+	_quit_confirm_popup.name = "QuitConfirmPopup"
+	add_child(_quit_confirm_popup)
+	if not _quit_confirm_popup.confirmed.is_connected(_confirm_quit_game):
+		_quit_confirm_popup.confirmed.connect(_confirm_quit_game)
+
+
+## 玩家确认退出后，桌面端直接关闭客户端；Web 端尝试关闭当前页面。
+func _confirm_quit_game() -> void:
+	NetClient.disconnect_from_server()
+	GameState.reset_session_state()
+	if OS.has_feature("web"):
+		_append_log("正在尝试关闭当前页面。")
+		JavaScriptBridge.eval("window.open('', '_self'); window.close();", true)
+		return
+	get_tree().quit()
 
 # 向底部 HUD 日志区域追加一条文本。
 func _append_log(message: String) -> void:

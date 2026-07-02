@@ -55,6 +55,9 @@ var _pending_frame_batches: Array[Dictionary] = []
 func _ready() -> void:
 	_slot_positions = BattleFormationMapper.build_slot_positions()
 	_content_registry.load_content()
+	# 战斗飘字需要始终盖在战场单位、特效和底部 UI 之上，避免伤害数字被遮挡看不清。
+	if _floating_layer != null:
+		_floating_layer.z_index = 500
 	_action_panel.action_selected.connect(_on_action_selected)
 	_action_panel.list_choice_selected.connect(_on_list_choice_selected)
 	_action_panel.list_choice_cancelled.connect(_on_list_choice_cancelled)

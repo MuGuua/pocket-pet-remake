@@ -7,6 +7,6 @@ import (
 	wstransport "pocket-pet-remake/server/internal/transport/ws"
 )
 
-func buildHTTPHandler(loginHandler *httptransport.LoginHandler, adminHandlers httptransport.AdminHandlers, hub *wstransport.Hub) http.Handler {
-	return httptransport.NewRouter(loginHandler, adminHandlers, hub)
+func buildHTTPHandler(loginHandler *httptransport.LoginHandler, registerHandler *httptransport.RegisterHandler, adminHandlers httptransport.AdminHandlers, hub *wstransport.Hub) http.Handler {
+	return httptransport.NewRouter(loginHandler, registerHandler, adminHandlers, hub)
 }

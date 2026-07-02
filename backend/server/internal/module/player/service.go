@@ -18,11 +18,11 @@ type ActiveBattleChecker interface {
 }
 
 type Service struct {
-	repo                Repository
-	skillService        *skill.Service
-	progressionService  *progression.Service
-	equipmentRecalc     EquipmentCombatRecalculator
-	battleChecker       ActiveBattleChecker
+	repo               Repository
+	skillService       *skill.Service
+	progressionService *progression.Service
+	equipmentRecalc    EquipmentCombatRecalculator
+	battleChecker      ActiveBattleChecker
 }
 
 func NewService(repo Repository, skillService *skill.Service, progressionService *progression.Service, equipmentRecalc EquipmentCombatRecalculator) *Service {
@@ -52,6 +52,35 @@ func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, er
 	}
 	s.fillExpToNext(profile)
 	return profile, nil
+}
+
+// Register 创建一个可直接登录的新账号与初始玩家角色。
+// 当前公开注册阶段复用账号名作为玩家名，并按性别选择初始形象。
+func (s *Service) Register(ctx context.Context, input RegisterInput) (*RegisterResult, error) {
+	input = input.Normalize()
+	if input.AccountName == "" || input.Password == "" {
+		return nil, ErrInvalidRegisterInput
+	}
+
+	detail, err := s.repo.CreateForAdmin(ctx, AdminCreatePlayerInput{
+		AccountName: input.AccountName,
+		Password:    input.Password,
+		Name:        input.AccountName,
+		SkinID:      resolveStarterSkinIDByGender(input.Gender),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return nil, ErrPlayerNotFound
+	}
+
+	return &RegisterResult{
+		PlayerID:    detail.PlayerID,
+		AccountName: detail.AccountName,
+		PlayerName:  detail.Name,
+		SkinID:      detail.SkinID,
+	}, nil
 }
 
 // GetBattleReadyProfile 返回开战前权威的战斗属性快照。

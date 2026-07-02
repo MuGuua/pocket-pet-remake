@@ -7,11 +7,11 @@ signal buy_requested(item_id: int, price_copper: int)
 signal panel_closed
 
 @onready var _root: Control = $Root
-@onready var _title_label: Label = $Root/Panel/Margin/Layout/TitleLabel
-@onready var _wallet_label: Label = $Root/Panel/Margin/Layout/WalletLabel
-@onready var _goods_container: VBoxContainer = $Root/Panel/Margin/Layout/GoodsContainer
-@onready var _status_label: Label = $Root/Panel/Margin/Layout/StatusLabel
-@onready var _close_button: Button = $Root/Panel/Margin/Layout/CloseButton
+@onready var _title_label: Label = get_node_or_null("Root/Panel/Layout/TitleLabel") as Label
+@onready var _wallet_label: Label = get_node_or_null("Root/Panel/Layout/WalletLabel") as Label
+@onready var _goods_container: VBoxContainer = get_node_or_null("Root/Panel/Layout/GoodsContainer") as VBoxContainer
+@onready var _status_label: Label = get_node_or_null("Root/Panel/Layout/StatusLabel") as Label
+@onready var _close_button: BaseButton = get_node_or_null("Root/Panel/Layout/RuntimeActionButton") as BaseButton
 
 ## 当前商店 NPC 实体 ID，购买请求必须原样带回服务端做 proximity 校验。
 var _shop_entity_id: int = 0

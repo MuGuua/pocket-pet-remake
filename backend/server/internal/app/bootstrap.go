@@ -117,8 +117,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, playerHandler, equipmentHandler, battleHandler, bagHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
+	registerHandler := httptransport.NewRegisterHandler(playerService)
 	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petProgressionService)
-	httpHandler := buildHTTPHandler(loginHandler, adminHandlers, wsHub)
+	httpHandler := buildHTTPHandler(loginHandler, registerHandler, adminHandlers, wsHub)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
