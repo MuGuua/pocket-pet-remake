@@ -4,7 +4,6 @@
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="1_sv62b"]
 
 [node name="RuntimeActionButton" type="Button" unique_id=2063865073]
-custom_maximum_size = Vector2(45, 20)
 offset_right = 50.0
 offset_bottom = 29.0
 size_flags_horizontal = 3

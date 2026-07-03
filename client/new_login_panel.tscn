@@ -1,0 +1,222 @@
+[gd_scene format=3 uid="uid://bpyguuxhv5nvx"]
+
+[ext_resource type="Texture2D" uid="uid://jyge6y7qmydb" path="res://asset/分类/ui/登录背景1.png" id="1_rcf7s"]
+[ext_resource type="Script" uid="uid://qu4m2vv5ney8" path="res://scripts/auth/new_login_panel.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://w37fxv6rh74c" path="res://asset/分类/新补充图标/cover1.png" id="2_q8jaj"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="4_aocfx"]
+[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="5_action_btn"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i7iau"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="Control" type="CanvasLayer" unique_id=223747025]
+script = ExtResource("1_script")
+
+[node name="Control" type="Control" parent="." unique_id=166189703]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="Control" unique_id=205429557]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_rcf7s")
+expand_mode = 1
+
+[node name="ArrowIndicator" type="TextureRect" parent="Control" unique_id=2023921038]
+unique_name_in_owner = true
+z_index = 20
+custom_minimum_size = Vector2(18, 18)
+custom_maximum_size = Vector2(18, 18)
+layout_mode = 0
+offset_left = 155.0
+offset_top = 274.0
+offset_right = 173.0
+offset_bottom = 292.0
+mouse_filter = 2
+texture = ExtResource("2_q8jaj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="Control" unique_id=510900091]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 168
+theme_override_constants/margin_top = 269
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 62
+
+[node name="OptionsVBox" type="VBoxContainer" parent="Control/MarginContainer" unique_id=512789813]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Button" type="Button" parent="Control/MarginContainer/OptionsVBox" unique_id=476013006]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Button2" type="Button" parent="Control/MarginContainer/OptionsVBox" unique_id=1610432111]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Button3" type="Button" parent="Control/MarginContainer/OptionsVBox" unique_id=564835448]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Button4" type="Button" parent="Control/MarginContainer/OptionsVBox" unique_id=1676332868]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Button5" type="Button" parent="Control/MarginContainer/OptionsVBox" unique_id=983875450]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="CredentialsBackdrop" type="ColorRect" parent="Control" unique_id=1495397000]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="CredentialsCenter" type="CenterContainer" parent="Control/CredentialsBackdrop" unique_id=1681427083]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CredentialsPanel" type="PanelContainer" parent="Control/CredentialsBackdrop/CredentialsCenter" unique_id=1169903879]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(188, 150)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("4_aocfx")
+
+[node name="CredentialsMargin" type="MarginContainer" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel" unique_id=814882971]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 7
+
+[node name="CredentialsVBox" type="VBoxContainer" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin" unique_id=1821845230]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="CredentialsTitle" type="Label" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=2073080136]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "登录游戏"
+horizontal_alignment = 1
+
+[node name="Account" type="Label" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=1167056702]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "账号"
+
+[node name="AccountInput" type="LineEdit" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=48932622]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+text = "demo"
+
+[node name="Password" type="Label" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=1252653549]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "密码"
+
+[node name="PasswordInput" type="LineEdit" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=1669480607]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+text = "demo123"
+secret = true
+
+[node name="ConfirmPassword" type="Label" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "确认密码"
+
+[node name="ConfirmPasswordInput" type="LineEdit" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+placeholder_text = "请再次输入密码"
+secret = true
+
+[node name="CredentialsHint" type="PanelContainer" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=1970699813]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 17)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_i7iau")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsHint" unique_id=1116067004]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsHint/HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+clip_text = true
+
+[node name="Control" type="Control" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsHint/HBoxContainer" unique_id=1236430631]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+
+[node name="RegisterButton" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsHint/HBoxContainer" unique_id=1480994053 instance=ExtResource("5_action_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(38, 18)
+layout_mode = 2
+button_label = "注册"
+
+[node name="CredentialsButtons" type="HBoxContainer" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox" unique_id=457773819]
+layout_mode = 2
+theme_override_constants/separation = 5
+alignment = 1
+
+[node name="ConfirmButton" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsButtons" unique_id=1629420855 instance=ExtResource("5_action_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(58, 22)
+layout_mode = 2
+button_label = "登录"
+
+[node name="CancelButton" parent="Control/CredentialsBackdrop/CredentialsCenter/CredentialsPanel/CredentialsMargin/CredentialsVBox/CredentialsButtons" unique_id=2092470218 instance=ExtResource("5_action_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(58, 22)
+layout_mode = 2
+button_label = "取消"

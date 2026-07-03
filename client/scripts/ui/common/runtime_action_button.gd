@@ -28,6 +28,7 @@ func _ready() -> void:
 func set_button_label(label: String) -> void:
     button_label = label
     _sync_button_label()
+    call_deferred("_init_pivot")
 
 
 ## 将 button_label 写入 Button.text，供布局与无障碍读取。
