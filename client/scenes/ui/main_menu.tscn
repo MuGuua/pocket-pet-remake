@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cjrh8y5aouh46" path="res://scripts/ui/main_menu.gd" id="1_5rxl3"]
 [ext_resource type="PackedScene" uid="uid://dmxg0ackwawrn" path="res://scenes/ui/common/menu_frame.tscn" id="2_11on6"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close_btn"]
 
 [node name="MainMenu" type="CanvasLayer" unique_id=988296387]
 visible = false
@@ -15,6 +16,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="CloseButton" parent="Root" unique_id=1768600116 instance=ExtResource("3_close_btn")]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -30.0
+offset_top = 18.0
+offset_right = -10.0
+offset_bottom = 36.0
+grow_horizontal = 0
 
 [node name="TabsFrame" parent="Root" unique_id=296405793 instance=ExtResource("2_11on6")]
 layout_mode = 1
@@ -31,6 +43,12 @@ grow_horizontal = 2
 grow_vertical = 2
 content_margin_left = 14
 content_margin_right = 14
+
+[node name="TabsRow" type="HBoxContainer" parent="Root/TabsFrame/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
 
 [node name="ItemsFrame" parent="Root" unique_id=267236833 instance=ExtResource("2_11on6")]
 layout_mode = 1
@@ -49,3 +67,10 @@ content_margin_left = 14
 content_margin_top = 12
 content_margin_right = 14
 content_margin_bottom = 12
+
+[node name="ItemsList" type="VBoxContainer" parent="Root/ItemsFrame/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4

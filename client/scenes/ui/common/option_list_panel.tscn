@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://c81lc3h7rri7q" path="res://scripts/ui/common/option_list_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
 [node name="OptionListPanel" type="CanvasLayer" unique_id=981623259]
 script = ExtResource("1_script")
@@ -27,11 +28,19 @@ theme_override_styles/panel = ExtResource("2_style")
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer" unique_id=318576458]
+[node name="HeaderRow" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=418576458]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer/HeaderRow" unique_id=318576458]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 13
 text = "选项:"
+
+[node name="TopCloseButton" parent="PanelContainer/VBoxContainer/HeaderRow" instance=ExtResource("4_close_btn")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="OptionsScroll" type="ScrollContainer" parent="PanelContainer/VBoxContainer" unique_id=884422110]
 unique_name_in_owner = true

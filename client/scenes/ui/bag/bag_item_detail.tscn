@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_gemxe"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 [ext_resource type="Script" uid="uid://bmopqquagswcc" path="res://scripts/ui/common/item_description_view.gd" id="4_desc_view"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="5_close_btn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_on3p7"]
 texture = ExtResource("1_gemxe")
@@ -34,14 +35,22 @@ theme_override_constants/margin_bottom = 6
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="NameLabel" type="Label" parent="MarginContainer/ContentVBox" unique_id=1881246273]
+[node name="HeaderRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1881246272]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=1881246273]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 10
 text = "圣品·夜游神之枪"
+
+[node name="TopCloseButton" parent="MarginContainer/ContentVBox/HeaderRow" instance=ExtResource("5_close_btn")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="MetaRow2" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1601228589]
 unique_name_in_owner = true

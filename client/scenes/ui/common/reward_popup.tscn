@@ -2,48 +2,130 @@
 
 [ext_resource type="Script" uid="uid://rvv3mdhmuyew" path="res://scripts/ui/common/reward_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close_btn"]
 
 [node name="RewardPopup" type="CanvasLayer" unique_id=608777489]
 layer = 130
 script = ExtResource("1_script")
 
-[node name="DimLayer" type="ColorRect" parent="." unique_id=453747886]
+[node name="Control" type="Control" parent="." unique_id=1621768431]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
-color = Color(0.039215688, 0.078431375, 0.14117648, 0.20392157)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+offset_transform_enabled = true
 
-[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1330559577]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control" unique_id=1411032938]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -140.0
-offset_top = -78.0
-offset_right = 140.0
-offset_bottom = -6.0
+offset_left = -32.5
+offset_top = -28.0
+offset_right = 32.5
+offset_bottom = 28.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+offset_transform_enabled = true
+theme_override_constants/separation = 4
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=1814222164]
-custom_minimum_size = Vector2(200, 0)
-custom_maximum_size = Vector2(200, -1)
+[node name="Title" type="PanelContainer" parent="Control/VBoxContainer" unique_id=790898919]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer" unique_id=2074257305]
+[node name="HeaderRow" type="HBoxContainer" parent="Control/VBoxContainer/Title" unique_id=2063930647]
 layout_mode = 2
 
-[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer" unique_id=408944271]
+[node name="HeaderSpacer" type="Control" parent="Control/VBoxContainer/Title/HeaderRow" unique_id=2063930646]
+custom_maximum_size = Vector2(40, -1)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Control/VBoxContainer/Title/HeaderRow" unique_id=698950609]
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "战斗奖励"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TopCloseButton" parent="Control/VBoxContainer/Title/HeaderRow" unique_id=1434025884 instance=ExtResource("3_close_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 36)
+custom_maximum_size = Vector2(40, 36)
+layout_mode = 2
+
+[node name="Control" type="PanelContainer" parent="Control/VBoxContainer" unique_id=475191263]
+layout_mode = 2
+
+[node name="DimLayer" type="ColorRect" parent="Control/VBoxContainer/Control" unique_id=453747886]
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.039215688, 0.078431375, 0.14117648, 0.20392157)
+
+[node name="CenterContainer" type="CenterContainer" parent="Control/VBoxContainer/Control" unique_id=1330559577]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="Control/VBoxContainer/Control/CenterContainer" unique_id=1814222164]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer" unique_id=2074257305]
+layout_mode = 2
+
+[node name="RootVBox" type="VBoxContainer" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer" unique_id=408944271]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ContentList" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/RootVBox" unique_id=2063930648]
+[node name="ContentList" type="VBoxContainer" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer/RootVBox" unique_id=2063930648]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 0
+
+[node name="RichLineTemplate" type="RichTextLabel" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList" unique_id=922001002]
+visible = false
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 26
+bbcode_enabled = true
+text = "模板[color=#82D563]123[/color]"
+fit_content = true
+scroll_active = false
+
+[node name="ItemRewardTemplate" type="HBoxContainer" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList" unique_id=922001003]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="ItemIconTemplate" type="TextureRect" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList/ItemRewardTemplate" unique_id=922001004]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 4
+
+[node name="ItemNameTemplate" type="RichTextLabel" parent="Control/VBoxContainer/Control/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList/ItemRewardTemplate" unique_id=922001005]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 26
+bbcode_enabled = true
+text = "模板：x[color=#82D563]1[/color]"
+fit_content = true
+scroll_active = false

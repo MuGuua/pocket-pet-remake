@@ -5,11 +5,11 @@ extends ColorRect
 signal animation_completed
 
 ## 网格单元之间的间距（像素）。
-@export var spacing: int = 25
+@export var spacing: int = 32
 ## 对角线错峰延迟系数，越大铺展越慢。
-@export var stagger_delay: float = 0.015
+@export var stagger_delay: float = 0.008
 ## 单个网格单元缩放动画时长（秒）。
-@export var scale_duration: float = 0.28
+@export var scale_duration: float = 0.16
 
 ## 承载铺展小球的 MultiMesh 渲染节点。
 @onready var _balls_multimesh: MultiMeshInstance2D = %MultiMeshInstance2D

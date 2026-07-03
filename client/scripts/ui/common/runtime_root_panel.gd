@@ -1,7 +1,7 @@
 extends CanvasLayer
 class_name RuntimeRootPanel
 
-## 运行时根面板基类：全屏遮罩点空白关闭；子类可覆写 overlay 逻辑，仅关闭最顶层子弹层。
+## 运行时根面板基类：全屏遮罩只负责拦截空白点击；面板关闭统一交给显式按钮或业务按钮。
 signal menu_closed
 
 ## 全屏半透明遮罩，点击面板外空白区域时触发关闭或关闭顶层 overlay。
@@ -62,7 +62,7 @@ func _dismiss_top_overlay() -> bool:
     return false
 
 
-## 点击遮罩时优先关闭顶层 overlay，否则关闭整个根面板。
+## 点击遮罩时只吞掉输入，不再执行空白区域关闭。
 func _on_backdrop_gui_input(event: InputEvent) -> void:
     if not visible:
         return
@@ -71,9 +71,6 @@ func _on_backdrop_gui_input(event: InputEvent) -> void:
     get_viewport().set_input_as_handled()
     if _backdrop != null:
         _backdrop.accept_event()
-    if _dismiss_top_overlay():
-        return
-    close_menu()
 
 
 ## 判断是否为“按下类”输入，用于空白区域关闭。

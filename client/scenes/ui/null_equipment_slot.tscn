@@ -1,17 +1,13 @@
 [gd_scene format=3 uid="uid://fe1x56xjri4a"]
 
-[ext_resource type="Script" path="res://scripts/ui/bag/equipment_slot.gd" id="1_slot"]
 [ext_resource type="Texture2D" uid="uid://sebrg5lnyrs4" path="res://asset/分类/ui/bagUI2.png" id="1_lf8cf"]
+[ext_resource type="Script" uid="uid://mr4mks6gathq" path="res://scripts/ui/bag/equipment_slot.gd" id="1_slot"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2u3e0"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_empty"]
 atlas = ExtResource("1_lf8cf")
 region = Rect2(485, 504, 16, 16)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_equipped"]
-atlas = ExtResource("1_lf8cf")
-region = Rect2(506, 504, 16, 16)
 
 [node name="NullEquipmentSlot" type="Button" unique_id=2020876812]
 custom_minimum_size = Vector2(22, 22)
@@ -20,26 +16,23 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
+offset_left = -22.0
+offset_top = -22.0
+offset_right = 22.0
+offset_bottom = 22.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(1.5, 1.5)
 focus_mode = 0
-mouse_filter = 0
 theme_override_styles/normal = SubResource("StyleBoxEmpty_2u3e0")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_2u3e0")
 theme_override_styles/hover = SubResource("StyleBoxEmpty_2u3e0")
 theme_override_styles/disabled = SubResource("StyleBoxEmpty_2u3e0")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_2u3e0")
-texture_empty = SubResource("AtlasTexture_empty")
-texture_equipped = SubResource("AtlasTexture_equipped")
 script = ExtResource("1_slot")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=1536085589]
-custom_minimum_size = Vector2(22, 22)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -59,15 +52,9 @@ stretch_mode = 4
 
 [node name="CenterContainer" type="CenterContainer" parent="." unique_id=1977401391]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -78,7 +65,7 @@ mouse_filter = 2
 
 [node name="ItemIcon" type="TextureRect" parent="CenterContainer/Control" unique_id=1046830099]
 visible = false
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -100,13 +87,16 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 2.0
-offset_bottom = 2.0
+offset_left = -16.666672
+offset_top = -16.666656
+offset_right = 16.666656
+offset_bottom = 16.666656
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.50980395, 0.8352941, 0.3882353, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 12
+text = "+15"
 horizontal_alignment = 2
 vertical_alignment = 2

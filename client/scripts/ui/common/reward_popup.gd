@@ -5,13 +5,34 @@ extends "res://scripts/ui/common/modal_popup_layer.gd"
 const SCENE_PATH: String = "res://scenes/ui/common/reward_popup.tscn"
 ## 默认标题文案。
 const DEFAULT_TITLE: String = "您获得了："
-## 正文与物品图标字号（图标与文字同高）。
-const CONTENT_FONT_SIZE: int = 10
 ## 数值高亮色，对应 RGB(130, 213, 99)。
 const REWARD_NUMBER_COLOR: String = "#82D563"
+## 重构后奖励弹窗遮罩层的真实路径；基类默认只会在根节点下查找，需要子类补齐。
+const DIM_LAYER_PATH: NodePath = ^"Control/VBoxContainer/Control/DimLayer"
+## 重构后奖励弹窗正文容器的真实路径；用于恢复正文区点击交互。
+const CENTER_CONTAINER_PATH: NodePath = ^"Control/VBoxContainer/Control/CenterContainer"
+## 重构后奖励弹窗正文面板的真实路径；用于让面板区域重新接管鼠标事件。
+const PANEL_PATH: NodePath = ^"Control/VBoxContainer/Control/CenterContainer/PanelContainer"
 
 ## 奖励列表容器。
 @onready var _content_list: VBoxContainer = %ContentList
+## 普通文本行模板；具体字号与自动换行等布局以场景节点为准。
+@onready var _plain_line_template: Label = %ContentList.get_node_or_null("PlainLineTemplate") as Label
+## 富文本行模板；用于经验、铜币、宠物经验与技能进度等高亮文本。
+@onready var _rich_line_template: RichTextLabel = %ContentList.get_node_or_null("RichLineTemplate") as RichTextLabel
+## 物品奖励行模板；图标尺寸、行距与对齐方式统一以场景节点为准。
+@onready var _item_reward_template: HBoxContainer = %ContentList.get_node_or_null("ItemRewardTemplate") as HBoxContainer
+## 奖励弹窗右上角关闭按钮；单独显式绑定，避免场景重构后仍依赖基类查找链路。
+@onready var _top_close_button_direct: BaseButton = %TopCloseButton
+
+
+## 初始化奖励弹窗；沿用模态弹窗基类，并补齐正文区域交互节点配置。
+func _ready() -> void:
+	super._ready()
+	_bind_reward_popup_dim_layer()
+	_bind_direct_close_button()
+	_set_content_mouse_ignore(true)
+	_apply_interactive_nodes()
 
 
 ## 展示奖励列表；无有效奖励时不弹窗。
@@ -53,12 +74,69 @@ func show_rewards(
 		if pet_reward_variant is not Dictionary:
 			continue
 		_append_pet_reward_line(pet_reward_variant as Dictionary)
+	_apply_interactive_nodes()
 	_open_modal()
 
 
 ## 关闭奖励弹窗。
 func close_popup() -> void:
-	_close_modal()
+	if not visible:
+		return
+	_dismiss_modal()
+
+
+## 奖励弹窗单独绑定右上角关闭按钮，避免场景层级调整后基类绑定失效或被事件链吞掉。
+func _bind_direct_close_button() -> void:
+	if _top_close_button_direct == null:
+		return
+	_top_close_button_direct.mouse_filter = Control.MOUSE_FILTER_STOP
+	if not _top_close_button_direct.pressed.is_connected(_on_direct_top_close_button_pressed):
+		_top_close_button_direct.pressed.connect(_on_direct_top_close_button_pressed)
+
+
+## 直接关闭奖励弹窗；不再额外依赖基类的按钮冷却判断。
+func _on_direct_top_close_button_pressed() -> void:
+	close_popup()
+
+
+## 奖励弹窗需要右上角按钮与遮罩走 GUI 点击；避免基类全局 _input 先吞掉事件导致 X 无响应。
+func _enable_modal_input_listeners() -> void:
+	pass
+
+
+func _disable_modal_input_listeners() -> void:
+	pass
+
+
+## 奖励弹窗重构后遮罩层不再位于根节点下，这里补绑 GUI 输入关闭逻辑。
+func _bind_reward_popup_dim_layer() -> void:
+	_dim_layer = get_node_or_null(DIM_LAYER_PATH) as ColorRect
+	if _dim_layer == null:
+		return
+	_dim_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	if not _dim_layer.gui_input.is_connected(_on_dim_layer_gui_input):
+		_dim_layer.gui_input.connect(_on_dim_layer_gui_input)
+
+
+## 让奖励正文面板与右上角关闭按钮可交互，其余区域仍保持遮罩语义。
+func _apply_interactive_nodes() -> void:
+	var title_panel: Control = get_node_or_null("Control/VBoxContainer/Title") as Control
+	if title_panel != null:
+		title_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel: Control = get_node_or_null(PANEL_PATH) as Control
+	if panel != null:
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var close_button: BaseButton = get_node_or_null("%TopCloseButton") as BaseButton
+	if close_button != null:
+		close_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+## 奖励弹窗正文容器已被移动到深层节点下，覆写基类查找路径以继续支持“点空白关闭”。
+func _set_content_mouse_ignore(ignore: bool) -> void:
+	var center: Control = get_node_or_null(CENTER_CONTAINER_PATH) as Control
+	if center == null:
+		return
+	_apply_mouse_filter_recursive(center, ignore)
 
 
 ## 解析奖励数组，拆出经验、货币、物品与宠物展示数据。
@@ -128,6 +206,8 @@ func _clear_reward_rows() -> void:
 	if _content_list == null:
 		return
 	for child: Node in _content_list.get_children():
+		if child == _plain_line_template or child == _rich_line_template or child == _item_reward_template:
+			continue
 		child.queue_free()
 
 
@@ -135,12 +215,16 @@ func _clear_reward_rows() -> void:
 func _append_plain_line(text: String) -> void:
 	if _content_list == null:
 		return
-	var row_label: Label = Label.new()
+	var row_label: Label = null
+	if _plain_line_template != null:
+		row_label = _plain_line_template.duplicate() as Label
+	if row_label == null:
+		row_label = Label.new()
+		row_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row_label.visible = true
 	row_label.text = UiFormat.normalize_text(text)
-	row_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	row_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row_label.add_theme_font_size_override("font_size", CONTENT_FONT_SIZE)
 	row_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content_list.add_child(row_label)
 
@@ -181,13 +265,16 @@ func _append_skill_progress_line(skill_progress: Dictionary) -> void:
 func _append_rich_line(bbcode_text: String) -> void:
 	if _content_list == null:
 		return
-	var row_label: RichTextLabel = RichTextLabel.new()
-	row_label.bbcode_enabled = true
-	row_label.scroll_active = false
-	row_label.fit_content = true
-	row_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row_label.add_theme_font_size_override("normal_font_size", CONTENT_FONT_SIZE)
+	var row_label: RichTextLabel = null
+	if _rich_line_template != null:
+		row_label = _rich_line_template.duplicate() as RichTextLabel
+	if row_label == null:
+		row_label = RichTextLabel.new()
+		row_label.bbcode_enabled = true
+		row_label.fit_content = true
+		row_label.scroll_active = false
+		row_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row_label.visible = true
 	row_label.text = bbcode_text
 	row_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content_list.add_child(row_label)
@@ -208,7 +295,7 @@ func _resolve_server_item_name(reward: Dictionary) -> String:
 	if not fallback_name.is_empty():
 		return UiFormat.normalize_text(fallback_name)
 	push_warning(
-		"RewardPopup: 服务端未返回 item_name，item_id=%s"
+        "RewardPopup: 服务端未返回 item_name，item_id=%s"
 		% UiFormat.value_to_text(item_id)
 	)
 	return "未知物品"
@@ -243,33 +330,39 @@ func _resolve_local_item_name(item_id: int) -> String:
 func _append_item_reward_line(reward: Dictionary) -> void:
 	if _content_list == null:
 		return
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row: HBoxContainer = null
+	if _item_reward_template != null:
+		row = _item_reward_template.duplicate() as HBoxContainer
+	if row == null:
+		row = HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 4)
+	row.visible = true
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon_rect: TextureRect = TextureRect.new()
-	icon_rect.custom_minimum_size = Vector2(CONTENT_FONT_SIZE, CONTENT_FONT_SIZE)
-	icon_rect.size = Vector2(CONTENT_FONT_SIZE, CONTENT_FONT_SIZE)
+	var icon_rect: TextureRect = row.get_node_or_null("ItemIconTemplate") as TextureRect
+	if icon_rect == null:
+		icon_rect = TextureRect.new()
+		icon_rect.custom_minimum_size = Vector2(40, 40)
+		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon_rect)
 	var icon_texture: Texture2D = _resolve_item_icon_texture(reward)
 	icon_rect.texture = icon_texture
-	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_rect.visible = icon_texture != null
 	icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(icon_rect)
 	var item_name: String = _resolve_server_item_name(reward)
 	var item_count: int = maxi(int(reward.get("count", 0)), 1)
-	var name_label: RichTextLabel = RichTextLabel.new()
-	name_label.bbcode_enabled = true
-	name_label.scroll_active = false
-	name_label.fit_content = true
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("normal_font_size", CONTENT_FONT_SIZE)
+	var name_label: RichTextLabel = row.get_node_or_null("ItemNameTemplate") as RichTextLabel
+	if name_label == null:
+		name_label = RichTextLabel.new()
+		name_label.bbcode_enabled = true
+		name_label.fit_content = true
+		name_label.scroll_active = false
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_label)
 	name_label.text = "%s：x%s" % [item_name, _colored_number(item_count)]
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(name_label)
 	_content_list.add_child(row)
 
 

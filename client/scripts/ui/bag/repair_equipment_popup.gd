@@ -13,6 +13,7 @@ signal prompt_finished(result: Dictionary)
 @onready var _warning_label: RichTextLabel = %WarningLabel
 @onready var _confirm_button: RuntimeActionButton = %ConfirmButton
 @onready var _cancel_button: RuntimeActionButton = %CancelButton
+@onready var _top_close_button: BaseButton = %TopCloseButton
 @onready var _dim_layer: ColorRect = $DimLayer
 
 ## 当前待修复装备快照。
@@ -31,6 +32,8 @@ func _ready() -> void:
         _confirm_button.pressed.connect(_on_confirm_pressed)
     if _cancel_button != null and not _cancel_button.pressed.is_connected(_on_cancel_pressed):
         _cancel_button.pressed.connect(_on_cancel_pressed)
+    if _top_close_button != null and not _top_close_button.pressed.is_connected(_on_top_close_button_pressed):
+        _top_close_button.pressed.connect(_on_top_close_button_pressed)
 
 
 ## 打开修复确认弹窗并阻塞到玩家确认或取消。
@@ -60,18 +63,15 @@ func force_close_popup() -> void:
     _finish_prompt(false)
 
 
-## 点击空白遮罩时只关闭当前最上层修复弹窗，并吞掉本次输入避免穿透到底层按钮。
+## 点击空白遮罩时只吞掉输入，不再自动关闭弹窗。
 func _on_dim_layer_gui_input(event: InputEvent) -> void:
     if not visible or not _prompt_active:
-        return
-    if not _is_topmost_runtime_modal():
         return
     if not _is_dismiss_event(event):
         return
     get_viewport().set_input_as_handled()
     if _dim_layer != null:
         _dim_layer.accept_event()
-    _finish_prompt(false)
 
 
 ## 判断是否为“按下类”关闭输入，移动端触摸与桌面鼠标统一处理。
@@ -86,23 +86,6 @@ func _is_dismiss_event(event: InputEvent) -> bool:
     if event is InputEventJoypadButton:
         return (event as InputEventJoypadButton).pressed
     return false
-
-
-## 多个运行时弹窗同时可见时，仅 layer/节点顺序最高的弹窗响应空白关闭。
-func _is_topmost_runtime_modal() -> bool:
-    var top_modal: Node = null
-    var top_order: int = -2147483648
-    for node_variant: Variant in get_tree().get_nodes_in_group("runtime_modal_popup"):
-        if not (node_variant is CanvasLayer):
-            continue
-        var modal_layer: CanvasLayer = node_variant as CanvasLayer
-        if not modal_layer.visible:
-            continue
-        var modal_order: int = modal_layer.layer * 1000 + modal_layer.get_index()
-        if modal_order >= top_order:
-            top_order = modal_order
-            top_modal = modal_layer
-    return top_modal == self
 
 
 ## 刷新物品图标、名称与修复消耗文案。
@@ -137,6 +120,13 @@ func _on_confirm_pressed() -> void:
 
 ## 玩家点击取消。
 func _on_cancel_pressed() -> void:
+    if not _prompt_active:
+        return
+    _finish_prompt(false)
+
+
+## 玩家点击右上角关闭按钮时视为取消。
+func _on_top_close_button_pressed() -> void:
     if not _prompt_active:
         return
     _finish_prompt(false)

@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://useitemtargetpicker01" path="res://scripts/ui/bag/use_item_target_picker.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
 [node name="UseItemTargetPicker" type="CanvasLayer"]
 visible = false
@@ -36,15 +37,23 @@ theme_override_styles/panel = ExtResource("2_style")
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 10
 text = "选择目标"
 horizontal_alignment = 1
+
+[node name="TopCloseButton" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" instance=ExtResource("4_close_btn")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="ListScroll" type="ScrollContainer" parent="CenterContainer/PanelContainer/RootVBox"]
 custom_minimum_size = Vector2(0, 180)

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c8k2mitempicker01" path="res://scripts/ui/common/item_slot_picker.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_panel"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close_btn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_panel"]
 texture = ExtResource("2_panel")
@@ -34,10 +35,14 @@ theme_override_constants/margin_bottom = 4
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="TitleLabel" type="Label" parent="PanelRoot/ContentMargin/MainVBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="PanelRoot/ContentMargin/MainVBox"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="PanelRoot/ContentMargin/MainVBox/HeaderRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 0
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -46,6 +51,10 @@ theme_override_font_sizes/font_size = 8
 text = "选择物品"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="TopCloseButton" parent="PanelRoot/ContentMargin/MainVBox/HeaderRow" instance=ExtResource("3_close_btn")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="GridScroll" type="ScrollContainer" parent="PanelRoot/ContentMargin/MainVBox"]
 unique_name_in_owner = true

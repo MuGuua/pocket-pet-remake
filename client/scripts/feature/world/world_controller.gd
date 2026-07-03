@@ -7,7 +7,7 @@ signal scene_transition_failed(reason: String)
 signal npc_interaction_requested(entity_id: int, npc_name: String)
 signal wild_encounter_responded(accepted: bool, reason: String)
 
-const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(260.0, 480.0)
+const DEFAULT_RENDER_FRAME_SIZE: Vector2 = Vector2(780.0, 1440.0)
 const PORTAL_ACTIVATION_COOLDOWN_MS: int = 350
 const DEFAULT_GRID_TO_PIXELS: float = 24.0
 const WILD_ENCOUNTER_RATE_DENOMINATOR: int = 10000
@@ -585,6 +585,31 @@ func _try_roll_wild_encounter(scene_id: int) -> void:
 	if roll_value >= encounter_rate:
 		return
 	_request_wild_encounter_battle(scene_id)
+
+
+## 判断当前世界状态是否允许客户端主动发起一轮暗雷挂机请求。
+## 返回值为 true 表示当前场景、输入锁和战斗状态都满足条件。
+func can_request_auto_wild_encounter_battle() -> bool:
+	if _wild_encounter_request_pending or GameState.is_in_battle:
+		return false
+	if _pending_target_scene_id != 0 or _runtime_input_locked:
+		return false
+	if not bool(GameState.wild_encounter_config.get("enabled", false)):
+		return false
+	var config_scene_id: int = int(GameState.wild_encounter_config.get("scene_id", 0))
+	var current_scene_id: int = _current_scene_id()
+	if config_scene_id <= 0 or current_scene_id <= 0:
+		return false
+	return config_scene_id == current_scene_id
+
+
+## 供主场景挂机逻辑主动请求一轮暗雷战斗；成功发起后返回 true。
+## 这里复用现有暗雷请求链路，确保仍由服务端权威决定是否真正进入战斗。
+func request_auto_wild_encounter_battle() -> bool:
+	if not can_request_auto_wild_encounter_battle():
+		return false
+	_request_wild_encounter_battle(_current_scene_id())
+	return true
 
 func _request_wild_encounter_battle(scene_id: int) -> void:
 	_wild_encounter_request_pending = true

@@ -90,6 +90,7 @@ const MENU_DATA: Array[Dictionary] = [
 
 @onready var tabs_container: HBoxContainer = $Root/TabsFrame/Content/TabsRow
 @onready var items_container: VBoxContainer = $Root/ItemsFrame/Content/ItemsList
+@onready var close_button: BaseButton = $Root/CloseButton
 
 var _current_tab_index: int = 0
 var _current_item_index: int = 0
@@ -101,6 +102,8 @@ var _item_rows: Array[PanelContainer] = []
 
 func _ready() -> void:
 	super._ready()
+	if close_button != null and not close_button.pressed.is_connected(_on_close_button_pressed):
+		close_button.pressed.connect(_on_close_button_pressed)
 	call_deferred("_initialize_menu_ui")
 
 
@@ -144,6 +147,11 @@ func open_menu() -> void:
 
 func close_menu() -> void:
 	super.close_menu()
+
+
+## 响应主菜单右上角关闭按钮。
+func _on_close_button_pressed() -> void:
+	close_menu()
 
 
 func _build_tabs() -> void:

@@ -20,17 +20,21 @@ const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
 const LOGIN_SCENE_PATH := "res://scenes/auth/login_scene.tscn"
 # 场景切换遮罩淡入淡出的持续时间。
 const TRANSITION_DURATION := 0.18
+# 挂机暗雷轮询间隔（秒）；玩家开启挂机后每轮结算结束都会重新倒计时。
+const AUTO_WILD_ENCOUNTER_INTERVAL_SEC := 5.0
 # 世界地图切换整段过渡时长（秒）；前半渐入、中点换图、后半渐出各占一半。
 const SCENE_MAP_TRANSITION_DURATION := 0.37
 # 过渡遮罩 CanvasLayer 层级，需高于战斗弹窗层以便盖住切换过程。
 const TRANSITION_LAYER := 20
-# 世界场景内战斗弹窗的固定尺寸；当前项目视口已切到 260x480，
-# 战斗面板也同步收窄到同尺寸，避免左右溢出屏幕。
-const BATTLE_MODAL_SIZE := Vector2(260.0, 480.0)
+# 世界场景内战斗弹窗的固定尺寸；与当前全局设计分辨率保持一致，
+# 保证 UI、地图、角色与战斗继续共用同一套分辨率口径。
+const BATTLE_MODAL_SIZE := Vector2(780.0, 1440.0)
 # 战斗弹窗 CanvasLayer 层级，需高于运行时菜单与 HUD。
 const BATTLE_MODAL_LAYER := 10
 # 当前客户端默认只允许从附近玩家列表中发起 PVP 挑战，避免没有明确目标时误发请求。
 const PLAYER_ENTITY_TYPE: int = 1
+# 附近实体中的 NPC 类型；挂机目标列表需要显式排除这类运营/交互单位。
+const NPC_ENTITY_TYPE: int = 2
 
 # 上部游戏显示区域的根节点。
 @onready var gameplay_area: Control = %GameplayArea
@@ -80,6 +84,7 @@ var _bag_panel: CanvasLayer
 var _npc_menu: OptionListPanel = null
 var _npc_list_menu: OptionListPanel = null
 var _pvp_target_menu: OptionListPanel = null
+var _auto_encounter_target_menu: OptionListPanel = null
 var _pvp_invite_dialog: ConfirmationDialog
 var _opening_npc_menu_from_list: bool = false
 var _runtime_data_requested: bool = false
@@ -145,6 +150,14 @@ var _scene_map_transition_failed: bool = false
 var _scene_map_transition_generation: int = 0
 # 当前遮罩透明度补间，切换前先 kill 避免并发动画冲突。
 var _overlay_tween: Tween = null
+# 玩家是否已开启暗雷挂机；只在当前地图支持暗雷时允许切换。
+var _auto_wild_encounter_enabled: bool = false
+# 当前挂机选择的目标实体标识；当前阶段仅用于客户端展示与日志，不改变服务端暗雷权威选怪逻辑。
+var _auto_wild_encounter_target_entity_id: int = 0
+# 当前挂机选择的目标名称；用于让玩家确认自己正在刷哪种单位。
+var _auto_wild_encounter_target_name: String = ""
+# 挂机倒计时代次；每次重新排程或关闭挂机都会递增，用于取消旧倒计时。
+var _auto_wild_encounter_schedule_generation: int = 0
 
 # 初始化主运行态，挂载世界场景并注册主链路消息与信号。
 func _ready() -> void:
@@ -384,6 +397,8 @@ func _connect_signals() -> void:
 		hud_root.connect("return_to_login_pressed", Callable(self, "_on_hud_return_to_login_pressed"))
 	if hud_root.has_signal("quit_game_pressed"):
 		hud_root.connect("quit_game_pressed", Callable(self, "_on_hud_quit_game_pressed"))
+	if hud_root.has_signal("auto_encounter_pressed"):
+		hud_root.connect("auto_encounter_pressed", Callable(self, "_on_hud_auto_encounter_pressed"))
 
 func _unhandled_input(event: InputEvent) -> void:
 	# 升级/奖励弹窗展示或刚关闭当帧，吞掉快捷键，避免误开其它菜单。
@@ -517,6 +532,8 @@ func _on_npc_interaction_requested(entity_id: int, npc_name: String) -> void:
 
 func _on_wild_encounter_responded(accepted: bool, reason: String) -> void:
 	_append_log("暗雷遭遇: %s (%s)" % ["accepted" if accepted else "rejected", reason])
+	if _auto_wild_encounter_enabled and not accepted:
+		_schedule_next_auto_wild_encounter()
 	_refresh_view()
 
 func _on_interact_payload_received(_payload: Dictionary) -> void:
@@ -553,6 +570,7 @@ func _on_action_responded(accepted: bool, reason: String) -> void:
 # 处理战斗开始事件，在世界场景上方弹出战斗面板。
 func _on_battle_started(payload: Dictionary) -> void:
 	_append_log("收到战斗开始事件。")
+	_cancel_auto_wild_encounter_schedule()
 	hud_root.set_player_status_visible(false)
 	_close_all_blocking_popups_for_battle()
 	if payload.has("battle_id"):
@@ -601,6 +619,7 @@ func _process_battle_finished(payload: Dictionary) -> void:
 	else:
 		_sync_world_player_battle_pose()
 	await _present_battle_settlement(payload)
+	_schedule_next_auto_wild_encounter()
 
 
 ## 等待战斗演出结束并卸载战斗弹窗，恢复世界 HUD。
@@ -615,23 +634,31 @@ func _dismiss_battle_modal(payload: Dictionary) -> void:
 ## 展示战斗胜利后的升级弹窗、宠物升级弹窗与奖励弹窗，并刷新权威数据。
 func _present_battle_settlement(payload: Dictionary) -> void:
 	var flow_id: int = _popup_flow_generation
+	var auto_settlement_mode: bool = _auto_wild_encounter_enabled
 	if _should_show_player_level_up_popup(payload):
-		var player_level: int = _resolve_player_level_for_popup(payload)
-		var bonus_variant: Variant = payload.get("level_up_bonus", {})
-		var bonus: Dictionary = bonus_variant if bonus_variant is Dictionary else {}
-		await _show_level_up_popup_and_wait(player_level, bonus)
-		if flow_id != _popup_flow_generation:
-			return
+		if auto_settlement_mode:
+			_append_log("挂机中：本轮跳过玩家升级确认弹窗，5 秒后自动继续遇怪。")
+		else:
+			var player_level: int = _resolve_player_level_for_popup(payload)
+			var bonus_variant: Variant = payload.get("level_up_bonus", {})
+			var bonus: Dictionary = bonus_variant if bonus_variant is Dictionary else {}
+			await _show_level_up_popup_and_wait(player_level, bonus)
+			if flow_id != _popup_flow_generation:
+				return
 	var pet_rewards_variant: Variant = payload.get("pet_rewards", [])
 	var pet_rewards: Array = pet_rewards_variant if pet_rewards_variant is Array else []
-	await _show_pet_level_up_popups_and_wait(pet_rewards)
-	if flow_id != _popup_flow_generation:
-		return
+	if not auto_settlement_mode:
+		await _show_pet_level_up_popups_and_wait(pet_rewards)
+		if flow_id != _popup_flow_generation:
+			return
 	var popup_rewards: Array = _collect_battle_popup_rewards(payload)
 	if _should_show_battle_reward_popup(payload, popup_rewards, pet_rewards):
 		if flow_id != _popup_flow_generation:
 			return
-		await _show_reward_popup_and_wait("", popup_rewards, pet_rewards, _collect_battle_skill_progress(payload))
+		if auto_settlement_mode:
+			_show_reward_popup("", popup_rewards, pet_rewards, _collect_battle_skill_progress(payload))
+		else:
+			await _show_reward_popup_and_wait("", popup_rewards, pet_rewards, _collect_battle_skill_progress(payload))
 	var reward_gold: int = int(payload.get("reward_gold", 0))
 	var reward_player_exp: int = int(payload.get("reward_player_exp", 0))
 	var drop_texts_variant: Variant = payload.get("drop_texts", [])
@@ -747,6 +774,7 @@ func _on_websocket_closed(code: int, reason: String) -> void:
 # 按当前全局状态刷新左上角玩家状态 HUD。
 func _refresh_view() -> void:
 	hud_root.refresh_player_status()
+	_refresh_auto_wild_encounter_button_state()
 
 ## 点击左上角头像时打开人物状态面板。
 func _on_hud_avatar_pressed() -> void:
@@ -766,6 +794,19 @@ func _on_hud_bag_pressed() -> void:
 		return
 	await _open_bag_panel_prepared()
 
+## 点击挂机按钮时切换暗雷挂机状态；仅当前地图支持暗雷时允许开启。
+func _on_hud_auto_encounter_pressed() -> void:
+	if _is_battle_modal_active() or _is_settlement_input_blocked():
+		return
+	if _auto_wild_encounter_enabled:
+		_set_auto_wild_encounter_enabled(false)
+		return
+	if not _is_auto_wild_encounter_available():
+		_append_log("当前地图不支持暗雷挂机。")
+		_refresh_auto_wild_encounter_button_state()
+		return
+	_open_auto_encounter_target_menu()
+
 ## 点击设置菜单中的“返回登录页”时，沿用现有切场景清理链路。
 func _on_hud_return_to_login_pressed() -> void:
 	call_deferred("_return_to_login_scene")
@@ -779,6 +820,107 @@ func _on_hud_quit_game_pressed() -> void:
 		"confirm_label": "退出",
 		"cancel_label": "取消",
 	})
+
+
+## 按当前场景暗雷配置刷新挂机按钮；离开可挂机地图时自动关闭挂机，避免玩家误以为仍在轮询。
+func _refresh_auto_wild_encounter_button_state() -> void:
+	if hud_root == null:
+		return
+	var available: bool = _is_auto_wild_encounter_available()
+	if _auto_wild_encounter_enabled and not available:
+		_set_auto_wild_encounter_enabled(false, false)
+		_append_log("已离开暗雷地图，自动关闭挂机。")
+		available = false
+	hud_root.set_auto_encounter_button_state(available, _auto_wild_encounter_enabled)
+
+
+## 判断当前地图是否允许开启暗雷挂机；只依赖服务端权威暗雷配置，不在客户端硬编码地图白名单。
+func _is_auto_wild_encounter_available() -> bool:
+	var config: Dictionary = GameState.wild_encounter_config
+	if not bool(config.get("enabled", false)):
+		return false
+	var config_scene_id: int = int(config.get("scene_id", 0))
+	var current_scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
+	if config_scene_id <= 0 or current_scene_id <= 0:
+		return false
+	return config_scene_id == current_scene_id
+
+
+## 切换挂机状态，并同步按钮文案与轮询倒计时。
+func _set_auto_wild_encounter_enabled(enabled: bool, append_log: bool = true) -> void:
+	if enabled and not _is_auto_wild_encounter_available():
+		enabled = false
+	if enabled and _auto_wild_encounter_target_name.is_empty():
+		enabled = false
+	if _auto_wild_encounter_enabled == enabled:
+		_refresh_auto_wild_encounter_button_state()
+		return
+	_auto_wild_encounter_enabled = enabled
+	_cancel_auto_wild_encounter_schedule()
+	if _auto_wild_encounter_enabled:
+		if append_log:
+			_append_log("已开启暗雷挂机，目标：%s。" % _auto_wild_encounter_target_name)
+		_schedule_next_auto_wild_encounter()
+	else:
+		_clear_auto_wild_encounter_target()
+		if append_log:
+			_append_log("已关闭暗雷挂机。")
+	_refresh_auto_wild_encounter_button_state()
+
+
+## 取消当前倒计时；通过代次失效旧的 await 定时器，避免重复自动开战。
+func _cancel_auto_wild_encounter_schedule() -> void:
+	_auto_wild_encounter_schedule_generation += 1
+
+
+## 根据当前状态安排下一轮挂机暗雷；战斗中或地图不可用时不排程。
+func _schedule_next_auto_wild_encounter() -> void:
+	if not _auto_wild_encounter_enabled:
+		return
+	if not _is_auto_wild_encounter_available():
+		return
+	if GameState.is_in_battle or _is_battle_modal_active():
+		return
+	_auto_wild_encounter_schedule_generation += 1
+	var generation: int = _auto_wild_encounter_schedule_generation
+	call_deferred("_run_auto_wild_encounter_countdown", generation)
+
+
+## 挂机倒计时协程；5 秒到期后若状态仍有效，则关闭所有弹窗并请求新的暗雷战斗。
+func _run_auto_wild_encounter_countdown(generation: int) -> void:
+	await get_tree().create_timer(AUTO_WILD_ENCOUNTER_INTERVAL_SEC).timeout
+	if generation != _auto_wild_encounter_schedule_generation:
+		return
+	if not _auto_wild_encounter_enabled:
+		return
+	if not _is_auto_wild_encounter_available():
+		_set_auto_wild_encounter_enabled(false, false)
+		return
+	if GameState.is_in_battle or _is_battle_modal_active():
+		return
+	_trigger_auto_wild_encounter()
+
+
+## 真正执行一轮挂机暗雷请求；进战前统一关闭运行时面板，满足“弹窗未手动关闭也能继续挂机”的需求。
+func _trigger_auto_wild_encounter() -> void:
+	if _auto_wild_encounter_target_name.is_empty():
+		_set_auto_wild_encounter_enabled(false, false)
+		_append_log("挂机目标已失效，请重新选择。")
+		return
+	if _world_controller == null:
+		return
+	if not _world_controller.has_method("request_auto_wild_encounter_battle"):
+		return
+	_close_all_blocking_popups_for_battle()
+	var can_request: bool = true
+	if _world_controller.has_method("can_request_auto_wild_encounter_battle"):
+		can_request = bool(_world_controller.call("can_request_auto_wild_encounter_battle"))
+	if not can_request:
+		_schedule_next_auto_wild_encounter()
+		return
+	var accepted: bool = bool(_world_controller.call("request_auto_wild_encounter_battle"))
+	if not accepted:
+		_schedule_next_auto_wild_encounter()
 
 
 ## 懒创建退出确认弹窗，并把确认动作绑定到真正的退出链路。
@@ -816,6 +958,7 @@ func _create_runtime_ui() -> void:
 	_create_npc_menu()
 	_create_npc_list_menu()
 	_create_pvp_target_menu()
+	_create_auto_encounter_target_menu()
 	_create_npc_dialogue_panel()
 	_create_npc_shop_panel()
 	_create_pvp_invite_dialog()
@@ -1101,6 +1244,18 @@ func _create_pvp_target_menu() -> void:
 	if not _pvp_target_menu.menu_closed.is_connected(_on_runtime_menu_closed):
 		_pvp_target_menu.menu_closed.connect(_on_runtime_menu_closed)
 
+## 创建挂机目标选择面板，复用通用头像列表面板样式。
+func _create_auto_encounter_target_menu() -> void:
+	_auto_encounter_target_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel
+	if _auto_encounter_target_menu == null:
+		return
+	_auto_encounter_target_menu.name = "AutoEncounterTargetMenu"
+	add_child(_auto_encounter_target_menu)
+	if not _auto_encounter_target_menu.option_selected.is_connected(_on_auto_encounter_target_selected):
+		_auto_encounter_target_menu.option_selected.connect(_on_auto_encounter_target_selected)
+	if not _auto_encounter_target_menu.menu_closed.is_connected(_on_runtime_menu_closed):
+		_auto_encounter_target_menu.menu_closed.connect(_on_runtime_menu_closed)
+
 func _create_pvp_invite_dialog() -> void:
 	_pvp_invite_dialog = ConfirmationDialog.new()
 	_pvp_invite_dialog.title = "PVP 邀请"
@@ -1178,6 +1333,20 @@ func _on_pvp_target_selected(target_data: Dictionary) -> void:
 		_pvp_target_menu.call("close_menu")
 	_append_log("发起 PVP 挑战: %s (%d)" % [str(target_data.get("npc_name", target_data.get("name", "未知玩家"))), target_player_id])
 	App.request_pvp_challenge(target_player_id)
+
+## 玩家确认挂机目标后，记录目标并正式开启挂机。
+func _on_auto_encounter_target_selected(target_data: Dictionary) -> void:
+	var target_entity_id: int = int(target_data.get("entity_id", 0))
+	var target_name: String = str(target_data.get("npc_name", target_data.get("name", ""))).strip_edges()
+	if target_entity_id <= 0 or target_name.is_empty():
+		_append_log("挂机目标无效，无法开启挂机。")
+		return
+	if _auto_encounter_target_menu != null and _auto_encounter_target_menu.has_method("close_menu"):
+		_auto_encounter_target_menu.call("close_menu")
+	_auto_wild_encounter_target_entity_id = target_entity_id
+	_auto_wild_encounter_target_name = target_name
+	_append_log("已选择挂机目标：%s。" % target_name)
+	_set_auto_wild_encounter_enabled(true)
 
 func _on_main_menu_item_selected(item: Dictionary) -> void:
 	if _is_battle_modal_active():
@@ -1324,7 +1493,7 @@ func _collect_nearby_player_entries() -> Array[Dictionary]:
 			continue
 		if target_player_id <= 0 or target_player_id == GameState.player_id:
 			continue
-		var entry := {
+		var entry: Dictionary = {
 			"entity_id": int(entity.get("entity_id", entity_id_variant)),
 			"target_player_id": target_player_id,
 			"npc_name": str(entity.get("name", "附近玩家")),
@@ -1332,6 +1501,75 @@ func _collect_nearby_player_entries() -> Array[Dictionary]:
 		}
 		entries.append(entry)
 	return entries
+
+## 收集当前地图附近可作为挂机参考目标的单位列表；基于附近实体快照做最小过滤。
+func _collect_auto_encounter_target_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var seen_names: Dictionary = {}
+	for entity_id_variant in GameState.nearby_entities.keys():
+		var entity_variant: Variant = GameState.nearby_entities.get(entity_id_variant, {})
+		if entity_variant is not Dictionary:
+			continue
+		var entity: Dictionary = entity_variant
+		var entity_id: int = int(entity.get("entity_id", entity_id_variant))
+		var entity_type: int = int(entity.get("entity_type", 0))
+		var player_id: int = int(entity.get("player_id", 0))
+		var entity_name: String = str(entity.get("name", entity.get("npc_name", ""))).strip_edges()
+		if entity_id <= 0 or entity_name.is_empty():
+			continue
+		if player_id > 0 or entity_type == PLAYER_ENTITY_TYPE or entity_type == NPC_ENTITY_TYPE:
+			continue
+		if _is_auto_encounter_name_excluded(entity_name):
+			continue
+		var dedupe_key: String = entity_name.to_lower()
+		if seen_names.has(dedupe_key):
+			continue
+		seen_names[dedupe_key] = true
+		var entry: Dictionary = {
+			"entity_id": entity_id,
+			"npc_name": entity_name,
+			"portrait_path": "res://asset/口袋所有形象/imgs/51.png",
+		}
+		entries.append(entry)
+	return entries
+
+## 过滤明显不应进入挂机列表的单位名称：玩家、NPC、BOSS 与暗雷占位名。
+func _is_auto_encounter_name_excluded(entity_name: String) -> bool:
+	var normalized_name: String = entity_name.to_lower()
+	if normalized_name.contains("boss"):
+		return true
+	if normalized_name.contains("npc"):
+		return true
+	if normalized_name.contains("首领"):
+		return true
+	if normalized_name.contains("领主"):
+		return true
+	if normalized_name.contains("暗雷"):
+		return true
+	if normalized_name.contains("怪点"):
+		return true
+	return false
+
+## 打开挂机目标选择面板；先让玩家选定附近单位，再开启自动暗雷。
+func _open_auto_encounter_target_menu() -> void:
+	if _auto_encounter_target_menu == null:
+		return
+	var target_entries: Array[Dictionary] = _collect_auto_encounter_target_entries()
+	if target_entries.is_empty():
+		_append_log("当前地图附近没有可挂机的战斗单位。")
+		return
+	_close_other_root_panels("auto_encounter_target")
+	_auto_encounter_target_menu.configure("选择挂机目标", target_entries, {
+		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
+		"panel_min_width": 288,
+	})
+	_auto_encounter_target_menu.call("open_menu")
+	_set_runtime_menu_locked(true)
+
+## 清空当前挂机目标，避免关闭挂机后沿用旧选择。
+func _clear_auto_wild_encounter_target() -> void:
+	_auto_wild_encounter_target_entity_id = 0
+	_auto_wild_encounter_target_name = ""
 
 func _open_pvp_target_menu() -> void:
 	if _is_battle_modal_active():
@@ -1698,7 +1936,7 @@ func _is_settlement_input_blocked() -> bool:
 
 ## 关闭所有运行时菜单；战斗中传入 keep_world_locked=true 避免误解锁世界输入。
 func _close_runtime_menus(keep_world_locked: bool = false) -> void:
-	for layer in [_main_menu, _player_panel, _pet_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu]:
+	for layer in [_main_menu, _player_panel, _pet_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu, _auto_encounter_target_menu]:
 		if layer != null and layer.has_method("close_menu"):
 			layer.call("close_menu")
 	if _pvp_invite_dialog != null:
@@ -1717,6 +1955,7 @@ func _close_other_root_panels(keep_key: String) -> void:
 		["npc_menu", _npc_menu],
 		["npc_list", _npc_list_menu],
 		["pvp_list", _pvp_target_menu],
+		["auto_encounter_target", _auto_encounter_target_menu],
 	]
 	for entry: Array in panel_entries:
 		var panel_key: String = str(entry[0])

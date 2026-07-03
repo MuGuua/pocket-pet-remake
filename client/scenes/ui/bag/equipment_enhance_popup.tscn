@@ -5,6 +5,7 @@
 [ext_resource type="StyleBox" uid="uid://cw073iiwxv8v1" path="res://resources/ui/equipment_enhance_popup_inner.tres" id="3_inner"]
 [ext_resource type="Texture2D" uid="uid://cjhwr25kaj4k2" path="res://asset/分类/菜单表情/spritesheet-32px.png" id="4_vthj8"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="5_action_btn"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="6_close_btn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
 texture = ExtResource("2_owufn")
@@ -122,6 +123,18 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
 [node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel" unique_id=63063429]
 layout_mode = 2
 theme_override_constants/separation = 0
+
+[node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox" unique_id=63063430]
+layout_mode = 2
+
+[node name="HeaderSpacer" type="Control" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" unique_id=63063431]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="TopCloseButton" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" instance=ExtResource("6_close_btn")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="ItemInfoPanel" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox" unique_id=2115354223]
 custom_minimum_size = Vector2(178, 34)

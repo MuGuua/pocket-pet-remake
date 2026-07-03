@@ -297,15 +297,16 @@ texture = SubResource("AtlasTexture_fdui7")
 script = ExtResource("1_bagpanel")
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=1850279401]
+custom_minimum_size = Vector2(360, 542)
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -115.0
-offset_top = -184.5
-offset_right = 65.0
-offset_bottom = 94.5
+offset_left = -220.0
+offset_top = -420.0
+offset_right = 140.0
+offset_bottom = 122.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(1.3, 1.3)
@@ -320,6 +321,7 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="Title" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer" unique_id=2118373361]
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_constants/margin_top = 3
 
@@ -327,24 +329,24 @@ theme_override_constants/margin_top = 3
 layout_mode = 2
 
 [node name="Control" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=953632958]
-custom_minimum_size = Vector2(63, 0)
+custom_minimum_size = Vector2(135, 0)
 layout_mode = 2
 
 [node name="Label" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1723382992]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 20
 text = "物品行囊"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Control2" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1097588684]
-custom_minimum_size = Vector2(37, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 
 [node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=328209826]
-custom_minimum_size = Vector2(20, 18)
-custom_maximum_size = Vector2(20, 20)
+custom_minimum_size = Vector2(36, 36)
+custom_maximum_size = Vector2(36, 36)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -359,12 +361,13 @@ layout_mode = 2
 
 [node name="Property" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer" unique_id=1666491346]
 layout_mode = 2
-theme_override_constants/margin_left = 5
+theme_override_constants/margin_left = 9
 theme_override_constants/margin_top = -3
 theme_override_constants/margin_right = 5
 
 [node name="HBoxContainer" type="HBoxContainer" parent="RootPanel/MarginContainer/VBoxContainer/Property" unique_id=431251362]
 layout_mode = 2
+theme_override_constants/separation = 9
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer" unique_id=13621134]
 custom_minimum_size = Vector2(58, 10)
@@ -376,12 +379,11 @@ layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/PanelContainer/HBoxContainer" unique_id=1116620027]
 layout_mode = 2
-theme_override_constants/margin_left = 1
-theme_override_constants/margin_right = -2
+theme_override_constants/margin_left = 2
 
 [node name="TextureRect" type="TextureRect" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=2050540744]
-custom_minimum_size = Vector2(12, 12)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(24, 24)
+custom_maximum_size = Vector2(24, 24)
 layout_mode = 2
 texture = SubResource("AtlasTexture_eodj5")
 expand_mode = 1
@@ -391,7 +393,7 @@ stretch_mode = 4
 custom_minimum_size = Vector2(28, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 11
 text = "300/300"
 vertical_alignment = 1
 
@@ -403,7 +405,7 @@ theme_override_constants/margin_left = -2
 layout_mode = 2
 
 [node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/PanelContainer/HBoxContainer/MarginContainer2/CenterContainer" unique_id=1178110521]
-custom_minimum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_a27n1")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_jt51b")
@@ -430,18 +432,18 @@ theme_override_constants/margin_right = -2
 layout_mode = 2
 
 [node name="TextureRect" type="TextureRect" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2/GoldCoin/CenterContainer" unique_id=1463096113]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(20, 20)
+custom_maximum_size = Vector2(20, 20)
 layout_mode = 2
 texture = SubResource("AtlasTexture_fw8hn")
 expand_mode = 1
 stretch_mode = 4
 
 [node name="GoldCoinAmount" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2" unique_id=2142512600]
-custom_minimum_size = Vector2(25, 0)
+custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 11
 text = "999999"
 vertical_alignment = 1
 
@@ -453,18 +455,17 @@ theme_override_constants/margin_right = -2
 layout_mode = 2
 
 [node name="TextureRect" type="TextureRect" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2/SilverCoin/CenterContainer" unique_id=1353534884]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 texture = SubResource("AtlasTexture_hswpw")
 expand_mode = 1
 stretch_mode = 4
 
 [node name="SilverCoinAmount" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2" unique_id=515235445]
-custom_minimum_size = Vector2(13, 0)
+custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 11
 text = "999"
 vertical_alignment = 1
 
@@ -476,18 +477,17 @@ theme_override_constants/margin_right = -2
 layout_mode = 2
 
 [node name="TextureRect" type="TextureRect" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2/CopperCoin/CenterContainer" unique_id=1775603722]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 texture = SubResource("AtlasTexture_ixas5")
 expand_mode = 1
 stretch_mode = 4
 
 [node name="CopperCoinAmount" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2" unique_id=1021960357]
-custom_minimum_size = Vector2(13, 0)
+custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 11
 text = "999"
 vertical_alignment = 1
 
@@ -499,7 +499,7 @@ theme_override_constants/margin_left = -1
 layout_mode = 2
 
 [node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2/MarginContainer/CenterContainer" unique_id=1653910620]
-custom_minimum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_q05hs")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_1vj6i")
@@ -507,19 +507,18 @@ theme_override_styles/hover = SubResource("StyleBoxEmpty_08wlw")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_5qin7")
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer" unique_id=54648999]
-custom_minimum_size = Vector2(0, 125)
 layout_mode = 2
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = -3
 theme_override_constants/margin_right = 4
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer" unique_id=1406502312]
-custom_minimum_size = Vector2(150, 110)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_jctgi")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer" unique_id=537875455]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer" unique_id=7980840]
 layout_mode = 2
@@ -528,8 +527,6 @@ theme_override_constants/margin_top = 3
 [node name="GridContainer" type="GridContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer" unique_id=319569033]
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_constants/h_separation = 2
-theme_override_constants/v_separation = 2
 columns = 7
 
 [node name="Slot" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer/GridContainer" unique_id=320579853 instance=ExtResource("3_jctgi")]
@@ -618,7 +615,9 @@ layout_mode = 2
 
 [node name="MarginContainer2" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer" unique_id=1125674989]
 layout_mode = 2
+theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 1
+theme_override_constants/margin_right = 4
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2" unique_id=71173417]
 layout_mode = 2
@@ -635,7 +634,7 @@ layout_mode = 2
 theme_override_constants/separation = 2
 
 [node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=515503451]
-custom_minimum_size = Vector2(15, 15)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_pqt6d")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_0cmae")
@@ -644,7 +643,7 @@ theme_override_styles/focus = SubResource("StyleBoxTexture_vj1jb")
 toggle_mode = true
 
 [node name="Button2" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=369476637]
-custom_minimum_size = Vector2(15, 15)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_hswpw")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_08wlw")
@@ -653,7 +652,7 @@ theme_override_styles/focus = SubResource("StyleBoxTexture_0ncgy")
 toggle_mode = true
 
 [node name="Button3" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=1623494195]
-custom_minimum_size = Vector2(15, 15)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxTexture_smmuy")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_p2ent")
@@ -662,7 +661,7 @@ theme_override_styles/focus = SubResource("StyleBoxTexture_7sked")
 toggle_mode = true
 
 [node name="Control" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=878277911]
-custom_minimum_size = Vector2(58, 0)
+custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=554526156]
@@ -673,22 +672,23 @@ theme_override_constants/margin_top = 2
 layout_mode = 2
 
 [node name="Button4" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=1695126415]
-custom_minimum_size = Vector2(12, 12)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(24, 24)
+custom_maximum_size = Vector2(24, 24)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/normal = SubResource("StyleBoxTexture_kk56t")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_85qxa")
 toggle_mode = true
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=203674670]
-custom_minimum_size = Vector2(24, 12)
-custom_maximum_size = Vector2(24, 12)
+custom_minimum_size = Vector2(48, 24)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("StyleBoxTexture_6jm4d")
 
 [node name="PageInput" type="LineEdit" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer/PanelContainer" unique_id=525018287]
-custom_minimum_size = Vector2(24, 12)
-custom_maximum_size = Vector2(24, 12)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
@@ -705,9 +705,11 @@ flat = true
 caret_blink = true
 
 [node name="Button5" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=425246358]
-custom_minimum_size = Vector2(12, 2)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(24, 24)
+custom_maximum_size = Vector2(24, 24)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/normal = SubResource("StyleBoxTexture_5qin7")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_4atlc")
 toggle_mode = true

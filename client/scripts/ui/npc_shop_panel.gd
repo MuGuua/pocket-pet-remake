@@ -11,6 +11,7 @@ signal panel_closed
 @onready var _wallet_label: Label = get_node_or_null("Root/Panel/Layout/WalletLabel") as Label
 @onready var _goods_container: VBoxContainer = get_node_or_null("Root/Panel/Layout/GoodsContainer") as VBoxContainer
 @onready var _status_label: Label = get_node_or_null("Root/Panel/Layout/StatusLabel") as Label
+@onready var _top_close_button: BaseButton = %TopCloseButton
 @onready var _close_button: BaseButton = get_node_or_null("Root/Panel/Layout/RuntimeActionButton") as BaseButton
 
 ## 当前商店 NPC 实体 ID，购买请求必须原样带回服务端做 proximity 校验。
@@ -18,6 +19,8 @@ var _shop_entity_id: int = 0
 
 ## 绑定按钮事件并在启动时保持隐藏。
 func _ready() -> void:
+	if _top_close_button != null and not _top_close_button.pressed.is_connected(_on_close_button_pressed):
+		_top_close_button.pressed.connect(_on_close_button_pressed)
 	if _close_button != null:
 		_close_button.pressed.connect(_on_close_button_pressed)
 	hide_panel(false)

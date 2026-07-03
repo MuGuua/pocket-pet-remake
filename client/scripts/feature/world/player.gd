@@ -16,7 +16,7 @@ const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
-# 世界相机统一缩放；小于 1 会放大画面。
+# 世界相机统一缩放；大于 1 会放大画面，小于 1 会缩小画面。
 @export var camera_zoom_scale: float = 2.0
 # 世界相机相对玩家的垂直偏移；负值表示画面整体上移。
 @export var camera_vertical_offset: float = 150.0

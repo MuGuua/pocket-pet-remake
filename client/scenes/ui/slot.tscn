@@ -18,16 +18,18 @@ atlas = ExtResource("3_c886m")
 region = Rect2(80, 48, 16, 16)
 
 [node name="Slot" type="Button" unique_id=320579853]
-custom_minimum_size = Vector2(22, 22)
+custom_minimum_size = Vector2(44, 44)
+custom_maximum_size = Vector2(44, 44)
+propagate_maximum_size = true
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = 33.0
+offset_bottom = 33.0
 grow_horizontal = 2
 grow_vertical = 2
 focus_mode = 0
@@ -40,7 +42,7 @@ toggle_mode = true
 script = ExtResource("1_bagslot")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=1221487482]
-custom_minimum_size = Vector2(22, 22)
+custom_minimum_size = Vector2(66, 66)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -74,22 +76,18 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Control" type="Control" parent="CenterContainer" unique_id=2035895270]
-custom_minimum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(54, 54)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="ItemImage" type="TextureRect" parent="CenterContainer/Control" unique_id=226068879]
-visible = false
+custom_minimum_size = Vector2(38, 38)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -9.0
-offset_top = -9.0
-offset_right = 9.0
-offset_bottom = 9.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -107,18 +105,22 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.85, 0.15, 0.15, 0.35)
 
-[node name="ItemQuantity" type="Label" parent="CenterContainer/Control" unique_id=499760035]
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/Control" unique_id=1055463951]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 2.0
-offset_bottom = 2.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="ItemQuantity" type="Label" parent="CenterContainer/Control/MarginContainer" unique_id=499760035]
+layout_mode = 2
+size_flags_vertical = 1
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 13
 text = "99"
 horizontal_alignment = 2
 vertical_alignment = 2
@@ -128,8 +130,6 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 2.0
-offset_bottom = 2.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.50980395, 0.8352941, 0.3882353, 1)
@@ -141,8 +141,6 @@ vertical_alignment = 2
 
 [node name="Damaged" type="PanelContainer" parent="." unique_id=53523117]
 visible = false
-custom_minimum_size = Vector2(19, 19)
-custom_maximum_size = Vector2(19, 19)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5

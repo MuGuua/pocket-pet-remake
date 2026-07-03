@@ -1,5 +1,20 @@
 # 最新变更记录
 
+## 2026-07-03
+- 奖励弹窗右上角关闭按钮增加专属直连：`reward_popup.gd` 现在对 `%TopCloseButton` 显式绑定 `pressed -> close_popup()`，不再只依赖模态基类的通用关闭按钮链路
+- 奖励弹窗模板节点改为可选兜底：`reward_popup.gd` 不再强依赖 `PlainLineTemplate` 等模板节点，场景少某个模板时会自动回退到运行时创建默认行，避免 `_ready()` 因 `Node not found` 直接报错
+- 修复奖励弹窗右上角关闭按钮仍无响应：`reward_popup.gd` 改为像确认弹窗一样只走 GUI 点击链路，不再启用基类全局 `_input` 吞事件，并补齐标题面板的鼠标交互
+- 修复奖励弹窗标题与正文面板重叠：`reward_popup.tscn` 的正文容器改为在 `VBoxContainer` 中按正常高度参与排版，移除把内容向上顶回标题区域的负偏移，恢复两个边框格子的间距
+- 奖励弹窗正文布局改为以场景模板节点为准：`reward_popup.gd` 不再在脚本里硬编码奖励行字号、图标尺寸和行布局，改为复制 `reward_popup.tscn` 中的文本/富文本/物品行模板，后续可直接在场景里调布局
+- 战斗进场网格转场放大：`grid_spread.gd` 提高 `spacing`，`grid_spread.tscn` 放大圆点 `QuadMesh` 尺寸，让转场网格更疏、圆圈更大
+- 战斗进场网格转场提速：`grid_spread.gd` 下调 `stagger_delay` 与 `scale_duration`，让世界进入战斗时的铺展/揭开动画更利落，减少等待感
+- 适配重构后的奖励弹窗场景层级：`reward_popup.gd` 现在按 `reward_popup.tscn` 新结构重新绑定 `DimLayer`、正文 `CenterContainer` 与 `PanelContainer`，恢复遮罩关闭、正文点击拦截和右上角关闭按钮交互
+- 修复背包装备预览面板节点路径错误：`equipment_preview_panel.gd` 改为匹配 `equipment_slot_1.tscn` 真实层级，移除不存在的 `MarginContainer` 路径，恢复背包运行态初始化
+- 修复战斗结算奖励弹窗右上角关闭按钮无响应：`reward_popup.gd` 现在在打开前显式恢复正文面板与 `TopCloseButton` 的可交互鼠标过滤，并把 `close_popup()` 收敛到 `_dismiss_modal()`，保证点击 `X` 时能正常关闭并广播 `popup_closed`
+- 客户端世界场景改为 3 倍放大显示：修正世界相机缩放方向判断后，`player.tscn` 的 `camera_zoom_scale` 调整为 `3.0`，在当前统一 `780x1440` 设计分辨率下，让地图、人物与同层世界内容按旧 `260x480` 视野放大约 3 倍显示，而不影响 UI 分辨率
+- 客户端统一设计分辨率切换为 `780x1440`：`project.godot` 的 `viewport` 与 `window override` 同步放大，`world_controller.gd` 的默认渲染基准与 `main.gd` 的战斗弹窗固定尺寸也一并调整到同一口径，保证 UI、地图、角色与战斗继续共用同一套分辨率
+- 修复主菜单场景缺少 `TabsRow` / `ItemsList` 内容节点导致 `main_menu.gd` 在 `_ready()` 期间报 `Node not found`；`main_menu.tscn` 已补齐 `MenuFrame/Content` 下的最小容器结构，恢复主菜单初始化
+
 ## 2026-07-02
 - 新增公开注册接口 `POST /api/v1/auth/register`：当前只要求账号、密码和男女形象选择；服务端复用账号名作为玩家名，男性默认 `初始形象男_001`、女性默认 `初始形象女_002`，并沿用正式玩家初始属性/背包/钱包创建链路
 - 客户端登录页新增注册入口与初始形象选择：输入账号密码后可直接注册男女角色；注册成功后自动登录并进入世界；注册表单新增确认密码与基础前端校验，减少误输密码导致的无效注册
