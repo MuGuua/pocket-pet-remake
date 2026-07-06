@@ -25,6 +25,7 @@
 | `runtime_progress_overlay.tscn` | `runtime_progress_overlay.gd` | 兼容壳：内部委托 `GenericLoadingScene`，保留 `show_waiting` / `play_progress` 旧接口 |
 | `runtime_progress_bar_overlay.tscn` | `runtime_progress_bar_overlay.gd` | 固定时长线性进度条；**开礼包**等需要 3 秒进度条演出的流程专用 |
 | `generic_loading_scene.tscn` | `generic_loading_scene.gd` | **标准**全屏 Loading：仅滚动动画 +「读取中」图字，不展示说明文案 |
+| `dev_server_switcher.tscn` | `dev_server_switcher.gd` | 开发调试切服面板：可切本地 / 远程 / 浏览器同源，并支持手填 HTTP / WS 地址 |
 
 ## 组件
 

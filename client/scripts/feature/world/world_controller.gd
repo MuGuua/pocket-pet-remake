@@ -397,8 +397,16 @@ func _refresh_game_layout() -> void:
 	if map_loading_overlay != null:
 		map_loading_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-## 从 GameShell 同步当前可用渲染区域，保证 SubViewport 宽度与视口一致。
+## Web 临时调试页容易把容器尺寸改成浏览器当前可视区域，因此这里保留一套固定设计尺寸口径，
+## 让内部世界渲染始终按项目设计分辨率执行，而不是被 tmp_js_export.html 当前尺寸带偏。
+func _should_force_fixed_render_frame_size() -> bool:
+	return OS.has_feature("web")
+
+## 从 GameShell 同步当前可用渲染区域；Web 调试时强制保持设计尺寸，避免内部视口随壳层漂移。
 func _sync_render_frame_size_from_shell() -> void:
+	if _should_force_fixed_render_frame_size():
+		_render_frame_size = DEFAULT_RENDER_FRAME_SIZE
+		return
 	if game_shell == null:
 		return
 	var shell_size: Vector2 = game_shell.size.floor()
@@ -408,8 +416,10 @@ func _sync_render_frame_size_from_shell() -> void:
 		return
 	_render_frame_size = shell_size
 
-## 解析世界 SubViewport 内部渲染尺寸：宽度跟随当前视口，高度与视口保持一致。
+## 解析世界 SubViewport 内部渲染尺寸；Web 调试时固定返回设计分辨率，其他平台沿用壳层尺寸。
 func _resolve_internal_render_frame_size() -> Vector2i:
+	if _should_force_fixed_render_frame_size():
+		return Vector2i(int(DEFAULT_RENDER_FRAME_SIZE.x), int(DEFAULT_RENDER_FRAME_SIZE.y))
 	var frame_size: Vector2 = _render_frame_size.floor()
 	if frame_size.x <= 0.0 or frame_size.y <= 0.0:
 		frame_size = DEFAULT_RENDER_FRAME_SIZE

@@ -158,7 +158,6 @@ var _auto_wild_encounter_target_entity_id: int = 0
 var _auto_wild_encounter_target_name: String = ""
 # 挂机倒计时代次；每次重新排程或关闭挂机都会递增，用于取消旧倒计时。
 var _auto_wild_encounter_schedule_generation: int = 0
-
 # 初始化主运行态，挂载世界场景并注册主链路消息与信号。
 func _ready() -> void:
 	App.bootstrap()

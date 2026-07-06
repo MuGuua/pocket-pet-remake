@@ -1,5 +1,17 @@
 # 最新变更记录
 
+## 2026-07-06
+- Web 画布尺寸策略改为“固定比例、允许同比例缩放”：`client/autoload/web_runtime_canvas.gd` 不再把浏览器 `canvas` 锁死为 `780x1440` 像素，而是统一按 `780:1440` 纵横比在当前可视区域内自适应缩放；登录页与主运行态都会共用同一套全局比例约束，既避免拉伸变形，也兼容不同浏览器窗口大小
+- Web 运行时世界渲染改为固定设计尺寸：`client/scripts/feature/world/world_controller.gd` 在 Web 环境下不再把内部 `SubViewport` 跟随 `GameShell` 当前尺寸，而是强制按 `780x1440` 渲染，专门兜底 `tmp_js_export.html` 这类临时调试页把实际内部视口压成 `621x834` 的问题
+- Web 导出壳层改为固定比例盒子：`client/export_presets.cfg` 的自定义 CSS 不再强制固定 `#canvas` 像素尺寸，而是统一使用 `780:1440` 纵横比居中显示，确保正式导出页与运行时兜底策略一致
+- 客户端新增全局静音背景音保活器：`client/autoload/background_audio_keeper.gd` 通过 `AudioStreamGenerator` 持续播放 0 振幅静音流，并作为自动加载单例贯穿所有场景；主要用于尽量减少切后台时音频上下文被立即回收的概率，但浏览器/移动系统后台冻结仍不保证完全不断线
+- 修复主菜单运行态节点绑定报错：`client/scripts/ui/main_menu.gd` 不再只依赖 `%TabsRow` / `%ItemsList`，当 unique-name 绑定因 owner 变化失效时会回退到稳定场景路径，避免 `_ready()` 因 `Node not found` 中断主菜单初始化
+- 修复市场地图 TileSet 越界：`client/scenes/maps/fashtown/radiant_market.tscn` 的 `TileSetAtlasSource_rbgk4` 删除超出 `Tilemap_Platform.png` 高度上限的 `0:24`~`0:27` 条目，避免切图到市场时触发 `Cannot create tile` 与 `atlas has no tile` 报错
+- 客户端网络入口切换为统一多环境解析：`client/autoload/network_config.gd` 现支持 `local`、`remote`、`browser_origin` 三种环境，并区分原生端默认环境与 Web 默认环境，避免再分别修改 HTTP / WebSocket 脚本
+- Web 调试支持灵活切服：浏览器运行时优先读取地址栏参数 `server`、`http_base`、`ws_base`，其次读取 `localStorage` 中的 `pp_server_profile`、`pp_http_base`、`pp_ws_base`；便于本地打开导出页时在本地后端、远程服务和同源部署之间快速切换
+- `http_client.gd` 与 `net_client.gd` 不再各自强制改回当前页面同源地址，统一改为读取集中配置解析结果，修复 `http://localhost:8060/tmp_js_export.html` 调试时请求总被锁到 `http://localhost:8060` 的问题
+- 登录页新增开发切服面板：`client/scenes/ui/common/dev_server_switcher.tscn` + `client/scripts/ui/common/dev_server_switcher.gd` 支持运行时切换本地后端 / 远程服务 / 浏览器同源，应用后会同步刷新 HTTP / WebSocket 入口并清理旧会话，避免把旧服 token 带到新服
+
 ## 2026-07-03
 - 奖励弹窗右上角关闭按钮增加专属直连：`reward_popup.gd` 现在对 `%TopCloseButton` 显式绑定 `pressed -> close_popup()`，不再只依赖模态基类的通用关闭按钮链路
 - 奖励弹窗模板节点改为可选兜底：`reward_popup.gd` 不再强依赖 `PlainLineTemplate` 等模板节点，场景少某个模板时会自动回退到运行时创建默认行，避免 `_ready()` 因 `Node not found` 直接报错

@@ -10,25 +10,17 @@ var _request: HTTPRequest
 
 # 初始化 HTTPRequest 节点并挂到单例下。
 func _ready() -> void:
-	_base_url = NetworkConfigScript.get_http_base_url()
+	reload_base_url_from_config()
 	_request = HTTPRequest.new()
 	add_child(_request)
-	_configure_web_base_url()
 
-# 更新当前请求服务端时使用的基础地址。
-func set_base_url(base_url: String) -> void:
-	_base_url = base_url.trim_suffix("/")
+## 重新从统一网络配置中读取当前 HTTP 基础地址。
+func reload_base_url_from_config() -> void:
+	_base_url = NetworkConfigScript.resolve_http_base_url()
 
-## Web 导出包运行在浏览器里时，直接使用当前页面同源地址，避免误拼 :8080 等内网端口。
-func _configure_web_base_url() -> void:
-	if not OS.has_feature("web"):
-		return
-
-	var origin: String = str(JavaScriptBridge.eval("window.location.origin", true)).strip_edges()
-	if origin.is_empty():
-		return
-
-	set_base_url(origin)
+## 返回当前生效的 HTTP 基础地址，供登录页开发工具展示。
+func get_base_url() -> String:
+	return _base_url
 
 # 发起登录接口请求，并返回统一字典结构结果。
 func login(account: String, password: String) -> Dictionary:

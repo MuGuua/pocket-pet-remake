@@ -88,8 +88,10 @@ const MENU_DATA: Array[Dictionary] = [
 	},
 ]
 
-@onready var tabs_container: HBoxContainer = %TabsRow
-@onready var items_container: VBoxContainer = %ItemsList
+## 主菜单顶部分类标签容器；优先读唯一节点名，失败时回退到稳定场景路径，避免子场景 owner 变化导致初始化报错。
+@onready var tabs_container: HBoxContainer = get_node_or_null("%TabsRow") as HBoxContainer
+## 主菜单内容列表容器；优先读唯一节点名，失败时回退到稳定场景路径，避免运行态因节点 owner 变化直接中断。
+@onready var items_container: VBoxContainer = get_node_or_null("%ItemsList") as VBoxContainer
 @onready var close_button: BaseButton = $Root/CloseButton
 
 var _current_tab_index: int = 0
@@ -112,6 +114,10 @@ func _ready() -> void:
 func _try_initialize_menu_ui() -> void:
 	if _menu_ui_initialized:
 		return
+	if tabs_container == null:
+		tabs_container = get_node_or_null("Root/TabsFrame/Content/TabsRow") as HBoxContainer
+	if items_container == null:
+		items_container = get_node_or_null("Root/ItemsFrame/Content/ItemsList") as VBoxContainer
 	if tabs_container == null or items_container == null:
 		push_warning("MainMenu UI 节点未就绪，跳过初始化。")
 		return

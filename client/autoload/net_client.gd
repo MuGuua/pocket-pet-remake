@@ -39,9 +39,17 @@ var _last_heartbeat_sent_ms: int = 0
 
 # 让单例始终参与帧循环，以便持续轮询底层连接。
 func _ready() -> void:
-    _default_ws_url = NetworkConfigScript.get_ws_url()
+    reload_default_ws_url_from_config()
     process_mode = Node.PROCESS_MODE_ALWAYS
     set_process(true)
+
+## 重新从统一网络配置中读取当前默认 WebSocket 地址。
+func reload_default_ws_url_from_config() -> void:
+    _default_ws_url = NetworkConfigScript.resolve_ws_url()
+
+## 返回当前默认连接服务端时使用的 WebSocket 地址。
+func get_default_ws_url() -> String:
+    return _default_ws_url
 
 # 返回当前网络层记录的连接状态文本。
 func get_connection_state() -> String:
@@ -55,26 +63,13 @@ func connect_to_server(url: String = "") -> int:
     _heartbeat_interval_sec = 0
     _last_heartbeat_sent_ms = 0
     var requested_url: String = url if not url.strip_edges().is_empty() else _default_ws_url
-    var connect_url: String = _resolve_connect_url(requested_url)
-    var err: int = _socket.connect_to_url(connect_url)
+    var err: int = _socket.connect_to_url(requested_url)
     if err != OK:
         _set_state("error")
         return err
 
     _set_state("connecting")
     return OK
-
-## Web 导出包使用当前页面主机拼出当前启用配置中的 WebSocket 地址。
-func _resolve_connect_url(url: String) -> String:
-    if not OS.has_feature("web") or url != _default_ws_url:
-        return url
-
-    var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
-    var host: String = str(JavaScriptBridge.eval("window.location.host", true))
-    if host.strip_edges().is_empty():
-        return url
-
-    return NetworkConfigScript.build_web_ws_url(protocol, host)
 
 # 主动关闭当前连接，并清空鉴权与心跳相关状态。
 func disconnect_from_server(code: int = 1000, reason: String = "") -> void:

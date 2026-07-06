@@ -58,6 +58,16 @@
 - `client/autoload/http_client.gd` 已为底层 HTTP 失败结果、空响应体和非 JSON 响应补上显式容错处理，不再直接对异常内容调用 `JSON.parse_string()`
 - 当前 `HTTPRequest.request_completed` 会先检查底层请求结果，再检查响应体是否为空，最后才尝试解析 JSON 字典
 - 当后端未启动或返回非 JSON 内容时，客户端现在会返回统一错误字典，而不是在控制台刷出 JSON 解析报错
+- 统一客户端网络环境配置：`client/autoload/network_config.gd` 新增本地 / 远程 / 浏览器同源三种环境解析，并支持 Web 端通过 URL 参数或 `localStorage` 临时覆盖 HTTP / WebSocket 地址
+- `client/autoload/http_client.gd` 与 `client/autoload/net_client.gd` 改为直接读取统一配置解析结果，不再在 Web 运行时强制回退到 `window.location.origin`，便于本地导出页灵活切换到远程后端联调
+- 登录页新增 `DevServerSwitcher` 开发切服面板：可直接在 UI 上切换环境或手填 HTTP / WS 地址；应用配置后会刷新 `HttpClient` / `NetClient` 当前入口并清空旧会话，减少本地联调时频繁改 URL 参数或脚本常量
+- 新增 `BackgroundAudioKeeper` 自动加载单例：通过 `AudioStreamGenerator` 持续喂入静音帧，在所有场景中保持一个近乎静音的背景音频上下文；这是浏览器后台保活的尝试性增强，不替代断线重连与前后台恢复链路
+- `client/export_presets.cfg` 的 Web 自定义 CSS 改为固定 `780:1440` 纵横比，不再强制 `#canvas` 为固定像素尺寸；正式导出页现在会在浏览器内按同比例自适应缩放
+- `client/autoload/web_runtime_canvas.gd` 统一接管 Web 运行时画布比例：客户端启动后会在所有场景把 DOM `canvas`、父容器、`body` 与 `html` 约束为 `780:1440` 比例，并在当前浏览器可视区域内自动算出实际显示尺寸，因此登录页与主运行态都能按同一比例显示
+- `client/scripts/feature/world/world_controller.gd` 在 Web 环境下固定内部世界 `SubViewport` 为 `780x1440`，即使临时调试壳 `tmp_js_export.html` 继续按浏览器窗口给出较小容器，也不再把世界内部渲染尺寸改成 `621x834`
+- `client/scripts/ui/main_menu.gd` 为 `%TabsRow` / `%ItemsList` 增加稳定路径回退，修复运行态 `Node not found: %ItemsList` 导致主菜单初始化中断
+- `client/scenes/maps/fashtown/radiant_market.tscn` 删除 `TileSetAtlasSource_rbgk4` 中超出 `Tilemap_Platform.png` 可用高度的越界 atlas 条目，静态检查确认 `fashtown` 全部地图 atlas 坐标均未再超出贴图边界
+
 - 已重新启动 `backend/server/cmd/game-server`，并确认 `POST /api/v1/auth/login` 当前返回 `200` 与标准 JSON 结构
 
 ## 2026-05-20 客户端核心脚本注释补齐
