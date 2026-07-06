@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://bbqpe23lupqrj" path="res://scripts/feature/battle/battle_content_registry.gd" id="5"]
 [ext_resource type="Script" uid="uid://bik067xn4swgh" path="res://scripts/feature/battle/battle_command_status.gd" id="6"]
 [ext_resource type="Texture2D" uid="uid://bcqr7w3fwkyex" path="res://asset/分类/ui/战斗ui.png" id="7_battle_ui"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="8_3511k"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f8dlf"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -59,22 +60,6 @@ atlas = ExtResource("7_battle_ui")
 region = Rect2(80, 49, 20, 18)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o3k7m"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_choice_popup"]
-content_margin_left = 4.0
-content_margin_top = 4.0
-content_margin_right = 4.0
-content_margin_bottom = 4.0
-bg_color = Color(0.08, 0.1, 0.16, 0.92)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.55, 0.72, 0.9)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_te27b"]
 texture = ExtResource("3_2wmvw")
@@ -544,7 +529,6 @@ color = Color(0, 0, 0, 0.45)
 
 [node name="ChoiceModalCenter" type="CenterContainer" parent="UILayer/SelectionOverlay" unique_id=1100317882]
 unique_name_in_owner = true
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -554,9 +538,9 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter" unique_id=312578488]
-custom_minimum_size = Vector2(352, 0)
+custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_choice_popup")
+theme_override_styles/panel = ExtResource("8_3511k")
 
 [node name="ChoiceModalMargin" type="MarginContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal" unique_id=1032438068]
 layout_mode = 2
@@ -574,6 +558,86 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 2
 
+[node name="ChoiceButton1" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000002]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项1"
+alignment = 0
+
+[node name="ChoiceButton2" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000003]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项2"
+alignment = 0
+
+[node name="ChoiceButton3" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000004]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项3"
+alignment = 0
+
+[node name="ChoiceButton4" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000005]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项4"
+alignment = 0
+
+[node name="ChoiceButton5" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000006]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项5"
+alignment = 0
+
+[node name="ChoiceButton6" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000007]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项6"
+alignment = 0
+
+[node name="ChoiceButton7" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000008]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项7"
+alignment = 0
+
+[node name="ChoiceButton8" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000009]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项8"
+alignment = 0
+
+[node name="ChoiceButton9" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000010]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项9"
+alignment = 0
+
+[node name="ChoiceButton10" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000011]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 30
+text = "选项10"
+alignment = 0
+
 [node name="ChoicePageBar" type="HBoxContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=993441602]
 unique_name_in_owner = true
 layout_mode = 2
@@ -583,7 +647,7 @@ alignment = 1
 [node name="ChoicePrevButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1692660577]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 30
 text = "上一页"
 
 [node name="ChoicePageLabel" type="Label" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=931677179]
@@ -598,14 +662,8 @@ vertical_alignment = 1
 [node name="ChoiceNextButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1162737527]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 30
 text = "下一页"
-
-[node name="ChoiceCancelButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=1652907511]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 21
-text = "取消"
 
 [node name="TargetCancelBar" type="HBoxContainer" parent="UILayer/SelectionOverlay" unique_id=1771081969]
 unique_name_in_owner = true

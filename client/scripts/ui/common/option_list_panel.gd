@@ -33,14 +33,8 @@ const DEFAULT_PANEL_MIN_WIDTH: int = 264
 const MAX_OPTIONS_SCROLL_VIEWPORT_RATIO: float = 0.42
 ## 选项滚动区最小高度（像素）；避免只有 1 项时区域过扁。
 const MIN_OPTIONS_SCROLL_HEIGHT: float = 24.0
-## NPC 菜单项按钮高度（像素）；比 DialogueActionButtonTheme 默认 34 更紧凑。
-const NPC_ENTRY_BUTTON_HEIGHT: float = 16.0
-## NPC 菜单项按钮字号（像素）。
-const NPC_ENTRY_FONT_SIZE: int = 8
-## 头像行按钮默认高度（像素）。
-const PORTRAIT_ROW_HEIGHT: float = 22.0
-## 头像展示尺寸（像素）。
-const PORTRAIT_SIZE: float = 32.0
+## 场景中预置的最大选项行数量；需要更多行时直接在 option_list_panel.tscn 里追加节点。
+const MAX_PRESET_OPTION_ROWS: int = 30
 
 ## 玩家选中某个选项后向外广播完整选项快照。
 signal option_selected(option: Dictionary)
@@ -55,26 +49,62 @@ signal npc_selected(option: Dictionary)
 @onready var _top_close_button: BaseButton = %TopCloseButton
 ## 选项列表滚动容器。
 @onready var _options_scroll: ScrollContainer = %OptionsScroll
-## 动态选项按钮容器。
+## 预置选项行容器。
 @onready var _buttons_container: VBoxContainer = %ButtonsContainer
 ## 右下角关闭按钮所在行。
 @onready var _close_row: HBoxContainer = %CloseRow
 ## 通用样式关闭按钮。
 @onready var _close_button: RuntimeActionButton = %CloseButton
 
-## 当前选项索引到原始数据的映射；主要用于 portrait_text 模式。
+## 当前选项索引到原始数据的映射；按钮点击时用场景节点序号反查服务端选项数据。
 var _option_lookup: Dictionary = {}
+## 场景中预置的选项行；每行由 HBoxContainer + Portrait + OptionButton 组成。
+var _option_rows: Array[HBoxContainer] = []
+## 场景中预置的头像节点；NPC 菜单模式隐藏，头像列表模式按数据展示。
+var _option_portraits: Array[TextureRect] = []
+## 场景中预置的文字按钮；只在运行时写入服务端返回的文本，不再动态创建按钮。
+var _option_buttons: Array[Button] = []
 
 
 ## 初始化面板节点引用，并绑定右下角关闭按钮。
 func _ready() -> void:
 	super._ready()
+	_collect_option_row_nodes()
 	if _close_button != null:
 		_close_button.set_button_label("关闭")
-		if not _close_button.pressed.is_connected(close_menu):
-			_close_button.pressed.connect(close_menu)
-	if _top_close_button != null and not _top_close_button.pressed.is_connected(close_menu):
-		_top_close_button.pressed.connect(close_menu)
+	_connect_button_pressed(_close_button, close_menu)
+	_connect_button_pressed(_top_close_button, close_menu)
+
+
+## 收集 option_list_panel.tscn 中预置的选项行，并一次性绑定按钮点击信号。
+func _collect_option_row_nodes() -> void:
+	_option_rows.clear()
+	_option_portraits.clear()
+	_option_buttons.clear()
+	if _buttons_container == null:
+		return
+	for index: int in range(1, MAX_PRESET_OPTION_ROWS + 1):
+		var row: HBoxContainer = _buttons_container.get_node_or_null("OptionRow%d" % index) as HBoxContainer
+		if row == null:
+			continue
+		var portrait: TextureRect = row.get_node_or_null("Portrait") as TextureRect
+		var button: Button = row.get_node_or_null("OptionButton") as Button
+		if button == null:
+			continue
+		_option_rows.append(row)
+		_option_portraits.append(portrait)
+		_option_buttons.append(button)
+		var slot_index: int = _option_buttons.size() - 1
+		_connect_button_pressed(button, _on_preset_option_button_pressed.bind(slot_index))
+	_reset_option_rows()
+
+
+## 安全绑定按钮 pressed 信号；预置节点调整过程中若节点缺失，不会因空实例访问中断面板初始化。
+func _connect_button_pressed(button: BaseButton, handler: Callable) -> void:
+	if button == null:
+		return
+	if not button.pressed.is_connected(handler):
+		button.pressed.connect(handler)
 
 
 ## 刷新标题与选项列表。
@@ -89,7 +119,7 @@ func configure(title: String, options: Array, config: Dictionary = {}) -> void:
 		_panel.custom_minimum_size = Vector2(float(panel_min_width), 0.0)
 	_set_close_button_visible(show_close_button)
 	_option_lookup.clear()
-	_clear_buttons()
+	_reset_option_rows()
 	match render_mode:
 		RENDER_PORTRAIT_TEXT:
 			_build_portrait_text_options(options)
@@ -110,69 +140,71 @@ func close_menu() -> void:
 	super.close_menu()
 
 
-## 清空选项按钮容器。
-func _clear_buttons() -> void:
-	if _buttons_container == null:
-		return
-	for child: Node in _buttons_container.get_children():
-		_buttons_container.remove_child(child)
-		child.queue_free()
+## 重置所有预置选项行；这里只改变显隐和文本，不删除节点，方便编辑器中继续调整布局。
+func _reset_option_rows() -> void:
+	for index: int in range(_option_rows.size()):
+		var row: HBoxContainer = _option_rows[index]
+		var portrait: TextureRect = _option_portraits[index]
+		var button: Button = _option_buttons[index]
+		if row != null:
+			row.visible = false
+		if portrait != null:
+			portrait.visible = false
+			portrait.texture = null
+		if button != null:
+			button.text = ""
+			button.disabled = true
 
 
 ## 构建 NPC 菜单项按钮列表。
 func _build_npc_entry_options(options: Array) -> void:
+	var slot_index: int = 0
 	for option_variant: Variant in options:
 		if option_variant is not Dictionary:
 			continue
+		if slot_index >= _option_rows.size():
+			push_warning("OptionListPanel: 预置选项行不足，已忽略多余 NPC 菜单项。")
+			return
 		var option_data: Dictionary = (option_variant as Dictionary).duplicate(true)
-		var button: Button = Button.new()
+		var row: HBoxContainer = _option_rows[slot_index]
+		var portrait: TextureRect = _option_portraits[slot_index]
+		var button: Button = _option_buttons[slot_index]
+		if row == null or button == null:
+			continue
+		row.visible = true
+		if portrait != null:
+			portrait.visible = false
+			portrait.texture = null
 		button.text = _format_npc_entry_label(option_data)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		DialogueActionButtonTheme.apply(button, true)
-		_apply_npc_entry_button_style(button)
 		var entry_state: String = str(option_data.get("state", "available"))
-		if DISABLED_STATES.has(entry_state):
-			button.disabled = true
-		if not button.pressed.is_connected(_on_option_button_pressed.bind(option_data)):
-			button.pressed.connect(_on_option_button_pressed.bind(option_data))
-		_buttons_container.add_child(button)
+		button.disabled = DISABLED_STATES.has(entry_state)
+		_option_lookup[str(slot_index)] = option_data
+		slot_index += 1
 
 
 ## 构建头像 + 名称选项行。
 func _build_portrait_text_options(options: Array) -> void:
-	for index: int in range(options.size()):
-		var option_variant: Variant = options[index]
+	var slot_index: int = 0
+	for option_variant: Variant in options:
 		if option_variant is not Dictionary:
 			continue
+		if slot_index >= _option_rows.size():
+			push_warning("OptionListPanel: 预置选项行不足，已忽略多余头像列表项。")
+			return
 		var option_data: Dictionary = option_variant as Dictionary
-		var option_id: String = str(index)
-		var item_container: HBoxContainer = HBoxContainer.new()
-		item_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		item_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var portrait_rect: TextureRect = TextureRect.new()
-		portrait_rect.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
-		portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait_rect.texture = _resolve_portrait_texture(option_data)
-		item_container.add_child(portrait_rect)
-		var button: Button = Button.new()
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var row: HBoxContainer = _option_rows[slot_index]
+		var portrait_rect: TextureRect = _option_portraits[slot_index]
+		var button: Button = _option_buttons[slot_index]
+		if row == null or button == null:
+			continue
+		row.visible = true
+		if portrait_rect != null:
+			portrait_rect.texture = _resolve_portrait_texture(option_data)
+			portrait_rect.visible = portrait_rect.texture != null
 		button.text = _resolve_display_name(option_data)
-		button.focus_mode = Control.FOCUS_ALL
-		button.custom_minimum_size = Vector2(0.0, PORTRAIT_ROW_HEIGHT)
-		button.add_theme_font_size_override("font_size", NPC_ENTRY_FONT_SIZE)
-		if not button.pressed.is_connected(_on_portrait_option_pressed.bind(option_id)):
-			button.pressed.connect(_on_portrait_option_pressed.bind(option_id))
-		item_container.add_child(button)
-		_buttons_container.add_child(item_container)
-		_option_lookup[option_id] = option_data.duplicate(true)
-
-
-## 把 NPC 菜单项按钮压到更矮的字号布局；覆盖共用主题里的默认高度与字号。
-func _apply_npc_entry_button_style(button: Button) -> void:
-	button.add_theme_font_size_override("font_size", NPC_ENTRY_FONT_SIZE)
-	button.custom_minimum_size = Vector2(0.0, NPC_ENTRY_BUTTON_HEIGHT)
+		button.disabled = false
+		_option_lookup[str(slot_index)] = option_data.duplicate(true)
+		slot_index += 1
 
 
 ## 等待布局稳定后再测量选项高度，避免滚动区尺寸计算不准。
@@ -223,26 +255,17 @@ func _set_close_button_visible(should_show: bool) -> void:
 
 ## 打开面板后聚焦第一个可交互按钮。
 func _focus_first_button() -> void:
-	if _buttons_container == null or _buttons_container.get_child_count() <= 0:
-		return
-	var first_item: Node = _buttons_container.get_child(0)
-	if first_item is Button:
-		(first_item as Button).grab_focus()
-		return
-	if first_item is HBoxContainer and first_item.get_child_count() > 1:
-		var first_button: Button = first_item.get_child(1) as Button
-		if first_button != null:
-			first_button.grab_focus()
+	for index: int in range(_option_rows.size()):
+		var row: HBoxContainer = _option_rows[index]
+		var button: Button = _option_buttons[index]
+		if row != null and row.visible and button != null and not button.disabled:
+			button.grab_focus()
+			return
 
 
-## 转发 NPC 菜单项点击。
-func _on_option_button_pressed(option: Dictionary) -> void:
-	_emit_option_selected(option)
-
-
-## 转发头像列表项点击。
-func _on_portrait_option_pressed(option_id: String) -> void:
-	var option_variant: Variant = _option_lookup.get(option_id, {})
+## 转发预置按钮点击。
+func _on_preset_option_button_pressed(slot_index: int) -> void:
+	var option_variant: Variant = _option_lookup.get(str(slot_index), {})
 	if option_variant is not Dictionary:
 		return
 	_emit_option_selected(option_variant as Dictionary)

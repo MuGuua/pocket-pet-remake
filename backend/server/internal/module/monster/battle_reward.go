@@ -125,25 +125,11 @@ func (c *battleRewardCache) replace(entries []BattleRewardEntry) {
 		if entry.Status != 1 {
 			continue
 		}
-		if !shouldGrantRewardEntry(entry) {
-			continue
-		}
 		grouped[entry.MonsterID] = append(grouped[entry.MonsterID], entry)
 	}
 	c.mu.Lock()
 	c.entries = grouped
 	c.mu.Unlock()
-}
-
-func shouldGrantRewardEntry(entry BattleRewardEntry) bool {
-	dropRate := entry.DropRate
-	if dropRate == 0 {
-		dropRate = RewardRateMax
-	}
-	if dropRate >= RewardRateMax {
-		return true
-	}
-	return uint32(rand.Intn(int(RewardRateMax))) < dropRate
 }
 
 func (c *battleRewardCache) bundleForMonster(monsterID uint32) PVERewardBundle {
@@ -155,10 +141,15 @@ func (c *battleRewardCache) bundleForMonster(monsterID uint32) PVERewardBundle {
 }
 
 // BuildPVERewardBundle 把数据库/JSON 中读取出的奖励条目汇总为战斗结算可消费的奖励包。
+// 掉落概率必须在每次战斗结算时判定，不能在缓存刷新阶段提前过滤，
+// 否则后台保存 50% 掉落时只会在刷新缓存那一刻 roll 一次，后续战斗都会沿用同一个结果。
 func BuildPVERewardBundle(entries []BattleRewardEntry) PVERewardBundle {
 	bundle := PVERewardBundle{Items: []PVEItemReward{}, Attrs: []PVEAttrReward{}}
 	for _, entry := range entries {
 		if entry.Status != 1 {
+			continue
+		}
+		if !shouldGrantRewardEntryAtSettlement(entry) {
 			continue
 		}
 		switch entry.RewardType {
@@ -192,6 +183,17 @@ func BuildPVERewardBundle(entries []BattleRewardEntry) PVERewardBundle {
 		}
 	}
 	return bundle
+}
+
+func shouldGrantRewardEntryAtSettlement(entry BattleRewardEntry) bool {
+	dropRate := entry.DropRate
+	if dropRate == 0 {
+		dropRate = RewardRateMax
+	}
+	if dropRate >= RewardRateMax {
+		return true
+	}
+	return uint32(rand.Intn(int(RewardRateMax))) < dropRate
 }
 
 // RefreshBattleRewardCache 从数据库加载全部启用中的怪物战斗奖励配置。
