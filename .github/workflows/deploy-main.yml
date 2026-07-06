@@ -46,8 +46,16 @@
           run: |
             mkdir -p release/backend
             mkdir -p release/admin
+            mkdir -p release/nginx
+            mkdir -p release/web
             cp build/backend/game-server release/backend/game-server
             cp -R admin/dist release/admin/dist
+            cp deploy/nginx/pocket-pet.conf release/nginx/pocket-pet.conf
+            rsync -a --exclude '*.import' client/builds/web/ release/web/
+            test -f release/web/index.html
+            test -f release/web/index.js
+            test -f release/web/index.wasm
+            test -f release/web/index.pck
 
         - name: Upload release to server
           uses: appleboy/scp-action@v0.1.7
@@ -75,11 +83,41 @@
 
               ln -sfn "$RELEASE_DIR" "$APP_DIR/current"
 
+              # 未安装 nginx 时自动安装（Debian/Ubuntu 或 RHEL 系）
+              if ! command -v nginx >/dev/null 2>&1; then
+                if command -v apt-get >/dev/null 2>&1; then
+                  apt-get update
+                  DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+                elif command -v yum >/dev/null 2>&1; then
+                  yum install -y nginx
+                elif command -v dnf >/dev/null 2>&1; then
+                  dnf install -y nginx
+                else
+                  echo "nginx is not installed and no supported package manager was found" >&2
+                  exit 1
+                fi
+              fi
+
+              mkdir -p /var/www/pocket-pet-admin
+              mkdir -p /var/www/pocket-pet-web
+              mkdir -p /etc/nginx/conf.d
+
               rm -rf /var/www/pocket-pet-admin/*
               cp -R "$RELEASE_DIR/admin/dist/"* /var/www/pocket-pet-admin/
 
+              rm -rf /var/www/pocket-pet-web/*
+              cp -R "$RELEASE_DIR/web/"* /var/www/pocket-pet-web/
+
+              cp "$RELEASE_DIR/nginx/pocket-pet.conf" /etc/nginx/conf.d/pocket-pet.conf
+              nginx -t
+
+              systemctl enable nginx
               systemctl restart pocket-pet-backend
-              systemctl reload nginx
+              systemctl restart nginx
 
               systemctl is-active --quiet pocket-pet-backend
+              systemctl is-active --quiet nginx
               curl -fsS http://127.0.0.1:8080/healthz >/dev/null
+              curl -fsS http://127.0.0.1:9001/healthz >/dev/null
+              curl -fsS http://127.0.0.1:9002/healthz >/dev/null
+              curl -fsS http://127.0.0.1:9002/index.html >/dev/null
