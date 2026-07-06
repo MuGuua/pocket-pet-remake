@@ -47,15 +47,16 @@
             mkdir -p release/backend
             mkdir -p release/admin
             mkdir -p release/nginx
-            mkdir -p release/web
             cp build/backend/game-server release/backend/game-server
             cp -R admin/dist release/admin/dist
             cp deploy/nginx/pocket-pet.conf release/nginx/pocket-pet.conf
-            rsync -a --exclude '*.import' client/builds/web/ release/web/
-            test -f release/web/index.html
-            test -f release/web/index.js
-            test -f release/web/index.wasm
-            test -f release/web/index.pck
+            # Web 客户端静态包体积较大，改由本地手动导出后上传到服务器 /var/www/pocket-pet-web/
+            # mkdir -p release/web
+            # rsync -a --exclude '*.import' client/builds/web/ release/web/
+            # test -f release/web/index.html
+            # test -f release/web/index.js
+            # test -f release/web/index.wasm
+            # test -f release/web/index.pck
 
         - name: Upload release to server
           uses: appleboy/scp-action@v0.1.7
@@ -105,8 +106,9 @@
               rm -rf /var/www/pocket-pet-admin/*
               cp -R "$RELEASE_DIR/admin/dist/"* /var/www/pocket-pet-admin/
 
-              rm -rf /var/www/pocket-pet-web/*
-              cp -R "$RELEASE_DIR/web/"* /var/www/pocket-pet-web/
+              # Web 客户端静态包改由本地手动上传，流水线不覆盖 /var/www/pocket-pet-web/
+              # rm -rf /var/www/pocket-pet-web/*
+              # cp -R "$RELEASE_DIR/web/"* /var/www/pocket-pet-web/
 
               cp "$RELEASE_DIR/nginx/pocket-pet.conf" /etc/nginx/conf.d/pocket-pet.conf
               nginx -t
@@ -120,4 +122,5 @@
               curl -fsS http://127.0.0.1:8080/healthz >/dev/null
               curl -fsS http://127.0.0.1:9001/healthz >/dev/null
               curl -fsS http://127.0.0.1:9002/healthz >/dev/null
-              curl -fsS http://127.0.0.1:9002/index.html >/dev/null
+              # Web 静态页由手动上传，不在流水线里校验 index.html
+              # curl -fsS http://127.0.0.1:9002/index.html >/dev/null
