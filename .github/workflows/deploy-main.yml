@@ -121,6 +121,6 @@
               systemctl is-active --quiet nginx
               curl -fsS http://127.0.0.1:8080/healthz >/dev/null
               curl -fsS http://127.0.0.1:9001/healthz >/dev/null
-              curl -fsS http://127.0.0.1:9002/healthz >/dev/null
+              curl -fsS http://127.0.0.1/healthz >/dev/null
               # Web 静态页由手动上传，不在流水线里校验 index.html
-              # curl -fsS http://127.0.0.1:9002/index.html >/dev/null
+              # curl -fsS http://127.0.0.1/index.html >/dev/null
