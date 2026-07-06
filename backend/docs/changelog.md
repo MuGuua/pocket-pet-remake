@@ -1,6 +1,7 @@
 # 最新变更记录
 
 ## 2026-07-06
+- Web 本地调试画布改为铺满浏览器窗口：`client/autoload/web_runtime_canvas.gd` 在 Debug Web 运行时不再强制 `780:1440` 竖屏比例，避免桌面浏览器调试时画布宽度过窄、可视视口显示不全；正式 Web 构建仍保留 `780:1440` 移动端比例约束
 - Web 画布尺寸策略改为“固定比例、允许同比例缩放”：`client/autoload/web_runtime_canvas.gd` 不再把浏览器 `canvas` 锁死为 `780x1440` 像素，而是统一按 `780:1440` 纵横比在当前可视区域内自适应缩放；登录页与主运行态都会共用同一套全局比例约束，既避免拉伸变形，也兼容不同浏览器窗口大小
 - Web 运行时世界渲染改为固定设计尺寸：`client/scripts/feature/world/world_controller.gd` 在 Web 环境下不再把内部 `SubViewport` 跟随 `GameShell` 当前尺寸，而是强制按 `780x1440` 渲染，专门兜底 `tmp_js_export.html` 这类临时调试页把实际内部视口压成 `621x834` 的问题
 - Web 导出壳层改为固定比例盒子：`client/export_presets.cfg` 的自定义 CSS 不再强制固定 `#canvas` 像素尺寸，而是统一使用 `780:1440` 纵横比居中显示，确保正式导出页与运行时兜底策略一致

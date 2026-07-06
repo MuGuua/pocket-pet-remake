@@ -29,6 +29,8 @@ const DEFAULT_PASSWORD: String = "demo123"
 const DEFAULT_BATTLE_SKILL_ID: int = 1001
 # 普攻固定绑定的 slash.tres 视觉资源标识。
 const DEFAULT_BATTLE_SKILL_VISUAL_ID: String = "slash"
+## 是否打印背包完整 JSON 载荷；默认关闭，避免 BAG_LIST_RESP 物品较多时刷爆 Godot 输出窗口。
+const ENABLE_VERBOSE_BAG_PAYLOAD_LOGS: bool = false
 
 # 标记当前单例是否已经完成初始化绑定。
 var _bootstrapped: bool = false
@@ -788,6 +790,8 @@ func _log_battle_payload_debug(cmd: int, payload: Dictionary) -> void:
 
 # 调试构建下把背包/装备/丢弃载荷完整 JSON 输出到控制台。
 func _log_bag_payload_debug(cmd: int, payload: Dictionary) -> void:
+	if not ENABLE_VERBOSE_BAG_PAYLOAD_LOGS:
+		return
 	if not OS.is_debug_build():
 		return
 	if not CommandIds.is_bag_related(cmd):

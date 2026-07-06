@@ -314,12 +314,12 @@ func _is_player_speaker(speaker_name: String) -> bool:
 
 
 func _get_player_name() -> String:
-	if _has_some_global():
-		var some_global: Node = SomeGlobal
-		var configured_name: Variant = some_global.get("some_character_name")
-		if configured_name is String and not String(configured_name).is_empty():
-			return configured_name
-	return "玩家名"
+    if _has_some_global():
+        var some_global: Node = SomeGlobal
+        var configured_name: Variant = some_global.get("some_character_name")
+        if configured_name is String and not String(configured_name).is_empty():
+            return configured_name
+    return "玩家名"
 
 
 func _has_some_global() -> bool:

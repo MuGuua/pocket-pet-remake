@@ -7,6 +7,8 @@ const TARGET_CANVAS_WIDTH: float = 780.0
 const TARGET_CANVAS_HEIGHT: float = 1440.0
 ## 目标画布纵横比；浏览器内允许同比例缩放，但不允许拉伸变形。
 const TARGET_CANVAS_ASPECT: float = TARGET_CANVAS_WIDTH / TARGET_CANVAS_HEIGHT
+## Web 本地调试时直接铺满浏览器窗口，避免桌面浏览器按手机竖屏比例缩得过窄。
+const USE_FULL_BROWSER_VIEWPORT_IN_DEBUG: bool = true
 
 ## 只打印一次尺寸诊断日志，避免浏览器尺寸变化时反复刷屏。
 var _metrics_logged: bool = false
@@ -28,11 +30,12 @@ func _on_root_viewport_size_changed() -> void:
 
 
 ## 统一约束浏览器中的 html、body、canvas 与父容器尺寸，覆盖临时调试页默认自适应行为。
-## 这里不再锁死 780x1440 像素，只锁定 13:24 纵横比并按浏览器可视区域同比例缩放。
+## 本地调试构建铺满浏览器，方便在桌面浏览器看到完整视口；正式 Web 运行仍锁定 13:24 纵横比。
 func _apply_canvas_constraints() -> void:
     var script: String = """
     (function () {
         const aspect = %f;
+        const useFullBrowserViewport = %s;
         const root = document.documentElement;
         const body = document.body;
         const canvas = document.getElementById('canvas') || document.querySelector('canvas');
@@ -40,8 +43,8 @@ func _apply_canvas_constraints() -> void:
         const viewportWidth = window.innerWidth || 0;
         const viewportHeight = window.innerHeight || 0;
         let width = viewportWidth;
-        let height = 0;
-        if (viewportWidth > 0 && viewportHeight > 0) {
+        let height = viewportHeight;
+        if (!useFullBrowserViewport && viewportWidth > 0 && viewportHeight > 0) {
             if (viewportWidth / viewportHeight > aspect) {
                 height = viewportHeight;
                 width = Math.floor(height * aspect);
@@ -76,7 +79,7 @@ func _apply_canvas_constraints() -> void:
             canvas.style.minHeight = '0px';
             canvas.style.maxWidth = width + 'px';
             canvas.style.maxHeight = height + 'px';
-            canvas.style.aspectRatio = String(aspect);
+            canvas.style.aspectRatio = useFullBrowserViewport ? 'auto' : String(aspect);
             canvas.style.background = '#000';
         }
         if (status) {
@@ -97,7 +100,7 @@ func _apply_canvas_constraints() -> void:
         }
         return canvas.clientWidth + 'x' + canvas.clientHeight + '|' + viewportWidth + 'x' + viewportHeight;
     })();
-    """ % [TARGET_CANVAS_ASPECT]
+    """ % [TARGET_CANVAS_ASPECT, _bool_to_js(_should_use_full_browser_viewport())]
     var metrics: String = str(JavaScriptBridge.eval(script, true)).strip_edges()
     if _metrics_logged:
         return
@@ -111,3 +114,15 @@ func _apply_canvas_constraints() -> void:
             TARGET_CANVAS_ASPECT
         ]
     )
+
+
+## 判断当前 Web 运行是否应该铺满浏览器窗口；仅调试构建启用，避免影响正式移动端竖屏比例。
+func _should_use_full_browser_viewport() -> bool:
+    return USE_FULL_BROWSER_VIEWPORT_IN_DEBUG and OS.is_debug_build()
+
+
+## 把 GDScript 布尔值转为 JavaScript 字面量，避免字符串插值后出现 Godot 的 True/False 写法。
+func _bool_to_js(value: bool) -> String:
+    if value:
+        return "true"
+    return "false"

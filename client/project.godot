@@ -22,7 +22,6 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-WebRuntimeCanvas="*res://autoload/web_runtime_canvas.gd"
 GameState="*res://autoload/game_state.gd"
 MessageRouter="*res://autoload/message_router.gd"
 HttpClient="*res://autoload/http_client.gd"
@@ -30,6 +29,7 @@ NetClient="*res://autoload/net_client.gd"
 App="*res://autoload/app.gd"
 SomeGlobal="*res://autoload/some_global.gd"
 ItemIcons="*res://autoload/item_icons.gd"
+WebRuntimeCanvas="*res://autoload/web_runtime_canvas.gd"
 BackgroundAudioKeeper="*res://autoload/background_audio_keeper.gd"
 
 [dialogue_manager]
@@ -89,6 +89,7 @@ locale/translations_pot_files=PackedStringArray("res://dialogue/untitled.dialogu
 
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.0745098, 0.101961, 0.152941, 1)
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true
