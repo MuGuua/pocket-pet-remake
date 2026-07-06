@@ -110,6 +110,10 @@
               # rm -rf /var/www/pocket-pet-web/*
               # cp -R "$RELEASE_DIR/web/"* /var/www/pocket-pet-web/
 
+              # 移除系统自带默认站点，避免与客户端 80 端口 server_name 冲突导致 /healthz 404
+              rm -f /etc/nginx/sites-enabled/default
+              rm -f /etc/nginx/conf.d/default.conf
+
               cp "$RELEASE_DIR/nginx/pocket-pet.conf" /etc/nginx/conf.d/pocket-pet.conf
               nginx -t
 
