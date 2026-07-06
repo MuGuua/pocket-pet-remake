@@ -19,17 +19,16 @@ func _ready() -> void:
 func set_base_url(base_url: String) -> void:
 	_base_url = base_url.trim_suffix("/")
 
-## Web 导出包运行在浏览器里时，使用当前页面主机访问当前启用配置中的 HTTP 端口。
+## Web 导出包运行在浏览器里时，直接使用当前页面同源地址，避免误拼 :8080 等内网端口。
 func _configure_web_base_url() -> void:
 	if not OS.has_feature("web"):
 		return
 
-	var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
-	var host: String = str(JavaScriptBridge.eval("window.location.host", true))
-	if host.strip_edges().is_empty():
+	var origin: String = str(JavaScriptBridge.eval("window.location.origin", true)).strip_edges()
+	if origin.is_empty():
 		return
 
-	set_base_url(NetworkConfigScript.build_web_http_base_url(protocol, host))
+	set_base_url(origin)
 
 # 发起登录接口请求，并返回统一字典结构结果。
 func login(account: String, password: String) -> Dictionary:

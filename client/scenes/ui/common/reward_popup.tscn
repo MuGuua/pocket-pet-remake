@@ -10,8 +10,8 @@
 bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [node name="RewardPopup" type="CanvasLayer" unique_id=608777489]
-visible = false
 layer = 130
+visible = false
 script = ExtResource("1_script")
 
 [node name="Control" type="PanelContainer" parent="." unique_id=1441163648]
@@ -69,7 +69,6 @@ vertical_alignment = 1
 
 [node name="TopCloseButton" parent="Control/VBoxContainer/ScrollContainer/Title/HeaderRow" unique_id=1434025884 instance=ExtResource("3_close_btn")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(40, 36)
 custom_maximum_size = Vector2(40, 36)
 layout_mode = 2
 
