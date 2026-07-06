@@ -70,11 +70,11 @@ func _resolve_connect_url(url: String) -> String:
         return url
 
     var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
-    var hostname: String = str(JavaScriptBridge.eval("window.location.hostname", true))
-    if hostname.strip_edges().is_empty():
+    var host: String = str(JavaScriptBridge.eval("window.location.host", true))
+    if host.strip_edges().is_empty():
         return url
 
-    return NetworkConfigScript.build_web_ws_url(protocol, hostname)
+    return NetworkConfigScript.build_web_ws_url(protocol, host)
 
 # 主动关闭当前连接，并清空鉴权与心跳相关状态。
 func disconnect_from_server(code: int = 1000, reason: String = "") -> void:

@@ -25,11 +25,11 @@ func _configure_web_base_url() -> void:
 		return
 
 	var protocol: String = str(JavaScriptBridge.eval("window.location.protocol", true))
-	var hostname: String = str(JavaScriptBridge.eval("window.location.hostname", true))
-	if hostname.strip_edges().is_empty():
+	var host: String = str(JavaScriptBridge.eval("window.location.host", true))
+	if host.strip_edges().is_empty():
 		return
 
-	set_base_url(NetworkConfigScript.build_web_http_base_url(protocol, hostname))
+	set_base_url(NetworkConfigScript.build_web_http_base_url(protocol, host))
 
 # 发起登录接口请求，并返回统一字典结构结果。
 func login(account: String, password: String) -> Dictionary:

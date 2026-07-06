@@ -110,9 +110,18 @@
               # rm -rf /var/www/pocket-pet-web/*
               # cp -R "$RELEASE_DIR/web/"* /var/www/pocket-pet-web/
 
-              # 移除系统自带默认站点，避免与客户端 80 端口 server_name 冲突导致 /healthz 404
+              # 移除系统自带默认站点，避免与客户端 80/443 端口 server_name 冲突
               rm -f /etc/nginx/sites-enabled/default
               rm -f /etc/nginx/conf.d/default.conf
+
+              SSL_DIR="/etc/nginx/ssl/pocket-pet"
+              mkdir -p "$SSL_DIR"
+              if [ ! -f "$SSL_DIR/fullchain.pem" ] || [ ! -f "$SSL_DIR/privkey.pem" ]; then
+                openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                  -keyout "$SSL_DIR/privkey.pem" \
+                  -out "$SSL_DIR/fullchain.pem" \
+                  -subj "/CN=touwomugua.cn"
+              fi
 
               cp "$RELEASE_DIR/nginx/pocket-pet.conf" /etc/nginx/conf.d/pocket-pet.conf
               nginx -t
@@ -125,6 +134,7 @@
               systemctl is-active --quiet nginx
               curl -fsS http://127.0.0.1:8080/healthz >/dev/null
               curl -fsS http://127.0.0.1:9001/healthz >/dev/null
-              curl -fsS http://127.0.0.1/healthz >/dev/null
+              curl -fsSI -H "Host: touwomugua.cn" http://127.0.0.1/ | head -n1 | grep -q "301"
+              curl -fsSk -H "Host: touwomugua.cn" https://127.0.0.1/healthz >/dev/null
               # Web 静态页由手动上传，不在流水线里校验 index.html
               # curl -fsS http://127.0.0.1/index.html >/dev/null
