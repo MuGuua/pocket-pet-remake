@@ -4,14 +4,14 @@
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="1_sv62b"]
 
 [node name="RuntimeActionButton" type="Button" unique_id=2063865073]
-offset_right = 50.0
-offset_bottom = 29.0
+offset_right = 100.0
+offset_bottom = 58.0
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_pressed_color = Color(0.862745, 0.784314, 0.588235, 1)
 theme_override_colors/font_hover_color = Color(1, 1, 0.862745, 1)
 theme_override_colors/font_disabled_color = Color(0.705882, 0.705882, 0.705882, 0.8)
-theme_override_font_sizes/font_size = 9
+theme_override_font_sizes/font_size = 26
 theme_override_styles/normal = ExtResource("1_sv62b")
 theme_override_styles/pressed = ExtResource("1_sv62b")
 theme_override_styles/hover = ExtResource("1_sv62b")

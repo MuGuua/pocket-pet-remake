@@ -97,6 +97,8 @@ func (h *AdminSceneWildEncounterHandler) handleCreate(w http.ResponseWriter, r *
 		switch {
 		case errors.Is(err, monster.ErrInvalidAdminSceneWildEncounterInput):
 			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene wild encounter payload", nil)
+		case errors.Is(err, monster.ErrInvalidBattleRewardInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene wild encounter reward payload", nil)
 		case errors.Is(err, monster.ErrSceneWildEncounterConflict):
 			writeJSON(w, http.StatusConflict, http.StatusConflict, "scene wild encounter already exists", nil)
 		case errors.Is(err, monster.ErrInvalidMonsterReference):
@@ -121,6 +123,8 @@ func (h *AdminSceneWildEncounterHandler) handleUpdate(w http.ResponseWriter, r *
 		switch {
 		case errors.Is(err, monster.ErrInvalidAdminSceneWildEncounterInput):
 			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene wild encounter payload", nil)
+		case errors.Is(err, monster.ErrInvalidBattleRewardInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene wild encounter reward payload", nil)
 		case errors.Is(err, monster.ErrSceneWildEncounterNotFound):
 			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "scene wild encounter not found", nil)
 		case errors.Is(err, monster.ErrInvalidMonsterReference):

@@ -313,8 +313,8 @@
     "phase": "command",
     "active_actor_id": 20002,
     "active_pet_uid": 20002,
-    "command_deadline_ms": 1710000015000,
-    "auto_battle_enabled": true,
+    "command_deadline_ms": 0,
+    "auto_battle_enabled": false,
     "pending_actor_ids": [20002],
     "controllable_actor_ids": [20001, 20002]
   },
@@ -328,8 +328,8 @@
     "actors": [],
     "active_actor_id": 20002,
     "active_pet_uid": 20002,
-    "command_deadline_ms": 1710000015000,
-    "auto_battle_enabled": true,
+    "command_deadline_ms": 0,
+    "auto_battle_enabled": false,
     "pending_actor_ids": [20002],
     "controllable_actor_ids": [20001, 20002]
   },
@@ -344,7 +344,7 @@
       "actors": [],
       "active_actor_id": 20002,
       "active_pet_uid": 20002,
-      "command_deadline_ms": 1710000010000,
+      "command_deadline_ms": 0,
       "auto_battle_enabled": false,
       "pending_actor_ids": [20002],
       "controllable_actor_ids": [20001, 20002]
@@ -396,7 +396,7 @@
 - `active_dialogue` 仅在玩家断线前仍有未结束的 NPC 结构化剧情时返回；客户端应直接恢复对话面板，而不是重新发起 `NPC_ACTION_REQ`
 - `battle_start` / `battle_state` 仅在玩家重连时仍处于活动战斗中时返回；客户端应按正常战斗进入流程恢复界面
 - `battle_replay_states` 表示服务端保留的最近若干帧战斗状态；当客户端上报的 `last_frame` 落后但仍在缓存窗口内时，可先按顺序回放这些状态，再与当前状态对齐
-- `battle_result` 仅在断线期间战斗已经由服务端托管结束、但客户端还没收到结算时返回；客户端应按正常 `BATTLE_RESULT_PUSH` 的处理链路展示奖励并退出战斗界面
+- `battle_result` 仅在断线期间战斗已经被服务端结算、但客户端还没收到结算时返回；单人战斗断线会被判定为失败且不发放奖励，客户端应按正常 `BATTLE_RESULT_PUSH` 的处理链路退出战斗界面
 - 当前仍是“全量重同步优先、最近帧补发增强”的最小版；如果客户端落后帧数超过服务端缓存窗口，仍应回退到当前全量快照
 - `reconnect_token` 会在每次重连成功后轮换，旧 token 应立即作废
 
@@ -458,7 +458,8 @@
 
 - 服务端在 `ENTER_WORLD_RESP` 与 `WORLD_RESYNC_PUSH` 中下发当前地图暗雷配置
 - 地图内移动由客户端本地处理；客户端按 `encounter_rate`（万分比，800=8%）逐步判定是否触发
-- 触发后客户端发送 `2035 WILD_ENCOUNTER_REQ`，服务端校验通过后推送 `4011 BATTLE_START_PUSH`
+- 触发后客户端发送 `2035 WILD_ENCOUNTER_REQ`，服务端校验通过后按后台配置的怪物编队权重随机选择一个编队，再推送 `4011 BATTLE_START_PUSH`
+- `spawn_monster_ids` 仅作为客户端展示/兼容字段；实际开战怪物以服务端随机选中的后台 `formations` 编队为准
 - 无暗雷配置的地图返回 `enabled=false`
 
 ### 2021 MOVE_INTENT_REQ
@@ -536,7 +537,7 @@
 
 ### 2035 WILD_ENCOUNTER_REQ
 
-客户端在本地判定暗雷触发后上报，服务端校验 scene 与冷却后权威开战：
+客户端在本地判定暗雷触发后上报，服务端校验 scene 与冷却后权威开战；如果该地图配置了多个暗雷怪物编队，服务端会按各编队权重随机抽取一个编队：
 
 ```json
 {
@@ -1324,9 +1325,9 @@
 
 - `action_type=1`：提交技能/普通攻击动作，需携带 `actor_id`、`skill_id` 与 `target_id`
 - `action_type=4`：提交逃跑请求，当前最小 PVE 版本由服务端直接处理逃跑结果
-- `action_type=5`：切换服务端自动战斗开关，此时 `actor_id`、`skill_id`、`target_id` 可为 `0`
+- `action_type=5`：兼容旧客户端的自动战斗开关请求；服务端只返回 `accepted=true`，不保存自动状态，也不推进回合
 - `action_type=6`：PVE 战斗捕捉，需携带 `actor_id`（玩家侧单位）、`target_id`（敌方 actor_id）、`item_id`（捕捉球道具 ID）、`bag_slot_index`（背包格子）
-- `auto_battle_enabled`：仅在 `action_type=5` 时使用，表示当前请求希望服务端开启还是关闭托管
+- `auto_battle_enabled`：仅为兼容字段；当前自动战斗开关由客户端本地维护，服务端不读取该值参与结算
 
 捕捉请求示例：
 
@@ -1367,6 +1368,15 @@
   "auto_battle_enabled": true
 }
 ```
+
+当前回合流程：
+
+- 客户端进入 `phase=command` 后，在本地维护操作倒计时与自动战斗开关
+- 玩家需要为 `pending_actor_ids` 中本回合可控单位都选择动作；客户端收齐后逐条发送 `4001`
+- 服务端收到前 N-1 个动作时只返回 `4002 accepted=true`，不推送中间战斗状态
+- 服务端收到当前回合最后一个待行动单位意图后，结算本回合并推送 `4012 BATTLE_STATE_PUSH`；若战斗结束则继续推送 `4013`
+- 本地倒计时归零时，客户端自行生成默认自动战斗意图并提交；服务端不再有回合超时补行动逻辑
+- 只有一个玩家参与的战斗在玩家掉线后立即按失败结算，`reward_gold` / `reward_player_exp` / `rewards` / `drop_texts` 均为空或 `0`
 
 ### 4002 BATTLE_ACTION_RESP
 
@@ -1455,7 +1465,7 @@
   "phase": "command",
   "active_actor_id": 20001,
   "active_pet_uid": 20001,
-  "command_deadline_ms": 1710000015000,
+  "command_deadline_ms": 0,
   "auto_battle_enabled": false,
   "pending_actor_ids": [20001, 20002],
   "controllable_actor_ids": [20001, 20002]
@@ -1471,8 +1481,8 @@
 - `target_count` 表示技能配置的目标数量；当前单体技能通常为 `1`，`enemy_all` 可忽略该字段，`enemy_multi` 表示客户端先指定一个主目标，剩余目标数量由服务端按 `target_count` 自动补足
 - `animation_key` / `cast_color` / `impact_color` / `projectile` 为技能表现字段；当前仅用于客户端战斗表现层，真实命中、伤害、治疗与目标选择仍完全以服务端结算结果为准
 - `phase=command` 表示当前轮到客户端继续为己方单位收集动作
-- `command_deadline_ms` 表示当前命令阶段由服务端给出的权威截止时间；超时补行动由服务端负责
-- `auto_battle_enabled` 表示当前战斗是否已经进入服务端自动托管模式
+- `command_deadline_ms` 当前固定为 `0`；回合操作倒计时由客户端本地维护
+- `auto_battle_enabled` 当前固定为 `false`；自动战斗与取消自动战斗由客户端本地维护
 - `pending_actor_ids` 表示这一回合还没提交动作的己方单位
 - `active_actor_id` / `active_pet_uid` 明确当前应高亮的己方单位；若当前轮到人物 actor，则 `active_pet_uid=0`
 - 技能名称、伤害、回合推进和胜负判定都由服务端技能表和战斗状态机决定
@@ -1488,8 +1498,8 @@
   "phase": "command",
   "active_actor_id": 20001,
   "active_pet_uid": 20001,
-  "command_deadline_ms": 1710000030000,
-  "auto_battle_enabled": true,
+  "command_deadline_ms": 0,
+  "auto_battle_enabled": false,
   "pending_actor_ids": [20001, 20002],
   "controllable_actor_ids": [20001, 20002],
   "events": [
@@ -1588,6 +1598,10 @@
 
 - `reward_gold` / `reward_player_exp` 表示本场战斗实际发放的铜币与角色经验；失败或逃跑时通常为 `0`
 - `reward_gold` 会按 `1 铜币 = 1` 写入 `player_wallet.currency_copper_total`；钱包推送里的 `gold/silver/copper` 只是总铜币的展示拆分
+- 后台遭遇战奖励支持 `gold` / `silver` / `copper` 三种配置单位，服务端结算时统一换算进 `reward_gold` 铜币总量；历史怪物奖励里的 `gold` 会迁移为 `copper`
+- PVE 胜利的最终奖励 = 本次暗雷遭遇战固定奖励 + 随机到的编队中每个怪物自身奖励；怪物名和编队名不会影响奖励归属
+- 怪物奖励与遭遇战奖励每条都有 `drop_rate` 万分比掉落率，`10000` 表示必掉；暗雷编队槽位可用 `reward_enabled=false` 让该怪物只参战但不贡献怪物自身奖励
+- `rewards` 弹窗摘要里 `type="attr"` 时会携带 `attr_key` 与 `value`，表示本场战斗已直接写入玩家档案的属性加成
 - `player_gold` / `player_exp` 表示服务端发奖后的玩家当前累计值，客户端可直接用来刷新本地摘要；其中 `player_gold` 是从钱包快照映射出的兼容字段
 - 成功发放货币后，当前连接还会额外收到 `5091 WALLET_UPDATE_PUSH`，用于刷新 HUD / 背包面板里的钱包展示
 - `drop_texts` 表示本场战斗的文本掉落提示，当前只用于展示，不会写入背包

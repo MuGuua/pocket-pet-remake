@@ -537,22 +537,24 @@ func (h *BattleHandler) BuildReconnectSnapshot(ctx context.Context, playerID uin
 		}, nil, replayStates, nil
 }
 
-// HandleSessionDisconnect switches the player's active battle into server
-// custody mode so later sweeps can keep resolving rounds even after the socket
-// has gone away.
+// HandleSessionDisconnect ends single-player battles as failures and keeps the
+// legacy PVP loser handling. The result is cached so a reconnecting mobile
+// client can leave the battle scene cleanly without receiving rewards.
 func (h *BattleHandler) HandleSessionDisconnect(playerID uint64) {
 	if h == nil || h.battleService == nil || playerID == 0 {
 		return
 	}
 	if result := h.battleService.ResolveDisconnect(context.Background(), playerID); result != nil {
-		_ = h.pushBattleResultToParticipants(context.Background(), result, &battleSettlement{})
+		ctx := context.Background()
+		h.storeReconnectResult(playerID, h.buildBattleResultPayload(ctx, result, &battleSettlement{}))
+		_ = h.pushBattleResultToParticipants(ctx, result, &battleSettlement{})
 		return
 	}
 	h.battleService.EnableAutoForPlayer(context.Background(), playerID)
 }
 
-// StartCustodySweeper periodically progresses battles that have entered server
-// custody mode, covering heartbeat loss and fully disconnected sessions.
+// StartCustodySweeper keeps the legacy background hook alive. Auto progression
+// is currently disabled because command countdowns live on the client.
 func (h *BattleHandler) StartCustodySweeper(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -567,8 +569,8 @@ func (h *BattleHandler) StartCustodySweeper(ctx context.Context) {
 	}
 }
 
-// ProcessAutoCustodyOnce performs one custody sweep so tests and the runtime
-// loop can reuse the same auto progression path.
+// ProcessAutoCustodyOnce performs one legacy sweep. The battle service returns
+// no synthesized outcomes while client-owned round intents are enabled.
 func (h *BattleHandler) ProcessAutoCustodyOnce(ctx context.Context) error {
 	if h == nil || h.battleService == nil {
 		return nil
@@ -823,7 +825,7 @@ func (h *BattleHandler) buildBattleResultPayload(ctx context.Context, result *ba
 			h.itemService,
 			battlePopupRewardsFromResult(result, settlement),
 		),
-		DropTexts: append([]string{}, result.DropTexts...),
+		DropTexts:        append([]string{}, result.DropTexts...),
 		CaptureSuccess:   result.CaptureSuccess,
 		CaptureMonsterID: result.CaptureMonsterID,
 		CapturedPetID:    result.CapturedPetID,
@@ -863,7 +865,7 @@ func popupRewardsFromBattleResultSnapshot(result *battle.ResultSnapshot) []proto
 	if result == nil || !result.Win {
 		return nil
 	}
-	fallback := make([]protocol.QuestReward, 0, len(result.DropItems)+2)
+	fallback := make([]protocol.QuestReward, 0, len(result.DropItems)+len(result.AttrRewards)+2)
 	if result.RewardPlayerExp > 0 {
 		fallback = append(fallback, protocol.QuestReward{Type: "exp", Value: result.RewardPlayerExp})
 	}
@@ -879,6 +881,12 @@ func popupRewardsFromBattleResultSnapshot(result *battle.ResultSnapshot) []proto
 			ItemID: item.ItemID,
 			Count:  item.Quantity,
 		})
+	}
+	for _, attr := range result.AttrRewards {
+		if attr.AttrKey == "" || attr.Value == 0 {
+			continue
+		}
+		fallback = append(fallback, protocol.QuestReward{Type: "attr", AttrKey: attr.AttrKey, Value: attr.Value})
 	}
 	if len(fallback) == 0 {
 		return nil
@@ -1120,7 +1128,7 @@ func toBattleRewardEntries(result *battle.ResultSnapshot) []reward.Entry {
 	if result == nil {
 		return nil
 	}
-	entries := make([]reward.Entry, 0, len(result.DropItems)+2)
+	entries := make([]reward.Entry, 0, len(result.DropItems)+len(result.AttrRewards)+2)
 	if result.RewardGold > 0 {
 		entries = append(entries, reward.Entry{Type: "gold", Value: uint64(result.RewardGold)})
 	}
@@ -1137,6 +1145,12 @@ func toBattleRewardEntries(result *battle.ResultSnapshot) []reward.Entry {
 			Count:  dropItem.Quantity,
 		})
 	}
+	for _, attr := range result.AttrRewards {
+		if attr.AttrKey == "" || attr.Value == 0 {
+			continue
+		}
+		entries = append(entries, reward.Entry{Type: "attr", AttrKey: attr.AttrKey, Value: attr.Value})
+	}
 	return entries
 }
 
@@ -1145,7 +1159,7 @@ func (h *BattleHandler) buildBattleGrantEntries(ctx context.Context, playerID ui
 	if result == nil {
 		return nil, nil
 	}
-	entries := make([]reward.Entry, 0, len(result.DropItems)+2)
+	entries := make([]reward.Entry, 0, len(result.DropItems)+len(result.AttrRewards)+2)
 	if result.RewardGold > 0 {
 		entries = append(entries, reward.Entry{Type: "gold", Value: uint64(result.RewardGold)})
 	}
@@ -1170,6 +1184,12 @@ func (h *BattleHandler) buildBattleGrantEntries(ctx context.Context, playerID ui
 			ItemID: dropItem.ItemID,
 			Count:  dropItem.Quantity,
 		})
+	}
+	for _, attr := range result.AttrRewards {
+		if attr.AttrKey == "" || attr.Value == 0 {
+			continue
+		}
+		entries = append(entries, reward.Entry{Type: "attr", AttrKey: attr.AttrKey, Value: attr.Value})
 	}
 	return entries, nil
 }

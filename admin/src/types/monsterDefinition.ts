@@ -87,12 +87,14 @@ export interface AdminUpsertMonsterDefinitionPayload {
 export interface AdminMonsterBattleRewardEntry {
   id?: number;
   monster_id?: number;
-  reward_type: 'exp' | 'item' | 'gold';
+  reward_type: 'exp' | 'item' | 'gold' | 'silver' | 'copper' | 'attr';
   exp_target: 'player' | 'pet';
   item_id: number;
   item_name?: string;
   quantity: number;
   exp_value: number;
+  attr_key?: string;
+  drop_rate?: number;
   sort_order: number;
   status: number;
   grant_once?: number;
@@ -100,11 +102,13 @@ export interface AdminMonsterBattleRewardEntry {
 
 /** 保存战斗奖励时提交给服务端的条目（不含 id、monster_id、item_name 等展示字段）。 */
 export interface AdminMonsterBattleRewardSaveEntry {
-  reward_type: 'exp' | 'item' | 'gold';
+  reward_type: 'exp' | 'item' | 'gold' | 'silver' | 'copper' | 'attr';
   exp_target: 'player' | 'pet';
   item_id: number;
   quantity: number;
   exp_value: number;
+  attr_key?: string;
+  drop_rate?: number;
   sort_order: number;
   status: number;
   grant_once?: number;

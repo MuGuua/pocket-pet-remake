@@ -36,8 +36,25 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mp_fill"]
+bg_color = Color(0.22745098, 0.48235294, 0.972549, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_exp_fill"]
+bg_color = Color(0.23529412, 0.72156864, 0.30588236, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
 [node name="PetStatusHud" type="PanelContainer" unique_id=2057247650]
-custom_minimum_size = Vector2(148, 46)
+custom_minimum_size = Vector2(200, 100)
+offset_left = 399.0
+offset_right = 649.0
+offset_bottom = 80.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("1_script")
 
@@ -58,7 +75,7 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_y1mnv")
 
 [node name="PetButton" type="TextureButton" parent="Margin/HBox/PanelContainer" unique_id=584941501]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(68, 34)
 layout_mode = 2
 focus_mode = 0
 mouse_default_cursor_shape = 2
@@ -87,21 +104,43 @@ theme_override_constants/separation = 3
 
 [node name="NameLabel" type="Label" parent="Margin/HBox/VBox" unique_id=1037397437]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 15)
+custom_minimum_size = Vector2(0, 15)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81960785, 0.9019608, 0.9607843, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 16
 text = "宠物"
 vertical_alignment = 1
 clip_text = true
 
 [node name="HpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=451876426]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 8)
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_hp_fill")
 max_value = 1.0
 value = 1.0
+show_percentage = false
+
+[node name="MpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=1711279898]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_mp_fill")
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="ExpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=119846744]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_exp_fill")
+max_value = 1.0
+value = 0.5
 show_percentage = false

@@ -5,17 +5,22 @@ const CharacterVisualScene: PackedScene = preload("res://scenes/character/charac
 const DEFAULT_PLAYER_SKIN_ID: String = "初始形象男_001"
 const WORLD_IDLE_STATE: String = "idle"
 const WORLD_IDLE_DIRECTION: String = "down"
-## 中央展示区人物与宠物统一放大倍数；按用户要求相对原展示节点放大 1.5 倍。
-const PREVIEW_SCALE_MULTIPLIER: float = 1.5
-## 中央展示区底部背景条的中心 y（相对展示容器内部坐标），人物脚底需要对齐到这里。
-const SHOWCASE_GROUND_CENTER_Y: float = 55.0
-## 玩家形象在脚底对齐基础上的额外垂直偏移；负值表示向上移动（单位：像素）。
-const PREVIEW_PLAYER_VERTICAL_OFFSET_Y: float = -3.0
+const PREVIEW_ANCHOR_ROOT_PATH: NodePath = NodePath("PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer")
+const PLAYER_DEMO_CANDIDATE_NAMES: Array[String] = ["Player", "player"]
+const PET_DEMO_CANDIDATE_NAMES: Array[String] = ["Pet", "pet"]
 
+@export_group("Preview Position")
+## 人物真实形象相对 Player/player 占位节点的额外位置偏移；用于在背包面板实例 Inspector 中微调显示位置。
+@export var player_preview_position_offset: Vector2 = Vector2.ZERO
+## 宠物真实形象相对 Pet/pet 占位节点的额外位置偏移；用于在背包面板实例 Inspector 中微调显示位置。
+@export var pet_preview_position_offset: Vector2 = Vector2.ZERO
+
+## 中央展示区里承载人物/宠物占位节点的父节点；运行时锚点会插入到这里。
+@onready var _preview_anchor_root: Node = get_node_or_null(PREVIEW_ANCHOR_ROOT_PATH)
 ## 中央展示区中用于占位的玩家演示节点；脚本会读取其位置和缩放作为真实形象锚点。
-@onready var _player_demo_sprite: AnimatedSprite2D = $PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer/Player
+@onready var _player_demo_sprite: AnimatedSprite2D = _find_demo_sprite(PLAYER_DEMO_CANDIDATE_NAMES)
 ## 中央展示区中用于占位的宠物演示节点；脚本会读取其位置和缩放作为真实形象锚点。
-@onready var _pet_demo_sprite: AnimatedSprite2D = $PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer/Pet
+@onready var _pet_demo_sprite: AnimatedSprite2D = _find_demo_sprite(PET_DEMO_CANDIDATE_NAMES)
 ## 承载玩家真实形象的运行时包装节点；包装节点负责沿用场景里原本的摆放位置与缩放。
 var _player_visual_anchor: Node2D = null
 ## 承载宠物真实形象的运行时包装节点；包装节点负责沿用场景里原本的摆放位置与缩放。
@@ -46,8 +51,8 @@ func _exit_tree() -> void:
 
 ## 创建玩家/宠物运行时形象，并复用场景中演示节点的摆放参数作为锚点。
 func _build_runtime_visuals() -> void:
-	_player_visual_anchor = _build_visual_anchor(_player_demo_sprite, "PlayerVisualAnchor", PREVIEW_PLAYER_VERTICAL_OFFSET_Y)
-	_pet_visual_anchor = _build_visual_anchor(_pet_demo_sprite, "PetVisualAnchor", 0.0)
+	_player_visual_anchor = _build_visual_anchor(_player_demo_sprite, "PlayerVisualAnchor", player_preview_position_offset)
+	_pet_visual_anchor = _build_visual_anchor(_pet_demo_sprite, "PetVisualAnchor", pet_preview_position_offset)
 	_player_visual = _instantiate_character_visual(_player_visual_anchor)
 	_pet_visual = _instantiate_character_visual(_pet_visual_anchor)
 
@@ -98,19 +103,31 @@ func _resolve_first_lineup_pet() -> Dictionary:
 	return {}
 
 
-## 以旧演示节点的位置/缩放创建一个包装节点，并隐藏演示节点本身。
-func _build_visual_anchor(demo_sprite: AnimatedSprite2D, anchor_name: String, extra_offset_y: float = 0.0) -> Node2D:
+## 按候选名称查找占位 AnimatedSprite2D；支持编辑器中使用 Player/Pet 或 player/pet 命名。
+func _find_demo_sprite(candidate_names: Array[String]) -> AnimatedSprite2D:
+	if _preview_anchor_root == null:
+		return null
+	for candidate_name: String in candidate_names:
+		var candidate_node: Node = _preview_anchor_root.get_node_or_null(candidate_name)
+		if candidate_node is AnimatedSprite2D:
+			return candidate_node as AnimatedSprite2D
+	return null
+
+
+## 以场景中 Player/Pet 演示节点的位置和缩放创建包装节点，并叠加 Inspector 暴露的位置偏移。
+func _build_visual_anchor(demo_sprite: AnimatedSprite2D, anchor_name: String, position_offset: Vector2) -> Node2D:
+	if demo_sprite == null:
+		return null
 	var anchor: Node2D = Node2D.new()
 	anchor.name = anchor_name
-	if demo_sprite != null:
-		anchor.position = _resolve_preview_anchor_position(demo_sprite)
-		anchor.position.y += extra_offset_y
-		anchor.scale = demo_sprite.scale * PREVIEW_SCALE_MULTIPLIER
-		var parent_node: Node = demo_sprite.get_parent()
-		if parent_node != null:
-			parent_node.add_child(anchor)
-			parent_node.move_child(anchor, demo_sprite.get_index())
-		demo_sprite.hide()
+	anchor.position = demo_sprite.position + position_offset
+	anchor.scale = demo_sprite.scale
+	anchor.z_index = demo_sprite.z_index
+	var parent_node: Node = demo_sprite.get_parent()
+	if parent_node != null:
+		parent_node.add_child(anchor)
+		parent_node.move_child(anchor, demo_sprite.get_index())
+	demo_sprite.hide()
 	return anchor
 
 
@@ -124,13 +141,3 @@ func _instantiate_character_visual(anchor: Node2D) -> CharacterVisual:
 	character_visual.position = Vector2.ZERO
 	anchor.add_child(character_visual)
 	return character_visual
-
-
-## 统一把预览锚点向下调整：人物脚底对齐到底部背景中心，宠物沿用同样的下移量保持相对站位。
-func _resolve_preview_anchor_position(demo_sprite: AnimatedSprite2D) -> Vector2:
-	if demo_sprite == null:
-		return Vector2.ZERO
-	var moved_position: Vector2 = demo_sprite.position
-	var player_feet_offset_y: float = SHOWCASE_GROUND_CENTER_Y - _player_demo_sprite.position.y if _player_demo_sprite != null else 0.0
-	moved_position.y += player_feet_offset_y
-	return moved_position

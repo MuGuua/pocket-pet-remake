@@ -282,8 +282,8 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		sceneID                                                                int64
 		posX, posY                                                             int64
 		hp, hpMax                                                              int64
-		vigor, vigorMax                                                      int64
-		spirit, spiritMax                                                    int64
+		vigor, vigorMax                                                        int64
+		spirit, spiritMax                                                      int64
 		atk, def, spd, mana                                                    int64
 		hitPct, dodgePct                                                       int64
 		critRatePct, critDmgPct                                                int64
@@ -477,10 +477,10 @@ OFFSET ` + nextArg((query.Page-1)*query.PageSize)
 	items := make([]player.AdminPlayerSummary, 0, query.PageSize)
 	for rows.Next() {
 		var (
-			item                                   player.AdminPlayerSummary
-			playerID, level, gold, status, sceneID int64
+			item                                          player.AdminPlayerSummary
+			playerID, level, gold, status, sceneID        int64
 			hp, hpMax, vigor, vigorMax, spirit, spiritMax int64
-			lastLoginAt                            sql.NullTime
+			lastLoginAt                                   sql.NullTime
 		)
 		if err := rows.Scan(
 			&playerID,
@@ -536,8 +536,8 @@ func (r *PlayerRepository) FindAdminDetailByPlayerID(ctx context.Context, player
 		gold, status, sceneID                                                  int64
 		posX, posY                                                             int64
 		hp, hpMax                                                              int64
-		vigor, vigorMax                                                      int64
-		spirit, spiritMax                                                    int64
+		vigor, vigorMax                                                        int64
+		spirit, spiritMax                                                      int64
 		atk, def, spd, mana                                                    int64
 		hitPct, dodgePct                                                       int64
 		critRatePct, critDmgPct                                                int64
@@ -892,11 +892,11 @@ func (r *PlayerRepository) loadAdminPlayerEquippedItems(ctx context.Context, pla
 
 	for rows.Next() {
 		var (
-			equipSlot     string
-			itemUID       string
-			itemID        int64
-			itemName      string
-			enhanceLevel  int64
+			equipSlot    string
+			itemUID      string
+			itemID       int64
+			itemName     string
+			enhanceLevel int64
 		)
 		if err := rows.Scan(&equipSlot, &itemUID, &itemID, &itemName, &enhanceLevel); err != nil {
 			return nil, err
@@ -950,6 +950,56 @@ func (r *PlayerRepository) CountActivePlayers(ctx context.Context) (uint64, erro
 		return 0, err
 	}
 	return uint64(total), nil
+}
+
+// AddRewardAttribute 只允许白名单字段累加，避免奖励配置把任意 SQL 列名拼进更新语句。
+func (r *PlayerRepository) AddRewardAttribute(ctx context.Context, playerID uint64, attrKey string, value uint32) error {
+	columnName := ""
+	alsoIncreaseHP := false
+	switch strings.ToLower(strings.TrimSpace(attrKey)) {
+	case "free_attr_points":
+		columnName = "free_attr_points"
+	case "strength":
+		columnName = "strength"
+	case "vitality":
+		columnName = "vitality"
+	case "agility":
+		columnName = "agility"
+	case "mind":
+		columnName = "mind"
+	case "hp_max":
+		columnName = "hp_max"
+		alsoIncreaseHP = true
+	case "atk":
+		columnName = "atk"
+	case "def":
+		columnName = "def"
+	case "spd":
+		columnName = "spd"
+	case "mana":
+		columnName = "mana"
+	default:
+		return player.ErrInvalidRewardAttrKey
+	}
+	if playerID == 0 || value == 0 {
+		return nil
+	}
+	query := fmt.Sprintf("UPDATE player SET %s = %s + $2 WHERE id = $1 AND status = 1", columnName, columnName)
+	if alsoIncreaseHP {
+		query = fmt.Sprintf("UPDATE player SET %s = %s + $2, hp = hp + $2 WHERE id = $1 AND status = 1", columnName, columnName)
+	}
+	result, err := r.db.ExecContext(ctx, query, playerID, value)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return player.ErrPlayerNotFound
+	}
+	return nil
 }
 
 func mapPlayerPersistenceError(err error) error {

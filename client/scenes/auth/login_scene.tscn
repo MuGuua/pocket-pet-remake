@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://b8af6df25lc6w"]
+[gd_scene format=3 uid="uid://b8af6df25lc6w"]
 
 [ext_resource type="Script" uid="uid://cl2sa1kluibbo" path="res://scripts/auth/login_scene.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://c784o77teiplw" path="res://asset/login_bg.png" id="2_kgfph"]
@@ -6,12 +6,12 @@
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_s47n8"]
 texture = ExtResource("2_kgfph")
 
-[node name="LoginScene" type="Node"]
+[node name="LoginScene" type="Node" unique_id=348628404]
 script = ExtResource("1")
 
-[node name="UiLayer" type="CanvasLayer" parent="."]
+[node name="UiLayer" type="CanvasLayer" parent="." unique_id=2042486924]
 
-[node name="PanelContainer" type="PanelContainer" parent="UiLayer"]
+[node name="PanelContainer" type="PanelContainer" parent="UiLayer" unique_id=1754000738]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -19,125 +19,122 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_s47n8")
 
-[node name="LoginCard" type="PanelContainer" parent="UiLayer/PanelContainer"]
-custom_minimum_size = Vector2(260, 480)
+[node name="LoginCard" type="PanelContainer" parent="UiLayer/PanelContainer" unique_id=1900771536]
 layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
 
-[node name="VBox" type="VBoxContainer" parent="UiLayer/PanelContainer/LoginCard"]
+[node name="VBox" type="VBoxContainer" parent="UiLayer/PanelContainer/LoginCard" unique_id=349645792]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="TitleLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="TitleLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=83763732]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 36
 text = "口袋精灵demo"
 horizontal_alignment = 1
 
-[node name="AccountLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="AccountLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=1830989906]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "账号"
 
-[node name="AccountInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="AccountInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=876209745]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 placeholder_text = "请输入账号"
 
-[node name="PasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="PasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=654402963]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "密码"
 
-[node name="PasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="PasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=606838627]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 placeholder_text = "请输入密码"
 secret = true
 
-[node name="ConfirmPasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="ConfirmPasswordLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=904063895]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "确认密码"
 
-[node name="ConfirmPasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="ConfirmPasswordInput" type="LineEdit" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=285986992]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 placeholder_text = "请再次输入密码"
 secret = true
 
-[node name="GenderLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="GenderLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=66382306]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "初始形象"
 
-[node name="GenderOptionButton" type="OptionButton" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="GenderOptionButton" type="OptionButton" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=228674099]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 11
 
-[node name="ActionButtons" type="HBoxContainer" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="ActionButtons" type="HBoxContainer" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=1449117551]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="LoginButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons"]
+[node name="LoginButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons" unique_id=499299]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "登录并进入世界"
 
-[node name="RegisterButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons"]
+[node name="RegisterButton" type="Button" parent="UiLayer/PanelContainer/LoginCard/VBox/ActionButtons" unique_id=1934375951]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 22
 text = "注册"
 
-[node name="HintLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="HintLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=1304225988]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "演示账号: demo  演示密码: demo123"
 autowrap_mode = 2
 
-[node name="StatusLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="StatusLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=992455412]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "连接状态: idle"
 
-[node name="SceneLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="SceneLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=152708878]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "场景: 未进入"
 
-[node name="PlayerLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="PlayerLabel" type="Label" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=67220410]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "玩家: 未登录"
 
-[node name="LogOutput" type="RichTextLabel" parent="UiLayer/PanelContainer/LoginCard/VBox"]
+[node name="LogOutput" type="RichTextLabel" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=1055572468]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 86)
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 10
+theme_override_font_sizes/normal_font_size = 20
 scroll_following = true
 
-[node name="TransitionOverlay" type="ColorRect" parent="UiLayer"]
+[node name="TransitionOverlay" type="ColorRect" parent="UiLayer" unique_id=812509551]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15

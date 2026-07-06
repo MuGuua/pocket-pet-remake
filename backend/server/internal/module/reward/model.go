@@ -17,6 +17,7 @@ type Entry struct {
 	ItemName string `json:"item_name"`
 	Count    uint64 `json:"count"`
 	PetID    uint64 `json:"pet_id"`
+	AttrKey  string `json:"attr_key"`
 }
 
 // GrantInput 描述一次统一发奖请求的完整归因信息。
@@ -33,12 +34,12 @@ type GrantInput struct {
 // GrantResult 返回统一发奖已经正式生效后的聚合结果。
 // Handler 只需要消费这里的权威结果做推送，不再自己重复判断奖励是否成功。
 type GrantResult struct {
-	Granted          []Entry          `json:"granted"`
-	BagUpdated       bool             `json:"bag_updated"`
-	GrantedPets      []pet.Pet        `json:"granted_pets"`
-	Wallet           *wallet.Snapshot `json:"wallet,omitempty"`
-	PlayerProfile    *player.Profile              `json:"player_profile,omitempty"`
-	LevelUpCount     uint32                       `json:"level_up_count"`
-	AttrPointsGained uint32                       `json:"attr_points_gained"`
+	Granted          []Entry                        `json:"granted"`
+	BagUpdated       bool                           `json:"bag_updated"`
+	GrantedPets      []pet.Pet                      `json:"granted_pets"`
+	Wallet           *wallet.Snapshot               `json:"wallet,omitempty"`
+	PlayerProfile    *player.Profile                `json:"player_profile,omitempty"`
+	LevelUpCount     uint32                         `json:"level_up_count"`
+	AttrPointsGained uint32                         `json:"attr_points_gained"`
 	CombatBonusGain  progression.LevelUpCombatBonus `json:"level_up_bonus,omitempty"`
 }

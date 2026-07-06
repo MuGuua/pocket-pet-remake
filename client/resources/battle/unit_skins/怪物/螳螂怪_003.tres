@@ -112,5 +112,5 @@ animation_map = {
 "死亡": "死亡",
 "酸液喷射": "普攻"
 }
-sprite_scale = Vector2(0.18, 0.18)
+sprite_scale = Vector2(1, 1)
 status_offset = Vector2(-90, -112)

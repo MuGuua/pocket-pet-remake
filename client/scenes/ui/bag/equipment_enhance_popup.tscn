@@ -1,61 +1,62 @@
 [gd_scene format=3 uid="uid://cne7ikybrvdsl"]
 
 [ext_resource type="Script" uid="uid://ch6ijehnxyfy4" path="res://scripts/ui/bag/equipment_enhance_popup.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_owufn"]
+[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="3_e50xo"]
 [ext_resource type="StyleBox" uid="uid://cw073iiwxv8v1" path="res://resources/ui/equipment_enhance_popup_inner.tres" id="3_inner"]
+[ext_resource type="Texture2D" uid="uid://ndp7yrkh47p6" path="res://asset/分类/ui/menu-fan7.png" id="3_mpjpi"]
 [ext_resource type="Texture2D" uid="uid://cjhwr25kaj4k2" path="res://asset/分类/菜单表情/spritesheet-32px.png" id="4_vthj8"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="5_action_btn"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="6_close_btn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
-texture = ExtResource("2_owufn")
-texture_margin_left = 8.0
-texture_margin_top = 8.0
-texture_margin_right = 8.0
-texture_margin_bottom = 8.0
+texture = ExtResource("3_mpjpi")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx6cj"]
 bg_color = Color(0.24296579, 0.24296576, 0.24296564, 0.3529412)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i7iau"]
 bg_color = Color(0.03137255, 0.03137255, 0.03137255, 0.20392157)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f8dlf"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_bottom = 1
+border_width_bottom = 2
 border_color = Color(0.43529412, 0.43529412, 0.43529412, 0.49019608)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h8ylg"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_top = 1
-border_width_bottom = 1
+border_width_top = 2
+border_width_bottom = 2
 border_color = Color(0.43529412, 0.43529412, 0.43529412, 0.49019608)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_enhance_progress_bg"]
-content_margin_left = 1.0
-content_margin_top = 1.0
-content_margin_right = 1.0
-content_margin_bottom = 1.0
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
 bg_color = Color(0.15, 0.15, 0.15, 0.55)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_enhance_progress_fill"]
 bg_color = Color(0, 0, 0, 0)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ehdik"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_bottom = 1
+border_width_bottom = 2
 border_color = Color(0.43529412, 0.43529412, 0.43529412, 0.49019608)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_a5yub"]
@@ -74,10 +75,10 @@ texture = SubResource("AtlasTexture_mpjpi")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_material_btn"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
 border_color = Color(0.435294, 0.435294, 0.435294, 0.35)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_i7no6"]
@@ -106,7 +107,7 @@ mouse_filter = 2
 color = Color(0.039216, 0.078431, 0.141176, 0.72)
 
 [node name="CenterContainer" type="CenterContainer" parent="." unique_id=177734692]
-custom_maximum_size = Vector2(200, -1)
+custom_maximum_size = Vector2(800, -1)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -120,25 +121,41 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
 
+[node name="ColorRect" parent="CenterContainer/PopupPanel" unique_id=1617070159 instance=ExtResource("3_e50xo")]
+layout_mode = 2
+
 [node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel" unique_id=63063429]
 layout_mode = 2
-theme_override_constants/separation = 0
+theme_override_constants/separation = 4
 
 [node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox" unique_id=63063430]
 layout_mode = 2
 
 [node name="HeaderSpacer" type="Control" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" unique_id=63063431]
+custom_minimum_size = Vector2(60, 60)
+custom_maximum_size = Vector2(60, 60)
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="TopCloseButton" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" instance=ExtResource("6_close_btn")]
-unique_name_in_owner = true
+[node name="Label" type="Label" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" unique_id=888974287]
+custom_minimum_size = Vector2(583, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 45
+text = "锻造"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TopCloseButton" parent="CenterContainer/PopupPanel/RootVBox/HeaderRow" unique_id=725209331 instance=ExtResource("6_close_btn")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 60)
+custom_maximum_size = Vector2(80, 80)
+layout_mode = 2
+mouse_filter = 0
 
 [node name="ItemInfoPanel" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox" unique_id=2115354223]
-custom_minimum_size = Vector2(178, 34)
-custom_maximum_size = Vector2(-1, 34)
+custom_minimum_size = Vector2(712, 0)
+custom_maximum_size = Vector2(712, -1)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 0
@@ -146,21 +163,21 @@ theme_override_styles/panel = ExtResource("3_inner")
 
 [node name="ItemInfoMargin" type="MarginContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel" unique_id=1535672268]
 layout_mode = 2
-theme_override_constants/margin_left = -2
+theme_override_constants/margin_left = -8
 
 [node name="ItemInfoHBox" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin" unique_id=2109414149]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 24
 
 [node name="IconCell" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox" unique_id=874913568]
-custom_minimum_size = Vector2(24, 24)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_tx6cj")
 
 [node name="ItemIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/IconCell" unique_id=612550423]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(24, 24)
-custom_maximum_size = Vector2(-1, 24)
+custom_minimum_size = Vector2(96, 96)
+custom_maximum_size = Vector2(-1, 96)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 4
@@ -168,29 +185,29 @@ stretch_mode = 4
 [node name="ItemEnhanceBadge" type="Label" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/IconCell" unique_id=1023561390]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 8
+size_flags_vertical = 1
 theme_override_colors/font_color = Color(0.509804, 0.835294, 0.388235, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 32
 text = "+0"
 horizontal_alignment = 2
 vertical_alignment = 2
 
 [node name="ItemMetaRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox" unique_id=216488200]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 32
 
 [node name="ItemInfoTextVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/ItemMetaRow" unique_id=1996635462]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="ItemNameLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/ItemMetaRow/ItemInfoTextVBox" unique_id=1224652136]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 32
 text = "新手长剑"
 
 [node name="ItemMetaDetailsRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/ItemMetaRow/ItemInfoTextVBox" unique_id=706968669]
@@ -198,17 +215,17 @@ layout_mode = 2
 
 [node name="ItemLevelLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/ItemMetaRow/ItemInfoTextVBox/ItemMetaDetailsRow" unique_id=1887980066]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94902, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 27
 text = "等级: 1"
 
 [node name="ItemSlotLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/ItemInfoPanel/ItemInfoMargin/ItemInfoHBox/ItemMetaRow/ItemInfoTextVBox/ItemMetaDetailsRow" unique_id=550020186]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94902, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 27
 text = "部位: 武器"
 
 [node name="PreviewSectionPanel" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox" unique_id=1345692680]
@@ -217,93 +234,93 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_i7iau")
 
 [node name="PreviewSectionVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel" unique_id=187729819]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="PreviewHeaderMargin" type="MarginContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=1419668201]
 layout_mode = 2
-theme_override_constants/margin_left = 2
-theme_override_constants/margin_right = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 8
 
 [node name="PreviewHeaderBar" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderMargin" unique_id=1911214749]
-custom_minimum_size = Vector2(0, 14)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_f8dlf")
 
 [node name="PreviewHeaderLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderMargin/PreviewHeaderBar" unique_id=1405779072]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.956863, 0.8, 0.392157, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "强化预览"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="PreviewHeaderRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=2133193443]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 16
 
 [node name="PreviewHeaderStatSpacer" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderRow" unique_id=2041328074]
-custom_minimum_size = Vector2(15, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = " "
 
 [node name="CurrentHeaderLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderRow" unique_id=883920690]
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(136, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.580392, 0.580392, 0.721569, 1)
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "当前等级"
 horizontal_alignment = 1
 
 [node name="PreviewHeaderArrowSpacer" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderRow" unique_id=1290927174]
-custom_minimum_size = Vector2(60, 0)
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = " "
 
 [node name="NextHeaderLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/PreviewHeaderRow" unique_id=878013328]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.580392, 0.580392, 0.721569, 1)
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "下一等级"
 
 [node name="PreviewRows" type="VBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=1255412996]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 8
 
 [node name="SuccessRateMargin" type="MarginContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=362212331]
 layout_mode = 2
-theme_override_constants/margin_left = 2
-theme_override_constants/margin_right = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 8
 
 [node name="SuccessRateBar" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/SuccessRateMargin" unique_id=583572219]
-custom_minimum_size = Vector2(0, 14)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_h8ylg")
 
 [node name="SuccessRateLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/SuccessRateMargin/SuccessRateBar" unique_id=1529017820]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "强化成功率: 100%"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="EnhancePresentationMargin" type="MarginContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=1847293011]
 layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 2
-theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 8
 
 [node name="EnhancePresentationRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/EnhancePresentationMargin" unique_id=1847293012]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 16
 
 [node name="EnhanceProgressSlot" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/EnhancePresentationMargin/EnhancePresentationRow" unique_id=1847293015]
-custom_minimum_size = Vector2(0, 12)
+custom_minimum_size = Vector2(0, 48)
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -322,8 +339,8 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_enhance_progress_fill")
 show_percentage = false
 
 [node name="EnhanceResultSlot" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/EnhancePresentationMargin/EnhancePresentationRow" unique_id=1847293016]
-custom_minimum_size = Vector2(64, 12)
-custom_maximum_size = Vector2(64, 12)
+custom_minimum_size = Vector2(256, 48)
+custom_maximum_size = Vector2(256, 48)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 4
@@ -336,7 +353,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 horizontal_alignment = 1
 vertical_alignment = 1
 clip_text = true
@@ -347,30 +364,30 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_ehdik")
 
 [node name="MaterialCostRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel" unique_id=206884315]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 20
 
 [node name="MaterialColumnPanel" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow" unique_id=2084154315]
-custom_minimum_size = Vector2(60, 0)
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_a5yub")
 
 [node name="MaterialVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel" unique_id=828271064]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="MaterialTitleLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox" unique_id=1761731236]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.580392, 0.580392, 0.721569, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "强化材料"
 horizontal_alignment = 1
 
 [node name="MaterialIconArea" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox" unique_id=34816435]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 
 [node name="MaterialIconSlot" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox/MaterialIconArea" unique_id=20916476]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(136, 136)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -379,18 +396,18 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="MaterialIconFrame" type="PanelContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox/MaterialIconArea/MaterialIconSlot" unique_id=20916477]
-custom_minimum_size = Vector2(24, 24)
-custom_maximum_size = Vector2(24, 24)
+custom_minimum_size = Vector2(96, 96)
+custom_maximum_size = Vector2(96, 96)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -12.0
-offset_top = -12.0
-offset_right = 12.0
-offset_bottom = 12.0
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -398,8 +415,8 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_bj0lu")
 
 [node name="MaterialIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox/MaterialIconArea/MaterialIconSlot/MaterialIconFrame" unique_id=212153087]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(18, 18)
-custom_maximum_size = Vector2(18, 18)
+custom_minimum_size = Vector2(72, 72)
+custom_maximum_size = Vector2(72, 72)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -409,7 +426,7 @@ stretch_mode = 4
 
 [node name="MaterialSelectButton" type="Button" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox/MaterialIconArea/MaterialIconSlot" unique_id=20916478]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(136, 136)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -430,7 +447,7 @@ alignment = 1
 [node name="MaterialCountLabel" type="RichTextLabel" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/MaterialColumnPanel/MaterialVBox/MaterialCountRow" unique_id=726434548]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 7
+theme_override_font_sizes/normal_font_size = 28
 bbcode_enabled = true
 text = "99/2"
 fit_content = true
@@ -439,21 +456,22 @@ scroll_active = false
 [node name="CostVBox" type="VBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow" unique_id=1584419147]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme_override_constants/separation = 16
 
 [node name="CostGoldLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox" unique_id=1688305579]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94902, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "消耗: "
 
 [node name="CostGoldRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox" unique_id=324934348]
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="CostGoldIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/CostGoldRow" unique_id=852128562]
-custom_minimum_size = Vector2(8, 0)
+custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_i7no6")
 expand_mode = 1
@@ -462,25 +480,27 @@ stretch_mode = 4
 [node name="CostGoldAmountLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/CostGoldRow" unique_id=853474281]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 28
 text = "500"
 
 [node name="WalletGoldLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox" unique_id=129884190]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94902, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "当前: "
 
 [node name="WalletCurrencyRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox" unique_id=2043801248]
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="WalletGoldRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow" unique_id=897862691]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="WalletGoldIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletGoldRow" unique_id=215236933]
-custom_minimum_size = Vector2(8, 0)
+custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_vuxpg")
 expand_mode = 1
@@ -488,17 +508,18 @@ stretch_mode = 4
 
 [node name="WalletGoldAmountLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletGoldRow" unique_id=190455149]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(22, 0)
+custom_minimum_size = Vector2(88, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 28
 text = "999999"
 vertical_alignment = 1
 
 [node name="WalletSilverRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow" unique_id=1750823366]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="WalletSilverIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletSilverRow" unique_id=1206318388]
-custom_minimum_size = Vector2(8, 0)
+custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_oxmmk")
 expand_mode = 1
@@ -507,15 +528,16 @@ stretch_mode = 4
 [node name="WalletSilverAmountLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletSilverRow" unique_id=2140475871]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 28
 text = "500"
 vertical_alignment = 1
 
 [node name="WalletCopperRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow" unique_id=622623772]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="WalletCopperIcon" type="TextureRect" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletCopperRow" unique_id=613963417]
-custom_minimum_size = Vector2(8, 0)
+custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_i7no6")
 expand_mode = 1
@@ -524,20 +546,33 @@ stretch_mode = 4
 [node name="WalletCopperAmountLabel" type="Label" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/CostSectionPanel/MaterialCostRow/CostVBox/WalletCurrencyRow/WalletCopperRow" unique_id=950706724]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 28
 text = "500"
 vertical_alignment = 1
 
 [node name="FooterMargin" type="MarginContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox" unique_id=1049577472]
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
-theme_override_constants/margin_top = 3
+theme_override_constants/margin_top = 12
 
 [node name="FooterRow" type="HBoxContainer" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin" unique_id=1445166007]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 32
 alignment = 1
+
+[node name="Control" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin/FooterRow" unique_id=747080124]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
 
 [node name="EnhanceButton" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin/FooterRow" unique_id=1163046176 instance=ExtResource("5_action_btn")]
 unique_name_in_owner = true
+visible = true
+custom_minimum_size = Vector2(200, 70)
 layout_mode = 2
+mouse_filter = 0
+theme_override_font_sizes/font_size = 36
 button_label = "强化"
+
+[node name="Control2" type="Control" parent="CenterContainer/PopupPanel/RootVBox/PreviewSectionPanel/PreviewSectionVBox/FooterMargin/FooterRow" unique_id=2143299186]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2

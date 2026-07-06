@@ -6,9 +6,9 @@ const SCENE_PATH: String = "res://scenes/ui/common/info_modal_popup.tscn"
 ## 默认确定按钮文案。
 const DEFAULT_CONFIRM_LABEL: String = "确定"
 ## 默认标题字号。
-const DEFAULT_TITLE_FONT_SIZE: int = 10
+const DEFAULT_TITLE_FONT_SIZE: int = 20
 ## 默认正文行字号。
-const DEFAULT_CONTENT_FONT_SIZE: int = 10
+const DEFAULT_CONTENT_FONT_SIZE: int = 20
 ## 标题标签颜色，与背包物品名称高亮保持一致。
 const TITLE_COLOR: Color = Color(1, 0.952941, 0.745098, 1)
 
@@ -62,7 +62,7 @@ func show_player_level_up(level: int, bonus: Dictionary) -> bool:
         "法力增加：%d" % mana_gain,
         "速度增加：%d" % spd_gain,
     ]
-    return show_info("", lines, {"content_font_size": 10})
+    return show_info("", lines, {"content_font_size": 20})
 
 
 ## 展示单只宠物升级结果；pet_name 为展示名，level 为升级后的当前等级。
@@ -79,8 +79,8 @@ func show_pet_level_up(pet_name: String, level: int, attr_points_gained: int, fr
         "当前可用自由点：%d" % free_attr_points,
     ]
     return show_info(resolved_name, lines, {
-        "title_font_size": 18,
-        "content_font_size": 18,
+        "title_font_size": 36,
+        "content_font_size": 36,
     })
 
 
@@ -97,6 +97,9 @@ func _apply_interactive_nodes() -> void:
     var panel: Control = get_node_or_null("CenterContainer/PanelContainer") as Control
     if panel != null:
         panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    # 基类打开时会让面板内容穿透到遮罩；这里恢复关闭按钮命中，确保修复成功弹窗能手动关闭。
+    if _top_close_button != null:
+        _top_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
     if _confirm_button != null:
         _confirm_button.mouse_filter = Control.MOUSE_FILTER_STOP
 
@@ -116,7 +119,7 @@ func _apply_title(title_text: String, title_font_size: int) -> void:
     _title_label.add_theme_font_size_override("font_size", title_font_size)
     _title_label.add_theme_color_override("font_color", TITLE_COLOR)
     _title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-    _title_label.add_theme_constant_override("outline_size", 1)
+    _title_label.add_theme_constant_override("outline_size", 2)
 
 
 ## 清空并重建正文行。

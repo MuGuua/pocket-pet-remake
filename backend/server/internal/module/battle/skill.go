@@ -14,26 +14,26 @@ const (
 )
 
 type skillDef struct {
-	ID                     uint32
-	Name                   string
-	SkillType              string
-	TargetRule             skillTargetRule
-	AnimationKey           string
-	SkillVisualID          string
-	CastColor              string
-	ImpactColor            string
-	Projectile             bool
-	IsSkillAttack          bool
-	IsBasicAttack          bool
-	EnergyCost             uint32
-	AttackPct              int32
-	ManaPct                int32
-	DefensePct             int32
-	SpeedPct               int32
-	TargetCurrentHPPct     int32
-	FixedDamage            int32
-	HealPct                int32
-	FixedHeal              int32
+	ID                 uint32
+	Name               string
+	SkillType          string
+	TargetRule         skillTargetRule
+	AnimationKey       string
+	SkillVisualID      string
+	CastColor          string
+	ImpactColor        string
+	Projectile         bool
+	IsSkillAttack      bool
+	IsBasicAttack      bool
+	EnergyCost         uint32
+	AttackPct          int32
+	ManaPct            int32
+	DefensePct         int32
+	SpeedPct           int32
+	TargetCurrentHPPct int32
+	FixedDamage        int32
+	HealPct            int32
+	FixedHeal          int32
 	// SkillMult 为新表「技能倍数」；缺省时回退 AttackPct/100。
 	SkillMult              uint32
 	SkillCritAdd           uint32
@@ -298,9 +298,12 @@ func (d skillDef) usesCompositePanelDamage() bool {
 	return panels >= 2
 }
 
-// prefersRandomMultiTarget 双体技能随机选取目标（不依赖玩家点选主目标）。
-func (d skillDef) prefersRandomMultiTarget() bool {
-	return d.TargetRule == targetEnemyMulti && d.PreferredTargetHP == "random"
+// effectiveTargetCount 返回技能实际需要结算的目标数，未配置时按单目标处理。
+func (d skillDef) effectiveTargetCount() uint32 {
+	if d.TargetCount == 0 {
+		return 1
+	}
+	return d.TargetCount
 }
 
 // isSoulDevourSkill 噬魂系：control_power 表示扣除目标精力。

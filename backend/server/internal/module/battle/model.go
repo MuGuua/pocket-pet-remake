@@ -40,18 +40,18 @@ const (
 	ActorUnitClassMercenary uint32 = 3
 	ActorUnitClassMonster   uint32 = 4
 
-	StatusBleed         uint32 = 1
-	StatusSeal          uint32 = 2
-	StatusStun          uint32 = 3
-	StatusVulnerability uint32 = 4
-	StatusArmorBreak    uint32 = 5
-	StatusSlow          uint32 = 6
-	StatusCritBoost     uint32 = 7
-	StatusCurse         uint32 = 8
-	StatusBind          uint32 = 9
-	StatusSleep         uint32 = 10
-	StatusParalysis     uint32 = 11
-	StatusConfusion     uint32 = 12
+	StatusBleed          uint32 = 1
+	StatusSeal           uint32 = 2
+	StatusStun           uint32 = 3
+	StatusVulnerability  uint32 = 4
+	StatusArmorBreak     uint32 = 5
+	StatusSlow           uint32 = 6
+	StatusCritBoost      uint32 = 7
+	StatusCurse          uint32 = 8
+	StatusBind           uint32 = 9
+	StatusSleep          uint32 = 10
+	StatusParalysis      uint32 = 11
+	StatusConfusion      uint32 = 12
 	StatusResistBlessing uint32 = 13
 	StatusHolyRepentance uint32 = 14
 	StatusElectrified    uint32 = 15
@@ -70,14 +70,14 @@ const (
 )
 
 var (
-	ErrBattleAlreadyActive = errors.New("battle already active")
-	ErrBattleNotFound      = errors.New("battle not found")
-	ErrInvalidAction       = errors.New("invalid battle action")
-	ErrNoLineupAvailable   = errors.New("no lineup available")
-	ErrTargetUnavailable   = errors.New("target unavailable")
-	ErrChallengeNotFound   = errors.New("pvp challenge not found")
-	ErrChallengeExpired    = errors.New("pvp challenge expired")
-	ErrChallengeInvalid    = errors.New("pvp challenge invalid")
+	ErrBattleAlreadyActive      = errors.New("battle already active")
+	ErrBattleNotFound           = errors.New("battle not found")
+	ErrInvalidAction            = errors.New("invalid battle action")
+	ErrNoLineupAvailable        = errors.New("no lineup available")
+	ErrTargetUnavailable        = errors.New("target unavailable")
+	ErrChallengeNotFound        = errors.New("pvp challenge not found")
+	ErrChallengeExpired         = errors.New("pvp challenge expired")
+	ErrChallengeInvalid         = errors.New("pvp challenge invalid")
 	ErrWildEncounterUnavailable = errors.New("wild encounter unavailable")
 )
 
@@ -124,17 +124,17 @@ type ActorSnapshot struct {
 }
 
 type SkillSnapshot struct {
-	SkillID      uint32
-	Name         string
-	TargetType   string
-	TargetCount  uint32
+	SkillID       uint32
+	Name          string
+	TargetType    string
+	TargetCount   uint32
 	AnimationKey  string
 	SkillVisualID string
 	CastColor     string
-	ImpactColor  string
-	Projectile   bool
+	ImpactColor   string
+	Projectile    bool
 	IsBasicAttack bool
-	Level        uint32
+	Level         uint32
 }
 
 type StartSnapshot struct {
@@ -210,6 +210,12 @@ type DropReward struct {
 	GrantOnce bool
 }
 
+// AttrReward 描述战斗胜利后需要写入玩家档案的属性值奖励。
+type AttrReward struct {
+	AttrKey string
+	Value   uint64
+}
+
 // SkillProgressUpdate 描述战斗结束后应持久化的武器技能经验变更。
 type SkillProgressUpdate struct {
 	SkillID          uint32
@@ -233,6 +239,7 @@ type ResultSnapshot struct {
 	RewardGold           uint32
 	RewardPlayerExp      uint64
 	DropItems            []DropReward
+	AttrRewards          []AttrReward
 	DropTexts            []string
 	CaptureSuccess       bool
 	CaptureMonsterID     uint32

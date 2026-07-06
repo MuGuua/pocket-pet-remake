@@ -313,8 +313,8 @@ type MoveIntentResp struct {
 }
 
 type InteractReq struct {
-	EntityID uint64  `json:"entity_id"`
-	SelfPos  *Vec2i  `json:"self_pos,omitempty"`
+	EntityID uint64 `json:"entity_id"`
+	SelfPos  *Vec2i `json:"self_pos,omitempty"`
 }
 
 type NpcMenuEntry struct {
@@ -545,20 +545,20 @@ type PlayerEquipmentBonusSnapshot struct {
 }
 
 type PlayerEquippedItemSnapshot struct {
-	EquipSlot        string                       `json:"equip_slot"`
-	EquipSlotLabel   string                       `json:"equip_slot_label"`
-	ItemUID          string                       `json:"item_uid"`
-	ItemID           uint64                       `json:"item_id"`
-	ItemName         string                       `json:"item_name"`
-	Icon             string                       `json:"icon,omitempty"`
-	RequiredLevel    uint32                       `json:"required_level"`
-	EnhanceLevel     uint32                       `json:"enhance_level"`
-	IsDamaged        bool                         `json:"is_damaged,omitempty"`
-	AppearanceSkinID string                       `json:"appearance_skin_id,omitempty"`
-	AppearanceOnly   bool                         `json:"appearance_only"`
-	Description           string                       `json:"description,omitempty"`
-	DescriptionMentions   []ItemDescriptionMention     `json:"description_mentions,omitempty"`
-	Bonus                 PlayerEquipmentBonusSnapshot `json:"bonus"`
+	EquipSlot           string                       `json:"equip_slot"`
+	EquipSlotLabel      string                       `json:"equip_slot_label"`
+	ItemUID             string                       `json:"item_uid"`
+	ItemID              uint64                       `json:"item_id"`
+	ItemName            string                       `json:"item_name"`
+	Icon                string                       `json:"icon,omitempty"`
+	RequiredLevel       uint32                       `json:"required_level"`
+	EnhanceLevel        uint32                       `json:"enhance_level"`
+	IsDamaged           bool                         `json:"is_damaged,omitempty"`
+	AppearanceSkinID    string                       `json:"appearance_skin_id,omitempty"`
+	AppearanceOnly      bool                         `json:"appearance_only"`
+	Description         string                       `json:"description,omitempty"`
+	DescriptionMentions []ItemDescriptionMention     `json:"description_mentions,omitempty"`
+	Bonus               PlayerEquipmentBonusSnapshot `json:"bonus"`
 }
 
 type PlayerEquipmentListReq struct{}
@@ -591,8 +591,8 @@ type PlayerUnequipResp struct {
 }
 
 type PlayerEquipmentEnhanceReq struct {
-	ItemUID     string `json:"item_uid"`
-	CostItemID  uint64 `json:"cost_item_id,omitempty"`
+	ItemUID    string `json:"item_uid"`
+	CostItemID uint64 `json:"cost_item_id,omitempty"`
 }
 
 type PlayerEquipmentEnhanceResp struct {
@@ -735,27 +735,27 @@ type LevelUpBonus struct {
 }
 
 type BattleResultPush struct {
-	BattleID         uint64            `json:"battle_id"`
-	Win              bool              `json:"win"`
-	ReturnSceneID    uint32            `json:"return_scene_id"`
-	ReturnPos        Vec2i             `json:"return_pos"`
-	Reason           string            `json:"reason"`
-	RewardGold       uint32            `json:"reward_gold"`
-	RewardPlayerExp  uint64            `json:"reward_player_exp"`
-	PlayerGold       uint32            `json:"player_gold"`
-	PlayerExp        uint64            `json:"player_exp"`
-	PlayerLevel      uint32            `json:"player_level"`
-	LevelUpCount     uint32            `json:"level_up_count"`
-	AttrPointsGained uint32            `json:"attr_points_gained"`
-	LevelUpBonus     *LevelUpBonus     `json:"level_up_bonus,omitempty"`
-	FreeAttrPoints   uint32            `json:"free_attr_points"`
-	ExpToNext        uint64            `json:"exp_to_next"`
-	PetRewards       []BattlePetReward `json:"pet_rewards"`
-	Rewards          []QuestReward     `json:"rewards,omitempty"`
-	DropTexts        []string          `json:"drop_texts"`
-	CaptureSuccess   bool              `json:"capture_success,omitempty"`
-	CaptureMonsterID uint32            `json:"capture_monster_id,omitempty"`
-	CapturedPetID    uint32            `json:"captured_pet_id,omitempty"`
+	BattleID         uint64                    `json:"battle_id"`
+	Win              bool                      `json:"win"`
+	ReturnSceneID    uint32                    `json:"return_scene_id"`
+	ReturnPos        Vec2i                     `json:"return_pos"`
+	Reason           string                    `json:"reason"`
+	RewardGold       uint32                    `json:"reward_gold"`
+	RewardPlayerExp  uint64                    `json:"reward_player_exp"`
+	PlayerGold       uint32                    `json:"player_gold"`
+	PlayerExp        uint64                    `json:"player_exp"`
+	PlayerLevel      uint32                    `json:"player_level"`
+	LevelUpCount     uint32                    `json:"level_up_count"`
+	AttrPointsGained uint32                    `json:"attr_points_gained"`
+	LevelUpBonus     *LevelUpBonus             `json:"level_up_bonus,omitempty"`
+	FreeAttrPoints   uint32                    `json:"free_attr_points"`
+	ExpToNext        uint64                    `json:"exp_to_next"`
+	PetRewards       []BattlePetReward         `json:"pet_rewards"`
+	Rewards          []QuestReward             `json:"rewards,omitempty"`
+	DropTexts        []string                  `json:"drop_texts"`
+	CaptureSuccess   bool                      `json:"capture_success,omitempty"`
+	CaptureMonsterID uint32                    `json:"capture_monster_id,omitempty"`
+	CapturedPetID    uint32                    `json:"captured_pet_id,omitempty"`
 	CapturedPetUID   uint64                    `json:"captured_pet_uid,omitempty"`
 	SkillProgress    []BattleSkillProgressPush `json:"skill_progress,omitempty"`
 }
@@ -922,29 +922,29 @@ type WalletSnapshot struct {
 }
 
 type ContainerItemSnapshot struct {
-	SlotIndex    uint32 `json:"slot_index"`
-	ItemID       uint64 `json:"item_id"`
-	ItemUID      string `json:"item_uid"`
-	Quantity     uint64 `json:"quantity"`
-	IsBound      bool   `json:"is_bound"`
-	ItemName     string `json:"item_name"`
-	ItemType     string `json:"item_type"`
-	ItemSubType  string `json:"item_sub_type"`
-	Quality       uint32 `json:"quality"`
-	Icon          string `json:"icon,omitempty"`
-	RequiredLevel uint32 `json:"required_level"`
-	EnhanceLevel  uint32 `json:"enhance_level"`
-	IsDamaged     bool   `json:"is_damaged,omitempty"`
-	Usable       bool   `json:"usable"`
-	CanDrop      bool   `json:"can_drop"`
-	TargetType   string `json:"target_type"`
-	EffectType   string `json:"effect_type"`
-	EquipSlot    string `json:"equip_slot,omitempty"`
-	Description           string                       `json:"description,omitempty"`
-	DescriptionMentions   []ItemDescriptionMention     `json:"description_mentions,omitempty"`
-	Bonus                 PlayerEquipmentBonusSnapshot `json:"bonus,omitempty"`
-	EnhancePreview        *EnhancePreviewSnapshot      `json:"enhance_preview,omitempty"`
-	RepairPreview         *RepairPreviewSnapshot       `json:"repair_preview,omitempty"`
+	SlotIndex           uint32                       `json:"slot_index"`
+	ItemID              uint64                       `json:"item_id"`
+	ItemUID             string                       `json:"item_uid"`
+	Quantity            uint64                       `json:"quantity"`
+	IsBound             bool                         `json:"is_bound"`
+	ItemName            string                       `json:"item_name"`
+	ItemType            string                       `json:"item_type"`
+	ItemSubType         string                       `json:"item_sub_type"`
+	Quality             uint32                       `json:"quality"`
+	Icon                string                       `json:"icon,omitempty"`
+	RequiredLevel       uint32                       `json:"required_level"`
+	EnhanceLevel        uint32                       `json:"enhance_level"`
+	IsDamaged           bool                         `json:"is_damaged,omitempty"`
+	Usable              bool                         `json:"usable"`
+	CanDrop             bool                         `json:"can_drop"`
+	TargetType          string                       `json:"target_type"`
+	EffectType          string                       `json:"effect_type"`
+	EquipSlot           string                       `json:"equip_slot,omitempty"`
+	Description         string                       `json:"description,omitempty"`
+	DescriptionMentions []ItemDescriptionMention     `json:"description_mentions,omitempty"`
+	Bonus               PlayerEquipmentBonusSnapshot `json:"bonus,omitempty"`
+	EnhancePreview      *EnhancePreviewSnapshot      `json:"enhance_preview,omitempty"`
+	RepairPreview       *RepairPreviewSnapshot       `json:"repair_preview,omitempty"`
 }
 
 // EnhancePreviewRowSnapshot 描述强化预览表中的一行属性对比。
@@ -968,13 +968,13 @@ type EnhanceMaterialOptionSnapshot struct {
 
 // EnhancePreviewSnapshot 描述客户端强化弹窗所需的权威预览数据。
 type EnhancePreviewSnapshot struct {
-	CanEnhance             bool                            `json:"can_enhance"`
-	MaxEnhanceLevel        uint32                          `json:"max_enhance_level"`
-	SuccessRatePct         uint32                          `json:"success_rate_pct"`
-	RequiredLevel          uint32                          `json:"required_level"`
-	RequiredLevelBandMin   uint32                          `json:"required_level_band_min"`
-	RequiredLevelBandLabel string                          `json:"required_level_band_label"`
-	CostGoldCopper         uint64                          `json:"cost_gold_copper"`
+	CanEnhance              bool                            `json:"can_enhance"`
+	MaxEnhanceLevel         uint32                          `json:"max_enhance_level"`
+	SuccessRatePct          uint32                          `json:"success_rate_pct"`
+	RequiredLevel           uint32                          `json:"required_level"`
+	RequiredLevelBandMin    uint32                          `json:"required_level_band_min"`
+	RequiredLevelBandLabel  string                          `json:"required_level_band_label"`
+	CostGoldCopper          uint64                          `json:"cost_gold_copper"`
 	CostItemID              uint64                          `json:"cost_item_id"`
 	CostItemName            string                          `json:"cost_item_name"`
 	CostQuantity            uint64                          `json:"cost_quantity"`
@@ -1081,6 +1081,7 @@ type QuestReward struct {
 	ItemName string `json:"item_name,omitempty"`
 	Count    uint64 `json:"count"`
 	PetID    uint64 `json:"pet_id"`
+	AttrKey  string `json:"attr_key,omitempty"`
 }
 
 type QuestSummary struct {

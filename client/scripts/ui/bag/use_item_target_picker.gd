@@ -84,7 +84,7 @@ func _add_target_button(label_text: String, pressed_callable: Callable) -> void:
     var button: RuntimeActionButton = preload("res://scenes/ui/common/runtime_action_button.tscn").instantiate() as RuntimeActionButton
     if button == null:
         return
-    button.custom_minimum_size = Vector2(180, 28)
+    button.custom_minimum_size = Vector2(360, 56)
     button.set_button_label(label_text)
     if not button.pressed.is_connected(pressed_callable):
         button.pressed.connect(pressed_callable)

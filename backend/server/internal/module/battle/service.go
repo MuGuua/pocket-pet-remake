@@ -58,40 +58,42 @@ type activeBattle struct {
 	commandDeadline      time.Time
 	stateHistory         []StateSnapshot
 	monsterService       *monster.Service
+	wildEncounter        *monster.RuntimeWildEncounter
 	characterSkillInput  CharacterBattleSkillInput
 	skillProgressStates  map[uint32]*battleSkillProgressState
 	initialEnemyCount    uint32
 }
 
 type actorRuntime struct {
-	actorID       uint64
-	actorType     uint32
-	unitClass     uint32
-	ownerPlayerID uint64
-	petUID        uint64
-	petID         uint32
-	lineupIndex   uint32
-	skinID        string
-	name          string
-	level         uint32
-	hp            uint32
-	hpMax         uint32
-	vigor         uint32
-	vigorMax      uint32
-	spirit        uint32
-	spiritMax     uint32
-	atk           uint32
-	def           uint32
-	spd           uint32
-	mana          uint32
-	hitPct        uint32
-	dodgeRatePct  uint32
-	skillIDs      []uint32
-	skillLevels   map[uint32]uint32
+	actorID              uint64
+	actorType            uint32
+	unitClass            uint32
+	ownerPlayerID        uint64
+	petUID               uint64
+	petID                uint32
+	lineupIndex          uint32
+	rewardEnabled        bool
+	skinID               string
+	name                 string
+	level                uint32
+	hp                   uint32
+	hpMax                uint32
+	vigor                uint32
+	vigorMax             uint32
+	spirit               uint32
+	spiritMax            uint32
+	atk                  uint32
+	def                  uint32
+	spd                  uint32
+	mana                 uint32
+	hitPct               uint32
+	dodgeRatePct         uint32
+	skillIDs             []uint32
+	skillLevels          map[uint32]uint32
 	learningWeaponSkills map[uint32]struct{}
-	critRatePct   uint32
-	critDmgPct    uint32
-	statuses      map[uint32]*statusRuntime
+	critRatePct          uint32
+	critDmgPct           uint32
+	statuses             map[uint32]*statusRuntime
 
 	// Resistance fields live directly on the authoritative runtime so damage,
 	// status, and crit branches can all consume one shared source-of-truth
@@ -121,19 +123,19 @@ type actorRuntime struct {
 
 	// These runtime modifier fields are kept on the actor so future status and
 	// passive systems can change battle math without mutating base pet data.
-	globalMultiplierPct      uint32
-	attackMultiplierPct      uint32
-	defenseMultiplierPct     uint32
-	speedMultiplierPct       uint32
-	manaMultiplierPct        uint32
-	attackFlatBonus          int32
-	defenseFlatBonus         int32
-	speedFlatBonus           int32
-	manaFlatBonus            int32
-	statusVulnerabilityPct   uint32
-	statusArmorBroken        bool
-	statusSpeedMultiplierPct uint32
-	statusCritRateBonusPct   uint32
+	globalMultiplierPct       uint32
+	attackMultiplierPct       uint32
+	defenseMultiplierPct      uint32
+	speedMultiplierPct        uint32
+	manaMultiplierPct         uint32
+	attackFlatBonus           int32
+	defenseFlatBonus          int32
+	speedFlatBonus            int32
+	manaFlatBonus             int32
+	statusVulnerabilityPct    uint32
+	statusArmorBroken         bool
+	statusSpeedMultiplierPct  uint32
+	statusCritRateBonusPct    uint32
 	statusResistBlessingBonus uint32
 	statusDerived             statusDerivedModifiers
 
@@ -282,7 +284,6 @@ func (s *Service) StartPVE(ctx context.Context, profile *player.Profile, lineup 
 		monsterService: s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
-	battle.resetCommandDeadline()
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
 	}
@@ -328,9 +329,9 @@ func (s *Service) StartPVEWildEncounter(ctx context.Context, profile *player.Pro
 		enemies:              s.buildEnemyTeamFromSlots(ctx, profile, virtualEnemy, encounter.Slots),
 		plannedActs:          make(map[uint64]ActionRequest),
 		monsterService:       s.monsterService,
+		wildEncounter:        encounter,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
-	battle.resetCommandDeadline()
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
 	}
@@ -392,7 +393,6 @@ func (s *Service) StartPVP(_ context.Context, challenger *player.Profile, challe
 		monsterService:       s.monsterService,
 	}
 	battle.pendingActors = battle.collectPendingControllableActors()
-	battle.resetCommandDeadline()
 	if len(battle.pendingActors) == 0 {
 		return nil, ErrNoLineupAvailable
 	}
@@ -479,12 +479,12 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 	if battle.battleID != request.BattleID {
 		return nil, ErrInvalidAction
 	}
-	// 自动战斗开关允许在战斗进行中随时切换，不要求仍处于 command 阶段或严格回合号匹配。
+	// 自动战斗、倒计时与取消自动均由客户端维护；服务端不保存自动状态，只接受回合动作意图。
 	if request.ActionType == ActionTypeSetAuto {
 		if battle.phase == PhaseFinished {
 			return nil, ErrInvalidAction
 		}
-		return s.setAutoBattleLocked(playerID, battle, request)
+		return &ActionOutcome{Response: BattleActionResponse{Accepted: true, Reason: "client auto state ignored"}}, nil
 	}
 	if battle.round != request.Round || battle.phase != PhaseCommand {
 		return nil, ErrInvalidAction
@@ -507,26 +507,9 @@ func (s *Service) SubmitAction(_ context.Context, playerID uint64, request Actio
 	}
 }
 
-func (s *Service) ProgressAuto(_ context.Context, playerID uint64) (*ActionOutcome, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	battle, ok := s.activeByPlayer[playerID]
-	if !ok || battle.phase != PhaseCommand {
-		return nil, nil
-	}
-	if !battle.shouldAutoResolve(time.Now()) {
-		return nil, nil
-	}
-	if !battle.autoBattleEnabled {
-		battle.autoBattleEnabled = true
-	}
-	state, result := s.autoResolvePendingLocked(playerID, battle)
-	return &ActionOutcome{
-		Response: BattleActionResponse{Accepted: true, Reason: "server auto resolved pending actions"},
-		State:    state,
-		Result:   result,
-	}, nil
+func (s *Service) ProgressAuto(_ context.Context, _ uint64) (*ActionOutcome, error) {
+	// 回合倒计时与自动战斗已经下放到客户端，服务端心跳不再推进战斗。
+	return nil, nil
 }
 
 // GetActiveSnapshot returns a full reconnect-friendly snapshot of the current
@@ -563,34 +546,31 @@ func (s *Service) GetReplaySnapshots(_ context.Context, playerID uint64, battleI
 	return result
 }
 
-// EnableAutoForPlayer flips the active battle into server custody mode. The
-// next heartbeat or background sweep will pick up any remaining pending actors.
-func (s *Service) EnableAutoForPlayer(_ context.Context, playerID uint64) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	battle, ok := s.activeByPlayer[playerID]
-	if !ok || battle.phase != PhaseCommand {
-		return false
-	}
-	if battle.autoBattleEnabled {
-		return true
-	}
-	battle.autoBattleEnabled = true
-	battle.commandDeadline = time.Time{}
-	battle.battleVersion++
-	return true
+// EnableAutoForPlayer keeps the legacy disconnect hook compatible. Round
+// countdowns and auto battle are now client-owned, so the server never takes
+// custody of an unfinished command phase here.
+func (s *Service) EnableAutoForPlayer(_ context.Context, _ uint64) bool {
+	// 断线后的自动托管不再由服务端维护。
+	return false
 }
 
-// ResolveDisconnect keeps PVE and PVP disconnect handling separated: PVE can
-// still move into AI custody, while the current minimal PVP skeleton ends
-// immediately and treats the disconnected side as the loser.
+// ResolveDisconnect handles authority-side battle cleanup when a player loses
+// their session. Single-player battles are treated as an immediate failed
+// battle so the server does not keep an orphaned command phase alive.
 func (s *Service) ResolveDisconnect(_ context.Context, playerID uint64) *ResultSnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	current, ok := s.activeByPlayer[playerID]
-	if !ok || current.battleType != BattleTypePVP {
+	if !ok {
+		return nil
+	}
+	if current.battleType == BattleTypePVE && len(current.participantPlayerIDs) == 1 {
+		result := current.buildResult(false, "player disconnected")
+		s.removeBattleLocked(current)
+		return result
+	}
+	if current.battleType != BattleTypePVP {
 		return nil
 	}
 	win := !current.isPlayerOnAllySide(playerID)
@@ -599,32 +579,12 @@ func (s *Service) ResolveDisconnect(_ context.Context, playerID uint64) *ResultS
 	return result
 }
 
-// ProgressAutoAll scans every active battle once so disconnected players can
-// still be progressed by a background server loop without requiring heartbeats.
+// ProgressAutoAll keeps the legacy background sweep hook compatible. The
+// client now submits every round intent explicitly, so the server sweep is a
+// no-op and never synthesizes actions.
 func (s *Service) ProgressAutoAll(_ context.Context) []AutoProgressOutcome {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	now := time.Now()
-	outcomes := make([]AutoProgressOutcome, 0)
-	for playerID, battle := range s.activeByPlayer {
-		if battle.phase != PhaseCommand || !battle.shouldAutoResolve(now) {
-			continue
-		}
-		if !battle.autoBattleEnabled {
-			battle.autoBattleEnabled = true
-		}
-		state, result := s.autoResolvePendingLocked(playerID, battle)
-		outcomes = append(outcomes, AutoProgressOutcome{
-			PlayerID: playerID,
-			Outcome: &ActionOutcome{
-				Response: BattleActionResponse{Accepted: true, Reason: "server auto resolved pending actions"},
-				State:    state,
-				Result:   result,
-			},
-		})
-	}
-	return outcomes
+	// 服务端不再维护自动托管扫描。
+	return nil
 }
 
 func (s *Service) queueActionLocked(playerID uint64, battle *activeBattle, request ActionRequest) (*ActionOutcome, error) {
@@ -652,19 +612,9 @@ func (s *Service) queueActionLocked(playerID uint64, battle *activeBattle, reque
 	battle.pendingActors = removeActorID(battle.pendingActors, actor.actorID)
 
 	if len(battle.pendingActors) > 0 {
-		battle.resetCommandDeadline()
-		if battle.autoBattleEnabled {
-			state, result := s.autoResolvePendingLocked(playerID, battle)
-			return &ActionOutcome{
-				Response: BattleActionResponse{Accepted: true, Reason: "action accepted"},
-				State:    state,
-				Result:   result,
-			}, nil
-		}
 		battle.battleVersion++
 		return &ActionOutcome{
-			Response: BattleActionResponse{Accepted: true, Reason: "action queued"},
-			State:    battle.recordStateSnapshot(nil),
+			Response: BattleActionResponse{Accepted: true, Reason: "round intent queued"},
 		}, nil
 	}
 
@@ -679,22 +629,8 @@ func (s *Service) queueActionLocked(playerID uint64, battle *activeBattle, reque
 	}, nil
 }
 
-func (s *Service) setAutoBattleLocked(playerID uint64, battle *activeBattle, request ActionRequest) (*ActionOutcome, error) {
-	battle.autoBattleEnabled = request.AutoBattleEnabled
-	if battle.autoBattleEnabled && battle.phase == PhaseCommand && len(battle.pendingActors) > 0 {
-		state, result := s.autoResolvePendingLocked(playerID, battle)
-		return &ActionOutcome{
-			Response: BattleActionResponse{Accepted: true, Reason: "auto battle enabled"},
-			State:    state,
-			Result:   result,
-		}, nil
-	}
-	battle.resetCommandDeadline()
-	battle.battleVersion++
-	return &ActionOutcome{
-		Response: BattleActionResponse{Accepted: true, Reason: "auto battle updated"},
-		State:    battle.recordStateSnapshot(nil),
-	}, nil
+func (s *Service) setAutoBattleLocked(_ uint64, _ *activeBattle, _ ActionRequest) (*ActionOutcome, error) {
+	return &ActionOutcome{Response: BattleActionResponse{Accepted: true, Reason: "client auto state ignored"}}, nil
 }
 
 // submitCaptureLocked 处理 PVE 战斗中的捕捉尝试：服务端判定道具、目标 HP 与成功率，不继承战斗数值。
@@ -772,11 +708,9 @@ func (s *Service) submitCaptureLocked(playerID uint64, battle *activeBattle, req
 			Label:     fmt.Sprintf("%s 使用捕捉道具失败。", actor.name),
 		}}
 		if len(battle.pendingActors) > 0 {
-			battle.resetCommandDeadline()
 			battle.battleVersion++
 			return &ActionOutcome{
 				Response: BattleActionResponse{Accepted: true, Reason: "capture failed"},
-				State:    battle.recordStateSnapshot(events),
 			}, nil
 		}
 		state, result := battle.resolveRound()
@@ -1344,13 +1278,11 @@ func (s *Service) buildEnemyTeamFromSlots(ctx context.Context, profile *player.P
 	enemies := make([]*actorRuntime, 0, len(slots))
 	for index, slot := range slots {
 		enemyName := enemy.Name
-		if len(slots) > 1 {
-			enemyName = fmt.Sprintf("%s 随从%d", enemy.Name, index+1)
-		}
-		if slot.MonsterName != "" && len(slots) == 1 {
+		if slot.MonsterName != "" {
+			// 怪物名称由后台配置作为权威来源，客户端展示和战斗日志都不再拼接场景名或编队名。
 			enemyName = slot.MonsterName
-		} else if slot.MonsterName != "" && len(slots) > 1 {
-			enemyName = fmt.Sprintf("%s·%s", enemy.Name, slot.MonsterName)
+		} else if len(slots) > 1 {
+			enemyName = fmt.Sprintf("%s 随从%d", enemy.Name, index+1)
 		}
 		attributes, resistances, enemyLevel := combatTemplateFromMonsterSlot(profile, enemy, index, slot)
 		skillIDs := append([]uint32{}, slot.SkillIDs...)
@@ -1364,6 +1296,7 @@ func (s *Service) buildEnemyTeamFromSlots(ctx context.Context, profile *player.P
 			ownerPlayerID: 0,
 			petUID:        0,
 			petID:         slot.MonsterID,
+			rewardEnabled: slot.RewardEnabled,
 			skinID:        slot.SkinID,
 			lineupIndex:   uint32(index),
 			name:          enemyName,
@@ -1466,23 +1399,14 @@ func configurePassiveProfile(actor *actorRuntime) {
 }
 
 func (b *activeBattle) resetCommandDeadline() {
-	if b == nil || b.phase != PhaseCommand {
+	if b == nil {
 		return
 	}
-	b.commandDeadline = time.Now().Add(commandTimeout)
+	b.commandDeadline = time.Time{}
 }
 
-func (b *activeBattle) shouldAutoResolve(now time.Time) bool {
-	if b == nil || b.phase != PhaseCommand || len(b.pendingActors) == 0 {
-		return false
-	}
-	if b.autoBattleEnabled {
-		return true
-	}
-	if b.commandDeadline.IsZero() {
-		return false
-	}
-	return !now.Before(b.commandDeadline)
+func (b *activeBattle) shouldAutoResolve(_ time.Time) bool {
+	return false
 }
 
 func (b *activeBattle) resolveRound() (*StateSnapshot, *ResultSnapshot) {
@@ -1524,7 +1448,6 @@ func (b *activeBattle) resolveRound() (*StateSnapshot, *ResultSnapshot) {
 		b.round++
 		b.phase = PhaseCommand
 		b.pendingActors = b.collectPendingControllableActors()
-		b.resetCommandDeadline()
 	}
 	b.battleVersion++
 	state := b.recordStateSnapshot(events)
@@ -1583,7 +1506,15 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skill, _ = getSkillDef(skillID)
 	}
 	target := b.resolveDecisionTarget(actor, action.TargetID, skill)
-	if target == nil && skill.TargetRule != targetEnemyAll && skill.TargetRule != targetAllyAll && !skill.isHealSkill() && !skill.prefersRandomMultiTarget() {
+	var multiTargets []*actorRuntime
+	if skill.TargetRule == targetEnemyMulti && !skill.isHealSkill() {
+		// 多目标攻击在出手瞬间按当前存活敌人重新抽取，避免玩家提交时的目标死亡后命中尸体。
+		multiTargets = b.resolveRandomEnemyTargets(actor, skill.effectiveTargetCount())
+		if len(multiTargets) > 0 {
+			target = multiTargets[0]
+		}
+	}
+	if target == nil && skill.TargetRule != targetEnemyAll && skill.TargetRule != targetAllyAll && !skill.isHealSkill() {
 		return nil
 	}
 	if b.hasWinner() {
@@ -1619,8 +1550,7 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		}
 		return events
 	}
-	if skill.TargetRule == targetEnemyMulti && (target != nil || skill.prefersRandomMultiTarget()) {
-		multiTargets := b.resolveMultiEnemyTargets(actor, target, skill)
+	if skill.TargetRule == targetEnemyMulti {
 		for _, multiTarget := range multiTargets {
 			if b.hasWinner() {
 				break
@@ -2061,9 +1991,10 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 	rewardPlayerExp := uint64(0)
 	rewardPetExp := uint64(0)
 	dropItems := []DropReward{}
+	attrRewards := []AttrReward{}
 	dropTexts := []string{}
 	if win && b.battleType == BattleTypePVE {
-		rewardGold, rewardPlayerExp, rewardPetExp, dropItems, dropTexts = b.buildPVERewards()
+		rewardGold, rewardPlayerExp, rewardPetExp, dropItems, attrRewards, dropTexts = b.buildPVERewards()
 	}
 	if win {
 		b.finalizeSkillProgressOnWin()
@@ -2091,38 +2022,61 @@ func (b *activeBattle) buildResult(win bool, reason string) *ResultSnapshot {
 		RewardGold:           rewardGold,
 		RewardPlayerExp:      rewardPlayerExp,
 		DropItems:            append([]DropReward{}, dropItems...),
+		AttrRewards:          append([]AttrReward{}, attrRewards...),
 		DropTexts:            append([]string{}, dropTexts...),
 		SkillProgressUpdates: b.collectSkillProgressUpdates(),
 	}
 }
 
 // buildPVERewards 按怪物战斗奖励配置汇总 PVE 奖励，包含铜币、经验与物品。
-func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []DropReward, []string) {
+func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []DropReward, []AttrReward, []string) {
 	totalGold := uint64(0)
 	totalPlayerExp := uint64(0)
 	totalPetExp := uint64(0)
 	dropItems := make([]DropReward, 0)
+	attrRewards := make([]AttrReward, 0)
 	dropTexts := make([]string, 0)
 	if b.monsterService == nil {
-		return 0, totalPlayerExp, totalPetExp, dropItems, dropTexts
+		return 0, totalPlayerExp, totalPetExp, dropItems, attrRewards, dropTexts
+	}
+	if b.wildEncounter != nil && len(b.wildEncounter.Rewards) > 0 {
+		encounterBundle := monster.BuildPVERewardBundle(b.wildEncounter.Rewards)
+		totalGold += encounterBundle.Gold
+		totalPlayerExp += encounterBundle.PlayerExp
+		totalPetExp += encounterBundle.PetExp
+		dropItems = appendPVEItemRewards(dropItems, encounterBundle.Items)
+		attrRewards = appendPVEAttrRewards(attrRewards, encounterBundle.Attrs)
 	}
 	for _, enemy := range b.enemies {
-		if enemy == nil || enemy.petID == 0 {
+		if enemy == nil || enemy.petID == 0 || !enemy.rewardEnabled {
 			continue
 		}
 		bundle := b.monsterService.ResolvePVERewardBundle(enemy.petID)
 		totalGold += bundle.Gold
 		totalPlayerExp += bundle.PlayerExp
 		totalPetExp += bundle.PetExp
-		for _, item := range bundle.Items {
-			dropItems = append(dropItems, DropReward{
-				ItemID:    item.ItemID,
-				Quantity:  item.Quantity,
-				GrantOnce: item.GrantOnce,
-			})
-		}
+		dropItems = appendPVEItemRewards(dropItems, bundle.Items)
+		attrRewards = appendPVEAttrRewards(attrRewards, bundle.Attrs)
 	}
-	return uint32(totalGold), totalPlayerExp, totalPetExp, dropItems, dropTexts
+	return uint32(totalGold), totalPlayerExp, totalPetExp, dropItems, attrRewards, dropTexts
+}
+
+func appendPVEItemRewards(target []DropReward, items []monster.PVEItemReward) []DropReward {
+	for _, item := range items {
+		target = append(target, DropReward{
+			ItemID:    item.ItemID,
+			Quantity:  item.Quantity,
+			GrantOnce: item.GrantOnce,
+		})
+	}
+	return target
+}
+
+func appendPVEAttrRewards(target []AttrReward, attrs []monster.PVEAttrReward) []AttrReward {
+	for _, attr := range attrs {
+		target = append(target, AttrReward{AttrKey: attr.AttrKey, Value: attr.Value})
+	}
+	return target
 }
 
 func (b *activeBattle) toStartSnapshot() *StartSnapshot {
@@ -2138,8 +2092,8 @@ func (b *activeBattle) toStartSnapshot() *StartSnapshot {
 		Phase:                b.phase,
 		ActiveActorID:        b.currentActiveActorID(),
 		ActivePetUID:         b.currentActivePetUID(),
-		CommandDeadlineMS:    b.commandDeadline.UnixMilli(),
-		AutoBattleEnabled:    b.autoBattleEnabled,
+		CommandDeadlineMS:    0,
+		AutoBattleEnabled:    false,
 		PendingActorIDs:      append([]uint64{}, b.pendingActors...),
 		ControllableActorIDs: b.controllableActorIDs(),
 	}
@@ -2159,8 +2113,8 @@ func (b *activeBattle) toStateSnapshot(events []Event) *StateSnapshot {
 		Actors:               b.snapshotActorStates(),
 		ActiveActorID:        b.currentActiveActorID(),
 		ActivePetUID:         b.currentActivePetUID(),
-		CommandDeadlineMS:    b.commandDeadline.UnixMilli(),
-		AutoBattleEnabled:    b.autoBattleEnabled,
+		CommandDeadlineMS:    0,
+		AutoBattleEnabled:    false,
 		PendingActorIDs:      append([]uint64{}, b.pendingActors...),
 		ControllableActorIDs: b.controllableActorIDs(),
 	}
@@ -2357,7 +2311,12 @@ func (b *activeBattle) resolveDecisionTarget(actor *actorRuntime, targetID uint6
 	if skill.isRampageSkill() {
 		return b.randomEnemyTarget(actor)
 	}
-	return b.resolveSkillTarget(actor, targetID, skill)
+	target := b.resolveSkillTarget(actor, targetID, skill)
+	if target == nil && skill.TargetRule == targetEnemySingle {
+		// 单体攻击的预选目标可能已被高速单位击杀；出手时转向任一仍存活的敌方单位。
+		return b.randomEnemyTarget(actor)
+	}
+	return target
 }
 
 func (b *activeBattle) resolveAllAllyTargets(actor *actorRuntime) []*actorRuntime {
@@ -2387,39 +2346,6 @@ func (b *activeBattle) resolveAllEnemyTargets(actor *actorRuntime) []*actorRunti
 		return b.livingActors(b.enemies)
 	}
 	return b.livingActors(b.allies)
-}
-
-func (b *activeBattle) resolveMultiEnemyTargets(actor *actorRuntime, primary *actorRuntime, skill skillDef) []*actorRuntime {
-	count := skill.TargetCount
-	if count == 0 {
-		count = 1
-	}
-	if skill.prefersRandomMultiTarget() {
-		return b.resolveRandomEnemyTargets(actor, count)
-	}
-	if actor == nil || primary == nil {
-		return nil
-	}
-	candidates := b.resolveAllEnemyTargets(actor)
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	result := make([]*actorRuntime, 0, count)
-	seen := map[uint64]bool{}
-	result = append(result, primary)
-	seen[primary.actorID] = true
-	for _, candidate := range candidates {
-		if uint32(len(result)) >= count {
-			break
-		}
-		if candidate == nil || seen[candidate.actorID] {
-			continue
-		}
-		result = append(result, candidate)
-		seen[candidate.actorID] = true
-	}
-	return result
 }
 
 func (b *activeBattle) resolveRandomEnemyTargets(actor *actorRuntime, count uint32) []*actorRuntime {

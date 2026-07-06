@@ -107,8 +107,8 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(round1 ally1) error = %v", err)
 	}
-	if outcomeOne.State == nil || len(outcomeOne.State.PendingActorIDs) != 2 {
-		t.Fatalf("outcomeOne.State.PendingActorIDs = %#v, want two remaining allies", outcomeOne.State)
+	if outcomeOne.State != nil {
+		t.Fatalf("outcomeOne.State = %#v, want nil until all round intents arrive", outcomeOne.State)
 	}
 
 	outcomeOneB, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -122,8 +122,8 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(round1 pet attack) error = %v", err)
 	}
-	if outcomeOneB.State == nil || len(outcomeOneB.State.PendingActorIDs) != 1 {
-		t.Fatalf("outcomeOneB.State.PendingActorIDs = %#v, want one remaining ally", outcomeOneB.State)
+	if outcomeOneB.State != nil {
+		t.Fatalf("outcomeOneB.State = %#v, want nil until all round intents arrive", outcomeOneB.State)
 	}
 
 	outcomeTwo, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -171,8 +171,8 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(round2 character) error = %v", err)
 	}
-	if outcomeThree.State == nil || len(outcomeThree.State.PendingActorIDs) != 2 {
-		t.Fatalf("outcomeThree pending = %#v, want two allies still pending", outcomeThree.State)
+	if outcomeThree.State != nil {
+		t.Fatalf("outcomeThree.State = %#v, want nil until all round two intents arrive", outcomeThree.State)
 	}
 
 	outcomeThreeB, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -186,8 +186,8 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(round2 pet attack) error = %v", err)
 	}
-	if outcomeThreeB.State == nil || len(outcomeThreeB.State.PendingActorIDs) != 1 {
-		t.Fatalf("outcomeThreeB pending = %#v, want one ally still pending", outcomeThreeB.State)
+	if outcomeThreeB.State != nil {
+		t.Fatalf("outcomeThreeB.State = %#v, want nil until final round two intent arrives", outcomeThreeB.State)
 	}
 
 	outcomeFour, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -219,7 +219,7 @@ func TestServiceSubmitActionHealTargetsAlly(t *testing.T) {
 	}
 }
 
-func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
+func TestServiceClientOwnedAutoBattleAndTimeout(t *testing.T) {
 	svc := NewService(nil)
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
@@ -233,8 +233,8 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartPVE() error = %v", err)
 	}
-	if start.CommandDeadlineMS == 0 {
-		t.Fatal("start.CommandDeadlineMS = 0, want non-zero server deadline")
+	if start.CommandDeadlineMS != 0 {
+		t.Fatalf("start.CommandDeadlineMS = %d, want zero because client owns command countdown", start.CommandDeadlineMS)
 	}
 
 	autoOutcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
@@ -246,14 +246,11 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(set auto) error = %v", err)
 	}
-	if autoOutcome.State == nil {
-		t.Fatal("autoOutcome.State = nil, want resolved state")
+	if !autoOutcome.Response.Accepted {
+		t.Fatalf("autoOutcome.Response.Accepted = false, reason=%q", autoOutcome.Response.Reason)
 	}
-	if !autoOutcome.State.AutoBattleEnabled {
-		t.Fatal("autoOutcome.State.AutoBattleEnabled = false, want true")
-	}
-	if autoOutcome.State.Frame <= start.Frame {
-		t.Fatalf("autoOutcome.State.Frame = %d, want progress beyond start frame %d", autoOutcome.State.Frame, start.Frame)
+	if autoOutcome.State != nil {
+		t.Fatalf("autoOutcome.State = %#v, want nil because server ignores client auto toggle", autoOutcome.State)
 	}
 
 	svc = NewService(nil)
@@ -272,8 +269,11 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(first action) error = %v", err)
 	}
-	if firstOutcome.State == nil || len(firstOutcome.State.PendingActorIDs) != 2 {
-		t.Fatalf("firstOutcome.State = %#v, want two pending actors", firstOutcome.State)
+	if !firstOutcome.Response.Accepted {
+		t.Fatalf("firstOutcome.Response.Accepted = false, reason=%q", firstOutcome.Response.Reason)
+	}
+	if firstOutcome.State != nil {
+		t.Fatalf("firstOutcome.State = %#v, want nil until all client round intents arrive", firstOutcome.State)
 	}
 
 	battle := svc.activeByPlayer[profile.PlayerID]
@@ -286,14 +286,66 @@ func TestServiceAutoBattleAndTimeoutProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProgressAuto() error = %v", err)
 	}
-	if timeoutOutcome == nil || timeoutOutcome.State == nil {
-		t.Fatalf("timeoutOutcome = %#v, want resolved state", timeoutOutcome)
+	if timeoutOutcome != nil {
+		t.Fatalf("timeoutOutcome = %#v, want nil because server no longer owns command timeout", timeoutOutcome)
 	}
-	if !timeoutOutcome.State.AutoBattleEnabled {
-		t.Fatal("timeoutOutcome.State.AutoBattleEnabled = false, want true after command timeout")
+	var finalOutcome *ActionOutcome
+	for actorIndex := 1; actorIndex < len(start.Allies); actorIndex++ {
+		outcome, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{
+			BattleID:   start.BattleID,
+			Round:      start.Round,
+			ActionType: ActionTypeSkill,
+			ActorID:    start.Allies[actorIndex].ActorID,
+			SkillID:    start.Allies[actorIndex].SkillIDs[0],
+			TargetID:   start.Enemies[0].ActorID,
+		})
+		if err != nil {
+			t.Fatalf("SubmitAction(remaining action %d) error = %v", actorIndex, err)
+		}
+		finalOutcome = outcome
 	}
-	if timeoutOutcome.State.Frame <= firstOutcome.State.Frame {
-		t.Fatalf("timeoutOutcome.State.Frame = %d, want progress beyond queued frame %d", timeoutOutcome.State.Frame, firstOutcome.State.Frame)
+	if finalOutcome == nil || finalOutcome.State == nil {
+		t.Fatalf("finalOutcome = %#v, want current round state after all client intents arrive", finalOutcome)
+	}
+	if finalOutcome.State.AutoBattleEnabled {
+		t.Fatal("finalOutcome.State.AutoBattleEnabled = true, want false because server does not persist client auto state")
+	}
+	if finalOutcome.State.CommandDeadlineMS != 0 {
+		t.Fatalf("finalOutcome.State.CommandDeadlineMS = %d, want zero", finalOutcome.State.CommandDeadlineMS)
+	}
+}
+
+func TestServiceResolveDisconnectSinglePlayerBattleFailsWithoutRewards(t *testing.T) {
+	svc := NewService(nil)
+	ctx := context.Background()
+	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
+	lineup := []pet.LineupPet{
+		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1002}},
+	}
+	enemy := world.Entity{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Name: "GuideNPC"}
+
+	start, err := svc.StartPVE(ctx, profile, lineup, enemy, EmptyCharacterBattleSkillInput())
+	if err != nil {
+		t.Fatalf("StartPVE() error = %v", err)
+	}
+	result := svc.ResolveDisconnect(ctx, profile.PlayerID)
+	if result == nil {
+		t.Fatal("ResolveDisconnect() = nil, want failed battle result")
+	}
+	if result.Win {
+		t.Fatal("result.Win = true, want false after single-player disconnect")
+	}
+	if result.BattleID != start.BattleID {
+		t.Fatalf("result.BattleID = %d, want %d", result.BattleID, start.BattleID)
+	}
+	if result.RewardGold != 0 || result.RewardPlayerExp != 0 || len(result.DropItems) != 0 || len(result.AttrRewards) != 0 {
+		t.Fatalf("result rewards = gold:%d exp:%d drops:%d attrs:%d, want no rewards", result.RewardGold, result.RewardPlayerExp, len(result.DropItems), len(result.AttrRewards))
+	}
+	if len(result.PetResults) != 1 || result.PetResults[0].ExpGained != 0 {
+		t.Fatalf("result.PetResults = %#v, want no pet exp reward", result.PetResults)
+	}
+	if _, _, ok := svc.GetActiveSnapshot(ctx, profile.PlayerID); ok {
+		t.Fatal("GetActiveSnapshot() ok = true, want battle removed after disconnect failure")
 	}
 }
 
@@ -481,6 +533,170 @@ func TestExecuteDecisionFallsBackWhenSpiritInsufficient(t *testing.T) {
 	}
 }
 
+func TestExecuteDecisionRetargetsSingleAttackWhenTargetDead(t *testing.T) {
+	// 构造“提交时选中目标、出手时目标已死亡”的权威战斗态，验证服务端会重新选择存活敌人。
+	actor := &actorRuntime{
+		actorID:              1,
+		actorType:            PlayerActorType,
+		unitClass:            ActorUnitClassCharacter,
+		ownerPlayerID:        10001,
+		name:                 "SoloHero",
+		hp:                   100,
+		hpMax:                100,
+		spirit:               100,
+		spiritMax:            100,
+		atk:                  30,
+		def:                  10,
+		spd:                  12,
+		mana:                 18,
+		hitPct:               100,
+		skillIDs:             []uint32{DefaultAttackSkillID},
+		critRatePct:          10,
+		critDmgPct:           150,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	deadTarget := &actorRuntime{
+		actorID:              2,
+		actorType:            EnemyActorType,
+		unitClass:            ActorUnitClassMonster,
+		name:                 "Dead Dummy",
+		hp:                   0,
+		hpMax:                100,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	livingTarget := &actorRuntime{
+		actorID:              3,
+		actorType:            EnemyActorType,
+		unitClass:            ActorUnitClassMonster,
+		name:                 "Living Dummy",
+		hp:                   100,
+		hpMax:                100,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	battle := &activeBattle{
+		battleID: 70002,
+		round:    1,
+		allies:   []*actorRuntime{actor},
+		enemies:  []*actorRuntime{deadTarget, livingTarget},
+	}
+
+	events := battle.executeDecision(turnDecision{
+		actor: actor,
+		action: ActionRequest{
+			SkillID:  DefaultAttackSkillID,
+			TargetID: deadTarget.actorID,
+		},
+	})
+	if len(events) == 0 {
+		t.Fatal("len(events) = 0, want use-skill event after retarget")
+	}
+	if events[0].TargetID != livingTarget.actorID {
+		t.Fatalf("events[0].TargetID = %d, want living target %d", events[0].TargetID, livingTarget.actorID)
+	}
+	for _, event := range events {
+		if event.TargetID == deadTarget.actorID {
+			t.Fatalf("event targeted dead actor: %#v", event)
+		}
+	}
+}
+
+func TestExecuteDecisionMultiTargetUsesLivingTargetsAtCastTime(t *testing.T) {
+	// 多目标技能不信任客户端预选目标，出手瞬间应只从当前存活敌人中抽取命中目标。
+	actor := &actorRuntime{
+		actorID:              1,
+		actorType:            PlayerActorType,
+		unitClass:            ActorUnitClassPet,
+		ownerPlayerID:        10001,
+		name:                 "VolleyPet",
+		hp:                   100,
+		hpMax:                100,
+		spirit:               100,
+		spiritMax:            100,
+		atk:                  30,
+		def:                  10,
+		spd:                  12,
+		mana:                 18,
+		hitPct:               100,
+		skillIDs:             []uint32{DefaultAttackSkillID, 1004},
+		critRatePct:          10,
+		critDmgPct:           150,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	deadTarget := &actorRuntime{
+		actorID:              2,
+		actorType:            EnemyActorType,
+		unitClass:            ActorUnitClassMonster,
+		name:                 "Dead Dummy",
+		hp:                   0,
+		hpMax:                100,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	livingTarget := &actorRuntime{
+		actorID:              3,
+		actorType:            EnemyActorType,
+		unitClass:            ActorUnitClassMonster,
+		name:                 "Living Dummy",
+		hp:                   100,
+		hpMax:                100,
+		statuses:             map[uint32]*statusRuntime{},
+		globalMultiplierPct:  100,
+		attackMultiplierPct:  100,
+		defenseMultiplierPct: 100,
+		speedMultiplierPct:   100,
+		manaMultiplierPct:    100,
+	}
+	battle := &activeBattle{
+		battleID: 70003,
+		round:    1,
+		allies:   []*actorRuntime{actor},
+		enemies:  []*actorRuntime{deadTarget, livingTarget},
+	}
+
+	events := battle.executeDecision(turnDecision{
+		actor: actor,
+		action: ActionRequest{
+			SkillID:  1004,
+			TargetID: deadTarget.actorID,
+		},
+	})
+	if len(events) == 0 {
+		t.Fatal("len(events) = 0, want use-skill event after living target selection")
+	}
+	if events[0].TargetID != livingTarget.actorID {
+		t.Fatalf("events[0].TargetID = %d, want living target %d", events[0].TargetID, livingTarget.actorID)
+	}
+	for _, event := range events {
+		if event.TargetID == deadTarget.actorID {
+			t.Fatalf("event targeted dead actor: %#v", event)
+		}
+	}
+}
+
 func TestAdjustStatusChancePctUsesSpecificResistance(t *testing.T) {
 	battle := &activeBattle{}
 	target := &actorRuntime{
@@ -503,8 +719,7 @@ func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 	ctx := context.Background()
 	profile := &player.Profile{PlayerID: 10001, Name: "DemoTrainer", Level: 8, SceneID: 1, PosX: 8, PosY: 6, SkillIDs: []uint32{1101, 1001}}
 	lineup := []pet.LineupPet{
-		// 第一只宠物显式携带双目标技能，用来验证服务端会以用户指定目标为首，
-		// 再自动补足剩余存活敌方单位，而不是把多目标选择权交给客户端。
+		// 第一只宠物显式携带双目标技能，用来验证服务端会在出手时按存活敌人补足命中目标。
 		{PetUID: 20001, PetID: 101, Level: 5, HP: 120, HPMax: 120, ATK: 12, DEF: 10, SPD: 30, MANA: 12, SkillIDs: []uint32{1001, 1004}},
 		{PetUID: 20002, PetID: 102, Level: 4, HP: 30, HPMax: 30, ATK: 11, DEF: 11, SPD: 9, MANA: 18, SkillIDs: []uint32{1001, 1003}},
 	}
@@ -616,8 +831,8 @@ func TestServiceStartPVPWaitsForBothPlayers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(challenger) error = %v", err)
 	}
-	if outcomeOne.State == nil || len(outcomeOne.State.PendingActorIDs) != 1 {
-		t.Fatalf("outcomeOne.State.PendingActorIDs = %#v, want one defender actor pending", outcomeOne.State)
+	if outcomeOne.State != nil {
+		t.Fatalf("outcomeOne.State = %#v, want nil until defender round intent arrives", outcomeOne.State)
 	}
 
 	outcomeTwo, err := svc.SubmitAction(ctx, defender.PlayerID, ActionRequest{
@@ -715,8 +930,8 @@ func TestResolveRoundSkipsUnactedAlliesWhenEnemiesEliminated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitAction(character) error = %v", err)
 	}
-	if outcomeA.State == nil || len(outcomeA.State.PendingActorIDs) != 1 {
-		t.Fatalf("outcomeA pending = %#v, want only pet pending", outcomeA.State)
+	if outcomeA.State != nil {
+		t.Fatalf("outcomeA.State = %#v, want nil until pet round intent arrives", outcomeA.State)
 	}
 
 	outcomeB, err := svc.SubmitAction(ctx, profile.PlayerID, ActionRequest{

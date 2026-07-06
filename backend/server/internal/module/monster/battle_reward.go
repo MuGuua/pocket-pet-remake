@@ -3,17 +3,25 @@ package monster
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"strings"
 	"sync"
 )
 
 const (
-	RewardTypeExp  = "exp"
-	RewardTypeItem = "item"
-	RewardTypeGold = "gold"
+	RewardTypeExp    = "exp"
+	RewardTypeItem   = "item"
+	RewardTypeGold   = "gold"
+	RewardTypeSilver = "silver"
+	RewardTypeCopper = "copper"
+	RewardTypeAttr   = "attr"
 
 	ExpTargetPlayer = "player"
 	ExpTargetPet    = "pet"
+
+	CopperPerSilver uint64 = 1000
+	CopperPerGold   uint64 = CopperPerSilver * CopperPerSilver
+	RewardRateMax   uint32 = 10000
 )
 
 var (
@@ -29,6 +37,8 @@ type BattleRewardEntry struct {
 	ItemID     uint64 `json:"item_id"`
 	Quantity   uint64 `json:"quantity"`
 	ExpValue   uint64 `json:"exp_value"`
+	AttrKey    string `json:"attr_key"`
+	DropRate   uint32 `json:"drop_rate"`
 	SortOrder  uint32 `json:"sort_order"`
 	Status     uint32 `json:"status"`
 	// GrantOnce 为 1 时表示该物品奖励每名玩家仅首次获得，之后战斗不再重复发放。
@@ -44,6 +54,8 @@ type AdminBattleRewardInput struct {
 	ItemID     uint64 `json:"item_id"`
 	Quantity   uint64 `json:"quantity"`
 	ExpValue   uint64 `json:"exp_value"`
+	AttrKey    string `json:"attr_key"`
+	DropRate   uint32 `json:"drop_rate"`
 	SortOrder  uint32 `json:"sort_order"`
 	Status     uint32 `json:"status"`
 	GrantOnce  uint32 `json:"grant_once"`
@@ -52,11 +64,18 @@ type AdminBattleRewardInput struct {
 func (input AdminBattleRewardInput) Normalize() AdminBattleRewardInput {
 	input.RewardType = strings.ToLower(strings.TrimSpace(input.RewardType))
 	input.ExpTarget = strings.ToLower(strings.TrimSpace(input.ExpTarget))
+	input.AttrKey = strings.ToLower(strings.TrimSpace(input.AttrKey))
 	if input.ExpTarget == "" {
 		input.ExpTarget = ExpTargetPlayer
 	}
 	if input.Status == 0 {
 		input.Status = 1
+	}
+	if input.DropRate == 0 {
+		input.DropRate = RewardRateMax
+	}
+	if input.DropRate > RewardRateMax {
+		input.DropRate = RewardRateMax
 	}
 	if input.GrantOnce > 1 {
 		input.GrantOnce = 1
@@ -75,6 +94,7 @@ type PVERewardBundle struct {
 	PetExp    uint64
 	Gold      uint64
 	Items     []PVEItemReward
+	Attrs     []PVEAttrReward
 }
 
 // PVEItemReward 描述战斗掉落的物品奖励。
@@ -82,6 +102,12 @@ type PVEItemReward struct {
 	ItemID    uint64
 	Quantity  uint64
 	GrantOnce bool
+}
+
+// PVEAttrReward 描述战斗胜利后直接写入玩家档案的属性奖励。
+type PVEAttrReward struct {
+	AttrKey string
+	Value   uint64
 }
 
 type battleRewardCache struct {
@@ -99,6 +125,9 @@ func (c *battleRewardCache) replace(entries []BattleRewardEntry) {
 		if entry.Status != 1 {
 			continue
 		}
+		if !shouldGrantRewardEntry(entry) {
+			continue
+		}
 		grouped[entry.MonsterID] = append(grouped[entry.MonsterID], entry)
 	}
 	c.mu.Lock()
@@ -106,13 +135,32 @@ func (c *battleRewardCache) replace(entries []BattleRewardEntry) {
 	c.mu.Unlock()
 }
 
+func shouldGrantRewardEntry(entry BattleRewardEntry) bool {
+	dropRate := entry.DropRate
+	if dropRate == 0 {
+		dropRate = RewardRateMax
+	}
+	if dropRate >= RewardRateMax {
+		return true
+	}
+	return uint32(rand.Intn(int(RewardRateMax))) < dropRate
+}
+
 func (c *battleRewardCache) bundleForMonster(monsterID uint32) PVERewardBundle {
 	c.mu.RLock()
 	entries := append([]BattleRewardEntry(nil), c.entries[monsterID]...)
 	c.mu.RUnlock()
 
-	bundle := PVERewardBundle{Items: []PVEItemReward{}}
+	return BuildPVERewardBundle(entries)
+}
+
+// BuildPVERewardBundle 把数据库/JSON 中读取出的奖励条目汇总为战斗结算可消费的奖励包。
+func BuildPVERewardBundle(entries []BattleRewardEntry) PVERewardBundle {
+	bundle := PVERewardBundle{Items: []PVEItemReward{}, Attrs: []PVEAttrReward{}}
 	for _, entry := range entries {
+		if entry.Status != 1 {
+			continue
+		}
 		switch entry.RewardType {
 		case RewardTypeExp:
 			switch entry.ExpTarget {
@@ -131,7 +179,16 @@ func (c *battleRewardCache) bundleForMonster(monsterID uint32) PVERewardBundle {
 				GrantOnce: entry.GrantOnce == 1,
 			})
 		case RewardTypeGold:
+			bundle.Gold += entry.ExpValue * CopperPerGold
+		case RewardTypeSilver:
+			bundle.Gold += entry.ExpValue * CopperPerSilver
+		case RewardTypeCopper:
 			bundle.Gold += entry.ExpValue
+		case RewardTypeAttr:
+			if entry.AttrKey == "" || entry.ExpValue == 0 {
+				continue
+			}
+			bundle.Attrs = append(bundle.Attrs, PVEAttrReward{AttrKey: entry.AttrKey, Value: entry.ExpValue})
 		}
 	}
 	return bundle
@@ -196,6 +253,9 @@ func (s *Service) ReplaceAdminBattleRewards(ctx context.Context, monsterID uint3
 }
 
 func validateAdminBattleRewardInput(input AdminBattleRewardInput) error {
+	if input.DropRate == 0 || input.DropRate > RewardRateMax {
+		return ErrInvalidBattleRewardInput
+	}
 	switch input.RewardType {
 	case RewardTypeExp:
 		if input.ExpValue == 0 {
@@ -211,12 +271,25 @@ func validateAdminBattleRewardInput(input AdminBattleRewardInput) error {
 		if input.GrantOnce > 1 {
 			return ErrInvalidBattleRewardInput
 		}
-	case RewardTypeGold:
+	case RewardTypeGold, RewardTypeSilver, RewardTypeCopper:
 		if input.ExpValue == 0 {
+			return ErrInvalidBattleRewardInput
+		}
+	case RewardTypeAttr:
+		if input.AttrKey == "" || input.ExpValue == 0 || !isSupportedRewardAttrKey(input.AttrKey) {
 			return ErrInvalidBattleRewardInput
 		}
 	default:
 		return ErrInvalidBattleRewardInput
 	}
 	return nil
+}
+
+func isSupportedRewardAttrKey(attrKey string) bool {
+	switch attrKey {
+	case "free_attr_points", "strength", "vitality", "agility", "mind", "hp_max", "atk", "def", "spd", "mana":
+		return true
+	default:
+		return false
+	}
 }

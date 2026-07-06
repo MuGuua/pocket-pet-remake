@@ -26,14 +26,14 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=726695498]
-custom_minimum_size = Vector2(220, 0)
-custom_maximum_size = Vector2(180, 320)
+custom_minimum_size = Vector2(440, 0)
+custom_maximum_size = Vector2(360, 640)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
 [node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=1267158157]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 
 [node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1553892916]
 layout_mode = 2
@@ -43,8 +43,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 10
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 20
 text = "丢弃物品"
 horizontal_alignment = 1
 
@@ -54,12 +54,12 @@ layout_mode = 2
 
 [node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1416073400]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="ItemIcon" type="TextureRect" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=18028213]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -67,13 +67,13 @@ stretch_mode = 5
 [node name="ItemInfoVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=81857428]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 4
 
 [node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1883863541]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_font_sizes/font_size = 9
+theme_override_font_sizes/font_size = 18
 text = "物品名称"
 autowrap_mode = 2
 
@@ -81,15 +81,15 @@ autowrap_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 14
 text = "类型"
 
 [node name="WarningLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox" unique_id=501603370]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/normal_font_size = 8
+theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 text = "确定要丢弃吗？"
 fit_content = true
@@ -99,7 +99,7 @@ scroll_active = false
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=971663049 instance=ExtResource("3_action_btn")]
@@ -109,10 +109,10 @@ button_label = "-"
 
 [node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1368186059]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(36, 0)
+custom_minimum_size = Vector2(72, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -129,7 +129,7 @@ button_label = "最大"
 
 [node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=647962095]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=296625635 instance=ExtResource("3_action_btn")]

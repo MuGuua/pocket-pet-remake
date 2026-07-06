@@ -17,10 +17,10 @@ corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_y1mnv"]
 texture = ExtResource("2_4erph")
-texture_margin_left = 5.0
-texture_margin_top = 5.0
-texture_margin_right = 5.0
-texture_margin_bottom = 5.0
+texture_margin_left = 10.0
+texture_margin_top = 10.0
+texture_margin_right = 10.0
+texture_margin_bottom = 10.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
 bg_color = Color(0.101960786, 0.13333334, 0.2, 0.95)
@@ -44,14 +44,14 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_exp_fill"]
-bg_color = Color(0.9607843, 0.76862746, 0.25882354, 1)
+bg_color = Color(0.23529412, 0.72156864, 0.30588236, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
 [node name="PlayerStatusHud" type="PanelContainer" unique_id=946201253]
-custom_minimum_size = Vector2(196, 82)
+custom_minimum_size = Vector2(250, 120)
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("1_script")
 
@@ -72,7 +72,7 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_y1mnv")
 
 [node name="AvatarButton" type="TextureButton" parent="Margin/HBox/PanelContainer" unique_id=734011091]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(46, 46)
+custom_minimum_size = Vector2(75, 92)
 layout_mode = 2
 focus_mode = 0
 mouse_default_cursor_shape = 2
@@ -84,10 +84,6 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 3.0
-offset_top = 3.0
-offset_right = -3.0
-offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -101,7 +97,7 @@ theme_override_constants/separation = 3
 
 [node name="HpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=37289016]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(134, 9)
+custom_minimum_size = Vector2(134, 18)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -112,7 +108,7 @@ show_percentage = false
 
 [node name="MpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=189756278]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(134, 9)
+custom_minimum_size = Vector2(134, 18)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -123,7 +119,7 @@ show_percentage = false
 
 [node name="ExpBar" type="ProgressBar" parent="Margin/HBox/BarsVBox" unique_id=687643188]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(134, 9)
+custom_minimum_size = Vector2(134, 18)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -136,5 +132,5 @@ show_percentage = false
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81960785, 0.9019608, 0.9607843, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 19
 text = "坐标 (0, 0)"

@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://bn7en4cplsase"]
+
+[ext_resource type="Script" uid="uid://cmdkppd3i5ppx" path="res://scripts/ui/combined_status_hud.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://fei6e0dy6v42" path="res://scenes/ui/player_status_hud.tscn" id="2_player_hud"]
+[ext_resource type="PackedScene" uid="uid://b3b8oimufog6p" path="res://scenes/ui/pet_status_hud.tscn" id="3_pet_hud"]
+
+[node name="CombinedStatusHud" type="Control" unique_id=731811915]
+custom_minimum_size = Vector2(555, 150)
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="PlayerStatusHud" parent="." unique_id=1429428777 instance=ExtResource("2_player_hud")]
+unique_name_in_owner = true
+layout_mode = 0
+
+[node name="PetStatusHud" parent="." unique_id=1300277835 instance=ExtResource("3_pet_hud")]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 250.0
+offset_right = 450.0
+offset_bottom = 100.0

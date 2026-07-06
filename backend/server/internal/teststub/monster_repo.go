@@ -243,7 +243,7 @@ func (r *MonsterRepository) FindRuntimeEncounter(_ context.Context, entityID uin
 			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName, SkinID: definition.SkinID,
 			Level: definition.BaseStats.Level, HP: definition.BaseStats.HP, HPMax: definition.BaseStats.HPMax,
 			ATK: definition.BaseStats.ATK, DEF: definition.BaseStats.DEF, SPD: definition.BaseStats.SPD, MANA: definition.BaseStats.MANA,
-			SkillIDs: append([]uint32{}, definition.SkillIDs...),
+			SkillIDs: append([]uint32{}, definition.SkillIDs...), RewardEnabled: true,
 		})
 	}
 	if len(slots) == 0 {
@@ -284,14 +284,14 @@ func (r *MonsterRepository) FindRuntimeWildEncounter(_ context.Context, sceneID 
 			MonsterID: definition.MonsterID, MonsterName: definition.MonsterName, SkinID: definition.SkinID,
 			Level: definition.BaseStats.Level, HP: definition.BaseStats.HP, HPMax: definition.BaseStats.HPMax,
 			ATK: definition.BaseStats.ATK, DEF: definition.BaseStats.DEF, SPD: definition.BaseStats.SPD, MANA: definition.BaseStats.MANA,
-			SkillIDs: append([]uint32{}, definition.SkillIDs...),
+			SkillIDs: append([]uint32{}, definition.SkillIDs...), RewardEnabled: true,
 		})
 	}
 	if len(slots) == 0 {
 		return nil, nil
 	}
 	return &monster.RuntimeWildEncounter{
-		SceneID: sceneID, EncounterName: current.EncounterName, Slots: slots,
+		SceneID: sceneID, EncounterName: current.EncounterName, Slots: slots, Rewards: append([]monster.BattleRewardEntry{}, current.Rewards...),
 	}, nil
 }
 
@@ -397,13 +397,13 @@ func buildStubMonsterDefinitionDetail(input monster.AdminUpsertDefinitionInput, 
 			Level: input.Level, Quality: input.Quality, HP: input.HP, HPMax: input.HPMax,
 			ATK: input.ATK, DEF: input.DEF, SPD: input.SPD, MANA: input.MANA,
 		},
-		SkillIDs: skillIDs,
-		IsCapturable: input.IsCapturable,
-		CapturePetID: input.CapturePetID,
+		SkillIDs:        skillIDs,
+		IsCapturable:    input.IsCapturable,
+		CapturePetID:    input.CapturePetID,
 		CaptureRateBase: input.CaptureRateBase,
 		CaptureMinHPPct: input.CaptureMinHPPct,
-		CaptureItemIDs: append([]uint32{}, input.CaptureItemIDs...),
-		CreatedAt: createdAt, UpdatedAt: time.Now(),
+		CaptureItemIDs:  append([]uint32{}, input.CaptureItemIDs...),
+		CreatedAt:       createdAt, UpdatedAt: time.Now(),
 	}
 }
 
@@ -511,6 +511,8 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(_ context.Context, mo
 			ItemID:     reward.ItemID,
 			Quantity:   reward.Quantity,
 			ExpValue:   reward.ExpValue,
+			AttrKey:    reward.AttrKey,
+			DropRate:   reward.DropRate,
 			SortOrder:  reward.SortOrder,
 			Status:     reward.Status,
 			GrantOnce:  reward.GrantOnce,
@@ -522,4 +524,3 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(_ context.Context, mo
 	r.battleRewards[monsterID] = entries
 	return append([]monster.BattleRewardEntry(nil), entries...), nil
 }
-

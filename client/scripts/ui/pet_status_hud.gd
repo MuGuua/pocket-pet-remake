@@ -15,6 +15,10 @@ const PET_UNIT_CLASS: int = 2
 @onready var _pet_texture: TextureRect = %PetTexture
 ## 宠物生命值进度条。
 @onready var _hp_bar: ProgressBar = %HpBar
+## 宠物法力值进度条，颜色与人物 HUD 的蓝色法力条保持一致。
+@onready var _mp_bar: ProgressBar = %MpBar
+## 宠物经验值进度条，颜色与人物 HUD 的黄色经验条保持一致。
+@onready var _exp_bar: ProgressBar = %ExpBar
 ## 宠物名称与等级摘要。
 @onready var _name_label: Label = %NameLabel
 
@@ -43,13 +47,15 @@ func _exit_tree() -> void:
         GameState.battle_changed.disconnect(refresh_from_game_state)
 
 
-## 按当前服务端权威宠物快照刷新头像、名称和生命条。
+## 按当前服务端权威宠物快照刷新头像、名称、生命条、法力条与经验条。
 func refresh_from_game_state() -> void:
     var pet: Dictionary = _resolve_display_pet()
     _current_pet_uid = int(pet.get("pet_uid", 0))
     _update_name_label(pet)
     _update_pet_texture(pet)
     _update_hp_bar(pet)
+    _update_mp_bar(pet)
+    _update_exp_bar(pet)
     visible = _hud_enabled and not pet.is_empty()
 
 
@@ -157,6 +163,40 @@ func _update_hp_bar(pet: Dictionary) -> void:
             hp_max = max(1, int(battle_actor.get("hp_max", hp_max)))
     _hp_bar.max_value = float(hp_max)
     _hp_bar.value = float(clampi(hp_current, 0, hp_max))
+
+
+## 刷新法力条；宠物当前协议只有 mana 面板值，所以按人物 HUD 的现有口径用 mana 作为上限。
+func _update_mp_bar(pet: Dictionary) -> void:
+    if _mp_bar == null:
+        return
+    var mp_current: int = int(pet.get("mana", 0))
+    var mp_max: int = max(1, int(pet.get("mana_max", mp_current)))
+    if GameState.is_in_battle:
+        var battle_actor: Dictionary = _resolve_pet_battle_actor()
+        if not battle_actor.is_empty():
+            mp_current = int(battle_actor.get("mana", mp_current))
+            mp_max = max(1, int(battle_actor.get("mana_max", mp_current)))
+    _mp_bar.max_value = float(mp_max)
+    _mp_bar.value = float(clampi(mp_current, 0, mp_max))
+
+
+## 刷新经验条；exp_to_next 是服务端下发的“距离下级还差多少经验”。
+func _update_exp_bar(pet: Dictionary) -> void:
+    if _exp_bar == null:
+        return
+    var exp_current: int = int(pet.get("exp", 0))
+    var exp_to_next: int = int(pet.get("exp_to_next", 0))
+    var pet_level: int = int(pet.get("level", 0))
+    # 进度条总需求 = 当前等级已获得经验 + 距离下级所需经验；满级或缺配置时用满条兜底。
+    var exp_max: int = exp_current + exp_to_next
+    if exp_max <= 0:
+        if pet_level >= 100:
+            exp_current = 1
+            exp_max = 1
+        else:
+            exp_max = 1
+    _exp_bar.max_value = float(exp_max)
+    _exp_bar.value = float(clampi(exp_current, 0, exp_max))
 
 
 ## 从战斗 allies 列表中定位当前 HUD 展示的出战宠物。

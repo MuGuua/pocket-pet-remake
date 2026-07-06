@@ -7,8 +7,10 @@ const LINE_HEIGHT: float = 12.0
 
 @onready var _lines_root: VBoxContainer = %LogLinesRoot
 
-@export var log_font_size: int = 16
-@export var line_height: float = 18.0  # 建议略大于字号
+## 战斗日志字体大小；导出后可在 battle_scene.tscn 的 ActionLogPanel 上继续微调。
+@export var log_font_size: int = 30
+## 战斗日志单行高度；字号调大后同步加高，避免移动端中文被上下裁切。
+@export var line_height: float = 36.0
 
 var _line_timers: Dictionary = {}
 var _line_labels_by_id: Dictionary = {}
@@ -75,6 +77,6 @@ func _create_line_label(text: String) -> Label:
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.clip_text = false
 	label.add_theme_font_size_override("font_size", log_font_size)
-	label.custom_minimum_size = Vector2(0.0, LINE_HEIGHT)
+	label.custom_minimum_size = Vector2(0.0, line_height)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return label

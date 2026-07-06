@@ -146,27 +146,29 @@ atlas = SubResource("CompressedTexture2D_bhnpi")
 region = Rect2(65, 5, 30, 23)
 
 [node name="MarginContainer2" type="MarginContainer" unique_id=485359149]
-offset_right = 352.0
-offset_bottom = 220.0
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_right = 5
+offset_right = 704.0
+offset_bottom = 440.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
 script = ExtResource("1_1g7k6")
+player_preview_position_offset = Vector2(0, 60)
+pet_preview_position_offset = Vector2(-30, 120)
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=1326181095]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=1794810373]
-custom_minimum_size = Vector2(342, 220)
+custom_minimum_size = Vector2(684, 440)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-theme_override_constants/separation = 25
+theme_override_constants/separation = 27
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=309504024]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
-theme_override_constants/separation = 36
+theme_override_constants/separation = 27
 alignment = 1
 
 [node name="NullEquipmentSlot" parent="PanelContainer/VBoxContainer/HBoxContainer" unique_id=138525869 instance=ExtResource("1_qbtfp")]
@@ -174,7 +176,7 @@ layout_mode = 2
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot" unique_id=303719839]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -190,7 +192,7 @@ equip_slot_key = "hat"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot2" unique_id=1001937611]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -206,7 +208,7 @@ equip_slot_key = "clothes"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot3" unique_id=2128908308]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -222,7 +224,7 @@ equip_slot_key = "pants"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot4" unique_id=359062719]
 modulate = Color(4.7037287, 4.7037287, 4.7037287, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -238,7 +240,7 @@ equip_slot_key = "shoes"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot5" unique_id=2138528980]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -254,7 +256,7 @@ equip_slot_key = "medicine_pouch"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer/NullEquipmentSlot6" unique_id=1765659231]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -268,12 +270,12 @@ flip_h = true
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-theme_override_constants/separation = 5
+theme_override_constants/separation = 10
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/HBoxContainer2" unique_id=1852478235]
-custom_minimum_size = Vector2(44, 0)
+custom_minimum_size = Vector2(88, 0)
 layout_mode = 2
-theme_override_constants/separation = 36
+theme_override_constants/separation = 27
 
 [node name="NullEquipmentSlot" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer" unique_id=1479341569 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
@@ -281,7 +283,7 @@ equip_slot_key = "ring"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot" unique_id=1188651491]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -296,7 +298,7 @@ equip_slot_key = "hero_ring"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot2" unique_id=804397090]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -311,7 +313,7 @@ equip_slot_key = "guardian_ring"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer/NullEquipmentSlot3" unique_id=1859008982]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -321,7 +323,7 @@ grow_vertical = 2
 texture = SubResource("AtlasTexture_eodj5")
 
 [node name="Control" type="Control" parent="PanelContainer/VBoxContainer/HBoxContainer2" unique_id=2035361405]
-custom_minimum_size = Vector2(237, 148)
+custom_minimum_size = Vector2(474, 296)
 layout_mode = 2
 size_flags_horizontal = 0
 
@@ -339,15 +341,15 @@ size_flags_vertical = 3
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control" unique_id=701497947]
 modulate = Color(1, 1, 1, 0.44705883)
-custom_minimum_size = Vector2(200, 30)
+custom_minimum_size = Vector2(400, 60)
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -50.0
-offset_right = 50.0
+offset_left = -100.0
+offset_right = 100.0
 grow_horizontal = 2
 grow_vertical = 0
 size_flags_vertical = 10
@@ -363,28 +365,28 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Pet" type="AnimatedSprite2D" parent="PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=2092438364]
-position = Vector2(156.7, 58.449997)
-scale = Vector2(1.5, 1.5)
+position = Vector2(310.40002, 133.89998)
+scale = Vector2(3, 3)
 sprite_frames = SubResource("SpriteFrames_fp0h2")
 autoplay = "default"
 frame_progress = 0.2490806
 
 [node name="Player" type="AnimatedSprite2D" parent="PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=1088089470]
-position = Vector2(90.274994, 73.6859)
-scale = Vector2(1.5, 1.5)
+position = Vector2(160.54996, 169.37178)
+scale = Vector2(3, 3)
 sprite_frames = SubResource("SpriteFrames_y1mnv")
 autoplay = "default"
 frame_progress = 0.69908303
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/HBoxContainer2/Control/HBoxContainer" unique_id=1297206361]
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_vertical = 8
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="PanelContainer/VBoxContainer/HBoxContainer2" unique_id=1891799341]
-custom_minimum_size = Vector2(44, 0)
+custom_minimum_size = Vector2(88, 0)
 layout_mode = 2
-theme_override_constants/separation = 36
+theme_override_constants/separation = 27
 
 [node name="WeaponSlot" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2" unique_id=118249921 instance=ExtResource("1_qbtfp")]
 layout_mode = 2
@@ -392,7 +394,7 @@ equip_slot_key = "badge"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/WeaponSlot" unique_id=1231486959]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -408,7 +410,7 @@ equip_slot_key = "charm"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot2" unique_id=2037361961]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -424,7 +426,7 @@ equip_slot_key = "class_badge"
 
 [node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/HBoxContainer2/VBoxContainer2/NullEquipmentSlot3" unique_id=1081916429]
 modulate = Color(4.876789, 4.876789, 4.876789, 0.22352941)
-custom_maximum_size = Vector2(14, 14)
+custom_maximum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

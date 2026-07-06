@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -108,39 +109,39 @@ LIMIT 1
 `
 
 const runtimeWildEncounterConfigQuery = `
-SELECT scene_id, encounter_name, encounter_rate, spawn_monster_ids
+SELECT scene_id, encounter_name, encounter_rate, spawn_monster_ids, COALESCE(formations, '[]'::jsonb)
 FROM scene_wild_encounter
 WHERE scene_id = $1 AND status = 1
 LIMIT 1
 `
 
 const runtimeWildEncounterQuery = `
-SELECT scene_id, encounter_name, spawn_monster_ids
+SELECT scene_id, encounter_name, spawn_monster_ids, COALESCE(formations, '[]'::jsonb), COALESCE(rewards, '[]'::jsonb)
 FROM scene_wild_encounter
 WHERE scene_id = $1 AND status = 1
 LIMIT 1
 `
 
 const adminSceneWildEncounterListQuery = `
-SELECT scene_id, encounter_name, encounter_rate, spawn_monster_ids, status, updated_at, created_at
+SELECT scene_id, encounter_name, encounter_rate, spawn_monster_ids, COALESCE(formations, '[]'::jsonb), status, updated_at, created_at
 FROM scene_wild_encounter
 `
 
 const adminSceneWildEncounterDetailQuery = `
-SELECT scene_id, encounter_name, description, encounter_rate, spawn_monster_ids, status, created_at, updated_at
+SELECT scene_id, encounter_name, description, encounter_rate, spawn_monster_ids, COALESCE(formations, '[]'::jsonb), COALESCE(rewards, '[]'::jsonb), status, created_at, updated_at
 FROM scene_wild_encounter
 WHERE scene_id = $1
 LIMIT 1
 `
 
 const insertSceneWildEncounterQuery = `
-INSERT INTO scene_wild_encounter (scene_id, encounter_name, description, encounter_rate, spawn_monster_ids, status)
-VALUES ($1,$2,$3,$4,$5::jsonb,$6)
+INSERT INTO scene_wild_encounter (scene_id, encounter_name, description, encounter_rate, spawn_monster_ids, formations, rewards, status)
+VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8)
 `
 
 const updateSceneWildEncounterQuery = `
 UPDATE scene_wild_encounter
-SET encounter_name = $2, description = $3, encounter_rate = $4, spawn_monster_ids = $5::jsonb, status = $6
+SET encounter_name = $2, description = $3, encounter_rate = $4, spawn_monster_ids = $5::jsonb, formations = $6::jsonb, rewards = $7::jsonb, status = $8
 WHERE scene_id = $1
 `
 
@@ -436,7 +437,7 @@ func (r *MonsterRepository) FindRuntimeEncounter(ctx context.Context, entityID u
 	if err != nil {
 		return nil, err
 	}
-	slots, err := r.buildRuntimeEncounterSlots(ctx, spawnMonsterIDs)
+	slots, err := r.buildRuntimeEncounterSlots(ctx, monsterSlotsFromIDs(spawnMonsterIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +453,8 @@ func (r *MonsterRepository) FindRuntimeWildEncounterConfig(ctx context.Context, 
 	var encounterName string
 	var encounterRate int64
 	var spawnJSON []byte
-	if err := row.Scan(&sceneIDValue, &encounterName, &encounterRate, &spawnJSON); err != nil {
+	var formationsJSON []byte
+	if err := row.Scan(&sceneIDValue, &encounterName, &encounterRate, &spawnJSON, &formationsJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -462,7 +464,11 @@ func (r *MonsterRepository) FindRuntimeWildEncounterConfig(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	if len(spawnMonsterIDs) == 0 || encounterRate <= 0 {
+	formations, err := parseWildEncounterFormationsJSON(formationsJSON, spawnMonsterIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(spawnMonsterIDs) == 0 || len(formations) == 0 || encounterRate <= 0 {
 		return &monster.RuntimeWildEncounterConfig{SceneID: uint32(sceneIDValue)}, nil
 	}
 	return &monster.RuntimeWildEncounterConfig{
@@ -478,7 +484,9 @@ func (r *MonsterRepository) FindRuntimeWildEncounter(ctx context.Context, sceneI
 	var sceneIDValue int64
 	var encounterName string
 	var spawnJSON []byte
-	if err := row.Scan(&sceneIDValue, &encounterName, &spawnJSON); err != nil {
+	var formationsJSON []byte
+	var rewardsJSON []byte
+	if err := row.Scan(&sceneIDValue, &encounterName, &spawnJSON, &formationsJSON, &rewardsJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -488,7 +496,19 @@ func (r *MonsterRepository) FindRuntimeWildEncounter(ctx context.Context, sceneI
 	if err != nil {
 		return nil, err
 	}
-	slots, err := r.buildRuntimeEncounterSlots(ctx, spawnMonsterIDs)
+	formations, err := parseWildEncounterFormationsJSON(formationsJSON, spawnMonsterIDs)
+	if err != nil {
+		return nil, err
+	}
+	rewards, err := parseBattleRewardsJSON(rewardsJSON)
+	if err != nil {
+		return nil, err
+	}
+	selectedFormation := chooseWildEncounterFormation(formations)
+	if len(selectedFormation.MonsterSlots) == 0 {
+		return nil, nil
+	}
+	slots, err := r.buildRuntimeEncounterSlots(ctx, selectedFormation.MonsterSlots)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +518,9 @@ func (r *MonsterRepository) FindRuntimeWildEncounter(ctx context.Context, sceneI
 	return &monster.RuntimeWildEncounter{
 		SceneID:       uint32(sceneIDValue),
 		EncounterName: encounterName,
+		FormationName: selectedFormation.FormationName,
 		Slots:         slots,
+		Rewards:       rewards,
 	}, nil
 }
 
@@ -512,13 +534,93 @@ func parseSpawnMonsterIDsJSON(spawnJSON []byte) ([]uint32, error) {
 	return spawnMonsterIDs, nil
 }
 
-func (r *MonsterRepository) buildRuntimeEncounterSlots(ctx context.Context, spawnMonsterIDs []uint32) ([]monster.RuntimeEncounterSlot, error) {
-	if len(spawnMonsterIDs) == 0 {
+func parseWildEncounterFormationsJSON(formationsJSON []byte, fallbackMonsterIDs []uint32) ([]monster.AdminWildEncounterFormation, error) {
+	formations := []monster.AdminWildEncounterFormation{}
+	if len(formationsJSON) > 0 {
+		if err := json.Unmarshal(formationsJSON, &formations); err != nil {
+			return nil, err
+		}
+	}
+	if len(formations) == 0 && len(fallbackMonsterIDs) > 0 {
+		formations = []monster.AdminWildEncounterFormation{{FormationName: "默认编队", Weight: 10000, SpawnMonsterIDs: append([]uint32{}, fallbackMonsterIDs...)}}
+	}
+	normalized := make([]monster.AdminWildEncounterFormation, 0, len(formations))
+	for index, formation := range formations {
+		formation = formation.Normalize(index)
+		if formation.Weight == 0 || len(formation.SpawnMonsterIDs) == 0 {
+			continue
+		}
+		normalized = append(normalized, formation)
+	}
+	return normalized, nil
+}
+
+func parseBattleRewardsJSON(rewardsJSON []byte) ([]monster.BattleRewardEntry, error) {
+	inputs := []monster.AdminBattleRewardInput{}
+	if len(rewardsJSON) > 0 {
+		if err := json.Unmarshal(rewardsJSON, &inputs); err != nil {
+			return nil, err
+		}
+	}
+	result := make([]monster.BattleRewardEntry, 0, len(inputs))
+	for index, input := range inputs {
+		input = input.Normalize()
+		if input.SortOrder == 0 {
+			input.SortOrder = uint32(index + 1)
+		}
+		result = append(result, monster.BattleRewardEntry{
+			RewardType: input.RewardType,
+			ExpTarget:  input.ExpTarget,
+			ItemID:     input.ItemID,
+			Quantity:   input.Quantity,
+			ExpValue:   input.ExpValue,
+			AttrKey:    input.AttrKey,
+			DropRate:   input.DropRate,
+			SortOrder:  input.SortOrder,
+			Status:     input.Status,
+			GrantOnce:  input.GrantOnce,
+		})
+	}
+	return result, nil
+}
+
+func chooseWildEncounterFormation(formations []monster.AdminWildEncounterFormation) monster.AdminWildEncounterFormation {
+	if len(formations) == 0 {
+		return monster.AdminWildEncounterFormation{}
+	}
+	totalWeight := uint32(0)
+	for _, formation := range formations {
+		totalWeight += formation.Weight
+	}
+	if totalWeight == 0 {
+		return formations[0]
+	}
+	roll := uint32(rand.Intn(int(totalWeight)))
+	running := uint32(0)
+	for _, formation := range formations {
+		running += formation.Weight
+		if roll < running {
+			return formation
+		}
+	}
+	return formations[len(formations)-1]
+}
+
+func monsterSlotsFromIDs(monsterIDs []uint32) []monster.AdminWildEncounterMonsterSlot {
+	result := make([]monster.AdminWildEncounterMonsterSlot, 0, len(monsterIDs))
+	for _, monsterID := range monsterIDs {
+		result = append(result, monster.AdminWildEncounterMonsterSlot{MonsterID: monsterID, RewardEnabled: true})
+	}
+	return result
+}
+
+func (r *MonsterRepository) buildRuntimeEncounterSlots(ctx context.Context, monsterSlots []monster.AdminWildEncounterMonsterSlot) ([]monster.RuntimeEncounterSlot, error) {
+	if len(monsterSlots) == 0 {
 		return nil, nil
 	}
-	slots := make([]monster.RuntimeEncounterSlot, 0, len(spawnMonsterIDs))
-	for _, monsterID := range spawnMonsterIDs {
-		definition, err := r.FindRuntimeDefinition(ctx, monsterID)
+	slots := make([]monster.RuntimeEncounterSlot, 0, len(monsterSlots))
+	for _, monsterSlot := range monsterSlots {
+		definition, err := r.FindRuntimeDefinition(ctx, monsterSlot.MonsterID)
 		if err != nil {
 			return nil, err
 		}
@@ -533,7 +635,7 @@ func (r *MonsterRepository) buildRuntimeEncounterSlots(ctx context.Context, spaw
 			SkillIDs: skillIDs, SkinID: definition.SkinID,
 			Guard: definition.Guard, TalentDmgPct: definition.TalentDmgPct,
 			TalentReducePct: definition.TalentReducePct, ElementAdvPct: definition.ElementAdvPct,
-			ElementPenaltyPct: definition.ElementPenaltyPct,
+			ElementPenaltyPct: definition.ElementPenaltyPct, RewardEnabled: monsterSlot.RewardEnabled,
 		})
 	}
 	return slots, nil
@@ -595,7 +697,15 @@ func (r *MonsterRepository) CreateWildEncounterForAdmin(ctx context.Context, inp
 	if err != nil {
 		return nil, err
 	}
-	if _, err := r.db.ExecContext(ctx, insertSceneWildEncounterQuery, input.SceneID, input.EncounterName, input.Description, input.EncounterRate, spawnJSON, statusFromEnabled(input.IsEnabled)); err != nil {
+	formationsJSON, err := json.Marshal(input.Formations)
+	if err != nil {
+		return nil, err
+	}
+	rewardsJSON, err := json.Marshal(input.Rewards)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := r.db.ExecContext(ctx, insertSceneWildEncounterQuery, input.SceneID, input.EncounterName, input.Description, input.EncounterRate, spawnJSON, formationsJSON, rewardsJSON, statusFromEnabled(input.IsEnabled)); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, monster.ErrSceneWildEncounterConflict
@@ -610,7 +720,15 @@ func (r *MonsterRepository) UpdateWildEncounterForAdmin(ctx context.Context, sce
 	if err != nil {
 		return nil, err
 	}
-	result, err := r.db.ExecContext(ctx, updateSceneWildEncounterQuery, sceneID, input.EncounterName, input.Description, input.EncounterRate, spawnJSON, statusFromEnabled(input.IsEnabled))
+	formationsJSON, err := json.Marshal(input.Formations)
+	if err != nil {
+		return nil, err
+	}
+	rewardsJSON, err := json.Marshal(input.Rewards)
+	if err != nil {
+		return nil, err
+	}
+	result, err := r.db.ExecContext(ctx, updateSceneWildEncounterQuery, sceneID, input.EncounterName, input.Description, input.EncounterRate, spawnJSON, formationsJSON, rewardsJSON, statusFromEnabled(input.IsEnabled))
 	if err != nil {
 		return nil, err
 	}
@@ -818,7 +936,8 @@ func scanAdminWildEncounterSummary(rows *sql.Rows) (monster.AdminWildEncounterSu
 	var item monster.AdminWildEncounterSummary
 	var sceneID, encounterRate, status int64
 	var spawnJSON []byte
-	if err := rows.Scan(&sceneID, &item.EncounterName, &encounterRate, &spawnJSON, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
+	var formationsJSON []byte
+	if err := rows.Scan(&sceneID, &item.EncounterName, &encounterRate, &spawnJSON, &formationsJSON, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
 		return monster.AdminWildEncounterSummary{}, err
 	}
 	item.SceneID = uint32(sceneID)
@@ -830,6 +949,8 @@ func scanAdminWildEncounterSummary(rows *sql.Rows) (monster.AdminWildEncounterSu
 		_ = json.Unmarshal(spawnJSON, &spawnIDs)
 	}
 	item.SpawnCount = uint32(len(spawnIDs))
+	formations, _ := parseWildEncounterFormationsJSON(formationsJSON, spawnIDs)
+	item.FormationCount = uint32(len(formations))
 	return item, nil
 }
 
@@ -837,7 +958,9 @@ func scanAdminWildEncounterDetail(row *sql.Row) (*monster.AdminWildEncounterDeta
 	var detail monster.AdminWildEncounterDetail
 	var sceneID, encounterRate, status int64
 	var spawnJSON []byte
-	if err := row.Scan(&sceneID, &detail.EncounterName, &detail.Description, &encounterRate, &spawnJSON, &status, &detail.CreatedAt, &detail.UpdatedAt); err != nil {
+	var formationsJSON []byte
+	var rewardsJSON []byte
+	if err := row.Scan(&sceneID, &detail.EncounterName, &detail.Description, &encounterRate, &spawnJSON, &formationsJSON, &rewardsJSON, &status, &detail.CreatedAt, &detail.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -855,6 +978,16 @@ func scanAdminWildEncounterDetail(row *sql.Row) (*monster.AdminWildEncounterDeta
 	if detail.SpawnMonsterIDs == nil {
 		detail.SpawnMonsterIDs = []uint32{}
 	}
+	formations, err := parseWildEncounterFormationsJSON(formationsJSON, detail.SpawnMonsterIDs)
+	if err != nil {
+		return nil, err
+	}
+	detail.Formations = formations
+	rewards, err := parseBattleRewardsJSON(rewardsJSON)
+	if err != nil {
+		return nil, err
+	}
+	detail.Rewards = rewards
 	return &detail, nil
 }
 
@@ -868,7 +1001,8 @@ func statusTextFromEnabled(enabled bool) string {
 const listMonsterBattleRewardsQuery = `
 SELECT
   mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
-  mbr.exp_value, mbr.sort_order, mbr.status, mbr.grant_once,
+  mbr.exp_value, COALESCE(mbr.attr_key, '') AS attr_key, COALESCE(mbr.drop_rate, 10000) AS drop_rate,
+  mbr.sort_order, mbr.status, mbr.grant_once,
   COALESCE(idf.item_name, '') AS item_name
 FROM monster_battle_reward mbr
 LEFT JOIN item_definition idf ON idf.item_id = mbr.item_id
@@ -878,7 +1012,8 @@ ORDER BY mbr.monster_id ASC, mbr.sort_order ASC, mbr.id ASC
 const listMonsterBattleRewardsByMonsterIDQuery = `
 SELECT
   mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
-  mbr.exp_value, mbr.sort_order, mbr.status, mbr.grant_once,
+  mbr.exp_value, COALESCE(mbr.attr_key, '') AS attr_key, COALESCE(mbr.drop_rate, 10000) AS drop_rate,
+  mbr.sort_order, mbr.status, mbr.grant_once,
   COALESCE(idf.item_name, '') AS item_name
 FROM monster_battle_reward mbr
 LEFT JOIN item_definition idf ON idf.item_id = mbr.item_id
@@ -893,9 +1028,9 @@ WHERE monster_id = $1
 
 const insertMonsterBattleRewardQuery = `
 INSERT INTO monster_battle_reward (
-  monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, sort_order, status, grant_once
+  monster_id, reward_type, exp_target, item_id, quantity, exp_value, attr_key, drop_rate, sort_order, status, grant_once
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, COALESCE(attr_key, ''), COALESCE(drop_rate, 10000), sort_order, status, grant_once
 `
 
 func (r *MonsterRepository) ListBattleRewards(ctx context.Context) ([]monster.BattleRewardEntry, error) {
@@ -941,6 +1076,8 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(ctx context.Context, 
 			reward.ItemID,
 			reward.Quantity,
 			reward.ExpValue,
+			reward.AttrKey,
+			reward.DropRate,
 			reward.SortOrder,
 			reward.Status,
 			reward.GrantOnce,
@@ -971,15 +1108,16 @@ func scanMonsterBattleRewardRows(rows *sql.Rows) ([]monster.BattleRewardEntry, e
 
 func scanMonsterBattleRewardRow(row *sql.Row) (monster.BattleRewardEntry, error) {
 	var entry monster.BattleRewardEntry
-	var monsterID, sortOrder, status, grantOnce int64
+	var monsterID, sortOrder, status, grantOnce, dropRate int64
 	var itemID, quantity, expValue int64
-	if err := row.Scan(&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue, &sortOrder, &status, &grantOnce); err != nil {
+	if err := row.Scan(&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue, &entry.AttrKey, &dropRate, &sortOrder, &status, &grantOnce); err != nil {
 		return monster.BattleRewardEntry{}, err
 	}
 	entry.MonsterID = uint32(monsterID)
 	entry.ItemID = uint64(itemID)
 	entry.Quantity = uint64(quantity)
 	entry.ExpValue = uint64(expValue)
+	entry.DropRate = uint32(dropRate)
 	entry.SortOrder = uint32(sortOrder)
 	entry.Status = uint32(status)
 	entry.GrantOnce = uint32(grantOnce)
@@ -988,11 +1126,11 @@ func scanMonsterBattleRewardRow(row *sql.Row) (monster.BattleRewardEntry, error)
 
 func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry, error) {
 	var entry monster.BattleRewardEntry
-	var monsterID, sortOrder, status, grantOnce int64
+	var monsterID, sortOrder, status, grantOnce, dropRate int64
 	var itemID, quantity, expValue int64
 	if err := rows.Scan(
 		&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue,
-		&sortOrder, &status, &grantOnce, &entry.ItemName,
+		&entry.AttrKey, &dropRate, &sortOrder, &status, &grantOnce, &entry.ItemName,
 	); err != nil {
 		return monster.BattleRewardEntry{}, err
 	}
@@ -1000,9 +1138,9 @@ func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry,
 	entry.ItemID = uint64(itemID)
 	entry.Quantity = uint64(quantity)
 	entry.ExpValue = uint64(expValue)
+	entry.DropRate = uint32(dropRate)
 	entry.SortOrder = uint32(sortOrder)
 	entry.Status = uint32(status)
 	entry.GrantOnce = uint32(grantOnce)
 	return entry, nil
 }
-

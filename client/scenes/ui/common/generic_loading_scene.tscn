@@ -47,7 +47,6 @@ load_path = "res://.godot/imported/loading1.png-23421f8dafd382c143fb10b06b070f16
 
 [node name="GenericLoadingScene" type="CanvasLayer" unique_id=1305943536]
 layer = 50
-visible = false
 script = ExtResource("1_script")
 
 [node name="Root" type="Control" parent="." unique_id=1970105681]
@@ -66,21 +65,21 @@ mouse_filter = 2
 color = Color(0.039215688, 0.078431375, 0.14117648, 0.4)
 
 [node name="PanelContainer" type="PanelContainer" parent="Root" unique_id=1140949535]
-custom_minimum_size = Vector2(0, 70)
+custom_minimum_size = Vector2(0, 140)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 grow_horizontal = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="Root/PanelContainer" unique_id=45935961]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_vertical = 8
 theme_override_styles/panel = SubResource("StyleBoxFlat_4is55")
 
 [node name="ScrollClip" type="Control" parent="Root/PanelContainer/PanelContainer" unique_id=1995287065]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 26)
+custom_minimum_size = Vector2(0, 52)
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -88,32 +87,35 @@ size_flags_horizontal = 3
 [node name="ScrollHBox" type="HBoxContainer" parent="Root/PanelContainer/PanelContainer/ScrollClip" unique_id=1734475088]
 unique_name_in_owner = true
 layout_mode = 0
+offset_right = 100.0
+offset_bottom = 26.0
 theme_override_constants/separation = 6
 alignment = 1
 
 [node name="SpriteSlot" type="Control" parent="Root/PanelContainer/PanelContainer/ScrollClip/ScrollHBox" unique_id=1541550662]
-custom_minimum_size = Vector2(22, 26)
+custom_minimum_size = Vector2(44, 52)
 layout_mode = 2
 size_flags_vertical = 4
 
 [node name="LoadingSprite" type="AnimatedSprite2D" parent="Root/PanelContainer/PanelContainer/ScrollClip/ScrollHBox/SpriteSlot" unique_id=31167797]
 unique_name_in_owner = true
 position = Vector2(11, 13)
-scale = Vector2(0.8384616, 0.6)
+scale = Vector2(2, 2)
 sprite_frames = SubResource("SpriteFrames_y1mnv")
 autoplay = "default"
 
 [node name="LoadingTextRect" type="TextureRect" parent="Root/PanelContainer/PanelContainer/ScrollClip/ScrollHBox" unique_id=836551239]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 26)
+custom_minimum_size = Vector2(96, 52)
 layout_mode = 2
-size_flags_vertical = 4
+size_flags_vertical = 8
 texture = SubResource("CompressedTexture2D_4hysv")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="Label" type="Label" parent="Root/PanelContainer/PanelContainer/ScrollClip/ScrollHBox" unique_id=387194776]
 layout_mode = 2
+theme_override_font_sizes/font_size = 35
 text = "..."
 
 [node name="StatusLabel" type="Label" parent="Root/PanelContainer/PanelContainer/ScrollClip/ScrollHBox" unique_id=398527600]

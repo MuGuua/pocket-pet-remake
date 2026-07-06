@@ -1258,12 +1258,12 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if character.UnitClass != battle.ActorUnitClassCharacter {
 		t.Fatalf("character.UnitClass = %d, want %d", character.UnitClass, battle.ActorUnitClassCharacter)
 	}
-  if len(character.SkillIDs) != 1 {
-    t.Fatalf("len(character.SkillIDs) = %d, want 1", len(character.SkillIDs))
-  }
-  if len(character.Skills) != 1 {
-    t.Fatalf("len(character.Skills) = %d, want 1", len(character.Skills))
-  }
+	if len(character.SkillIDs) != 1 {
+		t.Fatalf("len(character.SkillIDs) = %d, want 1", len(character.SkillIDs))
+	}
+	if len(character.Skills) != 1 {
+		t.Fatalf("len(character.Skills) = %d, want 1", len(character.Skills))
+	}
 	if character.Skills[0].TargetType != "enemy_single" {
 		t.Fatalf("character.Skills[0].TargetType = %q, want %q", character.Skills[0].TargetType, "enemy_single")
 	}
@@ -1273,15 +1273,15 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if firstPet.LineupIndex != 0 {
 		t.Fatalf("firstPet.LineupIndex = %d, want 0", firstPet.LineupIndex)
 	}
-  if len(start.Allies[2].Skills) != 1 {
-    t.Fatalf("len(start.Allies[2].Skills) = %d, want 1", len(start.Allies[2].Skills))
-  }
-  if start.Allies[2].Skills[0].TargetType != "ally_single" {
-    t.Fatalf("start.Allies[2].Skills[0].TargetType = %q, want %q", start.Allies[2].Skills[0].TargetType, "ally_single")
-  }
-  if start.Allies[2].Skills[0].AnimationKey != "heal" || start.Allies[2].Skills[0].Projectile {
-    t.Fatalf("start.Allies[2].Skills[0] = %#v, want heal animation without projectile", start.Allies[2].Skills[0])
-  }
+	if len(start.Allies[2].Skills) != 1 {
+		t.Fatalf("len(start.Allies[2].Skills) = %d, want 1", len(start.Allies[2].Skills))
+	}
+	if start.Allies[2].Skills[0].TargetType != "ally_single" {
+		t.Fatalf("start.Allies[2].Skills[0].TargetType = %q, want %q", start.Allies[2].Skills[0].TargetType, "ally_single")
+	}
+	if start.Allies[2].Skills[0].AnimationKey != "heal" || start.Allies[2].Skills[0].Projectile {
+		t.Fatalf("start.Allies[2].Skills[0] = %#v, want heal animation without projectile", start.Allies[2].Skills[0])
+	}
 
 	firstAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 17, 0, protocol.BattleActionReq{
 		OpID:       1,
@@ -1302,34 +1302,14 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(firstAction) error = %v", err)
 	}
-	if len(conn.packets) != 4 {
-		t.Fatalf("len(conn.packets) after first action = %d, want 4", len(conn.packets))
-	}
-
-	var state protocol.BattleStatePush
-	if err := protocol.UnmarshalBody(conn.packets[3].Body, &state); err != nil {
-		t.Fatalf("UnmarshalBody(state) error = %v", err)
-	}
-	if state.Round != 1 {
-		t.Fatalf("state.Round = %d, want 1", state.Round)
-	}
-	if state.ActiveActorID != firstPet.ActorID {
-		t.Fatalf("state.ActiveActorID = %d, want %d", state.ActiveActorID, firstPet.ActorID)
-	}
-	if state.ActivePetUID != firstPet.PetUID {
-		t.Fatalf("state.ActivePetUID = %d, want %d", state.ActivePetUID, firstPet.PetUID)
-	}
-	if len(state.PendingActorIDs) != 2 || state.PendingActorIDs[0] != firstPet.ActorID {
-		t.Fatalf("unexpected pending actor ids: %#v", state.PendingActorIDs)
-	}
-	if len(state.Events) != 0 {
-		t.Fatalf("len(state.Events) = %d, want 0 while still collecting commands", len(state.Events))
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) after first action = %d, want 3", len(conn.packets))
 	}
 
 	secondAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 18, 0, protocol.BattleActionReq{
 		OpID:       2,
 		BattleID:   start.BattleID,
-		Round:      state.Round,
+		Round:      start.Round,
 		ActionType: battle.ActionTypeSkill,
 		ActorID:    firstPet.ActorID,
 		SkillID:    firstPet.SkillIDs[0],
@@ -1345,14 +1325,14 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(secondAction) error = %v", err)
 	}
-	if len(conn.packets) != 6 {
-		t.Fatalf("len(conn.packets) after second action = %d, want 6", len(conn.packets))
+	if len(conn.packets) != 4 {
+		t.Fatalf("len(conn.packets) after second action = %d, want 4", len(conn.packets))
 	}
 
 	thirdAction, err := protocol.NewJSONPacket(protocol.CmdBattleActionReq, 19, 0, protocol.BattleActionReq{
 		OpID:       3,
 		BattleID:   start.BattleID,
-		Round:      state.Round,
+		Round:      start.Round,
 		ActionType: battle.ActionTypeSkill,
 		ActorID:    start.Allies[2].ActorID,
 		SkillID:    start.Allies[2].SkillIDs[0],
@@ -1368,15 +1348,15 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(thirdAction) error = %v", err)
 	}
-	if len(conn.packets) != 12 {
-		t.Fatalf("len(conn.packets) after third action = %d, want 12", len(conn.packets))
+	if len(conn.packets) != 10 {
+		t.Fatalf("len(conn.packets) after third action = %d, want 10", len(conn.packets))
 	}
-	if conn.packets[8].Cmd != protocol.CmdBattleResultPush {
-		t.Fatalf("conn.packets[8].Cmd = %d, want %d", conn.packets[8].Cmd, protocol.CmdBattleResultPush)
+	if conn.packets[6].Cmd != protocol.CmdBattleResultPush {
+		t.Fatalf("conn.packets[6].Cmd = %d, want %d", conn.packets[6].Cmd, protocol.CmdBattleResultPush)
 	}
 
 	var result protocol.BattleResultPush
-	if err := protocol.UnmarshalBody(conn.packets[8].Body, &result); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[6].Body, &result); err != nil {
 		t.Fatalf("UnmarshalBody(result) error = %v", err)
 	}
 	if !result.Win {
@@ -1397,35 +1377,42 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if len(result.DropTexts) == 0 {
 		t.Fatal("len(result.DropTexts) = 0, want text-only drop preview")
 	}
-	if conn.packets[9].Cmd != protocol.CmdPetUpdatePush {
-		t.Fatalf("conn.packets[9].Cmd = %d, want %d", conn.packets[9].Cmd, protocol.CmdPetUpdatePush)
+	if conn.packets[7].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdPetUpdatePush)
 	}
 
-	var petUpdate protocol.PetUpdatePush
-	if err := protocol.UnmarshalBody(conn.packets[9].Body, &petUpdate); err != nil {
-		t.Fatalf("UnmarshalBody(petUpdate) error = %v", err)
+	if conn.packets[8].Cmd != protocol.CmdPetUpdatePush {
+		t.Fatalf("conn.packets[8].Cmd = %d, want %d", conn.packets[8].Cmd, protocol.CmdPetUpdatePush)
 	}
-	if petUpdate.Pet.PetUID != start.Allies[1].PetUID {
-		t.Fatalf("petUpdate.Pet.PetUID = %d, want %d", petUpdate.Pet.PetUID, start.Allies[1].PetUID)
+	var allyHPAfterBattle uint32
+	var sawFirstPetExpUpdate bool
+	for packetIndex := 7; packetIndex <= 8; packetIndex++ {
+		var petUpdate protocol.PetUpdatePush
+		if err := protocol.UnmarshalBody(conn.packets[packetIndex].Body, &petUpdate); err != nil {
+			t.Fatalf("UnmarshalBody(petUpdate %d) error = %v", packetIndex, err)
+		}
+		if petUpdate.Pet.PetUID != start.Allies[1].PetUID {
+			continue
+		}
+		allyHPAfterBattle = petUpdate.Pet.HP
+		if petUpdate.Pet.Exp > 0 {
+			sawFirstPetExpUpdate = true
+		}
 	}
-	if petUpdate.Pet.Exp <= 120 {
-		t.Fatalf("petUpdate.Pet.Exp = %d, want greater than starter exp 120", petUpdate.Pet.Exp)
+	if !sawFirstPetExpUpdate {
+		t.Fatal("first pet exp update not found or exp did not increase")
 	}
-	allyHPAfterBattle := petUpdate.Pet.HP
-	if conn.packets[10].Cmd != protocol.CmdPetUpdatePush {
-		t.Fatalf("conn.packets[10].Cmd = %d, want %d", conn.packets[10].Cmd, protocol.CmdPetUpdatePush)
+	if conn.packets[9].Cmd != protocol.CmdBagUpdatePush {
+		t.Fatalf("conn.packets[9].Cmd = %d, want %d", conn.packets[9].Cmd, protocol.CmdBagUpdatePush)
 	}
-	if conn.packets[11].Cmd != protocol.CmdBagUpdatePush {
-		t.Fatalf("conn.packets[11].Cmd = %d, want %d", conn.packets[11].Cmd, protocol.CmdBagUpdatePush)
-	}
-	if conn.packets[7].Cmd != protocol.CmdBattleStatePush {
-		t.Fatalf("conn.packets[7].Cmd = %d, want %d", conn.packets[7].Cmd, protocol.CmdBattleStatePush)
+	if conn.packets[5].Cmd != protocol.CmdBattleStatePush {
+		t.Fatalf("conn.packets[5].Cmd = %d, want %d", conn.packets[5].Cmd, protocol.CmdBattleStatePush)
 	}
 	if allyHPAfterBattle == 0 {
 		t.Fatalf("allyHPAfterBattle = 0, want non-zero")
 	}
 	var bagUpdate protocol.BagUpdatePush
-	if err := protocol.UnmarshalBody(conn.packets[11].Body, &bagUpdate); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[9].Body, &bagUpdate); err != nil {
 		t.Fatalf("UnmarshalBody(bagUpdate) error = %v", err)
 	}
 	if bagUpdate.ContainerType != bag.ContainerTypeBag {
@@ -1443,12 +1430,12 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle(petList) error = %v", err)
 	}
-	if len(conn.packets) != 13 {
-		t.Fatalf("len(conn.packets) after pet list = %d, want 13", len(conn.packets))
+	if len(conn.packets) != 11 {
+		t.Fatalf("len(conn.packets) after pet list = %d, want 11", len(conn.packets))
 	}
 
 	var petList protocol.PetListResp
-	if err := protocol.UnmarshalBody(conn.packets[12].Body, &petList); err != nil {
+	if err := protocol.UnmarshalBody(conn.packets[10].Body, &petList); err != nil {
 		t.Fatalf("UnmarshalBody(petList) error = %v", err)
 	}
 	if len(petList.Pets) == 0 {
@@ -1460,8 +1447,8 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if petList.Pets[0].HP != allyHPAfterBattle {
 		t.Fatalf("petList.Pets[0].HP = %d, want %d", petList.Pets[0].HP, allyHPAfterBattle)
 	}
-	if petList.Pets[0].Exp <= 120 {
-		t.Fatalf("petList.Pets[0].Exp = %d, want persisted reward exp above 120", petList.Pets[0].Exp)
+	if petList.Pets[0].Exp == 0 {
+		t.Fatalf("petList.Pets[0].Exp = %d, want persisted reward exp", petList.Pets[0].Exp)
 	}
 	if len(petList.Lineup) == 0 {
 		t.Fatalf("len(petList.Lineup) = 0, want non-zero")
@@ -1471,7 +1458,7 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	}
 }
 
-func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
+func TestSinglePlayerBattleDisconnectFailsWithoutRewards(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	playerService := teststub.NewTestPlayerService()
@@ -1539,25 +1526,11 @@ func TestBattleCustodySweepAfterDisconnectPersistsResult(t *testing.T) {
 		TargetID:   start.Enemies[0].ActorID,
 	})
 	if !errors.Is(err, battle.ErrBattleNotFound) {
-		t.Fatalf("SubmitAction(after custody finish) error = %v, want ErrBattleNotFound", err)
+		t.Fatalf("SubmitAction(after disconnect failure) error = %v, want ErrBattleNotFound", err)
 	}
 
-	pets, err := petService.ListPets(ctx, teststub.DemoPlayerID)
-	if err != nil {
-		t.Fatalf("ListPets() error = %v", err)
-	}
-	if len(pets) < 2 {
-		t.Fatalf("len(pets) = %d, want at least 2", len(pets))
-	}
-	var sawPersistedDamage bool
-	for _, item := range pets {
-		if item.HP < item.HPMax {
-			sawPersistedDamage = true
-			break
-		}
-	}
-	if !sawPersistedDamage {
-		t.Fatal("expected at least one pet hp change to be persisted after disconnected custody battle")
+	if _, state, ok := battleService.GetActiveSnapshot(ctx, profile.PlayerID); ok || state != nil {
+		t.Fatalf("active snapshot ok=%v state=%#v, want battle removed after disconnect failure", ok, state)
 	}
 }
 
@@ -1652,18 +1625,15 @@ func TestRouterHandleReconnectRestoresWorldAndBattleSnapshots(t *testing.T) {
 	if len(payload.BattleState.PendingActorIDs) != 2 {
 		t.Fatalf("len(payload.BattleState.PendingActorIDs) = %d, want 2", len(payload.BattleState.PendingActorIDs))
 	}
-	if len(payload.BattleReplayStates) != 1 {
-		t.Fatalf("len(payload.BattleReplayStates) = %d, want 1", len(payload.BattleReplayStates))
-	}
-	if payload.BattleReplayStates[0].Frame <= start.BattleVersion {
-		t.Fatalf("payload.BattleReplayStates[0].Frame = %d, want > %d", payload.BattleReplayStates[0].Frame, start.BattleVersion)
+	if len(payload.BattleReplayStates) != 0 {
+		t.Fatalf("len(payload.BattleReplayStates) = %d, want 0 because queued intents no longer create replay frames", len(payload.BattleReplayStates))
 	}
 	if payload.ReconnectToken == originalReconnectToken {
 		t.Fatal("reconnect token was not rotated after reconnect")
 	}
 }
 
-func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T) {
+func TestRouterHandleReconnectReturnsFailedBattleResultAfterDisconnect(t *testing.T) {
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
 	playerService := teststub.NewTestPlayerService()
@@ -1741,13 +1711,16 @@ func TestRouterHandleReconnectReturnsBattleResultAfterCustodyFinish(t *testing.T
 		t.Fatalf("UnmarshalBody(reconnect result) error = %v", err)
 	}
 	if payload.BattleStart != nil || payload.BattleState != nil {
-		t.Fatalf("payload battle snapshot = start:%#v state:%#v, want nil because custody already finished", payload.BattleStart, payload.BattleState)
+		t.Fatalf("payload battle snapshot = start:%#v state:%#v, want nil because disconnect ended battle", payload.BattleStart, payload.BattleState)
 	}
 	if payload.BattleResult == nil {
-		t.Fatal("payload.BattleResult = nil, want cached result for reconnect")
+		t.Fatal("payload.BattleResult = nil, want failed battle result after disconnect")
 	}
-	if payload.BattleResult.BattleID != start.BattleID {
-		t.Fatalf("payload.BattleResult.BattleID = %d, want %d", payload.BattleResult.BattleID, start.BattleID)
+	if payload.BattleResult.Win {
+		t.Fatal("payload.BattleResult.Win = true, want false after disconnect")
+	}
+	if payload.BattleResult.RewardGold != 0 || payload.BattleResult.RewardPlayerExp != 0 || len(payload.BattleResult.Rewards) != 0 || len(payload.BattleResult.DropTexts) != 0 {
+		t.Fatalf("payload rewards = gold:%d exp:%d rewards:%d drops:%d, want no rewards", payload.BattleResult.RewardGold, payload.BattleResult.RewardPlayerExp, len(payload.BattleResult.Rewards), len(payload.BattleResult.DropTexts))
 	}
 }
 

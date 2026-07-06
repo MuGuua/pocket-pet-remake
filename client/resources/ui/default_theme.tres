@@ -1,6 +1,6 @@
-[gd_resource type="Theme" load_steps=2 format=3]
+[gd_resource type="Theme" format=3 uid="uid://h174a182gc74"]
 
-[ext_resource type="FontFile" path="res://asset/fonts/msyh.ttc" id="1_default_font"]
+[ext_resource type="FontFile" uid="uid://bnmypaajtnsvs" path="res://asset/fonts/OPPO Sans 4.0.ttf" id="1_default_font"]
 
 [resource]
 default_font = ExtResource("1_default_font")

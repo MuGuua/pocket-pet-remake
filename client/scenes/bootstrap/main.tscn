@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=9 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
@@ -7,8 +7,7 @@
 [ext_resource type="Script" uid="uid://bm8lcpfwls80c" path="res://scripts/feature/bag/bag_controller.gd" id="4"]
 [ext_resource type="Script" uid="uid://e4qhgh866py3" path="res://scripts/feature/quest/quest_controller.gd" id="5"]
 [ext_resource type="Script" uid="uid://fth187sgihde" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
-[ext_resource type="PackedScene" path="res://scenes/ui/player_status_hud.tscn" id="7_player_hud"]
-[ext_resource type="PackedScene" path="res://scenes/ui/pet_status_hud.tscn" id="8_pet_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/combined_status_hud.tscn" id="7_status_hud"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -77,25 +76,11 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("6")
 
-[node name="PlayerStatusHud" parent="UiLayer/HudRoot" instance=ExtResource("7_player_hud")]
+[node name="StatusHudGroup" parent="UiLayer/HudRoot" instance=ExtResource("7_status_hud")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
 layout_mode = 0
 offset_left = 6.0
 offset_top = 4.0
-offset_right = 230.0
-offset_bottom = 96.0
-scale = Vector2(0.4, 0.4)
-
-[node name="PetStatusHud" parent="UiLayer/HudRoot" instance=ExtResource("8_pet_hud")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-layout_mode = 0
-offset_left = 88.0
-offset_top = 4.0
-offset_right = 248.0
-offset_bottom = 56.0
-scale = Vector2(0.4, 0.4)
 
 [node name="SceneNameLabel" type="Label" parent="UiLayer/HudRoot"]
 unique_name_in_owner = true

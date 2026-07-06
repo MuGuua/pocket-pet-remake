@@ -20,6 +20,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
+import { PetSkillSlotListEditor } from '../../components/PetSkillSlotListEditor';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
   createAdminPlayer,
@@ -42,7 +43,6 @@ import { PlayerBagSection } from './PlayerBagSection';
 import { PlayerWalletSection } from './PlayerWalletSection';
 import { formatDisplayLabel, PLAYER_STATUS_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
-import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface PlayerFormValues {
@@ -66,7 +66,7 @@ interface PlayerFormValues {
   spd: number;
   mana: number;
   status: number;
-  skill_names_text: string;
+  skill_ids: number[];
   skin_id: string;
 }
 
@@ -160,7 +160,7 @@ export function PlayerListPage() {
     try {
       const result = await fetchAdminPlayerDetail(playerID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapDetailToForm(result, skillReferenceMap));
+      editorForm.setFieldsValue(mapDetailToForm(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载编辑数据失败');
       setEditorOpen(false);
@@ -173,13 +173,13 @@ export function PlayerListPage() {
     setSaving(true);
     try {
       if (editingRecord) {
-        await updateAdminPlayer(editingRecord.player_id, mapFormToUpdatePayload(values, skillReferenceMap));
+        await updateAdminPlayer(editingRecord.player_id, mapFormToUpdatePayload(values));
         message.success('玩家更新成功');
       } else {
-        const created = await createAdminPlayer(mapFormToCreatePayload(values, skillReferenceMap));
+        const created = await createAdminPlayer(mapFormToCreatePayload(values));
         message.success('玩家创建成功');
         setEditingRecord(created);
-        editorForm.setFieldsValue(mapDetailToForm(created, skillReferenceMap));
+        editorForm.setFieldsValue(mapDetailToForm(created));
       }
       await loadPlayers(filters, page, pageSize);
     } catch (error) {
@@ -507,8 +507,16 @@ export function PlayerListPage() {
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 裂空斩,普通攻击">
-                <Input placeholder="裂空斩,普通攻击" />
+              <Form.Item
+                label="人物技能"
+                name="skill_ids"
+                extra="从已启用的人物技能中选择；保存后写入玩家 skill_ids，战斗仍以服务端结算为准。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['character', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="人物技能按列表顺序保存，运营可通过上移/下移调整战斗技能按钮的默认顺序。"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -551,12 +559,12 @@ function defaultCreateValues(): PlayerFormValues {
     spd: 11,
     mana: 30,
     status: 1,
-    skill_names_text: '裂空斩,普通攻击',
+    skill_ids: [1101, 1001],
     skin_id: '初始形象男_001',
   };
 }
 
-function mapDetailToForm(detail: AdminPlayerDetail, skillReferenceMap: SkillReferenceMap): PlayerFormValues {
+function mapDetailToForm(detail: AdminPlayerDetail): PlayerFormValues {
   return {
     name: detail.name,
     level: detail.level,
@@ -576,12 +584,12 @@ function mapDetailToForm(detail: AdminPlayerDetail, skillReferenceMap: SkillRefe
     spd: detail.spd,
     mana: detail.mana,
     status: detail.status,
-    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    skill_ids: detail.skill_ids ?? [],
     skin_id: detail.skin_id,
   };
 }
 
-function mapFormToCreatePayload(values: PlayerFormValues, skillReferenceMap: SkillReferenceMap): AdminCreatePlayerPayload {
+function mapFormToCreatePayload(values: PlayerFormValues): AdminCreatePlayerPayload {
   return {
     account_name: values.account_name?.trim() ?? '',
     password: values.password?.trim() ?? '',
@@ -602,12 +610,12 @@ function mapFormToCreatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     spd: values.spd,
     mana: values.mana,
     status: values.status,
-    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skill_ids: values.skill_ids ?? [],
     skin_id: values.skin_id?.trim() ?? '',
   };
 }
 
-function mapFormToUpdatePayload(values: PlayerFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePlayerPayload {
+function mapFormToUpdatePayload(values: PlayerFormValues): AdminUpdatePlayerPayload {
   return {
     name: values.name.trim(),
     level: values.level,
@@ -627,7 +635,7 @@ function mapFormToUpdatePayload(values: PlayerFormValues, skillReferenceMap: Ski
     spd: values.spd,
     mana: values.mana,
     status: values.status,
-    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skill_ids: values.skill_ids ?? [],
     skin_id: values.skin_id?.trim() ?? '',
   };
 }

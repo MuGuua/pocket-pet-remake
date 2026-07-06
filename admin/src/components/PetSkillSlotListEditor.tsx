@@ -10,12 +10,14 @@ interface PetSkillSlotListEditorProps {
   value?: number[];
   /** 列表变更回调。 */
   onChange?: (nextValue: number[]) => void;
-  /** 最多可配置技能数量。 */
-  maxCount: number;
+  /** 最多可配置技能数量；不传则不限制数量。 */
+  maxCount?: number;
   /** 区块说明文案。 */
   description?: string;
   /** 技能分类过滤，默认 pet。 */
   category?: string;
+  /** 多个技能分类过滤；传入后优先于 category，用于人物技能同时选择 character/common。 */
+  categories?: string[];
   /** 技能名称映射，用于展示已有 skill_id。 */
   skillReferenceMap: SkillReferenceMap;
   /** 禁用编辑。 */
@@ -33,6 +35,7 @@ export function PetSkillSlotListEditor({
   maxCount,
   description,
   category = 'pet',
+  categories,
   skillReferenceMap,
   disabled = false,
 }: PetSkillSlotListEditorProps) {
@@ -43,20 +46,34 @@ export function PetSkillSlotListEditor({
 
   useEffect(() => {
     void loadSkillOptions();
-  }, [category]);
+  }, [category, categories?.join(',')]);
 
   async function loadSkillOptions() {
     setOptionsLoading(true);
     try {
-      const items = await fetchAllAdminSkillDefinitions({
-        category,
-        enabled: 'true',
-      });
-      setSkillOptions(
-        items.map((item) => ({
-          value: item.skill_id,
-          label: `${item.skill_name} (#${item.skill_id})`,
+      const categoryFilters = categories && categories.length > 0 ? categories : [category];
+      const itemGroups = await Promise.all(
+        categoryFilters.map((itemCategory) => fetchAllAdminSkillDefinitions({
+          category: itemCategory,
+          enabled: 'true',
         })),
+      );
+      // 同一技能可能被多个筛选命中，按 skill_id 去重后再给选择器使用。
+      const items = itemGroups.flat();
+      const seen = new Set<number>();
+      setSkillOptions(
+        items
+          .filter((item) => {
+            if (seen.has(item.skill_id)) {
+              return false;
+            }
+            seen.add(item.skill_id);
+            return true;
+          })
+          .map((item) => ({
+            value: item.skill_id,
+            label: `${item.skill_name} (#${item.skill_id})`,
+          })),
       );
     } catch {
       setSkillOptions([]);
@@ -99,7 +116,7 @@ export function PetSkillSlotListEditor({
 
   function handlePickerSubmit(formValues: SkillPickerFormValues) {
     const skillID = Number(formValues.skill_id);
-    if (!skillID || value.includes(skillID)) {
+    if (!skillID || value.includes(skillID) || (maxCount !== undefined && value.length >= maxCount)) {
       setPickerOpen(false);
       pickerForm.resetFields();
       return;
@@ -168,15 +185,17 @@ export function PetSkillSlotListEditor({
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between' }} align="start">
         <Typography.Text type="secondary">
-          {description ?? `最多配置 ${maxCount} 个技能，顺序会影响兼容技能列表的默认合并顺序。`}
+          {description ?? (maxCount === undefined
+            ? '按列表顺序配置技能，顺序会影响兼容技能列表的默认合并顺序。'
+            : `最多配置 ${maxCount} 个技能，顺序会影响兼容技能列表的默认合并顺序。`)}
         </Typography.Text>
         <Button
           type="dashed"
           icon={<PlusOutlined />}
-          disabled={disabled || value.length >= maxCount}
+          disabled={disabled || (maxCount !== undefined && value.length >= maxCount)}
           onClick={openPicker}
         >
-          添加技能 ({value.length}/{maxCount})
+          {maxCount === undefined ? `添加技能 (${value.length})` : `添加技能 (${value.length}/${maxCount})`}
         </Button>
       </Space>
       <Table

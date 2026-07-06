@@ -18,18 +18,18 @@ atlas = ExtResource("3_c886m")
 region = Rect2(80, 48, 16, 16)
 
 [node name="Slot" type="Button" unique_id=320579853]
-custom_minimum_size = Vector2(44, 44)
-custom_maximum_size = Vector2(44, 44)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 propagate_maximum_size = true
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -33.0
-offset_top = -33.0
-offset_right = 33.0
-offset_bottom = 33.0
+offset_left = -44.0
+offset_top = -44.0
+offset_right = 44.0
+offset_bottom = 44.0
 grow_horizontal = 2
 grow_vertical = 2
 focus_mode = 0
@@ -42,17 +42,17 @@ toggle_mode = true
 script = ExtResource("1_bagslot")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=1221487482]
-custom_minimum_size = Vector2(66, 66)
+custom_minimum_size = Vector2(88, 88)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
+offset_left = -44.0
+offset_top = -44.0
+offset_right = 44.0
+offset_bottom = 44.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -67,21 +67,21 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -11.0
-offset_top = -11.0
-offset_right = 11.0
-offset_bottom = 11.0
+offset_left = -44.0
+offset_top = -44.0
+offset_right = 44.0
+offset_bottom = 44.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
 [node name="Control" type="Control" parent="CenterContainer" unique_id=2035895270]
-custom_minimum_size = Vector2(54, 54)
+custom_minimum_size = Vector2(88, 88)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="ItemImage" type="TextureRect" parent="CenterContainer/Control" unique_id=226068879]
-custom_minimum_size = Vector2(38, 38)
+custom_minimum_size = Vector2(76, 76)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -112,45 +112,45 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_right = 3
-theme_override_constants/margin_bottom = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
 
 [node name="ItemQuantity" type="Label" parent="CenterContainer/Control/MarginContainer" unique_id=499760035]
+visible = false
 layout_mode = 2
 size_flags_vertical = 1
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 13
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 26
 text = "99"
 horizontal_alignment = 2
 vertical_alignment = 2
 
-[node name="ItemEnhanceLevel" type="Label" parent="CenterContainer/Control" unique_id=884120337]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="ItemEnhanceLevel" type="Label" parent="CenterContainer/Control/MarginContainer" unique_id=884120337]
+visible = false
+layout_mode = 2
+size_flags_vertical = 1
 theme_override_colors/font_color = Color(0.50980395, 0.8352941, 0.3882353, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 26
+text = "+15"
 horizontal_alignment = 2
 vertical_alignment = 2
 
 [node name="Damaged" type="PanelContainer" parent="." unique_id=53523117]
 visible = false
+custom_minimum_size = Vector2(76, 76)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -9.5
-offset_top = -9.5
-offset_right = 9.5
-offset_bottom = 9.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")

@@ -19,29 +19,44 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
+  createDefaultMonsterBattleRewardEntry,
+  mapMonsterBattleRewardPayload,
+  MonsterBattleRewardEditor,
+} from '../../components/MonsterBattleRewardEditor';
+import {
   createAdminSceneWildEncounter,
   deleteAdminSceneWildEncounter,
   fetchAdminSceneWildEncounterDetail,
   fetchAdminSceneWildEncounters,
   updateAdminSceneWildEncounter,
 } from '../../services/sceneWildEncounter';
+import { fetchAdminMonsterDefinitions } from '../../services/monsterDefinition';
 import type {
   AdminSceneWildEncounterDetail,
   AdminSceneWildEncounterListFilters,
   AdminSceneWildEncounterSummary,
+  AdminSceneWildEncounterFormation,
+  AdminSceneWildEncounterMonsterSlot,
   AdminUpsertSceneWildEncounterPayload,
 } from '../../types/sceneWildEncounter';
 import { SCENE_ID_OPTIONS, formatEncounterRatePercent } from '../../types/sceneWildEncounter';
+import type { AdminMonsterDefinitionSummary } from '../../types/monsterDefinition';
+import type { AdminMonsterBattleRewardEntry } from '../../types/monsterDefinition';
 
-interface SceneWildEncounterFormValues extends AdminUpsertSceneWildEncounterPayload {
-  spawn_monster_ids_text?: string;
+interface SceneWildEncounterFormValues extends Omit<AdminUpsertSceneWildEncounterPayload, 'rewards'> {
+  rewards: AdminMonsterBattleRewardEntry[];
 }
+
+type FormationModalMode = 'view' | 'create' | 'edit';
+
+interface FormationEditorValues extends AdminSceneWildEncounterFormation {}
 
 // 地图暗雷配置按 scene_id 绑定步进概率与刷怪池；进图后下发客户端本地判定，触发后上报服务端开战。
 // 地图暗雷按 scene_id 配置步进概率与刷怪池；客户端本地 roll 后上报开战。
 export function SceneWildEncounterPanel() {
   const [filterForm] = Form.useForm<AdminSceneWildEncounterListFilters>();
   const [editorForm] = Form.useForm<SceneWildEncounterFormValues>();
+  const [formationForm] = Form.useForm<FormationEditorValues>();
   const [filters, setFilters] = useState<AdminSceneWildEncounterListFilters>({});
   const [rows, setRows] = useState<AdminSceneWildEncounterSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -54,10 +69,31 @@ export function SceneWildEncounterPanel() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AdminSceneWildEncounterDetail | null>(null);
   const [saving, setSaving] = useState(false);
+  const [monsterOptions, setMonsterOptions] = useState<Array<{ label: string; value: number }>>([]);
+  const [formationModalOpen, setFormationModalOpen] = useState(false);
+  const [formationModalMode, setFormationModalMode] = useState<FormationModalMode>('create');
+  const [editingFormationIndex, setEditingFormationIndex] = useState<number | null>(null);
+  const [formationRows, setFormationRows] = useState<AdminSceneWildEncounterFormation[]>([]);
 
   useEffect(() => {
     void loadEncounters(filters, page, pageSize);
   }, [filters, page, pageSize]);
+
+  useEffect(() => {
+    void loadMonsterOptions();
+  }, []);
+
+  async function loadMonsterOptions() {
+    try {
+      const result = await fetchAdminMonsterDefinitions({ filters: { enabled: 'true' }, page: 1, pageSize: 100 });
+      setMonsterOptions(result.items.map((item: AdminMonsterDefinitionSummary) => ({
+        label: `${item.monster_id} · ${item.monster_name}（Lv.${item.level}）`,
+        value: item.monster_id,
+      })));
+    } catch {
+      setMonsterOptions([]);
+    }
+  }
 
   async function loadEncounters(nextFilters: AdminSceneWildEncounterListFilters, nextPage: number, nextPageSize: number) {
     setLoading(true);
@@ -93,16 +129,20 @@ export function SceneWildEncounterPanel() {
   async function handleOpenEditor(mode: 'create' | 'edit', sceneID?: number) {
     setEditorOpen(true);
     if (mode === 'create') {
+      const defaults = defaultSceneWildEncounterValues();
       setEditingRecord(null);
-      editorForm.setFieldsValue(defaultSceneWildEncounterValues());
+      setFormationRows(defaults.formations);
+      editorForm.setFieldsValue(defaults);
       return;
     }
     if (!sceneID) return;
     setDetailLoading(true);
     try {
       const result = await fetchAdminSceneWildEncounterDetail(sceneID);
+      const formValues = mapDetailToFormValues(result);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapDetailToFormValues(result));
+      setFormationRows(formValues.formations);
+      editorForm.setFieldsValue(formValues);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载地图暗雷编辑数据失败');
       setEditorOpen(false);
@@ -114,7 +154,11 @@ export function SceneWildEncounterPanel() {
   async function handleSubmit(values: SceneWildEncounterFormValues) {
     setSaving(true);
     try {
-      const payload = buildPayloadFromForm(values);
+      if (!normalizeFormations(formationRows).length) {
+        message.error('请至少添加一个怪物编队');
+        return;
+      }
+      const payload = buildPayloadFromForm({ ...values, formations: formationRows });
       if (editingRecord) {
         await updateAdminSceneWildEncounter(editingRecord.scene_id, payload);
         message.success('地图暗雷配置更新成功');
@@ -146,6 +190,52 @@ export function SceneWildEncounterPanel() {
     }
   }
 
+  function handleOpenFormationModal(mode: FormationModalMode, index?: number) {
+    const formations = getCurrentFormations(formationRows);
+    setFormationModalMode(mode);
+    setEditingFormationIndex(typeof index === 'number' ? index : null);
+    if (mode === 'create') {
+      formationForm.setFieldsValue(defaultFormationValues(formations.length));
+    } else if (typeof index === 'number' && formations[index]) {
+      formationForm.setFieldsValue(cloneFormation(formations[index]));
+    }
+    setFormationModalOpen(true);
+  }
+
+  async function handleSaveFormation() {
+    try {
+      const values = await formationForm.validateFields();
+      const normalized = normalizeFormations([values])[0];
+      if (!normalized) {
+        message.error('请至少选择一个怪物槽位');
+        return;
+      }
+      const formations = getCurrentFormations(formationRows);
+      if (formationModalMode === 'edit' && editingFormationIndex !== null) {
+        formations[editingFormationIndex] = normalized;
+      } else {
+        formations.push(normalized);
+      }
+      setFormationRows(formations);
+      editorForm.setFieldValue('formations', formations);
+      setFormationModalOpen(false);
+      setEditingFormationIndex(null);
+    } catch {
+      // antd Form 会展示具体字段错误，这里不额外弹出全局提示。
+    }
+  }
+
+  function handleDeleteFormation(index: number) {
+    const formations = getCurrentFormations(formationRows);
+    if (formations.length <= 1) {
+      message.warning('至少保留一个怪物编队');
+      return;
+    }
+    formations.splice(index, 1);
+    setFormationRows(formations);
+    editorForm.setFieldValue('formations', formations);
+  }
+
   const columns = useMemo<ColumnsType<AdminSceneWildEncounterSummary>>(
     () => [
       { title: '地图ID', dataIndex: 'scene_id', key: 'scene_id', width: 90, fixed: 'left' },
@@ -157,7 +247,8 @@ export function SceneWildEncounterPanel() {
         width: 120,
         render: (value: number) => `${value}（${formatEncounterRatePercent(value)}）`,
       },
-      { title: '刷怪数量', dataIndex: 'spawn_count', key: 'spawn_count', width: 100 },
+      { title: '编队数', dataIndex: 'formation_count', key: 'formation_count', width: 90 },
+      { title: '怪物种类数', dataIndex: 'spawn_count', key: 'spawn_count', width: 110 },
       {
         title: '启用',
         dataIndex: 'is_enabled',
@@ -190,6 +281,40 @@ export function SceneWildEncounterPanel() {
     [detail],
   );
 
+
+  const formationColumns = useMemo<ColumnsType<AdminSceneWildEncounterFormation>>(
+    () => [
+      { title: '编队名称', dataIndex: 'formation_name', key: 'formation_name', width: 180 },
+      { title: '权重', dataIndex: 'weight', key: 'weight', width: 100 },
+      {
+        title: '怪物槽位',
+        dataIndex: 'spawn_monster_ids',
+        key: 'spawn_monster_ids',
+        render: (value: number[]) => formatMonsterIDs(value),
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 110,
+        render: (_value, _record, index) => (
+          <TableActionDropdown
+            actions={[
+              { key: 'view', label: '查看', onClick: () => handleOpenFormationModal('view', index) },
+              { key: 'edit', label: '修改', onClick: () => handleOpenFormationModal('edit', index) },
+              {
+                key: 'delete',
+                label: '删除',
+                danger: true,
+                confirm: { title: '确认删除这个怪物编队吗？', okText: '确认删除', cancelText: '取消' },
+                onClick: () => handleDeleteFormation(index),
+              },
+            ]}
+          />
+        ),
+      },
+    ],
+    [formationRows],
+  );
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Form form={filterForm} layout="inline" onFinish={(values) => { setPage(1); setFilters(values); }} style={{ marginBottom: 16 }}>
@@ -243,7 +368,8 @@ export function SceneWildEncounterPanel() {
               {detail.encounter_rate}（{formatEncounterRatePercent(detail.encounter_rate)}，万分比）
             </Descriptions.Item>
             <Descriptions.Item label="描述">{detail.description || '-'}</Descriptions.Item>
-            <Descriptions.Item label="刷怪 monster_id 列表">{detail.spawn_monster_ids.join(', ') || '-'}</Descriptions.Item>
+            <Descriptions.Item label="怪物编队">{formatFormations(detail.formations)}</Descriptions.Item>
+            <Descriptions.Item label="遭遇战奖励">{formatRewardCount(detail.rewards)}</Descriptions.Item>
           </Descriptions>
         )}
       </Drawer>
@@ -277,12 +403,74 @@ export function SceneWildEncounterPanel() {
           >
             <InputNumber min={0} max={10000} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item label="刷怪 monster_id 列表" name="spawn_monster_ids_text" extra="按槽位顺序填写，多个 ID 用英文逗号分隔，例如 9001,9002" rules={[{ required: true, message: '请填写刷怪列表' }]}>
-            <Input placeholder="9001,9002" />
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Typography.Text strong>怪物编队</Typography.Text>
+              <Button type="primary" onClick={() => handleOpenFormationModal('create')}>添加编队</Button>
+            </Space>
+            <Table
+              size="small"
+              rowKey={(_record, index) => String(index ?? 0)}
+              columns={formationColumns}
+              dataSource={formationRows}
+              pagination={false}
+              locale={{ emptyText: <Empty description="请点击右上角添加怪物编队" /> }}
+            />
+          </Space>
+          <Form.Item
+            label="遭遇战固定奖励"
+            name="rewards"
+            extra="本处奖励会与实际随机到的编队中每个怪物自身奖励相加，作为最终战斗奖励。"
+          >
+            <MonsterBattleRewardEditor />
           </Form.Item>
           <Form.Item label="启用" name="is_enabled" valuePropName="checked">
             <Switch />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={formationModalTitle(formationModalMode)}
+        open={formationModalOpen}
+        onCancel={() => setFormationModalOpen(false)}
+        onOk={formationModalMode === 'view' ? () => setFormationModalOpen(false) : () => void handleSaveFormation()}
+        okText={formationModalMode === 'view' ? '关闭' : '保存编队'}
+        cancelText="取消"
+        width={560}
+        destroyOnClose
+      >
+        <Form form={formationForm} layout="vertical" disabled={formationModalMode === 'view'}>
+          <Form.Item label="编队名称" name="formation_name" rules={[{ required: true, message: '请输入编队名称' }]}>
+            <Input placeholder="例如：螳螂双怪" />
+          </Form.Item>
+          <Form.Item label="触发权重" name="weight" extra="同一地图内按权重随机；例如 80 和 20 表示约 80%/20%。" rules={[{ required: true, message: '请输入权重' }]}>
+            <InputNumber min={1} max={10000} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.List name="monster_slots">
+            {(slotFields, slotOps) => (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Typography.Text type="secondary">怪物槽位（可重复添加同一种怪物；关闭奖励后该槽位只参战，不结算怪物自身奖励）</Typography.Text>
+                {slotFields.map((slotField, slotIndex) => (
+                  <Space key={slotField.key} align="baseline" style={{ width: '100%' }}>
+                    <Form.Item name={[slotField.name, 'monster_id']} rules={[{ required: true, message: '请选择怪物' }]} style={{ flex: 1, marginBottom: 8 }}>
+                      <Select showSearch options={monsterOptions} placeholder={`第 ${slotIndex + 1} 个怪物`} optionFilterProp="label" />
+                    </Form.Item>
+                    <Form.Item name={[slotField.name, 'reward_enabled']} valuePropName="checked" style={{ marginBottom: 8 }}>
+                      <Switch checkedChildren="发奖励" unCheckedChildren="不发" />
+                    </Form.Item>
+                    {formationModalMode !== 'view' ? (
+                      <Button onClick={() => slotOps.add(cloneFormationSlot(getFormationSlotValue(formationForm.getFieldValue('monster_slots'), slotIndex)), slotIndex + 1)}>
+                        复制
+                      </Button>
+                    ) : null}
+                    {formationModalMode !== 'view' && slotFields.length > 1 ? <Button danger onClick={() => slotOps.remove(slotField.name)}>删除</Button> : null}
+                  </Space>
+                ))}
+                {formationModalMode !== 'view' ? <Button onClick={() => slotOps.add({ monster_id: undefined, reward_enabled: true })}>添加怪物槽位</Button> : null}
+              </Space>
+            )}
+          </Form.List>
         </Form>
       </Modal>
     </Space>
@@ -295,8 +483,9 @@ function defaultSceneWildEncounterValues(): SceneWildEncounterFormValues {
     encounter_name: '新地图暗雷',
     description: '',
     encounter_rate: 800,
-    spawn_monster_ids: [],
-    spawn_monster_ids_text: '9001',
+    spawn_monster_ids: [9001],
+    formations: [defaultFormationValues(0)],
+    rewards: [createDefaultMonsterBattleRewardEntry()],
     is_enabled: true,
   };
 }
@@ -308,24 +497,114 @@ function mapDetailToFormValues(detail: AdminSceneWildEncounterDetail): SceneWild
     description: detail.description,
     encounter_rate: detail.encounter_rate,
     spawn_monster_ids: detail.spawn_monster_ids,
-    spawn_monster_ids_text: detail.spawn_monster_ids.join(','),
+    formations: detail.formations?.length ? detail.formations : [defaultFormationValues(0)],
+    rewards: detail.rewards?.length ? detail.rewards : [],
     is_enabled: detail.is_enabled,
   };
 }
 
 function buildPayloadFromForm(values: SceneWildEncounterFormValues): AdminUpsertSceneWildEncounterPayload {
-  const spawnMonsterIDs = parseMonsterIDs(values.spawn_monster_ids_text ?? '');
+  const formations = normalizeFormations(values.formations);
+  const spawnMonsterIDs = uniqueMonsterIDs(formations.flatMap((formation) => formation.spawn_monster_ids));
   return {
     scene_id: Number(values.scene_id),
     encounter_name: values.encounter_name.trim(),
     description: values.description?.trim() ?? '',
     encounter_rate: Number(values.encounter_rate),
     spawn_monster_ids: spawnMonsterIDs,
+    formations,
+    rewards: (values.rewards ?? []).map((item, index) => mapMonsterBattleRewardPayload(item, index)),
     is_enabled: Boolean(values.is_enabled),
   };
 }
 
-function parseMonsterIDs(raw: string): number[] {
-  if (!raw.trim()) return [];
-  return raw.split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0);
+function defaultFormationValues(index: number): AdminSceneWildEncounterFormation {
+  return {
+    formation_name: index === 0 ? '默认编队' : `编队${index + 1}`,
+    weight: 10000,
+    spawn_monster_ids: [9001],
+    monster_slots: [{ monster_id: 9001, reward_enabled: true }],
+  };
+}
+
+function getCurrentFormations(value: unknown): AdminSceneWildEncounterFormation[] {
+  return Array.isArray(value) ? (value as AdminSceneWildEncounterFormation[]).map(cloneFormation) : [];
+}
+
+function cloneFormation(formation: AdminSceneWildEncounterFormation): AdminSceneWildEncounterFormation {
+  const monsterSlots = normalizeFormationSlots(formation.monster_slots, formation.spawn_monster_ids);
+  return {
+    formation_name: formation.formation_name,
+    weight: formation.weight,
+    spawn_monster_ids: monsterSlots.map((slot) => slot.monster_id),
+    monster_slots: monsterSlots,
+  };
+}
+
+function normalizeFormations(formations?: AdminSceneWildEncounterFormation[]): AdminSceneWildEncounterFormation[] {
+  return (formations ?? []).map((formation, index) => {
+    const monsterSlots = normalizeFormationSlots(formation.monster_slots, formation.spawn_monster_ids);
+    return {
+      formation_name: formation.formation_name?.trim() || `编队${index + 1}`,
+      weight: Number(formation.weight) || 1,
+      spawn_monster_ids: monsterSlots.map((slot) => slot.monster_id),
+      monster_slots: monsterSlots,
+    };
+  }).filter((formation) => formation.spawn_monster_ids.length > 0);
+}
+
+function normalizeFormationSlots(
+  monsterSlots?: AdminSceneWildEncounterMonsterSlot[],
+  fallbackMonsterIDs?: number[],
+): AdminSceneWildEncounterMonsterSlot[] {
+  const sourceSlots = monsterSlots?.length
+    ? monsterSlots
+    : (fallbackMonsterIDs ?? []).map((monsterID) => ({ monster_id: monsterID, reward_enabled: true }));
+  return sourceSlots
+    .map((slot) => ({
+      monster_id: Number(slot.monster_id),
+      reward_enabled: Boolean(slot.reward_enabled ?? true),
+    }))
+    .filter((slot) => Number.isFinite(slot.monster_id) && slot.monster_id > 0);
+}
+
+function getFormationSlotValue(value: unknown, index: number): AdminSceneWildEncounterMonsterSlot {
+  if (!Array.isArray(value)) {
+    return { monster_id: 0, reward_enabled: true };
+  }
+  return cloneFormationSlot(value[index] as AdminSceneWildEncounterMonsterSlot | undefined);
+}
+
+function cloneFormationSlot(slot?: AdminSceneWildEncounterMonsterSlot): AdminSceneWildEncounterMonsterSlot {
+  return {
+    monster_id: Number(slot?.monster_id ?? 0),
+    reward_enabled: Boolean(slot?.reward_enabled ?? true),
+  };
+}
+
+function uniqueMonsterIDs(monsterIDs: number[]): number[] {
+  return Array.from(new Set(monsterIDs.filter((item) => Number.isFinite(item) && item > 0)));
+}
+
+function formatFormations(formations?: AdminSceneWildEncounterFormation[]): string {
+  if (!formations?.length) return '-';
+  return formations.map((formation) => {
+    const monsterSlots = normalizeFormationSlots(formation.monster_slots, formation.spawn_monster_ids);
+    const slotText = monsterSlots.map((slot) => `${slot.monster_id}${slot.reward_enabled ? '' : '（不发奖励）'}`).join(', ');
+    return `${formation.formation_name} [权重 ${formation.weight}]: ${slotText || '-'}`;
+  }).join('；');
+}
+
+function formatMonsterIDs(monsterIDs?: number[]): string {
+  return monsterIDs?.length ? monsterIDs.join(', ') : '-';
+}
+
+function formatRewardCount(rewards?: unknown[]): string {
+  return rewards?.length ? `${rewards.length} 条` : '未配置';
+}
+
+function formationModalTitle(mode: FormationModalMode): string {
+  if (mode === 'view') return '查看怪物编队';
+  if (mode === 'edit') return '修改怪物编队';
+  return '添加怪物编队';
 }

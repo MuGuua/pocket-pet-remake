@@ -12,12 +12,12 @@ import (
 )
 
 // toProtocolPopupRewards 把统一发奖结果转成客户端奖励弹窗可展示的结构。
-// 当前弹窗仅展示经验与物品奖励，其它类型仍会继续发奖但不进入弹窗列表。
+// 当前弹窗展示经验、货币、物品与直接属性奖励，其它类型仍会继续发奖但不进入弹窗列表。
 func toProtocolPopupRewards(values []reward.Entry) []protocol.QuestReward {
 	result := make([]protocol.QuestReward, 0, len(values))
 	for _, value := range values {
 		rewardType := strings.ToLower(strings.TrimSpace(value.Type))
-		if rewardType != "exp" && rewardType != "item" && rewardType != "gold" {
+		if rewardType != "exp" && rewardType != "item" && rewardType != "gold" && rewardType != "attr" {
 			continue
 		}
 		result = append(result, protocol.QuestReward{
@@ -27,6 +27,7 @@ func toProtocolPopupRewards(values []reward.Entry) []protocol.QuestReward {
 			ItemName: strings.TrimSpace(value.ItemName),
 			Count:    value.Count,
 			PetID:    value.PetID,
+			AttrKey:  strings.TrimSpace(value.AttrKey),
 		})
 	}
 	return result

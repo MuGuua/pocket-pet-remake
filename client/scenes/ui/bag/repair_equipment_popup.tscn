@@ -1,114 +1,126 @@
-[gd_scene format=3 uid="uid://repair_equipment_popup01"]
+[gd_scene format=3 uid="uid://bys23rk7sjly0"]
 
-[ext_resource type="Script" path="res://scripts/ui/bag/repair_equipment_popup.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://dvi5p4t2g8dip" path="res://scripts/ui/bag/repair_equipment_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
-[node name="RepairEquipmentPopup" type="CanvasLayer"]
-visible = false
+[node name="RepairEquipmentPopup" type="CanvasLayer" unique_id=785339992]
 layer = 135
 script = ExtResource("1_script")
 
-[node name="DimLayer" type="ColorRect" parent="."]
+[node name="DimLayer" type="ColorRect" parent="." unique_id=208770409]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 color = Color(0.039215688, 0.078431375, 0.14117648, 0.45)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=609426120]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 59.0
+offset_top = 246.0
+offset_right = -41.0
+offset_bottom = -574.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(220, 0)
-custom_maximum_size = Vector2(240, 320)
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=1237869586]
+custom_minimum_size = Vector2(680, 0)
+custom_maximum_size = Vector2(960, 1280)
 layout_mode = 2
-mouse_filter = 0
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer"]
+[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=1895558513]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 32
 
-[node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1273835527]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow"]
+[node name="Control" type="Control" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=269607410]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=393057618]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 10
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 42
 text = "修复装备"
 horizontal_alignment = 1
 
-[node name="TopCloseButton" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" instance=ExtResource("4_close_btn")]
+[node name="TopCloseButton" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=1503999159 instance=ExtResource("4_close_btn")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 72)
+custom_maximum_size = Vector2(80, 80)
 layout_mode = 2
 
-[node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=355991249]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 32
 alignment = 1
 
-[node name="ItemIcon" type="TextureRect" parent="CenterContainer/PanelContainer/RootVBox/ItemRow"]
+[node name="ItemIcon" type="TextureRect" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=302870126]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(128, 128)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ItemInfoVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ItemRow"]
+[node name="ItemInfoVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer/RootVBox/ItemRow" unique_id=1817736204]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
-[node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox"]
+[node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=768477478]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_font_sizes/font_size = 9
+theme_override_font_sizes/font_size = 26
 text = "物品名称"
 autowrap_mode = 2
 
-[node name="ItemMetaLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox"]
+[node name="ItemMetaLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=358930441]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 26
 text = "类型"
 
-[node name="WarningLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="WarningLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox" unique_id=123548708]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 192)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/normal_font_size = 8
+theme_override_font_sizes/normal_font_size = 26
 bbcode_enabled = true
+text = "确定要修复吗？"
 fit_content = true
 scroll_active = false
-text = "确定要修复吗？"
 
-[node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
+[node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=115570228]
+propagate_maximum_size = false
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 32
 alignment = 1
 
-[node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" instance=ExtResource("3_action_btn")]
+[node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=2057624979 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 100)
 layout_mode = 2
+theme_override_font_sizes/font_size = 34
 button_label = "修复"
 
-[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" instance=ExtResource("3_action_btn")]
+[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=740254408 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 80)
 layout_mode = 2
+theme_override_font_sizes/font_size = 34
 button_label = "取消"

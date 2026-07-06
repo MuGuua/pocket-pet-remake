@@ -207,6 +207,17 @@ func (s *Service) AllocateAttrPoints(ctx context.Context, playerID uint64, delta
 	return s.GetProfile(ctx, playerID)
 }
 
+// AddRewardAttribute 发放战斗/任务奖励中配置的直接属性值加成，并返回最新玩家档案。
+func (s *Service) AddRewardAttribute(ctx context.Context, playerID uint64, attrKey string, value uint32) (*Profile, error) {
+	if s.repo == nil || playerID == 0 || value == 0 {
+		return nil, ErrPlayerNotFound
+	}
+	if err := s.repo.AddRewardAttribute(ctx, playerID, attrKey, value); err != nil {
+		return nil, err
+	}
+	return s.GetProfile(ctx, playerID)
+}
+
 func (s *Service) fillExpToNext(profile *Profile) {
 	if profile == nil || s.progressionService == nil {
 		return

@@ -35,6 +35,7 @@ Button/colors/font_color = Color(0.7294118, 0.72156864, 0.6784314, 1)
 Button/colors/font_hover_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
 Button/colors/font_hover_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
 Button/colors/font_pressed_color = Color(0.92156863, 0.7921569, 0.54509807, 1)
+Button/font_sizes/font_size = 32
 Button/styles/focus = SubResource("StyleBoxEmpty_focus")
 Button/styles/hover = SubResource("StyleBoxTexture_d3ieb")
 Button/styles/hover_pressed = SubResource("StyleBoxTexture_d3ieb")

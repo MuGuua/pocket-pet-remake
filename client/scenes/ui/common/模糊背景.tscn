@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://0e8cp83ufu4f"]
+
+[ext_resource type="Shader" uid="uid://cvs7x4j28hjti" path="res://scenes/battle/battle_scene.gdshader" id="1_fghe5"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tx6cj"]
+shader = ExtResource("1_fghe5")
+shader_parameter/f = 3.1200001482
+
+[node name="ColorRect" type="ColorRect" unique_id=1617070159]
+material = SubResource("ShaderMaterial_tx6cj")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

@@ -2,10 +2,10 @@ extends CharacterBody2D
 class_name BattleUnit
 
 const ATTACK_MOVE_DISTANCE: float = 36.0
-## 战斗单位在 260 宽视口下的统一默认缩放，避免人物与宠物占位过满。
-const DEFAULT_UNIT_SCALE: Vector2 = Vector2(0.7, 0.7)
-## 规划中的当前出手单位略微放大一点，仍基于默认缩放计算，避免高亮时突然过大。
-const PLANNING_HIGHLIGHT_SCALE: Vector2 = Vector2(0.742, 0.742)
+## 战斗单位统一默认缩放；由 battle_scene.tscn 的导出变量写入，方便在 Inspector 里微调。
+static var default_unit_scale: Vector2 = Vector2(1.0, 1.0)
+## 规划中的当前出手单位缩放；由 battle_scene.tscn 的导出变量写入，保持当前出手目标有清晰反馈。
+static var planning_highlight_scale: Vector2 = Vector2(1.06, 1.06)
 
 const ACTION_TYPE_ANIMATIONS: Dictionary = {
     "attack": "普攻",
@@ -59,6 +59,8 @@ var _name_label: Label = null
 const SELECTION_ARROW_NONE: String = ""
 const SELECTION_ARROW_ENEMY: String = "enemy"
 const SELECTION_ARROW_ALLY: String = "ally"
+## 选择箭头相对单位码放点的世界像素偏移；单位根节点本身就是精灵底线中心。
+const SELECTION_ARROW_WORLD_Y_OFFSET: float = -50.0
 
 var _hp_bar_tween: Tween = null
 ## 血条延迟隐藏令牌，避免连续受击时旧定时器误隐藏新显示的血条。
@@ -69,6 +71,12 @@ var _target_arrow_texture: Texture2D = null
 var _chj_renderer: ChjWorldRenderer = null
 var _uses_chj_render: bool = false
 var _using_png_override: bool = false
+## 缓存敌方选择箭头在场景里配置的 X，避免按怪物视觉尺寸重新计算导致左右漂移。
+var _target_arrow_scene_x: float = 0.0
+## 缓存友方选择箭头在场景里配置的 X，保持左右两种箭头都由场景手动调位置。
+var _ally_target_arrow_scene_x: float = 0.0
+## 是否已经读取过场景内箭头 X；只缓存 X，Y 运行时固定指向码放点上方。
+var _selection_arrow_scene_x_cached: bool = false
 
 const CHJ_SKILL_ANIMATIONS: Array[String] = [
     "普攻",
@@ -103,6 +111,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
     if not _uses_chj_render or _chj_renderer == null:
         return
+    # 死亡单位需要停在死亡瞬间的静态画面，不能继续 tick CHJ 待机循环。
+    if is_dead:
+        return
     # 技能 CHJ 播放期间必须持续 tick，不能被 PNG 战斗待机覆盖阻断。
     if _chj_renderer.is_skill_playing():
         _chj_renderer.tick_world("battle", "down", delta)
@@ -114,6 +125,7 @@ func _process(delta: float) -> void:
 
 func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
     _ensure_scene_nodes()
+    _refresh_builtin_scale_animations()
     actor_id = int(data.get("actor_id", data.get("id", 0)))
     unit_name = str(data.get("name", str(actor_id)))
     unit_type = str(data.get("type", "unit"))
@@ -122,7 +134,7 @@ func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
     current_hp = clamp(int(data.get("hp", max_hp)), 0, max_hp)
     base_position = slot_position
     position = slot_position
-    scale = DEFAULT_UNIT_SCALE
+    scale = default_unit_scale
     modulate = Color.WHITE
     rotation = 0.0
     is_dead = current_hp <= 0
@@ -144,6 +156,25 @@ func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
     _update_dead_visual()
     set_selection_arrow(SELECTION_ARROW_NONE)
     _play_idle_animation()
+
+## 应用 BattleScene 当前导出缩放，并刷新依赖缩放值的内置动作动画。
+func apply_configured_unit_scale(planning_highlight_enabled: bool) -> void:
+    _ensure_scene_nodes()
+    _refresh_builtin_scale_animations()
+    if is_dead:
+        return
+    if planning_highlight_enabled:
+        scale = planning_highlight_scale
+    else:
+        scale = default_unit_scale
+    _refresh_selection_arrow_positions()
+
+## 应用 BattleFormationMapper 重新计算后的站位；用于 Inspector 调整中心点或左右间距后的即时预览。
+func apply_configured_slot_position(slot_position: Vector2) -> void:
+    _ensure_scene_nodes()
+    base_position = slot_position
+    position = slot_position
+    _refresh_selection_arrow_positions()
 
 func play_attack(target_position: Vector2, skill_visual: SkillVisualConfig, fallback_skill_id: String = "", fallback_skill_name: String = "", action_type: String = "attack", animation_hint: String = "") -> void:
     if is_dead:
@@ -229,9 +260,10 @@ func play_death() -> void:
 
 func reset_focus() -> void:
     position = base_position
-    scale = DEFAULT_UNIT_SCALE
+    scale = default_unit_scale
     rotation = 0.0
     _character_sprite.rotation = 0.0
+    _refresh_selection_arrow_positions()
     if not is_dead:
         _play_idle_animation()
 
@@ -240,11 +272,12 @@ func set_planning_highlight(enabled: bool) -> void:
     if is_dead:
         return
     if enabled:
-        scale = PLANNING_HIGHLIGHT_SCALE
+        scale = planning_highlight_scale
         _character_sprite.modulate = _sprite_tint.lightened(0.15)
     else:
-        scale = DEFAULT_UNIT_SCALE
+        scale = default_unit_scale
         _character_sprite.modulate = _sprite_tint
+    _refresh_selection_arrow_positions()
 
 func set_target_highlight(enabled: bool, selectable: bool = true) -> void:
     if is_dead:
@@ -259,6 +292,7 @@ func set_target_highlight(enabled: bool, selectable: bool = true) -> void:
 
 func set_selection_arrow(arrow_type: String) -> void:
     _ensure_scene_nodes()
+    _refresh_selection_arrow_positions()
     if _target_arrow != null:
         _target_arrow.visible = arrow_type == SELECTION_ARROW_ENEMY
     if _ally_target_arrow != null:
@@ -276,7 +310,12 @@ func clear_selection_arrows() -> void:
 func contains_click_point(point_in_layer: Vector2) -> bool:
     if is_dead:
         return false
-    var local_point: Vector2 = point_in_layer - position
+    # 鼠标命中来自 UnitLayer 坐标，需要反除节点缩放，才能让可点区域跟随视觉尺寸。
+    var safe_scale: Vector2 = Vector2(maxf(absf(scale.x), 0.001), maxf(absf(scale.y), 0.001))
+    var local_point: Vector2 = Vector2(
+        (point_in_layer.x - position.x) / safe_scale.x,
+        (point_in_layer.y - position.y) / safe_scale.y
+    )
     var click_center: Vector2 = Vector2(0.0, -6.0)
     var half_size: Vector2 = Vector2(40.0, 50.0)
     return Rect2(click_center - half_size, half_size * 2.0).has_point(local_point)
@@ -338,6 +377,22 @@ func _ensure_scene_nodes() -> void:
     _ensure_name_label()
 
 
+## 刷新选择箭头位置：X 使用 battle_unit.tscn 中手动设置的值，Y 固定落在码放点上方 50 像素。
+func _refresh_selection_arrow_positions() -> void:
+    if not _selection_arrow_scene_x_cached:
+        if _target_arrow != null:
+            _target_arrow_scene_x = _target_arrow.position.x
+        if _ally_target_arrow != null:
+            _ally_target_arrow_scene_x = _ally_target_arrow.position.x
+        _selection_arrow_scene_x_cached = _target_arrow != null or _ally_target_arrow != null
+    var safe_scale_y: float = maxf(absf(scale.y), 0.001)
+    var local_y: float = SELECTION_ARROW_WORLD_Y_OFFSET / safe_scale_y
+    if _target_arrow != null:
+        _target_arrow.position = Vector2(_target_arrow_scene_x, local_y)
+    if _ally_target_arrow != null:
+        _ally_target_arrow.position = Vector2(_ally_target_arrow_scene_x, local_y)
+
+
 ## 确保敌方名称标签存在；标签只展示服务端下发的单位名称，不参与任何战斗计算。
 func _ensure_name_label() -> void:
     if _name_label != null:
@@ -375,9 +430,10 @@ func _ensure_chj_renderer() -> void:
         return
     _chj_renderer = ChjWorldRenderer.new()
     _chj_renderer.name = "ChjSprite2D"
-    _chj_renderer.centered = false
+    # 战斗场景按精灵底线中心码放单位；CHJ 使用 centered=true 后底部中心会落在 BattleUnit 原点。
+    _chj_renderer.centered = true
     _chj_renderer.visible = false
-    _chj_renderer.position = Vector2(0.0, -6.0)
+    _chj_renderer.position = Vector2.ZERO
     add_child(_chj_renderer)
 
 
@@ -539,13 +595,33 @@ func _animate_hp_bar_to(target_hp: int, duration: float) -> void:
 func _update_dead_visual() -> void:
     if current_hp <= 0 or is_dead:
         is_dead = true
-        _character_sprite.modulate = _sprite_tint.darkened(0.45)
-        _status_root.modulate = Color(1, 1, 1, 0.82)
+        _freeze_dead_pose()
+        modulate = Color(1.0, 1.0, 1.0, 0.32)
+        _character_sprite.modulate = _sprite_tint
+        if _chj_renderer != null:
+            _chj_renderer.modulate = _sprite_tint
+        _status_root.modulate = Color(1.0, 1.0, 1.0, 0.32)
+        set_selection_arrow(SELECTION_ARROW_NONE)
     else:
         modulate = Color.WHITE
-        scale = DEFAULT_UNIT_SCALE
+        scale = default_unit_scale
         _character_sprite.modulate = _sprite_tint
+        if _chj_renderer != null:
+            _chj_renderer.modulate = _sprite_tint
         _status_root.modulate = Color.WHITE
+    _refresh_selection_arrow_positions()
+
+
+## 停止死亡后的所有待机/动作动画，确保尸体只保留当前位置和当前帧的静态透明状态。
+func _freeze_dead_pose() -> void:
+    _ensure_scene_nodes()
+    if _animation_player != null and _animation_player.is_playing():
+        _animation_player.stop(true)
+    if _character_sprite != null and _character_sprite.is_playing():
+        _character_sprite.stop()
+    if _chj_renderer != null and _chj_renderer.is_skill_playing():
+        _chj_renderer.cancel_skill_animation()
+    _using_png_override = false
 
 func _resolve_action_animation(skill_visual: SkillVisualConfig, fallback_skill_id: String, fallback_skill_name: String, action_type: String, animation_hint: String = "") -> String:
     var candidates: Array[String] = []
@@ -675,6 +751,7 @@ func _play_animation(animation_name: String) -> void:
 
 func _play_idle_animation() -> void:
     if is_dead:
+        _freeze_dead_pose()
         return
     if _uses_chj_render and _chj_renderer != null and _skin != null:
         var png_override: String = _skin.get_battle_idle_png_override()
@@ -755,6 +832,33 @@ func _ensure_builtin_animations() -> void:
     _ensure_animation("治疗", _build_hit_animation(Color("#78d98e"), Vector2(1.04, 1.04)))
     _ensure_animation("死亡", _build_death_animation())
 
+## 重新生成带缩放轨道的内置动画，避免 Inspector 里修改 battle_unit_scale 后旧动画仍使用旧尺寸。
+func _refresh_builtin_scale_animations() -> void:
+    var library: AnimationLibrary = _get_default_animation_library()
+    var scale_animation_names: Array[String] = [
+        "普攻",
+        "技能",
+        "自动",
+        "逃跑",
+        "追击",
+        "反击",
+        "受击",
+        "治疗",
+        "死亡",
+    ]
+    for animation_name: String in scale_animation_names:
+        if library.has_animation(animation_name):
+            library.remove_animation(animation_name)
+    library.add_animation("普攻", _build_attack_animation())
+    library.add_animation("技能", _build_attack_animation())
+    library.add_animation("自动", _build_attack_animation())
+    library.add_animation("逃跑", _build_escape_animation())
+    library.add_animation("追击", _build_attack_animation())
+    library.add_animation("反击", _build_attack_animation())
+    library.add_animation("受击", _build_hit_animation(Color("#ff8d7d"), Vector2(1.06, 0.94)))
+    library.add_animation("治疗", _build_hit_animation(Color("#78d98e"), Vector2(1.04, 1.04)))
+    library.add_animation("死亡", _build_death_animation())
+
 func _ensure_animation(animation_name: String, animation: Animation) -> void:
     if _animation_player.has_animation(animation_name):
         return
@@ -769,11 +873,7 @@ func _build_idle_animation() -> Animation:
     var animation: Animation = Animation.new()
     animation.length = 0.8
     animation.loop_mode = Animation.LOOP_LINEAR
-    var sprite_scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-    animation.track_set_path(sprite_scale_track, NodePath("CharacterSprite:scale"))
-    animation.track_insert_key(sprite_scale_track, 0.0, DEFAULT_UNIT_SCALE)
-    animation.track_insert_key(sprite_scale_track, 0.4, DEFAULT_UNIT_SCALE * 1.03)
-    animation.track_insert_key(sprite_scale_track, 0.8, DEFAULT_UNIT_SCALE)
+    # 不在待机动画里改 CharacterSprite:scale，避免覆盖 UnitSkin.sprite_scale 导致宠物比例看起来异常。
     return animation
 
 func _build_attack_animation() -> Animation:
@@ -781,9 +881,9 @@ func _build_attack_animation() -> Animation:
     animation.length = 0.24
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
-    animation.track_insert_key(scale_track, 0.12, DEFAULT_UNIT_SCALE * 1.06)
-    animation.track_insert_key(scale_track, 0.24, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.0, default_unit_scale)
+    animation.track_insert_key(scale_track, 0.12, default_unit_scale * 1.06)
+    animation.track_insert_key(scale_track, 0.24, default_unit_scale)
     var rotation_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(rotation_track, NodePath("CharacterSprite:rotation"))
     animation.track_insert_key(rotation_track, 0.0, 0.0)
@@ -806,13 +906,13 @@ func _build_escape_animation() -> Animation:
     animation.length = 0.24
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.0, default_unit_scale)
     animation.track_insert_key(
         scale_track,
         0.12,
-        Vector2(DEFAULT_UNIT_SCALE.x * 0.94, DEFAULT_UNIT_SCALE.y * 1.08)
+        Vector2(default_unit_scale.x * 0.94, default_unit_scale.y * 1.08)
     )
-    animation.track_insert_key(scale_track, 0.24, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.24, default_unit_scale)
     var rotation_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(rotation_track, NodePath("CharacterSprite:rotation"))
     animation.track_insert_key(rotation_track, 0.0, 0.0)
@@ -830,13 +930,13 @@ func _build_hit_animation(flash_color: Color, scale_target: Vector2) -> Animatio
     animation.track_insert_key(color_track, 0.2, Color.WHITE)
     var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
     animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.0, default_unit_scale)
     animation.track_insert_key(
         scale_track,
         0.08,
-        Vector2(DEFAULT_UNIT_SCALE.x * scale_target.x, DEFAULT_UNIT_SCALE.y * scale_target.y)
+        Vector2(default_unit_scale.x * scale_target.x, default_unit_scale.y * scale_target.y)
     )
-    animation.track_insert_key(scale_track, 0.2, DEFAULT_UNIT_SCALE)
+    animation.track_insert_key(scale_track, 0.2, default_unit_scale)
     return animation
 
 func _build_death_animation() -> Animation:
@@ -846,8 +946,4 @@ func _build_death_animation() -> Animation:
     animation.track_set_path(alpha_track, NodePath(":modulate:a"))
     animation.track_insert_key(alpha_track, 0.0, 1.0)
     animation.track_insert_key(alpha_track, 0.35, 0.32)
-    var scale_track: int = animation.add_track(Animation.TYPE_VALUE)
-    animation.track_set_path(scale_track, NodePath(":scale"))
-    animation.track_insert_key(scale_track, 0.0, DEFAULT_UNIT_SCALE)
-    animation.track_insert_key(scale_track, 0.35, DEFAULT_UNIT_SCALE * 0.9)
     return animation

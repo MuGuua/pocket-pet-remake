@@ -27,14 +27,14 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=2048268682]
-custom_minimum_size = Vector2(200, 0)
-custom_maximum_size = Vector2(220, 320)
+custom_minimum_size = Vector2(400, 0)
+custom_maximum_size = Vector2(440, 640)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
 [node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=2082929992]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 
 [node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=883818340]
 layout_mode = 2
@@ -45,8 +45,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 10
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 20
 text = "提示"
 horizontal_alignment = 1
 
@@ -55,17 +55,17 @@ unique_name_in_owner = true
 layout_mode = 2
 
 [node name="ContentScroll" type="ScrollContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=339153234]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 144)
 layout_mode = 2
 size_flags_vertical = 3
 
 [node name="ContentLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox/ContentScroll" unique_id=973032215]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(154, 0)
+custom_minimum_size = Vector2(308, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/default_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/normal_font_size = 8
+theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 text = "正文内容"
 fit_content = true
@@ -75,7 +75,7 @@ scroll_active = false
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205512 instance=ExtResource("3_action_btn")]
@@ -85,10 +85,10 @@ button_label = "-"
 
 [node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205513]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(36, 0)
+custom_minimum_size = Vector2(72, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 20
 text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -105,7 +105,7 @@ button_label = "最大"
 
 [node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=283968727]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=851266925 instance=ExtResource("3_action_btn")]

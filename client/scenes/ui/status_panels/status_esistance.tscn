@@ -4,15 +4,15 @@
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bk641"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
 border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xw5ed"]
 bg_color = Color(0.6, 0.6, 0.6, 0.023529412)
@@ -93,13 +93,13 @@ atlas = SubResource("CompressedTexture2D_asn2n")
 region = Rect2(144, 0, 18, 18)
 
 [node name="MarginContainer" type="MarginContainer"]
-custom_minimum_size = Vector2(0, 400)
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 14
+custom_minimum_size = Vector2(0, 800)
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 28
 
 [node name="PanelContainer" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(0, 465)
+custom_minimum_size = Vector2(0, 930)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bk641")
 
@@ -111,18 +111,18 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_rem2j")
 expand_mode = 1
@@ -130,20 +130,24 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "物理攻击抗性："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "100"
 
 [node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "逆："
 
 [node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/物理攻击抗性/HBoxContainer"]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "0"
 
 [node name="技能攻击抗性" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
@@ -151,18 +155,18 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_vcmeb")
 expand_mode = 1
@@ -170,20 +174,24 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "技能攻击抗性："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "100"
 
 [node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "逆："
 
 [node name="Label4" type="Label" parent="PanelContainer/VBoxContainer/技能攻击抗性/HBoxContainer"]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "0"
 
 [node name="混乱和昏睡" type="PanelContainer" parent="PanelContainer/VBoxContainer"]
@@ -191,22 +199,22 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_a5ns0")
 expand_mode = 1
@@ -214,26 +222,28 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "混乱："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_ps28w")
 expand_mode = 1
@@ -241,10 +251,12 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "昏睡："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/混乱和昏睡/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
@@ -253,22 +265,22 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_2vfmw")
 expand_mode = 1
@@ -276,26 +288,28 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "麻痹："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_gps0v")
 expand_mode = 1
@@ -303,10 +317,12 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "封印："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/麻痹和封印/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
@@ -315,22 +331,22 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_0vapx")
 expand_mode = 1
@@ -338,10 +354,12 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "诅咒："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/诅咒/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
@@ -350,22 +368,22 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_r327x")
 expand_mode = 1
@@ -373,26 +391,28 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "抗致命："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_c58vq")
 expand_mode = 1
@@ -400,10 +420,12 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "抗爆伤："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗致命和抗爆伤/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
@@ -412,22 +434,22 @@ layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_xw5ed")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_w4hs2")
 expand_mode = 1
@@ -435,26 +457,28 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "抗人物："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer"]
-custom_minimum_size = Vector2(155, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 
 [node name="PanelContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = -7
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = -14
+theme_override_constants/margin_bottom = 12
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2/PanelContainer"]
-custom_minimum_size = Vector2(35, 0)
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 texture = SubResource("AtlasTexture_vgwvj")
 expand_mode = 1
@@ -462,9 +486,11 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "抗宠物："
 
 [node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "700"
 vertical_alignment = 1

@@ -12,6 +12,8 @@ const STATE_SELECTING_TARGET: String = "selecting_target"
 const STATE_SUBMITTING: String = "submitting_action"
 const STATE_PLAYING: String = "playing_round"
 const STATE_BATTLE_END: String = "battle_end"
+## 客户端本地维护的回合操作倒计时秒数；服务端不再下发或判断倒计时。
+const CLIENT_COMMAND_TIMEOUT_SEC: int = 25
 
 var _state: String = STATE_INIT
 var _current_round: int = 1
@@ -47,8 +49,14 @@ var _initialized: bool = false
 var _is_playing_events: bool = false
 var _last_played_frame: int = 0
 var _interaction_locked: bool = false
-## 标记当前是否在等待自动战斗开关回执，避免与普通出招提交共用锁定逻辑。
-var _pending_auto_toggle: bool = false
+## 自动战斗现在完全由客户端维护；服务端只接收最终回合意图并返回结算结果。
+var _client_auto_battle_enabled: bool = false
+## 当前客户端本地命令阶段截止时间，单位毫秒；0 表示当前不显示倒计时。
+var _client_command_deadline_ms: int = 0
+## 本回合已经选择好的己方动作，key 为 actor_id，等所有单位都选完后一起提交给服务端。
+var _ally_selections_by_actor_id: Dictionary = {}
+## 待逐个发送到旧单动作协议的本回合意图队列；队列发完后等待服务端返回本回合结果。
+var _round_submission_queue: Array[Dictionary] = []
 ## 按 frame 缓存服务端推送，避免 GameState 被新帧覆盖后丢失尚未演出的回合。
 var _pending_frame_batches: Array[Dictionary] = []
 
@@ -163,27 +171,15 @@ func handle_battle_state_update() -> void:
 
 ## 服务端已受理动作，但尚未收到带演出事件的 4012，此时继续保持锁定。
 func mark_action_accepted() -> void:
-	if _pending_auto_toggle:
-		_pending_auto_toggle = false
+	if _state == STATE_SUBMITTING and not _round_submission_queue.is_empty():
+		_submit_next_round_intent()
 		return
 	if _state == STATE_SUBMITTING:
-		_state = STATE_WAITING_INPUT
-	_lock_interaction("正在等待服务端结算")
+		_lock_interaction("正在等待服务端结算")
 
 ## 动作被拒绝时回滚当前选择并恢复可操作状态。
 func handle_action_rejected(reason: String) -> void:
-	if _pending_auto_toggle:
-		_pending_auto_toggle = false
-		_sync_auto_button_availability()
-		if not reason.is_empty():
-			_action_log_panel.append_log(reason)
-		return
-	# 战斗已结束或已从服务端移除时，忽略迟到的动作回执，避免重新解锁面板。
-	if _network.get_phase() != "command" or reason == "battle not found":
-		if _network.get_phase() == "finished":
-			_lock_interaction("战斗结算中")
-		return
-	_selection_index = maxi(0, _selection_index - 1)
+	_round_submission_queue.clear()
 	_state = STATE_WAITING_INPUT
 	_unlock_interaction()
 	_refresh_command_phase()
@@ -247,15 +243,21 @@ func _refresh_command_phase() -> void:
 		return
 	if _network.get_phase() != "command":
 		return
-	if _network.is_auto_battle_enabled():
-		_action_panel.set_auto_mode_active(true)
-		return
 	_selection_order = _network.get_pending_actor_ids()
 	_selection_index = 0
+	_ally_selections_by_actor_id.clear()
+	_round_submission_queue.clear()
 	if _selection_order.is_empty():
+		_client_command_deadline_ms = 0
 		_action_panel.set_buttons_disabled(true)
 		return
 	_state = STATE_WAITING_INPUT
+	if _client_auto_battle_enabled:
+		_client_command_deadline_ms = 0
+		_action_panel.set_auto_mode_active(true)
+		call_deferred("_submit_auto_round_intents")
+		return
+	_start_client_command_timer()
 	_action_panel.begin_selection_phase()
 	_begin_next_ally_selection()
 
@@ -295,6 +297,30 @@ func _spawn_unit(unit_data: Dictionary) -> BattleUnit:
 	_units[unit.actor_id] = unit
 	return unit
 
+## 把战斗场景导出的最新单位缩放同步给所有已生成单位，方便在 Inspector 中调整后立即看到双方变化。
+func apply_current_unit_scale_to_spawned_units() -> void:
+	for unit_value: Variant in _units.values():
+		if unit_value is not BattleUnit:
+			continue
+		var unit: BattleUnit = unit_value as BattleUnit
+		unit.apply_configured_unit_scale(unit == _planning_unit)
+
+## 用最新 BattleFormationMapper 配置重算已生成单位站位，便于调试战斗场景导出参数。
+func apply_current_formation_to_spawned_units() -> void:
+	if _network == null or _units.is_empty():
+		return
+	_slot_positions = BattleFormationMapper.build_slot_positions()
+	var initial_units: Array[Dictionary] = _network.get_initial_units()
+	for unit_data: Dictionary in initial_units:
+		var actor_id: int = int(unit_data.get("actor_id", 0))
+		if actor_id <= 0 or not _units.has(actor_id):
+			continue
+		var unit_value: Variant = _units[actor_id]
+		if unit_value is not BattleUnit:
+			continue
+		var unit: BattleUnit = unit_value as BattleUnit
+		unit.apply_configured_slot_position(_resolve_unit_slot_position(unit_data))
+
 func _is_ally_unit(unit: BattleUnit) -> bool:
 	return unit.unit_type == "player" or unit.unit_type == "pet"
 
@@ -317,10 +343,15 @@ func _on_action_selected(action_type: String) -> void:
 	if action_type == "auto":
 		if _network.get_phase() == "finished":
 			return
-		if _network.is_auto_battle_enabled():
-			_submit_auto_toggle(false)
+		_client_auto_battle_enabled = not _client_auto_battle_enabled
+		if _client_auto_battle_enabled:
+			_action_log_panel.append_log("已开启自动战斗。")
+			if _network.get_phase() == "command" and not _interaction_locked:
+				_submit_auto_round_intents()
 		else:
-			_submit_auto_toggle(true)
+			_action_log_panel.append_log("已关闭自动战斗。")
+			if _network.get_phase() == "command" and not _interaction_locked:
+				_refresh_command_phase()
 		return
 	if _state == STATE_SELECTING_TARGET and action_type in ["escape", "cancel_target"]:
 		_cancel_target_selection()
@@ -572,34 +603,100 @@ func _cancel_target_selection() -> void:
 
 func _commit_unit_selection(selection: Dictionary) -> void:
 	var actor_id: int = int(selection.get("actor_id", 0))
+	if actor_id <= 0:
+		return
+	_ally_selections_by_actor_id[actor_id] = selection.duplicate(true)
+	_selection_index += 1
+	if _selection_index >= _selection_order.size():
+		_submit_selected_round_intents()
+		return
+	_begin_next_ally_selection()
+
+
+## 把玩家本回合所有单位选择好的意图一次性锁定，然后复用旧单动作协议逐条发送给服务端。
+func _submit_selected_round_intents() -> void:
+	var submissions: Array[Dictionary] = []
+	for actor_id: int in _selection_order:
+		if not _ally_selections_by_actor_id.has(actor_id):
+			return
+		submissions.append((_ally_selections_by_actor_id[actor_id] as Dictionary).duplicate(true))
+	_submit_round_intents(submissions)
+
+
+## 自动战斗本地生成本回合所有己方单位的默认攻击意图。
+func _submit_auto_round_intents() -> void:
+	if not _client_auto_battle_enabled:
+		return
+	if _network.get_phase() != "command" or _interaction_locked:
+		return
+	_selection_order = _network.get_pending_actor_ids()
+	if _selection_order.is_empty():
+		return
+	var submissions: Array[Dictionary] = []
+	for actor_id: int in _selection_order:
+		var unit: BattleUnit = _get_unit(actor_id)
+		if unit == null or unit.is_dead:
+			continue
+		submissions.append(_build_auto_selection_for_actor(actor_id))
+	if submissions.is_empty():
+		return
+	_submit_round_intents(submissions)
+
+
+## 为自动战斗构造一个服务端可结算的默认攻击动作。
+func _build_auto_selection_for_actor(actor_id: int) -> Dictionary:
+	var selection: Dictionary = _build_attack_selection(actor_id)
+	selection["actor_id"] = actor_id
+	selection["target_ids"] = _pick_random_target_ids(selection)
+	return selection
+
+
+## 将一整回合意图进入提交状态，服务端只会在最后一个意图到达后返回当前回合结果。
+func _submit_round_intents(submissions: Array[Dictionary]) -> void:
+	if submissions.is_empty():
+		return
+	_client_command_deadline_ms = 0
+	_round_submission_queue = submissions.duplicate(true)
+	_state = STATE_SUBMITTING
+	_lock_interaction("正在提交本回合战斗意图")
+	_submit_next_round_intent()
+
+
+## 逐条发送本回合意图，兼容现有 BATTLE_ACTION_REQ 单动作协议。
+func _submit_next_round_intent() -> void:
+	if _round_submission_queue.is_empty():
+		_lock_interaction("正在等待服务端结算")
+		return
+	var selection: Dictionary = _round_submission_queue.pop_front() as Dictionary
+	var actor_id: int = int(selection.get("actor_id", 0))
 	var action_type_name: String = str(selection.get("action_type", ""))
 	var skill_id: int = int(selection.get("skill_id", 0))
 	var target_ids: Array = selection.get("target_ids", []) as Array
 	var target_id: int = 0
 	if not target_ids.is_empty():
 		target_id = int(target_ids[0])
-	var action_type: int = _map_action_type(action_type_name)
-	_state = STATE_SUBMITTING
-	_lock_interaction("正在提交战斗指令")
-	action_requested.emit(actor_id, action_type, skill_id, target_id)
-	_selection_index += 1
-
-func _submit_auto_toggle(enabled: bool) -> void:
-	var battle_id: int = _network.get_battle_id()
-	if battle_id <= 0 or _network.get_phase() == "finished":
-		return
-	_pending_auto_toggle = true
-	App.set_battle_auto(battle_id, _network.get_round(), enabled)
+	action_requested.emit(actor_id, _map_action_type(action_type_name), skill_id, target_id)
 
 
-func _on_command_timeout_auto_request() -> void:
-	if _network.is_auto_battle_enabled():
-		return
-	if _network.get_phase() != "command":
-		return
-	if _network.get_pending_actor_ids().is_empty():
-		return
-	_submit_auto_toggle(true)
+## 开启客户端本地命令倒计时。
+func _start_client_command_timer() -> void:
+	_client_command_deadline_ms = Time.get_ticks_msec() + CLIENT_COMMAND_TIMEOUT_SEC * 1000
+
+
+## 供 CommandStatusBar 读取客户端本地剩余秒数。
+func get_client_command_remaining_seconds() -> int:
+	if _client_command_deadline_ms <= 0:
+		return 0
+	var remain_ms: int = _client_command_deadline_ms - Time.get_ticks_msec()
+	if remain_ms <= 0:
+		return 0
+	return int(ceil(float(remain_ms) / 1000.0))
+
+
+## 供 CommandStatusBar 读取客户端本地自动战斗开关。
+func is_client_auto_battle_enabled() -> bool:
+	return _client_auto_battle_enabled
+
 
 func _map_action_type(action_type_name: String) -> int:
 	match action_type_name:
@@ -986,8 +1083,8 @@ func _should_mirror_skill_effect_at_target(actor: BattleUnit, target_position: V
 	if actor == null:
 		return false
 	return (
-		actor.base_position.x > BattleFormationMapper.BATTLEFIELD_SPLIT_X
-		and target_position.x < BattleFormationMapper.BATTLEFIELD_SPLIT_X
+		actor.base_position.x > BattleFormationMapper.get_battlefield_split_x()
+		and target_position.x < BattleFormationMapper.get_battlefield_split_x()
 	)
 
 func _show_caster_action_name(actor: BattleUnit, action_name: String) -> void:
@@ -997,7 +1094,7 @@ func _show_caster_action_name(actor: BattleUnit, action_name: String) -> void:
 	var label: FloatingText = FloatingTextScript.new() as FloatingText
 	label.text = action_name
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_font_size_override("font_size", 28)
 	label.reset_size()
 	label.position = anchor - Vector2(label.size.x * 0.5, 0.0)
 	_floating_layer.add_child(label)
@@ -1076,7 +1173,7 @@ func _get_slot_position(position_key: String) -> Vector2:
 		if slot_position_value is Vector2:
 			return slot_position_value as Vector2
 	push_warning("未找到站位 key: %s，请检查 battle_demo.json 的 formation 配置。" % position_key)
-	return Vector2(BattleFormationMapper.ALLY_FRONT_X, BattleFormationMapper.MAGIC_CIRCLE_CENTER_Y)
+	return Vector2(BattleFormationMapper.get_ally_front_x(), BattleFormationMapper.formation_center.y)
 
 
 ## 优先使用 BattleFormationMapper 写入的 slot_position，旧 demo 仍走 key 映射。
@@ -1140,3 +1237,14 @@ func _finish_battle(summary: String) -> void:
 	_state = STATE_BATTLE_END
 	_action_panel.set_buttons_disabled(true)
 	_action_log_panel.append_log(summary)
+
+
+## 客户端本地倒计时结束后，生成默认自动战斗回合意图并提交。
+func _on_command_timeout_auto_request() -> void:
+	if _network.get_phase() != "command" or _interaction_locked:
+		return
+	if _network.get_pending_actor_ids().is_empty():
+		return
+	_client_auto_battle_enabled = true
+	_action_log_panel.append_log("操作超时，已开启自动战斗。")
+	_submit_auto_round_intents()

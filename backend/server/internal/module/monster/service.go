@@ -277,11 +277,21 @@ func (s *Service) DeleteAdminSceneWildEncounter(ctx context.Context, sceneID uin
 }
 
 func (s *Service) validateAdminWildEncounterInput(input AdminUpsertWildEncounterInput) error {
-	if input.SceneID == 0 || input.EncounterName == "" || len(input.SpawnMonsterIDs) == 0 {
+	if input.SceneID == 0 || input.EncounterName == "" || len(input.SpawnMonsterIDs) == 0 || len(input.Formations) == 0 {
 		return ErrInvalidAdminSceneWildEncounterInput
 	}
 	if input.EncounterRate > 10000 {
 		return fmt.Errorf("%w: encounter_rate must be <= 10000", ErrInvalidAdminSceneWildEncounterInput)
+	}
+	for _, formation := range input.Formations {
+		if strings.TrimSpace(formation.FormationName) == "" || formation.Weight == 0 || len(formation.SpawnMonsterIDs) == 0 {
+			return ErrInvalidAdminSceneWildEncounterInput
+		}
+	}
+	for _, reward := range input.Rewards {
+		if err := validateAdminBattleRewardInput(reward); err != nil {
+			return err
+		}
 	}
 	return nil
 }

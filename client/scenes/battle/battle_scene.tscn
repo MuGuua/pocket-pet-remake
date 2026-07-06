@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://dsevvt38eprmg" path="res://scripts/feature/battle/battle_network_provider.gd" id="1"]
 [ext_resource type="Script" uid="uid://cvrgwv6hpiugx" path="res://scripts/feature/battle/battle_director.gd" id="2"]
 [ext_resource type="Texture2D" uid="uid://ceg8aw0vrel1o" path="res://asset/分类/ui/魔法阵.png" id="2_2wmvw"]
+[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="2_dddu7"]
 [ext_resource type="Script" uid="uid://b00opfh4jeevx" path="res://scripts/feature/battle/action_panel.gd" id="3"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="3_2wmvw"]
 [ext_resource type="Script" uid="uid://by565b7rmy27i" path="res://scripts/feature/battle/action_log_panel.gd" id="4"]
@@ -11,16 +12,8 @@
 [ext_resource type="Script" uid="uid://bik067xn4swgh" path="res://scripts/feature/battle/battle_command_status.gd" id="6"]
 [ext_resource type="Texture2D" uid="uid://bcqr7w3fwkyex" path="res://asset/分类/ui/战斗ui.png" id="7_battle_ui"]
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ww1p6"]
-texture = ExtResource("3_2wmvw")
-texture_margin_left = 15.0
-texture_margin_top = 15.0
-texture_margin_right = 15.0
-texture_margin_bottom = 15.0
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ww1p6"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o3k7m"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f8dlf"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cywj5"]
 
@@ -33,13 +26,39 @@ texture = SubResource("AtlasTexture_ww1p6")
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_7hnyd"]
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_tx6cj"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(178, 0, 36, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_i7iau"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(0, 49, 20, 18)
+
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_dddu7"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7hnyd"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(20, 49, 20, 18)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_3511k"]
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_dddu7"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(40, 49, 20, 18)
+
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_puhd7"]
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_3511k"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(60, 49, 20, 18)
+
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_mpswg"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_puhd7"]
+atlas = ExtResource("7_battle_ui")
+region = Rect2(80, 49, 20, 18)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o3k7m"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_choice_popup"]
 content_margin_left = 4.0
@@ -112,47 +131,44 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -1.0
+offset_bottom = -1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("0_scene")
+battle_unit_scale = 2.61
+battle_planning_highlight_multiplier = 1.0
+battle_formation_center = Vector2(390, 660)
+battle_unit_side_distance = 173.0
+battle_back_column_extra_distance = 100.0
+battle_back_column_y_offset = 71.0
+battle_effect_scale = 4.0
+battle_unit_vertical_spacing = 161.0
 
-[node name="Bg" type="Control" parent="." unique_id=2016797166]
+[node name="ColorRect" parent="." unique_id=1617070159 instance=ExtResource("2_dddu7")]
 layout_mode = 1
-anchors_preset = 15
+
+[node name="TextureRect2" type="TextureRect" parent="." unique_id=1480968987]
+modulate = Color(1, 1, 1, 0.22352941)
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_bottom = 0.5
+offset_left = -1.0
+offset_top = -100.0
+offset_right = -1.0
+offset_bottom = 100.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
-
-[node name="PanelContainer" type="Control" parent="Bg" unique_id=32121588]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="TextureRect2" type="TextureRect" parent="Bg/PanelContainer" unique_id=1480968987]
-custom_minimum_size = Vector2(200, 112)
-layout_mode = 0
-offset_left = 30.0
-offset_top = 178.0
-offset_right = 230.0
-offset_bottom = 290.0
 size_flags_horizontal = 4
 size_flags_vertical = 4
+offset_transform_enabled = true
+offset_transform_position = Vector2(0, -79)
 mouse_filter = 2
 texture = ExtResource("2_2wmvw")
 expand_mode = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="Bg/PanelContainer" unique_id=540876885]
-layout_mode = 0
-offset_right = 260.0
-offset_bottom = 480.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxTexture_ww1p6")
 
 [node name="BattlefieldRoot" type="Control" parent="." unique_id=493730974]
 unique_name_in_owner = true
@@ -184,16 +200,17 @@ mouse_filter = 2
 
 [node name="CommandStatusBar" type="PanelContainer" parent="UILayer" unique_id=572195129]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(760, 60)
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 6.0
-offset_top = 4.0
-offset_right = -6.0
-offset_bottom = 34.0
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -380.0
+offset_right = 380.0
+offset_bottom = 60.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_ww1p6")
+theme_override_styles/panel = SubResource("StyleBoxFlat_f8dlf")
 script = ExtResource("6")
 
 [node name="StatusMargin" type="MarginContainer" parent="UILayer/CommandStatusBar" unique_id=1646323915]
@@ -207,7 +224,7 @@ theme_override_constants/margin_bottom = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/normal_font_size = 13
+theme_override_font_sizes/normal_font_size = 36
 bbcode_enabled = true
 text = "请选择人物操作：25秒"
 scroll_active = false
@@ -215,24 +232,270 @@ autowrap_mode = 0
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ActionLogPanel" type="PanelContainer" parent="UILayer" unique_id=487651684]
+[node name="ActionPanel" type="PanelContainer" parent="UILayer" unique_id=2022334259]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = -156.0
-offset_right = -8.0
-offset_bottom = -98.0
+offset_left = 76.0
+offset_top = -307.0
+offset_right = 70.0
+offset_bottom = -163.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(0.8, 0.8)
+theme_override_styles/panel = SubResource("StyleBoxEmpty_cywj5")
+script = ExtResource("3")
+
+[node name="ActionMargin" type="MarginContainer" parent="UILayer/ActionPanel" unique_id=233947682]
+layout_mode = 2
+
+[node name="ActionVBox" type="VBoxContainer" parent="UILayer/ActionPanel/ActionMargin" unique_id=1205505131]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox" unique_id=1986808873]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_7hnyd")
+
+[node name="ButtonRow" type="HBoxContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer" unique_id=469007977]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 144)
+layout_mode = 2
+theme_override_constants/separation = -4
+
+[node name="AttackButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=2099984467]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_7hnyd")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_7hnyd")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_7hnyd")
+theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_7hnyd")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_7hnyd")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_7hnyd")
+
+[node name="TextureRect" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/AttackButton" unique_id=404267883]
+visible = false
+custom_minimum_size = Vector2(144, 144)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -72.0
+offset_top = -72.0
+offset_right = 72.0
+offset_bottom = 72.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/AttackButton/TextureRect" unique_id=1502504028]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_i7iau")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="SkillButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1017588627]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_dddu7")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_dddu7")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_dddu7")
+theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_dddu7")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_dddu7")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_dddu7")
+
+[node name="TextureRect2" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/SkillButton" unique_id=751739364]
+visible = false
+custom_minimum_size = Vector2(144, 144)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect2" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/SkillButton/TextureRect2" unique_id=45649261]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_7hnyd")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="ItemButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=571100429]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_3511k")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_3511k")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_3511k")
+theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_3511k")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_3511k")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_3511k")
+
+[node name="TextureRect3" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/ItemButton" unique_id=1645303161]
+visible = false
+custom_minimum_size = Vector2(144, 144)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect3" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/ItemButton/TextureRect3" unique_id=337520280]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_dddu7")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="AutoButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1352302089]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_puhd7")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_puhd7")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_puhd7")
+theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_puhd7")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_puhd7")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_puhd7")
+
+[node name="TextureRect4" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/AutoButton" unique_id=1383654025]
+visible = false
+custom_minimum_size = Vector2(144, 144)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect4" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/AutoButton/TextureRect4" unique_id=297573027]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_3511k")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="EscapeButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=468408827]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_mpswg")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_mpswg")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_mpswg")
+theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_mpswg")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_mpswg")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_mpswg")
+
+[node name="TextureRect5" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/EscapeButton" unique_id=910976866]
+visible = false
+custom_minimum_size = Vector2(144, 144)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect5" type="TextureRect" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow/EscapeButton/TextureRect5" unique_id=1851275207]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("AtlasTexture_puhd7")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="ActionLogPanel" type="PanelContainer" parent="UILayer" unique_id=487651684]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(764, 150)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -150.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_o3k7m")
 script = ExtResource("4")
-log_font_size = 9
-line_height = 11.0
 
 [node name="LogMargin" type="MarginContainer" parent="UILayer/ActionLogPanel" unique_id=1064654595]
 layout_mode = 2
@@ -257,73 +520,6 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 1
 alignment = 2
-
-[node name="ActionPanel" type="PanelContainer" parent="UILayer" unique_id=2022334259]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 3.0
-offset_top = -96.0
-offset_right = -3.0
-offset_bottom = -3.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_styles/panel = SubResource("StyleBoxEmpty_cywj5")
-script = ExtResource("3")
-
-[node name="ActionMargin" type="MarginContainer" parent="UILayer/ActionPanel" unique_id=233947682]
-layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 4
-
-[node name="ActionVBox" type="VBoxContainer" parent="UILayer/ActionPanel/ActionMargin" unique_id=1205505131]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="PanelContainer" type="PanelContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox" unique_id=1986808873]
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxTexture_7hnyd")
-
-[node name="ButtonRow" type="HBoxContainer" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer" unique_id=469007977]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-theme_override_constants/separation = 1
-
-[node name="AttackButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=2099984467]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_7hnyd")
-
-[node name="SkillButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1017588627]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_dddu7")
-
-[node name="ItemButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=571100429]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_3511k")
-
-[node name="AutoButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=1352302089]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_puhd7")
-
-[node name="EscapeButton" type="Button" parent="UILayer/ActionPanel/ActionMargin/ActionVBox/PanelContainer/ButtonRow" unique_id=468408827]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_mpswg")
 
 [node name="SelectionOverlay" type="Control" parent="UILayer" unique_id=1096433752]
 unique_name_in_owner = true
@@ -358,7 +554,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter" unique_id=312578488]
-custom_minimum_size = Vector2(176, 0)
+custom_minimum_size = Vector2(352, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_choice_popup")
 
@@ -387,12 +583,14 @@ alignment = 1
 [node name="ChoicePrevButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1692660577]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 text = "上一页"
 
 [node name="ChoicePageLabel" type="Label" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=931677179]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 0)
+custom_minimum_size = Vector2(104, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 text = "1 / 1"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -400,26 +598,27 @@ vertical_alignment = 1
 [node name="ChoiceNextButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1162737527]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 text = "下一页"
 
 [node name="ChoiceCancelButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox" unique_id=1652907511]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 text = "取消"
 
 [node name="TargetCancelBar" type="HBoxContainer" parent="UILayer/SelectionOverlay" unique_id=1771081969]
 unique_name_in_owner = true
-custom_maximum_size = Vector2(-1, 30)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -123.0
-offset_top = 117.0
-offset_right = 123.0
-offset_bottom = 147.0
+offset_left = -382.0
+offset_top = 350.0
+offset_right = 382.0
+offset_bottom = 409.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -428,8 +627,9 @@ alignment = 1
 
 [node name="TargetConfirmButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=332848194]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(84, 28)
+custom_minimum_size = Vector2(168, 56)
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 theme_override_styles/normal = SubResource("StyleBoxTexture_te27b")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_7i1my")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2wmvw")
@@ -438,14 +638,15 @@ theme_override_styles/focus = SubResource("StyleBoxEmpty_7s01p")
 text = "确定"
 
 [node name="Control" type="Control" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=734815763]
-custom_minimum_size = Vector2(70, 0)
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 
 [node name="TargetCancelButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=442412752]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(84, 28)
+custom_minimum_size = Vector2(168, 56)
 layout_mode = 2
+theme_override_font_sizes/font_size = 21
 theme_override_styles/normal = SubResource("StyleBoxTexture_tc5fe")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_tpsmh")
 theme_override_styles/hover = SubResource("StyleBoxTexture_3511k")

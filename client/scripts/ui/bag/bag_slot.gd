@@ -35,7 +35,6 @@ var _hover_name: BagItemHoverName = null
 
 ## 绑定场景节点，并初始化三种槽位样式。
 func _ready() -> void:
-	custom_minimum_size = Vector2(22, 22)
 	toggle_mode = true
 	focus_mode = Control.FOCUS_NONE
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -114,8 +113,11 @@ func _apply_visual_state() -> void:
 func _resolve_node_refs() -> void:
 	_bg_rect = get_node_or_null("TextureRect") as TextureRect
 	_icon_rect = get_node_or_null("CenterContainer/Control/ItemImage") as TextureRect
-	_count_label = get_node_or_null("CenterContainer/Control/ItemQuantity") as Label
-	_enhance_label = get_node_or_null("CenterContainer/Control/ItemEnhanceLevel") as Label
+	_count_label = get_node_or_null("CenterContainer/Control/MarginContainer/ItemQuantity") as Label
+	_enhance_label = get_node_or_null("CenterContainer/Control/MarginContainer/ItemEnhanceLevel") as Label
+	if _enhance_label == null:
+		# 兼容旧版槽位场景：部分历史场景曾把强化角标直接放在 Control 下。
+		_enhance_label = get_node_or_null("CenterContainer/Control/ItemEnhanceLevel") as Label
 	_damaged_overlay = get_node_or_null("CenterContainer/Control/ItemDamagedOverlay") as ColorRect
 	_damaged_badge = get_node_or_null("Damaged") as Control
 	if _bg_rect != null:

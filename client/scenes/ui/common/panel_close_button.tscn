@@ -35,8 +35,8 @@ texture = SubResource("AtlasTexture_close_hover")
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_close_focus"]
 
 [node name="PanelCloseButton" type="Button"]
-custom_minimum_size = Vector2(20, 18)
-custom_maximum_size = Vector2(20, 20)
+custom_minimum_size = Vector2(40, 36)
+custom_maximum_size = Vector2(40, 40)
 theme_override_styles/normal = SubResource("StyleBoxTexture_close_normal")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_close_pressed")
 theme_override_styles/hover = SubResource("StyleBoxTexture_close_hover")

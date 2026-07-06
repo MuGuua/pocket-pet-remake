@@ -12,7 +12,7 @@ const BAG_ITEM_ACTIONS: Array[Dictionary] = [
     {"key": "share", "label": "分享"},
 ]
 ## 动作菜单默认与锚点之间的垂直间距（像素）。
-const DEFAULT_MENU_ANCHOR_GAP: float = 4.0
+const DEFAULT_MENU_ANCHOR_GAP: float = 8.0
 
 ## 玩家选中某个动作后向外广播动作 key。
 signal action_selected(action_key: String)
@@ -23,8 +23,6 @@ signal menu_closed
 @onready var _content_root: MarginContainer = $MarginContainer
 ## 动态动作按钮容器。
 @onready var _action_vbox: VBoxContainer = %ActionVBox
-## 右上角关闭按钮。
-@onready var _top_close_button: BaseButton = %TopCloseButton
 
 ## 当前动作定义列表；每项至少包含 key 与 label。
 var _action_defs: Array[Dictionary] = []
@@ -38,8 +36,6 @@ func _ready() -> void:
     z_index = 16
     if _content_root != null:
         _content_root.mouse_filter = Control.MOUSE_FILTER_STOP
-    if _top_close_button != null and not _top_close_button.pressed.is_connected(_on_top_close_button_pressed):
-        _top_close_button.pressed.connect(_on_top_close_button_pressed)
     if not popup_closed.is_connected(_on_popup_closed):
         popup_closed.connect(_on_popup_closed)
 
@@ -135,11 +131,6 @@ func _refresh_button_states() -> void:
 func _on_action_button_pressed(action_key: String) -> void:
     close_popup()
     action_selected.emit(action_key)
-
-
-## 响应右上角关闭按钮。
-func _on_top_close_button_pressed() -> void:
-    close_popup()
 
 
 ## 同步 menu_closed 信号，兼容旧监听方。

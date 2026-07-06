@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://m6pdabmokwih" path="res://scenes/ui/pet/pet_resistance_panel.tscn" id="7_bmldw"]
 [ext_resource type="Texture2D" uid="uid://cr20oit28q56t" path="res://asset/分类/ui/button_PNG/CGB02-grey_L_btn.png" id="7_uj443"]
 [ext_resource type="Texture2D" uid="uid://ccn1veeacesfn" path="res://asset/分类/ui/button_PNG/CGB02-orange_L_btn.png" id="8_bmldw"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="9_close_btn"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -20,24 +21,6 @@ region = Rect2(387, 29, 176, 291)
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i1as4"]
 texture = SubResource("AtlasTexture_fjtt8")
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_bkwt6"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_fi3ju"]
-atlas = SubResource("CompressedTexture2D_bkwt6")
-region = Rect2(272, 208, 17, 16)
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_2277l"]
-texture = SubResource("AtlasTexture_fi3ju")
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_qy1sh"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_v7su5"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_xvjvq"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_4bnwa"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx6cj"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -77,10 +60,10 @@ animations = [{
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h8ylg"]
 bg_color = Color(0.08741423, 0.17934072, 0.30499816, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ehdik"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -113,7 +96,6 @@ texture = ExtResource("8_bmldw")
 texture = ExtResource("8_bmldw")
 
 [node name="Control" type="CanvasLayer" unique_id=1147085773]
-visible = false
 script = ExtResource("1_script")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=77391200]
@@ -122,13 +104,12 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -115.0
-offset_top = -184.5
-offset_right = 65.0
-offset_bottom = 94.5
+offset_left = -360.0
+offset_top = -696.0
+offset_right = 360.0
+offset_bottom = 420.0
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(1.3, 1.3)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_styles/panel = SubResource("StyleBoxTexture_i1as4")
@@ -141,45 +122,40 @@ layout_mode = 2
 
 [node name="Title" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1694877725]
 layout_mode = 2
-theme_override_constants/margin_top = 3
+theme_override_constants/margin_top = 12
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/Title" unique_id=57812799]
 layout_mode = 2
 
 [node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=375654909]
-custom_minimum_size = Vector2(63, 0)
+custom_minimum_size = Vector2(267, 0)
 layout_mode = 2
 
 [node name="Label" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1652365896]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 44
 text = "宠物信息"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Control2" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1183064158]
-custom_minimum_size = Vector2(37, 0)
+custom_minimum_size = Vector2(154, 0)
 layout_mode = 2
 
-[node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1318063362]
-custom_minimum_size = Vector2(20, 18)
-custom_maximum_size = Vector2(20, 20)
+[node name="Button" parent="PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=1318063362 instance=ExtResource("9_close_btn")]
+custom_minimum_size = Vector2(80, 72)
+custom_maximum_size = Vector2(80, 80)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-theme_override_styles/normal = SubResource("StyleBoxTexture_2277l")
-theme_override_styles/pressed = SubResource("StyleBoxEmpty_qy1sh")
-theme_override_styles/hover = SubResource("StyleBoxEmpty_v7su5")
-theme_override_styles/disabled = SubResource("StyleBoxEmpty_xvjvq")
-theme_override_styles/focus = SubResource("StyleBoxEmpty_4bnwa")
 
 [node name="DisplayPanel" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1086472372]
-custom_minimum_size = Vector2(180, 90)
-custom_maximum_size = Vector2(180, 100)
+custom_minimum_size = Vector2(720, 360)
+custom_maximum_size = Vector2(720, 400)
 layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
 
 [node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel" unique_id=1079352986]
 layout_mode = 2
@@ -189,38 +165,38 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_tx6cj")
 layout_mode = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer" unique_id=1030104627]
-custom_minimum_size = Vector2(100, 12)
+custom_minimum_size = Vector2(400, 48)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_styles/panel = SubResource("StyleBoxFlat_i7iau")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer" unique_id=1162159005]
-custom_maximum_size = Vector2(100, 12)
+custom_maximum_size = Vector2(400, 48)
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="PetName" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=2114362760]
-custom_minimum_size = Vector2(58, 12)
+custom_minimum_size = Vector2(232, 48)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "天空之王"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="PetLevel" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1520792920]
-custom_minimum_size = Vector2(26, 12)
-custom_maximum_size = Vector2(10, 12)
+custom_minimum_size = Vector2(104, 48)
+custom_maximum_size = Vector2(40, 48)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 7
+theme_override_font_sizes/font_size = 28
 text = "12级"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Button" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=231935582]
-custom_minimum_size = Vector2(12, 12)
-custom_maximum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(48, 48)
+custom_maximum_size = Vector2(48, 48)
 layout_mode = 2
 mouse_filter = 1
 theme_override_styles/normal = SubResource("StyleBoxTexture_tx6cj")
@@ -231,78 +207,78 @@ size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxTexture_tlnns")
 
 [node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2" unique_id=937978233]
-custom_minimum_size = Vector2(110, 74)
+custom_minimum_size = Vector2(440, 296)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 8
 
 [node name="HBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control" unique_id=737523293]
-custom_minimum_size = Vector2(110, 70)
-custom_maximum_size = Vector2(-1, 70)
+custom_minimum_size = Vector2(440, 280)
+custom_maximum_size = Vector2(-1, 280)
 layout_mode = 0
-offset_right = 40.0
-offset_bottom = 74.0
+offset_right = 160.0
+offset_bottom = 296.0
 
 [node name="Control" type="Control" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer" unique_id=1602564124]
-custom_minimum_size = Vector2(0, 54)
+custom_minimum_size = Vector2(0, 216)
 layout_mode = 2
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control" unique_id=940489478]
 modulate = Color(1, 1, 1, 0.44705883)
-custom_minimum_size = Vector2(50, 12)
+custom_minimum_size = Vector2(200, 48)
 layout_mode = 0
-offset_top = 53.0
-offset_right = 110.0
-offset_bottom = 65.0
+offset_top = 212.0
+offset_right = 440.0
+offset_bottom = 260.0
 size_flags_vertical = 10
 texture = SubResource("CompressedTexture2D_a0tyk")
 expand_mode = 1
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control" unique_id=1328519479]
-custom_minimum_size = Vector2(0, 54)
+custom_minimum_size = Vector2(0, 216)
 layout_mode = 0
-offset_top = 4.0
-offset_right = 110.0
-offset_bottom = 4.0
+offset_top = 16.0
+offset_right = 440.0
+offset_bottom = 16.0
 
 [node name="Pet" type="AnimatedSprite2D" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control/HBoxContainer" unique_id=1378988410]
-position = Vector2(51.892303, 26.161531)
-scale = Vector2(0.7457013, 0.7694281)
+position = Vector2(207.77693, 106.18534)
+scale = Vector2(2.9183254, 3.011181)
 sprite_frames = SubResource("SpriteFrames_qy1sh")
 autoplay = "default"
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer" unique_id=1801679108]
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 size_flags_vertical = 8
 
 [node name="DataPanel" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=435905459]
-custom_minimum_size = Vector2(180, 157)
-custom_maximum_size = Vector2(180, 157)
+custom_minimum_size = Vector2(720, 628)
+custom_maximum_size = Vector2(720, 628)
 layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel" unique_id=1408329610]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="宠物列表" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer" unique_id=1928187423]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_h8ylg")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表" unique_id=2065318763]
 layout_mode = 2
-theme_override_constants/margin_left = 1
-theme_override_constants/margin_top = 1
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 1
+theme_override_constants/margin_bottom = 4
 
 [node name="GridContainer" type="GridContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer" unique_id=1655612917]
 layout_mode = 2
-theme_override_constants/h_separation = 2
-theme_override_constants/v_separation = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
 columns = 2
 
 [node name="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer" unique_id=1563053846 instance=ExtResource("3_2277l")]
@@ -336,19 +312,19 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_ehdik")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据" unique_id=2031534910]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 4
 
 [node name="数据按钮" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer" unique_id=1391191588]
-custom_minimum_size = Vector2(0, 12)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 alignment = 1
 
 [node name="基础属性" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=1241695082]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 5
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBoxTexture_fi3ju")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_bmldw")
 theme_override_styles/hover = SubResource("StyleBoxTexture_wha43")
@@ -357,10 +333,10 @@ toggle_mode = true
 text = "基础属性"
 
 [node name="状态抗性" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=1779687883]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 5
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBoxTexture_fi3ju")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_bmldw")
 theme_override_styles/hover = SubResource("StyleBoxTexture_wha43")
@@ -369,10 +345,10 @@ toggle_mode = true
 text = "状态抗性"
 
 [node name="技能资质" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=2136072749]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 5
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBoxTexture_fi3ju")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_bmldw")
 theme_override_styles/hover = SubResource("StyleBoxTexture_wha43")
@@ -381,10 +357,10 @@ toggle_mode = true
 text = "技能资质"
 
 [node name="法宝装备" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=35420835]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 5
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBoxTexture_fi3ju")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_bmldw")
 theme_override_styles/hover = SubResource("StyleBoxTexture_wha43")
@@ -394,8 +370,8 @@ text = "法宝装备
 "
 
 [node name="数据面板" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer" unique_id=1307747269]
-custom_minimum_size = Vector2(130, 130)
-custom_maximum_size = Vector2(130, 130)
+custom_minimum_size = Vector2(520, 520)
+custom_maximum_size = Vector2(520, 520)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_a5yub")
 
@@ -407,15 +383,15 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="其他按钮" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer" unique_id=1199923089]
-custom_minimum_size = Vector2(0, 126)
+custom_minimum_size = Vector2(0, 504)
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 8
 
 [node name="加点" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮" unique_id=342836779]
-custom_minimum_size = Vector2(24, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 7
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxTexture_da17f")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_urqiu")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2rkc1")
@@ -424,10 +400,10 @@ toggle_mode = true
 text = "加点"
 
 [node name="合成" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮" unique_id=850778306]
-custom_minimum_size = Vector2(24, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 7
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxTexture_da17f")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_urqiu")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2rkc1")
@@ -437,10 +413,10 @@ text = "合成
 "
 
 [node name="彩绘" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮" unique_id=65563070]
-custom_minimum_size = Vector2(24, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 7
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxTexture_da17f")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_urqiu")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2rkc1")
@@ -449,10 +425,10 @@ toggle_mode = true
 text = "彩绘"
 
 [node name="宝石" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮" unique_id=871309419]
-custom_minimum_size = Vector2(24, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 7
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxTexture_da17f")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_urqiu")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2rkc1")
@@ -461,10 +437,10 @@ toggle_mode = true
 text = "宝石"
 
 [node name="放生" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮" unique_id=448279990]
-custom_minimum_size = Vector2(24, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 7
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxTexture_da17f")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_urqiu")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2rkc1")

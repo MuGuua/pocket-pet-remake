@@ -1,71 +1,94 @@
 [gd_scene format=3 uid="uid://bqt6h84bb0hin"]
 
-[ext_resource type="Script" uid="uid://c8k2mitempicker01" path="res://scripts/ui/common/item_slot_picker.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://pgvxw0k13ui" path="res://scripts/ui/common/item_slot_picker.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="2_panel"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close_btn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_panel"]
 texture = ExtResource("2_panel")
-texture_margin_left = 15.0
-texture_margin_top = 15.0
-texture_margin_right = 15.0
-texture_margin_bottom = 15.0
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
 
-[node name="ItemSlotPicker" type="Control"]
-visible = false
+[node name="ItemSlotPicker" type="Control" unique_id=970526074]
+custom_minimum_size = Vector2(500, 300)
 layout_mode = 3
 anchors_preset = 0
 mouse_filter = 2
 script = ExtResource("1_script")
 
-[node name="PanelRoot" type="PanelContainer" parent="."]
-layout_mode = 0
-offset_right = 130.0
-offset_bottom = 78.0
+[node name="ScrollContainer" type="ScrollContainer" parent="." unique_id=1220297775]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer" unique_id=1592011072]
+custom_minimum_size = Vector2(500, 300)
+layout_mode = 2
+
+[node name="Title" type="PanelContainer" parent="ScrollContainer/VBoxContainer" unique_id=1417693063]
+layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_panel")
 
-[node name="ContentMargin" type="MarginContainer" parent="PanelRoot"]
+[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/VBoxContainer/Title" unique_id=1776440340]
 layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 4
+size_flags_vertical = 4
 
-[node name="MainVBox" type="VBoxContainer" parent="PanelRoot/ContentMargin"]
-layout_mode = 2
-theme_override_constants/separation = 3
-
-[node name="HeaderRow" type="HBoxContainer" parent="PanelRoot/ContentMargin/MainVBox"]
+[node name="Control" type="Control" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=2114809287]
+custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="PanelRoot/ContentMargin/MainVBox/HeaderRow"]
+[node name="TitleLabel" type="Label" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=1954655953]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
 theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 8
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 22
 text = "选择物品"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="TopCloseButton" parent="PanelRoot/ContentMargin/MainVBox/HeaderRow" instance=ExtResource("3_close_btn")]
+[node name="TopCloseButton" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=1560665525 instance=ExtResource("3_close_btn")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(-1, -1)
 layout_mode = 2
 
-[node name="GridScroll" type="ScrollContainer" parent="PanelRoot/ContentMargin/MainVBox"]
-unique_name_in_owner = true
+[node name="PanelRoot" type="PanelContainer" parent="ScrollContainer/VBoxContainer" unique_id=44349300]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_panel")
+
+[node name="MainVBox" type="VBoxContainer" parent="ScrollContainer/VBoxContainer/PanelRoot" unique_id=2025900064]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="ScrollContainer/VBoxContainer/PanelRoot/MainVBox" unique_id=574189968]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_colors/font_color = Color(0.94027185, 0.83364743, 0.69592434, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+text = "请选择:"
+vertical_alignment = 1
+
+[node name="GridScroll" type="ScrollContainer" parent="ScrollContainer/VBoxContainer/PanelRoot/MainVBox" unique_id=1402515119]
 layout_mode = 2
 size_flags_vertical = 0
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 0
 
-[node name="ItemGrid" type="GridContainer" parent="PanelRoot/ContentMargin/MainVBox/GridScroll"]
-unique_name_in_owner = true
+[node name="ItemGrid" type="GridContainer" parent="ScrollContainer/VBoxContainer/PanelRoot/MainVBox/GridScroll" unique_id=1773325717]
 layout_mode = 2
-theme_override_constants/h_separation = 2
-theme_override_constants/v_separation = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 columns = 5

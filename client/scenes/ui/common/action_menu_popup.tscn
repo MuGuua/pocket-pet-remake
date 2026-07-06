@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cb5vxk1dl2vwj"]
 
 [ext_resource type="Script" uid="uid://b7f08ybry1kmy" path="res://scripts/ui/common/action_menu_popup.gd" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="2_close_btn"]
 
 [node name="ActionMenuPopup" type="Control"]
 visible = false
@@ -13,8 +12,8 @@ script = ExtResource("1_script")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 0
-offset_right = 46.0
-offset_bottom = 78.0
+offset_right = 92.0
+offset_bottom = 156.0
 mouse_filter = 2
 theme_override_constants/margin_left = 0
 theme_override_constants/margin_top = 0
@@ -23,21 +22,9 @@ theme_override_constants/margin_bottom = 0
 
 [node name="RootVBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="HeaderRow" type="HBoxContainer" parent="MarginContainer/RootVBox"]
-layout_mode = 2
-
-[node name="HeaderSpacer" type="Control" parent="MarginContainer/RootVBox/HeaderRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="TopCloseButton" parent="MarginContainer/RootVBox/HeaderRow" instance=ExtResource("2_close_btn")]
-unique_name_in_owner = true
-layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="ActionVBox" type="VBoxContainer" parent="MarginContainer/RootVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 4

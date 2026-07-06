@@ -1,8 +1,11 @@
+import type { AdminMonsterBattleRewardEntry, AdminMonsterBattleRewardSaveEntry } from './monsterDefinition';
+
 export interface AdminSceneWildEncounterSummary {
   scene_id: number;
   encounter_name: string;
   encounter_rate: number;
   spawn_count: number;
+  formation_count: number;
   is_enabled: boolean;
   status_text: string;
   created_at: string;
@@ -22,10 +25,24 @@ export interface AdminSceneWildEncounterDetail {
   description: string;
   encounter_rate: number;
   spawn_monster_ids: number[];
+  formations: AdminSceneWildEncounterFormation[];
+  rewards: AdminMonsterBattleRewardEntry[];
   is_enabled: boolean;
   status_text: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminSceneWildEncounterFormation {
+  formation_name: string;
+  weight: number;
+  spawn_monster_ids: number[];
+  monster_slots?: AdminSceneWildEncounterMonsterSlot[];
+}
+
+export interface AdminSceneWildEncounterMonsterSlot {
+  monster_id: number;
+  reward_enabled: boolean;
 }
 
 export interface AdminSceneWildEncounterListFilters {
@@ -40,6 +57,8 @@ export interface AdminUpsertSceneWildEncounterPayload {
   description: string;
   encounter_rate: number;
   spawn_monster_ids: number[];
+  formations: AdminSceneWildEncounterFormation[];
+  rewards: AdminMonsterBattleRewardSaveEntry[];
   is_enabled: boolean;
 }
 

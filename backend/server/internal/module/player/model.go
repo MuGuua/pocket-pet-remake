@@ -14,6 +14,7 @@ var (
 	ErrAccountNameDuplicated = errors.New("account name duplicated")
 	ErrInvalidAdminInput     = errors.New("invalid admin player input")
 	ErrInvalidRegisterInput  = errors.New("invalid register input")
+	ErrInvalidRewardAttrKey  = errors.New("invalid reward attr key")
 )
 
 // DefaultPlayerSkinID 是玩家尚未配置形象时的服务端默认资源 ID。

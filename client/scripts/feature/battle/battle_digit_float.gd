@@ -3,10 +3,10 @@ class_name BattleDigitFloat
 
 ## 使用数字图集拼出 -22 / +15 等战斗飘字，替代 Label 文本。
 
-const FLOAT_DISTANCE: float = 18.0
+const FLOAT_DISTANCE: float = 36.0
 const DISPLAY_DURATION: float = 1.5
-## 位图伤害数字在 260 宽视口下的统一缩放。
-const DIGIT_FLOAT_SCALE: Vector2 = Vector2(0.7, 0.7)
+## 位图伤害数字统一放大，让伤害/治疗反馈比战斗单位更醒目。
+const DIGIT_FLOAT_SCALE: Vector2 = Vector2(2.0, 2.0)
 
 static var _default_atlas: BattleDigitAtlas = null
 

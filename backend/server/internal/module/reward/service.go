@@ -130,7 +130,8 @@ func sameRewardIdentity(left Entry, right Entry) bool {
 		left.Value == right.Value &&
 		left.ItemID == right.ItemID &&
 		left.Count == right.Count &&
-		left.PetID == right.PetID
+		left.PetID == right.PetID &&
+		left.AttrKey == right.AttrKey
 }
 
 // applyRewardEntry executes one formal reward branch and records enough state
@@ -170,6 +171,17 @@ func (s *Service) applyRewardEntry(ctx context.Context, input GrantInput, result
 		result.LevelUpCount += grantResult.LevelUpCount
 		result.AttrPointsGained += grantResult.AttrPointsGained
 		result.CombatBonusGain = result.CombatBonusGain.Add(grantResult.CombatBonusGain)
+		result.Granted = append(result.Granted, rewardEntry)
+		return nil
+	case "attr":
+		if s.playerService == nil || rewardEntry.AttrKey == "" || rewardEntry.Value == 0 {
+			return nil
+		}
+		profile, err := s.playerService.AddRewardAttribute(ctx, input.PlayerID, rewardEntry.AttrKey, uint32(rewardEntry.Value))
+		if err != nil {
+			return err
+		}
+		result.PlayerProfile = profile
 		result.Granted = append(result.Granted, rewardEntry)
 		return nil
 	case "item":

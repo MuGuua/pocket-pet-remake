@@ -28,14 +28,14 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(220, 0)
-custom_maximum_size = Vector2(240, 360)
+custom_minimum_size = Vector2(440, 0)
+custom_maximum_size = Vector2(480, 720)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
 [node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 
 [node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox"]
 layout_mode = 2
@@ -46,8 +46,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 10
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 20
 text = "选择目标"
 horizontal_alignment = 1
 
@@ -56,7 +56,7 @@ unique_name_in_owner = true
 layout_mode = 2
 
 [node name="ListScroll" type="ScrollContainer" parent="CenterContainer/PanelContainer/RootVBox"]
-custom_minimum_size = Vector2(0, 180)
+custom_minimum_size = Vector2(0, 360)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -64,14 +64,14 @@ size_flags_vertical = 3
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 12
 
 [node name="EmptyLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ListScroll/ListContainer"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 16
 text = "暂无可选目标"
 horizontal_alignment = 1
 

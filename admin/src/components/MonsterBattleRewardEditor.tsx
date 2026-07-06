@@ -14,6 +14,8 @@ interface RewardEditorFormValues {
   reward_type: AdminMonsterBattleRewardEntry['reward_type'];
   exp_target?: AdminMonsterBattleRewardEntry['exp_target'];
   exp_value?: number;
+  attr_key?: string;
+  drop_rate?: number;
   item_id?: number;
   item_name?: string;
   quantity?: number;
@@ -24,8 +26,11 @@ interface RewardEditorFormValues {
 
 const REWARD_TYPE_OPTIONS = [
   { label: '经验', value: 'exp' as const },
-  { label: '铜币', value: 'gold' as const },
+  { label: '金币', value: 'gold' as const },
+  { label: '银币', value: 'silver' as const },
+  { label: '铜币', value: 'copper' as const },
   { label: '物品', value: 'item' as const },
+  { label: '属性加成', value: 'attr' as const },
 ];
 
 const EXP_TARGET_OPTIONS = [
@@ -36,6 +41,19 @@ const EXP_TARGET_OPTIONS = [
 const STATUS_OPTIONS = [
   { label: '启用', value: 1 },
   { label: '停用', value: 0 },
+];
+
+const ATTR_REWARD_OPTIONS = [
+  { label: '自由属性点', value: 'free_attr_points' },
+  { label: '力量', value: 'strength' },
+  { label: '体质', value: 'vitality' },
+  { label: '敏捷', value: 'agility' },
+  { label: '灵力', value: 'mind' },
+  { label: '生命上限', value: 'hp_max' },
+  { label: '攻击', value: 'atk' },
+  { label: '防御', value: 'def' },
+  { label: '速度', value: 'spd' },
+  { label: '精力', value: 'mana' },
 ];
 
 const GRANT_ONCE_OPTIONS = [
@@ -60,6 +78,13 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
   const columns = useMemo<ColumnsType<AdminMonsterBattleRewardEntry>>(
     () => [
       {
+        title: '掉落率',
+        dataIndex: 'drop_rate',
+        key: 'drop_rate',
+        width: 92,
+        render: (dropRate: number | undefined) => formatDropRate(dropRate),
+      },
+      {
         title: '排序',
         dataIndex: 'sort_order',
         key: 'sort_order',
@@ -76,7 +101,16 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
             return <Tag color="blue">物品</Tag>;
           }
           if (type === 'gold') {
-            return <Tag color="gold">铜币</Tag>;
+            return <Tag color="gold">金币</Tag>;
+          }
+          if (type === 'silver') {
+            return <Tag color="cyan">银币</Tag>;
+          }
+          if (type === 'copper') {
+            return <Tag color="orange">铜币</Tag>;
+          }
+          if (type === 'attr') {
+            return <Tag color="purple">属性</Tag>;
           }
           return <Tag color="green">经验</Tag>;
         },
@@ -136,6 +170,8 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
         reward_type: current.reward_type,
         exp_target: current.exp_target || 'player',
         exp_value: current.exp_value,
+        attr_key: current.attr_key,
+        drop_rate: current.drop_rate ?? 10000,
         item_id: current.item_id > 0 ? current.item_id : undefined,
         item_name: current.item_name ?? '',
         quantity: current.quantity > 0 ? current.quantity : 1,
@@ -212,10 +248,20 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
               </Form.Item>
             </>
           ) : null}
-          {rewardType === 'gold' ? (
-            <Form.Item label="铜币数量" name="exp_value" rules={[{ required: true, message: '请输入铜币数量' }]}>
+          {rewardType === 'gold' || rewardType === 'silver' || rewardType === 'copper' ? (
+            <Form.Item label="货币数量" name="exp_value" rules={[{ required: true, message: '请输入货币数量' }]}>
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
+          ) : null}
+          {rewardType === 'attr' ? (
+            <>
+              <Form.Item label="属性字段" name="attr_key" rules={[{ required: true, message: '请选择属性字段' }]}>
+                <Select options={ATTR_REWARD_OPTIONS} />
+              </Form.Item>
+              <Form.Item label="加成数值" name="exp_value" rules={[{ required: true, message: '请输入加成数值' }]}>
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
           ) : null}
           {rewardType === 'item' ? (
             <>
@@ -244,6 +290,14 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
               </Form.Item>
             </>
           ) : null}
+          <Form.Item
+            label="掉落率（万分比）"
+            name="drop_rate"
+            tooltip="10000 表示必掉；5000 表示 50%；1 表示 0.01%。"
+            rules={[{ required: true, message: '请输入掉落率' }]}
+          >
+            <InputNumber min={1} max={10000} style={{ width: '100%' }} />
+          </Form.Item>
           <Space size={16} style={{ width: '100%' }}>
             <Form.Item label="排序" name="sort_order" style={{ flex: 1 }}>
               <InputNumber min={1} style={{ width: '100%' }} />
@@ -273,18 +327,33 @@ export function normalizeMonsterBattleRewardEntry(
       item_name: String(formValues.item_name ?? '').trim(),
       quantity: Number(formValues.quantity ?? 0),
       exp_value: 0,
+      drop_rate: Number(formValues.drop_rate ?? 10000),
       sort_order: sortOrder,
       status,
       grant_once: Number(formValues.grant_once ?? 0) > 0 ? 1 : 0,
     };
   }
-  if (formValues.reward_type === 'gold') {
+  if (formValues.reward_type === 'gold' || formValues.reward_type === 'silver' || formValues.reward_type === 'copper') {
     return {
-      reward_type: 'gold',
+      reward_type: formValues.reward_type,
       exp_target: 'player',
       item_id: 0,
       quantity: 0,
       exp_value: Number(formValues.exp_value ?? 0),
+      drop_rate: Number(formValues.drop_rate ?? 10000),
+      sort_order: sortOrder,
+      status,
+    };
+  }
+  if (formValues.reward_type === 'attr') {
+    return {
+      reward_type: 'attr',
+      exp_target: 'player',
+      item_id: 0,
+      quantity: 0,
+      exp_value: Number(formValues.exp_value ?? 0),
+      attr_key: String(formValues.attr_key ?? '').trim(),
+      drop_rate: Number(formValues.drop_rate ?? 10000),
       sort_order: sortOrder,
       status,
     };
@@ -295,6 +364,7 @@ export function normalizeMonsterBattleRewardEntry(
     item_id: 0,
     quantity: 0,
     exp_value: Number(formValues.exp_value ?? 0),
+    drop_rate: Number(formValues.drop_rate ?? 10000),
     sort_order: sortOrder,
     status,
   };
@@ -314,6 +384,7 @@ export function createDefaultMonsterBattleRewardRow(nextSortOrder: number): Rewa
     item_id: undefined,
     quantity: 1,
     grant_once: 0,
+    drop_rate: 10000,
     sort_order: nextSortOrder,
     status: 1,
   };
@@ -329,6 +400,8 @@ export function mapMonsterBattleRewardPayload(
       reward_type: item.reward_type,
       exp_target: item.exp_target,
       exp_value: item.exp_value,
+      attr_key: item.attr_key,
+      drop_rate: item.drop_rate,
       item_id: item.item_id > 0 ? item.item_id : undefined,
       item_name: item.item_name,
       quantity: item.quantity > 0 ? item.quantity : undefined,
@@ -344,10 +417,21 @@ export function mapMonsterBattleRewardPayload(
     item_id: normalized.item_id,
     quantity: normalized.quantity,
     exp_value: normalized.exp_value,
+    attr_key: normalized.attr_key,
+    drop_rate: normalized.drop_rate,
     sort_order: normalized.sort_order,
     status: normalized.status,
     grant_once: normalized.grant_once,
   };
+}
+
+function formatDropRate(dropRate: number | undefined): string {
+  const value = Number(dropRate ?? 10000);
+  if (value >= 10000) {
+    return '100%';
+  }
+  const percent = value / 100;
+  return `${percent.toFixed(value % 100 === 0 ? 0 : 2)}%`;
 }
 
 function formatMonsterBattleRewardSummary(record: AdminMonsterBattleRewardEntry): string {
@@ -362,7 +446,17 @@ function formatMonsterBattleRewardSummary(record: AdminMonsterBattleRewardEntry)
     return `${nameText} × ${quantity}`;
   }
   if (record.reward_type === 'gold') {
+    return `金币 ${Number(record.exp_value ?? 0)}`;
+  }
+  if (record.reward_type === 'silver') {
+    return `银币 ${Number(record.exp_value ?? 0)}`;
+  }
+  if (record.reward_type === 'copper') {
     return `铜币 ${Number(record.exp_value ?? 0)}`;
+  }
+  if (record.reward_type === 'attr') {
+    const option = ATTR_REWARD_OPTIONS.find((item) => item.value === record.attr_key);
+    return `${option?.label ?? record.attr_key ?? '属性'} +${Number(record.exp_value ?? 0)}`;
   }
   const targetLabel = record.exp_target === 'pet' ? '宠物' : '角色';
   return `${targetLabel}经验 ${Number(record.exp_value ?? 0)}`;

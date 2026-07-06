@@ -312,6 +312,42 @@ func (r *PlayerRepository) FindByPlayerID(_ context.Context, playerID uint64) (*
 	return &copied, nil
 }
 
+func (r *PlayerRepository) AddRewardAttribute(_ context.Context, playerID uint64, attrKey string, value uint32) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	profile, ok := r.players[playerID]
+	if !ok {
+		return player.ErrPlayerNotFound
+	}
+	switch strings.ToLower(strings.TrimSpace(attrKey)) {
+	case "free_attr_points":
+		profile.FreeAttrPoints += value
+	case "strength":
+		profile.Strength += value
+	case "vitality":
+		profile.Vitality += value
+	case "agility":
+		profile.Agility += value
+	case "mind":
+		profile.Mind += value
+	case "hp_max":
+		profile.HPMax += value
+		profile.HP += value
+	case "atk":
+		profile.ATK += value
+	case "def":
+		profile.DEF += value
+	case "spd":
+		profile.SPD += value
+	case "mana":
+		profile.MANA += value
+	default:
+		return player.ErrInvalidRewardAttrKey
+	}
+	r.players[playerID] = profile
+	return nil
+}
+
 func (r *PlayerRepository) ListForAdmin(_ context.Context, query player.AdminListQuery) (*player.AdminPlayerList, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
