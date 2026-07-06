@@ -88,8 +88,8 @@ const MENU_DATA: Array[Dictionary] = [
 	},
 ]
 
-@onready var tabs_container: HBoxContainer = $Root/TabsFrame/Content/TabsRow
-@onready var items_container: VBoxContainer = $Root/ItemsFrame/Content/ItemsList
+@onready var tabs_container: HBoxContainer = %TabsRow
+@onready var items_container: VBoxContainer = %ItemsList
 @onready var close_button: BaseButton = $Root/CloseButton
 
 var _current_tab_index: int = 0
@@ -98,21 +98,26 @@ var _hovered_tab_index: int = -1
 var _hovered_item_index: int = -1
 var _tab_labels: Array[Label] = []
 var _item_rows: Array[PanelContainer] = []
+## 主菜单静态内容是否已完成构建。
+var _menu_ui_initialized: bool = false
 
 
 func _ready() -> void:
 	super._ready()
 	if close_button != null and not close_button.pressed.is_connected(_on_close_button_pressed):
 		close_button.pressed.connect(_on_close_button_pressed)
-	call_deferred("_initialize_menu_ui")
+	call_deferred("_try_initialize_menu_ui")
 
 
-func _initialize_menu_ui() -> void:
+func _try_initialize_menu_ui() -> void:
+	if _menu_ui_initialized:
+		return
 	if tabs_container == null or items_container == null:
 		push_warning("MainMenu UI 节点未就绪，跳过初始化。")
 		return
 	_build_tabs()
 	_refresh_items()
+	_menu_ui_initialized = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -139,6 +144,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open_menu() -> void:
 	super.open_menu()
+	_try_initialize_menu_ui()
 	if tabs_container == null or items_container == null:
 		return
 	_refresh_tabs()
