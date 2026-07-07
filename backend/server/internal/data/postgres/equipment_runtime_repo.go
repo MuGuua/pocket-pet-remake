@@ -154,52 +154,22 @@ DELETE FROM player_equipment_slot
 WHERE player_id = $1 AND equip_slot = $2
 `
 
-const savePlayerEquipmentRecalcQuery = `
-UPDATE player
-SET hp_max = $2,
-    atk = $3,
-    def = $4,
-    spd = $5,
-    mana = $6,
-    hit_pct = $7,
-    dodge_pct = $8,
-    spirit = LEAST($24::INTEGER, $9::INTEGER),
-    spirit_max = $9::INTEGER,
-    crit_rate_pct = $10,
-    crit_dmg_pct = $11,
-    physical_resist_pct = $12,
-    skill_resist_pct = $13,
-    confusion_resist_pct = $14,
-    sleep_resist_pct = $15,
-    paralysis_resist_pct = $16,
-    seal_resist_pct = $17,
-    curse_resist_pct = $18,
-    crit_resist_pct = $19,
-    crit_dmg_resist_pct = $20,
-    character_resist_pct = $21,
-    pet_resist_pct = $22,
-    skin_id = CASE WHEN $23 <> '' THEN $23 ELSE skin_id END,
-    hp = CASE WHEN $25 THEN $2 ELSE LEAST(hp, $2) END,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1 AND status = 1
-`
-
 type runtimeEquippedRow struct {
-	EquipSlot                string
-	ItemUID                  string
-	ItemID                   uint64
-	EnhanceLevel             uint32
-	ItemName                 string
-	Icon                     string
-	RequiredLevel            uint32
-	Description              string
-	AppearanceSkinID         string
-	AppearanceOnly           bool
-	BaseHP                   uint32
-	BaseMana                 uint32
-	BaseATK                  uint32
-	BaseDEF                  uint32
-	BaseSPD                  uint32
+	EquipSlot                            string
+	ItemUID                              string
+	ItemID                               uint64
+	EnhanceLevel                         uint32
+	ItemName                             string
+	Icon                                 string
+	RequiredLevel                        uint32
+	Description                          string
+	AppearanceSkinID                     string
+	AppearanceOnly                       bool
+	BaseHP                               uint32
+	BaseMana                             uint32
+	BaseATK                              uint32
+	BaseDEF                              uint32
+	BaseSPD                              uint32
 	BaseStatsJSON                        []byte
 	EnhancePerLevelStatsJSON             []byte
 	WeaponSkillsJSON                     []byte
@@ -209,26 +179,26 @@ type runtimeEquippedRow struct {
 }
 
 type runtimeBagEquipmentRow struct {
-	RecordID                 int64
-	SlotIndex                uint32
-	ItemID                   uint64
-	ItemUID                  string
-	Quantity                 uint64
-	IsBound                  bool
-	ItemType                 string
-	RequiredLevel            uint32
-	BindType                 string
-	ItemName                 string
-	Icon                     string
-	Description              string
-	EquipSlot                string
-	AppearanceSkinID         string
-	AppearanceOnly           bool
-	BaseHP                   uint32
-	BaseMana                 uint32
-	BaseATK                  uint32
-	BaseDEF                  uint32
-	BaseSPD                  uint32
+	RecordID                             int64
+	SlotIndex                            uint32
+	ItemID                               uint64
+	ItemUID                              string
+	Quantity                             uint64
+	IsBound                              bool
+	ItemType                             string
+	RequiredLevel                        uint32
+	BindType                             string
+	ItemName                             string
+	Icon                                 string
+	Description                          string
+	EquipSlot                            string
+	AppearanceSkinID                     string
+	AppearanceOnly                       bool
+	BaseHP                               uint32
+	BaseMana                             uint32
+	BaseATK                              uint32
+	BaseDEF                              uint32
+	BaseSPD                              uint32
 	BaseStatsJSON                        []byte
 	EnhancePerLevelStatsJSON             []byte
 	WeaponSkillsJSON                     []byte
@@ -236,46 +206,6 @@ type runtimeBagEquipmentRow struct {
 	WeaponType                           string
 	EnhanceLevel                         uint32
 	IsDamaged                            bool
-}
-
-// ListEquipped 返回玩家当前全身已佩戴装备。
-func (r *EquipmentRepository) ListEquipped(ctx context.Context, playerID uint64) ([]equipment.RuntimeEquippedItem, error) {
-	rows, err := r.db.QueryContext(ctx, runtimeEquippedListQuery, playerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items := make([]equipment.RuntimeEquippedItem, 0, 13)
-	for rows.Next() {
-		row, err := scanRuntimeEquippedRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		template, err := row.toPieceTemplate()
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, equipment.ToRuntimeEquippedItem(
-			template,
-			row.ItemUID,
-			row.ItemID,
-			row.ItemName,
-			row.Icon,
-			row.Description,
-		))
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	for index := range items {
-		mentions, err := buildRuntimeDescriptionMentions(ctx, r.db, items[index].Description)
-		if err != nil {
-			return nil, err
-		}
-		items[index].DescriptionMentions = mentions
-	}
-	return items, nil
 }
 
 // EquipFromBagSlot 从背包佩戴装备并在同一事务内重算玩家战斗属性。
@@ -389,6 +319,9 @@ func (r *EquipmentRepository) EquipFromBagSlot(
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	if err := r.RefreshPlayerEquipmentSnapshot(ctx, playerID); err != nil {
+		return nil, err
+	}
 	return &equipment.EquipFromBagResult{
 		EquippedSlot: equipment.ToRuntimeEquippedItem(
 			equippedTemplate,
@@ -456,6 +389,9 @@ func (r *EquipmentRepository) UnequipSlot(
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	if err := r.RefreshPlayerEquipmentSnapshot(ctx, playerID); err != nil {
+		return nil, err
+	}
 	return &equipment.UnequipSlotResult{
 		Unequipped: equipment.ToRuntimeEquippedItem(
 			template,
@@ -495,7 +431,10 @@ func (r *EquipmentRepository) RecalcEquippedCombatStats(
 	if err := savePlayerEquipmentRecalcInTx(ctx, tx, playerID, recalcResult, refillHP); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return r.RefreshPlayerEquipmentSnapshot(ctx, playerID)
 }
 
 // ListEquippedEntriesForItemID 返回当前正佩戴指定装备模板的所有玩家佩戴实例。
@@ -625,7 +564,10 @@ func (r *EquipmentRepository) RefreshEquippedTemplateEntry(
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return r.RefreshPlayerEquipmentSnapshot(ctx, playerID)
 }
 
 func loadRuntimeBagEquipmentRow(ctx context.Context, tx *sql.Tx, playerID uint64, containerType string, slotIndex uint32) (*runtimeBagEquipmentRow, error) {
@@ -866,7 +808,11 @@ func buildEquipmentPieceTemplate(
 }
 
 func loadEquippedPieceTemplatesInTx(ctx context.Context, tx *sql.Tx, playerID uint64) ([]equipment.EquippedPieceTemplate, error) {
-	rows, err := tx.QueryContext(ctx, runtimeEquippedListQuery, playerID)
+	return loadEquippedPieceTemplates(ctx, tx, playerID)
+}
+
+func loadEquippedPieceTemplates(ctx context.Context, db DBTX, playerID uint64) ([]equipment.EquippedPieceTemplate, error) {
+	rows, err := db.QueryContext(ctx, runtimeEquippedListQuery, playerID)
 	if err != nil {
 		return nil, err
 	}
@@ -1143,46 +1089,21 @@ func equipFromBagSlotInTx(
 }
 
 func savePlayerEquipmentRecalcInTx(ctx context.Context, tx *sql.Tx, playerID uint64, result equipment.RecalcResult, refillHP bool) error {
-	execResult, err := tx.ExecContext(
-		ctx,
-		savePlayerEquipmentRecalcQuery,
-		playerID,
-		result.HPMax,
-		result.ATK,
-		result.DEF,
-		result.SPD,
-		result.MANA,
-		result.HitPct,
-		result.DodgePct,
-		result.SpiritMax,
-		result.CritRatePct,
-		result.CritDmgPct,
-		result.PhysicalResistPct,
-		result.SkillResistPct,
-		result.ConfusionResistPct,
-		result.SleepResistPct,
-		result.ParalysisResistPct,
-		result.SealResistPct,
-		result.CurseResistPct,
-		result.CritResistPct,
-		result.CritDmgResistPct,
-		result.CharacterResistPct,
-		result.PetResistPct,
-		result.SkinID,
-		result.Spirit,
-		refillHP,
-	)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := execResult.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
+	var currentHP int64
+	err := tx.QueryRowContext(ctx, findPlayerCombatSnapshotHPQuery, playerID).Scan(&currentHP)
+	if errors.Is(err, sql.ErrNoRows) {
 		return player.ErrPlayerNotFound
 	}
-	return nil
+	if err != nil {
+		return err
+	}
+	nextHP := uint32(currentHP)
+	if refillHP {
+		nextHP = result.HPMax
+	} else if nextHP > result.HPMax {
+		nextHP = result.HPMax
+	}
+	return savePlayerCombatSnapshotInTx(ctx, tx, playerID, result, nextHP)
 }
 
 func generateEquipmentItemUID(playerID uint64) string {

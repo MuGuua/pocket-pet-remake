@@ -9,9 +9,9 @@ const PROFILE_REMOTE: String = "remote"
 const PROFILE_BROWSER_ORIGIN: String = "browser_origin"
 
 ## 原生端默认走哪套网络环境。
-const ACTIVE_NATIVE_PROFILE: String = PROFILE_REMOTE
+const ACTIVE_NATIVE_PROFILE: String = PROFILE_LOCAL
 ## Web 导出默认走哪套网络环境。
-const ACTIVE_WEB_PROFILE: String = PROFILE_BROWSER_ORIGIN
+const ACTIVE_WEB_PROFILE: String = PROFILE_LOCAL
 
 ## 本地开发服务地址。
 const LOCAL_HOST: String = "127.0.0.1"

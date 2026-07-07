@@ -3,10 +3,13 @@ import type {
   AdminMonsterDefinitionDetail,
   AdminMonsterDefinitionListFilters,
   AdminMonsterDefinitionListResult,
+  AdminMonsterDefinitionSummary,
   AdminMonsterBattleRewardEntry,
   AdminReplaceMonsterBattleRewardsPayload,
   AdminUpsertMonsterDefinitionPayload,
 } from '../types/monsterDefinition';
+
+const ADMIN_MONSTER_LIST_PAGE_SIZE = 100;
 
 export async function fetchAdminMonsterDefinitions(params: {
   filters?: AdminMonsterDefinitionListFilters;
@@ -20,6 +23,24 @@ export async function fetchAdminMonsterDefinitions(params: {
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminMonsterDefinitionListResult>({ url: `/api/admin/monster-definitions?${query.toString()}`, method: 'GET' });
+}
+
+// 分页拉取全部怪物模板，供遭遇配置等需要完整怪物引用列表的页面复用。
+export async function fetchAllAdminMonsterDefinitions(filters?: AdminMonsterDefinitionListFilters): Promise<AdminMonsterDefinitionSummary[]> {
+  const items: AdminMonsterDefinitionSummary[] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await fetchAdminMonsterDefinitions({
+      filters,
+      page,
+      pageSize: ADMIN_MONSTER_LIST_PAGE_SIZE,
+    });
+    items.push(...result.items);
+    total = result.total;
+    page += 1;
+  } while (items.length < total);
+  return items;
 }
 
 export async function fetchAdminMonsterDefinitionDetail(monsterID: number): Promise<AdminMonsterDefinitionDetail> {

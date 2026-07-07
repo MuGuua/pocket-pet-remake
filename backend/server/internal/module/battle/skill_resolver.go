@@ -25,6 +25,7 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		ID:                     item.SkillID,
 		Name:                   item.SkillName,
 		SkillType:              item.SkillType,
+		ActivationMode:         item.ActivationMode,
 		TargetRule:             targetRuleFromProtocolName(item.TargetType),
 		AnimationKey:           item.AnimationKey,
 		SkillVisualID:          item.SkillVisualID,
@@ -92,11 +93,13 @@ func skillIDsForClientSnapshot(skillIDs []uint32) []uint32 {
 	}
 	filtered := make([]uint32, 0, len(skillIDs))
 	for _, skillID := range skillIDs {
-		if def, ok := getSkillDef(skillID); ok && def.isBasicAttackSkill() {
-			continue
-		}
 		if skillID == DefaultAttackSkillID {
 			continue
+		}
+		if def, ok := getSkillDef(skillID); ok {
+			if def.isBasicAttackSkill() || def.isPassiveSkill() {
+				continue
+			}
 		}
 		filtered = append(filtered, skillID)
 	}

@@ -9,6 +9,7 @@ import (
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
@@ -31,6 +32,7 @@ type WorldHandler struct {
 	worldService     *world.Service
 	monsterService   *monster.Service
 	equipmentService *equipment.Service
+	runtimeSnapshots *runtimeview.Service
 }
 
 func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
@@ -46,9 +48,22 @@ func NewWorldHandler(sessionService *session.Service, playerService *player.Serv
 	}
 }
 
+// SetRuntimeSnapshotService 注入统一运行时快照刷新入口。
+func (h *WorldHandler) SetRuntimeSnapshotService(service *runtimeview.Service) {
+	if h == nil {
+		return
+	}
+	h.runtimeSnapshots = service
+}
+
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
 // reconnect can recover the current world view without duplicating scene logic.
 func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID uint64) (*protocol.EnterWorldResp, error) {
+	if h.runtimeSnapshots != nil {
+		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(ctx, playerID); err != nil {
+			return nil, err
+		}
+	}
 	profile, err := h.playerService.GetBattleReadyProfile(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -102,7 +117,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 			Name:     profile.Name,
 			Level:    profile.Level,
 		},
-		Player: playerSnapshot,
+		Player:         playerSnapshot,
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,

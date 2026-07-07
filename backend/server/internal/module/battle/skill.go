@@ -1,6 +1,10 @@
 package battle
 
-import "strings"
+import (
+	"strings"
+
+	"pocket-pet-remake/server/internal/module/skill"
+)
 
 type skillTargetRule uint32
 
@@ -17,6 +21,7 @@ type skillDef struct {
 	ID                 uint32
 	Name               string
 	SkillType          string
+	ActivationMode     string
 	TargetRule         skillTargetRule
 	AnimationKey       string
 	SkillVisualID      string
@@ -242,6 +247,9 @@ func (r skillTargetRule) protocolName() string {
 
 // isPassiveSkill 判断是否为常驻被动（support 且零消耗），不应出现在可选技能列表。
 func (d skillDef) isPassiveSkill() bool {
+	if d.ActivationMode == skill.ActivationModePassive {
+		return true
+	}
 	return d.SkillType == "support" && d.EnergyCost == 0
 }
 

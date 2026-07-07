@@ -25,7 +25,7 @@ type Pet struct {
 	DEF      uint32
 	SPD      uint32
 	MANA     uint32
-	SkillIDs         []uint32
+	SkillIDs []uint32
 	// SkillLoadout 分槽技能快照；SkillIDs 为战斗合并结果。
 	SkillLoadout     SkillLoadout
 	GrowthAptitudes  GrowthAptitudes
@@ -49,11 +49,11 @@ type Pet struct {
 	BaseSPDApt  uint32
 	BaseMANAApt uint32
 	// ExtraHPApt 等五项是红色资质（提资超出基础部分）。
-	ExtraHPApt   uint32
-	ExtraATKApt  uint32
-	ExtraDEFApt  uint32
-	ExtraSPDApt  uint32
-	ExtraMANAApt uint32
+	ExtraHPApt      uint32
+	ExtraATKApt     uint32
+	ExtraDEFApt     uint32
+	ExtraSPDApt     uint32
+	ExtraMANAApt    uint32
 	EvolutionLevel  uint32
 	RebirthLevel    uint32
 	AptitudeProfile string
@@ -98,17 +98,17 @@ type RuntimeGrantResult struct {
 }
 
 type LineupPet struct {
-	PetUID   uint64
-	PetID    uint32
-	Level    uint32
-	HP       uint32
-	HPMax    uint32
-	ATK      uint32
-	DEF      uint32
-	SPD      uint32
-	MANA     uint32
-	Spirit   uint32
-	SpiritMax uint32
+	PetUID                   uint64
+	PetID                    uint32
+	Level                    uint32
+	HP                       uint32
+	HPMax                    uint32
+	ATK                      uint32
+	DEF                      uint32
+	SPD                      uint32
+	MANA                     uint32
+	Spirit                   uint32
+	SpiritMax                uint32
 	HitPct                   uint32
 	DodgePct                 uint32
 	CritRatePct              uint32
@@ -131,7 +131,7 @@ type LineupPet struct {
 	TalentReducePct          uint32
 	ElementAdvPct            uint32
 	ElementPenaltyPct        uint32
-	SkillIDs []uint32
+	SkillIDs                 []uint32
 }
 
 // ToLineupPet 把完整宠物快照转换为战斗编队读取用的精简结构。
@@ -203,18 +203,20 @@ type AdminGrantPetFromTemplateInput struct {
 }
 
 type AdminCreatePetInput struct {
-	PlayerID uint64   `json:"player_id"`
-	PetID    uint32   `json:"pet_id"`
-	Level    uint32   `json:"level"`
-	Exp      uint64   `json:"exp"`
-	Quality  uint32   `json:"quality"`
-	HP       uint32   `json:"hp"`
-	HPMax    uint32   `json:"hp_max"`
-	ATK      uint32   `json:"atk"`
-	DEF      uint32   `json:"def"`
-	SPD      uint32   `json:"spd"`
-	MANA     uint32   `json:"mana"`
-	SkillIDs []uint32 `json:"skill_ids"`
+	PlayerID       uint64   `json:"player_id"`
+	PetID          uint32   `json:"pet_id"`
+	Level          uint32   `json:"level"`
+	Exp            uint64   `json:"exp"`
+	Quality        uint32   `json:"quality"`
+	HP             uint32   `json:"hp"`
+	HPMax          uint32   `json:"hp_max"`
+	ATK            uint32   `json:"atk"`
+	DEF            uint32   `json:"def"`
+	SPD            uint32   `json:"spd"`
+	MANA           uint32   `json:"mana"`
+	SkillIDs       []uint32 `json:"skill_ids"`
+	InnateSkillIDs []uint32 `json:"innate_skill_ids"`
+	NormalSkillIDs []uint32 `json:"normal_skill_ids"`
 	AdminPetCombatStats
 }
 
@@ -244,18 +246,20 @@ func (input AdminCreatePetInput) Normalize() AdminCreatePetInput {
 }
 
 type AdminUpdatePetInput struct {
-	PetID      uint32   `json:"pet_id"`
-	CustomName string   `json:"custom_name"`
-	Level      uint32   `json:"level"`
-	Exp      uint64   `json:"exp"`
-	Quality  uint32   `json:"quality"`
-	HP       uint32   `json:"hp"`
-	HPMax    uint32   `json:"hp_max"`
-	ATK      uint32   `json:"atk"`
-	DEF      uint32   `json:"def"`
-	SPD      uint32   `json:"spd"`
-	MANA     uint32   `json:"mana"`
-	SkillIDs []uint32 `json:"skill_ids"`
+	PetID          uint32   `json:"pet_id"`
+	CustomName     string   `json:"custom_name"`
+	Level          uint32   `json:"level"`
+	Exp            uint64   `json:"exp"`
+	Quality        uint32   `json:"quality"`
+	HP             uint32   `json:"hp"`
+	HPMax          uint32   `json:"hp_max"`
+	ATK            uint32   `json:"atk"`
+	DEF            uint32   `json:"def"`
+	SPD            uint32   `json:"spd"`
+	MANA           uint32   `json:"mana"`
+	SkillIDs       []uint32 `json:"skill_ids"`
+	InnateSkillIDs []uint32 `json:"innate_skill_ids"`
+	NormalSkillIDs []uint32 `json:"normal_skill_ids"`
 	AdminPetCombatStats
 }
 
@@ -299,6 +303,7 @@ type AdminPetSummary struct {
 	DEF        uint32    `json:"def"`
 	SPD        uint32    `json:"spd"`
 	MANA       uint32    `json:"mana"`
+	SkillIDs   []uint32  `json:"skill_ids,omitempty"`
 	InLineup   bool      `json:"in_lineup"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	CreatedAt  time.Time `json:"created_at"`
@@ -312,27 +317,38 @@ type AdminPetList struct {
 }
 
 type AdminPetDetail struct {
-	PetUID     uint64     `json:"pet_uid"`
-	PlayerID   uint64     `json:"player_id"`
-	PlayerName string     `json:"player_name"`
-	PetID      uint32     `json:"pet_id"`
-	PetName    string     `json:"pet_name"`
-	CustomName string     `json:"custom_name"`
-	Level      uint32     `json:"level"`
-	Exp        uint64     `json:"exp"`
-	Quality    uint32     `json:"quality"`
-	HP         uint32     `json:"hp"`
-	HPMax      uint32     `json:"hp_max"`
-	ATK        uint32     `json:"atk"`
-	DEF        uint32     `json:"def"`
-	SPD        uint32     `json:"spd"`
-	MANA       uint32     `json:"mana"`
-	SkillIDs   []uint32   `json:"skill_ids"`
-	InLineup   bool       `json:"in_lineup"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+	PetUID         uint64     `json:"pet_uid"`
+	PlayerID       uint64     `json:"player_id"`
+	PlayerName     string     `json:"player_name"`
+	PetID          uint32     `json:"pet_id"`
+	PetName        string     `json:"pet_name"`
+	CustomName     string     `json:"custom_name"`
+	Level          uint32     `json:"level"`
+	Exp            uint64     `json:"exp"`
+	Quality        uint32     `json:"quality"`
+	HP             uint32     `json:"hp"`
+	HPMax          uint32     `json:"hp_max"`
+	ATK            uint32     `json:"atk"`
+	DEF            uint32     `json:"def"`
+	SPD            uint32     `json:"spd"`
+	MANA           uint32     `json:"mana"`
+	SkillIDs       []uint32   `json:"skill_ids"`
+	InnateSkillIDs []uint32   `json:"innate_skill_ids"`
+	NormalSkillIDs []uint32   `json:"normal_skill_ids"`
+	InLineup       bool       `json:"in_lineup"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 	AdminPetCombatStats
+}
+
+// BuildAdminBattleSkillIDs 统一把后台宠物编辑页提交的结构化技能槽合并成兼容 skill_ids。
+func BuildAdminBattleSkillIDs(innateSkillIDs, normalSkillIDs, legacySkillIDs []uint32) []uint32 {
+	loadout := SkillLoadoutFromDefinition(innateSkillIDs, normalSkillIDs)
+	if len(innateSkillIDs) == 0 && len(normalSkillIDs) == 0 {
+		return append([]uint32{}, legacySkillIDs...)
+	}
+	return MergeBattleSkillIDs(loadout, legacySkillIDs)
 }
 
 func NormalizeSkillIDs(raw string) []uint32 {

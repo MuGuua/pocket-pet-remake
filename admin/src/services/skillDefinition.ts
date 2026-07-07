@@ -19,6 +19,7 @@ export async function fetchAdminSkillDefinitions(params: {
   if (params.filters?.name?.trim()) query.set('name', params.filters.name.trim());
   if (params.filters?.category?.trim()) query.set('category', params.filters.category.trim());
   if (params.filters?.skill_type?.trim()) query.set('skill_type', params.filters.skill_type.trim());
+  if (params.filters?.activation_mode?.trim()) query.set('activation_mode', params.filters.activation_mode.trim());
   if (params.filters?.enabled) query.set('enabled', params.filters.enabled);
   if (params.filters?.order_by?.trim()) query.set('order_by', params.filters.order_by.trim());
   query.set('page', String(params.page ?? 1));

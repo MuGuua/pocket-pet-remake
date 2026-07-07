@@ -1,5 +1,24 @@
 # 任务总结
 
+## 2026-07-07 技能被动属性加成显式配置
+
+本次补充聚焦把“系统技能库的永久属性被动”从旧的技能名前缀推断，收敛成后台可显式配置、数据库可持久化的正式字段：
+- 新增迁移 `backend/server/migrations/087_skill_passive_attribute_bonus.sql`，为 `skill_definition` 增加 `passive_attr_key`、`passive_attr_mode`、`passive_attr_value` 三个字段，支持把永久被动属性加成直接存入系统技能模板
+- `backend/server/internal/module/skill/model.go`、`service.go` 与 `backend/server/internal/data/postgres/skill_repo.go` 已同步接入这组三字段：后台详情、创建、编辑、运行时缓存与 PostgreSQL 仓储映射都能完整读写
+- 服务端已新增最小业务校验：只有 `activation_mode=passive` 的被动技能允许配置永久属性加成；属性字段只支持生命/攻击/速度/法力、暴击、物理抗性、技能抗性和全异常抗性；其中百分比模式仅允许用于生命/攻击/速度/法力
+- `backend/server/internal/module/pet/passive_attributes.go` 现优先按显式配置折算宠物最终属性面板与编队战斗基础属性；历史技能若还没补显式配置，仍继续走 `强壮/强力/迅捷/魔心/致命/暴伤/厚甲/坚韧/结界` 的旧前缀兼容规则，避免现网旧数据立即失效
+- 后台技能效果编辑器新增“被动属性加成”效果类型：`admin/src/types/skillEffectConfig.ts` 与 `admin/src/components/SkillEffectConfigEditor.tsx` 现支持运营直接选择属性字段、加成方式与数值，保存时自动合并到技能编辑接口需要的扁平字段
+- 已补充 `backend/server/internal/module/pet/passive_attributes_test.go` 与 `backend/server/internal/module/skill/service_test.go`，覆盖显式属性被动生效、非法模式拦截与合法配置通过
+- 建议本地执行迁移后，再通过后台把现有永久属性类被动逐步从“名字约定”迁移为显式字段，后续即可继续清理旧前缀兼容分支
+
+本次继续补齐“后台玩家宠物编辑 -> 游戏运行时生效”的结构化技能槽链路：
+- `backend/server/internal/module/pet/model.go` 的后台玩家宠物输入/详情结构新增 `innate_skill_ids` 与 `normal_skill_ids`，后台不再只有一个旧 `skill_ids` 兼容列表
+- `backend/server/internal/data/postgres/pet_repo.go` 的后台玩家宠物创建/编辑/详情读取已同步接入 `player_pet.innate_skill_ids` 与 `player_pet.normal_skill_ids` 持久化，保存时会同时回写兼容 `skill_ids`
+- `backend/server/internal/module/pet/service.go` 在后台创建/编辑玩家宠物时，会先按正式技能槽生成运行时 battle skill 列表，再做技能引用校验，避免“后台看起来加了技能，但运行时没进正式技能槽”这一类错位
+- `backend/server/internal/module/pet/skill_slots.go` 新增 `MergeBattleSkillIDs()`，把结构化技能槽与兼容 `skill_ids` 去重合并；这样老数据、后台临时补技能和正式技能槽都能兼容承接
+- `admin/src/pages/pets/PlayerPetListPage.tsx` 已改为“天生技 / 普通技 / 兼容战斗技能预览”三段式编辑，运营直接维护正式技能槽，兼容 `skill_ids` 改为只读预览
+- `admin/src/pages/pets/petInstanceFormUtils.ts` 与 `admin/src/types/pet.ts` 已同步把玩家宠物编辑载荷切到结构化技能槽口径，避免前端只改旧字段而不改正式槽位
+
 ## 2026-06-10 回合战斗公式层第一轮补全
 
 本次补充聚焦把回合战斗 MVP 中最简化的直接伤害计算，收敛成一个可继续扩展的独立公式层：
@@ -58,6 +77,11 @@
 - `client/autoload/http_client.gd` 已为底层 HTTP 失败结果、空响应体和非 JSON 响应补上显式容错处理，不再直接对异常内容调用 `JSON.parse_string()`
 - 当前 `HTTPRequest.request_completed` 会先检查底层请求结果，再检查响应体是否为空，最后才尝试解析 JSON 字典
 - 当后端未启动或返回非 JSON 内容时，客户端现在会返回统一错误字典，而不是在控制台刷出 JSON 解析报错
+- 宠物模板详情读取现在兼容历史技能列表 JSON 脏数据：`backend/server/internal/data/postgres/json_uint32_array.go` 新增了对数字数组与数字字符串数组的统一解析，后台读取 `normal_skill_ids` / `innate_skill_ids` / `skill_ids` 时不会再因 `["101"]` 这类旧数据直接报 500
+- 已补充数据库清洗脚本 `backend/server/migrations/085_backfill_pet_definition_skill_json_numbers.sql`：用户可自行执行该迁移，把 `pet_definition` 历史字符串技能数组安全回填成数字数组，减少后续再依赖兼容读取
+- 后台宠物模板详情接口现在会在返回 `load admin pet definition detail failed` 前输出真实服务端错误日志，日志格式包含 `path`、`method`、`pet_id` 和底层 `err`，便于直接判断是迁移缺失还是数据脏值
+- 登录页 `DevServerSwitcher` 已精简为单一下拉框：`client/scenes/ui/common/dev_server_switcher.tscn` 不再保留手填 HTTP/WS、地址摘要和“应用/清空”按钮；`client/scripts/ui/common/dev_server_switcher.gd` 会在切换选项时立即应用对应环境
+- `client/autoload/network_config.gd` 的原生端与 Web 端默认环境都已调整为 `local`，且登录页切服面板初始化时会主动回到本地环境，避免旧调试覆盖残留导致误连远程
 - 统一客户端网络环境配置：`client/autoload/network_config.gd` 新增本地 / 远程 / 浏览器同源三种环境解析，并支持 Web 端通过 URL 参数或 `localStorage` 临时覆盖 HTTP / WebSocket 地址
 - `client/autoload/http_client.gd` 与 `client/autoload/net_client.gd` 改为直接读取统一配置解析结果，不再在 Web 运行时强制回退到 `window.location.origin`，便于本地导出页灵活切换到远程后端联调
 - 登录页新增 `DevServerSwitcher` 开发切服面板：可直接在 UI 上切换环境或手填 HTTP / WS 地址；应用配置后会刷新 `HttpClient` / `NetClient` 当前入口并清空旧会话，减少本地联调时频繁改 URL 参数或脚本常量
@@ -515,6 +539,73 @@
 - 客户端 `App` 已补入最小自动重连流程：连接关闭后若本地仍持有 `reconnect_token`，会优先发起 `RECONNECT_REQ`，成功后重建世界快照、恢复战斗界面，并补拉宠物/背包/任务摘要
 - 已补充 WebSocket 测试覆盖“断开后重连恢复世界与战斗快照”的服务端闭环；当前版本仍属于全量重同步，不做战斗事件增量补帧与逐帧回放
 
+## 2026-07-07 系统技能库主动/被动技能拆分
+
+本次补充聚焦把“系统技能库中的被动技能”从旧的推断规则升级为显式配置，并继续复用现有被动效果生效链路：
+- 新增迁移 `backend/server/migrations/086_skill_activation_mode.sql`，为 `skill_definition` 增加 `activation_mode` 字段，显式区分 `active` / `passive`
+- `skill_type` 继续只表示攻击/治疗/辅助等效果类型，不再混用为“主动/被动”语义，避免影响原有公式与表现分类
+- 后台技能模板列表、详情、编辑表单与筛选条件已接入 `activation_mode`；运营现在可以直接把技能标记为被动
+- 服务端战斗链路已把被动技能从可选技能列表、客户端战斗快照、自动选技和主动施法入口中过滤；若错误提交被动技能，会权威回退为普通攻击
+- 现有 `passive_skills.go` 的吸血、反伤、加属性等被动效果逻辑保持不变；被动技能仍会从已学习技能列表中读取并生效
+- `module/skill` 已新增最小校验：被动技能不能配置成普攻、不能带主动目标策略、不能带精力消耗
+
+## 2026-07-07 宠物被动属性常驻入面板
+
+本次补充聚焦把“加属性型被动技能”从仅战斗生效，改为直接参与宠物最终属性计算：
+- `backend/server/internal/module/pet/passive_attributes.go` 新增宠物常驻被动属性折算逻辑；列表、详情、单宠物刷新、编队读取都会把加生命/攻击/速度/法力、暴击与抗性类被动计入最终属性
+- 例如宠物基础速度 `100`，若学会 `迅捷` 类被动且配置 `speed_pct = 50`，那么服务端返回给客户端的 `spd` 将直接变成 `150`
+- 生命上限类被动会同步抬升 `hp_max`，并按当前血量百分比同步 `hp`，避免面板出现“血量仍按旧上限显示”的割裂
+- 战斗侧已同步调整：宠物进入 battle 时不再重复叠加这类永久属性被动，只保留吸血、连击、复活、反伤等战斗期效果，避免面板和战斗里各算一次
+
+## 2026-07-07 玩家详情页宠物编辑入口对齐正式技能槽
+
+本次补充聚焦把“玩家详情页里的宠物编辑弹窗”与“独立玩家宠物页”统一到同一套技能维护口径：
+- `admin/src/pages/players/PlayerPetSection.tsx` 不再编辑旧的技能名称文本串，改为和 `PlayerPetListPage.tsx` 一样的 `天生技 / 普通技 / 兼容战斗技能预览` 三段式列表编辑
+- 编辑弹窗会实时根据 `innate_skill_ids + normal_skill_ids` 自动回填只读 `skill_ids` 预览，确保两个后台入口保存到服务端的数据结构一致
+- 详情抽屉也同步拆分展示天生技、普通技和兼容战斗技能，便于运营直接判断某个技能当前是正式槽位数据，还是旧兼容列表数据
+- 已执行 `cd admin && npm run build`，当前后台前端构建通过
+
+## 2026-07-07 后台玩家宠物详情兼容历史技能字符串数组
+
+本次补充聚焦修复 `GET /api/admin/pets/:pet_uid` 在历史脏数据下直接返回 500 的问题：
+- `backend/server/internal/data/postgres/pet_repo.go` 读取 `player_pet.skill_ids`、`innate_skill_ids`、`normal_skill_ids` 时，已不再只接受严格 JSON 数字数组
+- 当前统一复用 `backend/server/internal/data/postgres/json_uint32_array.go` 的弹性解析，兼容 `[20001]`、`["20001"]` 以及混合数字/数字字符串数组
+- 这样即使旧数据还没完全清洗，后台玩家宠物列表、详情、编队与单宠物读取链路也不会因为 `json: cannot unmarshal string into Go value of type uint32` 直接报错
+- 已执行 `cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/internal/data/postgres ./server/internal/module/pet ./server/internal/transport/http`，当前通过
+
+## 2026-07-07 玩家宠物技能 JSON 脏数据清洗迁移
+
+本次补充聚焦把运行时兼容过的 `player_pet` 历史脏数据继续往数据库层清干净：
+- 新增迁移 `backend/server/migrations/088_backfill_player_pet_skill_json_numbers.sql`
+- 该脚本会把 `player_pet.skill_ids`、`innate_skill_ids`、`normal_skill_ids` 中可安全转换的字符串数字数组统一回填成真正的 JSON 数字数组
+- 脚本只处理“全部元素都能安全转成数字”的数组；如果某条记录里混入非法字符串，会保留原值不动，避免迁移误伤数据
+- 建议用户本地执行该迁移后再重启后端，这样后台玩家宠物详情/列表链路既有代码兼容，也有数据库层清洗兜底
+
+## 2026-07-07 被动技能删除攻击系数/表现后不再被默认补回
+
+本次补充聚焦修复后台技能编辑页中“被动技能删掉攻击系数和战斗表现，保存刷新后又出现”的问题：
+- 根因在 `backend/server/internal/module/skill/model.go` 的 `AdminUpsertInput.Normalize()`：此前无论主动/被动，都会在空值时自动补默认 `attack_pct=100`、`animation_key=slash`、默认施法色和命中色
+- 这导致后台虽然已经把被动技能的攻击系数条目和表现条目删除，但服务端保存时又把这些默认值重新写回数据库
+- 现在已改为：只有主动技能才补默认攻击系数与默认表现；被动技能如果删成空，就保持空值，不再自动回填
+- 已补测试 `backend/server/internal/module/skill/service_test.go`，并执行 `cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/internal/module/skill ./server/internal/transport/http` 通过
+
+## 2026-07-07 被动技能前端编辑器只保留被动效果项
+
+本次补充聚焦继续收紧后台交互，避免运营在被动技能里再次看到或添加主动技能字段：
+- `admin/src/components/SkillEffectConfigEditor.tsx` 现已按 `activation_mode` 过滤可添加效果类型；被动技能下只保留“被动属性加成”
+- `admin/src/components/SkillDefinitionEditor.tsx` 在切换为被动技能时，会自动过滤当前 `effect_entries` 中不属于被动的条目
+- `admin/src/pages/skills/SkillDefinitionPage.tsx` 在重新打开历史被动技能详情时，也会先过滤旧的攻击系数、表现等主动条目，避免旧脏配置再次出现在编辑器里
+- 已执行 `cd admin && npm run build`，当前后台前端构建通过
+
+## 2026-07-07 删除宠物被动技能后展示属性自动回退
+
+本次补充聚焦修复后台玩家宠物编辑页中“删掉被动技能后，之前加上去的生命/攻击仍被保存成基础值”的问题：
+- 根因是后台详情页展示的是“被动技能折算后的最终属性”，例如 `hp_max=100` + `强壮 20%` 会展示成 `120`
+- 运营如果只删除技能、不改生命字段，表单会把展示值 `120` 原样提交；服务端此前会直接把这个展示值写回 `player_pet.hp_max`，导致删完技能后生命没有回退
+- `backend/server/internal/module/pet/service.go` 现在会在保存前先读取该宠物的原始未加成详情，再把“与旧展示值完全相同、说明运营未手改”的属性字段还原回原始基础值后再持久化
+- 当前已覆盖 `hp/hp_max/atk/spd/mana` 以及被永久被动直接影响的暴击率、暴伤、物抗、技抗和五类异常抗性，确保删除技能后这些展示属性会按新技能结果重新计算
+- 已补测试并执行 `cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/internal/module/pet ./server/internal/transport/http` 通过
+
 ## 2026-06-10 战斗属性与抗性底座扩展
 
 本次补充聚焦先把“人物单人 PVE”需要的服务端属性底座补齐，但暂时不接等级成长：
@@ -555,3 +646,43 @@
 - 后台新增 `/api/admin/player-progression/...` 等级经验与转化率配置接口，前端页面 `/player-progression`；玩家详情页展示自由属性点与四维分配值
 - 客户端状态面板与加点页已对接真实快照；`points_status_panel.gd` 加点请求走通用 loading 遮罩，响应后通过 `GameState.merge_player_snapshot()` 刷新 UI
 - 设计说明见 `backend/docs/player-progression.md`；需本地执行迁移 `035`、`036`、`037` 后重启服务
+
+## 2026-07-07 数据库快照版数值系统第一版
+
+本次补充聚焦把“人物/宠物最终属性”从直接信任业务主表中的最终值，收敛成“基础真源 + 服务端统一计算 + 数据库快照读取”的第一版闭环：
+- 新增迁移 `backend/server/migrations/089_player_pet_combat_snapshots.sql`，创建 `player_combat_snapshot` 与 `player_pet_combat_snapshot` 两张运行时快照表；当前不引入 Redis，也不要求历史迁移回填，首次读取时会按需刷新生成
+- 新增统一主属性公式层 `backend/server/internal/module/combatcalc/formula.go`，把五大主属性计算口径固定为 `（基础值 + 所有加算）× 所有百分比乘算`；首期已优先接入人物最终属性快照计算，后续其他加成来源继续复用同一入口即可
+- `backend/server/internal/data/postgres/combat_snapshot_repo.go` 新增 PostgreSQL 快照构建与查询：
+  - 人物快照按 `player.base_* + 已分配属性点转换 + 已佩戴装备` 重新计算 `hp_max/atk/def/spd/mana`，并连同命中、闪避、暴击、抗性、技能列表、皮肤一起写入 `player_combat_snapshot`
+  - 宠物快照把当前 `player_pet` 运行态数据、技能槽、资质与次级属性统一收敛到 `player_pet_combat_snapshot`，服务层再继续补“永久属性型被动技能”的最终折算，保证对外读取口径一致
+- `backend/server/internal/data/postgres/player_repo.go` 的 `FindByPlayerID()` 现已切成“每次读取前刷新人物快照，再返回快照”，因此客户端进入世界、装备操作回包、战斗开战读取、后台详情查看，都会看到实时重新计算后的最终人物属性
+- `backend/server/internal/module/pet/service.go` 的 `ListPets()`、`ListLineup()`、`loadPetByUID()` 与后台宠物列表/详情，现已统一改成“先刷新宠物快照，再读快照”，并继续在服务层复用已有被动技能折算逻辑；这样删除/新增被动技能后，下次查询会按最新结果重新显示，而不是沿用旧最终值
+- `backend/server/internal/data/postgres/equipment_runtime_repo.go` 不再把装备重算后的最终属性直接回写 `player` 表；佩戴/卸下/刷新模板后只更新人物快照，避免装备链路持续污染 `base_*` 基础值真源
+- `backend/server/internal/data/postgres/player_repo.go` 的后台人物编辑与奖励加属性链路已同步收口：
+  - 后台编辑人物五大主属性时，会同步维护 `base_hp_max/base_atk/base_def/base_spd/base_mana`
+  - 奖励直接增加五大主属性时，也改为累加对应 `base_*` 字段，而不是直接写死最终 `hp_max/atk/def/spd/mana`
+- 当前覆盖范围：客户端人物/宠物主查询、后台玩家/宠物详情展示、战斗开战前的人物/编队属性读取，都已收口到数据库快照版最终属性；本次仍未引入 Redis，也未做历史数据迁移
+- 已执行验证：`cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/...`，当前通过
+
+本次继续补第二轮“数据库快照版运行时视图”能力，目标是把前一版只覆盖人物/宠物最终战斗属性，继续扩展到装备视图、技能进度视图，以及统一刷新入口：
+- 新增迁移 `backend/server/migrations/090_runtime_view_snapshots.sql`，创建 `player_equipment_snapshot` 与 `player_skill_progress_snapshot` 两张快照表
+- `player_equipment_snapshot` 保存人物当前全身已佩戴装备的运行时视图，包括槽位、实例 UID、模板 ID、名称、图标、强化等级、是否损坏、描述、固定属性加成、武器附加技能和武器类型
+- `player_skill_progress_snapshot` 保存人物武器技能学习进度视图，包括 `skill_exp / skill_level / is_learned / learned_at`，供战斗开战前直接判断当前武器技能可用性与学习态
+- 新增统一刷新服务 `backend/server/internal/module/runtimeview/service.go`，把以下四类刷新收口到 `RefreshPlayerRuntimeSnapshots()`：
+  - 人物最终战斗属性快照 `player_combat_snapshot`
+  - 宠物最终战斗属性快照 `player_pet_combat_snapshot`
+  - 人物已佩戴装备视图快照 `player_equipment_snapshot`
+  - 人物技能进度视图快照 `player_skill_progress_snapshot`
+- `backend/server/internal/app/bootstrap.go` 已把这套统一刷新入口注入到 `WorldHandler / EquipmentHandler / BattleHandler`：
+  - 进入世界前会统一刷新玩家运行时快照
+  - 装备面板拉取前会统一刷新玩家运行时快照
+  - 战斗开战前读取人物武器类型、装备附加技能、技能学习进度前，也会统一刷新玩家运行时快照
+- `backend/server/internal/data/postgres/runtime_view_snapshot_repo.go` 新增了 PostgreSQL 层的装备/技能视图快照读写：
+  - `EquipmentRepository.ListEquipped()` 改为“先刷新，再读 `player_equipment_snapshot`”
+  - `PlayerSkillProgressRepository.ListByPlayerID()` 改为“先刷新，再读 `player_skill_progress_snapshot`”
+- 装备与技能进度操作链路已补双更：
+  - 佩戴、卸下、模板热刷新后，会同步刷新 `player_equipment_snapshot`
+  - 战斗结算写入人物技能经验后，会同步刷新 `player_skill_progress_snapshot`
+- 至此，当前战斗入口读取人物数据时，已基本从“散落在多张原始表的直接读”收敛为“人物战斗快照 + 宠物战斗快照 + 装备视图快照 + 技能进度视图快照”的数据库快照体系
+- 当前仍未做的部分：还没有把“活动战斗中的中间回合状态”持久化成数据库 battle snapshot 表；本次只覆盖开战前权威输入与主要展示视图快照，不改现有战斗进行中的内存态主链路
+- 已执行验证：`cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/...`，当前通过

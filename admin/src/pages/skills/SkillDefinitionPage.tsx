@@ -34,6 +34,7 @@ import type {
 import { defaultSkillValues, detailToPayload } from '../../types/skillDefinition';
 import {
   createDefaultSkillEffectEntries,
+  filterSkillEffectEntriesForActivationMode,
   mergePayloadFromSkillEffectEntries,
   skillEffectEntriesFromPayload,
 } from '../../types/skillEffectConfig';
@@ -41,6 +42,8 @@ import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modal
 import {
   formatControlStatusLabel,
   formatDisplayLabel,
+  SKILL_ACTIVATION_MODE_LABELS,
+  SKILL_ACTIVATION_MODE_OPTIONS,
   SKILL_CATEGORY_LABELS,
   SKILL_CATEGORY_OPTIONS,
   SKILL_TYPE_LABELS,
@@ -137,9 +140,13 @@ export function SkillDefinitionPage() {
       const result = await fetchAdminSkillDefinitionDetail(skillID);
       setEditingRecord(result);
       const payload = detailToPayload(result);
+      const effectEntries = filterSkillEffectEntriesForActivationMode(
+        skillEffectEntriesFromPayload(payload),
+        payload.activation_mode,
+      );
       editorForm.setFieldsValue({
         ...payload,
-        effect_entries: skillEffectEntriesFromPayload(payload),
+        effect_entries: effectEntries,
       });
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载技能编辑数据失败');
@@ -211,6 +218,13 @@ export function SkillDefinitionPage() {
         key: 'skill_type',
         width: 80,
         render: (value: string) => formatDisplayLabel(SKILL_TYPE_LABELS, value),
+      },
+      {
+        title: '释放',
+        dataIndex: 'activation_mode',
+        key: 'activation_mode',
+        width: 80,
+        render: (value: string) => formatDisplayLabel(SKILL_ACTIVATION_MODE_LABELS, value),
       },
       {
         title: '目标',
@@ -285,6 +299,9 @@ export function SkillDefinitionPage() {
           <Form.Item name="skill_type" label="类型">
             <Select allowClear placeholder="类型" style={{ width: 100 }} options={SKILL_TYPE_OPTIONS} />
           </Form.Item>
+          <Form.Item name="activation_mode" label="释放">
+            <Select allowClear placeholder="释放" style={{ width: 100 }} options={SKILL_ACTIVATION_MODE_OPTIONS} />
+          </Form.Item>
           <Form.Item name="enabled" label="启用">
             <Select
               allowClear
@@ -356,6 +373,8 @@ export function SkillDefinitionPage() {
               <Descriptions.Item label="分类 / 类型">
                 {formatDisplayLabel(SKILL_CATEGORY_LABELS, detail.skill_category)} / {formatDisplayLabel(SKILL_TYPE_LABELS, detail.skill_type)}
               </Descriptions.Item>
+              <Descriptions.Item label="释放方式">{formatDisplayLabel(SKILL_ACTIVATION_MODE_LABELS, detail.activation_mode)}</Descriptions.Item>
+              <Descriptions.Item label="普攻模板">{detail.is_basic_attack ? '是' : '否'}</Descriptions.Item>
               {detail.skill_category === 'weapon' ? (
                 <>
                   <Descriptions.Item label="武器流派">{formatDisplayLabel(WEAPON_DISCIPLINE_LABELS, detail.weapon_discipline ?? '')}</Descriptions.Item>
@@ -420,4 +439,3 @@ export function SkillDefinitionPage() {
     </Card>
   );
 }
-

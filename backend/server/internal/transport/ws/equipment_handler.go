@@ -8,6 +8,7 @@ import (
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/player"
+	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/platform/errcode"
 	"pocket-pet-remake/server/internal/protocol"
@@ -17,6 +18,7 @@ import (
 type EquipmentHandler struct {
 	sessionService   *session.Service
 	equipmentService *equipment.Service
+	runtimeSnapshots *runtimeview.Service
 }
 
 // NewEquipmentHandler 构造人物装备处理器。
@@ -27,6 +29,14 @@ func NewEquipmentHandler(sessionService *session.Service, equipmentService *equi
 	}
 }
 
+// SetRuntimeSnapshotService 注入统一运行时快照刷新入口。
+func (h *EquipmentHandler) SetRuntimeSnapshotService(service *runtimeview.Service) {
+	if h == nil {
+		return
+	}
+	h.runtimeSnapshots = service
+}
+
 // HandleList 拉取玩家当前已佩戴装备列表。
 func (h *EquipmentHandler) HandleList(conn packetSender, packet *protocol.Packet) error {
 	sess, err := h.sessionService.GetByConnID(conn.ID())
@@ -35,6 +45,11 @@ func (h *EquipmentHandler) HandleList(conn packetSender, packet *protocol.Packet
 	}
 	if h.equipmentService == nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "equipment service unavailable")
+	}
+	if h.runtimeSnapshots != nil {
+		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(context.Background(), sess.PlayerID); err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "refresh runtime snapshots failed", err)
+		}
 	}
 	items, err := h.equipmentService.ListEquipped(context.Background(), sess.PlayerID)
 	if err != nil {
@@ -61,6 +76,11 @@ func (h *EquipmentHandler) HandleEquip(conn packetSender, packet *protocol.Packe
 	}
 	if h.equipmentService == nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "equipment service unavailable")
+	}
+	if h.runtimeSnapshots != nil {
+		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(context.Background(), sess.PlayerID); err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "refresh runtime snapshots failed", err)
+		}
 	}
 	result, profile, err := h.equipmentService.EquipFromBagSlot(context.Background(), sess.PlayerID, request.ContainerType, request.BagSlotIndex)
 	if err != nil {
@@ -90,6 +110,11 @@ func (h *EquipmentHandler) HandleUnequip(conn packetSender, packet *protocol.Pac
 	}
 	if h.equipmentService == nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "equipment service unavailable")
+	}
+	if h.runtimeSnapshots != nil {
+		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(context.Background(), sess.PlayerID); err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "refresh runtime snapshots failed", err)
+		}
 	}
 	result, profile, err := h.equipmentService.UnequipSlot(context.Background(), sess.PlayerID, request.EquipSlot, request.ContainerType)
 	if err != nil {
@@ -266,19 +291,19 @@ func toOptionalProtocolEquippedItem(item *equipment.RuntimeEquippedItem) *protoc
 
 func toProtocolEquippedItem(item equipment.RuntimeEquippedItem) protocol.PlayerEquippedItemSnapshot {
 	return protocol.PlayerEquippedItemSnapshot{
-		EquipSlot:        item.EquipSlot,
-		EquipSlotLabel:   item.EquipSlotLabel,
-		ItemUID:          item.ItemUID,
-		ItemID:           item.ItemID,
-		ItemName:         item.ItemName,
-		Icon:             item.Icon,
-		RequiredLevel:    item.RequiredLevel,
-		EnhanceLevel:     item.EnhanceLevel,
-		IsDamaged:        item.IsDamaged,
-		AppearanceSkinID: item.AppearanceSkinID,
-		AppearanceOnly:   item.AppearanceOnly,
-		Description:           item.Description,
-		DescriptionMentions:     toProtocolDescriptionMentions(item.DescriptionMentions),
-		Bonus:                 toProtocolEquipmentBonusFromAggregate(item.Bonus),
+		EquipSlot:           item.EquipSlot,
+		EquipSlotLabel:      item.EquipSlotLabel,
+		ItemUID:             item.ItemUID,
+		ItemID:              item.ItemID,
+		ItemName:            item.ItemName,
+		Icon:                item.Icon,
+		RequiredLevel:       item.RequiredLevel,
+		EnhanceLevel:        item.EnhanceLevel,
+		IsDamaged:           item.IsDamaged,
+		AppearanceSkinID:    item.AppearanceSkinID,
+		AppearanceOnly:      item.AppearanceOnly,
+		Description:         item.Description,
+		DescriptionMentions: toProtocolDescriptionMentions(item.DescriptionMentions),
+		Bonus:               toProtocolEquipmentBonusFromAggregate(item.Bonus),
 	}
 }

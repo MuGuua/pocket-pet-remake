@@ -21,6 +21,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
+import { PetSkillSlotListEditor } from '../../components/PetSkillSlotListEditor';
 import { RichTextDisplay } from '../../components/RichTextDisplay';
 import { RichTextEditor } from '../../components/RichTextEditor';
 import {
@@ -39,6 +40,7 @@ import {
   updateAdminMonsterBattleRewards,
   updateAdminMonsterDefinition,
 } from '../../services/monsterDefinition';
+import { fetchAllAdminItems } from '../../services/item';
 import { fetchAdminPetDefinitions } from '../../services/petDefinition';
 import type {
   AdminMonsterBattleRewardEntry,
@@ -48,12 +50,10 @@ import type {
   AdminUpsertMonsterDefinitionPayload,
 } from '../../types/monsterDefinition';
 import type { AdminPetDefinitionSummary } from '../../types/petDefinition';
-import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface MonsterDefinitionFormValues extends AdminUpsertMonsterDefinitionPayload {
-  skill_names_text?: string;
-  capture_item_ids_text?: string;
+  capture_item_ids_form?: number[];
 }
 
 interface MonsterBattleRewardFormValues {
@@ -78,6 +78,7 @@ export function MonsterDefinitionPage() {
   const [editingRecord, setEditingRecord] = useState<AdminMonsterDefinitionDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [wildCapturePetOptions, setWildCapturePetOptions] = useState<AdminPetDefinitionSummary[]>([]);
+  const [captureItemOptions, setCaptureItemOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [rewardEditorOpen, setRewardEditorOpen] = useState(false);
   const [rewardMonsterID, setRewardMonsterID] = useState<number | null>(null);
   const [rewardMonsterName, setRewardMonsterName] = useState('');
@@ -92,6 +93,7 @@ export function MonsterDefinitionPage() {
 
   useEffect(() => {
     void loadWildCapturePetOptions();
+    void loadCaptureItemOptions();
   }, []);
 
   async function loadWildCapturePetOptions() {
@@ -101,6 +103,18 @@ export function MonsterDefinitionPage() {
       setWildCapturePetOptions(options);
     } catch {
       setWildCapturePetOptions([]);
+    }
+  }
+
+  async function loadCaptureItemOptions() {
+    try {
+      const items = await fetchAllAdminItems({ enabled: 'true' });
+      setCaptureItemOptions(items.map((item) => ({
+        value: item.item_id,
+        label: `${item.item_name} (#${item.item_id})`,
+      })));
+    } catch {
+      setCaptureItemOptions([]);
     }
   }
 
@@ -147,7 +161,7 @@ export function MonsterDefinitionPage() {
     try {
       const result = await fetchAdminMonsterDefinitionDetail(monsterID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapDetailToFormValues(result, skillReferenceMap));
+      editorForm.setFieldsValue(mapDetailToFormValues(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载系统怪物编辑数据失败');
       setEditorOpen(false);
@@ -159,7 +173,7 @@ export function MonsterDefinitionPage() {
   async function handleSubmit(values: MonsterDefinitionFormValues) {
     setSaving(true);
     try {
-      const payload = buildPayloadFromForm(values, skillReferenceMap);
+      const payload = buildPayloadFromForm(values);
       if (editingRecord) {
         await updateAdminMonsterDefinition(editingRecord.monster_id, payload);
         message.success('系统怪物模板更新成功');
@@ -416,7 +430,19 @@ export function MonsterDefinitionPage() {
             <Col xs={24} md={6}><Form.Item label="天赋减伤%" name="talent_reduce_pct"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="元素克制%" name="element_adv_pct"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={6}><Form.Item label="元素被克%" name="element_penalty_pct"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={24}><Form.Item label="技能" name="skill_names_text" extra="填写已启用的系统技能名称，多个用英文逗号分隔"><Input placeholder="野性撞击,利爪突袭" /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item
+                label="技能"
+                name="skill_ids"
+                extra="从已启用的怪物技能和通用技能中选择；顺序会影响怪物战斗时的默认放技顺序。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['monster', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="按列表顺序维护怪物技能；普通攻击等通用技能也可一起配置。"
+                />
+              </Form.Item>
+            </Col>
             <Col xs={12} md={6}><Form.Item label="可捕捉" name="is_capturable" valuePropName="checked"><Switch /></Form.Item></Col>
             {isCapturable ? (
               <>
@@ -430,7 +456,16 @@ export function MonsterDefinitionPage() {
                 </Col>
                 <Col xs={24} md={8}><Form.Item label="基础捕捉成功率" name="capture_rate_base" extra="万分比，5000 表示 50%"><InputNumber min={1} max={10000} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={24} md={8}><Form.Item label="最低生命百分比" name="capture_min_hp_pct" extra="敌方生命低于该百分比才可尝试捕捉"><InputNumber min={1} max={100} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col span={24}><Form.Item label="允许捕捉道具ID" name="capture_item_ids_text" extra="多个道具用英文逗号分隔，例如 2001"><Input placeholder="2001" /></Form.Item></Col>
+                <Col span={24}>
+                  <Form.Item label="允许捕捉道具" name="capture_item_ids_form" extra="支持多选；保存后会写入 capture_item_ids 列表。">
+                    <Select
+                      mode="multiple"
+                      allowClear
+                      options={buildCaptureItemOptions(captureItemOptions, editorForm.getFieldValue('capture_item_ids_form') ?? [])}
+                      placeholder="选择允许用于捕捉的道具"
+                    />
+                  </Form.Item>
+                </Col>
               </>
             ) : null}
             <Col xs={12} md={6}><Form.Item label="启用" name="is_enabled" valuePropName="checked"><Switch /></Form.Item></Col>
@@ -499,18 +534,17 @@ function defaultMonsterDefinitionValues(): MonsterDefinitionFormValues {
     talent_reduce_pct: 0,
     element_adv_pct: 0,
     element_penalty_pct: 0,
-    skill_ids: [],
-    skill_names_text: '野性撞击,利爪突袭',
+    skill_ids: [90001, 90002],
     is_capturable: false,
     capture_pet_id: 0,
     capture_rate_base: 5000,
     capture_min_hp_pct: 30,
     capture_item_ids: [2001],
-    capture_item_ids_text: '2001',
+    capture_item_ids_form: [2001],
   };
 }
 
-function mapDetailToFormValues(detail: AdminMonsterDefinitionDetail, skillReferenceMap: SkillReferenceMap): MonsterDefinitionFormValues {
+function mapDetailToFormValues(detail: AdminMonsterDefinitionDetail): MonsterDefinitionFormValues {
   return {
     monster_id: detail.monster_id,
     monster_name: detail.monster_name,
@@ -530,20 +564,18 @@ function mapDetailToFormValues(detail: AdminMonsterDefinitionDetail, skillRefere
     talent_reduce_pct: detail.base_stats.talent_reduce_pct,
     element_adv_pct: detail.base_stats.element_adv_pct,
     element_penalty_pct: detail.base_stats.element_penalty_pct,
-    skill_ids: detail.skill_ids,
-    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    skill_ids: detail.skill_ids ?? [],
     is_capturable: detail.is_capturable,
     capture_pet_id: detail.capture_pet_id,
     capture_rate_base: detail.capture_rate_base,
     capture_min_hp_pct: detail.capture_min_hp_pct,
     capture_item_ids: detail.capture_item_ids,
-    capture_item_ids_text: detail.capture_item_ids.join(','),
+    capture_item_ids_form: detail.capture_item_ids ?? [],
   };
 }
 
-function buildPayloadFromForm(values: MonsterDefinitionFormValues, skillReferenceMap: SkillReferenceMap): AdminUpsertMonsterDefinitionPayload {
-  const skillIDs = parseSkillReferenceInput(values.skill_names_text ?? '', skillReferenceMap);
-  const captureItemIDs = parseNumberListInput(values.capture_item_ids_text ?? '');
+function buildPayloadFromForm(values: MonsterDefinitionFormValues): AdminUpsertMonsterDefinitionPayload {
+  const captureItemIDs = (values.capture_item_ids_form ?? []).map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0);
   return {
     monster_id: Number(values.monster_id),
     monster_name: values.monster_name.trim(),
@@ -563,7 +595,7 @@ function buildPayloadFromForm(values: MonsterDefinitionFormValues, skillReferenc
     talent_reduce_pct: Number(values.talent_reduce_pct || 0),
     element_adv_pct: Number(values.element_adv_pct || 0),
     element_penalty_pct: Number(values.element_penalty_pct || 0),
-    skill_ids: skillIDs,
+    skill_ids: values.skill_ids ?? [],
     is_capturable: Boolean(values.is_capturable),
     capture_pet_id: values.is_capturable ? Number(values.capture_pet_id) : 0,
     capture_rate_base: Number(values.capture_rate_base || 5000),
@@ -572,9 +604,13 @@ function buildPayloadFromForm(values: MonsterDefinitionFormValues, skillReferenc
   };
 }
 
-function parseNumberListInput(raw: string): number[] {
-  return raw
-    .split(',')
-    .map((part) => Number(part.trim()))
-    .filter((value) => Number.isFinite(value) && value > 0);
+function buildCaptureItemOptions(
+  baseOptions: Array<{ value: number; label: string }>,
+  currentValues: number[],
+): Array<{ value: number; label: string }> {
+  const knownValues = new Set(baseOptions.map((item) => item.value));
+  const currentOnlyOptions = currentValues
+    .filter((item) => item > 0 && !knownValues.has(item))
+    .map((item) => ({ value: item, label: `道具 #${item} (历史值)` }));
+  return [...baseOptions, ...currentOnlyOptions];
 }

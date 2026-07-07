@@ -129,13 +129,41 @@ func BuildBattleSkillIDs(loadout SkillLoadout) []uint32 {
 	return result
 }
 
-// ResolvePetBattleSkills 根据分槽数据重算 Pet.SkillIDs；若分槽全空则保留 legacy skill_ids。
+// MergeBattleSkillIDs 把结构化技能槽与兼容 skill_ids 一起去重合并。
+// 这样历史字段仍能承接后台临时加的技能，同时不破坏已存在的分槽技能数据。
+func MergeBattleSkillIDs(loadout SkillLoadout, legacySkillIDs []uint32) []uint32 {
+	base := BuildBattleSkillIDs(loadout)
+	if len(legacySkillIDs) == 0 {
+		return base
+	}
+	seen := make(map[uint32]struct{}, len(base)+len(legacySkillIDs))
+	result := make([]uint32, 0, len(base)+len(legacySkillIDs))
+	appendSkill := func(skillID uint32) {
+		if skillID == 0 {
+			return
+		}
+		if _, exists := seen[skillID]; exists {
+			return
+		}
+		seen[skillID] = struct{}{}
+		result = append(result, skillID)
+	}
+	for _, skillID := range base {
+		appendSkill(skillID)
+	}
+	for _, skillID := range legacySkillIDs {
+		appendSkill(skillID)
+	}
+	return result
+}
+
+// ResolvePetBattleSkills 根据分槽数据重算 Pet.SkillIDs；若存在兼容 skill_ids，也会一并去重合并。
 func ResolvePetBattleSkills(item *Pet) {
 	if item == nil {
 		return
 	}
 	ApplyLegacySkillIDs(&item.SkillLoadout, item.SkillIDs)
-	battleSkills := BuildBattleSkillIDs(item.SkillLoadout)
+	battleSkills := MergeBattleSkillIDs(item.SkillLoadout, item.SkillIDs)
 	if len(battleSkills) > 0 {
 		item.SkillIDs = battleSkills
 		return
@@ -168,9 +196,9 @@ type SkillSlotView struct {
 func BuildSkillSlotView(loadout SkillLoadout, includeArtifact bool) SkillSlotView {
 	loadout = NormalizeSkillLoadout(loadout)
 	view := SkillSlotView{
-		Innate: make([]SkillSlotEntry, 0, MaxInnateSkillSlots),
-		Normal: make([]SkillSlotEntry, 0, MaxNormalSkillSlots),
-		Artifact: make([]SkillSlotEntry, 0, MaxArtifactSkillSlots),
+		Innate:         make([]SkillSlotEntry, 0, MaxInnateSkillSlots),
+		Normal:         make([]SkillSlotEntry, 0, MaxNormalSkillSlots),
+		Artifact:       make([]SkillSlotEntry, 0, MaxArtifactSkillSlots),
 		ActiveTalisman: SkillSlotEntry{SlotIndex: 0, SkillID: loadout.ActiveTalismanSkillID, Enabled: loadout.ActiveTalismanEnabled},
 		TalismanHero:   SkillSlotEntry{SlotIndex: 0, SkillID: loadout.TalismanHeroSkillID, Enabled: loadout.TalismanHeroEnabled},
 		Talisman1:      SkillSlotEntry{SlotIndex: 0, SkillID: loadout.TalismanSlot1SkillID, Enabled: loadout.TalismanSlot1Enabled},

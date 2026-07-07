@@ -6,11 +6,13 @@ import type { AdminSkillDetail, AdminUpsertSkillPayload } from '../types/skillDe
 import type { SkillEffectConfigEntry } from '../types/skillEffectConfig';
 import {
   PREFERRED_TARGET_OPTIONS,
+  SKILL_ACTIVATION_MODE_OPTIONS,
   SKILL_CATEGORY_OPTIONS,
   SKILL_TYPE_OPTIONS,
   TARGET_TYPE_OPTIONS,
   WEAPON_DISCIPLINE_OPTIONS,
 } from '../utils/displayLabels';
+import { filterSkillEffectEntriesForActivationMode } from '../types/skillEffectConfig';
 
 export interface SkillEditorFormValues extends AdminUpsertSkillPayload {
   effect_entries: SkillEffectConfigEntry[];
@@ -24,7 +26,9 @@ interface SkillDefinitionEditorProps {
 // 系统技能模板表单：基础/目标字段平铺，公式与状态效果走列表新增编辑器。
 export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEditorProps) {
   const skillCategory = Form.useWatch('skill_category', form);
+  const activationMode = Form.useWatch('activation_mode', form);
   const isWeaponSkillCategory = skillCategory === 'weapon';
+  const isPassiveSkill = activationMode === 'passive';
 
   return (
     <>
@@ -80,6 +84,29 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
+          <Form.Item label="释放方式" name="activation_mode" rules={[{ required: true, message: '请选择释放方式' }]}>
+            <Select
+              options={SKILL_ACTIVATION_MODE_OPTIONS}
+              onChange={(value: string) => {
+                const currentEntries = (form.getFieldValue('effect_entries') ?? []) as SkillEffectConfigEntry[];
+                form.setFieldsValue({
+                  effect_entries: filterSkillEffectEntriesForActivationMode(currentEntries, value),
+                });
+                if (value !== 'passive') {
+                  return;
+                }
+                form.setFieldsValue({
+                  target_type: 'self',
+                  target_count: 0,
+                  preferred_target_hp: '',
+                  energy_cost: 0,
+                  is_basic_attack: false,
+                });
+              }}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
           <Form.Item label="排序权重" name="sort_weight">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
@@ -131,24 +158,34 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
       <Row gutter={[16, 8]}>
         <Col xs={12} sm={8} md={6} lg={5}>
           <Form.Item label="目标类型" name="target_type" rules={[{ required: true, message: '请选择目标类型' }]}>
-            <Select options={TARGET_TYPE_OPTIONS} style={{ width: 152 }} />
+            <Select options={TARGET_TYPE_OPTIONS} style={{ width: 152 }} disabled={isPassiveSkill} />
           </Form.Item>
         </Col>
         <Col xs={12} sm={8} md={6} lg={4}>
           <Form.Item label="目标数量" name="target_count">
-            <InputNumber min={0} style={{ width: 96 }} />
+            <InputNumber min={0} style={{ width: 96 }} disabled={isPassiveSkill} />
           </Form.Item>
         </Col>
         <Col xs={12} sm={8} md={6} lg={5}>
           <Form.Item label="优先目标" name="preferred_target_hp">
-            <Select allowClear options={PREFERRED_TARGET_OPTIONS} style={{ width: 152 }} />
+            <Select allowClear options={PREFERRED_TARGET_OPTIONS} style={{ width: 152 }} disabled={isPassiveSkill} />
           </Form.Item>
         </Col>
         <Col xs={12} sm={8} md={6} lg={4}>
           <Form.Item label="精力消耗" name="energy_cost">
-            <InputNumber min={0} style={{ width: 96 }} />
+            <InputNumber min={0} style={{ width: 96 }} disabled={isPassiveSkill} />
           </Form.Item>
         </Col>
+        {isPassiveSkill ? (
+          <Col span={24}>
+            <Form.Item>
+              <Input
+                value="被动技能不会主动释放，系统会自动收口为“自身 / 0 消耗”，其加属性、吸血、反伤等效果仍会在战斗运行时生效。"
+                disabled
+              />
+            </Form.Item>
+          </Col>
+        ) : null}
       </Row>
 
       <Divider plain>伤害 / 治疗 / 状态 / 表现</Divider>
@@ -164,7 +201,7 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
           },
         ]}
       >
-        <SkillEffectConfigEditor />
+        <SkillEffectConfigEditor activationMode={activationMode} />
       </Form.Item>
     </>
   );

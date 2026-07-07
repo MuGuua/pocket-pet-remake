@@ -74,7 +74,14 @@ SELECT
   element_adv_pct,
   element_penalty_pct,
   skill_ids,
-  skin_id
+  skin_id,
+  base_hp_max,
+  base_atk,
+  base_def,
+  base_spd,
+  base_mana,
+  base_hit_pct,
+  base_dodge_pct
 FROM player
 WHERE id = $1 AND status = 1
 LIMIT 1
@@ -252,7 +259,12 @@ SET name = $2,
     mana = $18,
     status = $19,
     skin_id = $20,
-    skill_ids = $21
+    skill_ids = $21,
+    base_hp_max = $10,
+    base_atk = $15,
+    base_def = $16,
+    base_spd = $17,
+    base_mana = $18
 WHERE id = $1
 `
 
@@ -271,33 +283,59 @@ WHERE p.account_id = a.id AND p.id = $1
 `
 
 func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) (*player.Profile, error) {
+	if playerID == 0 {
+		return nil, nil
+	}
+	if err := r.RefreshPlayerCombatSnapshot(ctx, playerID); err != nil {
+		return nil, err
+	}
+	profile, err := r.FindPlayerCombatSnapshot(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	if profile != nil {
+		return profile, nil
+	}
+	return r.findPlayerByIDRaw(ctx, playerID)
+}
+
+func (r *PlayerRepository) findPlayerByIDRaw(ctx context.Context, playerID uint64) (*player.Profile, error) {
+	return scanRawPlayerByID(ctx, r.db, playerID)
+}
+
+func scanRawPlayerByIDTx(ctx context.Context, tx *sql.Tx, playerID uint64) (*player.Profile, error) {
+	return scanRawPlayerByID(ctx, tx, playerID)
+}
+
+func scanRawPlayerByID(ctx context.Context, db DBTX, playerID uint64) (*player.Profile, error) {
 	var (
-		profile                                                                player.Profile
-		profileID                                                              int64
-		level                                                                  int64
-		exp                                                                    int64
-		freeAttrPoints                                                         int64
-		strength, vitality, agility, mind                                      int64
-		gold                                                                   int64
-		sceneID                                                                int64
-		posX, posY                                                             int64
-		hp, hpMax                                                              int64
-		vigor, vigorMax                                                        int64
-		spirit, spiritMax                                                      int64
-		atk, def, spd, mana                                                    int64
-		hitPct, dodgePct                                                       int64
-		critRatePct, critDmgPct                                                int64
-		physicalResistPct, skillResistPct                                      int64
-		confusionResistPct, sleepResistPct                                     int64
-		paralysisResistPct, sealResistPct                                      int64
-		curseResistPct, critResistPct, critDmgResistPct                        int64
-		characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct int64
-		guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
-		skillIDsJSON                                                           []byte
-		skinID                                                                 string
+		profile                                                                  player.Profile
+		profileID                                                                int64
+		level                                                                    int64
+		exp                                                                      int64
+		freeAttrPoints                                                           int64
+		strength, vitality, agility, mind                                        int64
+		gold                                                                     int64
+		sceneID                                                                  int64
+		posX, posY                                                               int64
+		hp, hpMax                                                                int64
+		vigor, vigorMax                                                          int64
+		spirit, spiritMax                                                        int64
+		atk, def, spd, mana                                                      int64
+		hitPct, dodgePct                                                         int64
+		critRatePct, critDmgPct                                                  int64
+		physicalResistPct, skillResistPct                                        int64
+		confusionResistPct, sleepResistPct                                       int64
+		paralysisResistPct, sealResistPct                                        int64
+		curseResistPct, critResistPct, critDmgResistPct                          int64
+		characterResistPct, petResistPct, mercenaryResistPct, genericShieldPct   int64
+		guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct   int64
+		skillIDsJSON                                                             []byte
+		skinID                                                                   string
+		baseHPMax, baseATK, baseDEF, baseSPD, baseMANA, baseHitPct, baseDodgePct int64
 	)
 
-	err := r.db.QueryRowContext(ctx, findPlayerByIDQuery, playerID).Scan(
+	err := db.QueryRowContext(ctx, findPlayerByIDQuery, playerID).Scan(
 		&profileID,
 		&profile.Name,
 		&level,
@@ -345,6 +383,13 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		&elementPenaltyPct,
 		&skillIDsJSON,
 		&skinID,
+		&baseHPMax,
+		&baseATK,
+		&baseDEF,
+		&baseSPD,
+		&baseMANA,
+		&baseHitPct,
+		&baseDodgePct,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -398,6 +443,13 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 	profile.ElementAdvPct = uint32(elementAdvPct)
 	profile.ElementPenaltyPct = uint32(elementPenaltyPct)
 	profile.SkinID = strings.TrimSpace(skinID)
+	profile.BaseHPMax = uint32(baseHPMax)
+	profile.BaseATK = uint32(baseATK)
+	profile.BaseDEF = uint32(baseDEF)
+	profile.BaseSPD = uint32(baseSPD)
+	profile.BaseMANA = uint32(baseMANA)
+	profile.BaseHitPct = uint32(baseHitPct)
+	profile.BaseDodgePct = uint32(baseDodgePct)
 	if len(skillIDsJSON) > 0 {
 		// 人物技能配置和宠物技能一样从数据库权威读取，避免人物参战时再回退到硬编码列表。
 		if err := json.Unmarshal(skillIDsJSON, &profile.SkillIDs); err != nil {
@@ -955,6 +1007,7 @@ func (r *PlayerRepository) CountActivePlayers(ctx context.Context) (uint64, erro
 // AddRewardAttribute 只允许白名单字段累加，避免奖励配置把任意 SQL 列名拼进更新语句。
 func (r *PlayerRepository) AddRewardAttribute(ctx context.Context, playerID uint64, attrKey string, value uint32) error {
 	columnName := ""
+	baseColumnName := ""
 	alsoIncreaseHP := false
 	switch strings.ToLower(strings.TrimSpace(attrKey)) {
 	case "free_attr_points":
@@ -968,16 +1021,21 @@ func (r *PlayerRepository) AddRewardAttribute(ctx context.Context, playerID uint
 	case "mind":
 		columnName = "mind"
 	case "hp_max":
-		columnName = "hp_max"
+		columnName = "base_hp_max"
+		baseColumnName = "base_hp_max"
 		alsoIncreaseHP = true
 	case "atk":
-		columnName = "atk"
+		columnName = "base_atk"
+		baseColumnName = "base_atk"
 	case "def":
-		columnName = "def"
+		columnName = "base_def"
+		baseColumnName = "base_def"
 	case "spd":
-		columnName = "spd"
+		columnName = "base_spd"
+		baseColumnName = "base_spd"
 	case "mana":
-		columnName = "mana"
+		columnName = "base_mana"
+		baseColumnName = "base_mana"
 	default:
 		return player.ErrInvalidRewardAttrKey
 	}
@@ -987,6 +1045,20 @@ func (r *PlayerRepository) AddRewardAttribute(ctx context.Context, playerID uint
 	query := fmt.Sprintf("UPDATE player SET %s = %s + $2 WHERE id = $1 AND status = 1", columnName, columnName)
 	if alsoIncreaseHP {
 		query = fmt.Sprintf("UPDATE player SET %s = %s + $2, hp = hp + $2 WHERE id = $1 AND status = 1", columnName, columnName)
+	}
+	if baseColumnName != "" {
+		switch baseColumnName {
+		case "base_hp_max":
+			query = "UPDATE player SET base_hp_max = base_hp_max + $2, hp = hp + $2 WHERE id = $1 AND status = 1"
+		case "base_atk":
+			query = "UPDATE player SET base_atk = base_atk + $2 WHERE id = $1 AND status = 1"
+		case "base_def":
+			query = "UPDATE player SET base_def = base_def + $2 WHERE id = $1 AND status = 1"
+		case "base_spd":
+			query = "UPDATE player SET base_spd = base_spd + $2 WHERE id = $1 AND status = 1"
+		case "base_mana":
+			query = "UPDATE player SET base_mana = base_mana + $2 WHERE id = $1 AND status = 1"
+		}
 	}
 	result, err := r.db.ExecContext(ctx, query, playerID, value)
 	if err != nil {

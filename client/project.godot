@@ -29,8 +29,8 @@ NetClient="*res://autoload/net_client.gd"
 App="*res://autoload/app.gd"
 SomeGlobal="*res://autoload/some_global.gd"
 ItemIcons="*res://autoload/item_icons.gd"
-WebRuntimeCanvas="*res://autoload/web_runtime_canvas.gd"
 BackgroundAudioKeeper="*res://autoload/background_audio_keeper.gd"
+WebRuntimeCanvas="*res://autoload/web_runtime_canvas.gd"
 
 [dialogue_manager]
 
@@ -40,8 +40,6 @@ runtime/balloon_path="res://dialogue/balloon.tscn"
 
 window/size/viewport_width=780
 window/size/viewport_height=1440
-window/size/window_width_override=780
-window/size/window_height_override=1440
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

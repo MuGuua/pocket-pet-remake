@@ -44,6 +44,8 @@ export interface AdminPetDetail extends AdminPetCombatStats {
   spd: number;
   mana: number;
   skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
   in_lineup: boolean;
   created_at: string;
   updated_at: string;
@@ -73,6 +75,8 @@ export interface AdminCreatePetPayload extends AdminPetCombatStats {
   spd: number;
   mana: number;
   skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
 }
 
 export interface AdminUpdatePetPayload extends AdminPetCombatStats {
@@ -88,4 +92,6 @@ export interface AdminUpdatePetPayload extends AdminPetCombatStats {
   spd: number;
   mana: number;
   skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
 }

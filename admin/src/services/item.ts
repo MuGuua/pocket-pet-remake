@@ -1,5 +1,7 @@
 import { requestJSON } from './http';
-import type { AdminItemDetail, AdminItemListFilters, AdminItemListResult, AdminUpsertItemPayload } from '../types/item';
+import type { AdminItemDetail, AdminItemListFilters, AdminItemListResult, AdminItemSummary, AdminUpsertItemPayload } from '../types/item';
+
+const ADMIN_ITEM_LIST_PAGE_SIZE = 100;
 
 export async function fetchAdminItems(params: { filters?: AdminItemListFilters; page?: number; pageSize?: number }): Promise<AdminItemListResult> {
   const query = new URLSearchParams();
@@ -11,6 +13,24 @@ export async function fetchAdminItems(params: { filters?: AdminItemListFilters; 
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminItemListResult>({ url: `/api/admin/items?${query.toString()}`, method: 'GET' });
+}
+
+// 分页拉取全部物品，供怪物捕捉道具等引用字段复用。
+export async function fetchAllAdminItems(filters?: AdminItemListFilters) {
+  const items: AdminItemSummary[] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await fetchAdminItems({
+      filters,
+      page,
+      pageSize: ADMIN_ITEM_LIST_PAGE_SIZE,
+    });
+    items.push(...result.items);
+    total = result.total;
+    page += 1;
+  } while (items.length < total);
+  return items;
 }
 
 export async function fetchAdminItemDetail(itemID: number): Promise<AdminItemDetail> {

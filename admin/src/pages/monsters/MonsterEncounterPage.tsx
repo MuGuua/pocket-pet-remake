@@ -17,6 +17,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { MonsterSpawnListEditor } from '../../components/MonsterSpawnListEditor';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import {
   createAdminMonsterEncounter,
@@ -32,9 +33,7 @@ import type {
   AdminUpsertMonsterEncounterPayload,
 } from '../../types/monsterEncounter';
 
-interface MonsterEncounterFormValues extends AdminUpsertMonsterEncounterPayload {
-  spawn_monster_ids_text?: string;
-}
+type MonsterEncounterFormValues = AdminUpsertMonsterEncounterPayload;
 
 // NPC 固定战遭遇按世界 entity_id 绑定刷怪列表；玩家与 NPC 交互后开战。
 export function NpcFixedEncounterPanel() {
@@ -255,8 +254,13 @@ export function NpcFixedEncounterPanel() {
           <Form.Item label="描述" name="description">
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item label="刷怪 monster_id 列表" name="spawn_monster_ids_text" extra="按槽位顺序填写，多个 ID 用英文逗号分隔，例如 9001,9001,9002" rules={[{ required: true, message: '请填写刷怪列表' }]}>
-            <Input placeholder="9001,9002" />
+          <Form.Item
+            label="刷怪 monster_id 列表"
+            name="spawn_monster_ids"
+            extra="按列表顺序配置刷怪槽位；可重复添加同一怪物，表示多个相同出场位。"
+            rules={[{ required: true, message: '请至少添加一个怪物' }]}
+          >
+            <MonsterSpawnListEditor />
           </Form.Item>
           <Form.Item label="启用" name="is_enabled" valuePropName="checked">
             <Switch />
@@ -272,8 +276,7 @@ function defaultMonsterEncounterValues(): MonsterEncounterFormValues {
     entity_id: 88001,
     encounter_name: '新遭遇配置',
     description: '',
-    spawn_monster_ids: [],
-    spawn_monster_ids_text: '9001',
+    spawn_monster_ids: [9001],
     is_enabled: true,
   };
 }
@@ -283,24 +286,17 @@ function mapDetailToFormValues(detail: AdminMonsterEncounterDetail): MonsterEnco
     entity_id: detail.entity_id,
     encounter_name: detail.encounter_name,
     description: detail.description,
-    spawn_monster_ids: detail.spawn_monster_ids,
-    spawn_monster_ids_text: detail.spawn_monster_ids.join(','),
+    spawn_monster_ids: detail.spawn_monster_ids ?? [],
     is_enabled: detail.is_enabled,
   };
 }
 
 function buildPayloadFromForm(values: MonsterEncounterFormValues): AdminUpsertMonsterEncounterPayload {
-  const spawnMonsterIDs = parseMonsterIDs(values.spawn_monster_ids_text ?? '');
   return {
     entity_id: Number(values.entity_id),
     encounter_name: values.encounter_name.trim(),
     description: values.description?.trim() ?? '',
-    spawn_monster_ids: spawnMonsterIDs,
+    spawn_monster_ids: values.spawn_monster_ids ?? [],
     is_enabled: Boolean(values.is_enabled),
   };
-}
-
-function parseMonsterIDs(raw: string): number[] {
-  if (!raw.trim()) return [];
-  return raw.split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0);
 }

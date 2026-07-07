@@ -130,7 +130,7 @@ func (s *Service) GetAdminSkillDefinitionDetail(ctx context.Context, skillID uin
 // CreateAdminSkillDefinition 新增系统技能模板并刷新运行时缓存。
 func (s *Service) CreateAdminSkillDefinition(ctx context.Context, input AdminUpsertInput) (*AdminDetail, error) {
 	input = input.Normalize()
-	if input.SkillID == 0 || input.SkillName == "" {
+	if err := validateAdminSkillDefinitionInput(input); err != nil {
 		return nil, ErrInvalidAdminSkillDefinitionInput
 	}
 	created, err := s.repo.CreateForAdmin(ctx, input)
@@ -146,7 +146,11 @@ func (s *Service) CreateAdminSkillDefinition(ctx context.Context, input AdminUps
 // UpdateAdminSkillDefinition 更新系统技能模板并刷新运行时缓存。
 func (s *Service) UpdateAdminSkillDefinition(ctx context.Context, skillID uint32, input AdminUpsertInput) (*AdminDetail, error) {
 	input = input.Normalize()
-	if skillID == 0 || input.SkillName == "" {
+	if skillID == 0 {
+		return nil, ErrInvalidAdminSkillDefinitionInput
+	}
+	input.SkillID = skillID
+	if err := validateAdminSkillDefinitionInput(input); err != nil {
 		return nil, ErrInvalidAdminSkillDefinitionInput
 	}
 	updated, err := s.repo.UpdateForAdmin(ctx, skillID, input)
@@ -168,4 +172,48 @@ func (s *Service) DeleteAdminSkillDefinition(ctx context.Context, skillID uint32
 		return err
 	}
 	return s.RefreshRuntimeCache(ctx)
+}
+
+// validateAdminSkillDefinitionInput 收口后台技能模板的最小业务约束，
+// 避免把“被动技能也可主动释放”这类非法配置写入权威技能库。
+func validateAdminSkillDefinitionInput(input AdminUpsertInput) error {
+	if input.SkillID == 0 || input.SkillName == "" {
+		return ErrInvalidAdminSkillDefinitionInput
+	}
+	if !IsValidPassiveAttrKey(input.PassiveAttrKey) || !IsValidPassiveAttrMode(input.PassiveAttrMode) {
+		return ErrInvalidAdminSkillDefinitionInput
+	}
+	if input.PassiveAttrKey == "" {
+		if input.PassiveAttrMode != "" || input.PassiveAttrValue != 0 {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+	} else {
+		if input.ActivationMode != ActivationModePassive {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.PassiveAttrMode == "" || input.PassiveAttrValue <= 0 {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.PassiveAttrMode == PassiveAttrModePercent && !SupportsPassiveAttrPercent(input.PassiveAttrKey) {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+	}
+	if input.ActivationMode == ActivationModePassive {
+		if input.IsBasicAttack {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.TargetType != "self" {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.TargetCount != 0 {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.PreferredTargetHP != "" {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+		if input.EnergyCost != 0 {
+			return ErrInvalidAdminSkillDefinitionInput
+		}
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -80,6 +81,7 @@ func (h *AdminPetDefinitionHandler) handleDetail(w http.ResponseWriter, r *http.
 			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "pet definition not found", nil)
 			return
 		}
+		log.Printf("[http-error] path=%s method=%s msg=load admin pet definition detail failed pet_id=%d err=%v", r.URL.Path, r.Method, petID, err)
 		writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load admin pet definition detail failed", nil)
 		return
 	}

@@ -430,33 +430,33 @@ func (r *PetRepository) FindPetSkinID(ctx context.Context, petID uint32) (string
 
 func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetail, error) {
 	var (
-		detail       pet.AdminPetDefinitionDetail
-		petID        int64
-		status       int64
-		level        int64
-		quality      int64
-		hp           int64
-		hpMax        int64
-		atk          int64
-		def          int64
-		spd          int64
-		mana         int64
-		hpApt        int64
-		atkApt       int64
-		defApt       int64
-		spdApt       int64
-		manaApt      int64
-		hpAptRollMin int64
-		hpAptRollMax int64
-		atkAptRollMin int64
-		atkAptRollMax int64
-		defAptRollMin int64
-		defAptRollMax int64
-		spdAptRollMin int64
-		spdAptRollMax int64
-		manaAptRollMin int64
-		manaAptRollMax int64
-		skillIDsJSON []byte
+		detail             pet.AdminPetDefinitionDetail
+		petID              int64
+		status             int64
+		level              int64
+		quality            int64
+		hp                 int64
+		hpMax              int64
+		atk                int64
+		def                int64
+		spd                int64
+		mana               int64
+		hpApt              int64
+		atkApt             int64
+		defApt             int64
+		spdApt             int64
+		manaApt            int64
+		hpAptRollMin       int64
+		hpAptRollMax       int64
+		atkAptRollMin      int64
+		atkAptRollMax      int64
+		defAptRollMin      int64
+		defAptRollMax      int64
+		spdAptRollMin      int64
+		spdAptRollMax      int64
+		manaAptRollMin     int64
+		manaAptRollMax     int64
+		skillIDsJSON       []byte
 		innateSkillIDsJSON []byte
 		normalSkillIDsJSON []byte
 	)
@@ -535,19 +535,25 @@ func scanAdminPetDefinitionDetailRow(row *sql.Row) (*pet.AdminPetDefinitionDetai
 		MANAAptRollMax: uint32(manaAptRollMax),
 	}
 	if len(skillIDsJSON) > 0 {
-		if err := json.Unmarshal(skillIDsJSON, &detail.SkillIDs); err != nil {
+		parsedSkillIDs, err := unmarshalFlexibleUint32Array(skillIDsJSON)
+		if err != nil {
 			return nil, fmt.Errorf("unmarshal pet definition skill ids: %w", err)
 		}
+		detail.SkillIDs = parsedSkillIDs
 	}
 	if len(innateSkillIDsJSON) > 0 {
-		if err := json.Unmarshal(innateSkillIDsJSON, &detail.InnateSkillIDs); err != nil {
+		parsedInnateSkillIDs, err := unmarshalFlexibleUint32Array(innateSkillIDsJSON)
+		if err != nil {
 			return nil, fmt.Errorf("unmarshal pet definition innate skill ids: %w", err)
 		}
+		detail.InnateSkillIDs = parsedInnateSkillIDs
 	}
 	if len(normalSkillIDsJSON) > 0 {
-		if err := json.Unmarshal(normalSkillIDsJSON, &detail.NormalSkillIDs); err != nil {
+		parsedNormalSkillIDs, err := unmarshalFlexibleUint32Array(normalSkillIDsJSON)
+		if err != nil {
 			return nil, fmt.Errorf("unmarshal pet definition normal skill ids: %w", err)
 		}
+		detail.NormalSkillIDs = parsedNormalSkillIDs
 	}
 	if detail.SkillIDs == nil {
 		detail.SkillIDs = []uint32{}

@@ -7,8 +7,6 @@ import {
   defaultAdminPetCombatStats,
   type AdminPetCombatStats,
 } from '../../types/petCombatStats';
-import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
-
 export interface PetInstanceFormValues extends AdminPetCombatStats {
   player_id?: number;
   pet_id: number;
@@ -22,7 +20,25 @@ export interface PetInstanceFormValues extends AdminPetCombatStats {
   def: number;
   spd: number;
   mana: number;
-  skill_names_text: string;
+  skill_ids: number[];
+  innate_skill_ids: number[];
+  normal_skill_ids: number[];
+}
+
+export function mergePlayerPetSkillIDs(innateSkillIDs: number[], normalSkillIDs: number[], legacySkillIDs: number[]): number[] {
+  const seen = new Set<number>();
+  const result: number[] = [];
+  [innateSkillIDs, normalSkillIDs, legacySkillIDs].forEach((group) => {
+    group.forEach((skillID) => {
+      const value = Number(skillID);
+      if (!value || seen.has(value)) {
+        return;
+      }
+      seen.add(value);
+      result.push(value);
+    });
+  });
+  return result;
 }
 
 export function defaultPetInstanceCreateValues(playerId: number): PetInstanceFormValues {
@@ -39,12 +55,14 @@ export function defaultPetInstanceCreateValues(playerId: number): PetInstanceFor
     def: 5,
     spd: 5,
     mana: 0,
-    skill_names_text: '普通攻击',
+    skill_ids: [1001],
+    innate_skill_ids: [],
+    normal_skill_ids: [1001],
     ...defaultAdminPetCombatStats(),
   };
 }
 
-export function mapPetDetailToForm(detail: AdminPetDetail, skillReferenceMap: SkillReferenceMap): PetInstanceFormValues {
+export function mapPetDetailToForm(detail: AdminPetDetail): PetInstanceFormValues {
   return {
     pet_id: detail.pet_id,
     custom_name: detail.custom_name ?? '',
@@ -57,7 +75,9 @@ export function mapPetDetailToForm(detail: AdminPetDetail, skillReferenceMap: Sk
     def: detail.def,
     spd: detail.spd,
     mana: detail.mana,
-    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
+    skill_ids: detail.skill_ids ?? [],
+    innate_skill_ids: detail.innate_skill_ids ?? [],
+    normal_skill_ids: detail.normal_skill_ids ?? [],
     spirit: detail.spirit,
     spirit_max: detail.spirit_max,
     hit_pct: detail.hit_pct,
@@ -114,7 +134,10 @@ function buildCombatStats(values: PetInstanceFormValues): AdminPetCombatStats {
   };
 }
 
-export function mapPetFormToCreatePayload(values: PetInstanceFormValues, skillReferenceMap: SkillReferenceMap): AdminCreatePetPayload {
+export function mapPetFormToCreatePayload(values: PetInstanceFormValues): AdminCreatePetPayload {
+  const innateSkillIDs = values.innate_skill_ids ?? [];
+  const normalSkillIDs = values.normal_skill_ids ?? [];
+  const skillIDs = mergePlayerPetSkillIDs(innateSkillIDs, normalSkillIDs, values.skill_ids ?? []);
   return {
     player_id: values.player_id ?? 0,
     pet_id: values.pet_id,
@@ -127,12 +150,17 @@ export function mapPetFormToCreatePayload(values: PetInstanceFormValues, skillRe
     def: values.def,
     spd: values.spd,
     mana: values.mana,
-    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skill_ids: skillIDs,
+    innate_skill_ids: innateSkillIDs,
+    normal_skill_ids: normalSkillIDs,
     ...buildCombatStats(values),
   };
 }
 
-export function mapPetFormToUpdatePayload(values: PetInstanceFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePetPayload {
+export function mapPetFormToUpdatePayload(values: PetInstanceFormValues): AdminUpdatePetPayload {
+  const innateSkillIDs = values.innate_skill_ids ?? [];
+  const normalSkillIDs = values.normal_skill_ids ?? [];
+  const skillIDs = mergePlayerPetSkillIDs(innateSkillIDs, normalSkillIDs, values.skill_ids ?? []);
   return {
     pet_id: values.pet_id,
     custom_name: values.custom_name ?? '',
@@ -145,7 +173,9 @@ export function mapPetFormToUpdatePayload(values: PetInstanceFormValues, skillRe
     def: values.def,
     spd: values.spd,
     mana: values.mana,
-    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
+    skill_ids: skillIDs,
+    innate_skill_ids: innateSkillIDs,
+    normal_skill_ids: normalSkillIDs,
     ...buildCombatStats(values),
   };
 }

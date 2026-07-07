@@ -17,16 +17,35 @@ var (
 	ErrInvalidSkillReference = errors.New("invalid skill reference")
 )
 
+const (
+	ActivationModeActive  = "active"
+	ActivationModePassive = "passive"
+
+	PassiveAttrModeFlat    = "flat"
+	PassiveAttrModePercent = "percent"
+
+	PassiveAttrKeyHPMax              = "hp_max"
+	PassiveAttrKeyATK                = "atk"
+	PassiveAttrKeySPD                = "spd"
+	PassiveAttrKeyMana               = "mana"
+	PassiveAttrKeyCritRatePct        = "crit_rate_pct"
+	PassiveAttrKeyCritDmgPct         = "crit_dmg_pct"
+	PassiveAttrKeyPhysicalResistPct  = "physical_resist_pct"
+	PassiveAttrKeySkillResistPct     = "skill_resist_pct"
+	PassiveAttrKeyAllStatusResistPct = "all_status_resist_pct"
+)
+
 // AdminListQuery 定义系统技能模板列表筛选参数。
 type AdminListQuery struct {
-	SkillID  uint32
-	Name     string
-	Category string
-	Type     string
-	Enabled  *bool
-	OrderBy  string
-	Page     uint32
-	PageSize uint32
+	SkillID        uint32
+	Name           string
+	Category       string
+	Type           string
+	ActivationMode string
+	Enabled        *bool
+	OrderBy        string
+	Page           uint32
+	PageSize       uint32
 }
 
 // Normalize 收口分页与筛选默认值。
@@ -43,24 +62,26 @@ func (q AdminListQuery) Normalize() AdminListQuery {
 	q.Name = strings.TrimSpace(q.Name)
 	q.Category = strings.TrimSpace(q.Category)
 	q.Type = strings.TrimSpace(q.Type)
+	q.ActivationMode = strings.TrimSpace(q.ActivationMode)
 	q.OrderBy = strings.TrimSpace(q.OrderBy)
 	return q
 }
 
 // AdminSummary 是列表页展示字段；公式与效果字段仅在详情页展示。
 type AdminSummary struct {
-	SkillID       uint32    `json:"skill_id"`
-	SkillCode     string    `json:"skill_code"`
-	SkillName     string    `json:"skill_name"`
-	SkillCategory string    `json:"skill_category"`
-	SkillType     string    `json:"skill_type"`
-	TargetType    string    `json:"target_type"`
-	EnergyCost    uint32    `json:"energy_cost"`
-	IsBasicAttack bool      `json:"is_basic_attack"`
-	IsEnabled     bool      `json:"is_enabled"`
-	StatusText    string    `json:"status_text"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	CreatedAt     time.Time `json:"created_at"`
+	SkillID        uint32    `json:"skill_id"`
+	SkillCode      string    `json:"skill_code"`
+	SkillName      string    `json:"skill_name"`
+	SkillCategory  string    `json:"skill_category"`
+	SkillType      string    `json:"skill_type"`
+	ActivationMode string    `json:"activation_mode"`
+	TargetType     string    `json:"target_type"`
+	EnergyCost     uint32    `json:"energy_cost"`
+	IsBasicAttack  bool      `json:"is_basic_attack"`
+	IsEnabled      bool      `json:"is_enabled"`
+	StatusText     string    `json:"status_text"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // AdminList 是系统技能模板分页响应。
@@ -131,71 +152,76 @@ type AdminPresentation struct {
 	AnimationKey  string `json:"animation_key"`
 	SkillVisualID string `json:"skill_visual_id"`
 	CastColor     string `json:"cast_color"`
-	ImpactColor  string `json:"impact_color"`
-	Projectile   bool   `json:"projectile"`
+	ImpactColor   string `json:"impact_color"`
+	Projectile    bool   `json:"projectile"`
 }
 
 // AdminDetail 是详情抽屉所需的完整模板信息。
 type AdminDetail struct {
-	SkillID           uint32             `json:"skill_id"`
-	SkillCode         string             `json:"skill_code"`
-	SkillName         string             `json:"skill_name"`
-	SkillCategory     string             `json:"skill_category"`
-	WeaponDiscipline  string             `json:"weapon_discipline"`
-	LearnExpRequired  uint32             `json:"learn_exp_required"`
-	LearnExpPerUse    uint32             `json:"learn_exp_per_use"`
-	SkillType         string             `json:"skill_type"`
-	Description     string             `json:"description"`
-	AcquireMethod   string             `json:"acquire_method"`
-	IsBasicAttack   bool               `json:"is_basic_attack"`
-	IsEnabled       bool               `json:"is_enabled"`
-	StatusText      string             `json:"status_text"`
-	SortWeight      uint32             `json:"sort_weight"`
-	TargetRule      AdminTargetRule    `json:"target_rule"`
-	Formula         AdminFormula       `json:"formula"`
-	StatusEffects   AdminStatusEffects `json:"status_effects"`
-	Presentation    AdminPresentation  `json:"presentation"`
-	CreatedAt       time.Time          `json:"created_at"`
-	UpdatedAt       time.Time          `json:"updated_at"`
+	SkillID          uint32             `json:"skill_id"`
+	SkillCode        string             `json:"skill_code"`
+	SkillName        string             `json:"skill_name"`
+	SkillCategory    string             `json:"skill_category"`
+	WeaponDiscipline string             `json:"weapon_discipline"`
+	LearnExpRequired uint32             `json:"learn_exp_required"`
+	LearnExpPerUse   uint32             `json:"learn_exp_per_use"`
+	SkillType        string             `json:"skill_type"`
+	ActivationMode   string             `json:"activation_mode"`
+	Description      string             `json:"description"`
+	AcquireMethod    string             `json:"acquire_method"`
+	IsBasicAttack    bool               `json:"is_basic_attack"`
+	IsEnabled        bool               `json:"is_enabled"`
+	StatusText       string             `json:"status_text"`
+	SortWeight       uint32             `json:"sort_weight"`
+	TargetRule       AdminTargetRule    `json:"target_rule"`
+	Formula          AdminFormula       `json:"formula"`
+	StatusEffects    AdminStatusEffects `json:"status_effects"`
+	Presentation     AdminPresentation  `json:"presentation"`
+	PassiveAttrKey   string             `json:"passive_attr_key"`
+	PassiveAttrMode  string             `json:"passive_attr_mode"`
+	PassiveAttrValue int32              `json:"passive_attr_value"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at"`
 }
 
 // AdminUpsertInput 描述后台新增或编辑系统技能模板时提交的字段。
 type AdminUpsertInput struct {
-	SkillID          uint32 `json:"skill_id"`
-	SkillCode        string `json:"skill_code"`
-	SkillName        string `json:"skill_name"`
-	SkillCategory    string `json:"skill_category"`
-	WeaponDiscipline string `json:"weapon_discipline"`
-	LearnExpRequired uint32 `json:"learn_exp_required"`
-	LearnExpPerUse   uint32 `json:"learn_exp_per_use"`
-	SkillType        string `json:"skill_type"`
-	Description   string `json:"description"`
-	AcquireMethod string `json:"acquire_method"`
-	IsBasicAttack bool   `json:"is_basic_attack"`
-	IsEnabled     bool   `json:"is_enabled"`
-	SortWeight    uint32 `json:"sort_weight"`
-	TargetType        string `json:"target_type"`
-	TargetCount       uint32 `json:"target_count"`
-	PreferredTargetHP string `json:"preferred_target_hp"`
-	AnimationKey  string `json:"animation_key"`
-	SkillVisualID string `json:"skill_visual_id"`
-	CastColor     string `json:"cast_color"`
-	ImpactColor  string `json:"impact_color"`
-	Projectile   bool   `json:"projectile"`
-	IsSkillAttack     bool   `json:"is_skill_attack"`
-	EnergyCost        uint32 `json:"energy_cost"`
-	AllowCrit         bool   `json:"allow_crit"`
-	IgnoreDefense     bool   `json:"ignore_defense"`
-	SkillMult         uint32 `json:"skill_mult"`
-	SkillCritAdd      uint32 `json:"skill_crit_add"`
-	AttackPct         int32  `json:"attack_pct"`
-	ManaPct           int32  `json:"mana_pct"`
-	DefensePct        int32  `json:"defense_pct"`
-	SpeedPct          int32  `json:"speed_pct"`
-	TargetCurrentHPPct int32 `json:"target_current_hp_pct"`
-	FixedDamage       int32  `json:"fixed_damage"`
-	HealPct           int32  `json:"heal_pct"`
-	FixedHeal         int32  `json:"fixed_heal"`
+	SkillID                uint32 `json:"skill_id"`
+	SkillCode              string `json:"skill_code"`
+	SkillName              string `json:"skill_name"`
+	SkillCategory          string `json:"skill_category"`
+	WeaponDiscipline       string `json:"weapon_discipline"`
+	LearnExpRequired       uint32 `json:"learn_exp_required"`
+	LearnExpPerUse         uint32 `json:"learn_exp_per_use"`
+	SkillType              string `json:"skill_type"`
+	ActivationMode         string `json:"activation_mode"`
+	Description            string `json:"description"`
+	AcquireMethod          string `json:"acquire_method"`
+	IsBasicAttack          bool   `json:"is_basic_attack"`
+	IsEnabled              bool   `json:"is_enabled"`
+	SortWeight             uint32 `json:"sort_weight"`
+	TargetType             string `json:"target_type"`
+	TargetCount            uint32 `json:"target_count"`
+	PreferredTargetHP      string `json:"preferred_target_hp"`
+	AnimationKey           string `json:"animation_key"`
+	SkillVisualID          string `json:"skill_visual_id"`
+	CastColor              string `json:"cast_color"`
+	ImpactColor            string `json:"impact_color"`
+	Projectile             bool   `json:"projectile"`
+	IsSkillAttack          bool   `json:"is_skill_attack"`
+	EnergyCost             uint32 `json:"energy_cost"`
+	AllowCrit              bool   `json:"allow_crit"`
+	IgnoreDefense          bool   `json:"ignore_defense"`
+	SkillMult              uint32 `json:"skill_mult"`
+	SkillCritAdd           uint32 `json:"skill_crit_add"`
+	AttackPct              int32  `json:"attack_pct"`
+	ManaPct                int32  `json:"mana_pct"`
+	DefensePct             int32  `json:"defense_pct"`
+	SpeedPct               int32  `json:"speed_pct"`
+	TargetCurrentHPPct     int32  `json:"target_current_hp_pct"`
+	FixedDamage            int32  `json:"fixed_damage"`
+	HealPct                int32  `json:"heal_pct"`
+	FixedHeal              int32  `json:"fixed_heal"`
 	ArmorBreakPct          uint32 `json:"armor_break_pct"`
 	VulnerabilityPct       uint32 `json:"vulnerability_pct"`
 	BleedChancePct         uint32 `json:"bleed_chance_pct"`
@@ -222,6 +248,9 @@ type AdminUpsertInput struct {
 	ControlPower           uint32 `json:"control_power"`
 	ControlRounds          uint32 `json:"control_rounds"`
 	ControlStatusID        uint32 `json:"control_status_id"`
+	PassiveAttrKey         string `json:"passive_attr_key"`
+	PassiveAttrMode        string `json:"passive_attr_mode"`
+	PassiveAttrValue       int32  `json:"passive_attr_value"`
 }
 
 // Normalize 补齐模板字段默认值，避免运营漏填导致战斗链路异常。
@@ -231,13 +260,17 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	input.SkillCategory = strings.TrimSpace(input.SkillCategory)
 	input.WeaponDiscipline = strings.TrimSpace(input.WeaponDiscipline)
 	input.SkillType = strings.TrimSpace(input.SkillType)
+	input.ActivationMode = strings.TrimSpace(input.ActivationMode)
 	input.Description = strings.TrimSpace(input.Description)
 	input.AcquireMethod = strings.TrimSpace(input.AcquireMethod)
 	input.TargetType = strings.TrimSpace(input.TargetType)
 	input.PreferredTargetHP = strings.TrimSpace(input.PreferredTargetHP)
 	input.AnimationKey = strings.TrimSpace(input.AnimationKey)
+	input.SkillVisualID = strings.TrimSpace(input.SkillVisualID)
 	input.CastColor = strings.TrimSpace(input.CastColor)
 	input.ImpactColor = strings.TrimSpace(input.ImpactColor)
+	input.PassiveAttrKey = strings.TrimSpace(input.PassiveAttrKey)
+	input.PassiveAttrMode = strings.TrimSpace(input.PassiveAttrMode)
 	if input.SkillCategory == "" {
 		input.SkillCategory = CategoryCommon
 	}
@@ -252,20 +285,37 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	if input.SkillType == "" {
 		input.SkillType = "attack"
 	}
+	if input.ActivationMode == "" {
+		input.ActivationMode = ActivationModeActive
+	}
+	if input.ActivationMode != ActivationModePassive {
+		input.ActivationMode = ActivationModeActive
+	}
 	if input.TargetType == "" {
 		input.TargetType = "enemy_single"
 	}
-	if input.AnimationKey == "" {
-		input.AnimationKey = "slash"
+	if input.ActivationMode == ActivationModePassive {
+		input.TargetType = "self"
+		input.TargetCount = 0
+		input.PreferredTargetHP = ""
+		input.EnergyCost = 0
+	} else {
+		if input.AnimationKey == "" {
+			input.AnimationKey = "slash"
+		}
+		if input.CastColor == "" {
+			input.CastColor = "#EBEBF5"
+		}
+		if input.ImpactColor == "" {
+			input.ImpactColor = "#FFF2F2"
+		}
+		if input.AttackPct == 0 && input.HealPct == 0 && input.FixedDamage == 0 && input.FixedHeal == 0 {
+			input.AttackPct = 100
+		}
 	}
-	if input.CastColor == "" {
-		input.CastColor = "#EBEBF5"
-	}
-	if input.ImpactColor == "" {
-		input.ImpactColor = "#FFF2F2"
-	}
-	if input.AttackPct == 0 && input.HealPct == 0 && input.FixedDamage == 0 && input.FixedHeal == 0 {
-		input.AttackPct = 100
+	if input.PassiveAttrKey == "" {
+		input.PassiveAttrMode = ""
+		input.PassiveAttrValue = 0
 	}
 	return input
 }
@@ -279,6 +329,7 @@ type RuntimeDefinition struct {
 	LearnExpRequired       uint32
 	LearnExpPerUse         uint32
 	SkillName              string
+	ActivationMode         string
 	TargetType             string
 	TargetCount            uint32
 	PreferredTargetHP      string
@@ -327,5 +378,47 @@ type RuntimeDefinition struct {
 	ControlPower           uint32
 	ControlRounds          uint32
 	ControlStatusID        uint32
+	PassiveAttrKey         string
+	PassiveAttrMode        string
+	PassiveAttrValue       int32
 	IsBasicAttack          bool
+}
+
+// IsValidPassiveAttrKey 判断后台选择的永久被动属性字段是否在当前受支持范围内。
+func IsValidPassiveAttrKey(value string) bool {
+	switch value {
+	case "",
+		PassiveAttrKeyHPMax,
+		PassiveAttrKeyATK,
+		PassiveAttrKeySPD,
+		PassiveAttrKeyMana,
+		PassiveAttrKeyCritRatePct,
+		PassiveAttrKeyCritDmgPct,
+		PassiveAttrKeyPhysicalResistPct,
+		PassiveAttrKeySkillResistPct,
+		PassiveAttrKeyAllStatusResistPct:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsValidPassiveAttrMode 判断后台提交的永久被动加成方式是否合法。
+func IsValidPassiveAttrMode(value string) bool {
+	switch value {
+	case "", PassiveAttrModeFlat, PassiveAttrModePercent:
+		return true
+	default:
+		return false
+	}
+}
+
+// SupportsPassiveAttrPercent 判断某个永久属性字段是否允许按百分比提升基础属性。
+func SupportsPassiveAttrPercent(value string) bool {
+	switch value {
+	case PassiveAttrKeyHPMax, PassiveAttrKeyATK, PassiveAttrKeySPD, PassiveAttrKeyMana:
+		return true
+	default:
+		return false
+	}
 }

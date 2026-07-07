@@ -7,6 +7,7 @@ export interface AdminSkillSummary {
   learn_exp_required?: number;
   learn_exp_per_use?: number;
   skill_type: string;
+  activation_mode: string;
   target_type: string;
   energy_cost: number;
   is_basic_attack: boolean;
@@ -92,6 +93,7 @@ export interface AdminSkillDetail {
   learn_exp_required?: number;
   learn_exp_per_use?: number;
   skill_type: string;
+  activation_mode: string;
   description: string;
   acquire_method: string;
   is_basic_attack: boolean;
@@ -102,6 +104,9 @@ export interface AdminSkillDetail {
   formula: AdminSkillFormula;
   status_effects: AdminSkillStatusEffects;
   presentation: AdminSkillPresentation;
+  passive_attr_key: string;
+  passive_attr_mode: string;
+  passive_attr_value: number;
   created_at: string;
   updated_at: string;
 }
@@ -111,6 +116,7 @@ export interface AdminSkillListFilters {
   name?: string;
   category?: string;
   skill_type?: string;
+  activation_mode?: string;
   enabled?: 'true' | 'false';
   order_by?: string;
 }
@@ -124,6 +130,7 @@ export interface AdminUpsertSkillPayload {
   learn_exp_required?: number;
   learn_exp_per_use?: number;
   skill_type: string;
+  activation_mode: string;
   description: string;
   acquire_method: string;
   is_basic_attack: boolean;
@@ -177,6 +184,9 @@ export interface AdminUpsertSkillPayload {
   control_power: number;
   control_rounds: number;
   control_status_id: number;
+  passive_attr_key: string;
+  passive_attr_mode: string;
+  passive_attr_value: number;
 }
 
 // defaultSkillValues 为新建技能模板提供完整默认值；skill_id / skill_code 由页面在打开弹窗时注入。
@@ -187,6 +197,7 @@ export function defaultSkillValues(skillID: number): AdminUpsertSkillPayload {
     skill_name: '新系统技能',
     skill_category: 'pet',
     skill_type: 'attack',
+    activation_mode: 'active',
     description: '',
     acquire_method: '运营配置',
     is_basic_attack: false,
@@ -240,6 +251,9 @@ export function defaultSkillValues(skillID: number): AdminUpsertSkillPayload {
     control_power: 0,
     control_rounds: 0,
     control_status_id: 0,
+    passive_attr_key: '',
+    passive_attr_mode: '',
+    passive_attr_value: 0,
   };
 }
 
@@ -254,6 +268,7 @@ export function detailToPayload(detail: AdminSkillDetail): AdminUpsertSkillPaylo
     learn_exp_required: detail.learn_exp_required,
     learn_exp_per_use: detail.learn_exp_per_use,
     skill_type: detail.skill_type,
+    activation_mode: detail.activation_mode,
     description: detail.description,
     acquire_method: detail.acquire_method,
     is_basic_attack: detail.is_basic_attack,
@@ -307,5 +322,8 @@ export function detailToPayload(detail: AdminSkillDetail): AdminUpsertSkillPaylo
     control_power: detail.status_effects.control_power,
     control_rounds: detail.status_effects.control_rounds,
     control_status_id: detail.status_effects.control_status_id,
+    passive_attr_key: detail.passive_attr_key,
+    passive_attr_mode: detail.passive_attr_mode,
+    passive_attr_value: detail.passive_attr_value,
   };
 }

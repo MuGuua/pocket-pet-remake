@@ -23,6 +23,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { GrantPetFromTemplateModal } from '../../components/GrantPetFromTemplateModal';
+import { PetSkillSlotListEditor } from '../../components/PetSkillSlotListEditor';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
@@ -40,6 +41,7 @@ import {
   formatPetDateTime,
   mapPetDetailToForm,
   mapPetFormToUpdatePayload,
+  mergePlayerPetSkillIDs,
   type PetInstanceFormValues,
 } from './petInstanceFormUtils';
 
@@ -48,6 +50,8 @@ export function PlayerPetListPage() {
   const { map: skillReferenceMap } = useSkillReferenceMap();
   const [filterForm] = Form.useForm<AdminPetListFilters>();
   const [editorForm] = Form.useForm<PetInstanceFormValues>();
+  const innateSkillIDs = Form.useWatch('innate_skill_ids', editorForm) ?? [];
+  const normalSkillIDs = Form.useWatch('normal_skill_ids', editorForm) ?? [];
   const [filters, setFilters] = useState<AdminPetListFilters>({});
   const [rows, setRows] = useState<AdminPetSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -67,6 +71,11 @@ export function PlayerPetListPage() {
   useEffect(() => {
     void loadPets(filters, page, pageSize);
   }, [filters, page, pageSize]);
+
+  useEffect(() => {
+    const mergedSkillIDs = mergePlayerPetSkillIDs(innateSkillIDs, normalSkillIDs, []);
+    editorForm.setFieldValue('skill_ids', mergedSkillIDs);
+  }, [editorForm, innateSkillIDs, normalSkillIDs]);
 
   async function loadPets(nextFilters: AdminPetListFilters, nextPage: number, nextPageSize: number) {
     setLoading(true);
@@ -110,7 +119,7 @@ export function PlayerPetListPage() {
     try {
       const result = await fetchAdminPetDetail(petUID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapPetDetailToForm(result, skillReferenceMap));
+      editorForm.setFieldsValue(mapPetDetailToForm(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载宠物编辑数据失败');
       setEditorOpen(false);
@@ -125,7 +134,7 @@ export function PlayerPetListPage() {
     }
     setSaving(true);
     try {
-      await updateAdminPet(editingRecord.pet_uid, mapPetFormToUpdatePayload(values, skillReferenceMap));
+      await updateAdminPet(editingRecord.pet_uid, mapPetFormToUpdatePayload(values));
       message.success('宠物更新成功');
       setEditorOpen(false);
       setEditingRecord(null);
@@ -361,7 +370,13 @@ export function PlayerPetListPage() {
               <Descriptions.Item label="生命">{`${detail.hp}/${detail.hp_max}`}</Descriptions.Item>
               <Descriptions.Item label="攻/防/速">{`${detail.atk}/${detail.def}/${detail.spd}`}</Descriptions.Item>
               <Descriptions.Item label="法力">{detail.mana}</Descriptions.Item>
-              <Descriptions.Item label="技能" span={2}>
+              <Descriptions.Item label="天生技" span={2}>
+                <SkillReferenceText skillIds={detail.innate_skill_ids ?? []} map={skillReferenceMap} emptyText="无" />
+              </Descriptions.Item>
+              <Descriptions.Item label="普通技" span={2}>
+                <SkillReferenceText skillIds={detail.normal_skill_ids ?? []} map={skillReferenceMap} emptyText="无" />
+              </Descriptions.Item>
+              <Descriptions.Item label="兼容战斗技能" span={2}>
                 <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
               </Descriptions.Item>
               <Descriptions.Item label="创建时间">{formatPetDateTime(detail.created_at)}</Descriptions.Item>
@@ -422,8 +437,43 @@ export function PlayerPetListPage() {
             <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col span={24}>
-              <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔">
-                <Input placeholder="普通攻击,火花冲击" />
+              <Form.Item
+                label="天生技"
+                name="innate_skill_ids"
+                extra="会直接进入正式技能槽体系。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="按列表顺序维护玩家宠物天生技；这里的顺序就是运行时正式技能槽顺序。"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="普通技"
+                name="normal_skill_ids"
+                extra="会直接进入正式技能槽体系。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="按列表顺序维护玩家宠物普通技；后台保存后会自动生成兼容 battle skill_ids。"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="兼容战斗技能预览"
+                name="skill_ids"
+                extra="该字段会由「天生技 + 普通技」自动合并生成，主要用于兼容旧口径展示。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  disabled
+                  description="只读预览：保存时后端会以正式技能槽为主，同时回写兼容 skill_ids。"
+                />
               </Form.Item>
             </Col>
           </Row>

@@ -73,3 +73,23 @@ func TestResolvePetBattleSkillsUsesLegacyFallback(t *testing.T) {
 		t.Fatalf("legacy fallback failed: %v", item.SkillIDs)
 	}
 }
+
+func TestResolvePetBattleSkillsMergesStructuredAndLegacySkills(t *testing.T) {
+	item := Pet{
+		SkillIDs: []uint32{1001, 2999},
+		SkillLoadout: SkillLoadout{
+			InnateSkillIDs: []uint32{1001},
+			NormalSkillIDs: []uint32{2001},
+		},
+	}
+	ResolvePetBattleSkills(&item)
+	want := []uint32{1001, 2001, 2999}
+	if len(item.SkillIDs) != len(want) {
+		t.Fatalf("len=%d want=%d got=%v", len(item.SkillIDs), len(want), item.SkillIDs)
+	}
+	for index := range want {
+		if item.SkillIDs[index] != want[index] {
+			t.Fatalf("index=%d got=%d want=%d full=%v", index, item.SkillIDs[index], want[index], item.SkillIDs)
+		}
+	}
+}

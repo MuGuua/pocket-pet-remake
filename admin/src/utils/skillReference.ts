@@ -33,35 +33,4 @@ export function formatSkillReferences(skillIds: number[], map: SkillReferenceMap
     .join('、');
 }
 
-// formatSkillReferenceInput 将 skill_id 列表转换为表单中的技能名称输入串。
-export function formatSkillReferenceInput(skillIds: number[], map: SkillReferenceMap): string {
-  if (skillIds.length === 0) {
-    return '';
-  }
-  return skillIds
-    .map((skillID) => map.idToName[skillID] ?? String(skillID))
-    .join(',');
-}
-
-// parseSkillReferenceInput 解析运营填写的技能名称（兼容仍输入数字 ID 的情况）。
-export function parseSkillReferenceInput(raw: string, map: SkillReferenceMap): number[] {
-  const parts = raw.split(',').map((item) => item.trim()).filter(Boolean);
-  const result: number[] = [];
-  const seen = new Set<number>();
-  for (const part of parts) {
-    const numericValue = Number(part);
-    let skillID = 0;
-    if (Number.isInteger(numericValue) && numericValue > 0 && map.idToName[numericValue]) {
-      skillID = numericValue;
-    } else if (map.nameToId[part]) {
-      skillID = map.nameToId[part];
-    }
-    if (skillID > 0 && !seen.has(skillID)) {
-      seen.add(skillID);
-      result.push(skillID);
-    }
-  }
-  return result;
-}
-
 export { emptySkillReferenceMap };

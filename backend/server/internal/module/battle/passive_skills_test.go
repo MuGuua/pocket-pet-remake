@@ -30,10 +30,11 @@ func TestApplySkillPassivesFromSkillList(t *testing.T) {
 			return skillmod.RuntimeDefinition{}, false
 		}
 		return skillmod.RuntimeDefinition{
-			SkillID:   20001,
-			SkillName: "强壮B",
-			SkillType: "support",
-			HealPct:   15,
+			SkillID:        20001,
+			SkillName:      "强壮B",
+			SkillType:      "support",
+			ActivationMode: skillmod.ActivationModePassive,
+			HealPct:        15,
 		}, true
 	}
 
@@ -43,6 +44,68 @@ func TestApplySkillPassivesFromSkillList(t *testing.T) {
 	}
 	if actor.hpMax != 92 {
 		t.Fatalf("hpMax = %d, want 92", actor.hpMax)
+	}
+}
+
+func TestSkillIDsForClientSnapshotSkipsPassiveSkills(t *testing.T) {
+	prevResolver := runtimeSkillResolver
+	defer func() { runtimeSkillResolver = prevResolver }()
+	runtimeSkillResolver = func(skillID uint32) (skillmod.RuntimeDefinition, bool) {
+		if skillID != 20001 {
+			return skillmod.RuntimeDefinition{}, false
+		}
+		return skillmod.RuntimeDefinition{
+			SkillID:        20001,
+			SkillName:      "反伤体质",
+			SkillType:      "support",
+			ActivationMode: skillmod.ActivationModePassive,
+		}, true
+	}
+
+	filtered := skillIDsForClientSnapshot([]uint32{DefaultAttackSkillID, 20001, 1002})
+	if len(filtered) != 1 || filtered[0] != 1002 {
+		t.Fatalf("skillIDsForClientSnapshot() = %#v, want only active skill 1002", filtered)
+	}
+}
+
+func TestApplySkillPassivesWithoutPersistentStatsKeepsPanelStatsButRetainsCombatEffects(t *testing.T) {
+	prevResolver := runtimeSkillResolver
+	defer func() { runtimeSkillResolver = prevResolver }()
+	runtimeSkillResolver = func(skillID uint32) (skillmod.RuntimeDefinition, bool) {
+		switch skillID {
+		case 21001:
+			return skillmod.RuntimeDefinition{
+				SkillID:        21001,
+				SkillName:      "迅捷之心",
+				SkillType:      "support",
+				ActivationMode: skillmod.ActivationModePassive,
+				SpeedPct:       50,
+			}, true
+		case 21002:
+			return skillmod.RuntimeDefinition{
+				SkillID:        21002,
+				SkillName:      "嗜血之牙",
+				SkillType:      "support",
+				ActivationMode: skillmod.ActivationModePassive,
+				CritBoostPct:   18,
+			}, true
+		default:
+			return skillmod.RuntimeDefinition{}, false
+		}
+	}
+
+	actor := &actorRuntime{
+		spd:      150,
+		skillIDs: []uint32{21001, 21002},
+	}
+	if !applySkillPassivesWithoutPersistentStats(actor) {
+		t.Fatal("applySkillPassivesWithoutPersistentStats() = false, want true")
+	}
+	if actor.speedMultiplierPct != 0 {
+		t.Fatalf("speedMultiplierPct = %d, want 0 because panel stats already include passive speed", actor.speedMultiplierPct)
+	}
+	if actor.lifestealPct != 18 {
+		t.Fatalf("lifestealPct = %d, want 18", actor.lifestealPct)
 	}
 }
 

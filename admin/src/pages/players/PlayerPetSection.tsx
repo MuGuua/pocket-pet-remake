@@ -24,6 +24,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { GrantPetFromTemplateModal } from '../../components/GrantPetFromTemplateModal';
+import { PetSkillSlotListEditor } from '../../components/PetSkillSlotListEditor';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
 import {
@@ -36,33 +37,19 @@ import { updateAdminPlayerPetLineup } from '../../services/player';
 import type {
   AdminPetDetail,
   AdminPetSummary,
-  AdminUpdatePetPayload,
 } from '../../types/pet';
 import { formatPetQualityLabel, getPetQualityTagColor, PET_QUALITY_OPTIONS } from '../../constants/petQuality';
 import {
   ADMIN_PET_COMBAT_STAT_FIELDS,
-  type AdminPetCombatStats,
 } from '../../types/petCombatStats';
-import { formatSkillReferenceInput, parseSkillReferenceInput, type SkillReferenceMap } from '../../utils/skillReference';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
-
-interface PetFormValues extends PetFormBaseValues, AdminPetCombatStats {}
-
-interface PetFormBaseValues {
-  player_id?: number;
-  pet_id: number;
-  custom_name: string;
-  level: number;
-  exp: number;
-  quality: number;
-  hp: number;
-  hp_max: number;
-  atk: number;
-  def: number;
-  spd: number;
-  mana: number;
-  skill_names_text: string;
-}
+import {
+  formatPetDateTime,
+  mapPetDetailToForm,
+  mapPetFormToUpdatePayload,
+  mergePlayerPetSkillIDs,
+  type PetInstanceFormValues,
+} from '../pets/petInstanceFormUtils';
 
 interface PlayerPetSectionProps {
   playerId: number;
@@ -72,7 +59,9 @@ interface PlayerPetSectionProps {
 // 玩家详情/编辑页内的宠物区块：按 player_id 拉取列表，并支持查看、编辑、新增与删除。
 export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps) {
   const { map: skillReferenceMap } = useSkillReferenceMap();
-  const [editorForm] = Form.useForm<PetFormValues>();
+  const [editorForm] = Form.useForm<PetInstanceFormValues>();
+  const innateSkillIDs = Form.useWatch('innate_skill_ids', editorForm) ?? [];
+  const normalSkillIDs = Form.useWatch('normal_skill_ids', editorForm) ?? [];
   const [rows, setRows] = useState<AdminPetSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [petDetailOpen, setPetDetailOpen] = useState(false);
@@ -89,6 +78,11 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
   useEffect(() => {
     void loadPets();
   }, [playerId]);
+
+  useEffect(() => {
+    const mergedSkillIDs = mergePlayerPetSkillIDs(innateSkillIDs, normalSkillIDs, []);
+    editorForm.setFieldValue('skill_ids', mergedSkillIDs);
+  }, [editorForm, innateSkillIDs, normalSkillIDs]);
 
   async function loadPets() {
     setLoading(true);
@@ -132,7 +126,7 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
     try {
       const result = await fetchAdminPetDetail(petUID);
       setEditingRecord(result);
-      editorForm.setFieldsValue(mapDetailToForm(result, skillReferenceMap));
+      editorForm.setFieldsValue(mapPetDetailToForm(result));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载宠物编辑数据失败');
       setEditorOpen(false);
@@ -141,13 +135,13 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
     }
   }
 
-  async function handleSubmitEditor(values: PetFormValues) {
+  async function handleSubmitEditor(values: PetInstanceFormValues) {
     if (!editingRecord) {
       return;
     }
     setSaving(true);
     try {
-      await updateAdminPet(editingRecord.pet_uid, mapFormToUpdatePayload(values, skillReferenceMap));
+      await updateAdminPet(editingRecord.pet_uid, mapPetFormToUpdatePayload(values));
       message.success('宠物更新成功');
       setEditorOpen(false);
       setEditingRecord(null);
@@ -354,11 +348,17 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
               <Descriptions.Item label="生命">{`${petDetail.hp}/${petDetail.hp_max}`}</Descriptions.Item>
               <Descriptions.Item label="攻/防/速">{`${petDetail.atk}/${petDetail.def}/${petDetail.spd}`}</Descriptions.Item>
               <Descriptions.Item label="法力">{petDetail.mana}</Descriptions.Item>
-              <Descriptions.Item label="技能" span={2}>
+              <Descriptions.Item label="天生技" span={2}>
+                <SkillReferenceText skillIds={petDetail.innate_skill_ids ?? []} map={skillReferenceMap} emptyText="无" />
+              </Descriptions.Item>
+              <Descriptions.Item label="普通技" span={2}>
+                <SkillReferenceText skillIds={petDetail.normal_skill_ids ?? []} map={skillReferenceMap} emptyText="无" />
+              </Descriptions.Item>
+              <Descriptions.Item label="兼容战斗技能" span={2}>
                 <SkillReferenceText skillIds={petDetail.skill_ids} map={skillReferenceMap} emptyText="无" />
               </Descriptions.Item>
-              <Descriptions.Item label="创建时间">{formatDateTime(petDetail.created_at)}</Descriptions.Item>
-              <Descriptions.Item label="更新时间">{formatDateTime(petDetail.updated_at)}</Descriptions.Item>
+              <Descriptions.Item label="创建时间">{formatPetDateTime(petDetail.created_at)}</Descriptions.Item>
+              <Descriptions.Item label="更新时间">{formatPetDateTime(petDetail.updated_at)}</Descriptions.Item>
             </Descriptions>
             <Descriptions bordered column={2} size="small" title="次要战斗属性">
               {ADMIN_PET_COMBAT_STAT_FIELDS.map((field) => (
@@ -427,8 +427,43 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
             <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col span={24}>
-              <Form.Item label="技能" name="skill_names_text" extra="填写系统技能名称，多个用英文逗号分隔，例如 普通攻击,火花冲击">
-                <Input placeholder="普通攻击,火花冲击" />
+              <Form.Item
+                label="天生技"
+                name="innate_skill_ids"
+                extra="会直接进入正式技能槽体系。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="按列表顺序维护玩家宠物天生技；这里的顺序就是运行时正式技能槽顺序。"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="普通技"
+                name="normal_skill_ids"
+                extra="会直接进入正式技能槽体系。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  description="按列表顺序维护玩家宠物普通技；后台保存后会自动生成兼容 battle skill_ids。"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="兼容战斗技能预览"
+                name="skill_ids"
+                extra="该字段会由「天生技 + 普通技」自动合并生成，主要用于兼容旧口径展示。"
+              >
+                <PetSkillSlotListEditor
+                  categories={['pet', 'common']}
+                  skillReferenceMap={skillReferenceMap}
+                  disabled
+                  description="只读预览：保存时后端会以正式技能槽为主，同时回写兼容 skill_ids。"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -450,99 +485,6 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
       </Modal>
     </>
   );
-}
-
-function mapDetailToForm(detail: AdminPetDetail, skillReferenceMap: SkillReferenceMap): PetFormValues {
-  return {
-    pet_id: detail.pet_id,
-    custom_name: detail.custom_name ?? '',
-    level: detail.level,
-    exp: detail.exp,
-    quality: detail.quality,
-    hp: detail.hp,
-    hp_max: detail.hp_max,
-    atk: detail.atk,
-    def: detail.def,
-    spd: detail.spd,
-    mana: detail.mana,
-    skill_names_text: formatSkillReferenceInput(detail.skill_ids, skillReferenceMap),
-    spirit: detail.spirit,
-    spirit_max: detail.spirit_max,
-    hit_pct: detail.hit_pct,
-    dodge_pct: detail.dodge_pct,
-    crit_rate_pct: detail.crit_rate_pct,
-    crit_dmg_pct: detail.crit_dmg_pct,
-    physical_resist_pct: detail.physical_resist_pct,
-    reverse_physical_resist_pct: detail.reverse_physical_resist_pct,
-    skill_resist_pct: detail.skill_resist_pct,
-    reverse_skill_resist_pct: detail.reverse_skill_resist_pct,
-    confusion_resist_pct: detail.confusion_resist_pct,
-    sleep_resist_pct: detail.sleep_resist_pct,
-    paralysis_resist_pct: detail.paralysis_resist_pct,
-    seal_resist_pct: detail.seal_resist_pct,
-    curse_resist_pct: detail.curse_resist_pct,
-    crit_dmg_resist_pct: detail.crit_dmg_resist_pct,
-    crit_resist_pct: detail.crit_resist_pct,
-    character_resist_pct: detail.character_resist_pct,
-    pet_resist_pct: detail.pet_resist_pct,
-    guard: detail.guard,
-    talent_dmg_pct: detail.talent_dmg_pct,
-    talent_reduce_pct: detail.talent_reduce_pct,
-    element_adv_pct: detail.element_adv_pct,
-    element_penalty_pct: detail.element_penalty_pct,
-  };
-}
-
-function mapFormToUpdatePayload(values: PetFormValues, skillReferenceMap: SkillReferenceMap): AdminUpdatePetPayload {
-  return {
-    pet_id: values.pet_id,
-    custom_name: values.custom_name ?? '',
-    level: values.level,
-    exp: values.exp,
-    quality: values.quality,
-    hp: values.hp,
-    hp_max: values.hp_max,
-    atk: values.atk,
-    def: values.def,
-    spd: values.spd,
-    mana: values.mana,
-    skill_ids: parseSkillReferenceInput(values.skill_names_text, skillReferenceMap),
-    spirit: values.spirit,
-    spirit_max: values.spirit_max,
-    hit_pct: values.hit_pct,
-    dodge_pct: values.dodge_pct,
-    crit_rate_pct: values.crit_rate_pct,
-    crit_dmg_pct: values.crit_dmg_pct,
-    physical_resist_pct: values.physical_resist_pct,
-    reverse_physical_resist_pct: values.reverse_physical_resist_pct,
-    skill_resist_pct: values.skill_resist_pct,
-    reverse_skill_resist_pct: values.reverse_skill_resist_pct,
-    confusion_resist_pct: values.confusion_resist_pct,
-    sleep_resist_pct: values.sleep_resist_pct,
-    paralysis_resist_pct: values.paralysis_resist_pct,
-    seal_resist_pct: values.seal_resist_pct,
-    curse_resist_pct: values.curse_resist_pct,
-    crit_dmg_resist_pct: values.crit_dmg_resist_pct,
-    crit_resist_pct: values.crit_resist_pct,
-    character_resist_pct: values.character_resist_pct,
-    pet_resist_pct: values.pet_resist_pct,
-    guard: values.guard,
-    talent_dmg_pct: values.talent_dmg_pct,
-    talent_reduce_pct: values.talent_reduce_pct,
-    element_adv_pct: values.element_adv_pct,
-    element_penalty_pct: values.element_penalty_pct,
-  };
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 /** 展示系统宠物模板名称，缺失时回退到模板 ID。 */

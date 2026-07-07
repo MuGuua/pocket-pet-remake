@@ -26,26 +26,6 @@ WHERE player_id = $1
 ORDER BY skill_id ASC
 `
 
-func (r *PlayerSkillProgressRepository) ListByPlayerID(ctx context.Context, playerID uint64) ([]playerskill.Progress, error) {
-	if playerID == 0 {
-		return []playerskill.Progress{}, nil
-	}
-	rows, err := r.db.QueryContext(ctx, listPlayerSkillProgressQuery, playerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := make([]playerskill.Progress, 0, 8)
-	for rows.Next() {
-		item, scanErr := scanPlayerSkillProgressRow(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		items = append(items, item)
-	}
-	return items, rows.Err()
-}
-
 func (r *PlayerSkillProgressRepository) UpsertBattleUpdates(ctx context.Context, playerID uint64, updates []playerskill.BattleUseUpdate) error {
 	if playerID == 0 || len(updates) == 0 {
 		return nil
@@ -83,7 +63,10 @@ func (r *PlayerSkillProgressRepository) UpsertBattleUpdates(ctx context.Context,
 			return execErr
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return r.RefreshPlayerSkillProgressSnapshot(ctx, playerID)
 }
 
 const upsertLearningPlayerSkillProgressQuery = `

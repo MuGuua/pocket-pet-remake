@@ -23,6 +23,7 @@ import (
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/reward"
+	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
@@ -46,10 +47,19 @@ type BattleHandler struct {
 	battleService      *battle.Service
 	battleRepo         battle.Repository
 	rewardService      *reward.Service
+	runtimeSnapshots   *runtimeview.Service
 	reconnectMu        sync.Mutex
 	reconnectCache     map[uint64]protocol.BattleResultPush
 	wildEncounterMu    sync.Mutex
 	wildEncounterLast  map[uint64]time.Time
+}
+
+// SetRuntimeSnapshotService 注入统一运行时快照刷新入口。
+func (h *BattleHandler) SetRuntimeSnapshotService(service *runtimeview.Service) {
+	if h == nil {
+		return
+	}
+	h.runtimeSnapshots = service
 }
 
 var dialogueItemTokenPattern = regexp.MustCompile(`\{item:(\d+)\}`)
@@ -142,6 +152,9 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 
 func (h *BattleHandler) loadCharacterBattleSkillInput(ctx context.Context, playerID uint64) battle.CharacterBattleSkillInput {
 	input := battle.EmptyCharacterBattleSkillInput()
+	if h.runtimeSnapshots != nil && playerID > 0 {
+		_ = h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(ctx, playerID)
+	}
 	if h.equipmentService != nil && playerID > 0 {
 		items, err := h.equipmentService.ListEquipped(ctx, playerID)
 		if err == nil {

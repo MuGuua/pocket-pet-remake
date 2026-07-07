@@ -10,14 +10,14 @@ import (
 
 // EquippedPieceTemplate 描述单件已佩戴装备用于属性聚合的模板快照。
 type EquippedPieceTemplate struct {
-	EquipSlot            EquipSlot
-	AppearanceOnly       bool
-	AppearanceSkinID     string
-	BaseHP               uint32
-	BaseMana             uint32
-	BaseATK              uint32
-	BaseDEF              uint32
-	BaseSPD              uint32
+	EquipSlot                        EquipSlot
+	AppearanceOnly                   bool
+	AppearanceSkinID                 string
+	BaseHP                           uint32
+	BaseMana                         uint32
+	BaseATK                          uint32
+	BaseDEF                          uint32
+	BaseSPD                          uint32
 	CombatStats                      AdminCombatStats
 	EnhancePerLevelStats             map[string]uint32
 	EnhancePerLevelWeaponSkillLevels map[string]uint32
@@ -235,6 +235,11 @@ func resolveEquippedSkinID(templates []EquippedPieceTemplate, _ *player.Profile)
 		}
 	}
 	return player.DefaultPlayerSkinID
+}
+
+// ResolveEquippedSkinIDForSnapshot 供运行时快照重算复用统一的时装皮肤解析规则。
+func ResolveEquippedSkinIDForSnapshot(templates []EquippedPieceTemplate, currentProfile *player.Profile) string {
+	return resolveEquippedSkinID(templates, currentProfile)
 }
 
 // ToRuntimeEquippedItem 把模板快照转为协议层已佩戴摘要。

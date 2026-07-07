@@ -17,6 +17,13 @@ type ActiveBattleChecker interface {
 	IsPlayerInActiveBattle(playerID uint64) bool
 }
 
+// CombatSnapshotRepository 提供最终战斗属性快照的刷新与读取能力。
+// 目前仅 PostgreSQL 仓储实现该能力，测试桩会自然回退到旧读链路。
+type CombatSnapshotRepository interface {
+	RefreshPlayerCombatSnapshot(ctx context.Context, playerID uint64) error
+	FindPlayerCombatSnapshot(ctx context.Context, playerID uint64) (*Profile, error)
+}
+
 type Service struct {
 	repo               Repository
 	skillService       *skill.Service
@@ -87,6 +94,14 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*RegisterR
 // 非战斗状态下会先重算并写回当前已佩戴装备加成；战斗中直接返回当前持久化快照，不再读表重算。
 func (s *Service) GetBattleReadyProfile(ctx context.Context, playerID uint64) (*Profile, error) {
 	inBattle := s.battleChecker != nil && s.battleChecker.IsPlayerInActiveBattle(playerID)
+	if !inBattle {
+		if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
+			if err := snapshotRepo.RefreshPlayerCombatSnapshot(ctx, playerID); err != nil {
+				return nil, err
+			}
+			return s.GetProfile(ctx, playerID)
+		}
+	}
 	if !inBattle && s.equipmentRecalc != nil {
 		if err := s.equipmentRecalc.RecalcPlayerCombatStats(ctx, playerID, false); err != nil {
 			return nil, err
@@ -106,6 +121,7 @@ func (s *Service) ListAdminPlayers(ctx context.Context, query AdminListQuery) (*
 		query = query.Normalize()
 		return &AdminPlayerList{Items: []AdminPlayerSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
 	}
+	s.applyCombatSnapshotsToAdminList(ctx, result.Items)
 	return result, nil
 }
 
@@ -118,6 +134,7 @@ func (s *Service) GetAdminPlayerDetail(ctx context.Context, playerID uint64) (*A
 	if detail == nil {
 		return nil, ErrPlayerNotFound
 	}
+	s.applyCombatSnapshotToAdminDetail(ctx, detail)
 	return detail, nil
 }
 
@@ -237,6 +254,85 @@ func (s *Service) validateSkinID(skinID string) error {
 		return ErrInvalidAdminInput
 	}
 	return nil
+}
+
+func (s *Service) applyCombatSnapshotsToAdminList(ctx context.Context, items []AdminPlayerSummary) {
+	snapshotRepo, ok := s.repo.(CombatSnapshotRepository)
+	if !ok {
+		return
+	}
+	for index := range items {
+		snapshot, err := snapshotRepo.FindPlayerCombatSnapshot(ctx, items[index].PlayerID)
+		if err != nil || snapshot == nil {
+			if refreshErr := snapshotRepo.RefreshPlayerCombatSnapshot(ctx, items[index].PlayerID); refreshErr != nil {
+				continue
+			}
+			snapshot, err = snapshotRepo.FindPlayerCombatSnapshot(ctx, items[index].PlayerID)
+			if err != nil || snapshot == nil {
+				continue
+			}
+		}
+		items[index].HP = snapshot.HP
+		items[index].HPMax = snapshot.HPMax
+		items[index].Vigor = snapshot.Vigor
+		items[index].VigorMax = snapshot.VigorMax
+		items[index].Spirit = snapshot.Spirit
+		items[index].SpiritMax = snapshot.SpiritMax
+	}
+}
+
+func (s *Service) applyCombatSnapshotToAdminDetail(ctx context.Context, detail *AdminPlayerDetail) {
+	if detail == nil {
+		return
+	}
+	snapshotRepo, ok := s.repo.(CombatSnapshotRepository)
+	if !ok {
+		return
+	}
+	snapshot, err := snapshotRepo.FindPlayerCombatSnapshot(ctx, detail.PlayerID)
+	if err != nil || snapshot == nil {
+		if refreshErr := snapshotRepo.RefreshPlayerCombatSnapshot(ctx, detail.PlayerID); refreshErr != nil {
+			return
+		}
+		snapshot, err = snapshotRepo.FindPlayerCombatSnapshot(ctx, detail.PlayerID)
+		if err != nil || snapshot == nil {
+			return
+		}
+	}
+	detail.HP = snapshot.HP
+	detail.HPMax = snapshot.HPMax
+	detail.Vigor = snapshot.Vigor
+	detail.VigorMax = snapshot.VigorMax
+	detail.Spirit = snapshot.Spirit
+	detail.SpiritMax = snapshot.SpiritMax
+	detail.ATK = snapshot.ATK
+	detail.DEF = snapshot.DEF
+	detail.SPD = snapshot.SPD
+	detail.MANA = snapshot.MANA
+	detail.HitPct = snapshot.HitPct
+	detail.DodgePct = snapshot.DodgePct
+	detail.CritRatePct = snapshot.CritRatePct
+	detail.CritDmgPct = snapshot.CritDmgPct
+	detail.PhysicalResistPct = snapshot.PhysicalResistPct
+	detail.SkillResistPct = snapshot.SkillResistPct
+	detail.ConfusionResistPct = snapshot.ConfusionResistPct
+	detail.SleepResistPct = snapshot.SleepResistPct
+	detail.ParalysisResistPct = snapshot.ParalysisResistPct
+	detail.SealResistPct = snapshot.SealResistPct
+	detail.CurseResistPct = snapshot.CurseResistPct
+	detail.CritResistPct = snapshot.CritResistPct
+	detail.CritDmgResistPct = snapshot.CritDmgResistPct
+	detail.CharacterResistPct = snapshot.CharacterResistPct
+	detail.PetResistPct = snapshot.PetResistPct
+	detail.MercenaryResistPct = snapshot.MercenaryResistPct
+	detail.GenericShieldPct = snapshot.GenericShieldPct
+	detail.Guard = snapshot.Guard
+	detail.TalentDmgPct = snapshot.TalentDmgPct
+	detail.TalentReducePct = snapshot.TalentReducePct
+	detail.ElementAdvPct = snapshot.ElementAdvPct
+	detail.ElementPenaltyPct = snapshot.ElementPenaltyPct
+	detail.SkillIDs = append([]uint32{}, snapshot.SkillIDs...)
+	detail.SkinID = snapshot.SkinID
 }
 
 // CountActivePlayers 统计启用中的玩家角色总数，供后台控制台展示。

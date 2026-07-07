@@ -142,6 +142,12 @@ export const SKILL_TYPE_LABELS: Record<string, string> = {
   control: '控制',
 };
 
+/** 技能释放方式 */
+export const SKILL_ACTIVATION_MODE_LABELS: Record<string, string> = {
+  active: '主动',
+  passive: '被动',
+};
+
 /** 技能目标类型 */
 export const TARGET_TYPE_LABELS: Record<string, string> = {
   enemy_single: '单个敌人',
@@ -215,6 +221,7 @@ export function buildSelectOptions(labels: Record<string, string>): Array<{ labe
 }
 
 export const SKILL_TYPE_OPTIONS = buildSelectOptions(SKILL_TYPE_LABELS);
+export const SKILL_ACTIVATION_MODE_OPTIONS = buildSelectOptions(SKILL_ACTIVATION_MODE_LABELS);
 export const TARGET_TYPE_OPTIONS = buildSelectOptions(TARGET_TYPE_LABELS);
 export const PREFERRED_TARGET_OPTIONS = [
   { value: '', label: '默认 / 不指定' },

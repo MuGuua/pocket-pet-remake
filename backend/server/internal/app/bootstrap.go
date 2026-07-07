@@ -26,6 +26,7 @@ import (
 	"pocket-pet-remake/server/internal/module/playerskill"
 	"pocket-pet-remake/server/internal/module/progression"
 	"pocket-pet-remake/server/internal/module/quest"
+	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
@@ -86,6 +87,28 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	playerService := player.NewService(repos.Players, skillService, progressionService, equipmentService)
 	playerSkillService := playerskill.NewService(repos.PlayerSkills)
 	petService := pet.NewService(repos.Pets, skillService, repos.Monsters, petProgressionService)
+	var playerSnapshotRefresher runtimeview.PlayerCombatSnapshotRefresher
+	if refresher, ok := repos.Players.(runtimeview.PlayerCombatSnapshotRefresher); ok {
+		playerSnapshotRefresher = refresher
+	}
+	var petSnapshotRefresher runtimeview.PetCombatSnapshotRefresher
+	if refresher, ok := repos.Pets.(runtimeview.PetCombatSnapshotRefresher); ok {
+		petSnapshotRefresher = refresher
+	}
+	var equipmentSnapshotRefresher runtimeview.EquipmentSnapshotRefresher
+	if refresher, ok := repos.Equipment.(runtimeview.EquipmentSnapshotRefresher); ok {
+		equipmentSnapshotRefresher = refresher
+	}
+	var skillSnapshotRefresher runtimeview.SkillProgressSnapshotRefresher
+	if refresher, ok := repos.PlayerSkills.(runtimeview.SkillProgressSnapshotRefresher); ok {
+		skillSnapshotRefresher = refresher
+	}
+	runtimeSnapshotService := runtimeview.NewService(
+		playerSnapshotRefresher,
+		petSnapshotRefresher,
+		equipmentSnapshotRefresher,
+		skillSnapshotRefresher,
+	)
 	questService := quest.NewService(repos.Quests)
 	unlockService := unlock.NewService(repos.Unlocks)
 	npcService := npc.NewService(repos.NPCs)
@@ -111,6 +134,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	playerHandler := wstransport.NewPlayerHandler(sessionService, playerService)
 	equipmentHandler := wstransport.NewEquipmentHandler(sessionService, equipmentService)
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, equipmentService, playerSkillService, itemService)
+	worldHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
+	equipmentHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
+	battleHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)
 	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)

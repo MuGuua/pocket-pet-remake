@@ -53,7 +53,7 @@ import {
 } from '../../types/equipmentDefinition';
 
 interface EquipmentFormValues extends AdminUpsertEquipmentPayload {
-  allowed_gem_types_text: string;
+  allowed_gem_types_form: string[];
   property_entries: EquipmentPropertyEntry[];
   enhance_entries: EquipmentPropertyEntry[];
   weapon_skill_entries: WeaponSkillEntry[];
@@ -118,6 +118,16 @@ const ENHANCE_PROPERTY_OPTIONS: EquipmentPropertyOption[] = [
     label: field.label,
     group: 'combat' as const,
   })),
+];
+
+const ALLOWED_GEM_TYPE_OPTIONS = [
+  { value: 'attack', label: '攻击' },
+  { value: 'defense', label: '防御' },
+  { value: 'hp', label: '生命' },
+  { value: 'mana', label: '法力' },
+  { value: 'speed', label: '速度' },
+  { value: 'crit', label: '暴击' },
+  { value: 'resist', label: '抗性' },
 ];
 
 // 系统装备管理页：维护 item_definition + item_equipment_extra 人物装备模板。
@@ -796,8 +806,13 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
                 <Col xs={12} md={6}><Form.Item label="最高强化" name="max_enhance_level"><InputNumber min={0} max={15} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={12} md={6}><Form.Item label="镶嵌孔数" name="socket_count"><InputNumber min={0} max={8} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="允许宝石类型" name="allowed_gem_types_text" extra="英文逗号分隔，如 attack,defense">
-                    <Input placeholder="attack,defense" />
+                  <Form.Item label="允许宝石类型" name="allowed_gem_types_form" extra="支持多选；保存后会写回 allowed_gem_types 列表。">
+                    <Select
+                      mode="multiple"
+                      allowClear
+                      options={buildAllowedGemTypeOptions(editorForm.getFieldValue('allowed_gem_types_form') ?? [])}
+                      placeholder="选择允许镶嵌的宝石类型"
+                    />
                   </Form.Item>
                 </Col>
               </Row>
@@ -1069,7 +1084,7 @@ function mapDetailToForm(detail: AdminEquipmentDetail): EquipmentFormValues {
   return {
     ...detail,
     combat_stats: detail.combat_stats ?? defaultAdminEquipmentCombatStats(),
-    allowed_gem_types_text: (detail.allowed_gem_types ?? []).join(','),
+    allowed_gem_types_form: detail.allowed_gem_types ?? [],
     medicine_pouch: detail.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(detail),
     enhance_entries: buildEnhanceEntries(detail.enhance_per_level_stats ?? {}),
@@ -1082,7 +1097,7 @@ function mapDetailToForm(detail: AdminEquipmentDetail): EquipmentFormValues {
 function mapPayloadToForm(payload: AdminUpsertEquipmentPayload): EquipmentFormValues {
   return {
     ...payload,
-    allowed_gem_types_text: (payload.allowed_gem_types ?? []).join(','),
+    allowed_gem_types_form: payload.allowed_gem_types ?? [],
     medicine_pouch: payload.medicine_pouch ?? defaultMedicinePouchExtra(),
     property_entries: buildPropertyEntries(payload),
     enhance_entries: buildEnhanceEntries(payload.enhance_per_level_stats ?? {}),
@@ -1094,9 +1109,7 @@ function mapPayloadToForm(payload: AdminUpsertEquipmentPayload): EquipmentFormVa
 
 function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayload {
   const enhanceStats: Record<string, number> = buildEnhanceStatsMap(values.enhance_entries ?? []);
-  const allowedGemTypes = values.allowed_gem_types_text
-    ? values.allowed_gem_types_text.split(',').map((item) => item.trim()).filter(Boolean)
-    : [];
+  const allowedGemTypes = (values.allowed_gem_types_form ?? []).map((item) => item.trim()).filter(Boolean);
   const propertyValues = splitPropertyEntries(values.property_entries ?? []);
   return {
     item_id: Number(values.item_id ?? 0),
@@ -1142,6 +1155,14 @@ function mapFormToPayload(values: EquipmentFormValues): AdminUpsertEquipmentPayl
     allowed_gem_types: allowedGemTypes,
     medicine_pouch: values.equip_slot === 'medicine_pouch' ? (values.medicine_pouch ?? defaultMedicinePouchExtra()) : undefined,
   };
+}
+
+function buildAllowedGemTypeOptions(currentValues: string[]): Array<{ value: string; label: string }> {
+  const knownMap = new Map(ALLOWED_GEM_TYPE_OPTIONS.map((item) => [item.value, item]));
+  const currentOnlyOptions = currentValues
+    .filter((item) => item && !knownMap.has(item))
+    .map((item) => ({ value: item, label: `${item} (历史值)` }));
+  return [...ALLOWED_GEM_TYPE_OPTIONS, ...currentOnlyOptions];
 }
 
 function buildPropertyEntries(source: Pick<

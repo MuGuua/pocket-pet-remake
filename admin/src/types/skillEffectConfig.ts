@@ -3,6 +3,7 @@ import { formatControlStatusLabel } from '../utils/displayLabels';
 
 /** 技能效果配置条目类型：每条对应一类公式/状态/表现配置。 */
 export type SkillEffectConfigType =
+  | 'attribute_bonus'
   | 'damage_skill_mult'
   | 'damage_attack_pct'
   | 'heal'
@@ -43,6 +44,9 @@ export interface SkillEffectConfigEntry {
   control_power?: number;
   control_rounds?: number;
   control_status_id?: number;
+  passive_attr_key?: string;
+  passive_attr_mode?: string;
+  passive_attr_value?: number;
   bleed_chance_pct?: number;
   bleed_rounds?: number;
   bleed_damage?: number;
@@ -70,6 +74,7 @@ export interface SkillEffectConfigEntry {
 }
 
 export const SKILL_EFFECT_CONFIG_TYPE_LABELS: Record<SkillEffectConfigType, string> = {
+  attribute_bonus: '被动属性加成',
   damage_skill_mult: '伤害 · 技能倍数',
   damage_attack_pct: '伤害 · 攻击系数',
   heal: '治疗',
@@ -93,6 +98,7 @@ export const SKILL_EFFECT_CONFIG_TYPE_OPTIONS = Object.entries(SKILL_EFFECT_CONF
 
 /** 每种效果类型最多允许一条，避免运营重复配置互相覆盖。 */
 export const UNIQUE_SKILL_EFFECT_CONFIG_TYPES = new Set<SkillEffectConfigType>([
+  'attribute_bonus',
   'damage_skill_mult',
   'damage_attack_pct',
   'heal',
@@ -109,6 +115,27 @@ export const UNIQUE_SKILL_EFFECT_CONFIG_TYPES = new Set<SkillEffectConfigType>([
   'vulnerability',
   'presentation',
 ]);
+
+export const PASSIVE_SKILL_EFFECT_CONFIG_TYPES = new Set<SkillEffectConfigType>([
+  'attribute_bonus',
+]);
+
+export function isSkillEffectTypeAllowedForActivationMode(
+  entryType: SkillEffectConfigType,
+  activationMode: string | undefined,
+): boolean {
+  if (activationMode === 'passive') {
+    return PASSIVE_SKILL_EFFECT_CONFIG_TYPES.has(entryType);
+  }
+  return entryType !== 'attribute_bonus';
+}
+
+export function filterSkillEffectEntriesForActivationMode(
+  entries: SkillEffectConfigEntry[] | undefined,
+  activationMode: string | undefined,
+): SkillEffectConfigEntry[] {
+  return (entries ?? []).filter((entry) => isSkillEffectTypeAllowedForActivationMode(entry.entry_type, activationMode));
+}
 
 /** 新建攻击技能时的默认效果条目。 */
 export function createDefaultSkillEffectEntries(): SkillEffectConfigEntry[] {
@@ -160,6 +187,9 @@ export function normalizeSkillEffectConfigEntry(
     control_power: Number(formValues.control_power ?? 0),
     control_rounds: Number(formValues.control_rounds ?? 0),
     control_status_id: Number(formValues.control_status_id ?? 0),
+    passive_attr_key: String(formValues.passive_attr_key ?? '').trim(),
+    passive_attr_mode: String(formValues.passive_attr_mode ?? '').trim(),
+    passive_attr_value: Number(formValues.passive_attr_value ?? 0),
     bleed_chance_pct: Number(formValues.bleed_chance_pct ?? 0),
     bleed_rounds: Number(formValues.bleed_rounds ?? 0),
     bleed_damage: Number(formValues.bleed_damage ?? 0),
@@ -198,6 +228,14 @@ export function skillEffectEntriesFromPayload(payload: AdminUpsertSkillPayload):
 
   if (payload.skill_mult > 0) {
     push({ entry_type: 'damage_skill_mult', skill_mult: payload.skill_mult });
+  }
+  if (payload.passive_attr_key || payload.passive_attr_mode || payload.passive_attr_value > 0) {
+    push({
+      entry_type: 'attribute_bonus',
+      passive_attr_key: payload.passive_attr_key,
+      passive_attr_mode: payload.passive_attr_mode,
+      passive_attr_value: payload.passive_attr_value,
+    });
   }
   if (payload.attack_pct !== 0) {
     push({ entry_type: 'damage_attack_pct', attack_pct: payload.attack_pct });
@@ -321,8 +359,11 @@ export function mergePayloadFromSkillEffectEntries(
   basePayload: AdminUpsertSkillPayload,
   entries: SkillEffectConfigEntry[] | undefined,
 ): AdminUpsertSkillPayload {
+  const { effect_entries: _ignoredEffectEntries, ...payloadWithoutEditorState } = basePayload as AdminUpsertSkillPayload & {
+    effect_entries?: SkillEffectConfigEntry[];
+  };
   const nextPayload: AdminUpsertSkillPayload = {
-    ...basePayload,
+    ...payloadWithoutEditorState,
     skill_mult: 0,
     attack_pct: 0,
     heal_pct: 0,
@@ -343,6 +384,9 @@ export function mergePayloadFromSkillEffectEntries(
     control_power: 0,
     control_rounds: 0,
     control_status_id: 0,
+    passive_attr_key: '',
+    passive_attr_mode: '',
+    passive_attr_value: 0,
     bleed_chance_pct: 0,
     bleed_rounds: 0,
     bleed_damage: 0,
@@ -372,6 +416,11 @@ export function mergePayloadFromSkillEffectEntries(
   const sortedEntries = [...(entries ?? [])].sort((left, right) => left.sort_order - right.sort_order);
   sortedEntries.forEach((entry) => {
     switch (entry.entry_type) {
+      case 'attribute_bonus':
+        nextPayload.passive_attr_key = String(entry.passive_attr_key ?? '').trim();
+        nextPayload.passive_attr_mode = String(entry.passive_attr_mode ?? '').trim();
+        nextPayload.passive_attr_value = Number(entry.passive_attr_value ?? 0);
+        break;
       case 'damage_skill_mult':
         nextPayload.skill_mult = Number(entry.skill_mult ?? 0);
         break;
@@ -456,6 +505,8 @@ export function mergePayloadFromSkillEffectEntries(
 /** 列表摘要文案，供表格展示。 */
 export function formatSkillEffectConfigSummary(entry: SkillEffectConfigEntry): string {
   switch (entry.entry_type) {
+    case 'attribute_bonus':
+      return `${formatPassiveAttrKeyLabel(String(entry.passive_attr_key ?? ''))} / ${formatPassiveAttrModeLabel(String(entry.passive_attr_mode ?? ''))} / ${Number(entry.passive_attr_value ?? 0)}`;
     case 'damage_skill_mult':
       return `技能倍数 ${Number(entry.skill_mult ?? 0)}`;
     case 'damage_attack_pct':
@@ -502,6 +553,13 @@ export function createDefaultSkillEffectConfigRow(
   nextSortOrder: number,
 ): SkillEffectConfigEntry {
   switch (entryType) {
+    case 'attribute_bonus':
+      return normalizeSkillEffectConfigEntry({
+        entry_type: entryType,
+        passive_attr_key: 'atk',
+        passive_attr_mode: 'percent',
+        passive_attr_value: 20,
+      }, nextSortOrder);
     case 'damage_skill_mult':
       return normalizeSkillEffectConfigEntry({ entry_type: entryType, skill_mult: 30 }, nextSortOrder);
     case 'damage_attack_pct':
@@ -565,4 +623,38 @@ export function createDefaultSkillEffectConfigRow(
     default:
       return normalizeSkillEffectConfigEntry({ entry_type: 'damage_attack_pct', attack_pct: 100 }, nextSortOrder);
   }
+}
+
+export const PASSIVE_ATTRIBUTE_KEY_OPTIONS = [
+  { value: 'hp_max', label: '生命上限' },
+  { value: 'atk', label: '攻击' },
+  { value: 'spd', label: '速度' },
+  { value: 'mana', label: '法力' },
+  { value: 'crit_rate_pct', label: '暴击率' },
+  { value: 'crit_dmg_pct', label: '暴击伤害' },
+  { value: 'physical_resist_pct', label: '物理抗性' },
+  { value: 'skill_resist_pct', label: '技能抗性' },
+  { value: 'all_status_resist_pct', label: '全异常抗性' },
+] as const;
+
+export const PASSIVE_ATTRIBUTE_MODE_OPTIONS = [
+  { value: 'flat', label: '固定值' },
+  { value: 'percent', label: '百分比' },
+] as const;
+
+const PERCENT_PASSIVE_ATTRIBUTE_KEYS = new Set<string>(['hp_max', 'atk', 'spd', 'mana']);
+
+export function getPassiveAttributeModeOptions(attributeKey: string | undefined) {
+  if (PERCENT_PASSIVE_ATTRIBUTE_KEYS.has(String(attributeKey ?? ''))) {
+    return [...PASSIVE_ATTRIBUTE_MODE_OPTIONS];
+  }
+  return PASSIVE_ATTRIBUTE_MODE_OPTIONS.filter((option) => option.value === 'flat');
+}
+
+export function formatPassiveAttrKeyLabel(attributeKey: string): string {
+  return PASSIVE_ATTRIBUTE_KEY_OPTIONS.find((option) => option.value === attributeKey)?.label ?? '未选择属性';
+}
+
+export function formatPassiveAttrModeLabel(mode: string): string {
+  return PASSIVE_ATTRIBUTE_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? '未选择方式';
 }

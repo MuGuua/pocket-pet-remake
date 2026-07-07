@@ -17,14 +17,14 @@ func NewSkillRepository() *SkillRepository {
 		definitions: make(map[uint32]skill.AdminDetail, 8),
 	}
 	seeds := []skill.AdminUpsertInput{
-		{SkillID: 1101, SkillCode: "character_slash", SkillName: "裂空斩", SkillCategory: "character", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "character_slash", SkillVisualID: "character_slash", CastColor: "#8FD6FF", ImpactColor: "#BDE9FF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 135, ManaPct: 55, SpeedPct: 35, AllowCrit: true, ArmorBreakChancePct: 100, ArmorBreakRounds: 2, BleedChancePct: 45, BleedRounds: 2, BleedDamage: 3},
-		{SkillID: 1001, SkillCode: "basic_attack", SkillName: "普通攻击", SkillCategory: "common", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "slash", IsBasicAttack: true, IsEnabled: true, AttackPct: 100, ManaPct: 35, SpeedPct: 35, AllowCrit: true},
-		{SkillID: 1002, SkillCode: "pet_spark_burst", SkillName: "火花冲击", SkillCategory: "pet", SkillType: "attack", TargetType: "enemy_all", AnimationKey: "burst", CastColor: "#FFAA5C", ImpactColor: "#FFD46B", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 18, AttackPct: 120, ManaPct: 85, SpeedPct: 55, AllowCrit: true, BleedChancePct: 70, BleedRounds: 2, BleedDamage: 4, VulnerabilityChancePct: 100, VulnerabilityRounds: 2, VulnerabilityApplyPct: 12, ControlChancePct: 35, ControlRounds: 1, ControlStatusID: 11},
-		{SkillID: 1003, SkillCode: "pet_vital_heal", SkillName: "活力治愈", SkillCategory: "pet", SkillType: "heal", TargetType: "ally_single", PreferredTargetHP: "lowest", AnimationKey: "heal", CastColor: "#73F5A3", ImpactColor: "#B7FFD0", IsSkillAttack: true, IsEnabled: true, EnergyCost: 14, HealPct: 22, CritBoostRounds: 2, CritBoostPct: 20},
-		{SkillID: 1004, SkillCode: "pet_arc_volley", SkillName: "弧光连射", SkillCategory: "pet", SkillType: "attack", TargetType: "enemy_multi", TargetCount: 2, AnimationKey: "volley", CastColor: "#C6D1FF", ImpactColor: "#ECECFF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 105, ManaPct: 40, SpeedPct: 25, AllowCrit: true, BleedChancePct: 40, BleedRounds: 2, BleedDamage: 2, ControlChancePct: 20, ControlRounds: 1, ControlStatusID: 12},
-		{SkillID: 90001, SkillCode: "monster_wild_charge", SkillName: "野性撞击", SkillCategory: "monster", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "slash", CastColor: "#FFB88F", ImpactColor: "#FFDDD1", IsEnabled: true, AttackPct: 95, ManaPct: 20, FixedDamage: 2, AllowCrit: true, CurseChancePct: 40, CurseRounds: 2, CurseDamage: 3},
-		{SkillID: 90002, SkillCode: "monster_claw_strike", SkillName: "利爪突袭", SkillCategory: "monster", SkillType: "attack", TargetType: "enemy_single", AnimationKey: "volley", CastColor: "#FF9E85", ImpactColor: "#FFC7BA", Projectile: true, IsEnabled: true, EnergyCost: 12, AttackPct: 110, ManaPct: 30, SpeedPct: 20, AllowCrit: true, BleedChancePct: 50, BleedRounds: 2, BleedDamage: 3, SlowChancePct: 100, SlowRounds: 2, SlowMultiplierPct: 70, ControlChancePct: 30, ControlRounds: 1, ControlStatusID: 12},
-		{SkillID: 90003, SkillCode: "monster_wild_regen", SkillName: "野性回春", SkillCategory: "monster", SkillType: "heal", TargetType: "ally_single", PreferredTargetHP: "lowest", AnimationKey: "heal", CastColor: "#84F8B3", ImpactColor: "#C8FFE0", IsSkillAttack: true, IsEnabled: true, EnergyCost: 10, HealPct: 18},
+		{SkillID: 1101, SkillCode: "character_slash", SkillName: "裂空斩", SkillCategory: "character", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_single", AnimationKey: "character_slash", SkillVisualID: "character_slash", CastColor: "#8FD6FF", ImpactColor: "#BDE9FF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 135, ManaPct: 55, SpeedPct: 35, AllowCrit: true, ArmorBreakChancePct: 100, ArmorBreakRounds: 2, BleedChancePct: 45, BleedRounds: 2, BleedDamage: 3},
+		{SkillID: 1001, SkillCode: "basic_attack", SkillName: "普通攻击", SkillCategory: "common", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_single", AnimationKey: "slash", IsBasicAttack: true, IsEnabled: true, AttackPct: 100, ManaPct: 35, SpeedPct: 35, AllowCrit: true},
+		{SkillID: 1002, SkillCode: "pet_spark_burst", SkillName: "火花冲击", SkillCategory: "pet", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_all", AnimationKey: "burst", CastColor: "#FFAA5C", ImpactColor: "#FFD46B", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 18, AttackPct: 120, ManaPct: 85, SpeedPct: 55, AllowCrit: true, BleedChancePct: 70, BleedRounds: 2, BleedDamage: 4, VulnerabilityChancePct: 100, VulnerabilityRounds: 2, VulnerabilityApplyPct: 12, ControlChancePct: 35, ControlRounds: 1, ControlStatusID: 11},
+		{SkillID: 1003, SkillCode: "pet_vital_heal", SkillName: "活力治愈", SkillCategory: "pet", SkillType: "heal", ActivationMode: skill.ActivationModeActive, TargetType: "ally_single", PreferredTargetHP: "lowest", AnimationKey: "heal", CastColor: "#73F5A3", ImpactColor: "#B7FFD0", IsSkillAttack: true, IsEnabled: true, EnergyCost: 14, HealPct: 22, CritBoostRounds: 2, CritBoostPct: 20},
+		{SkillID: 1004, SkillCode: "pet_arc_volley", SkillName: "弧光连射", SkillCategory: "pet", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_multi", TargetCount: 2, AnimationKey: "volley", CastColor: "#C6D1FF", ImpactColor: "#ECECFF", Projectile: true, IsSkillAttack: true, IsEnabled: true, EnergyCost: 16, AttackPct: 105, ManaPct: 40, SpeedPct: 25, AllowCrit: true, BleedChancePct: 40, BleedRounds: 2, BleedDamage: 2, ControlChancePct: 20, ControlRounds: 1, ControlStatusID: 12},
+		{SkillID: 90001, SkillCode: "monster_wild_charge", SkillName: "野性撞击", SkillCategory: "monster", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_single", AnimationKey: "slash", CastColor: "#FFB88F", ImpactColor: "#FFDDD1", IsEnabled: true, AttackPct: 95, ManaPct: 20, FixedDamage: 2, AllowCrit: true, CurseChancePct: 40, CurseRounds: 2, CurseDamage: 3},
+		{SkillID: 90002, SkillCode: "monster_claw_strike", SkillName: "利爪突袭", SkillCategory: "monster", SkillType: "attack", ActivationMode: skill.ActivationModeActive, TargetType: "enemy_single", AnimationKey: "volley", CastColor: "#FF9E85", ImpactColor: "#FFC7BA", Projectile: true, IsEnabled: true, EnergyCost: 12, AttackPct: 110, ManaPct: 30, SpeedPct: 20, AllowCrit: true, BleedChancePct: 50, BleedRounds: 2, BleedDamage: 3, SlowChancePct: 100, SlowRounds: 2, SlowMultiplierPct: 70, ControlChancePct: 30, ControlRounds: 1, ControlStatusID: 12},
+		{SkillID: 90003, SkillCode: "monster_wild_regen", SkillName: "野性回春", SkillCategory: "monster", SkillType: "heal", ActivationMode: skill.ActivationModeActive, TargetType: "ally_single", PreferredTargetHP: "lowest", AnimationKey: "heal", CastColor: "#84F8B3", ImpactColor: "#C8FFE0", IsSkillAttack: true, IsEnabled: true, EnergyCost: 10, HealPct: 18},
 	}
 	for _, seed := range seeds {
 		repo.definitions[seed.SkillID] = buildStubSkillDetail(seed.Normalize(), now)
@@ -53,6 +53,9 @@ func (r *SkillRepository) ListForAdmin(_ context.Context, query skill.AdminListQ
 			continue
 		}
 		if query.Type != "" && current.SkillType != query.Type {
+			continue
+		}
+		if query.ActivationMode != "" && current.ActivationMode != query.ActivationMode {
 			continue
 		}
 		if query.Enabled != nil && current.IsEnabled != *query.Enabled {
@@ -178,7 +181,7 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 		SkillID: input.SkillID, SkillCode: input.SkillCode, SkillName: input.SkillName,
 		SkillCategory: input.SkillCategory, WeaponDiscipline: input.WeaponDiscipline,
 		LearnExpRequired: input.LearnExpRequired, LearnExpPerUse: input.LearnExpPerUse,
-		SkillType: input.SkillType,
+		SkillType: input.SkillType, ActivationMode: input.ActivationMode,
 		Description: input.Description, AcquireMethod: input.AcquireMethod,
 		IsBasicAttack: input.IsBasicAttack, IsEnabled: input.IsEnabled, StatusText: statusText, SortWeight: input.SortWeight,
 		TargetRule: skill.AdminTargetRule{TargetType: input.TargetType, TargetCount: input.TargetCount, PreferredTargetHP: input.PreferredTargetHP},
@@ -199,14 +202,14 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 			ControlChancePct: input.ControlChancePct, ControlRounds: input.ControlRounds, ControlStatusID: input.ControlStatusID,
 		},
 		Presentation: skill.AdminPresentation{AnimationKey: input.AnimationKey, SkillVisualID: input.SkillVisualID, CastColor: input.CastColor, ImpactColor: input.ImpactColor, Projectile: input.Projectile},
-		CreatedAt: createdAt, UpdatedAt: time.Now(),
+		CreatedAt:    createdAt, UpdatedAt: time.Now(),
 	}
 }
 
 func adminSummaryFromSkillDetail(detail skill.AdminDetail) skill.AdminSummary {
 	return skill.AdminSummary{
 		SkillID: detail.SkillID, SkillCode: detail.SkillCode, SkillName: detail.SkillName,
-		SkillCategory: detail.SkillCategory, SkillType: detail.SkillType, TargetType: detail.TargetRule.TargetType,
+		SkillCategory: detail.SkillCategory, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, TargetType: detail.TargetRule.TargetType,
 		EnergyCost: detail.Formula.EnergyCost, IsBasicAttack: detail.IsBasicAttack, IsEnabled: detail.IsEnabled, StatusText: detail.StatusText,
 		CreatedAt: detail.CreatedAt, UpdatedAt: detail.UpdatedAt,
 	}
@@ -214,9 +217,9 @@ func adminSummaryFromSkillDetail(detail skill.AdminDetail) skill.AdminSummary {
 
 func runtimeFromSkillDetail(detail skill.AdminDetail) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
-		SkillID: detail.SkillID, SkillType: detail.SkillType, SkillCategory: detail.SkillCategory, WeaponDiscipline: detail.WeaponDiscipline,
+		SkillID: detail.SkillID, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, SkillCategory: detail.SkillCategory, WeaponDiscipline: detail.WeaponDiscipline,
 		LearnExpRequired: detail.LearnExpRequired, LearnExpPerUse: detail.LearnExpPerUse,
-		SkillName: detail.SkillName,
+		SkillName:  detail.SkillName,
 		TargetType: detail.TargetRule.TargetType, TargetCount: detail.TargetRule.TargetCount, PreferredTargetHP: detail.TargetRule.PreferredTargetHP,
 		AnimationKey: detail.Presentation.AnimationKey, SkillVisualID: detail.Presentation.SkillVisualID, CastColor: detail.Presentation.CastColor, ImpactColor: detail.Presentation.ImpactColor, Projectile: detail.Presentation.Projectile,
 		IsSkillAttack: detail.Formula.IsSkillAttack, EnergyCost: detail.Formula.EnergyCost,

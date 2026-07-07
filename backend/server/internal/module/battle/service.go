@@ -1376,7 +1376,11 @@ func configurePassiveProfile(actor *actorRuntime) {
 	if actor == nil {
 		return
 	}
-	if applySkillPassives(actor) {
+	if actor.unitClass == ActorUnitClassPet {
+		if applySkillPassivesWithoutPersistentStats(actor) {
+			return
+		}
+	} else if applySkillPassives(actor) {
 		return
 	}
 	// 兼容旧演示宠物：未配置数据库被动时仍走硬编码样例。
@@ -1499,7 +1503,8 @@ func (b *activeBattle) executeDecision(decision turnDecision) []Event {
 		skill, _ = getSkillDef(skillID)
 	}
 	if skill.isPassiveSkill() {
-		return nil
+		skillID = DefaultAttackSkillID
+		skill, _ = getSkillDef(skillID)
 	}
 	if skill.EnergyCost > 0 && !actor.canSpendSpirit(skill.EnergyCost) {
 		skillID = DefaultAttackSkillID
@@ -2216,7 +2221,16 @@ func (b *activeBattle) defaultSkillIDFor(actor *actorRuntime) uint32 {
 		return DefaultAttackSkillID
 	}
 	if actor.actorType == EnemyActorType && len(actor.skillIDs) > 0 {
-		return actor.skillIDs[int((b.round-1)%uint32(len(actor.skillIDs)))]
+		for _, skillID := range actor.skillIDs {
+			skill, ok := getSkillDef(skillID)
+			if !ok || skill.isPassiveSkill() || skill.isBasicAttackSkill() {
+				continue
+			}
+			if actor.canSpendSpirit(skill.EnergyCost) {
+				return skillID
+			}
+		}
+		return DefaultAttackSkillID
 	}
 	if actor.unitClass == ActorUnitClassCharacter {
 		for _, skillID := range actor.skillIDs {
@@ -2224,13 +2238,19 @@ func (b *activeBattle) defaultSkillIDFor(actor *actorRuntime) uint32 {
 				continue
 			}
 			skill, ok := getSkillDef(skillID)
-			if ok && actor.canSpendSpirit(skill.EnergyCost) {
+			if ok && !skill.isPassiveSkill() && actor.canSpendSpirit(skill.EnergyCost) {
 				return skillID
 			}
 		}
 	}
-	if len(actor.skillIDs) > 0 {
-		return actor.skillIDs[0]
+	for _, skillID := range actor.skillIDs {
+		skill, ok := getSkillDef(skillID)
+		if !ok || skill.isPassiveSkill() || skill.isBasicAttackSkill() {
+			continue
+		}
+		if actor.canSpendSpirit(skill.EnergyCost) {
+			return skillID
+		}
 	}
 	return DefaultAttackSkillID
 }

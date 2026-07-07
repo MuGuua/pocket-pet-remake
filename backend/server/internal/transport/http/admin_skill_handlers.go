@@ -153,6 +153,7 @@ func parseAdminSkillListQuery(r *http.Request) (skill.AdminListQuery, error) {
 	}
 	result.Category = strings.TrimSpace(query.Get("category"))
 	result.Type = strings.TrimSpace(query.Get("skill_type"))
+	result.ActivationMode = strings.TrimSpace(query.Get("activation_mode"))
 	result.OrderBy = strings.TrimSpace(query.Get("order_by"))
 	if raw := strings.TrimSpace(query.Get("enabled")); raw != "" {
 		value, err := strconv.ParseBool(raw)

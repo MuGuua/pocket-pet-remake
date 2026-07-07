@@ -81,8 +81,7 @@ func _connect_signals() -> void:
 	GameState.world_snapshot_changed.connect(_refresh_view)
 	NetClient.connection_state_changed.connect(_on_connection_state_changed)
 	NetClient.websocket_closed.connect(_on_websocket_closed)
-	dev_server_switcher.config_applied.connect(_on_dev_server_config_applied)
-	dev_server_switcher.config_cleared.connect(_on_dev_server_config_cleared)
+	dev_server_switcher.config_changed.connect(_on_dev_server_config_changed)
 
 
 # 登录页销毁时断开全局信号，避免返回登录页多次后重复打印同一条服务端日志。
@@ -107,10 +106,8 @@ func _exit_tree() -> void:
 		NetClient.connection_state_changed.disconnect(_on_connection_state_changed)
 	if NetClient.websocket_closed.is_connected(_on_websocket_closed):
 		NetClient.websocket_closed.disconnect(_on_websocket_closed)
-	if dev_server_switcher != null and dev_server_switcher.config_applied.is_connected(_on_dev_server_config_applied):
-		dev_server_switcher.config_applied.disconnect(_on_dev_server_config_applied)
-	if dev_server_switcher != null and dev_server_switcher.config_cleared.is_connected(_on_dev_server_config_cleared):
-		dev_server_switcher.config_cleared.disconnect(_on_dev_server_config_cleared)
+	if dev_server_switcher != null and dev_server_switcher.config_changed.is_connected(_on_dev_server_config_changed):
+		dev_server_switcher.config_changed.disconnect(_on_dev_server_config_changed)
 
 # 在输入框为空时自动填充演示账号和密码。
 func _fill_demo_credentials() -> void:
@@ -454,22 +451,12 @@ func _short_token(token: String) -> String:
 		return token
 	return "%s...%s" % [token.substr(0, 6), token.substr(token.length() - 4, 4)]
 
-## 应用新的开发切服配置后，刷新网络入口并清理旧会话，避免把旧服 token 带到新服。
-func _on_dev_server_config_applied(profile_name: String, http_base: String, ws_url: String) -> void:
+## 切换登录页环境后，刷新网络入口并清理旧会话，避免把旧服 token 带到新服。
+func _on_dev_server_config_changed(profile_name: String, http_base: String, ws_url: String) -> void:
 	HttpClient.reload_base_url_from_config()
 	NetClient.disconnect_from_server()
 	NetClient.reload_default_ws_url_from_config()
 	GameState.reset_session_state()
 	_set_login_busy(false)
-	_append_log("已应用切服配置：%s | HTTP=%s | WS=%s" % [profile_name, http_base, ws_url])
-	_refresh_view()
-
-## 清空切服覆盖后，同样刷新当前网络入口并回到默认环境解析。
-func _on_dev_server_config_cleared(profile_name: String, http_base: String, ws_url: String) -> void:
-	HttpClient.reload_base_url_from_config()
-	NetClient.disconnect_from_server()
-	NetClient.reload_default_ws_url_from_config()
-	GameState.reset_session_state()
-	_set_login_busy(false)
-	_append_log("已清空切服覆盖：%s | HTTP=%s | WS=%s" % [profile_name, http_base, ws_url])
+	_append_log("已切换环境：%s | HTTP=%s | WS=%s" % [profile_name, http_base, ws_url])
 	_refresh_view()

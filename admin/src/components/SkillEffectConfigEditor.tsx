@@ -3,11 +3,15 @@ import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
 import type { SkillEffectConfigEntry, SkillEffectConfigType } from '../types/skillEffectConfig';
 import {
+  PASSIVE_ATTRIBUTE_KEY_OPTIONS,
   SKILL_EFFECT_CONFIG_TYPE_LABELS,
   SKILL_EFFECT_CONFIG_TYPE_OPTIONS,
   UNIQUE_SKILL_EFFECT_CONFIG_TYPES,
   createDefaultSkillEffectConfigRow,
+  filterSkillEffectEntriesForActivationMode,
   formatSkillEffectConfigSummary,
+  getPassiveAttributeModeOptions,
+  isSkillEffectTypeAllowedForActivationMode,
   normalizeSkillEffectConfigEntry,
 } from '../types/skillEffectConfig';
 import { BATTLE_CONTROL_STATUS_OPTIONS } from '../utils/displayLabels';
@@ -16,14 +20,16 @@ import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../utils/modalLay
 interface SkillEffectConfigEditorProps {
   value?: SkillEffectConfigEntry[];
   onChange?: (nextValue: SkillEffectConfigEntry[]) => void;
+  activationMode?: string;
 }
 
 /** 技能公式/状态/表现配置：表格预览 + 弹窗新增，交互对齐怪物战斗奖励编辑器。 */
-export function SkillEffectConfigEditor({ value = [], onChange }: SkillEffectConfigEditorProps) {
+export function SkillEffectConfigEditor({ value = [], onChange, activationMode = 'active' }: SkillEffectConfigEditorProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editorForm] = Form.useForm<SkillEffectConfigEntry>();
   const entryType = Form.useWatch('entry_type', editorForm);
+  const passiveAttrKey = Form.useWatch('passive_attr_key', editorForm);
 
   const usedTypes = useMemo(
     () => new Set(
@@ -36,12 +42,20 @@ export function SkillEffectConfigEditor({ value = [], onChange }: SkillEffectCon
 
   const addableTypeOptions = useMemo(
     () => SKILL_EFFECT_CONFIG_TYPE_OPTIONS.filter((option) => {
+      if (!isSkillEffectTypeAllowedForActivationMode(option.value, activationMode)) {
+        return false;
+      }
       if (!UNIQUE_SKILL_EFFECT_CONFIG_TYPES.has(option.value)) {
         return true;
       }
       return !usedTypes.has(option.value);
     }),
-    [usedTypes],
+    [activationMode, usedTypes],
+  );
+
+  const visibleEntries = useMemo(
+    () => filterSkillEffectEntriesForActivationMode(value, activationMode),
+    [activationMode, value],
   );
 
   const columns = useMemo<ColumnsType<SkillEffectConfigEntry>>(
@@ -127,7 +141,7 @@ export function SkillEffectConfigEditor({ value = [], onChange }: SkillEffectCon
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Typography.Text type="secondary">
-          共 {value.length} 条效果配置。伤害/治疗/控制/表现均通过「添加效果」录入，保存时自动合并为服务端字段。
+          共 {visibleEntries.length} 条效果配置。伤害/治疗/控制/表现均通过「添加效果」录入，保存时自动合并为服务端字段。
         </Typography.Text>
         <Button type="primary" disabled={addableTypeOptions.length === 0} onClick={() => openEditor(null)}>
           添加效果
@@ -137,7 +151,7 @@ export function SkillEffectConfigEditor({ value = [], onChange }: SkillEffectCon
         size="small"
         rowKey={(_record, index) => String(index)}
         columns={columns}
-        dataSource={value}
+        dataSource={visibleEntries}
         pagination={false}
         scroll={{ x: 760 }}
         locale={{ emptyText: '尚未配置技能效果，请点击「添加效果」。' }}
@@ -176,6 +190,19 @@ export function SkillEffectConfigEditor({ value = [], onChange }: SkillEffectCon
             <Form.Item label="技能倍数" name="skill_mult" rules={[{ required: true, message: '请输入技能倍数' }]}>
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
+          ) : null}
+          {entryType === 'attribute_bonus' ? (
+            <>
+              <Form.Item label="属性类型" name="passive_attr_key" rules={[{ required: true, message: '请选择属性类型' }]}>
+                <Select options={PASSIVE_ATTRIBUTE_KEY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} />
+              </Form.Item>
+              <Form.Item label="加成方式" name="passive_attr_mode" rules={[{ required: true, message: '请选择加成方式' }]}>
+                <Select options={getPassiveAttributeModeOptions(passiveAttrKey).map((option) => ({ value: option.value, label: option.label }))} />
+              </Form.Item>
+              <Form.Item label="加成数值" name="passive_attr_value" rules={[{ required: true, message: '请输入加成数值' }]}>
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
           ) : null}
           {entryType === 'damage_attack_pct' ? (
             <Form.Item label="攻击系数 (%)" name="attack_pct" rules={[{ required: true, message: '请输入攻击系数' }]}>

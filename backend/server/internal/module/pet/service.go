@@ -15,6 +15,15 @@ type CaptureConfigReader interface {
 	FindCaptureConfig(ctx context.Context, monsterID uint32) (*monster.CaptureConfig, error)
 }
 
+// CombatSnapshotRepository 提供宠物最终属性快照的刷新与读取能力。
+// 只有正式 PostgreSQL 仓储实现它；测试桩仍走原始表 + 运行时折算兜底。
+type CombatSnapshotRepository interface {
+	RefreshPlayerPetCombatSnapshots(ctx context.Context, playerID uint64) error
+	ListPlayerPetCombatSnapshotsByPlayerID(ctx context.Context, playerID uint64) ([]Pet, error)
+	ListPlayerLineupCombatSnapshotsByPlayerID(ctx context.Context, playerID uint64) ([]LineupPet, error)
+	FindPlayerPetCombatSnapshotByUID(ctx context.Context, playerID uint64, petUID uint64) (*Pet, error)
+}
+
 type Service struct {
 	repo                Repository
 	skillService        *skill.Service
@@ -32,6 +41,35 @@ func NewService(repo Repository, skillService *skill.Service, captureConfigReade
 }
 
 func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) {
+	if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
+		if err := snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, playerID); err != nil {
+			return nil, err
+		}
+		pets, err := snapshotRepo.ListPlayerPetCombatSnapshotsByPlayerID(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if pets == nil {
+			pets = []Pet{}
+		}
+		if err := s.applyUsableFlags(ctx, pets); err != nil {
+			return nil, err
+		}
+		s.enrichProgressionFields(pets)
+		applyPersistentPassiveBonusesToPets(pets, s.resolveRuntimeSkillDefinition)
+		lineup, err := s.ListLineup(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		lineupSet := make(map[uint64]struct{}, len(lineup))
+		for _, lineupPet := range lineup {
+			lineupSet[lineupPet.PetUID] = struct{}{}
+		}
+		for index := range pets {
+			_, pets[index].InLineup = lineupSet[pets[index].PetUID]
+		}
+		return pets, nil
+	}
 	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -43,6 +81,7 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 		return nil, err
 	}
 	s.enrichProgressionFields(pets)
+	applyPersistentPassiveBonusesToPets(pets, s.resolveRuntimeSkillDefinition)
 
 	lineup, err := s.ListLineup(ctx, playerID)
 	if err != nil {
@@ -64,6 +103,20 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 }
 
 func (s *Service) ListLineup(ctx context.Context, playerID uint64) ([]LineupPet, error) {
+	if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
+		if err := snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, playerID); err != nil {
+			return nil, err
+		}
+		lineup, err := snapshotRepo.ListPlayerLineupCombatSnapshotsByPlayerID(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if lineup == nil {
+			return []LineupPet{}, nil
+		}
+		applyPersistentPassiveBonusesToLineupPets(lineup, s.resolveRuntimeSkillDefinition)
+		return lineup, nil
+	}
 	lineup, err := s.repo.ListLineupByPlayerID(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -71,6 +124,7 @@ func (s *Service) ListLineup(ctx context.Context, playerID uint64) ([]LineupPet,
 	if lineup == nil {
 		return []LineupPet{}, nil
 	}
+	applyPersistentPassiveBonusesToLineupPets(lineup, s.resolveRuntimeSkillDefinition)
 	return lineup, nil
 }
 
@@ -165,7 +219,10 @@ func (s *Service) UpdatePetHP(ctx context.Context, playerID uint64, petUID uint6
 	if hp > target.HPMax {
 		hp = target.HPMax
 	}
-	return s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp)
+	if _, err := s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp); err != nil {
+		return Pet{}, err
+	}
+	return s.loadPetByUID(ctx, playerID, petUID)
 }
 
 func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, petUID uint64, hp uint32, expGain uint64) (Pet, error) {
@@ -188,12 +245,10 @@ func (s *Service) UpdatePetBattleProgress(ctx context.Context, playerID uint64, 
 	if hp == 0 {
 		return s.loadPetByUID(ctx, playerID, petUID)
 	}
-	updated, err := s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp)
-	if err != nil {
+	if _, err := s.repo.UpdatePetHPByUID(ctx, playerID, petUID, hp); err != nil {
 		return Pet{}, err
 	}
-	s.enrichProgressionFields([]Pet{updated})
-	return updated, nil
+	return s.loadPetByUID(ctx, playerID, petUID)
 }
 
 // AllocateAttrPoints 为单只宠物分配自由属性点并重算战斗属性。
@@ -224,14 +279,46 @@ func (s *Service) ensurePetOwned(ctx context.Context, playerID uint64, petUID ui
 }
 
 func (s *Service) loadPetByUID(ctx context.Context, playerID uint64, petUID uint64) (Pet, error) {
+	if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
+		if err := snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, playerID); err != nil {
+			return Pet{}, err
+		}
+		item, err := snapshotRepo.FindPlayerPetCombatSnapshotByUID(ctx, playerID, petUID)
+		if err != nil {
+			return Pet{}, err
+		}
+		if item == nil {
+			return Pet{}, ErrPetNotFound
+		}
+		items := []Pet{*item}
+		if err := s.applyUsableFlags(ctx, items); err != nil {
+			return Pet{}, err
+		}
+		s.enrichProgressionFields(items)
+		applyPersistentPassiveBonusesToPets(items, s.resolveRuntimeSkillDefinition)
+		lineup, err := s.ListLineup(ctx, playerID)
+		if err != nil {
+			return Pet{}, err
+		}
+		for _, lineupPet := range lineup {
+			if lineupPet.PetUID == petUID {
+				items[0].InLineup = true
+				break
+			}
+		}
+		return items[0], nil
+	}
 	item, err := s.repo.FindPetByUID(ctx, playerID, petUID)
 	if err != nil {
 		return Pet{}, err
 	}
-	if err := s.applyUsableFlags(ctx, []Pet{item}); err != nil {
+	items := []Pet{item}
+	if err := s.applyUsableFlags(ctx, items); err != nil {
 		return Pet{}, err
 	}
-	s.enrichProgressionFields([]Pet{item})
+	s.enrichProgressionFields(items)
+	applyPersistentPassiveBonusesToPets(items, s.resolveRuntimeSkillDefinition)
+	item = items[0]
 	lineup, err := s.ListLineup(ctx, playerID)
 	if err != nil {
 		return Pet{}, err
@@ -260,7 +347,14 @@ func (s *Service) GrantRuntimePet(ctx context.Context, playerID uint64, petID ui
 	if playerID == 0 || petID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
-	return s.repo.GrantRuntimePet(ctx, playerID, petID, reasonType, reasonRefID, operatorType, operatorID)
+	result, err := s.repo.GrantRuntimePet(ctx, playerID, petID, reasonType, reasonRefID, operatorType, operatorID)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		applyPersistentPassiveBonusesToPet(&result.Pet, s.resolveRuntimeSkillDefinition)
+	}
+	return result, nil
 }
 
 // GrantWildCapturePet 按野外捕捉模板发放宠物，并在服务端 roll 五项成长资质。
@@ -268,7 +362,14 @@ func (s *Service) GrantWildCapturePet(ctx context.Context, playerID uint64, petI
 	if playerID == 0 || petID == 0 || captureMonsterID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
-	return s.repo.GrantWildCapturePet(ctx, playerID, petID, captureMonsterID, reasonType, reasonRefID)
+	result, err := s.repo.GrantWildCapturePet(ctx, playerID, petID, captureMonsterID, reasonType, reasonRefID)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		applyPersistentPassiveBonusesToPet(&result.Pet, s.resolveRuntimeSkillDefinition)
+	}
+	return result, nil
 }
 
 // GrantCapturedPet 在战斗捕捉成功后，按怪物 capture_pet_id 发放关联系统宠物。
@@ -324,6 +425,7 @@ func (s *Service) ListAdminPets(ctx context.Context, query AdminListQuery) (*Adm
 		query = query.Normalize()
 		return &AdminPetList{Items: []AdminPetSummary{}, Page: query.Page, PageSize: query.PageSize}, nil
 	}
+	s.applyCombatSnapshotsToAdminSummaries(ctx, result.Items)
 	return result, nil
 }
 
@@ -335,6 +437,7 @@ func (s *Service) GetAdminPetDetail(ctx context.Context, petUID uint64) (*AdminP
 	if result == nil {
 		return nil, ErrPetNotFound
 	}
+	s.applyCombatSnapshotToAdminDetail(ctx, result)
 	return result, nil
 }
 
@@ -376,6 +479,7 @@ func (s *Service) CreateAdminPet(ctx context.Context, input AdminCreatePetInput)
 	if !usableMap[input.PetID] {
 		return nil, ErrPetUnusable
 	}
+	input.SkillIDs = BuildAdminBattleSkillIDs(input.InnateSkillIDs, input.NormalSkillIDs, input.SkillIDs)
 	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
 		return nil, err
 	}
@@ -391,9 +495,18 @@ func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input Admin
 	if input.PetID == 0 {
 		return nil, ErrInvalidAdminPetInput
 	}
+	existingRawDetail, err := s.repo.FindAdminDetailByPetUID(ctx, petUID)
+	if err != nil {
+		return nil, err
+	}
+	if existingRawDetail == nil {
+		return nil, ErrPetNotFound
+	}
+	input.SkillIDs = BuildAdminBattleSkillIDs(input.InnateSkillIDs, input.NormalSkillIDs, input.SkillIDs)
 	if err := s.validateSkillIDs(ctx, input.SkillIDs); err != nil {
 		return nil, err
 	}
+	reconcileDisplayedAdminStatsToRaw(&input, existingRawDetail, s.applyPersistentPassiveBonusesToAdminDetail)
 	result, err := s.repo.UpdateForAdmin(ctx, petUID, input)
 	if err != nil {
 		return nil, err
@@ -401,11 +514,217 @@ func (s *Service) UpdateAdminPet(ctx context.Context, petUID uint64, input Admin
 	if result == nil {
 		return nil, ErrPetNotFound
 	}
+	s.applyPersistentPassiveBonusesToAdminDetail(result)
 	return result, nil
+}
+
+// reconcileDisplayedAdminStatsToRaw 把后台详情页里“仅用于展示的被动加成结果”还原回可持久化的基础值。
+// 这样当运营只删除技能、不手改生命/攻击等字段时，保存后不会把加成后的展示值误写回 player_pet。
+func reconcileDisplayedAdminStatsToRaw(
+	input *AdminUpdatePetInput,
+	rawDetail *AdminPetDetail,
+	applyDisplayed func(*AdminPetDetail),
+) {
+	if input == nil || rawDetail == nil || applyDisplayed == nil {
+		return
+	}
+	displayedDetail := *rawDetail
+	applyDisplayed(&displayedDetail)
+
+	if input.HP == displayedDetail.HP {
+		input.HP = rawDetail.HP
+	}
+	if input.HPMax == displayedDetail.HPMax {
+		input.HPMax = rawDetail.HPMax
+	}
+	if input.ATK == displayedDetail.ATK {
+		input.ATK = rawDetail.ATK
+	}
+	if input.SPD == displayedDetail.SPD {
+		input.SPD = rawDetail.SPD
+	}
+	if input.MANA == displayedDetail.MANA {
+		input.MANA = rawDetail.MANA
+	}
+	if input.CritRatePct == displayedDetail.CritRatePct {
+		input.CritRatePct = rawDetail.CritRatePct
+	}
+	if input.CritDmgPct == displayedDetail.CritDmgPct {
+		input.CritDmgPct = rawDetail.CritDmgPct
+	}
+	if input.PhysicalResistPct == displayedDetail.PhysicalResistPct {
+		input.PhysicalResistPct = rawDetail.PhysicalResistPct
+	}
+	if input.SkillResistPct == displayedDetail.SkillResistPct {
+		input.SkillResistPct = rawDetail.SkillResistPct
+	}
+	if input.ConfusionResistPct == displayedDetail.ConfusionResistPct {
+		input.ConfusionResistPct = rawDetail.ConfusionResistPct
+	}
+	if input.SleepResistPct == displayedDetail.SleepResistPct {
+		input.SleepResistPct = rawDetail.SleepResistPct
+	}
+	if input.ParalysisResistPct == displayedDetail.ParalysisResistPct {
+		input.ParalysisResistPct = rawDetail.ParalysisResistPct
+	}
+	if input.SealResistPct == displayedDetail.SealResistPct {
+		input.SealResistPct = rawDetail.SealResistPct
+	}
+	if input.CurseResistPct == displayedDetail.CurseResistPct {
+		input.CurseResistPct = rawDetail.CurseResistPct
+	}
 }
 
 func (s *Service) DeleteAdminPet(ctx context.Context, petUID uint64) error {
 	return s.repo.DeleteForAdmin(ctx, petUID)
+}
+
+// applyPersistentPassiveBonusesToAdminSummaries 让后台宠物列表展示的基础属性口径与玩家面板保持一致。
+func (s *Service) applyPersistentPassiveBonusesToAdminSummaries(items []AdminPetSummary) {
+	for index := range items {
+		runtimePet := Pet{
+			HP:       items[index].HP,
+			HPMax:    items[index].HPMax,
+			ATK:      items[index].ATK,
+			DEF:      items[index].DEF,
+			SPD:      items[index].SPD,
+			MANA:     items[index].MANA,
+			SkillIDs: append([]uint32{}, items[index].SkillIDs...),
+		}
+		if !applyPersistentPassiveBonusesToPet(&runtimePet, s.resolveRuntimeSkillDefinition) {
+			continue
+		}
+		items[index].HP = runtimePet.HP
+		items[index].HPMax = runtimePet.HPMax
+		items[index].ATK = runtimePet.ATK
+		items[index].SPD = runtimePet.SPD
+		items[index].MANA = runtimePet.MANA
+	}
+}
+
+// applyPersistentPassiveBonusesToAdminDetail 让后台宠物详情中的基础/次要战斗属性同步展示被动加成后的结果。
+func (s *Service) applyPersistentPassiveBonusesToAdminDetail(detail *AdminPetDetail) {
+	if detail == nil {
+		return
+	}
+	runtimePet := Pet{
+		HP:                 detail.HP,
+		HPMax:              detail.HPMax,
+		ATK:                detail.ATK,
+		DEF:                detail.DEF,
+		SPD:                detail.SPD,
+		MANA:               detail.MANA,
+		SkillIDs:           append([]uint32{}, detail.SkillIDs...),
+		CritRatePct:        detail.CritRatePct,
+		CritDmgPct:         detail.CritDmgPct,
+		PhysicalResistPct:  detail.PhysicalResistPct,
+		SkillResistPct:     detail.SkillResistPct,
+		ConfusionResistPct: detail.ConfusionResistPct,
+		SleepResistPct:     detail.SleepResistPct,
+		ParalysisResistPct: detail.ParalysisResistPct,
+		SealResistPct:      detail.SealResistPct,
+		CurseResistPct:     detail.CurseResistPct,
+	}
+	if !applyPersistentPassiveBonusesToPet(&runtimePet, s.resolveRuntimeSkillDefinition) {
+		return
+	}
+	detail.HP = runtimePet.HP
+	detail.HPMax = runtimePet.HPMax
+	detail.ATK = runtimePet.ATK
+	detail.SPD = runtimePet.SPD
+	detail.MANA = runtimePet.MANA
+	detail.CritRatePct = runtimePet.CritRatePct
+	detail.CritDmgPct = runtimePet.CritDmgPct
+	detail.PhysicalResistPct = runtimePet.PhysicalResistPct
+	detail.SkillResistPct = runtimePet.SkillResistPct
+	detail.ConfusionResistPct = runtimePet.ConfusionResistPct
+	detail.SleepResistPct = runtimePet.SleepResistPct
+	detail.ParalysisResistPct = runtimePet.ParalysisResistPct
+	detail.SealResistPct = runtimePet.SealResistPct
+	detail.CurseResistPct = runtimePet.CurseResistPct
+}
+
+func (s *Service) applyCombatSnapshotsToAdminSummaries(ctx context.Context, items []AdminPetSummary) {
+	snapshotRepo, ok := s.repo.(CombatSnapshotRepository)
+	if !ok {
+		s.applyPersistentPassiveBonusesToAdminSummaries(items)
+		return
+	}
+	playerIDs := make(map[uint64]struct{}, len(items))
+	for _, item := range items {
+		playerIDs[item.PlayerID] = struct{}{}
+	}
+	for playerID := range playerIDs {
+		_ = snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, playerID)
+	}
+	for index := range items {
+		snapshot, err := snapshotRepo.FindPlayerPetCombatSnapshotByUID(ctx, items[index].PlayerID, items[index].PetUID)
+		if err != nil || snapshot == nil {
+			continue
+		}
+		runtimePet := *snapshot
+		applyPersistentPassiveBonusesToPet(&runtimePet, s.resolveRuntimeSkillDefinition)
+		items[index].HP = runtimePet.HP
+		items[index].HPMax = runtimePet.HPMax
+		items[index].ATK = runtimePet.ATK
+		items[index].DEF = runtimePet.DEF
+		items[index].SPD = runtimePet.SPD
+		items[index].MANA = runtimePet.MANA
+		items[index].SkillIDs = append([]uint32{}, runtimePet.SkillIDs...)
+	}
+}
+
+func (s *Service) applyCombatSnapshotToAdminDetail(ctx context.Context, detail *AdminPetDetail) {
+	if detail == nil {
+		return
+	}
+	snapshotRepo, ok := s.repo.(CombatSnapshotRepository)
+	if !ok {
+		s.applyPersistentPassiveBonusesToAdminDetail(detail)
+		return
+	}
+	if err := snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, detail.PlayerID); err != nil {
+		return
+	}
+	snapshot, err := snapshotRepo.FindPlayerPetCombatSnapshotByUID(ctx, detail.PlayerID, detail.PetUID)
+	if err != nil || snapshot == nil {
+		return
+	}
+	runtimePet := *snapshot
+	applyPersistentPassiveBonusesToPet(&runtimePet, s.resolveRuntimeSkillDefinition)
+	detail.HP = runtimePet.HP
+	detail.HPMax = runtimePet.HPMax
+	detail.ATK = runtimePet.ATK
+	detail.DEF = runtimePet.DEF
+	detail.SPD = runtimePet.SPD
+	detail.MANA = runtimePet.MANA
+	detail.SkillIDs = append([]uint32{}, runtimePet.SkillIDs...)
+	detail.InnateSkillIDs = append([]uint32{}, runtimePet.SkillLoadout.InnateSkillIDs...)
+	detail.NormalSkillIDs = append([]uint32{}, runtimePet.SkillLoadout.NormalSkillIDs...)
+	detail.Spirit = runtimePet.Spirit
+	detail.SpiritMax = runtimePet.SpiritMax
+	detail.HitPct = runtimePet.HitPct
+	detail.DodgePct = runtimePet.DodgePct
+	detail.CritRatePct = runtimePet.CritRatePct
+	detail.CritDmgPct = runtimePet.CritDmgPct
+	detail.PhysicalResistPct = runtimePet.PhysicalResistPct
+	detail.ReversePhysicalResistPct = runtimePet.ReversePhysicalResistPct
+	detail.SkillResistPct = runtimePet.SkillResistPct
+	detail.ReverseSkillResistPct = runtimePet.ReverseSkillResistPct
+	detail.ConfusionResistPct = runtimePet.ConfusionResistPct
+	detail.SleepResistPct = runtimePet.SleepResistPct
+	detail.ParalysisResistPct = runtimePet.ParalysisResistPct
+	detail.SealResistPct = runtimePet.SealResistPct
+	detail.CurseResistPct = runtimePet.CurseResistPct
+	detail.CritDmgResistPct = runtimePet.CritDmgResistPct
+	detail.CritResistPct = runtimePet.CritResistPct
+	detail.CharacterResistPct = runtimePet.CharacterResistPct
+	detail.PetResistPct = runtimePet.PetResistPct
+	detail.Guard = runtimePet.Guard
+	detail.TalentDmgPct = runtimePet.TalentDmgPct
+	detail.TalentReducePct = runtimePet.TalentReducePct
+	detail.ElementAdvPct = runtimePet.ElementAdvPct
+	detail.ElementPenaltyPct = runtimePet.ElementPenaltyPct
 }
 
 func (s *Service) ListAdminPetDefinitions(ctx context.Context, query AdminPetDefinitionListQuery) (*AdminPetDefinitionList, error) {
@@ -498,6 +817,15 @@ func (s *Service) applyUsableFlags(ctx context.Context, pets []Pet) error {
 		pets[index].IsUsable = usableMap[pets[index].PetID]
 	}
 	return nil
+}
+
+// resolveRuntimeSkillDefinition 统一从技能运行时缓存读取 skill_id，
+// 宠物属性面板与战斗链路共用同一份权威技能模板。
+func (s *Service) resolveRuntimeSkillDefinition(skillID uint32) (skill.RuntimeDefinition, bool) {
+	if s == nil || s.skillService == nil {
+		return skill.RuntimeDefinition{}, false
+	}
+	return s.skillService.GetRuntimeDefinition(skillID)
 }
 
 func (s *Service) validateSkillIDs(ctx context.Context, skillIDs []uint32) error {

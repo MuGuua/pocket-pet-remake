@@ -281,6 +281,7 @@ SELECT
   pp.def,
   pp.spd,
   pp.mana,
+  pp.skill_ids,
   EXISTS(SELECT 1 FROM player_lineup pl WHERE pl.player_id = pp.player_id AND pl.pet_uid = pp.id) AS in_lineup,
   pp.updated_at,
   pp.created_at
@@ -307,6 +308,8 @@ SELECT
   pp.spd,
   pp.mana,
   pp.skill_ids,
+  pp.innate_skill_ids,
+  pp.normal_skill_ids,
   pp.spirit,
   pp.spirit_max,
   pp.hit_pct,
@@ -355,6 +358,8 @@ INSERT INTO player_pet (
   spd,
   mana,
   skill_ids,
+  innate_skill_ids,
+  normal_skill_ids,
   spirit,
   spirit_max,
   hit_pct,
@@ -380,8 +385,8 @@ INSERT INTO player_pet (
   element_adv_pct,
   element_penalty_pct
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-  $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+  $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38
 )
 RETURNING id
 `
@@ -405,31 +410,33 @@ SET pet_id = $2,
     spd = $10,
     mana = $11,
     skill_ids = $12,
-    spirit = $13,
-    spirit_max = $14,
-    hit_pct = $15,
-    dodge_pct = $16,
-    crit_rate_pct = $17,
-    crit_dmg_pct = $18,
-    physical_resist_pct = $19,
-    reverse_physical_resist_pct = $20,
-    skill_resist_pct = $21,
-    reverse_skill_resist_pct = $22,
-    confusion_resist_pct = $23,
-    sleep_resist_pct = $24,
-    paralysis_resist_pct = $25,
-    seal_resist_pct = $26,
-    curse_resist_pct = $27,
-    crit_dmg_resist_pct = $28,
-    crit_resist_pct = $29,
-    character_resist_pct = $30,
-    pet_resist_pct = $31,
-    guard = $32,
-    talent_dmg_pct = $33,
-    talent_reduce_pct = $34,
-    element_adv_pct = $35,
-    element_penalty_pct = $36,
-    custom_name = $37
+    innate_skill_ids = $13,
+    normal_skill_ids = $14,
+    spirit = $15,
+    spirit_max = $16,
+    hit_pct = $17,
+    dodge_pct = $18,
+    crit_rate_pct = $19,
+    crit_dmg_pct = $20,
+    physical_resist_pct = $21,
+    reverse_physical_resist_pct = $22,
+    skill_resist_pct = $23,
+    reverse_skill_resist_pct = $24,
+    confusion_resist_pct = $25,
+    sleep_resist_pct = $26,
+    paralysis_resist_pct = $27,
+    seal_resist_pct = $28,
+    curse_resist_pct = $29,
+    crit_dmg_resist_pct = $30,
+    crit_resist_pct = $31,
+    character_resist_pct = $32,
+    pet_resist_pct = $33,
+    guard = $34,
+    talent_dmg_pct = $35,
+    talent_reduce_pct = $36,
+    element_adv_pct = $37,
+    element_penalty_pct = $38,
+    custom_name = $39
 WHERE id = $1
 `
 
@@ -496,54 +503,54 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 	lineup := make([]pet.LineupPet, 0)
 	for rows.Next() {
 		var (
-			item         pet.LineupPet
-			loadout      pet.SkillLoadout
-			petUID       int64
-			petID        int64
-			level        int64
-			hp           int64
-			hpMax        int64
-			atk          int64
-			def          int64
-			spd          int64
-			mana         int64
-			spirit       int64
-			spiritMax    int64
-			hitPct       int64
-			dodgePct     int64
-			critRatePct  int64
-			critDmgPct   int64
-			physicalResistPct int64
+			item                     pet.LineupPet
+			loadout                  pet.SkillLoadout
+			petUID                   int64
+			petID                    int64
+			level                    int64
+			hp                       int64
+			hpMax                    int64
+			atk                      int64
+			def                      int64
+			spd                      int64
+			mana                     int64
+			spirit                   int64
+			spiritMax                int64
+			hitPct                   int64
+			dodgePct                 int64
+			critRatePct              int64
+			critDmgPct               int64
+			physicalResistPct        int64
 			reversePhysicalResistPct int64
-			skillResistPct int64
-			reverseSkillResistPct int64
-			confusionResistPct int64
-			sleepResistPct int64
-			paralysisResistPct int64
-			sealResistPct int64
-			curseResistPct int64
-			critDmgResistPct int64
-			critResistPct int64
-			characterResistPct int64
-			petResistPct int64
-			guard int64
-			talentDmgPct int64
-			talentReducePct int64
-			elementAdvPct int64
-			elementPenaltyPct int64
-			skillIDsJSON []byte
-			innateSkillIDsJSON []byte
-			normalSkillIDsJSON []byte
-			activeTalismanSkillID int64
-			talismanHeroSkillID int64
-			talismanSlot1SkillID int64
-			talismanSlot2SkillID int64
-			talismanSlot3SkillID int64
-			activeTalismanEnabled bool
-			talismanHeroEnabled bool
-			talismanSlot1Enabled bool
-			talismanSlot2Enabled bool
-			talismanSlot3Enabled bool
+			skillResistPct           int64
+			reverseSkillResistPct    int64
+			confusionResistPct       int64
+			sleepResistPct           int64
+			paralysisResistPct       int64
+			sealResistPct            int64
+			curseResistPct           int64
+			critDmgResistPct         int64
+			critResistPct            int64
+			characterResistPct       int64
+			petResistPct             int64
+			guard                    int64
+			talentDmgPct             int64
+			talentReducePct          int64
+			elementAdvPct            int64
+			elementPenaltyPct        int64
+			skillIDsJSON             []byte
+			innateSkillIDsJSON       []byte
+			normalSkillIDsJSON       []byte
+			activeTalismanSkillID    int64
+			talismanHeroSkillID      int64
+			talismanSlot1SkillID     int64
+			talismanSlot2SkillID     int64
+			talismanSlot3SkillID     int64
+			activeTalismanEnabled    bool
+			talismanHeroEnabled      bool
+			talismanSlot1Enabled     bool
+			talismanSlot2Enabled     bool
+			talismanSlot3Enabled     bool
 		)
 		if err := rows.Scan(
 			&petUID, &petID, &level, &hp, &hpMax, &atk, &def, &spd, &mana,
@@ -609,15 +616,17 @@ func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint6
 			talismanSlot3Enabled,
 		)
 		if len(skillIDsJSON) > 0 {
-			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
+			item.SkillIDs, err = decodeFlexibleSkillIDJSONArray(skillIDsJSON)
+			if err != nil {
 				return nil, fmt.Errorf("unmarshal lineup pet skill ids: %w", err)
 			}
 		}
 		pet.ApplyLegacySkillIDs(&loadout, item.SkillIDs)
 		applyArtifactSkillsToLoadout(&loadout, artifactMap[item.PetUID])
-		item.SkillIDs = pet.BuildBattleSkillIDs(loadout)
+		item.SkillIDs = pet.MergeBattleSkillIDs(loadout, item.SkillIDs)
 		if len(item.SkillIDs) == 0 && len(skillIDsJSON) > 0 {
-			if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
+			item.SkillIDs, err = decodeFlexibleSkillIDJSONArray(skillIDsJSON)
+			if err != nil {
 				return nil, fmt.Errorf("unmarshal lineup pet legacy skill ids: %w", err)
 			}
 		}
@@ -886,7 +895,8 @@ func (r *PetRepository) ListForAdmin(ctx context.Context, query pet.AdminListQue
 	for rows.Next() {
 		var item pet.AdminPetSummary
 		var petUID, playerID, petID, level, quality, hp, hpMax, atk, def, spd, mana int64
-		if err := rows.Scan(&petUID, &playerID, &item.PlayerName, &petID, &item.PetName, &item.CustomName, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &item.InLineup, &item.UpdatedAt, &item.CreatedAt); err != nil {
+		var skillIDsJSON []byte
+		if err := rows.Scan(&petUID, &playerID, &item.PlayerName, &petID, &item.PetName, &item.CustomName, &level, &quality, &hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON, &item.InLineup, &item.UpdatedAt, &item.CreatedAt); err != nil {
 			return nil, err
 		}
 		item.PetUID = uint64(petUID)
@@ -900,6 +910,12 @@ func (r *PetRepository) ListForAdmin(ctx context.Context, query pet.AdminListQue
 		item.DEF = uint32(def)
 		item.SPD = uint32(spd)
 		item.MANA = uint32(mana)
+		if len(skillIDsJSON) > 0 {
+			item.SkillIDs, err = decodeFlexibleSkillIDJSONArray(skillIDsJSON)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal admin pet list skill ids: %w", err)
+			}
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -916,10 +932,10 @@ func (r *PetRepository) FindAdminDetailByPetUID(ctx context.Context, petUID uint
 	var confusionResistPct, sleepResistPct, paralysisResistPct, sealResistPct, curseResistPct int64
 	var critDmgResistPct, critResistPct, characterResistPct, petResistPct int64
 	var guard, talentDmgPct, talentReducePct, elementAdvPct, elementPenaltyPct int64
-	var skillIDsJSON []byte
+	var skillIDsJSON, innateSkillIDsJSON, normalSkillIDsJSON []byte
 	err := r.db.QueryRowContext(ctx, adminPetDetailQuery, petUID).Scan(
 		&uid, &playerID, &detail.PlayerName, &petID, &detail.PetName, &detail.CustomName, &level, &exp, &quality,
-		&hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON,
+		&hp, &hpMax, &atk, &def, &spd, &mana, &skillIDsJSON, &innateSkillIDsJSON, &normalSkillIDsJSON,
 		&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
 		&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
 		&confusionResistPct, &sleepResistPct, &paralysisResistPct, &sealResistPct, &curseResistPct,
@@ -972,8 +988,21 @@ func (r *PetRepository) FindAdminDetailByPetUID(ctx context.Context, petUID uint
 		ElementPenaltyPct:        uint32(elementPenaltyPct),
 	}
 	if len(skillIDsJSON) > 0 {
-		if err := json.Unmarshal(skillIDsJSON, &detail.SkillIDs); err != nil {
+		detail.SkillIDs, err = decodeFlexibleSkillIDJSONArray(skillIDsJSON)
+		if err != nil {
 			return nil, fmt.Errorf("unmarshal admin pet skill ids: %w", err)
+		}
+	}
+	if len(innateSkillIDsJSON) > 0 {
+		detail.InnateSkillIDs, err = decodeFlexibleSkillIDJSONArray(innateSkillIDsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal admin pet innate skill ids: %w", err)
+		}
+	}
+	if len(normalSkillIDsJSON) > 0 {
+		detail.NormalSkillIDs, err = decodeFlexibleSkillIDJSONArray(normalSkillIDsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal admin pet normal skill ids: %w", err)
 		}
 	}
 	return &detail, nil
@@ -991,6 +1020,14 @@ func (r *PetRepository) CreateForAdmin(ctx context.Context, input pet.AdminCreat
 	if err != nil {
 		return nil, fmt.Errorf("marshal admin pet skill ids: %w", err)
 	}
+	innateSkillIDsJSON, err := json.Marshal(input.InnateSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admin pet innate skill ids: %w", err)
+	}
+	normalSkillIDsJSON, err := json.Marshal(input.NormalSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admin pet normal skill ids: %w", err)
+	}
 	var petUID int64
 	if err := r.db.QueryRowContext(
 		ctx,
@@ -1007,6 +1044,8 @@ func (r *PetRepository) CreateForAdmin(ctx context.Context, input pet.AdminCreat
 		input.SPD,
 		input.MANA,
 		skillIDsJSON,
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
 		input.Spirit,
 		input.SpiritMax,
 		input.HitPct,
@@ -1042,6 +1081,14 @@ func (r *PetRepository) UpdateForAdmin(ctx context.Context, petUID uint64, input
 	if err != nil {
 		return nil, fmt.Errorf("marshal admin pet skill ids: %w", err)
 	}
+	innateSkillIDsJSON, err := json.Marshal(input.InnateSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admin pet innate skill ids: %w", err)
+	}
+	normalSkillIDsJSON, err := json.Marshal(input.NormalSkillIDs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admin pet normal skill ids: %w", err)
+	}
 	result, err := r.db.ExecContext(
 		ctx,
 		updateAdminPetQuery,
@@ -1057,6 +1104,8 @@ func (r *PetRepository) UpdateForAdmin(ctx context.Context, petUID uint64, input
 		input.SPD,
 		input.MANA,
 		skillIDsJSON,
+		innateSkillIDsJSON,
+		normalSkillIDsJSON,
 		input.Spirit,
 		input.SpiritMax,
 		input.HitPct,
@@ -1124,35 +1173,35 @@ func (r *PetRepository) DeleteForAdmin(ctx context.Context, petUID uint64) error
 }
 
 type runtimePetDefinitionRow struct {
-	PetID            uint32
-	Level            uint32
-	Quality          uint32
-	HP               uint32
-	HPMax            uint32
-	ATK              uint32
-	DEF              uint32
-	SPD              uint32
-	MANA             uint32
-	SkillIDsJSON     []byte
+	PetID              uint32
+	Level              uint32
+	Quality            uint32
+	HP                 uint32
+	HPMax              uint32
+	ATK                uint32
+	DEF                uint32
+	SPD                uint32
+	MANA               uint32
+	SkillIDsJSON       []byte
 	InnateSkillIDsJSON []byte
 	NormalSkillIDsJSON []byte
-	AcquireMethod    string
-	HPApt            uint32
-	ATKApt           uint32
-	DEFApt           uint32
-	SPDApt           uint32
-	MANAApt          uint32
-	HPAptRollMin     uint32
-	HPAptRollMax     uint32
-	ATKAptRollMin    uint32
-	ATKAptRollMax    uint32
-	DEFAptRollMin    uint32
-	DEFAptRollMax    uint32
-	SPDAptRollMin    uint32
-	SPDAptRollMax    uint32
-	MANAAptRollMin   uint32
-	MANAAptRollMax   uint32
-	AptitudeProfile  string
+	AcquireMethod      string
+	HPApt              uint32
+	ATKApt             uint32
+	DEFApt             uint32
+	SPDApt             uint32
+	MANAApt            uint32
+	HPAptRollMin       uint32
+	HPAptRollMax       uint32
+	ATKAptRollMin      uint32
+	ATKAptRollMax      uint32
+	DEFAptRollMin      uint32
+	DEFAptRollMax      uint32
+	SPDAptRollMin      uint32
+	SPDAptRollMax      uint32
+	MANAAptRollMin     uint32
+	MANAAptRollMax     uint32
+	AptitudeProfile    string
 }
 
 func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint32) (*runtimePetDefinitionRow, error) {
@@ -1222,81 +1271,81 @@ func (r *PetRepository) loadPetByUID(ctx context.Context, playerID uint64, petUI
 
 func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 	var (
-		item             pet.Pet
-		petUID           int64
-		petID            int64
-		level            int64
-		exp              int64
-		quality          int64
-		hp               int64
-		hpMax            int64
-		atk              int64
-		def              int64
-		spd              int64
-		mana             int64
-		spirit           int64
-		spiritMax        int64
-		hitPct           int64
-		dodgePct         int64
-		critRatePct      int64
-		critDmgPct       int64
-		physicalResistPct int64
+		item                     pet.Pet
+		petUID                   int64
+		petID                    int64
+		level                    int64
+		exp                      int64
+		quality                  int64
+		hp                       int64
+		hpMax                    int64
+		atk                      int64
+		def                      int64
+		spd                      int64
+		mana                     int64
+		spirit                   int64
+		spiritMax                int64
+		hitPct                   int64
+		dodgePct                 int64
+		critRatePct              int64
+		critDmgPct               int64
+		physicalResistPct        int64
 		reversePhysicalResistPct int64
-		skillResistPct   int64
-		reverseSkillResistPct int64
-		confusionResistPct int64
-		sleepResistPct   int64
-		paralysisResistPct int64
-		sealResistPct    int64
-		curseResistPct   int64
-		critDmgResistPct int64
-		critResistPct    int64
-		characterResistPct int64
-		petResistPct     int64
-		guard            int64
-		talentDmgPct     int64
-		talentReducePct  int64
-		elementAdvPct    int64
-		elementPenaltyPct int64
-		skillIDsJSON     []byte
-		innateSkillIDsJSON []byte
-		normalSkillIDsJSON []byte
-		activeTalismanSkillID int64
-		talismanHeroSkillID int64
-		talismanSlot1SkillID int64
-		talismanSlot2SkillID int64
-		talismanSlot3SkillID int64
-		activeTalismanEnabled bool
-		talismanHeroEnabled bool
-		talismanSlot1Enabled bool
-		talismanSlot2Enabled bool
-		talismanSlot3Enabled bool
-		hpApt            int64
-		atkApt           int64
-		defApt           int64
-		spdApt           int64
-		manaApt          int64
-		grantSource      string
-		captureMonsterID int64
-		freeAttrPoints   int64
-		allocHP          int64
-		allocATK         int64
-		allocSPD         int64
-		allocMANA        int64
-		allocDEF         int64
-		baseHPApt        int64
-		baseATKApt       int64
-		baseDEFApt       int64
-		baseSPDApt       int64
-		baseMANAApt      int64
-		extraHPApt       int64
-		extraATKApt      int64
-		extraDEFApt      int64
-		extraSPDApt      int64
-		extraMANAApt     int64
-		evolutionLevel   int64
-		rebirthLevel     int64
-		aptitudeProfile  string
+		skillResistPct           int64
+		reverseSkillResistPct    int64
+		confusionResistPct       int64
+		sleepResistPct           int64
+		paralysisResistPct       int64
+		sealResistPct            int64
+		curseResistPct           int64
+		critDmgResistPct         int64
+		critResistPct            int64
+		characterResistPct       int64
+		petResistPct             int64
+		guard                    int64
+		talentDmgPct             int64
+		talentReducePct          int64
+		elementAdvPct            int64
+		elementPenaltyPct        int64
+		skillIDsJSON             []byte
+		innateSkillIDsJSON       []byte
+		normalSkillIDsJSON       []byte
+		activeTalismanSkillID    int64
+		talismanHeroSkillID      int64
+		talismanSlot1SkillID     int64
+		talismanSlot2SkillID     int64
+		talismanSlot3SkillID     int64
+		activeTalismanEnabled    bool
+		talismanHeroEnabled      bool
+		talismanSlot1Enabled     bool
+		talismanSlot2Enabled     bool
+		talismanSlot3Enabled     bool
+		hpApt                    int64
+		atkApt                   int64
+		defApt                   int64
+		spdApt                   int64
+		manaApt                  int64
+		grantSource              string
+		captureMonsterID         int64
+		freeAttrPoints           int64
+		allocHP                  int64
+		allocATK                 int64
+		allocSPD                 int64
+		allocMANA                int64
+		allocDEF                 int64
+		baseHPApt                int64
+		baseATKApt               int64
+		baseDEFApt               int64
+		baseSPDApt               int64
+		baseMANAApt              int64
+		extraHPApt               int64
+		extraATKApt              int64
+		extraDEFApt              int64
+		extraSPDApt              int64
+		extraMANAApt             int64
+		evolutionLevel           int64
+		rebirthLevel             int64
+		aptitudeProfile          string
 	)
 	if err := rows.Scan(
 		&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana,
@@ -1397,11 +1446,14 @@ func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 		talismanSlot3Enabled,
 	)
 	if len(skillIDsJSON) > 0 {
-		if err := json.Unmarshal(skillIDsJSON, &item.SkillIDs); err != nil {
-			return pet.Pet{}, fmt.Errorf("unmarshal pet skill ids: %w", err)
+		parsedSkillIDs, parseErr := decodeFlexibleSkillIDJSONArray(skillIDsJSON)
+		if parseErr != nil {
+			return pet.Pet{}, fmt.Errorf("unmarshal pet skill ids: %w", parseErr)
 		}
+		item.SkillIDs = parsedSkillIDs
 	}
 	pet.ApplyLegacySkillIDs(&item.SkillLoadout, item.SkillIDs)
+	item.SkillIDs = pet.MergeBattleSkillIDs(item.SkillLoadout, item.SkillIDs)
 	return item, nil
 }
 
@@ -1458,12 +1510,16 @@ func joinConditions(conditions []string) string {
 	return result
 }
 
-func decodeSkillIDJSONArray(raw []byte) []uint32 {
+func decodeFlexibleSkillIDJSONArray(raw []byte) ([]uint32, error) {
 	if len(raw) == 0 {
-		return []uint32{}
+		return []uint32{}, nil
 	}
-	values := make([]uint32, 0)
-	if err := json.Unmarshal(raw, &values); err != nil {
+	return unmarshalFlexibleUint32Array(raw)
+}
+
+func decodeSkillIDJSONArray(raw []byte) []uint32 {
+	values, err := decodeFlexibleSkillIDJSONArray(raw)
+	if err != nil {
 		return []uint32{}
 	}
 	return values
