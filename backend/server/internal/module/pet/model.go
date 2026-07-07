@@ -14,8 +14,14 @@ var (
 )
 
 type Pet struct {
-	PetUID   uint64
-	PetID    uint32
+	PetUID uint64
+	PetID  uint32
+	// PetName 是宠物模板表里的系统名称，客户端在没有自定义名时使用它展示。
+	PetName string
+	// CustomName 是玩家或后台为单只宠物设置的实例名称，非空时优先展示。
+	CustomName string
+	// SkinID 是宠物模板绑定的 UnitSkin 资源 ID，客户端用它解析待机首帧。
+	SkinID   string
 	Level    uint32
 	Exp      uint64
 	Quality  uint32

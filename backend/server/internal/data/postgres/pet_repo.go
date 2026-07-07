@@ -73,10 +73,49 @@ WHERE pl.player_id = $1
 ORDER BY pl.slot_index ASC
 `
 
+const listLineupSummariesByPlayerIDQuery = `
+SELECT
+  pp.id,
+  pp.pet_id,
+  pp.level,
+  pp.hp,
+  pp.hp_max
+FROM player_lineup pl
+JOIN player_pet pp ON pp.id = pl.pet_uid
+WHERE pl.player_id = $1
+ORDER BY pl.slot_index ASC
+`
+
+const listPetSummariesByPlayerIDQuery = `
+SELECT
+  pp.id,
+  pp.pet_id,
+  COALESCE(pd.pet_name, '') AS pet_name,
+  COALESCE(pp.custom_name, '') AS custom_name,
+  COALESCE(pd.skin_id, '') AS skin_id,
+  pp.level,
+  pp.quality,
+  pp.hp,
+  pp.hp_max,
+  EXISTS (
+    SELECT 1
+    FROM player_lineup pl
+    WHERE pl.player_id = pp.player_id
+      AND pl.pet_uid = pp.id
+  ) AS in_lineup
+FROM player_pet pp
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
+WHERE pp.player_id = $1
+ORDER BY pp.id ASC
+`
+
 const listPetsByPlayerIDQuery = `
 SELECT
   pp.id,
   pp.pet_id,
+  COALESCE(pd.pet_name, '') AS pet_name,
+  COALESCE(pp.custom_name, '') AS custom_name,
+  COALESCE(pd.skin_id, '') AS skin_id,
   pp.level,
   pp.exp,
   pp.quality,
@@ -483,6 +522,91 @@ func (r *PetRepository) ListPetsByPlayerID(ctx context.Context, playerID uint64)
 		pet.ResolvePetBattleSkills(&pets[index])
 	}
 	return pets, nil
+}
+
+// ListPetSummariesByPlayerID 只读取宠物面板列表需要的展示字段。
+// 这里不加载法宝、技能和战斗属性上限，也不刷新快照，完整属性由单宠详情请求负责。
+func (r *PetRepository) ListPetSummariesByPlayerID(ctx context.Context, playerID uint64) ([]pet.Pet, error) {
+	rows, err := r.db.QueryContext(ctx, listPetSummariesByPlayerIDQuery, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pets := make([]pet.Pet, 0)
+	for rows.Next() {
+		var (
+			item     pet.Pet
+			petUID   int64
+			petID    int64
+			level    int64
+			quality  int64
+			hp       int64
+			hpMax    int64
+			inLineup bool
+		)
+		if err := rows.Scan(
+			&petUID,
+			&petID,
+			&item.PetName,
+			&item.CustomName,
+			&item.SkinID,
+			&level,
+			&quality,
+			&hp,
+			&hpMax,
+			&inLineup,
+		); err != nil {
+			return nil, err
+		}
+		item.PetUID = uint64(petUID)
+		item.PetID = uint32(petID)
+		item.Level = uint32(level)
+		item.Quality = uint32(quality)
+		item.HP = uint32(hp)
+		item.HPMax = uint32(hpMax)
+		item.InLineup = inLineup
+		pets = append(pets, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pets, nil
+}
+
+// ListLineupSummariesByPlayerID 只读取编队槽位展示需要的字段。
+// 宠物状态面板打开时不需要编队完整战斗属性，避免额外触发重型查询。
+func (r *PetRepository) ListLineupSummariesByPlayerID(ctx context.Context, playerID uint64) ([]pet.LineupPet, error) {
+	rows, err := r.db.QueryContext(ctx, listLineupSummariesByPlayerIDQuery, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	lineup := make([]pet.LineupPet, 0)
+	for rows.Next() {
+		var (
+			item   pet.LineupPet
+			petUID int64
+			petID  int64
+			level  int64
+			hp     int64
+			hpMax  int64
+		)
+		if err := rows.Scan(&petUID, &petID, &level, &hp, &hpMax); err != nil {
+			return nil, err
+		}
+		item.PetUID = uint64(petUID)
+		item.PetID = uint32(petID)
+		item.Level = uint32(level)
+		item.HP = uint32(hp)
+		item.HPMax = uint32(hpMax)
+		lineup = append(lineup, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return lineup, nil
 }
 
 func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint64) ([]pet.LineupPet, error) {
@@ -1348,7 +1472,8 @@ func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
 		aptitudeProfile          string
 	)
 	if err := rows.Scan(
-		&petUID, &petID, &level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana,
+		&petUID, &petID, &item.PetName, &item.CustomName, &item.SkinID,
+		&level, &exp, &quality, &hp, &hpMax, &atk, &def, &spd, &mana,
 		&spirit, &spiritMax, &hitPct, &dodgePct, &critRatePct, &critDmgPct,
 		&physicalResistPct, &reversePhysicalResistPct, &skillResistPct, &reverseSkillResistPct,
 		&confusionResistPct, &sleepResistPct, &paralysisResistPct, &sealResistPct, &curseResistPct,

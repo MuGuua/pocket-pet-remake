@@ -392,6 +392,9 @@ const runtimePetUseTargetQuery = `
 SELECT
   pp.id,
   pp.pet_id,
+  COALESCE(pd.pet_name, '') AS pet_name,
+  COALESCE(pp.custom_name, '') AS custom_name,
+  COALESCE(pd.skin_id, '') AS skin_id,
   pp.level,
   pp.exp,
   pp.quality,
@@ -403,6 +406,7 @@ SELECT
   pp.skill_ids,
   EXISTS(SELECT 1 FROM player_lineup pl WHERE pl.player_id = pp.player_id AND pl.pet_uid = pp.id) AS in_lineup
 FROM player_pet pp
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
 WHERE pp.player_id = $1
   AND pp.id = $2
 LIMIT 1
@@ -1872,18 +1876,21 @@ type dropItemSourceRow struct {
 }
 
 type runtimeUseTargetPetRow struct {
-	PetUID   uint64
-	PetID    uint32
-	Level    uint32
-	Exp      uint64
-	Quality  uint32
-	HP       uint32
-	HPMax    uint32
-	ATK      uint32
-	DEF      uint32
-	SPD      uint32
-	SkillIDs []uint32
-	InLineup bool
+	PetUID     uint64
+	PetID      uint32
+	PetName    string
+	CustomName string
+	SkinID     string
+	Level      uint32
+	Exp        uint64
+	Quality    uint32
+	HP         uint32
+	HPMax      uint32
+	ATK        uint32
+	DEF        uint32
+	SPD        uint32
+	SkillIDs   []uint32
+	InLineup   bool
 }
 
 type containerCapacityRow struct {
@@ -2015,6 +2022,9 @@ func loadRuntimeUseTargetPetRow(ctx context.Context, tx *sql.Tx, playerID uint64
 	if err := tx.QueryRowContext(ctx, runtimePetUseTargetQuery, playerID, petUID).Scan(
 		&value.PetUID,
 		&value.PetID,
+		&value.PetName,
+		&value.CustomName,
+		&value.SkinID,
 		&value.Level,
 		&value.Exp,
 		&value.Quality,
@@ -2528,18 +2538,21 @@ func applyRuntimePetHPRestoreEffect(ctx context.Context, tx *sql.Tx, playerID ui
 		RestoredHP:   updatedPet.HP - targetPet.HP,
 		NewPetHP:     updatedPet.HP,
 		UpdatedPet: &bag.RuntimePetSnapshot{
-			PetUID:   updatedPet.PetUID,
-			PetID:    updatedPet.PetID,
-			Level:    updatedPet.Level,
-			Exp:      updatedPet.Exp,
-			Quality:  updatedPet.Quality,
-			HP:       updatedPet.HP,
-			HPMax:    updatedPet.HPMax,
-			ATK:      updatedPet.ATK,
-			DEF:      updatedPet.DEF,
-			SPD:      updatedPet.SPD,
-			SkillIDs: append([]uint32{}, updatedPet.SkillIDs...),
-			InLineup: updatedPet.InLineup,
+			PetUID:     updatedPet.PetUID,
+			PetID:      updatedPet.PetID,
+			PetName:    updatedPet.PetName,
+			CustomName: updatedPet.CustomName,
+			SkinID:     updatedPet.SkinID,
+			Level:      updatedPet.Level,
+			Exp:        updatedPet.Exp,
+			Quality:    updatedPet.Quality,
+			HP:         updatedPet.HP,
+			HPMax:      updatedPet.HPMax,
+			ATK:        updatedPet.ATK,
+			DEF:        updatedPet.DEF,
+			SPD:        updatedPet.SPD,
+			SkillIDs:   append([]uint32{}, updatedPet.SkillIDs...),
+			InLineup:   updatedPet.InLineup,
 		},
 	}, nil
 }
@@ -2694,8 +2707,8 @@ func buildTransferReasonType(fromContainerType string, toContainerType string) s
 }
 
 type stackGroupKey struct {
-	ItemID          uint64
-	IsBound         bool
+	ItemID           uint64
+	IsBound          bool
 	ExpireAtUnixNano int64
 }
 

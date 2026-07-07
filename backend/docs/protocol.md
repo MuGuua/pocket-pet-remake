@@ -776,63 +776,25 @@
 
 ### 3002 PET_LIST_RESP
 
+`PET_LIST_RESP` 只返回宠物状态面板左侧列表需要的轻量摘要，不触发全量宠物战斗快照重算。客户端打开宠物状态面板时，应先请求本接口拿列表，再对默认选中的第一只宠物发送 `3035 PET_SKILL_DETAIL_REQ` 拉取完整属性；点击切换宠物时同样按目标 `pet_uid` 再请求详情。
+
 ```json
 {
   "pets": [
     {
       "pet_uid": 20001,
       "pet_id": 101,
+      "pet_name": "小火龙",
+      "custom_name": "",
+      "name": "小火龙",
+      "skin_id": "嫩叶犬_001",
       "level": 5,
-      "exp": 120,
-      "exp_to_next": 800,
       "quality": 1,
       "hp": 32,
       "hp_max": 32,
-      "atk": 14,
-      "def": 10,
-      "spd": 12,
-      "mana": 16,
-      "skill_ids": [1001, 1002],
-      "skill_slots": {
-        "innate": [{"slot_index": 0, "skill_id": 1001}],
-        "active_talisman": {"slot_index": 0, "skill_id": 0, "enabled": false},
-        "talisman_hero": {"slot_index": 0, "skill_id": 0, "enabled": false},
-        "talisman_1": {"slot_index": 0, "skill_id": 0, "enabled": false},
-        "talisman_2": {"slot_index": 0, "skill_id": 0, "enabled": false},
-        "talisman_3": {"slot_index": 0, "skill_id": 0, "enabled": false},
-        "normal": [
-          {"slot_index": 0, "skill_id": 1001, "enabled": true},
-          {"slot_index": 1, "skill_id": 1002, "enabled": true},
-          {"slot_index": 2, "skill_id": 0, "enabled": true}
-        ],
-        "artifact": [
-          {"slot_index": 0, "skill_id": 0},
-          {"slot_index": 1, "skill_id": 0},
-          {"slot_index": 2, "skill_id": 0}
-        ]
-      },
+      "skill_ids": [],
       "in_lineup": true,
-      "is_usable": true,
-      "free_attr_points": 3,
-      "alloc_hp_points": 10,
-      "alloc_atk_points": 25,
-      "alloc_spd_points": 0,
-      "alloc_mana_points": 0,
-      "alloc_def_points": 0,
-      "base_hp_apt": 12,
-      "extra_hp_apt": 0,
-      "growth_aptitudes": {
-        "hp_apt": 12,
-        "atk_apt": 11,
-        "def_apt": 10,
-        "spd_apt": 9,
-        "mana_apt": 8
-      },
-      "auto_hp_points": 4,
-      "auto_atk_points": 4,
-      "auto_spd_points": 4,
-      "auto_mana_points": 4,
-      "auto_def_points": 4
+      "is_usable": true
     }
   ],
   "lineup": [
@@ -850,68 +812,11 @@
 
 说明：
 
-- `pets` 返回玩家拥有的完整宠物实例列表
+- `pets` 返回玩家拥有的宠物摘要，供列表、名称、外观、等级、出战标记展示使用
 - `lineup` 返回当前编队摘要和顺序
-- `in_lineup` 仅用于客户端展示，不替代 `lineup` 顺序本身
-- `exp_to_next` / `free_attr_points` / `alloc_*_points` / `growth_aptitudes` / `auto_*_points` 由服务端权威计算下发，客户端只展示
-- `skill_ids` 为战斗合并后的扁平技能列表；`skill_slots` 为分槽视图。`3002` 列表中 `artifact` 槽 `skill_id` 为 0；单宠详情/加点/推送响应会填充法宝技
-- 战斗五维 `hp_max/atk/spd/mana/def` 已是公式重算后的最终值
-
-### 2063 PET_ALLOCATE_ATTR_REQ
-
-```json
-{
-  "pet_uid": 20001,
-  "hp": 0,
-  "atk": 1,
-  "spd": 0,
-  "mana": 0,
-  "def": 0
-}
-```
-
-### 2064 PET_ALLOCATE_ATTR_RESP
-
-```json
-{
-  "pet": { }
-}
-```
-
-说明：
-
-- 至少一项增量大于 0，且总和不超过 `free_attr_points`
-- 成功后 `pet` 结构与 `3002` 单条 `PetDetail` 一致
-- 错误：`pet not found` / `insufficient attr points` / `invalid allocate attr input`
-
-### 3011 PET_UPDATE_PUSH
-
-当服务端结算会改变宠物实例状态的结果时，可直接推送单只宠物最新详情；当前最小实现用于“战斗结束后回写主战宠 HP”：
-
-```json
-{
-  "pet": {
-    "pet_uid": 20001,
-    "pet_id": 101,
-    "level": 5,
-    "exp": 120,
-    "quality": 1,
-    "hp": 28,
-    "hp_max": 32,
-    "atk": 14,
-    "def": 10,
-    "spd": 12,
-    "skill_ids": [1001, 1002],
-    "in_lineup": true
-  }
-}
-```
-
-说明：
-
-- 当前只推送发生变化的单只宠物详情
-- 客户端按 `pet_uid` 合并本地宠物实例
-- 宠物列表和编队摘要后续再次查询时，也应与该推送保持一致
+- `custom_name` 是玩家自定义名；为空时客户端展示 `pet_name`。`name` 为服务端计算后的最终展示名，兼容旧客户端直接读取
+- `skin_id` 来自 `pet_definition.skin_id`，客户端用于加载宠物槽“下待机”第一帧，不允许客户端按 `pet_id` 硬编码推断
+- 完整属性、经验、资质、技能槽、法宝槽等详情不在列表下发，必须按单只宠物使用 `3035/3036` 获取
 
 ### 3021 PET_LINEUP_SET_REQ
 
@@ -978,7 +883,7 @@
 
 ### 3035 PET_SKILL_DETAIL_REQ / 3036 PET_SKILL_DETAIL_RESP
 
-拉取单只宠物完整 `skill_slots`（含法宝槽真实 `skill_id`；列表接口 `3002` 中法宝槽 `skill_id` 为 0）。
+拉取单只宠物完整属性、资质、`skill_slots`（含法宝槽真实 `skill_id`）。列表接口 `3002` 只返回摘要，不返回完整详情。
 
 ```json
 {
@@ -986,7 +891,7 @@
 }
 ```
 
-响应 `pet` 结构与 `PetDetail` 一致，`skill_slots.artifact` 填充完整技能 ID。
+响应 `pet` 结构与 `PetDetail` 一致，包含基础属性、成长资质、状态抗性、技能槽和法宝槽完整技能 ID。
 
 ### 5021 神符槽道具解锁
 

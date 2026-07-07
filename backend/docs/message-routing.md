@@ -10,7 +10,7 @@
 | 2001 | ENTER_WORLD_REQ | ws/world_handler | player + pet + world | 加载玩家快照并进入场景 |
 | 2021 | MOVE_INTENT_REQ | ws/world_handler | world | 校验移动并广播 |
 | 2031 | INTERACT_REQ | ws/world_handler | world / bag / battle | NPC、传送点、遭遇触发 |
-| 3001 | PET_LIST_REQ | ws/pet_handler | pet | 返回宠物列表 |
+| 3001 | PET_LIST_REQ | ws/pet_handler | pet | 返回宠物列表摘要 |
 | 3021 | PET_LINEUP_SET_REQ | ws/pet_handler | pet + player | 设置编队 |
 | 4001 | BATTLE_ACTION_REQ | ws/battle_handler | battle + pet + bag | 回合行动受理 |
 | 4021 | BATTLE_EXIT_REQ | ws/battle_handler | battle | 非结算场景退出 |
@@ -73,7 +73,7 @@
 | 2014 | `world_controller.gd` | 强制重置本地位置、AOI 与暗雷配置 |
 | 2036 | `world_controller.gd` | 暗雷上报回执；成功则等待 `4011` |
 | 2041 | `world_controller.gd` | 预留 |
-| 3002 | `pet_controller.gd` | 刷新宠物列表 |
+| 3002 | `pet_controller.gd` | 刷新宠物列表摘要 |
 | 3011 | `pet_controller.gd` | 刷新变化宠物并通知 UI |
 | 3022 | `pet_controller.gd` | 更新编队数据 |
 | 4011 | `battle_controller.gd` | 创建战斗场景与初始状态 |

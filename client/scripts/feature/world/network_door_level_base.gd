@@ -17,7 +17,7 @@ func _get_default_facing_direction() -> Vector2:
 	return Vector2.DOWN
 
 ## 返回从指定 portal_id 传入当前场景时的客户端场景坐标；未配置时返回 INVALID_PORTAL_SPAWN_SCENE_POSITION。
-func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
+func get_portal_spawn_scene_position(_portal_id: int) -> Vector2:
 	return INVALID_PORTAL_SPAWN_SCENE_POSITION
 
 func _bind_door(door_name: String) -> void:

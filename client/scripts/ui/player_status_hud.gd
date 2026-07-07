@@ -3,7 +3,6 @@ extends PanelContainer
 ## 点击玩家头像时触发，由主场景打开人物状态面板。
 signal avatar_pressed
 
-const CharacterSkinRegistry = preload("res://scripts/feature/character/character_skin_registry.gd")
 const DEFAULT_AVATAR_SKIN_ID: String = "初始形象男_001"
 ## 与战斗表现层一致：unit_class 1 表示玩家角色。
 const PLAYER_UNIT_CLASS: int = 1

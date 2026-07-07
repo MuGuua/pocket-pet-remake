@@ -49,7 +49,7 @@ func show_rewards(
 	title_text: String,
 	rewards: Array,
 	pet_rewards: Array = [],
-	items_header_text: String = "",
+	_items_header_text: String = "",
 	skill_progress_rewards: Array = []
 ) -> void:
 	var parsed: Dictionary = _parse_rewards(rewards, pet_rewards)
@@ -248,15 +248,15 @@ func _resolve_button_screen_rect(button: BaseButton) -> Rect2:
 
 ## 汇总祖先 Control 的 offset_transform_position；Godot 的 get_global_rect 不会稳定反映该视觉偏移。
 func _collect_offset_transform_position(node: Node) -> Vector2:
-	var offset: Vector2 = Vector2.ZERO
+	var visual_offset_total: Vector2 = Vector2.ZERO
 	var current: Node = node
 	while current != null and current != self:
 		if current is Control:
 			var control: Control = current as Control
 			if control.offset_transform_enabled:
-				offset += control.offset_transform_position
+				visual_offset_total += control.offset_transform_position
 		current = current.get_parent()
-	return offset
+	return visual_offset_total
 
 
 ## 奖励弹窗结构调整后没有固定 DimLayer；如果存在可交互背景层，则按遮罩语义绑定。

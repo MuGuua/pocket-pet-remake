@@ -286,12 +286,15 @@ func _sync_pet_lineup_flags() -> void:
 
 	# 保存当前编队中全部宠物唯一标识的查找表。
 	var lineup_pet_uids := {}
+	var lineup_pet_by_uid: Dictionary = {}
 	for lineup_item_variant in lineup:
 		if lineup_item_variant is Dictionary:
 			# 读取当前编队项对应的宠物唯一标识。
+			var lineup_item: Dictionary = lineup_item_variant as Dictionary
 			var lineup_pet_uid: int = int(lineup_item_variant.get("pet_uid", 0))
 			if lineup_pet_uid != 0:
 				lineup_pet_uids[lineup_pet_uid] = true
+				lineup_pet_by_uid[lineup_pet_uid] = lineup_item.duplicate(true)
 
 	for index in pets.size():
 		# 读取当前遍历到的本地宠物数据。
@@ -302,7 +305,24 @@ func _sync_pet_lineup_flags() -> void:
 			# 读取当前宠物实例的唯一标识。
 			var pet_uid: int = int(next_pet.get("pet_uid", 0))
 			next_pet["in_lineup"] = lineup_pet_uids.has(pet_uid)
+			if lineup_pet_by_uid.has(pet_uid):
+				# 编队摘要有时比宠物快照更早带到外观字段；只补充缺失字段，不覆盖完整宠物详情。
+				var lineup_pet: Dictionary = lineup_pet_by_uid[pet_uid] as Dictionary
+				_merge_missing_pet_brief_fields(next_pet, lineup_pet)
 			pets[index] = next_pet
+
+
+# 从编队摘要补齐宠物快照中缺失的展示字段，避免服务端老快照导致 UI 槽位没有形象。
+func _merge_missing_pet_brief_fields(pet_snapshot: Dictionary, lineup_pet: Dictionary) -> void:
+	var fill_keys: Array[String] = ["skin_id", "pet_name", "custom_name", "name"]
+	for key: String in fill_keys:
+		var current_value: String = str(pet_snapshot.get(key, "")).strip_edges()
+		if not current_value.is_empty():
+			continue
+		var lineup_value: String = str(lineup_pet.get(key, "")).strip_edges()
+		if lineup_value.is_empty():
+			continue
+		pet_snapshot[key] = lineup_value
 
 # 整体替换背包物品列表。
 func set_bag_items(next_items: Array) -> void:

@@ -1447,14 +1447,22 @@ func TestRouterHandleInteractAndBattleAction(t *testing.T) {
 	if petList.Pets[0].HP != allyHPAfterBattle {
 		t.Fatalf("petList.Pets[0].HP = %d, want %d", petList.Pets[0].HP, allyHPAfterBattle)
 	}
-	if petList.Pets[0].Exp == 0 {
-		t.Fatalf("petList.Pets[0].Exp = %d, want persisted reward exp", petList.Pets[0].Exp)
-	}
 	if len(petList.Lineup) == 0 {
 		t.Fatalf("len(petList.Lineup) = 0, want non-zero")
 	}
 	if petList.Lineup[0].HP != allyHPAfterBattle {
 		t.Fatalf("petList.Lineup[0].HP = %d, want %d", petList.Lineup[0].HP, allyHPAfterBattle)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdPetSkillDetailReq, 21, protocol.PetSkillDetailReq{PetUID: petList.Pets[0].PetUID})
+	if len(conn.packets) != 12 {
+		t.Fatalf("len(conn.packets) after pet detail = %d, want 12", len(conn.packets))
+	}
+	var petDetail protocol.PetSkillDetailResp
+	if err := protocol.UnmarshalBody(conn.packets[11].Body, &petDetail); err != nil {
+		t.Fatalf("UnmarshalBody(petDetail) error = %v", err)
+	}
+	if petDetail.Pet.Exp == 0 {
+		t.Fatalf("petDetail.Pet.Exp = %d, want persisted reward exp", petDetail.Pet.Exp)
 	}
 }
 

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitSkin" format=3]
+
+[ext_resource type="Script" uid="uid://y2k42ynjmrf0" path="res://scripts/feature/battle/resources/unit_skin.gd" id="1_s0jcr"]
+
+[resource]
+script = ExtResource("1_s0jcr")
+skin_id = "恶魔武士_001"
+chj_path = "res://asset/chj/106.chj"
+chj_display_scale = Vector2(1, 1)
+sprite_scale = Vector2(1, 1)

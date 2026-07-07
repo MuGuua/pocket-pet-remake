@@ -87,9 +87,9 @@ const PLAYER_EQUIPMENT_REPAIR_REQ: int = 2078
 # 人物装备修复响应消息号。
 const PLAYER_EQUIPMENT_REPAIR_RESP: int = 2079
 
-# 宠物列表请求消息号。
+# 宠物列表摘要请求消息号。
 const PET_LIST_REQ: int = 3001
-# 宠物列表响应消息号。
+# 宠物列表摘要响应消息号。
 const PET_LIST_RESP: int = 3002
 # 宠物实例更新推送消息号。
 const PET_UPDATE_PUSH: int = 3011
@@ -105,9 +105,9 @@ const PET_ARTIFACT_EQUIP_RESP: int = 3032
 const PET_ARTIFACT_UNEQUIP_REQ: int = 3033
 # 宠物法宝卸下响应消息号。
 const PET_ARTIFACT_UNEQUIP_RESP: int = 3034
-# 宠物技能详情请求消息号（含法宝槽完整 skill_id）。
+# 单只宠物完整属性和技能详情请求消息号（含法宝槽完整 skill_id）。
 const PET_SKILL_DETAIL_REQ: int = 3035
-# 宠物技能详情响应消息号。
+# 单只宠物完整属性和技能详情响应消息号。
 const PET_SKILL_DETAIL_RESP: int = 3036
 
 # 战斗动作请求消息号。

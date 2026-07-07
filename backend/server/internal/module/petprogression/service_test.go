@@ -46,6 +46,47 @@ func TestServiceApplyExpLevelsUp(t *testing.T) {
 	}
 }
 
+// TestServiceAllocateAttrPointsRecalculatesCombatStats 验证宠物加点后会立即按资质公式重算战斗属性，
+// 客户端和战斗入口后续只需要读取服务端返回的权威快照。
+func TestServiceAllocateAttrPointsRecalculatesCombatStats(t *testing.T) {
+	repo := &memoryRepo{
+		levelConfigs: []LevelConfig{
+			{Level: 1, ExpRequired: 100, AttrPoints: 1, Status: 1},
+		},
+		state: &ProgressionState{
+			PlayerID:        1,
+			PetUID:          10,
+			Level:           1,
+			FreeAttrPoints:  1,
+			AptitudeProfile: AptitudeProfileNormal,
+			Aptitudes: GrowthAptitudes{
+				BaseATKApt: 10000,
+			},
+		},
+	}
+	service := NewService(repo)
+	if err := service.RefreshRuntimeCache(context.Background()); err != nil {
+		t.Fatalf("refresh cache: %v", err)
+	}
+
+	result, err := service.AllocateAttrPoints(context.Background(), 1, 10, ManualAllocatedPoints{ATK: 1})
+	if err != nil {
+		t.Fatalf("allocate attr points: %v", err)
+	}
+	if result.FreeAttrPoints != 0 {
+		t.Fatalf("free_attr_points = %d, want 0", result.FreeAttrPoints)
+	}
+	if result.ManualPoints.ATK != 1 {
+		t.Fatalf("manual atk points = %d, want 1", result.ManualPoints.ATK)
+	}
+	if result.Combat.ATK == 0 {
+		t.Fatal("combat ATK = 0, want recalculated value after manual allocation")
+	}
+	if repo.state.Combat.ATK != result.Combat.ATK {
+		t.Fatalf("persisted combat ATK = %d, want %d", repo.state.Combat.ATK, result.Combat.ATK)
+	}
+}
+
 type memoryRepo struct {
 	levelConfigs []LevelConfig
 	state        *ProgressionState

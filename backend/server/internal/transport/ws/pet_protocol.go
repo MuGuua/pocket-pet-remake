@@ -1,6 +1,8 @@
 package wstransport
 
 import (
+	"strings"
+
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/petprogression"
 	"pocket-pet-remake/server/internal/protocol"
@@ -11,9 +13,24 @@ func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
 	return toProtocolPetDetailWithOptions(item, true)
 }
 
-// toProtocolPetDetailForList 列表页不下发法宝技 skill_id，仅保留空槽结构。
+// toProtocolPetDetailForList 只转换宠物列表展示需要的轻量字段。
+// 完整属性、资质、技能和法宝槽由 PET_SKILL_DETAIL_REQ 按单只宠物拉取。
 func toProtocolPetDetailForList(item pet.Pet) protocol.PetDetail {
-	return toProtocolPetDetailWithOptions(item, false)
+	return protocol.PetDetail{
+		PetUID:     item.PetUID,
+		PetID:      item.PetID,
+		PetName:    strings.TrimSpace(item.PetName),
+		CustomName: strings.TrimSpace(item.CustomName),
+		Name:       resolveProtocolPetDisplayName(item),
+		SkinID:     strings.TrimSpace(item.SkinID),
+		Level:      item.Level,
+		Quality:    item.Quality,
+		HP:         item.HP,
+		HPMax:      item.HPMax,
+		SkillIDs:   []uint32{},
+		InLineup:   item.InLineup,
+		IsUsable:   item.IsUsable,
+	}
 }
 
 func toProtocolPetDetailWithOptions(item pet.Pet, includeArtifactSkills bool) protocol.PetDetail {
@@ -30,6 +47,10 @@ func toProtocolPetDetailWithOptions(item pet.Pet, includeArtifactSkills bool) pr
 	return protocol.PetDetail{
 		PetUID:          item.PetUID,
 		PetID:           item.PetID,
+		PetName:         strings.TrimSpace(item.PetName),
+		CustomName:      strings.TrimSpace(item.CustomName),
+		Name:            resolveProtocolPetDisplayName(item),
+		SkinID:          strings.TrimSpace(item.SkinID),
 		Level:           item.Level,
 		Exp:             item.Exp,
 		Quality:         item.Quality,
@@ -67,17 +88,17 @@ func toProtocolPetDetailWithOptions(item pet.Pet, includeArtifactSkills bool) pr
 			SPDApt:  item.GrowthAptitudes.SPDApt,
 			MANAApt: item.GrowthAptitudes.MANAApt,
 		},
-		AutoHPPoints:   autoPoints.HP,
-		AutoATKPoints:  autoPoints.ATK,
-		AutoSPDPoints:  autoPoints.SPD,
-		AutoMANAPoints: autoPoints.MANA,
-		AutoDEFPoints:  autoPoints.DEF,
-		Spirit:         item.Spirit,
-		SpiritMax:      item.SpiritMax,
-		HitPct:         item.HitPct,
-		DodgePct:       item.DodgePct,
-		CritRatePct:    item.CritRatePct,
-		CritDmgPct:     item.CritDmgPct,
+		AutoHPPoints:             autoPoints.HP,
+		AutoATKPoints:            autoPoints.ATK,
+		AutoSPDPoints:            autoPoints.SPD,
+		AutoMANAPoints:           autoPoints.MANA,
+		AutoDEFPoints:            autoPoints.DEF,
+		Spirit:                   item.Spirit,
+		SpiritMax:                item.SpiritMax,
+		HitPct:                   item.HitPct,
+		DodgePct:                 item.DodgePct,
+		CritRatePct:              item.CritRatePct,
+		CritDmgPct:               item.CritDmgPct,
 		PhysicalResistPct:        item.PhysicalResistPct,
 		ReversePhysicalResistPct: item.ReversePhysicalResistPct,
 		SkillResistPct:           item.SkillResistPct,
@@ -92,6 +113,14 @@ func toProtocolPetDetailWithOptions(item pet.Pet, includeArtifactSkills bool) pr
 		CharacterResistPct:       item.CharacterResistPct,
 		PetResistPct:             item.PetResistPct,
 	}
+}
+
+// resolveProtocolPetDisplayName 统一给旧客户端提供最终展示名，避免前端自行猜测字段含义。
+func resolveProtocolPetDisplayName(item pet.Pet) string {
+	if customName := strings.TrimSpace(item.CustomName); customName != "" {
+		return customName
+	}
+	return strings.TrimSpace(item.PetName)
 }
 
 func toProtocolPetSkillSlots(view pet.SkillSlotView) protocol.PetSkillSlots {

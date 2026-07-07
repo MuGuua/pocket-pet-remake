@@ -42,7 +42,6 @@ enum DetailAnchorZone {
 }
 
 @onready var _close_button: Button = $RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer/Button
-@onready var _root_panel: PanelContainer = $RootPanel
 @onready var _equipment_root: Node = $RootPanel/MarginContainer/VBoxContainer/EquipmentSlot
 @onready var _capacity_label: Label = $RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/PanelContainer/HBoxContainer/Label
 @onready var _gold_label: Label = $RootPanel/MarginContainer/VBoxContainer/Property/HBoxContainer/MarginContainer/PanelContainer2/HBoxContainer2/GoldCoinAmount

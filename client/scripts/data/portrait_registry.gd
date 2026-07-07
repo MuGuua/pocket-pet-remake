@@ -1,7 +1,6 @@
 class_name PortraitRegistry
 extends RefCounted
 
-const CharacterSkinRegistry = preload("res://scripts/feature/character/character_skin_registry.gd")
 
 ## 玩家无 skin_id 时的兜底形象，与 HUD 头像逻辑保持一致。
 const DEFAULT_PLAYER_SKIN_ID: String = "初始形象男_001"

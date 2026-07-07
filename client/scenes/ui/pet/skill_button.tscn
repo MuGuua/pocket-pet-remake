@@ -12,7 +12,7 @@ custom_minimum_size = Vector2(72, 72)
 theme = ExtResource("1_b68a6")
 toggle_mode = true
 
-[node name="TextureRect" type="TextureRect" parent="." unique_id=115112985]
+[node name="Icon" type="TextureRect" parent="." unique_id=115112985]
 visible = false
 custom_minimum_size = Vector2(64, 64)
 custom_maximum_size = Vector2(64, 64)

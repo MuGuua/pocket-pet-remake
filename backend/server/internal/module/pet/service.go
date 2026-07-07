@@ -24,6 +24,13 @@ type CombatSnapshotRepository interface {
 	FindPlayerPetCombatSnapshotByUID(ctx context.Context, playerID uint64, petUID uint64) (*Pet, error)
 }
 
+// SummaryRepository 提供宠物面板列表需要的轻量摘要读取能力。
+// 摘要接口不刷新战斗快照，也不加载技能、法宝和完整数值，避免打开面板时一次性计算所有宠物。
+type SummaryRepository interface {
+	ListPetSummariesByPlayerID(ctx context.Context, playerID uint64) ([]Pet, error)
+	ListLineupSummariesByPlayerID(ctx context.Context, playerID uint64) ([]LineupPet, error)
+}
+
 type Service struct {
 	repo                Repository
 	skillService        *skill.Service
@@ -38,6 +45,69 @@ func NewService(repo Repository, skillService *skill.Service, captureConfigReade
 		captureConfigReader: captureConfigReader,
 		progressionService:  progressionService,
 	}
+}
+
+// ListPetSummaries 返回宠物状态面板左侧列表使用的轻量宠物摘要。
+// 完整属性、资质、技能和法宝数据应通过 GetPetDetail 按单只宠物拉取。
+func (s *Service) ListPetSummaries(ctx context.Context, playerID uint64) ([]Pet, error) {
+	if summaryRepo, ok := s.repo.(SummaryRepository); ok {
+		pets, err := summaryRepo.ListPetSummariesByPlayerID(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if pets == nil {
+			pets = []Pet{}
+		}
+		if err := s.applyUsableFlags(ctx, pets); err != nil {
+			return nil, err
+		}
+		return pets, nil
+	}
+	pets, err := s.repo.ListPetsByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	if pets == nil {
+		pets = []Pet{}
+	}
+	if err := s.applyUsableFlags(ctx, pets); err != nil {
+		return nil, err
+	}
+	lineup, err := s.repo.ListLineupByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	lineupSet := make(map[uint64]struct{}, len(lineup))
+	for _, lineupPet := range lineup {
+		lineupSet[lineupPet.PetUID] = struct{}{}
+	}
+	for index := range pets {
+		_, pets[index].InLineup = lineupSet[pets[index].PetUID]
+	}
+	return pets, nil
+}
+
+// ListLineupSummaries 返回宠物状态面板需要的轻量编队摘要。
+// 它刻意绕过 ListLineup 的战斗快照刷新，避免列表请求触发全量宠物数值重算。
+func (s *Service) ListLineupSummaries(ctx context.Context, playerID uint64) ([]LineupPet, error) {
+	if summaryRepo, ok := s.repo.(SummaryRepository); ok {
+		lineup, err := summaryRepo.ListLineupSummariesByPlayerID(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if lineup == nil {
+			return []LineupPet{}, nil
+		}
+		return lineup, nil
+	}
+	lineup, err := s.repo.ListLineupByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	if lineup == nil {
+		return []LineupPet{}, nil
+	}
+	return lineup, nil
 }
 
 func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) {

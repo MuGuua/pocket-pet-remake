@@ -823,8 +823,8 @@ func _resolve_display_wallet_components() -> Dictionary:
 func _wallet_components_from_total_copper(total_copper: int) -> Dictionary:
 	var normalized_total: int = maxi(0, total_copper)
 	return {
-		"gold": normalized_total / 1000000,
-		"silver": (normalized_total % 1000000) / 1000,
+		"gold": int(float(normalized_total) / 1000000.0),
+		"silver": int(float(normalized_total % 1000000) / 1000.0),
 		"copper": normalized_total % 1000,
 		"total_copper": normalized_total,
 	}

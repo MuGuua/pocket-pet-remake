@@ -120,8 +120,6 @@ var _bag_panel_open_in_flight: bool = false
 var _player_panel_open_in_flight: bool = false
 # 宠物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _pet_panel_open_in_flight: bool = false
-# 地图切换过渡期间是否正在展示全屏 loading。
-var _scene_transition_loading_active: bool = false
 # 当前等待 NPC_MENU_RESP 的请求序列号。
 var _pending_npc_menu_seq: int = 0
 # 与 _pending_npc_menu_seq 对应的菜单回包缓存。
@@ -583,11 +581,11 @@ func _on_battle_started(payload: Dictionary) -> void:
 func _enter_battle_with_transition(payload: Dictionary) -> void:
 	_ensure_grid_spread_transition()
 	if _grid_spread_transition == null:
-		await _mount_battle_popup(payload)
+		_mount_battle_popup(payload)
 		return
 	_grid_spread_transition.prepare_grid()
 	await _grid_spread_transition.play_cover()
-	await _mount_battle_popup(payload)
+	_mount_battle_popup(payload)
 	await get_tree().process_frame
 	await _grid_spread_transition.play_reveal()
 
@@ -724,7 +722,7 @@ func _mount_battle_popup(payload: Dictionary) -> void:
 		if _battle_scene == null:
 			return
 		_battle_scene.custom_minimum_size = BATTLE_MODAL_SIZE
-		_battle_scene.size = BATTLE_MODAL_SIZE
+		_battle_scene.set_deferred("size", BATTLE_MODAL_SIZE)
 		_battle_modal_host.add_child(_battle_scene)
 		if _battle_scene.has_method("bind_battle_controller"):
 			_battle_scene.call("bind_battle_controller", battle_controller)

@@ -58,33 +58,35 @@ atlas = ExtResource("1_w18as")
 region = Rect2(864, 0, 18, 18)
 
 [node name="PanelContainer" type="PanelContainer" unique_id=1736326926]
-custom_minimum_size = Vector2(130, 130)
-custom_maximum_size = Vector2(130, 130)
-offset_right = 130.0
-offset_bottom = 130.0
+custom_minimum_size = Vector2(520, 520)
+custom_maximum_size = Vector2(520, 520)
+offset_right = 520.0
+offset_bottom = 520.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_1v26t")
 
 [node name="状态抗性" type="MarginContainer" parent="." unique_id=666780084]
 layout_mode = 2
-theme_override_constants/margin_left = 2
-theme_override_constants/margin_top = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="VBoxContainer" type="VBoxContainer" parent="状态抗性" unique_id=1300073357]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 14
 
 [node name="物抗" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=771666066]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 9
+theme_override_constants/separation = 36
 
 [node name="物抗" type="HBoxContainer" parent="状态抗性/VBoxContainer/物抗" unique_id=1414392535]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/物抗/物抗" unique_id=373540338]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_o0mde")
 expand_mode = 1
@@ -92,43 +94,43 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/物抗/物抗" unique_id=1486634415]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "物理攻击抗性："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/物抗/物抗" unique_id=315478079]
-custom_minimum_size = Vector2(18, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "100"
 vertical_alignment = 1
 
 [node name="逆物" type="HBoxContainer" parent="状态抗性/VBoxContainer/物抗" unique_id=1130516813]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/物抗/逆物" unique_id=1890054710]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "逆："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/物抗/逆物" unique_id=25231652]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "100"
 vertical_alignment = 1
 
 [node name="技抗" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=1673815753]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 9
+theme_override_constants/separation = 36
 
 [node name="技抗" type="HBoxContainer" parent="状态抗性/VBoxContainer/技抗" unique_id=440775275]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/技抗/技抗" unique_id=1182628706]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_dm5ub")
 expand_mode = 1
@@ -136,43 +138,43 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/技抗/技抗" unique_id=1862059738]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "技能攻击抗性："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/技抗/技抗" unique_id=1120035283]
-custom_minimum_size = Vector2(18, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "100"
 vertical_alignment = 1
 
 [node name="逆技" type="HBoxContainer" parent="状态抗性/VBoxContainer/技抗" unique_id=1142842996]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/技抗/逆技" unique_id=18503370]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "逆："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/技抗/逆技" unique_id=1681330415]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "100"
 vertical_alignment = 1
 
 [node name="混乱与昏睡" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=202676603]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 36
 
 [node name="混乱" type="HBoxContainer" parent="状态抗性/VBoxContainer/混乱与昏睡" unique_id=177893121]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/混乱与昏睡/混乱" unique_id=1031355192]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_dhh1k")
 expand_mode = 1
@@ -180,23 +182,23 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/混乱与昏睡/混乱" unique_id=33024083]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "混乱："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/混乱与昏睡/混乱" unique_id=930220592]
-custom_minimum_size = Vector2(22, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "250"
 vertical_alignment = 1
 
 [node name="昏睡" type="HBoxContainer" parent="状态抗性/VBoxContainer/混乱与昏睡" unique_id=542101511]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/混乱与昏睡/昏睡" unique_id=2102694614]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_o75ja")
 expand_mode = 1
@@ -204,27 +206,27 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/混乱与昏睡/昏睡" unique_id=503688096]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "昏睡："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/混乱与昏睡/昏睡" unique_id=829769881]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "250"
 vertical_alignment = 1
 
 [node name="麻痹与封印" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=2070551933]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 36
 
 [node name="麻痹" type="HBoxContainer" parent="状态抗性/VBoxContainer/麻痹与封印" unique_id=297703300]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/麻痹与封印/麻痹" unique_id=1487401087]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_5gkfp")
 expand_mode = 1
@@ -232,23 +234,23 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/麻痹与封印/麻痹" unique_id=60115180]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "麻痹："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/麻痹与封印/麻痹" unique_id=398781989]
-custom_minimum_size = Vector2(22, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "300"
 vertical_alignment = 1
 
 [node name="封印" type="HBoxContainer" parent="状态抗性/VBoxContainer/麻痹与封印" unique_id=2031350838]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/麻痹与封印/封印" unique_id=1816819569]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_f4nqc")
 expand_mode = 1
@@ -256,22 +258,22 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/麻痹与封印/封印" unique_id=918566569]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "封印："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/麻痹与封印/封印" unique_id=840955593]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "500"
 vertical_alignment = 1
 
 [node name="诅咒" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=463984153]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/诅咒" unique_id=614813164]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_oc05d")
 expand_mode = 1
@@ -279,28 +281,28 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/诅咒" unique_id=1490906996]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "诅咒："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/诅咒" unique_id=1897878981]
-custom_minimum_size = Vector2(22, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "118"
 vertical_alignment = 1
 
 [node name="抗致命与抗爆伤" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=1092387867]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 36
 
 [node name="抗致命" type="HBoxContainer" parent="状态抗性/VBoxContainer/抗致命与抗爆伤" unique_id=1724757890]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗致命" unique_id=768261429]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_8650u")
 expand_mode = 1
@@ -308,34 +310,34 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗致命" unique_id=1600758359]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "抗致命："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗致命" unique_id=258199681]
-custom_minimum_size = Vector2(16, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "150"
 vertical_alignment = 1
 
 [node name="抗爆伤" type="HBoxContainer" parent="状态抗性/VBoxContainer/抗致命与抗爆伤" unique_id=257999757]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="PanelContainer" type="PanelContainer" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗爆伤" unique_id=999078309]
 layout_mode = 2
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗爆伤/PanelContainer" unique_id=149573977]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_vbe5b")
 expand_mode = 1
 stretch_mode = 4
 
 [node name="TextureRect2" type="TextureRect" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗爆伤/PanelContainer" unique_id=1947266208]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_ectxx")
 expand_mode = 1
@@ -343,27 +345,27 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗爆伤" unique_id=946981866]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "抗爆伤："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/抗致命与抗爆伤/抗爆伤" unique_id=2050746263]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "1000"
 vertical_alignment = 1
 
 [node name="抗人物与抗宠物" type="HBoxContainer" parent="状态抗性/VBoxContainer" unique_id=200758124]
-custom_maximum_size = Vector2(-1, 10)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 36
 
 [node name="抗人物" type="HBoxContainer" parent="状态抗性/VBoxContainer/抗人物与抗宠物" unique_id=450685164]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗人物" unique_id=1561666003]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_j7ppe")
 expand_mode = 1
@@ -371,23 +373,23 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗人物" unique_id=976622999]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "抗人物："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗人物" unique_id=1315909678]
-custom_minimum_size = Vector2(16, 0)
+custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "15"
 vertical_alignment = 1
 
 [node name="抗宠物" type="HBoxContainer" parent="状态抗性/VBoxContainer/抗人物与抗宠物" unique_id=2006815280]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 6
 
 [node name="TextureRect" type="TextureRect" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗宠物" unique_id=719048647]
-custom_minimum_size = Vector2(10, 10)
-custom_maximum_size = Vector2(10, 10)
+custom_minimum_size = Vector2(40, 40)
+custom_maximum_size = Vector2(40, 40)
 layout_mode = 2
 texture = SubResource("AtlasTexture_e3o4x")
 expand_mode = 1
@@ -395,11 +397,11 @@ stretch_mode = 4
 
 [node name="Label" type="Label" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗宠物" unique_id=1341816834]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "抗宠物："
 
 [node name="Label2" type="Label" parent="状态抗性/VBoxContainer/抗人物与抗宠物/抗宠物" unique_id=2024792175]
 layout_mode = 2
-theme_override_font_sizes/font_size = 6
+theme_override_font_sizes/font_size = 24
 text = "100"
 vertical_alignment = 1

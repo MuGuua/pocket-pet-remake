@@ -150,7 +150,7 @@ func _build_unit_data(actor: Dictionary, is_ally: bool) -> Dictionary:
 		"items": [],
 	}
 
-func _resolve_unit_type(actor: Dictionary, is_ally: bool, unit_class: int) -> String:
+func _resolve_unit_type(_actor: Dictionary, is_ally: bool, unit_class: int) -> String:
 	if not is_ally:
 		return "enemy"
 	match unit_class:

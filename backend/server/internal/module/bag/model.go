@@ -188,25 +188,25 @@ type AdminItemDetail struct {
 // RuntimeItemSnapshot 描述玩家端运行时直接消费的格子物品快照。
 // 这里保留模板与实例的混合字段，确保客户端打开背包时无需再拼装第二次请求。
 type RuntimeItemSnapshot struct {
-	SlotIndex    uint32     `json:"slot_index"`
-	ItemID       uint64     `json:"item_id"`
-	ItemUID      string     `json:"item_uid"`
-	Quantity     uint64     `json:"quantity"`
-	IsBound      bool       `json:"is_bound"`
-	ExpireAt     *time.Time `json:"expire_at,omitempty"`
-	ItemName     string     `json:"item_name"`
-	ItemType     string     `json:"item_type"`
-	ItemSubType  string     `json:"item_sub_type"`
-	Quality      uint32     `json:"quality"`
-	Icon         string     `json:"icon"`
-	RequiredLevel uint32    `json:"required_level"`
-	EnhanceLevel uint32     `json:"enhance_level"`
-	IsDamaged    bool       `json:"is_damaged,omitempty"`
-	Usable       bool       `json:"usable"`
-	CanDrop      bool       `json:"can_drop"`
-	TargetType   string     `json:"target_type"`
-	EffectType   string     `json:"effect_type"`
-	EquipSlot    string     `json:"equip_slot,omitempty"`
+	SlotIndex     uint32     `json:"slot_index"`
+	ItemID        uint64     `json:"item_id"`
+	ItemUID       string     `json:"item_uid"`
+	Quantity      uint64     `json:"quantity"`
+	IsBound       bool       `json:"is_bound"`
+	ExpireAt      *time.Time `json:"expire_at,omitempty"`
+	ItemName      string     `json:"item_name"`
+	ItemType      string     `json:"item_type"`
+	ItemSubType   string     `json:"item_sub_type"`
+	Quality       uint32     `json:"quality"`
+	Icon          string     `json:"icon"`
+	RequiredLevel uint32     `json:"required_level"`
+	EnhanceLevel  uint32     `json:"enhance_level"`
+	IsDamaged     bool       `json:"is_damaged,omitempty"`
+	Usable        bool       `json:"usable"`
+	CanDrop       bool       `json:"can_drop"`
+	TargetType    string     `json:"target_type"`
+	EffectType    string     `json:"effect_type"`
+	EquipSlot     string     `json:"equip_slot,omitempty"`
 	// Description 来自 item_definition.desc，供详情面板直接展示后台编辑的介绍文案。
 	Description string `json:"description,omitempty"`
 	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。
@@ -224,11 +224,11 @@ const ItemSubTypeEquipmentRepair = "equipment_repair"
 
 // RuntimeRepairPreview 描述客户端修复弹窗所需的权威预览数据。
 type RuntimeRepairPreview struct {
-	CanRepair           bool   `json:"can_repair"`
-	CostItemID          uint64 `json:"cost_item_id"`
-	CostItemName        string `json:"cost_item_name"`
-	CostQuantity        uint64 `json:"cost_quantity"`
-	OwnedCostQuantity   uint64 `json:"owned_cost_quantity"`
+	CanRepair         bool   `json:"can_repair"`
+	CostItemID        uint64 `json:"cost_item_id"`
+	CostItemName      string `json:"cost_item_name"`
+	CostQuantity      uint64 `json:"cost_quantity"`
+	OwnedCostQuantity uint64 `json:"owned_cost_quantity"`
 }
 
 // ItemSubTypeEquipmentEnhance 为强化材料子分类，与 item_definition.item_sub_type 对齐。
@@ -372,19 +372,19 @@ type RuntimeUseResult struct {
 // RuntimeUseEffect 描述服务端已经生效的物品效果。
 // 客户端只能展示这里返回的最终结果，不能自行推导扩容或恢复后的新状态。
 type RuntimeUseEffect struct {
-	EffectType   string              `json:"effect_type"`
-	ExpandTarget string              `json:"expand_target"`
-	ExpandSlots  uint32              `json:"expand_slots"`
-	NewCapacity  uint32              `json:"new_capacity"`
-	TargetPetUID uint64              `json:"target_pet_uid"`
-	RestoredHP   uint32              `json:"restored_hp"`
-	NewPetHP     uint32              `json:"new_pet_hp"`
+	EffectType   string `json:"effect_type"`
+	ExpandTarget string `json:"expand_target"`
+	ExpandSlots  uint32 `json:"expand_slots"`
+	NewCapacity  uint32 `json:"new_capacity"`
+	TargetPetUID uint64 `json:"target_pet_uid"`
+	RestoredHP   uint32 `json:"restored_hp"`
+	NewPetHP     uint32 `json:"new_pet_hp"`
 	// UnlockedTalismanSlot 描述神符类道具解锁的槽位键。
-	UnlockedTalismanSlot string              `json:"unlocked_talisman_slot,omitempty"`
-	Rewards              []RuntimeRewardItem `json:"rewards,omitempty"`
+	UnlockedTalismanSlot string                    `json:"unlocked_talisman_slot,omitempty"`
+	Rewards              []RuntimeRewardItem       `json:"rewards,omitempty"`
 	AppliedEffects       []RuntimeAppliedUseEffect `json:"applied_effects,omitempty"`
 	NeedsWalletPush      bool                      `json:"needs_wallet_push,omitempty"`
-	UpdatedPet   *RuntimePetSnapshot `json:"updated_pet,omitempty"`
+	UpdatedPet           *RuntimePetSnapshot       `json:"updated_pet,omitempty"`
 }
 
 // RuntimeRewardItem 描述一个可被统一发奖服务消费的奖励条目。
@@ -402,8 +402,14 @@ type RuntimeRewardItem struct {
 // RuntimePetSnapshot 描述背包使用宠物治疗类道具后需要同步给客户端的最新宠物状态。
 // 这里避免直接依赖 pet 模块，保持背包领域结果结构可独立复用。
 type RuntimePetSnapshot struct {
-	PetUID   uint64   `json:"pet_uid"`
-	PetID    uint32   `json:"pet_id"`
+	PetUID uint64 `json:"pet_uid"`
+	PetID  uint32 `json:"pet_id"`
+	// PetName 是系统宠物名，背包治疗推送复用它保证客户端展示不丢失。
+	PetName string `json:"pet_name,omitempty"`
+	// CustomName 是宠物实例自定义名，非空时客户端优先展示。
+	CustomName string `json:"custom_name,omitempty"`
+	// SkinID 是宠物模板外观资源 ID，用于客户端刷新宠物槽图标。
+	SkinID   string   `json:"skin_id,omitempty"`
 	Level    uint32   `json:"level"`
 	Exp      uint64   `json:"exp"`
 	Quality  uint32   `json:"quality"`

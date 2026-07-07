@@ -132,7 +132,7 @@ func enter_world() -> int:
 func refresh_player_status() -> int:
 	return _send_command(CommandIds.ENTER_WORLD_REQ, {})
 
-# 请求刷新当前玩家的宠物列表。
+# 请求刷新当前玩家的宠物列表摘要；完整属性由单只宠物详情请求拉取。
 func request_pet_list() -> int:
 	return _send_command(CommandIds.PET_LIST_REQ, {})
 
@@ -179,7 +179,7 @@ func set_pet_lineup(pet_uids: Array[int]) -> void:
 		}
 	)
 
-# 拉取单只宠物完整技能分槽（含法宝技 skill_id）。
+# 拉取单只宠物完整属性和技能分槽（含法宝技 skill_id）。
 func request_pet_skill_detail(pet_uid: int) -> int:
 	return _send_command(
 		CommandIds.PET_SKILL_DETAIL_REQ,
@@ -488,7 +488,9 @@ func _on_dev_message_received(cmd: int, seq: int, _code: int, payload: Dictionar
 		_log_battle_payload_debug(cmd, payload)
 		_log_bag_payload_debug(cmd, payload)
 	# 先路由业务处理器写入 GameState，再结束 request_finished，避免 UI 读到旧快照。
-	MessageRouter.route_message(cmd, payload)
+	# 登录页发起的 ENTER_WORLD_RESP 只需要唤醒 request_finished，主场景尚未注册世界处理器时不应刷 warning。
+	if MessageRouter.has_handler(cmd) or _request_cmd_for_response(cmd) == 0:
+		MessageRouter.route_message(cmd, payload)
 	_resolve_request_completion(cmd, seq, _code, payload)
 
 # 底层 WebSocket 建连成功后自动发起业务鉴权。

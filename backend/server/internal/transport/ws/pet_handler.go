@@ -35,11 +35,11 @@ func (h *PetHandler) HandlePetList(conn packetSender, packet *protocol.Packet) e
 	}
 
 	ctx := context.Background()
-	pets, err := h.petService.ListPets(ctx, sess.PlayerID)
+	pets, err := h.petService.ListPetSummaries(ctx, sess.PlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet list failed", err)
 	}
-	lineup, err := h.petService.ListLineup(ctx, sess.PlayerID)
+	lineup, err := h.petService.ListLineupSummaries(ctx, sess.PlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet lineup failed", err)
 	}

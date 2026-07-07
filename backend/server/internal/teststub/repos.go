@@ -670,13 +670,13 @@ func NewPetRepository() *PetRepository {
 		},
 		pets: map[uint64][]pet.Pet{
 			DemoPlayerID: {
-				{PetUID: 20001, PetID: 101, Level: 5, Exp: 120, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16, SkillIDs: []uint32{1001, 1002}},
-				{PetUID: 20002, PetID: 102, Level: 4, Exp: 80, Quality: 1, HP: 28, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20, SkillIDs: []uint32{1001, 1003}},
-				{PetUID: 20003, PetID: 101, Level: 3, Exp: 40, Quality: 1, HP: 24, HPMax: 24, ATK: 10, DEF: 8, SPD: 11, MANA: 12, SkillIDs: []uint32{1001}},
+				{PetUID: 20001, PetID: 101, PetName: "小火龙", SkinID: "嫩叶犬_001", Level: 5, Exp: 120, Quality: 1, HP: 32, HPMax: 32, ATK: 14, DEF: 10, SPD: 12, MANA: 16, SkillIDs: []uint32{1001, 1002}},
+				{PetUID: 20002, PetID: 102, PetName: "小水龟", SkinID: "潮汐狐_001", Level: 4, Exp: 80, Quality: 1, HP: 28, HPMax: 30, ATK: 12, DEF: 11, SPD: 9, MANA: 20, SkillIDs: []uint32{1001, 1003}},
+				{PetUID: 20003, PetID: 101, PetName: "小火龙", SkinID: "嫩叶犬_001", Level: 3, Exp: 40, Quality: 1, HP: 24, HPMax: 24, ATK: 10, DEF: 8, SPD: 11, MANA: 12, SkillIDs: []uint32{1001}},
 			},
 			RivalPlayerID: {
-				{PetUID: 21001, PetID: 101, Level: 5, Exp: 110, Quality: 1, HP: 31, HPMax: 31, ATK: 13, DEF: 10, SPD: 11, MANA: 15, SkillIDs: []uint32{1001, 1002}},
-				{PetUID: 21002, PetID: 102, Level: 4, Exp: 75, Quality: 1, HP: 29, HPMax: 29, ATK: 11, DEF: 12, SPD: 10, MANA: 18, SkillIDs: []uint32{1001, 1003}},
+				{PetUID: 21001, PetID: 101, PetName: "小火龙", SkinID: "嫩叶犬_001", Level: 5, Exp: 110, Quality: 1, HP: 31, HPMax: 31, ATK: 13, DEF: 10, SPD: 11, MANA: 15, SkillIDs: []uint32{1001, 1002}},
+				{PetUID: 21002, PetID: 102, PetName: "小水龟", SkinID: "潮汐狐_001", Level: 4, Exp: 75, Quality: 1, HP: 29, HPMax: 29, ATK: 11, DEF: 12, SPD: 10, MANA: 18, SkillIDs: []uint32{1001, 1003}},
 			},
 		},
 		lineup: map[uint64][]pet.LineupPet{
@@ -862,6 +862,7 @@ func (r *PetRepository) GrantRuntimePet(_ context.Context, playerID uint64, petI
 
 	template := pet.Pet{
 		PetID:    petID,
+		PetName:  fmt.Sprintf("PetTemplate%d", petID),
 		Level:    1,
 		Quality:  1,
 		HP:       20,
@@ -875,6 +876,8 @@ func (r *PetRepository) GrantRuntimePet(_ context.Context, playerID uint64, petI
 	}
 	switch petID {
 	case 101:
+		template.PetName = "小火龙"
+		template.SkinID = "嫩叶犬_001"
 		template.Level = 5
 		template.HP = 32
 		template.HPMax = 32
@@ -884,6 +887,8 @@ func (r *PetRepository) GrantRuntimePet(_ context.Context, playerID uint64, petI
 		template.MANA = 16
 		template.SkillIDs = []uint32{1001, 1002}
 	case 102:
+		template.PetName = "小水龟"
+		template.SkinID = "潮汐狐_001"
 		template.Level = 4
 		template.HP = 28
 		template.HPMax = 30

@@ -24,7 +24,6 @@ var _combos_by_id: Dictionary = {}
 var _parallel_remaining: int = 0
 var _selection_order: Array[int] = []
 var _selection_index: int = 0
-var _ally_selections: Dictionary = {}
 var _planning_unit: BattleUnit = null
 var _pending_selection: Dictionary = {}
 var _pending_skill_choices: Array[Dictionary] = []
@@ -1010,10 +1009,10 @@ func _apply_target_result(target_result: Dictionary) -> void:
 	if floating_text.is_empty() and result_type != "defeat":
 		var damage_value: int = int(target_result.get("value", 0))
 		if result_type == "heal" or damage_value > 0:
-			var sign: String = "-"
+			var value_sign: String = "-"
 			if result_type == "heal":
-				sign = "+"
-			floating_text = "%s%d" % [sign, damage_value]
+				value_sign = "+"
+			floating_text = "%s%d" % [value_sign, damage_value]
 	if not floating_text.is_empty():
 		_start_floating_number(target.base_position + Vector2(20.0, -20.0), floating_text, result_type)
 	if _should_shake_for_crit(target_result):

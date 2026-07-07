@@ -270,7 +270,7 @@ func _build_item_cell_slot(option_index: int) -> BagSlot:
 
 
 ## 转发物品格子点击并在需要时关闭面板。
-func _on_item_cell_pressed(item: Dictionary, option_index: int) -> void:
+func _on_item_cell_pressed(_item: Dictionary, option_index: int) -> void:
 	if option_index < 0 or option_index >= _item_options.size():
 		return
 	var selected_item: Dictionary = _item_options[option_index].duplicate(true)

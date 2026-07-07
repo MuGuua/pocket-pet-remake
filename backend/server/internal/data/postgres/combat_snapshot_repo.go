@@ -56,7 +56,7 @@ INSERT INTO player_combat_snapshot (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
   $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
   $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-  $31, $32, $33, $34, $35, $36, CURRENT_TIMESTAMP
+  $31, $32, $33, $34, $35, CURRENT_TIMESTAMP
 )
 ON CONFLICT (player_id) DO UPDATE SET
   hp = EXCLUDED.hp,
@@ -316,6 +316,9 @@ const listPlayerPetCombatSnapshotsByPlayerIDQuery = `
 SELECT
   pet_uid,
   pet_id,
+  COALESCE((SELECT pd.pet_name FROM pet_definition pd WHERE pd.pet_id = player_pet_combat_snapshot.pet_id), '') AS pet_name,
+  COALESCE((SELECT pp.custom_name FROM player_pet pp WHERE pp.id = player_pet_combat_snapshot.pet_uid), '') AS custom_name,
+  COALESCE((SELECT pd.skin_id FROM pet_definition pd WHERE pd.pet_id = player_pet_combat_snapshot.pet_id), '') AS skin_id,
   level,
   exp,
   quality,
@@ -424,6 +427,9 @@ const findPlayerPetCombatSnapshotByUIDQuery = `
 SELECT
   pet_uid,
   pet_id,
+  COALESCE((SELECT pd.pet_name FROM pet_definition pd WHERE pd.pet_id = player_pet_combat_snapshot.pet_id), '') AS pet_name,
+  COALESCE((SELECT pp.custom_name FROM player_pet pp WHERE pp.id = player_pet_combat_snapshot.pet_uid), '') AS custom_name,
+  COALESCE((SELECT pd.skin_id FROM pet_definition pd WHERE pd.pet_id = player_pet_combat_snapshot.pet_id), '') AS skin_id,
   level,
   exp,
   quality,
@@ -1044,6 +1050,9 @@ func scanPetCombatSnapshotRowFromScanner(scanner interface{ Scan(dest ...any) er
 	if err := scanner.Scan(
 		&petUID,
 		&petID,
+		&item.PetName,
+		&item.CustomName,
+		&item.SkinID,
 		&level,
 		&exp,
 		&quality,

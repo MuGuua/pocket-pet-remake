@@ -155,8 +155,16 @@ type PetSkillSlots struct {
 }
 
 type PetDetail struct {
-	PetUID   uint64   `json:"pet_uid"`
-	PetID    uint32   `json:"pet_id"`
+	PetUID uint64 `json:"pet_uid"`
+	PetID  uint32 `json:"pet_id"`
+	// PetName 是系统宠物名称；没有 custom_name 时客户端展示该字段。
+	PetName string `json:"pet_name,omitempty"`
+	// CustomName 是单只宠物的自定义名称，服务端只在真实设置后下发非空值。
+	CustomName string `json:"custom_name,omitempty"`
+	// Name 是服务端计算后的最终展示名，保留给旧客户端直接读取。
+	Name string `json:"name,omitempty"`
+	// SkinID 是服务端权威外观资源 ID，客户端按它加载宠物待机首帧。
+	SkinID   string   `json:"skin_id,omitempty"`
 	Level    uint32   `json:"level"`
 	Exp      uint64   `json:"exp"`
 	Quality  uint32   `json:"quality"`
@@ -229,6 +237,7 @@ type PetAllocateAttrResp struct {
 	Pet PetDetail `json:"pet"`
 }
 
+// PetListReq 拉取宠物列表摘要；完整属性需再按 pet_uid 请求 PetSkillDetailReq。
 type PetListReq struct{}
 
 type PetListResp struct {
@@ -273,7 +282,7 @@ type PetArtifactUnequipResp struct {
 	Pet PetDetail `json:"pet"`
 }
 
-// PetSkillDetailReq 拉取单宠完整技能分槽（含法宝技）。
+// PetSkillDetailReq 拉取单宠完整属性和技能分槽（含法宝技）。
 type PetSkillDetailReq struct {
 	PetUID uint64 `json:"pet_uid"`
 }

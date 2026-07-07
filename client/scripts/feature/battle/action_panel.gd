@@ -18,7 +18,6 @@ signal target_selection_confirmed()
 ]
 @onready var _choice_backdrop: ColorRect = get_node_or_null("%ChoiceBackdrop") as ColorRect
 @onready var _choice_modal_center: CenterContainer = get_node_or_null("%ChoiceModalCenter") as CenterContainer
-@onready var _choice_list_vbox: VBoxContainer = get_node_or_null("%ChoiceListVBox") as VBoxContainer
 ## 选择弹窗里的文字按钮全部来自 battle_scene.tscn，便于在编辑器中直接调整尺寸和样式。
 @onready var _choice_buttons: Array[Button] = [
 	get_node_or_null("%ChoiceButton1") as Button,

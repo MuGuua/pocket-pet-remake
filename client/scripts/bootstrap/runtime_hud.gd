@@ -68,11 +68,11 @@ func set_local_coordinates(local_position: Vector2) -> void:
 
 
 ## 控制左上角玩家状态 HUD 显隐；进入战斗时隐藏，回到世界后恢复。
-func set_player_status_visible(visible: bool) -> void:
+func set_player_status_visible(should_show: bool) -> void:
 	if status_hud_group != null and status_hud_group.has_method("set_hud_enabled"):
-		status_hud_group.call("set_hud_enabled", visible)
+		status_hud_group.call("set_hud_enabled", should_show)
 	elif status_hud_group != null:
-		status_hud_group.visible = visible
+		status_hud_group.visible = should_show
 
 
 ## 更新右上角当前场景名称；名称由当前地图场景脚本导出配置。

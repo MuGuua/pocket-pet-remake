@@ -234,10 +234,10 @@ func _flush_deferred_scene_apply() -> void:
 	_apply_authoritative_snapshot()
 	_emit_scene_loaded_if_changed(false)
 
-func set_render_frame_size(size: Vector2) -> void:
-	if size.x <= 0.0 or size.y <= 0.0:
+func set_render_frame_size(frame_size: Vector2) -> void:
+	if frame_size.x <= 0.0 or frame_size.y <= 0.0:
 		return
-	var normalized_size: Vector2 = size.floor()
+	var normalized_size: Vector2 = frame_size.floor()
 	if normalized_size == _render_frame_size.floor():
 		return
 	_render_frame_size = normalized_size
@@ -1302,7 +1302,7 @@ func set_runtime_input_locked(locked: bool) -> void:
 	else:
 		_unlock_local_player()
 
-func _set_transition_loading(active: bool) -> void:
+func _set_transition_loading(_active: bool) -> void:
 	# 地图切换改由主场景黑色遮罩过渡负责，不再显示本地加载层。
 	pass
 

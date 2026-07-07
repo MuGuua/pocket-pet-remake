@@ -360,8 +360,9 @@ PetInstance(持久化)
 
 建议保持：
 
-- 返回完整宠物列表
+- 返回宠物列表摘要，不返回完整属性和技能槽
 - 同时返回当前编队摘要
+- 宠物状态面板打开后，再通过 `PET_SKILL_DETAIL_REQ` 按第一只/当前选中宠物拉取完整详情
 
 推荐结构：
 
@@ -448,7 +449,7 @@ PetInstance(持久化)
 ### 第一步：补齐宠物实例模型
 
 - 服务端 `pet` 模块新增完整 `PetInstance`
-- `PET_LIST_RESP` 能返回完整宠物详情
+- `PET_LIST_RESP` 只返回列表摘要；完整宠物详情通过 `PET_SKILL_DETAIL_RESP` 按单只宠物返回
 - 客户端 `GameState.pets` 改为按 `pet_uid` 识别
 
 ### 第二步：补齐编队设置闭环

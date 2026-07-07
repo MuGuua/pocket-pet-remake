@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	defaultBagListPage     uint32 = 1
-	defaultBagListPageSize uint32 = 28
+	defaultBagListPage             uint32 = 1
+	defaultBagListPageSize         uint32 = 28
 	bagListCategoryAll             string = "all"
 	bagListCategoryEquip           string = "equipment"
 	bagListCategoryOther           string = "other"
@@ -298,9 +298,22 @@ func (h *BagHandler) HandleUseItem(conn packetSender, packet *protocol.Packet) e
 		}
 	}
 	if result.Result.UpdatedPet != nil {
-		_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
-			Pet: toProtocolPetDetailFromBagSnapshot(*result.Result.UpdatedPet),
-		}))
+		petPushed := false
+		if h.petService != nil {
+			// 背包领域只返回了道具影响到的少数字段；推送前重新读取宠物领域完整快照，
+			// 避免客户端用缺字段的局部更新覆盖资质、成长点、抗性等服务端权威数据。
+			if currentPet, petErr := h.petService.GetPetDetail(context.Background(), sess.PlayerID, result.Result.UpdatedPet.PetUID); petErr == nil {
+				_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+					Pet: toProtocolPetDetail(currentPet),
+				}))
+				petPushed = true
+			}
+		}
+		if !petPushed {
+			_ = conn.SendPacket(mustJSONPacket(protocol.CmdPetUpdatePush, 0, protocol.PetUpdatePush{
+				Pet: toProtocolPetDetailFromBagSnapshot(*result.Result.UpdatedPet),
+			}))
+		}
 	}
 	if result.Result.UnlockedTalismanSlot != "" && h.petService != nil && result.Result.TargetPetUID > 0 {
 		if pets, listErr := h.petService.ListPets(context.Background(), sess.PlayerID); listErr == nil {
@@ -466,19 +479,31 @@ func toProtocolPetDetailFromBagSnapshot(item bag.RuntimePetSnapshot) protocol.Pe
 	skills := make([]uint32, 0, len(item.SkillIDs))
 	skills = append(skills, item.SkillIDs...)
 	return protocol.PetDetail{
-		PetUID:   item.PetUID,
-		PetID:    item.PetID,
-		Level:    item.Level,
-		Exp:      item.Exp,
-		Quality:  item.Quality,
-		HP:       item.HP,
-		HPMax:    item.HPMax,
-		ATK:      item.ATK,
-		DEF:      item.DEF,
-		SPD:      item.SPD,
-		SkillIDs: skills,
-		InLineup: item.InLineup,
+		PetUID:     item.PetUID,
+		PetID:      item.PetID,
+		PetName:    item.PetName,
+		CustomName: item.CustomName,
+		Name:       resolveRuntimePetSnapshotDisplayName(item),
+		SkinID:     item.SkinID,
+		Level:      item.Level,
+		Exp:        item.Exp,
+		Quality:    item.Quality,
+		HP:         item.HP,
+		HPMax:      item.HPMax,
+		ATK:        item.ATK,
+		DEF:        item.DEF,
+		SPD:        item.SPD,
+		SkillIDs:   skills,
+		InLineup:   item.InLineup,
 	}
+}
+
+// resolveRuntimePetSnapshotDisplayName 与宠物协议保持一致，背包道具推送也优先展示自定义名。
+func resolveRuntimePetSnapshotDisplayName(item bag.RuntimePetSnapshot) string {
+	if customName := strings.TrimSpace(item.CustomName); customName != "" {
+		return customName
+	}
+	return strings.TrimSpace(item.PetName)
 }
 
 func toProtocolCurrencyCost(currencyType string, totalCopper uint64) protocol.CurrencyCost {

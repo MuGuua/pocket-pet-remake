@@ -52,10 +52,10 @@ func resolve_effect_frames() -> SpriteFrames:
 	return frames
 
 func resolve_effect_animation_name() -> String:
-	var animation_key: String = effect_animation_key.strip_edges()
-	if animation_key.is_empty():
-		animation_key = "默认"
+	var resolved_animation_key: String = effect_animation_key.strip_edges()
+	if resolved_animation_key.is_empty():
+		resolved_animation_key = "默认"
 	var frames: SpriteFrames = resolve_effect_frames()
-	if frames != null and frames.has_animation(animation_key):
-		return animation_key
+	if frames != null and frames.has_animation(resolved_animation_key):
+		return resolved_animation_key
 	return "默认"
