@@ -282,7 +282,7 @@ func TestAdminQuestTemplateCRUDHandler(t *testing.T) {
 	token := issueAdminTokenForTest(t)
 
 	createBody := marshalJSON(t, quest.AdminCreateTemplateInput{
-		QuestID: 9001, Name: "ops_quest", QuestType: "SIDE", Title: "后台新增任务", Description: "用于验证后台任务模板 CRUD。",
+		Name: "ops_quest", QuestType: "SIDE", Title: "后台新增任务", Description: "用于验证后台任务模板 CRUD。",
 		Chapter: 9, SortOrder: 1, AcceptMode: "AUTO", SubmitMode: "AUTO", AutoTrack: true, MinPlayerLevel: 1, Status: 1,
 		Objectives: []quest.AdminObjectiveInput{{ObjectiveID: 1, EventType: "ENTER_SCENE", Description: "进入测试场景", TargetValue: 1, TargetSelector: map[string]any{"scene_id": 99}}},
 	})
@@ -294,13 +294,23 @@ func TestAdminQuestTemplateCRUDHandler(t *testing.T) {
 		t.Fatalf("create quest template response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
 	}
 
+	var createPayload struct {
+		Data quest.AdminTemplateDetail `json:"data"`
+	}
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createPayload); err != nil {
+		t.Fatalf("json.Unmarshal(create quest template) error = %v", err)
+	}
+	if createPayload.Data.QuestID == 0 {
+		t.Fatalf("create quest template quest_id = 0, want auto generated positive id")
+	}
+
 	updateBody := marshalJSON(t, quest.AdminUpdateTemplateInput{
 		Name: "ops_quest_updated", QuestType: "SIDE", Title: "后台更新任务", Description: "更新描述", Chapter: 10, SortOrder: 2,
 		AcceptMode: "NPC", SubmitMode: "NPC", AutoTrack: false, StartNPCID: 93001, SubmitNPCID: 93001, MinPlayerLevel: 2, Status: 1,
 		PreQuestIDs: []uint64{1001},
 		Objectives:  []quest.AdminObjectiveInput{{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "和测试 NPC 对话", TargetValue: 1, TargetSelector: map[string]any{"npc_id": 93001}}},
 	})
-	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/quests/templates/9001", bytes.NewReader(updateBody))
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/quests/templates/"+strconv.FormatUint(createPayload.Data.QuestID, 10), bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
 	handlers.Quests.ServeHTTP(updateResponse, updateRequest)
@@ -308,7 +318,7 @@ func TestAdminQuestTemplateCRUDHandler(t *testing.T) {
 		t.Fatalf("update quest template response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
 	}
 
-	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/quests/templates/9001", nil)
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/quests/templates/"+strconv.FormatUint(createPayload.Data.QuestID, 10), nil)
 	deleteRequest.Header.Set("Authorization", "Bearer "+token)
 	deleteResponse := httptest.NewRecorder()
 	handlers.Quests.ServeHTTP(deleteResponse, deleteRequest)

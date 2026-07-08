@@ -14,11 +14,13 @@ import {
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { SkillReferenceText } from '../../components/SkillReferenceText';
 import { PetSkillSlotListEditor } from '../../components/PetSkillSlotListEditor';
 import { useSkillReferenceMap } from '../../hooks/useSkillReferenceMap';
@@ -84,6 +86,9 @@ const editableStatusOptions = [
 ];
 
 const PLAYER_EDITOR_MODAL_WIDTH = 860;
+const PLAYER_DETAIL_PANEL_HEIGHT = 'calc(100vh - 220px)';
+const PLAYER_EDITOR_PANEL_HEIGHT = 'calc(100vh - 260px)';
+const PLAYER_WORKBENCH_TAB_BAR_STYLE = { marginBottom: 12 };
 
 // 玩家管理页按 ant-design-skill 的 CRUD 模式重写：筛选表格 + 详情抽屉 + 新增/编辑弹窗 + 删除确认。
 export function PlayerListPage() {
@@ -175,17 +180,40 @@ export function PlayerListPage() {
       if (editingRecord) {
         await updateAdminPlayer(editingRecord.player_id, mapFormToUpdatePayload(values));
         message.success('玩家更新成功');
+        await refreshPlayerViews(editingRecord.player_id);
       } else {
         const created = await createAdminPlayer(mapFormToCreatePayload(values));
         message.success('玩家创建成功');
         setEditingRecord(created);
         editorForm.setFieldsValue(mapDetailToForm(created));
+        await loadPlayers(filters, page, pageSize);
       }
-      await loadPlayers(filters, page, pageSize);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存玩家失败');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshPlayerViews(playerID: number): Promise<void> {
+    await loadPlayers(filters, page, pageSize);
+
+    if (detail?.player_id === playerID && detailOpen) {
+      try {
+        setDetail(await fetchAdminPlayerDetail(playerID));
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '刷新玩家详情失败');
+      }
+    }
+
+    if (editingRecord?.player_id === playerID && editorOpen) {
+      try {
+        const result = await fetchAdminPlayerDetail(playerID);
+        setEditingRecord(result);
+        editorForm.setFieldsValue(mapDetailToForm(result));
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '刷新玩家编辑数据失败');
+      }
     }
   }
 
@@ -336,27 +364,38 @@ export function PlayerListPage() {
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         destroyOnClose
+        styles={{ body: { paddingTop: 12 } }}
         extra={
           detail ? (
-            <TableActionDropdown
-              buttonType="default"
-              loading={deletingID === detail.player_id}
-              actions={[
-                { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', detail.player_id) },
-                {
-                  key: 'delete',
-                  label: '删除',
-                  danger: true,
-                  confirm: {
-                    title: '确认删除这个玩家吗？',
-                    description: '删除会把账号与人物都软删除。',
-                    okText: '确认删除',
-                    cancelText: '取消',
+            <Space>
+              <Button
+                size="small"
+                type="default"
+                onClick={() => void refreshPlayerViews(detail.player_id)}
+                loading={detailLoading}
+              >
+                刷新
+              </Button>
+              <TableActionDropdown
+                buttonType="default"
+                loading={deletingID === detail.player_id}
+                actions={[
+                  { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', detail.player_id) },
+                  {
+                    key: 'delete',
+                    label: '删除',
+                    danger: true,
+                    confirm: {
+                      title: '确认删除这个玩家吗？',
+                      description: '删除会把账号与人物都软删除。',
+                      okText: '确认删除',
+                      cancelText: '取消',
+                    },
+                    onClick: () => void handleDelete(detail.player_id),
                   },
-                  onClick: () => void handleDelete(detail.player_id),
-                },
-              ]}
-            />
+                ]}
+              />
+            </Space>
           ) : null
         }
       >
@@ -365,81 +404,146 @@ export function PlayerListPage() {
             <Spin tip="正在加载玩家详情..." />
           </div>
         ) : detail ? (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Descriptions bordered column={2} size="small" title="基础信息">
-              <Descriptions.Item label="玩家ID">{detail.player_id}</Descriptions.Item>
-              <Descriptions.Item label="账号ID">{detail.account_id}</Descriptions.Item>
-              <Descriptions.Item label="账号名">{detail.account_name}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={statusColor(detail.status_text)}>
-                  {formatDisplayLabel(PLAYER_STATUS_LABELS, detail.status_text)}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="昵称">{detail.name}</Descriptions.Item>
-              <Descriptions.Item label="当前形象ID">{detail.skin_id || '-'}</Descriptions.Item>
-              <Descriptions.Item label="等级">{detail.level}</Descriptions.Item>
-              <Descriptions.Item label="经验">{detail.exp}</Descriptions.Item>
-              <Descriptions.Item label="自由属性点">{detail.free_attr_points ?? 0}</Descriptions.Item>
-              <Descriptions.Item label="力量">{detail.strength ?? 0}</Descriptions.Item>
-              <Descriptions.Item label="体质">{detail.vitality ?? 0}</Descriptions.Item>
-              <Descriptions.Item label="敏捷">{detail.agility ?? 0}</Descriptions.Item>
-              <Descriptions.Item label="灵力">{detail.mind ?? 0}</Descriptions.Item>
-              <Descriptions.Item label="金币">{detail.gold}</Descriptions.Item>
-              <Descriptions.Item label="场景ID">{detail.scene_id}</Descriptions.Item>
-              <Descriptions.Item label="坐标">{`${detail.pos_x}, ${detail.pos_y}`}</Descriptions.Item>
-              <Descriptions.Item label="最近登录">{formatDateTime(detail.last_login_at)}</Descriptions.Item>
-              <Descriptions.Item label="创建时间">{formatDateTime(detail.created_at)}</Descriptions.Item>
-              <Descriptions.Item label="更新时间" span={2}>
-                {formatDateTime(detail.updated_at)}
-              </Descriptions.Item>
-            </Descriptions>
-            <Descriptions bordered column={2} size="small" title="战斗属性">
-              <Descriptions.Item label="生命">{`${detail.hp}/${detail.hp_max}`}</Descriptions.Item>
-              <Descriptions.Item label="活力">{`${detail.vigor}/${detail.vigor_max}`}</Descriptions.Item>
-              <Descriptions.Item label="精力">{`${detail.spirit}/${detail.spirit_max}`}</Descriptions.Item>
-              <Descriptions.Item label="攻击">{detail.atk}</Descriptions.Item>
-              <Descriptions.Item label="防御">{detail.def}</Descriptions.Item>
-              <Descriptions.Item label="速度">{detail.spd}</Descriptions.Item>
-              <Descriptions.Item label="法力">{detail.mana}</Descriptions.Item>
-              <Descriptions.Item label="命中">{detail.hit_pct}</Descriptions.Item>
-              <Descriptions.Item label="闪避">{detail.dodge_pct}</Descriptions.Item>
-              <Descriptions.Item label="暴击">{detail.crit_rate_pct}</Descriptions.Item>
-              <Descriptions.Item label="暴伤">{detail.crit_dmg_pct}</Descriptions.Item>
-            </Descriptions>
-            <Descriptions bordered column={2} size="small" title="抗性与技能">
-              <Descriptions.Item label="物抗">{detail.physical_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="技抗">{detail.skill_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="混乱抗性">{detail.confusion_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="睡眠抗性">{detail.sleep_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="麻痹抗性">{detail.paralysis_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="封印抗性">{detail.seal_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="诅咒抗性">{detail.curse_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="暴击抗性">{detail.crit_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="暴伤减免">{detail.crit_dmg_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="人物减伤">{detail.character_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="宠物减伤">{detail.pet_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="佣兵减伤">{detail.mercenary_resist_pct}</Descriptions.Item>
-              <Descriptions.Item label="护盾减免">{detail.generic_shield_pct}</Descriptions.Item>
-              <Descriptions.Item label="技能" span={2}>
-                <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
-              </Descriptions.Item>
-            </Descriptions>
-            <Descriptions bordered column={2} size="small" title="人物装备">
-              {(detail.equipped_items ?? []).map((item: AdminPlayerEquippedItem) => (
-                <Descriptions.Item key={item.equip_slot} label={item.equip_slot_label}>
-                  {formatPlayerEquippedItem(item)}
-                </Descriptions.Item>
-              ))}
-            </Descriptions>
-            <PlayerWalletSection playerId={detail.player_id} playerName={detail.name} />
-            <PlayerPetSection playerId={detail.player_id} playerName={detail.name} />
-            <PlayerBagSection playerId={detail.player_id} playerName={detail.name} />
-          </Space>
+          <Tabs
+            destroyOnHidden
+            size="small"
+            tabBarStyle={PLAYER_WORKBENCH_TAB_BAR_STYLE}
+            items={[
+              {
+                key: 'profile',
+                label: '角色概览',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_DETAIL_PANEL_HEIGHT)}>
+                    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                      <Descriptions bordered column={2} size="small" title="基础信息">
+                        <Descriptions.Item label="玩家ID">{detail.player_id}</Descriptions.Item>
+                        <Descriptions.Item label="账号ID">{detail.account_id}</Descriptions.Item>
+                        <Descriptions.Item label="账号名">{detail.account_name}</Descriptions.Item>
+                        <Descriptions.Item label="状态">
+                          <Tag color={statusColor(detail.status_text)}>
+                            {formatDisplayLabel(PLAYER_STATUS_LABELS, detail.status_text)}
+                          </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="昵称">{detail.name}</Descriptions.Item>
+                        <Descriptions.Item label="当前形象ID">{detail.skin_id || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="等级">{detail.level}</Descriptions.Item>
+                        <Descriptions.Item label="经验">{detail.exp}</Descriptions.Item>
+                        <Descriptions.Item label="自由属性点">{detail.free_attr_points ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="力量">{detail.strength ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="体质">{detail.vitality ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="敏捷">{detail.agility ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="灵力">{detail.mind ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="金币">{detail.gold}</Descriptions.Item>
+                        <Descriptions.Item label="场景ID">{detail.scene_id}</Descriptions.Item>
+                        <Descriptions.Item label="坐标">{`${detail.pos_x}, ${detail.pos_y}`}</Descriptions.Item>
+                        <Descriptions.Item label="最近登录">{formatDateTime(detail.last_login_at)}</Descriptions.Item>
+                        <Descriptions.Item label="创建时间">{formatDateTime(detail.created_at)}</Descriptions.Item>
+                        <Descriptions.Item label="更新时间" span={2}>
+                          {formatDateTime(detail.updated_at)}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Descriptions bordered column={2} size="small" title="战斗属性">
+                        <Descriptions.Item label="生命">{`${detail.hp}/${detail.hp_max}`}</Descriptions.Item>
+                        <Descriptions.Item label="活力">{`${detail.vigor}/${detail.vigor_max}`}</Descriptions.Item>
+                        <Descriptions.Item label="精力">{`${detail.spirit}/${detail.spirit_max}`}</Descriptions.Item>
+                        <Descriptions.Item label="攻击">{detail.atk}</Descriptions.Item>
+                        <Descriptions.Item label="防御">{detail.def}</Descriptions.Item>
+                        <Descriptions.Item label="速度">{detail.spd}</Descriptions.Item>
+                        <Descriptions.Item label="法力">{detail.mana}</Descriptions.Item>
+                        <Descriptions.Item label="命中">{detail.hit_pct}</Descriptions.Item>
+                        <Descriptions.Item label="闪避">{detail.dodge_pct}</Descriptions.Item>
+                        <Descriptions.Item label="暴击">{detail.crit_rate_pct}</Descriptions.Item>
+                        <Descriptions.Item label="暴伤">{detail.crit_dmg_pct}</Descriptions.Item>
+                      </Descriptions>
+                      <Descriptions bordered column={2} size="small" title="抗性与技能">
+                        <Descriptions.Item label="物抗">{detail.physical_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="技抗">{detail.skill_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="混乱抗性">{detail.confusion_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="睡眠抗性">{detail.sleep_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="麻痹抗性">{detail.paralysis_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="封印抗性">{detail.seal_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="诅咒抗性">{detail.curse_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="暴击抗性">{detail.crit_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="暴伤减免">{detail.crit_dmg_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="人物减伤">{detail.character_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="宠物减伤">{detail.pet_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="佣兵减伤">{detail.mercenary_resist_pct}</Descriptions.Item>
+                        <Descriptions.Item label="护盾减免">{detail.generic_shield_pct}</Descriptions.Item>
+                        <Descriptions.Item label="技能" span={2}>
+                          <SkillReferenceText skillIds={detail.skill_ids} map={skillReferenceMap} emptyText="无" />
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Descriptions bordered column={2} size="small" title="人物装备">
+                        {(detail.equipped_items ?? []).map((item: AdminPlayerEquippedItem) => (
+                          <Descriptions.Item key={item.equip_slot} label={item.equip_slot_label}>
+                            {formatPlayerEquippedItem(item)}
+                          </Descriptions.Item>
+                        ))}
+                      </Descriptions>
+                    </Space>
+                  </div>
+                ),
+              },
+              {
+                key: 'wallet',
+                label: '钱包',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_DETAIL_PANEL_HEIGHT)}>
+                    <PlayerWalletSection
+                      playerId={detail.player_id}
+                      playerName={detail.name}
+                      onDataChanged={() => refreshPlayerViews(detail.player_id)}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'pets',
+                label: '宠物',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_DETAIL_PANEL_HEIGHT)}>
+                    <PlayerPetSection
+                      playerId={detail.player_id}
+                      playerName={detail.name}
+                      onDataChanged={() => refreshPlayerViews(detail.player_id)}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'bags',
+                label: '背包',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_DETAIL_PANEL_HEIGHT)}>
+                    <PlayerBagSection
+                      playerId={detail.player_id}
+                      playerName={detail.name}
+                      onDataChanged={() => refreshPlayerViews(detail.player_id)}
+                    />
+                  </div>
+                ),
+              },
+            ]}
+          />
         ) : null}
       </Drawer>
 
       <Modal
-        title={editingRecord ? `编辑玩家 · ${editingRecord.name}` : '新增玩家'}
+        title={(
+          <Space>
+            <span>{editingRecord ? `编辑玩家 · ${editingRecord.name}` : '新增玩家'}</span>
+            {editingRecord ? (
+              <Button
+                size="small"
+                type="default"
+                onClick={() => void refreshPlayerViews(editingRecord.player_id)}
+                loading={detailLoading}
+              >
+                刷新
+              </Button>
+            ) : null}
+          </Space>
+        )}
         open={editorOpen}
         onCancel={() => {
           setEditorOpen(false);
@@ -455,83 +559,128 @@ export function PlayerListPage() {
         okText={editingRecord ? '保存修改' : '创建玩家'}
         cancelText="取消"
       >
-        <Form<PlayerFormValues> form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
-          <Row gutter={16}>
-            {!editingRecord ? (
-              <>
-                <Col xs={24} md={12}>
-                  <Form.Item label="账号名" name="account_name" rules={[{ required: true, message: '请输入账号名' }]}> 
-                    <Input placeholder="用于登录的账号名" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item label="初始密码" name="password" rules={[{ required: true, message: '请输入初始密码' }]}> 
-                    <Input.Password placeholder="用于登录的初始密码" />
-                  </Form.Item>
-                </Col>
-              </>
-            ) : null}
-            <Col xs={24} md={12}>
-              <Form.Item label="昵称" name="name" rules={[{ required: true, message: '请输入玩家昵称' }]}> 
-                <Input placeholder="请输入玩家昵称" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="状态" name="status" rules={[{ required: true, message: '请选择状态' }]}> 
-                <Select options={editableStatusOptions} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="经验" name="exp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="金币" name="gold"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="场景ID" name="scene_id"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="X 坐标" name="pos_x"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="Y 坐标" name="pos_y"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="生命" name="hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="生命上限" name="hp_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="活力" name="vigor"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="活力上限" name="vigor_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="精力" name="spirit"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="精力上限" name="spirit_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="攻击" name="atk"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="当前形象ID"
-                name="skin_id"
-                extra="对应客户端 unit_skins/{skin_id}.tres，例如 初始形象男_001"
-              >
-                <Input placeholder="初始形象男_001" />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item
-                label="人物技能"
-                name="skill_ids"
-                extra="从已启用的人物技能中选择；保存后写入玩家 skill_ids，战斗仍以服务端结算为准。"
-              >
-                <PetSkillSlotListEditor
-                  categories={['character', 'common']}
-                  skillReferenceMap={skillReferenceMap}
-                  description="人物技能按列表顺序保存，运营可通过上移/下移调整战斗技能按钮的默认顺序。"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-        {editingRecord ? (
-          <div style={{ marginTop: 24 }}>
-            <PlayerWalletSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
-            <div style={{ marginTop: 16 }}>
-              <PlayerPetSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
-            </div>
-            <div style={{ marginTop: 16 }}>
-              <PlayerBagSection playerId={editingRecord.player_id} playerName={editingRecord.name} />
-            </div>
-          </div>
-        ) : null}
+        <Tabs
+          destroyOnHidden
+          size="small"
+          tabBarStyle={PLAYER_WORKBENCH_TAB_BAR_STYLE}
+          items={[
+            {
+              key: 'base',
+              label: '角色编辑',
+              children: (
+                <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
+                  <Form<PlayerFormValues> form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+                    <Row gutter={16}>
+                      {!editingRecord ? (
+                        <>
+                          <Col xs={24} md={12}>
+                            <Form.Item label="账号名" name="account_name" rules={[{ required: true, message: '请输入账号名' }]}>
+                              <Input placeholder="用于登录的账号名" />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12}>
+                            <Form.Item label="初始密码" name="password" rules={[{ required: true, message: '请输入初始密码' }]}>
+                              <Input.Password placeholder="用于登录的初始密码" />
+                            </Form.Item>
+                          </Col>
+                        </>
+                      ) : null}
+                      <Col xs={24} md={12}>
+                        <Form.Item label="昵称" name="name" rules={[{ required: true, message: '请输入玩家昵称' }]}>
+                          <Input placeholder="请输入玩家昵称" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item label="状态" name="status" rules={[{ required: true, message: '请选择状态' }]}>
+                          <Select options={editableStatusOptions} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} md={6}><Form.Item label="等级" name="level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="经验" name="exp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="金币" name="gold"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="场景ID" name="scene_id"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="X 坐标" name="pos_x"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="Y 坐标" name="pos_y"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="生命" name="hp"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="生命上限" name="hp_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="活力" name="vigor"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="活力上限" name="vigor_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="精力" name="spirit"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="精力上限" name="spirit_max"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="攻击" name="atk"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="防御" name="def"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="速度" name="spd"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={12} md={6}><Form.Item label="法力" name="mana"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label="当前形象ID"
+                          name="skin_id"
+                          extra="对应客户端 unit_skins/{skin_id}.tres，例如 初始形象男_001"
+                        >
+                          <Input placeholder="初始形象男_001" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={24}>
+                        <Form.Item
+                          label="人物技能"
+                          name="skill_ids"
+                          extra="从已启用的人物技能中选择；保存后写入玩家 skill_ids，战斗仍以服务端结算为准。"
+                        >
+                          <PetSkillSlotListEditor
+                            categories={['character', 'common']}
+                            skillReferenceMap={skillReferenceMap}
+                            description="人物技能按列表顺序保存，运营可通过上移/下移调整战斗技能按钮的默认顺序。"
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Form>
+                </div>
+              ),
+            },
+            ...(editingRecord ? [
+              {
+                key: 'wallet',
+                label: '钱包',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
+                    <PlayerWalletSection
+                      playerId={editingRecord.player_id}
+                      playerName={editingRecord.name}
+                      onDataChanged={() => refreshPlayerViews(editingRecord.player_id)}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'pets',
+                label: '宠物',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
+                    <PlayerPetSection
+                      playerId={editingRecord.player_id}
+                      playerName={editingRecord.name}
+                      onDataChanged={() => refreshPlayerViews(editingRecord.player_id)}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'bags',
+                label: '背包',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
+                    <PlayerBagSection
+                      playerId={editingRecord.player_id}
+                      playerName={editingRecord.name}
+                      onDataChanged={() => refreshPlayerViews(editingRecord.player_id)}
+                    />
+                  </div>
+                ),
+              },
+            ] : []),
+          ]}
+        />
       </Modal>
     </Space>
   );
@@ -661,4 +810,12 @@ function formatPlayerEquippedItem(item: AdminPlayerEquippedItem): string {
     return `${item.item_name} +${item.enhance_level}`;
   }
   return item.item_name;
+}
+
+function buildWorkbenchPanelStyle(maxHeight: string): CSSProperties {
+  return {
+    maxHeight,
+    overflowY: 'auto',
+    paddingRight: 4,
+  };
 }

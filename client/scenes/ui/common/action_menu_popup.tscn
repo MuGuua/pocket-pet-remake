@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b7f08ybry1kmy" path="res://scripts/ui/common/action_menu_popup.gd" id="1_script"]
 
-[node name="ActionMenuPopup" type="Control"]
+[node name="ActionMenuPopup" type="Control" unique_id=1448849316]
 visible = false
 z_index = 16
 layout_mode = 3
@@ -10,7 +10,7 @@ anchors_preset = 0
 mouse_filter = 2
 script = ExtResource("1_script")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=833568792]
 layout_mode = 0
 offset_right = 92.0
 offset_bottom = 156.0
@@ -20,11 +20,11 @@ theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
-[node name="RootVBox" type="VBoxContainer" parent="MarginContainer"]
+[node name="RootVBox" type="VBoxContainer" parent="MarginContainer" unique_id=2028277327]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="ActionVBox" type="VBoxContainer" parent="MarginContainer/RootVBox"]
+[node name="ActionVBox" type="VBoxContainer" parent="MarginContainer/RootVBox" unique_id=1785155834]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4

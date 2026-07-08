@@ -73,7 +73,7 @@ interface TemplateFormValues {
   submit_npc_id: number;
   min_player_level: number;
   status: number;
-  pre_quest_ids_text: string;
+  pre_quest_ids: number[];
   stages: QuestStageFormItem[];
   rewards: AdminQuestRewardInput[];
 }
@@ -105,6 +105,8 @@ const questStateOptions = buildFilterSelectOptions(QUEST_STATE_LABELS, '全部�
 const editableQuestStateOptions = buildSelectOptions(QUEST_STATE_LABELS);
 
 const questModeOptions = buildSelectOptions(QUEST_MODE_LABELS);
+const QUEST_TEMPLATE_EDITOR_PANEL_HEIGHT = 'calc(100vh - 260px)';
+const QUEST_TEMPLATE_EDITOR_TAB_BAR_STYLE: CSSProperties = { marginBottom: 12 };
 
 // 任务管理页把模板管理和玩家任务修正放到同一个页面，方便策划和运营在一个入口完成模板配置与进度排障。
 export function QuestAdminPage() {
@@ -373,50 +375,118 @@ function QuestTemplatePanel() {
       >
         <Spin spinning={editorLoading} tip="正在加载任务模板...">
           <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)} preserve={false}>
-          <Row gutter={16}>
-            {!editingRecord ? <Col xs={24} md={8}><Form.Item label="任务ID" name="quest_id" rules={[{ required: true, message: '请输入任务ID' }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col> : null}
-            <Col xs={24} md={editingRecord ? 12 : 8}><Form.Item label="模板名" name="name" rules={[{ required: true, message: '请输入模板名' }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={editingRecord ? 12 : 8}><Form.Item label="任务类型" name="quest_type" rules={[{ required: true, message: '请选择任务类型' }]}><Select options={questTypeOptions} /></Form.Item></Col>
-            <Col span={24}><Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}><Input /></Form.Item></Col>
-            <Col span={24}>
-              <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端任务详情会原样渲染。">
-                <RichTextEditor rows={4} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={6}><Form.Item label="章节" name="chapter"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="排序" name="sort_order"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={questModeOptions} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="提交 NPC" name="submit_npc_id"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked"><Switch /></Form.Item></Col>
-            <Col span={24}><Form.Item label="前置任务 ID JSON" name="pre_quest_ids_text" extra='示例: [1001,1002]'><Input.TextArea rows={2} /></Form.Item></Col>
-            <Col span={24}>
-              <Form.Item
-                label="任务阶段"
-                name="stages"
-                rules={[
-                  {
-                    validator: async (_, stageList: QuestStageFormItem[] | undefined) => {
-                      if (!stageList || stageList.length === 0) {
-                        throw new Error('至少配置一个任务阶段');
-                      }
-                    },
-                  },
-                ]}
-                tooltip="同一任务可配置多个阶段；每阶段可绑定不同 NPC、菜单 entry 与剧情。点击「添加阶段」在弹窗中编辑。"
-              >
-                <QuestStageEditor questID={editingQuestID} />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item label="任务奖励" name="rewards">
-                <QuestRewardEditor />
-              </Form.Item>
-            </Col>
-          </Row>
+            <Tabs
+              destroyOnHidden
+              size="small"
+              tabBarStyle={QUEST_TEMPLATE_EDITOR_TAB_BAR_STYLE}
+              items={[
+                {
+                  key: 'basic',
+                  label: '基础信息',
+                  children: (
+                    <div style={buildEditorPanelStyle(QUEST_TEMPLATE_EDITOR_PANEL_HEIGHT)}>
+                      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                        <Card size="small" title="任务基础资料">
+                          <Row gutter={16}>
+                            {!editingRecord ? <Col span={24}><Form.Item label="任务ID" extra="新增时由服务端自动分配，无需手动填写。"><Input value="保存后自动生成" disabled /></Form.Item></Col> : null}
+                            <Col xs={24} md={12}><Form.Item label="模板名" name="name" rules={[{ required: true, message: '请输入模板名' }]} extra="建议使用稳定英文 key，便于程序与运营排查。"><Input placeholder="例如：market_intro_quest" /></Form.Item></Col>
+                            <Col xs={24} md={12}><Form.Item label="任务类型" name="quest_type" rules={[{ required: true, message: '请选择任务类型' }]}><Select options={questTypeOptions} /></Form.Item></Col>
+                            <Col span={24}><Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]} extra="展示给玩家的正式任务标题。"><Input placeholder="例如：初识市场理萌" /></Form.Item></Col>
+                            <Col span={24}>
+                              <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端任务详情会原样渲染。">
+                                <RichTextEditor rows={5} />
+                              </Form.Item>
+                            </Col>
+                          </Row>
+                        </Card>
+                        <Card size="small" title="接取与提交流程">
+                          <Row gutter={16}>
+                            <Col xs={12} md={6}><Form.Item label="章节" name="chapter" extra="用于章节分组展示。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="排序" name="sort_order" extra="同章节内排序值。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={questModeOptions} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="提交 NPC" name="submit_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
+                            <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked" extra="接取后是否默认开启追踪。"><Switch /></Form.Item></Col>
+                            <Col span={24}>
+                              <Form.Item label="前置任务" extra="按顺序添加前置任务 ID；不需要前置任务时可留空。">
+                                <Form.List name="pre_quest_ids">
+                                  {(fields, { add, remove }) => (
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                      {fields.length > 0 ? fields.map((field, index) => (
+                                        <Space key={field.key} align="start" style={{ display: 'flex' }}>
+                                          <Form.Item
+                                            {...field}
+                                            label={index === 0 ? '前置任务 ID' : ' '}
+                                            rules={[{ required: true, message: '请输入任务ID' }]}
+                                            style={{ marginBottom: 0, minWidth: 220 }}
+                                          >
+                                            <InputNumber min={1} style={{ width: '100%' }} placeholder="例如：1001" />
+                                          </Form.Item>
+                                          <Button danger onClick={() => remove(field.name)}>
+                                            删除
+                                          </Button>
+                                        </Space>
+                                      )) : (
+                                        <span style={{ color: '#8c8c8c', fontSize: 12 }}>当前没有前置任务，任务可独立接取。</span>
+                                      )}
+                                      <Button type="dashed" onClick={() => add(0)}>
+                                        添加前置任务
+                                      </Button>
+                                    </Space>
+                                  )}
+                                </Form.List>
+                              </Form.Item>
+                            </Col>
+                          </Row>
+                        </Card>
+                      </Space>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'stages',
+                  label: '任务阶段',
+                  children: (
+                    <div style={buildEditorPanelStyle(QUEST_TEMPLATE_EDITOR_PANEL_HEIGHT)}>
+                      <Card size="small" title="阶段配置" extra={<span style={{ color: '#8c8c8c', fontSize: 12 }}>先补全基础信息，再按阶段推进链路配置 NPC / 菜单 / 剧情</span>}>
+                        <Form.Item
+                          label="任务阶段"
+                          name="stages"
+                          rules={[
+                            {
+                              validator: async (_, stageList: QuestStageFormItem[] | undefined) => {
+                                if (!stageList || stageList.length === 0) {
+                                  throw new Error('至少配置一个任务阶段');
+                                }
+                              },
+                            },
+                          ]}
+                          tooltip="同一任务可配置多个阶段；每阶段可绑定不同 NPC、菜单 entry 与剧情。点击「添加阶段」在弹窗中编辑。"
+                        >
+                          <QuestStageEditor questID={editingQuestID} />
+                        </Form.Item>
+                      </Card>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'rewards',
+                  label: '任务奖励',
+                  children: (
+                    <div style={buildEditorPanelStyle(QUEST_TEMPLATE_EDITOR_PANEL_HEIGHT)}>
+                      <Card size="small" title="奖励配置" extra={<span style={{ color: '#8c8c8c', fontSize: 12 }}>配置完成任务后发放给玩家的奖励</span>}>
+                        <Form.Item label="任务奖励" name="rewards">
+                          <QuestRewardEditor />
+                        </Form.Item>
+                      </Card>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </Form>
         </Spin>
       </Modal>
@@ -645,7 +715,6 @@ function PlayerQuestPanel() {
 
 function defaultTemplateValues(): TemplateFormValues {
   return {
-    quest_id: 9001,
     name: 'ops_quest_template',
     quest_type: 'SIDE',
     title: '后台新任务',
@@ -659,7 +728,7 @@ function defaultTemplateValues(): TemplateFormValues {
     submit_npc_id: 0,
     min_player_level: 1,
     status: 1,
-    pre_quest_ids_text: '[]',
+    pre_quest_ids: [],
     stages: createDefaultQuestStages(),
     rewards: [{ type: 'exp', value: 50, item_id: 0, count: 0 }],
   };
@@ -692,7 +761,7 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     submit_npc_id: detail.submit_npc_id,
     min_player_level: detail.min_player_level,
     status: detail.status,
-    pre_quest_ids_text: JSON.stringify(detail.pre_quest_ids ?? [], null, 2),
+    pre_quest_ids: detail.pre_quest_ids ?? [],
     stages: apiObjectivesToStages(detail.objectives),
     rewards: detail.rewards ?? [],
   };
@@ -711,7 +780,7 @@ function mapPlayerQuestDetailToForm(detail: AdminPlayerQuestDetail): PlayerQuest
 
 function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreateQuestTemplatePayload {
   return {
-    quest_id: values.quest_id ?? 0,
+    quest_id: values.quest_id,
     name: values.name,
     quest_type: values.quest_type,
     title: values.title,
@@ -725,7 +794,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     submit_npc_id: values.submit_npc_id,
     min_player_level: values.min_player_level,
     status: values.status,
-    pre_quest_ids: parseJSONArray<number[]>(values.pre_quest_ids_text, []),
+    pre_quest_ids: normalizePositiveNumberList(values.pre_quest_ids),
     objectives: stagesToApiObjectives(values.stages ?? []),
     rewards: values.rewards ?? [],
   };
@@ -759,6 +828,15 @@ function parseJSONArray<T>(text: string, fallback: T): T {
   }
 }
 
+function normalizePositiveNumberList(values: number[] | undefined): number[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  return values
+    .map((value) => Number(value ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+}
+
 const jsonBlockStyle: CSSProperties = {
   margin: 0,
   whiteSpace: 'pre-wrap',
@@ -766,3 +844,11 @@ const jsonBlockStyle: CSSProperties = {
   fontSize: 12,
   lineHeight: 1.5,
 };
+
+function buildEditorPanelStyle(maxHeight: string): CSSProperties {
+  return {
+    maxHeight,
+    overflowY: 'auto',
+    paddingRight: 4,
+  };
+}

@@ -409,7 +409,7 @@ theme_override_constants/margin_bottom = 16
 [node name="Label" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板/法宝装备/MarginContainer" unique_id=1325045844]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "法宝装备暂未接入"
+text = "敬请期待"
 horizontal_alignment = 1
 vertical_alignment = 1
 

@@ -50,7 +50,7 @@ func (s *Service) GetAdminTemplateDetail(ctx context.Context, questID uint64) (*
 
 func (s *Service) CreateAdminTemplate(ctx context.Context, input AdminCreateTemplateInput) (*AdminTemplateDetail, error) {
 	input = input.Normalize()
-	if input.QuestID == 0 || input.Name == "" || input.Title == "" {
+	if input.Name == "" || input.Title == "" {
 		return nil, ErrInvalidAdminQuestInput
 	}
 	return s.repo.CreateTemplateForAdmin(ctx, input)

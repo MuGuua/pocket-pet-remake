@@ -1,7 +1,7 @@
-import { Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useMemo, useState } from 'react';
+import type { CSSProperties, DragEvent } from 'react';
+import { useState } from 'react';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { RichTextEditor } from '../../components/RichTextEditor';
 import { buildSelectOptions, formatDisplayLabel, QUEST_EVENT_TYPE_LABELS } from '../../utils/displayLabels';
@@ -25,50 +25,9 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
   const stages: QuestStageFormItem[] = value ?? [];
   const [stageModalOpen, setStageModalOpen] = useState<boolean>(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [stageForm] = Form.useForm<QuestStageFormItem>();
-
-  const columns = useMemo<ColumnsType<QuestStageFormItem>>(
-    () => [
-      { title: '阶段 ID', dataIndex: 'objective_id', key: 'objective_id', width: 90 },
-      {
-        title: '事件类型',
-        dataIndex: 'event_type',
-        key: 'event_type',
-        width: 120,
-        render: (eventType: string) => formatDisplayLabel(QUEST_EVENT_TYPE_LABELS, eventType),
-      },
-      { title: '阶段描述', dataIndex: 'description', key: 'description', ellipsis: true },
-      { title: '目标 NPC', dataIndex: 'npc_id', key: 'npc_id', width: 100, render: (npcID: number) => (npcID > 0 ? npcID : '-') },
-      { title: '菜单 entry', dataIndex: 'menu_entry_id', key: 'menu_entry_id', width: 110, render: (entryID: number) => (entryID > 0 ? entryID : '-') },
-      {
-        title: '操作',
-        key: 'actions',
-        width: 80,
-        fixed: 'right',
-        render: (_value, _record, index) => (
-          <TableActionDropdown
-            actions={[
-              { key: 'edit', label: '编辑', onClick: () => openStageEditor(index) },
-              {
-                key: 'delete',
-                label: '删除',
-                danger: true,
-                disabled: stages.length <= 1,
-                confirm: {
-                  title: '确认删除该阶段吗？',
-                  description: '删除后需重新保存任务模板才会生效。',
-                  okText: '确认删除',
-                  cancelText: '取消',
-                },
-                onClick: () => removeStage(index),
-              },
-            ]}
-          />
-        ),
-      },
-    ],
-    [stages.length],
-  );
 
   /** 打开新增阶段弹窗。 */
   function openStageCreator(): void {
@@ -95,6 +54,52 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
     onChange?.(stages.filter((_stage, stageIndex) => stageIndex !== index));
   }
 
+  /** 按拖拽结果调整阶段顺序；列表顺序即任务推进顺序。 */
+  function moveStage(fromIndex: number, toIndex: number): void {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= stages.length || toIndex >= stages.length) {
+      return;
+    }
+    const nextStages: QuestStageFormItem[] = [...stages];
+    const [movedStage] = nextStages.splice(fromIndex, 1);
+    nextStages.splice(toIndex, 0, movedStage);
+    onChange?.(nextStages);
+  }
+
+  /** 开始拖拽时记录当前卡片下标。 */
+  function handleDragStart(event: DragEvent<HTMLDivElement>, index: number): void {
+    setDraggingIndex(index);
+    setDragOverIndex(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  }
+
+  /** 拖拽进入目标卡片时记录悬停位置。 */
+  function handleDragOver(event: DragEvent<HTMLDivElement>, index: number): void {
+    event.preventDefault();
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  /** 放下时按目标位置重排。 */
+  function handleDrop(event: DragEvent<HTMLDivElement>, index: number): void {
+    event.preventDefault();
+    const rawIndex: string = event.dataTransfer.getData('text/plain');
+    const fromIndex: number = Number(rawIndex);
+    if (Number.isFinite(fromIndex)) {
+      moveStage(fromIndex, index);
+    }
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+  }
+
+  /** 拖拽结束后清理高亮状态。 */
+  function handleDragEnd(): void {
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+  }
+
   /** 弹窗确认后写回阶段列表。 */
   function handleStageModalSubmit(values: QuestStageFormItem): void {
     const nextStages: QuestStageFormItem[] = [...stages];
@@ -103,7 +108,6 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
     } else {
       nextStages[editingIndex] = values;
     }
-    nextStages.sort((left, right) => left.objective_id - right.objective_id);
     onChange?.(nextStages);
     setStageModalOpen(false);
     setEditingIndex(null);
@@ -113,15 +117,76 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
   return (
     <>
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
-        <Table
-          columns={columns}
-          dataSource={stages}
-          rowKey={(record) => `${record.objective_id}-${record.description}`}
-          size="small"
-          pagination={false}
-          scroll={{ x: 720 }}
-          locale={{ emptyText: <Empty description="暂无任务阶段，请点击下方按钮添加" /> }}
-        />
+        <Typography.Text type="secondary">
+          当前卡片顺序就是任务推进顺序；可直接拖拽卡片调整先后，阶段 ID 仅作为条件绑定标识。
+        </Typography.Text>
+        {stages.length > 0 ? (
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            {stages.map((stage, index) => (
+              <div
+                key={`${stage.objective_id}-${index}`}
+                draggable
+                onDragStart={(event) => handleDragStart(event, index)}
+                onDragOver={(event) => handleDragOver(event, index)}
+                onDrop={(event) => handleDrop(event, index)}
+                onDragEnd={handleDragEnd}
+                style={buildStageCardWrapperStyle(draggingIndex === index, dragOverIndex === index)}
+              >
+                <Card
+                  size="small"
+                  title={(
+                    <Space size={8} wrap>
+                      <Tag color="blue">{`阶段 ${index + 1}`}</Tag>
+                      <Tag>{`ID ${stage.objective_id}`}</Tag>
+                      <Tag color="purple">{formatDisplayLabel(QUEST_EVENT_TYPE_LABELS, stage.event_type)}</Tag>
+                    </Space>
+                  )}
+                  extra={(
+                    <TableActionDropdown
+                      actions={[
+                        { key: 'edit', label: '编辑', onClick: () => openStageEditor(index) },
+                        {
+                          key: 'delete',
+                          label: '删除',
+                          danger: true,
+                          disabled: stages.length <= 1,
+                          confirm: {
+                            title: '确认删除该阶段吗？',
+                            description: '删除后需重新保存任务模板才会生效。',
+                            okText: '确认删除',
+                            cancelText: '取消',
+                          },
+                          onClick: () => removeStage(index),
+                        },
+                      ]}
+                    />
+                  )}
+                >
+                  <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                    <Typography.Text strong>{renderStageDescription(stage)}</Typography.Text>
+                    <Space size={[8, 8]} wrap>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('目标次数', String(stage.target_value || 1))}</Tag>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('目标 NPC', stage.npc_id > 0 ? String(stage.npc_id) : '-')}</Tag>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('目标场景', stage.scene_id > 0 ? String(stage.scene_id) : '-')}</Tag>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('菜单', stage.menu_entry_id > 0 ? String(stage.menu_entry_id) : '-')}</Tag>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('剧情', stage.dialogue_entry_id > 0 ? String(stage.dialogue_entry_id) : '-')}</Tag>
+                      <Tag bordered={false} color="default">{formatStageMetaLabel('战斗类型', stage.battle_type.trim() || '-')}</Tag>
+                    </Space>
+                    {stage.guide_text.trim() ? (
+                      <Typography.Text type="secondary">
+                        {`引导：${stage.guide_text.trim()}`}
+                      </Typography.Text>
+                    ) : (
+                      <Typography.Text type="secondary">未配置引导文案</Typography.Text>
+                    )}
+                  </Space>
+                </Card>
+              </div>
+            ))}
+          </Space>
+        ) : (
+          <Empty description="暂无任务阶段，请点击下方按钮添加" />
+        )}
         <Button type="dashed" block icon={<PlusOutlined />} onClick={openStageCreator}>
           添加阶段
         </Button>
@@ -214,6 +279,27 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
       </Modal>
     </>
   );
+}
+
+function renderStageDescription(stage: QuestStageFormItem): string {
+  const description: string = stage.description.trim();
+  if (description) {
+    return description;
+  }
+  return '未填写阶段描述';
+}
+
+function formatStageMetaLabel(label: string, value: string): string {
+  return `${label}：${value}`;
+}
+
+function buildStageCardWrapperStyle(isDragging: boolean, isDragOver: boolean): CSSProperties {
+  return {
+    cursor: 'grab',
+    borderRadius: 8,
+    opacity: isDragging ? 0.65 : 1,
+    boxShadow: isDragOver ? '0 0 0 2px #1677ff inset' : 'none',
+  };
 }
 
 interface StageConditionHintProps {

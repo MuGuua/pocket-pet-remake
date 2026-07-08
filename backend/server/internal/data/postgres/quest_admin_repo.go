@@ -81,6 +81,9 @@ INSERT INTO quest_template (
 )
 `
 
+const adminQuestTemplateAutoIDLockQuery = `SELECT pg_advisory_xact_lock($1)`
+const adminQuestTemplateNextIDQuery = `SELECT COALESCE(MAX(quest_id), 1000) + 1 FROM quest_template`
+
 const updateAdminQuestTemplateQuery = `
 UPDATE quest_template
 SET quest_type = $2,
@@ -289,6 +292,29 @@ func (r *QuestRepository) FindAdminTemplateDetailByQuestID(ctx context.Context, 
 }
 
 func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input quest.AdminCreateTemplateInput) (*quest.AdminTemplateDetail, error) {
+	beginner, ok := r.db.(txBeginner)
+	if !ok {
+		return nil, fmt.Errorf("quest repository transaction is unavailable")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if input.QuestID == 0 {
+		if _, err = tx.ExecContext(ctx, adminQuestTemplateAutoIDLockQuery, int64(2026070801)); err != nil {
+			return nil, err
+		}
+		if err = tx.QueryRowContext(ctx, adminQuestTemplateNextIDQuery).Scan(&input.QuestID); err != nil {
+			return nil, err
+		}
+	}
+
 	preQuestIDsJSON, err := json.Marshal(input.PreQuestIDs)
 	if err != nil {
 		return nil, err
@@ -301,7 +327,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 	if err != nil {
 		return nil, err
 	}
-	_, err = r.db.ExecContext(ctx, insertAdminQuestTemplateQuery,
+	_, err = tx.ExecContext(ctx, insertAdminQuestTemplateQuery,
 		input.QuestID, input.QuestType, input.Name, input.Title, input.Description,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.StartNPCID, input.SubmitNPCID, input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
@@ -310,6 +336,9 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 		if isUniqueViolation(err) {
 			return nil, quest.ErrAdminQuestConflict
 		}
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return r.FindAdminTemplateDetailByQuestID(ctx, input.QuestID)

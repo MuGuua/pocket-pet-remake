@@ -2693,6 +2693,9 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if input.QuestID == 0 {
+		input.QuestID = nextQuestTemplateID(r.templates)
+	}
 	if _, exists := r.templates[input.QuestID]; exists {
 		return nil, quest.ErrAdminQuestConflict
 	}
@@ -2743,6 +2746,16 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}, nil
+}
+
+func nextQuestTemplateID(templates map[uint64]quest.Template) uint64 {
+	var maxQuestID uint64 = 1000
+	for questID := range templates {
+		if questID > maxQuestID {
+			maxQuestID = questID
+		}
+	}
+	return maxQuestID + 1
 }
 
 func adminRewardsToRuntime(inputs []quest.AdminRewardInput) []quest.Reward {

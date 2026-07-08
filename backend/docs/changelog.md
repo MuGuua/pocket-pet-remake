@@ -1,5 +1,15 @@
 # 最新变更记录
 
+## 2026-07-08
+- 后台任务阶段编辑器改为摘要卡片 + 原生拖拽排序：`admin/src/pages/quests/QuestStageEditor.tsx` 不再使用表格平铺阶段，而是按卡片展示“阶段顺序 / 阶段ID / 事件类型 / NPC / 菜单 / 剧情 / 引导”等摘要信息，并支持直接拖拽卡片调整任务推进顺序；保存结构仍沿用原有 `stages` 列表，不改接口契约
+- 后台任务模板创建改为服务端自动分配任务 ID：`backend/server/internal/module/quest/service.go`、`backend/server/internal/data/postgres/quest_admin_repo.go` 与 `backend/server/internal/teststub/repos.go` 现支持在创建任务模板时省略 `quest_id`，由服务端按当前最大 `quest_id + 1` 自动生成；`admin/src/pages/quests/QuestAdminPage.tsx` 同步移除新增表单中的手填任务 ID，改为“保存后自动生成”，减少人工编号冲突
+- 后台新增/编辑任务模板表单结构优化：`admin/src/pages/quests/QuestAdminPage.tsx` 将原先单列超长表单改为「基础信息 / 任务阶段 / 任务奖励」三标签结构；基础资料与接取提交流程拆成独立卡片，阶段与奖励各自独立编辑区，并统一固定高度内部滚动，减少策划新增任务时长距离滚动和字段混杂带来的误填
+- 后台任务模板的前置任务录入改为列表新增样式：`admin/src/pages/quests/QuestAdminPage.tsx` 不再要求手写 `pre_quest_ids` JSON，而是直接按行新增/删除前置任务 ID；保存时仍按原有 `number[]` 契约提交，减少 JSON 格式输错导致的配置问题
+- 后台玩家详情页改为分标签结构：`admin/src/pages/players/PlayerListPage.tsx` 将原先基础信息、战斗属性、钱包、宠物、背包的超长纵向内容改为「角色概览 / 钱包 / 宠物 / 背包」分标签展示，并把每个标签内容收敛到固定高度的内部滚动区域，避免运营查看角色信息时需要整页长距离下滑
+- 后台玩家详情/编辑页补齐子模块更新后的自动刷新：`admin/src/pages/players/PlayerWalletSection.tsx`、`admin/src/pages/players/PlayerPetSection.tsx` 与 `admin/src/pages/players/PlayerBagSection.tsx` 现支持通过 `onDataChanged` 回调通知父级；当运营在角色页内调整钱包、宠物或背包后，玩家列表、详情抽屉和编辑弹窗会自动重新拉取最新玩家快照，避免修改成功后仍停留在旧展示
+- 后台玩家编辑弹窗同步改为分标签结构，并补充手动刷新按钮：`admin/src/pages/players/PlayerListPage.tsx` 的编辑弹窗现已拆为「基础编辑 / 钱包 / 宠物 / 背包」四段，内容区固定高度内部滚动；玩家详情抽屉与编辑弹窗标题区都新增“刷新”按钮，方便运营在跨页面修改后主动重拉服务端最新数据
+- 后台玩家详情抽屉与编辑弹窗的工作台样式进一步统一：`admin/src/pages/players/PlayerListPage.tsx` 现已统一标签栏尺寸、内部滚动容器样式与刷新按钮尺寸；编辑弹窗的首个标签更名为“角色编辑”，与详情页“角色概览”形成对应，减少运营在详情/编辑两种视图间切换时的认知跳变
+
 ## 2026-07-07
 - 修复后台删除宠物被动技能后生命/攻击等展示属性未回退：`backend/server/internal/module/pet/service.go` 现在会在保存玩家宠物前，把“后台详情页因被动技能临时展示出来的加成值”还原回底层基础值；当运营只删除技能、不手改生命/攻击字段时，保存后 `hp/hp_max/atk/spd/mana` 及相关暴击/抗性会按技能删除结果正确回退，不再把加成后的展示值误写回 `player_pet`
 - 后台技能编辑页进一步收紧被动技能效果项：`admin/src/components/SkillDefinitionEditor.tsx`、`admin/src/components/SkillEffectConfigEditor.tsx` 与 `admin/src/pages/skills/SkillDefinitionPage.tsx` 现已在被动技能模式下只保留“被动属性加成”效果类型，并在切换为被动或重新打开旧数据时自动过滤攻击系数、战斗表现等主动技能条目，避免运营再次误配无效字段

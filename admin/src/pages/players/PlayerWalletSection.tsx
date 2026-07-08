@@ -23,10 +23,12 @@ interface PlayerWalletSectionProps {
   playerId: number;
   /** 玩家昵称，用于区块标题 */
   playerName: string;
+  /** 钱包发生变更后的回调，用于通知父级刷新玩家详情。 */
+  onDataChanged?: () => void | Promise<void>;
 }
 
 // 玩家详情/编辑页内的钱包区块：展示服务端权威钱包快照，并支持按总铜币调账。
-export function PlayerWalletSection({ playerId, playerName }: PlayerWalletSectionProps) {
+export function PlayerWalletSection({ playerId, playerName, onDataChanged }: PlayerWalletSectionProps) {
   const [editorForm] = Form.useForm<WalletFormValues>();
   const [loading, setLoading] = useState<boolean>(false);
   const [detail, setDetail] = useState<AdminWalletDetail | null>(null);
@@ -61,6 +63,9 @@ export function PlayerWalletSection({ playerId, playerName }: PlayerWalletSectio
       message.success('钱包调整成功');
       setEditorOpen(false);
       await loadWallet();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '钱包调整失败');
     } finally {

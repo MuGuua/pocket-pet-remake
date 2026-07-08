@@ -11,7 +11,6 @@ bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [node name="RewardPopup" type="CanvasLayer" unique_id=608777489]
 layer = 130
-visible = false
 script = ExtResource("1_script")
 
 [node name="Control" type="PanelContainer" parent="." unique_id=1441163648]

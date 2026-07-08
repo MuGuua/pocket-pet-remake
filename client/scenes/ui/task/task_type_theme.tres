@@ -1,0 +1,31 @@
+[gd_resource type="Theme" format=3 uid="uid://c6h651drmumlc"]
+
+[ext_resource type="Texture2D" uid="uid://cwiqbwdungfx3" path="res://asset/分类/ui/24b35371-74f3-45df-afbb-2048c63915fc.png" id="1_jxbar"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_p25sa"]
+load_path = "res://.godot/imported/24b35371-74f3-45df-afbb-2048c63915fc.png-009565d9a4cacae2f62f0f2aa039e2ec.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_llq0q"]
+atlas = SubResource("CompressedTexture2D_p25sa")
+region = Rect2(1220, 160, 302, 90)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_1am3f"]
+texture = SubResource("AtlasTexture_llq0q")
+modulate_color = Color(1, 1, 1, 0.60784316)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3nltu"]
+atlas = ExtResource("1_jxbar")
+region = Rect2(894, 163, 298, 90)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_xvj4k"]
+texture = SubResource("AtlasTexture_3nltu")
+modulate_color = Color(1, 1, 1, 0.60784316)
+
+[resource]
+Button/colors/font_hover_pressed_color = Color(0.85882354, 0.7882353, 0.64705884, 1)
+Button/colors/font_outline_color = Color(0, 0, 0, 1)
+Button/colors/font_pressed_color = Color(0.85882354, 0.7882353, 0.64705884, 1)
+Button/font_sizes/font_size = 30
+Button/styles/hover = SubResource("StyleBoxTexture_1am3f")
+Button/styles/normal = SubResource("StyleBoxTexture_1am3f")
+Button/styles/pressed = SubResource("StyleBoxTexture_xvj4k")

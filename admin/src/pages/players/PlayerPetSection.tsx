@@ -54,10 +54,11 @@ import {
 interface PlayerPetSectionProps {
   playerId: number;
   playerName: string;
+  onDataChanged?: () => void | Promise<void>;
 }
 
 // 玩家详情/编辑页内的宠物区块：按 player_id 拉取列表，并支持查看、编辑、新增与删除。
-export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps) {
+export function PlayerPetSection({ playerId, playerName, onDataChanged }: PlayerPetSectionProps) {
   const { map: skillReferenceMap } = useSkillReferenceMap();
   const [editorForm] = Form.useForm<PetInstanceFormValues>();
   const innateSkillIDs = Form.useWatch('innate_skill_ids', editorForm) ?? [];
@@ -147,6 +148,9 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
       setEditingRecord(null);
       editorForm.resetFields();
       await loadPets();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存宠物失败');
     } finally {
@@ -171,6 +175,9 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
       if (petDetail?.pet_uid === record.pet_uid) {
         setPetDetail(await fetchAdminPetDetail(record.pet_uid));
       }
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '更新出战状态失败');
     } finally {
@@ -188,6 +195,9 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         setPetDetail(null);
       }
       await loadPets();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '删除宠物失败');
     } finally {
@@ -376,7 +386,12 @@ export function PlayerPetSection({ playerId, playerName }: PlayerPetSectionProps
         fixedPlayerId={playerId}
         fixedPlayerName={playerName}
         onCancel={() => setGrantModalOpen(false)}
-        onSuccess={() => void loadPets()}
+        onSuccess={() => {
+          void loadPets();
+          if (onDataChanged) {
+            void onDataChanged();
+          }
+        }}
       />
 
       <Modal

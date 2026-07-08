@@ -77,7 +77,7 @@ export interface AdminQuestTemplateFilters {
 }
 
 export interface AdminCreateQuestTemplatePayload {
-  quest_id: number;
+  quest_id?: number;
   name: string;
   quest_type: string;
   title: string;

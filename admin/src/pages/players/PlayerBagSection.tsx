@@ -50,6 +50,7 @@ interface BagFormValues {
 interface PlayerBagSectionProps {
   playerId: number;
   playerName: string;
+  onDataChanged?: () => void | Promise<void>;
 }
 
 const containerTypeOptions = [
@@ -64,7 +65,7 @@ const editableContainerTypeOptions = [
 ];
 
 // 玩家详情/编辑页内的背包区块：按 player_id 拉取容器格子，并支持查看、编辑、新增与删除。
-export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps) {
+export function PlayerBagSection({ playerId, playerName, onDataChanged }: PlayerBagSectionProps) {
   const [editorForm] = Form.useForm<BagFormValues>();
   const [containerType, setContainerType] = useState('');
   const [rows, setRows] = useState<AdminBagSummary[]>([]);
@@ -162,6 +163,9 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
       setEditingRecord(null);
       editorForm.resetFields();
       await loadBags();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存容器记录失败');
     } finally {
@@ -179,6 +183,9 @@ export function PlayerBagSection({ playerId, playerName }: PlayerBagSectionProps
         setBagDetail(null);
       }
       await loadBags();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '删除容器记录失败');
     } finally {
