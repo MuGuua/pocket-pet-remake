@@ -16,7 +16,7 @@
 
 | 场景 | 脚本 | 说明 |
 | --- | --- | --- |
-| `confirm_prompt_popup.tscn` | `confirm_prompt_popup.gd` | 通用确认提示：标题 + BBCode 正文 + 左确定 / 右取消 |
+| `confirm_prompt_popup.tscn` | `confirm_prompt_popup.gd` | 通用确认提示：标题 + BBCode 正文 + 底部继续按钮，右上角关闭取消 |
 | `info_modal_popup.tscn` | `info_modal_popup.gd` | 通用信息模态：可选标题 + 多行纯文本 + 确定（玩家/宠物升级等） |
 | `reward_popup.tscn` | `reward_popup.gd` | 通用奖励结算弹窗 |
 | `item_slot_picker.tscn` | `item_slot_picker.gd` | 锚点旁弹出的物品格子选择浮层 |

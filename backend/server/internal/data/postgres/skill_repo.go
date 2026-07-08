@@ -732,6 +732,7 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		LearnExpRequired:       uint32(raw.learnExpRequired),
 		LearnExpPerUse:         uint32(raw.learnExpPerUse),
 		SkillName:              raw.skillName,
+		Description:            raw.description,
 		ActivationMode:         raw.activationMode,
 		TargetType:             raw.targetType,
 		TargetCount:            uint32(raw.targetCount),

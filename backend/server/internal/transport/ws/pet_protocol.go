@@ -38,7 +38,7 @@ func toProtocolPetDetailWithOptions(item pet.Pet, includeArtifactSkills bool) pr
 	skills := make([]uint32, 0, len(item.SkillIDs))
 	skills = append(skills, item.SkillIDs...)
 	slotView := pet.BuildSkillSlotView(item.SkillLoadout, includeArtifactSkills)
-	skillSlots := toProtocolPetSkillSlots(slotView)
+	skillSlots := toProtocolPetSkillSlots(slotView, item.SkillMetadata)
 	autoPoints := petprogression.AutoPointsForState(petprogression.ProgressionState{
 		Level:          item.Level,
 		EvolutionLevel: item.EvolutionLevel,
@@ -123,34 +123,37 @@ func resolveProtocolPetDisplayName(item pet.Pet) string {
 	return strings.TrimSpace(item.PetName)
 }
 
-func toProtocolPetSkillSlots(view pet.SkillSlotView) protocol.PetSkillSlots {
+func toProtocolPetSkillSlots(view pet.SkillSlotView, metadata map[uint32]pet.SkillMetadata) protocol.PetSkillSlots {
 	return protocol.PetSkillSlots{
-		Innate:         toProtocolSkillSlotEntries(view.Innate),
-		ActiveTalisman: toProtocolSkillSlotEntry(view.ActiveTalisman),
-		TalismanHero:   toProtocolSkillSlotEntry(view.TalismanHero),
-		Talisman1:      toProtocolSkillSlotEntry(view.Talisman1),
-		Talisman2:      toProtocolSkillSlotEntry(view.Talisman2),
-		Talisman3:      toProtocolSkillSlotEntry(view.Talisman3),
-		Normal:         toProtocolSkillSlotEntries(view.Normal),
-		Artifact:       toProtocolSkillSlotEntries(view.Artifact),
+		Innate:         toProtocolSkillSlotEntries(view.Innate, metadata),
+		ActiveTalisman: toProtocolSkillSlotEntry(view.ActiveTalisman, metadata),
+		TalismanHero:   toProtocolSkillSlotEntry(view.TalismanHero, metadata),
+		Talisman1:      toProtocolSkillSlotEntry(view.Talisman1, metadata),
+		Talisman2:      toProtocolSkillSlotEntry(view.Talisman2, metadata),
+		Talisman3:      toProtocolSkillSlotEntry(view.Talisman3, metadata),
+		Normal:         toProtocolSkillSlotEntries(view.Normal, metadata),
+		Artifact:       toProtocolSkillSlotEntries(view.Artifact, metadata),
 	}
 }
 
-func toProtocolSkillSlotEntries(entries []pet.SkillSlotEntry) []protocol.PetSkillSlotEntry {
+func toProtocolSkillSlotEntries(entries []pet.SkillSlotEntry, metadata map[uint32]pet.SkillMetadata) []protocol.PetSkillSlotEntry {
 	if len(entries) == 0 {
 		return []protocol.PetSkillSlotEntry{}
 	}
 	result := make([]protocol.PetSkillSlotEntry, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, toProtocolSkillSlotEntry(entry))
+		result = append(result, toProtocolSkillSlotEntry(entry, metadata))
 	}
 	return result
 }
 
-func toProtocolSkillSlotEntry(entry pet.SkillSlotEntry) protocol.PetSkillSlotEntry {
+func toProtocolSkillSlotEntry(entry pet.SkillSlotEntry, metadata map[uint32]pet.SkillMetadata) protocol.PetSkillSlotEntry {
+	skillMetadata := metadata[entry.SkillID]
 	return protocol.PetSkillSlotEntry{
-		SlotIndex: entry.SlotIndex,
-		SkillID:   entry.SkillID,
-		Enabled:   entry.Enabled,
+		SlotIndex:   entry.SlotIndex,
+		SkillID:     entry.SkillID,
+		Enabled:     entry.Enabled,
+		SkillName:   strings.TrimSpace(skillMetadata.SkillName),
+		Description: strings.TrimSpace(skillMetadata.Description),
 	}
 }

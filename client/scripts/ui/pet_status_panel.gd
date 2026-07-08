@@ -1,6 +1,8 @@
 extends RuntimeRootPanel
 class_name PetStatusPanel
 
+## 通用技能说明弹窗；宠物技能按钮悬停/按下时复用它渲染服务端 BBCode 描述。
+const ConfirmPromptPopupScene: PackedScene = preload(ConfirmPromptPopup.SCENE_PATH)
 ## 等待 PET_LIST_RESP 的最大帧数，避免网络异常时面板打开流程永久挂起。
 const OPEN_REQUEST_TIMEOUT_FRAMES: int = 300
 ## 宠物基础属性页在场景中的相对路径，集中管理便于后续 UI 调整。
@@ -16,6 +18,8 @@ const DEFAULT_TAB_KEY: String = "basic"
 
 ## DisplayPanel 中宠物待机形象的本地坐标；可在 Inspector 调整来微调展示位置。
 @export var preview_sprite_position: Vector2 = Vector2(207.77693, 106.18534)
+## 宠物技能描述弹窗主体位置；对应 confirm_prompt_popup.tscn 中 VBoxContainer 的 position，可在 Inspector 自行微调。
+@export var skill_description_popup_position: Vector2 = Vector2(-280.0, -74.5)
 
 ## 标题栏关闭按钮。
 @onready var _close_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer/Button") as BaseButton
@@ -56,6 +60,12 @@ var _default_pet_choice_textures: Dictionary = {}
 var _skill_buttons: Array[BaseButton] = []
 ## 技能按钮场景自带的默认图标；服务端未下发 icon 时用作“已有技能”的兜底图标。
 var _default_skill_icon: Texture2D = null
+## 技能按钮实例 ID 到服务端技能槽数据的映射，悬停/按下时读取技能名和富文本描述。
+var _skill_entry_by_button_id: Dictionary = {}
+## 技能详情通用弹窗实例，按需懒创建，避免每个按钮重复实例化弹窗。
+var _skill_description_popup: ConfirmPromptPopup = null
+## 当前由鼠标悬停打开技能详情的按钮；鼠标离开该按钮区域后自动收起弹窗。
+var _skill_hover_source_button: BaseButton = null
 ## 非分页功能按钮集合，点击后统一清掉按下态。
 var _operation_buttons: Array[BaseButton] = []
 ## 当前打开的数据分页。
@@ -81,6 +91,7 @@ var _pending_skill_detail_ready: bool = false
 ## 初始化面板事件、按钮缓存与权威状态订阅。
 func _ready() -> void:
     super._ready()
+    set_process(false)
     _collect_pet_buttons()
     _collect_skill_buttons()
     _connect_data_tabs()
@@ -102,6 +113,9 @@ func _exit_tree() -> void:
         GameState.pets_changed.disconnect(refresh_panel_data)
     if App.request_finished.is_connected(_on_request_finished):
         App.request_finished.disconnect(_on_request_finished)
+    if _skill_description_popup != null:
+        _skill_description_popup.queue_free()
+        _skill_description_popup = null
 
 
 ## 打开前通过服务端权威 PET_LIST_REQ 刷新宠物数据，确保面板首次展示就是最新数据。
@@ -140,6 +154,7 @@ func close_menu() -> void:
     _switch_detail_generation += 1
     _pending_pet_list_seq = 0
     _pending_skill_detail_seq = 0
+    _close_skill_description_popup()
     _hide_switch_loading_overlay()
     super.close_menu()
 
@@ -178,6 +193,7 @@ func _collect_pet_buttons() -> void:
 ## 收集技能资质页中的技能槽按钮，并缓存场景默认图标。
 func _collect_skill_buttons() -> void:
     _skill_buttons.clear()
+    _skill_entry_by_button_id.clear()
     if _skill_panel == null:
         return
     var grid: GridContainer = _skill_panel.get_node_or_null("资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer") as GridContainer
@@ -192,6 +208,52 @@ func _collect_skill_buttons() -> void:
                 var icon_node: TextureRect = _resolve_skill_button_icon(button)
                 if icon_node != null:
                     _default_skill_icon = icon_node.texture
+            if not button.mouse_entered.is_connected(_on_skill_button_hovered.bind(button)):
+                button.mouse_entered.connect(_on_skill_button_hovered.bind(button))
+            if not button.mouse_exited.is_connected(_on_skill_button_unhovered.bind(button)):
+                button.mouse_exited.connect(_on_skill_button_unhovered.bind(button))
+            if not button.button_down.is_connected(_on_skill_button_down.bind(button)):
+                button.button_down.connect(_on_skill_button_down.bind(button))
+    _sort_skill_buttons_by_visual_slot()
+
+
+## 按场景按钮命名排序技能槽：Button/Button2...Button6 为上排 1~6，Button7...Button12 为下排 7~12。
+func _sort_skill_buttons_by_visual_slot() -> void:
+    _skill_buttons.sort_custom(_compare_skill_buttons_by_visual_slot)
+
+
+## sort_custom 比较器；返回 true 表示 left 应排在 right 前面。
+func _compare_skill_buttons_by_visual_slot(left_button: BaseButton, right_button: BaseButton) -> bool:
+    return _resolve_skill_button_visual_slot(left_button) < _resolve_skill_button_visual_slot(right_button)
+
+
+## 从按钮节点名解析技能槽显示序号，确保服务端第 N 个技能稳定渲染到第 N 个按钮。
+func _resolve_skill_button_visual_slot(button: BaseButton) -> int:
+    if button == null:
+        return 9999
+    var button_name: String = str(button.name)
+    if button_name == "Button":
+        return 1
+    if button_name.begins_with("Button"):
+        var suffix: String = button_name.substr("Button".length()).strip_edges()
+        if suffix.is_valid_int():
+            return int(suffix)
+    return button.get_index() + 1
+
+
+## 每帧检查悬停触发的技能说明是否仍停留在原按钮上；弹窗遮罩会接管鼠标事件，所以不能只依赖 mouse_exited。
+func _process(_delta: float) -> void:
+    if _skill_hover_source_button == null or not is_instance_valid(_skill_hover_source_button):
+        _skill_hover_source_button = null
+        set_process(false)
+        return
+    if _skill_description_popup == null or not _skill_description_popup.visible:
+        _skill_hover_source_button = null
+        set_process(false)
+        return
+    var mouse_position: Vector2 = get_viewport().get_mouse_position()
+    if not _skill_hover_source_button.get_global_rect().has_point(mouse_position):
+        _close_skill_description_popup()
 
 
 ## 绑定数据页签按钮，四个顶部按钮保持单选 Tab 行为。
@@ -311,6 +373,8 @@ func _on_operation_button_down(button: BaseButton) -> void:
 ## 显示指定数据页，并同步页签按钮选中态。
 func _show_data_tab(tab_key: String) -> void:
     _active_tab_key = tab_key
+    if tab_key != "skill":
+        _close_skill_description_popup()
     if _basic_panel != null:
         _basic_panel.visible = tab_key == "basic"
     if _status_panel != null:
@@ -513,7 +577,7 @@ func _set_qualification_row(row_name: String, value_text: String) -> void:
         label.text = value_text
 
 
-## 根据服务端 base/extra/growth_aptitudes 字段构建资质展示文案。
+## 根据服务端 growth_aptitudes 汇总值构建资质展示文案；基础/红色拆分功能未开放，暂不展示括号明细。
 func _format_aptitude_text(pet: Dictionary, attr_key: String) -> String:
     if pet.is_empty():
         return ""
@@ -525,11 +589,7 @@ func _format_aptitude_text(pet: Dictionary, attr_key: String) -> String:
     var total_value: int = _resolve_growth_aptitude_total(pet, total_key, base_value + extra_value)
     if total_value <= 0 and base_value <= 0 and extra_value <= 0:
         return "0"
-    return "%s（基础%s + 红色%s）" % [
-        UiFormat.value_to_text(total_value),
-        UiFormat.value_to_text(base_value),
-        UiFormat.value_to_text(extra_value),
-    ]
+    return UiFormat.value_to_text(total_value)
 
 
 ## 从 growth_aptitudes 读取服务端汇总资质；缺失时回退 base + extra。
@@ -542,45 +602,76 @@ func _resolve_growth_aptitude_total(pet: Dictionary, total_key: String, fallback
     return fallback_value
 
 
-## 从 skill_slots 或兼容 skill_ids 中提取技能槽列表。
+## 从服务端快照中提取技能展示列表。
+## skill_ids 是服务端已经整理好的战斗技能顺序，客户端只负责按数组序号渲染到按钮 1~12。
+## skill_slots 仅作为技能名、富文本描述等槽位元数据来源，避免分类空槽把图标挤到后面的按钮。
 func _collect_skill_entries(pet: Dictionary) -> Array[Dictionary]:
-    var result: Array[Dictionary] = []
+    var slot_entries: Array[Dictionary] = []
     var slots_variant: Variant = pet.get("skill_slots", {})
     if slots_variant is Dictionary:
         var slots: Dictionary = slots_variant as Dictionary
-        _append_skill_slot_array(result, slots.get("innate", []), "innate")
-        _append_skill_slot_entry(result, slots.get("active_talisman", {}), "active_talisman")
-        _append_skill_slot_entry(result, slots.get("talisman_hero", {}), "talisman_hero")
-        _append_skill_slot_entry(result, slots.get("talisman_1", {}), "talisman_1")
-        _append_skill_slot_entry(result, slots.get("talisman_2", {}), "talisman_2")
-        _append_skill_slot_entry(result, slots.get("talisman_3", {}), "talisman_3")
-        _append_skill_slot_array(result, slots.get("normal", []), "normal")
-        _append_skill_slot_array(result, slots.get("artifact", []), "artifact")
-    if not _skill_entries_have_skill(result):
-        result.clear()
-        var skill_ids_variant: Variant = pet.get("skill_ids", [])
-        if skill_ids_variant is Array:
-            var fallback_index: int = 0
-            for skill_id_variant: Variant in skill_ids_variant:
-                var skill_id: int = int(skill_id_variant)
-                if skill_id <= 0:
-                    continue
-                result.append({
-                    "slot_index": fallback_index,
-                    "slot_type": "legacy",
-                    "skill_id": skill_id,
-                    "enabled": true,
-                })
-                fallback_index += 1
+        _append_skill_slot_array(slot_entries, slots.get("innate", []), "innate")
+        _append_skill_slot_entry(slot_entries, slots.get("active_talisman", {}), "active_talisman")
+        _append_skill_slot_entry(slot_entries, slots.get("talisman_hero", {}), "talisman_hero")
+        _append_skill_slot_entry(slot_entries, slots.get("talisman_1", {}), "talisman_1")
+        _append_skill_slot_entry(slot_entries, slots.get("talisman_2", {}), "talisman_2")
+        _append_skill_slot_entry(slot_entries, slots.get("talisman_3", {}), "talisman_3")
+        _append_skill_slot_array(slot_entries, slots.get("normal", []), "normal")
+        _append_skill_slot_array(slot_entries, slots.get("artifact", []), "artifact")
+    var skill_ids_variant: Variant = pet.get("skill_ids", [])
+    if skill_ids_variant is Array:
+        var ordered_entries: Array[Dictionary] = _collect_ordered_skill_entries_from_ids(skill_ids_variant as Array, slot_entries)
+        if not ordered_entries.is_empty():
+            return ordered_entries
+    return _collect_non_empty_skill_slot_entries(slot_entries)
+
+
+## 按服务端 skill_ids 的数组顺序生成技能按钮数据，并从 skill_slots 补齐技能名与描述。
+func _collect_ordered_skill_entries_from_ids(skill_ids: Array, slot_entries: Array[Dictionary]) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    var metadata_by_skill_id: Dictionary = _index_skill_entries_by_id(slot_entries)
+    var button_index: int = 0
+    for skill_id_variant: Variant in skill_ids:
+        var skill_id: int = int(skill_id_variant)
+        if skill_id <= 0:
+            continue
+        var entry: Dictionary = {}
+        var metadata_variant: Variant = metadata_by_skill_id.get(skill_id, {})
+        if metadata_variant is Dictionary:
+            entry = (metadata_variant as Dictionary).duplicate(true)
+        entry["slot_index"] = button_index
+        entry["slot_type"] = str(entry.get("slot_type", "skill_ids"))
+        entry["skill_id"] = skill_id
+        entry["enabled"] = true
+        result.append(entry)
+        button_index += 1
     return result
 
 
-## 判断已收集槽位里是否存在真实技能；全空槽时允许回退到兼容 skill_ids。
-func _skill_entries_have_skill(entries: Array[Dictionary]) -> bool:
+## 为 skill_slots 建立 skill_id 到元数据的索引；空槽不参与索引，避免覆盖真实技能描述。
+func _index_skill_entries_by_id(entries: Array[Dictionary]) -> Dictionary:
+    var result: Dictionary = {}
     for entry: Dictionary in entries:
-        if int(entry.get("skill_id", 0)) > 0:
-            return true
-    return false
+        var skill_id: int = int(entry.get("skill_id", 0))
+        if skill_id <= 0 or result.has(skill_id):
+            continue
+        result[skill_id] = entry.duplicate(true)
+    return result
+
+
+## 没有 skill_ids 时才退回到槽位自身顺序，并过滤空槽让已有技能从第一个按钮开始显示。
+func _collect_non_empty_skill_slot_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    var button_index: int = 0
+    for entry: Dictionary in entries:
+        var skill_id: int = int(entry.get("skill_id", 0))
+        if skill_id <= 0:
+            continue
+        var copied_entry: Dictionary = entry.duplicate(true)
+        copied_entry["slot_index"] = button_index
+        result.append(copied_entry)
+        button_index += 1
+    return result
 
 
 ## 追加一组技能槽位。
@@ -603,11 +694,14 @@ func _append_skill_slot_entry(result: Array[Dictionary], value: Variant, slot_ty
 
 ## 按服务端技能槽刷新固定按钮；空槽保留占位但不显示图标。
 func _refresh_skill_buttons(skill_entries: Array[Dictionary]) -> void:
+    _skill_entry_by_button_id.clear()
     for button_index: int in range(_skill_buttons.size()):
         var button: BaseButton = _skill_buttons[button_index]
         var entry: Dictionary = skill_entries[button_index] if button_index < skill_entries.size() else {}
         var skill_id: int = int(entry.get("skill_id", 0))
         var has_skill: bool = skill_id > 0
+        if has_skill:
+            _skill_entry_by_button_id[button.get_instance_id()] = entry.duplicate(true)
         button.visible = true
         button.disabled = not has_skill
         button.button_pressed = false
@@ -620,8 +714,93 @@ func _build_skill_tooltip(entry: Dictionary) -> String:
     var skill_id: int = int(entry.get("skill_id", 0))
     if skill_id <= 0:
         return "空技能槽"
-    var slot_type: String = str(entry.get("slot_type", "skill"))
-    return "%s：技能 %s" % [slot_type, UiFormat.value_to_text(skill_id)]
+    return _resolve_skill_display_name(entry)
+
+
+## 鼠标悬停技能按钮时展示技能详情；桌面调试可直接预览服务端描述。
+func _on_skill_button_hovered(button: BaseButton) -> void:
+    _show_skill_description_for_button(button, true)
+
+
+## 鼠标离开技能按钮时关闭由悬停打开的技能详情；触屏按下打开的详情不受该逻辑影响。
+func _on_skill_button_unhovered(button: BaseButton) -> void:
+    # 弹窗打开后全屏遮罩会盖在按钮上方，Godot 可能立刻触发 mouse_exited。
+    # 这里不直接关闭，统一交给 _process 用真实鼠标坐标判断是否已经离开按钮区域。
+    if button == null:
+        return
+
+
+## 移动端按下技能按钮时展示技能详情；没有悬停能力的触屏设备通过该入口查看。
+func _on_skill_button_down(button: BaseButton) -> void:
+    _show_skill_description_for_button(button, false)
+
+
+## 使用通用确认提示弹窗渲染单个技能槽的服务端技能名和富文本描述；close_on_mouse_exit 表示是否随悬停离开自动关闭。
+func _show_skill_description_for_button(button: BaseButton, close_on_mouse_exit: bool) -> void:
+    if button == null or button.disabled:
+        return
+    if close_on_mouse_exit and _skill_hover_source_button == button and _skill_description_popup != null and _skill_description_popup.visible:
+        return
+    var entry_variant: Variant = _skill_entry_by_button_id.get(button.get_instance_id(), {})
+    if entry_variant is not Dictionary:
+        return
+    var entry: Dictionary = entry_variant as Dictionary
+    if int(entry.get("skill_id", 0)) <= 0:
+        return
+    var popup: ConfirmPromptPopup = _ensure_skill_description_popup()
+    if popup == null:
+        return
+    popup.show_prompt(_resolve_skill_display_name(entry), _resolve_skill_description(entry), {
+        "confirm_label": "关闭",
+        "content_font_size": 24,
+    })
+    _apply_skill_description_popup_position()
+    _skill_hover_source_button = button if close_on_mouse_exit else null
+    set_process(close_on_mouse_exit)
+
+
+## 懒创建技能说明弹窗，并作为宠物面板子节点统一随面板生命周期清理。
+func _ensure_skill_description_popup() -> ConfirmPromptPopup:
+    if _skill_description_popup != null:
+        return _skill_description_popup
+    _skill_description_popup = ConfirmPromptPopupScene.instantiate() as ConfirmPromptPopup
+    if _skill_description_popup == null:
+        return null
+    _skill_description_popup.name = "PetSkillDescriptionPopup"
+    add_child(_skill_description_popup)
+    _apply_skill_description_popup_position()
+    return _skill_description_popup
+
+
+## 应用 Inspector 中配置的技能说明弹窗位置，方便按实际界面遮挡情况调整。
+func _apply_skill_description_popup_position() -> void:
+    if _skill_description_popup == null:
+        return
+    _skill_description_popup.set_popup_position(skill_description_popup_position)
+
+
+## 面板关闭或切出技能页时收起技能说明，避免旧技能描述残留到其他分页。
+func _close_skill_description_popup() -> void:
+    _skill_hover_source_button = null
+    set_process(false)
+    if _skill_description_popup != null:
+        _skill_description_popup.close_prompt()
+
+
+## 解析服务端下发的技能展示名；字段缺失时才回退到技能 ID，避免客户端硬编码技能名。
+func _resolve_skill_display_name(entry: Dictionary) -> String:
+    var skill_name: String = str(entry.get("skill_name", entry.get("name", entry.get("display_name", "")))).strip_edges()
+    if not skill_name.is_empty():
+        return UiFormat.normalize_text(skill_name)
+    return "技能 %s" % UiFormat.value_to_text(int(entry.get("skill_id", 0)))
+
+
+## 解析服务端下发的技能富文本描述；字段缺失时给出安全兜底提示。
+func _resolve_skill_description(entry: Dictionary) -> String:
+    var description: String = str(entry.get("description", entry.get("desc", ""))).strip_edges()
+    if not description.is_empty():
+        return description
+    return "服务端暂未配置该技能描述。"
 
 
 ## 从服务端 icon 字段解析技能图标；缺失时使用技能按钮场景自带默认图标。

@@ -13,6 +13,12 @@ var (
 	ErrInvalidAdminPetInput = errors.New("invalid admin pet input")
 )
 
+// SkillMetadata 描述客户端技能详情展示所需的服务端权威文案。
+type SkillMetadata struct {
+	SkillName   string
+	Description string
+}
+
 type Pet struct {
 	PetUID uint64
 	PetID  uint32
@@ -33,7 +39,9 @@ type Pet struct {
 	MANA     uint32
 	SkillIDs []uint32
 	// SkillLoadout 分槽技能快照；SkillIDs 为战斗合并结果。
-	SkillLoadout     SkillLoadout
+	SkillLoadout SkillLoadout
+	// SkillMetadata 保存宠物详情协议展示技能名与富文本描述所需的服务端模板数据。
+	SkillMetadata    map[uint32]SkillMetadata
 	GrowthAptitudes  GrowthAptitudes
 	GrantSource      string
 	CaptureMonsterID uint32

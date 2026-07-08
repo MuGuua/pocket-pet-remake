@@ -961,7 +961,38 @@ func (s *Service) UnequipArtifact(ctx context.Context, playerID uint64, petUID u
 
 // GetPetDetail 返回单只宠物完整快照，供技能详情等需要法宝技分槽的界面使用。
 func (s *Service) GetPetDetail(ctx context.Context, playerID uint64, petUID uint64) (Pet, error) {
-	return s.loadPetByUID(ctx, playerID, petUID)
+	item, err := s.loadPetByUID(ctx, playerID, petUID)
+	if err != nil {
+		return Pet{}, err
+	}
+	s.applySkillMetadata(&item)
+	return item, nil
+}
+
+// applySkillMetadata 从技能运行时缓存补齐名称与富文本描述，客户端只负责展示服务端权威文案。
+func (s *Service) applySkillMetadata(item *Pet) {
+	if item == nil || s.skillService == nil {
+		return
+	}
+	ResolvePetBattleSkills(item)
+	metadata := make(map[uint32]SkillMetadata, len(item.SkillIDs))
+	for _, skillID := range item.SkillIDs {
+		if skillID == 0 {
+			continue
+		}
+		if _, exists := metadata[skillID]; exists {
+			continue
+		}
+		definition, ok := s.skillService.GetRuntimeDefinition(skillID)
+		if !ok {
+			continue
+		}
+		metadata[skillID] = SkillMetadata{
+			SkillName:   strings.TrimSpace(definition.SkillName),
+			Description: strings.TrimSpace(definition.Description),
+		}
+	}
+	item.SkillMetadata = metadata
 }
 
 func (s *Service) ListAdminPetSkillSlotUnlockItems(ctx context.Context) ([]AdminPetSkillSlotUnlockItem, error) {

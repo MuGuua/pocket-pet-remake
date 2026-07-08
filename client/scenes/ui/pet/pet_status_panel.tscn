@@ -100,6 +100,7 @@ texture = ExtResource("8_bmldw")
 [node name="Control" type="CanvasLayer" unique_id=1147085773]
 script = ExtResource("1_script")
 preview_sprite_position = Vector2(210, 150)
+skill_description_popup_position = Vector2(110, 500)
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=77391200]
 anchors_preset = 8
@@ -386,7 +387,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_a5yub")
 visible = false
 layout_mode = 2
 
-[node name="状态资质" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板" unique_id=1619427936 instance=ExtResource("10_status")]
+[node name="状态抗性" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板" unique_id=1619427936 instance=ExtResource("10_status")]
 visible = false
 layout_mode = 2
 

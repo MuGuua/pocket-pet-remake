@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://d1bqdb3thnj7f"]
 
-[ext_resource type="Script" uid="uid://b6utnr7suivr1" path="res://scripts/ui/common/confirm_prompt_popup.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://bl2pdr4icrtx" path="res://scripts/ui/common/confirm_prompt_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
-[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
+[ext_resource type="PackedScene" uid="uid://cyno3jl548n14" path="res://scenes/ui/common/continue_button.tscn" id="3_r5s0g"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
 [node name="ConfirmPromptPopup" type="CanvasLayer" unique_id=1206606595]
@@ -18,102 +18,96 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.039215688, 0.078431375, 0.14117648, 0.20392157)
 
-[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1299797833]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1192517054]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -74.5
+offset_right = 280.0
+offset_bottom = 74.5
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+offset_transform_enabled = true
+theme_override_constants/separation = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=2048268682]
-custom_minimum_size = Vector2(400, 0)
-custom_maximum_size = Vector2(440, 640)
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer" unique_id=1064189522]
+custom_minimum_size = Vector2(560, 52)
 layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Title" type="PanelContainer" parent="VBoxContainer/ScrollContainer" unique_id=830677265]
+custom_minimum_size = Vector2(560, 0)
+custom_maximum_size = Vector2(560, -1)
+layout_mode = 2
+offset_transform_enabled = true
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="RootVBox" type="VBoxContainer" parent="CenterContainer/PanelContainer" unique_id=2082929992]
-layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="HeaderRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=883818340]
+[node name="HeaderRow" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/Title" unique_id=1952507476]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=883818341]
-unique_name_in_owner = true
+[node name="HeaderSpacer" type="Control" parent="VBoxContainer/ScrollContainer/Title/HeaderRow" unique_id=1757992492]
+custom_minimum_size = Vector2(40, 0)
+custom_maximum_size = Vector2(40, -1)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 20
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/Title/HeaderRow" unique_id=1108303114]
+custom_minimum_size = Vector2(454, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 31
 text = "提示"
-horizontal_alignment = 1
-
-[node name="TopCloseButton" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" instance=ExtResource("4_close_btn")]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="ContentScroll" type="ScrollContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=339153234]
-custom_minimum_size = Vector2(0, 144)
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="ContentLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox/ContentScroll" unique_id=973032215]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(308, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/default_color = Color(0.780392, 0.733333, 0.690196, 1)
-theme_override_font_sizes/normal_font_size = 16
-bbcode_enabled = true
-text = "正文内容"
-fit_content = true
-scroll_active = false
-
-[node name="QuantityRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=1849205511]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="QuantityDecreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205512 instance=ExtResource("3_action_btn")]
-unique_name_in_owner = true
-layout_mode = 2
-button_label = "-"
-
-[node name="QuantityValueLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205513]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(72, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
-theme_override_font_sizes/font_size = 20
-text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="QuantityIncreaseButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205514 instance=ExtResource("3_action_btn")]
+[node name="TopCloseButton" parent="VBoxContainer/ScrollContainer/Title/HeaderRow" unique_id=2075367547 instance=ExtResource("4_close_btn")]
+unique_name_in_owner = true
+custom_maximum_size = Vector2(40, 36)
+layout_mode = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="VBoxContainer" unique_id=379000297]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="VBoxContainer/CenterContainer" unique_id=1409808296]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("2_style")
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/CenterContainer/PanelContainer" unique_id=1932605241]
+layout_mode = 2
+
+[node name="RootVBox" type="VBoxContainer" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer" unique_id=1632437417]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ContentList" type="VBoxContainer" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox" unique_id=172014920]
 unique_name_in_owner = true
 layout_mode = 2
-button_label = "+"
+theme_override_constants/separation = 0
 
-[node name="QuantityMaxButton" parent="CenterContainer/PanelContainer/RootVBox/QuantityRow" unique_id=1849205515 instance=ExtResource("3_action_btn")]
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList" unique_id=661606841]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+
+[node name="RichLineTemplate" type="RichTextLabel" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList/MarginContainer" unique_id=608274770]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 24
+bbcode_enabled = true
+text = "模板[color=#82D563]123[/color]"
+fit_content = true
+scroll_active = false
+
+[node name="ContinueButton" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList" unique_id=563716072 instance=ExtResource("3_r5s0g")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 33)
 layout_mode = 2
-button_label = "最大"
-
-[node name="ActionRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=283968727]
-layout_mode = 2
-theme_override_constants/separation = 16
-alignment = 1
-
-[node name="ConfirmButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=851266925 instance=ExtResource("3_action_btn")]
-unique_name_in_owner = true
-layout_mode = 2
-button_label = "确定"
-
-[node name="CancelButton" parent="CenterContainer/PanelContainer/RootVBox/ActionRow" unique_id=1319793571 instance=ExtResource("3_action_btn")]
-unique_name_in_owner = true
-layout_mode = 2
-button_label = "取消"

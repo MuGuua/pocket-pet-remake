@@ -329,6 +329,7 @@ type RuntimeDefinition struct {
 	LearnExpRequired       uint32
 	LearnExpPerUse         uint32
 	SkillName              string
+	Description            string
 	ActivationMode         string
 	TargetType             string
 	TargetCount            uint32

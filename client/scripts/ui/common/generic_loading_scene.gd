@@ -6,7 +6,7 @@ const SCENE_PATH: String = "res://scenes/ui/common/generic_loading_scene.tscn"
 ## 默认主文案（已不在 UI 展示，仅保留接口兼容）。
 const DEFAULT_MAIN_TEXT: String = ""
 ## 顶部 HBox 从右向左滚动速度（像素/秒）。
-const SCROLL_SPEED_PX_PER_SEC: float = 72.0
+const SCROLL_SPEED_PX_PER_SEC: float = 150.0
 ## 精灵默认动画名；与场景中 AnimatedSprite2D 的 SpriteFrames 一致。
 const LOADING_SPRITE_ANIMATION: StringName = &"default"
 ## 精灵帧原始尺寸（与 SpriteFrames  atlas 切片一致）。
