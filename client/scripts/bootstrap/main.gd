@@ -8,6 +8,7 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
 const PET_PANEL_SCENE := preload("res://scenes/ui/pet/pet_status_panel.tscn")
 const BAG_PANEL_SCENE := preload("res://scenes/ui/bag/bag_panel.tscn")
+const TASK_PANEL_SCENE := preload("res://scenes/ui/task/task_panel.tscn")
 const OPTION_LIST_PANEL_SCENE := preload(OptionListPanel.SCENE_PATH)
 const RUNTIME_PROGRESS_OVERLAY_SCENE := preload(RuntimeProgressOverlay.SCENE_PATH)
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
@@ -81,6 +82,7 @@ var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
 var _pet_panel: CanvasLayer
 var _bag_panel: CanvasLayer
+var _task_panel: CanvasLayer
 var _npc_menu: OptionListPanel = null
 var _npc_list_menu: OptionListPanel = null
 var _pvp_target_menu: OptionListPanel = null
@@ -116,6 +118,8 @@ var _active_dialogue_npc_name: String = ""
 var _npc_request_loading: RuntimeProgressOverlay = null
 # 背包面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _bag_panel_open_in_flight: bool = false
+# 任务面板是否正在执行「先 loading 再打开」流程，避免重复点击。
+var _task_panel_open_in_flight: bool = false
 # 人物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _player_panel_open_in_flight: bool = false
 # 宠物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
@@ -390,6 +394,8 @@ func _connect_signals() -> void:
 		hud_root.connect("pet_pressed", Callable(self, "_on_hud_pet_pressed"))
 	if hud_root.has_signal("bag_pressed"):
 		hud_root.connect("bag_pressed", Callable(self, "_on_hud_bag_pressed"))
+	if hud_root.has_signal("task_pressed"):
+		hud_root.connect("task_pressed", Callable(self, "_on_hud_task_pressed"))
 	if hud_root.has_signal("return_to_login_pressed"):
 		hud_root.connect("return_to_login_pressed", Callable(self, "_on_hud_return_to_login_pressed"))
 	if hud_root.has_signal("quit_game_pressed"):
@@ -791,6 +797,12 @@ func _on_hud_bag_pressed() -> void:
 		return
 	await _open_bag_panel_prepared()
 
+## 点击右下角任务常驻按钮时打开任务面板，打开前会先拉取服务端最新任务列表。
+func _on_hud_task_pressed() -> void:
+	if _is_battle_modal_active() or _is_settlement_input_blocked():
+		return
+	await _open_task_panel_prepared()
+
 ## 点击挂机按钮时切换暗雷挂机状态；仅当前地图支持暗雷时允许开启。
 func _on_hud_auto_encounter_pressed() -> void:
 	if _is_battle_modal_active() or _is_settlement_input_blocked():
@@ -952,6 +964,7 @@ func _create_runtime_ui() -> void:
 	_create_player_panel()
 	_create_pet_panel()
 	_create_bag_panel()
+	_create_task_panel()
 	_create_npc_menu()
 	_create_npc_list_menu()
 	_create_pvp_target_menu()
@@ -1205,6 +1218,15 @@ func _create_bag_panel() -> void:
 		var snapshot_applied_handler: Callable = Callable(_bag_panel, "on_bag_snapshot_applied")
 		if not bag_controller.container_snapshot_applied.is_connected(snapshot_applied_handler):
 			bag_controller.container_snapshot_applied.connect(snapshot_applied_handler)
+
+## 创建任务面板，并接入运行时根面板关闭信号。
+func _create_task_panel() -> void:
+	_task_panel = TASK_PANEL_SCENE.instantiate() as CanvasLayer
+	if _task_panel == null:
+		return
+	add_child(_task_panel)
+	if _task_panel.has_signal("menu_closed"):
+		_task_panel.connect("menu_closed", Callable(self, "_on_runtime_menu_closed"))
 
 func _create_npc_menu() -> void:
 	_npc_menu = OPTION_LIST_PANEL_SCENE.instantiate() as OptionListPanel
@@ -1933,7 +1955,7 @@ func _is_settlement_input_blocked() -> bool:
 
 ## 关闭所有运行时菜单；战斗中传入 keep_world_locked=true 避免误解锁世界输入。
 func _close_runtime_menus(keep_world_locked: bool = false) -> void:
-	for layer in [_main_menu, _player_panel, _pet_panel, _bag_panel, _npc_menu, _npc_list_menu, _pvp_target_menu, _auto_encounter_target_menu]:
+	for layer in [_main_menu, _player_panel, _pet_panel, _bag_panel, _task_panel, _npc_menu, _npc_list_menu, _pvp_target_menu, _auto_encounter_target_menu]:
 		if layer != null and layer.has_method("close_menu"):
 			layer.call("close_menu")
 	if _pvp_invite_dialog != null:
@@ -1949,6 +1971,7 @@ func _close_other_root_panels(keep_key: String) -> void:
 		["player_panel", _player_panel],
 		["pet_panel", _pet_panel],
 		["bag_panel", _bag_panel],
+		["task_panel", _task_panel],
 		["npc_menu", _npc_menu],
 		["npc_list", _npc_list_menu],
 		["pvp_list", _pvp_target_menu],
@@ -1972,6 +1995,9 @@ func _toggle_root_runtime_panel(panel: CanvasLayer, panel_key: String) -> void:
 		return
 	if panel_key == "bag_panel":
 		call_deferred("_open_bag_panel_prepared")
+		return
+	if panel_key == "task_panel":
+		call_deferred("_open_task_panel_prepared")
 		return
 	if panel_key == "player_panel":
 		call_deferred("_open_player_panel_prepared")
@@ -2045,6 +2071,32 @@ func _open_bag_panel_prepared() -> void:
 		_bag_panel.call("open_menu")
 	_set_runtime_menu_locked(true)
 
+## 先展示全屏 loading 并拉取任务列表，权威快照就绪后再打开任务面板。
+func _open_task_panel_prepared() -> void:
+	if _task_panel == null:
+		return
+	if _task_panel.visible:
+		_task_panel.call("close_menu")
+		return
+	if _task_panel_open_in_flight:
+		return
+	_task_panel_open_in_flight = true
+	_close_other_root_panels("task_panel")
+	_create_npc_request_loading()
+	_show_npc_request_loading_immediate()
+	var prepared: bool = false
+	var task_panel: CanvasLayer = _task_panel
+	if task_panel != null and task_panel.has_method("prepare_open_data"):
+		var prepare_result: Variant = await task_panel.call("prepare_open_data")
+		prepared = bool(prepare_result)
+	_hide_npc_request_loading()
+	_task_panel_open_in_flight = false
+	if not prepared:
+		return
+	if task_panel != null and task_panel.has_method("open_menu"):
+		task_panel.call("open_menu")
+	_set_runtime_menu_locked(true)
+
 ## 先展示全屏 loading 并拉取宠物列表，权威快照就绪后再打开宠物状态面板。
 func _open_pet_panel_prepared() -> void:
 	if _pet_panel == null:
@@ -2079,6 +2131,8 @@ func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "pet_panel" and _pet_panel != null and _pet_panel.visible:
 		return true
 	if except != "bag_panel" and _bag_panel != null and _bag_panel.visible:
+		return true
+	if except != "task_panel" and _task_panel != null and _task_panel.visible:
 		return true
 	if except != "npc_menu" and _npc_menu != null and _npc_menu.visible:
 		return true

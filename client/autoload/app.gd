@@ -336,16 +336,16 @@ func request_quest_list() -> int:
 	return _send_command(CommandIds.QUEST_LIST_REQ, {})
 
 # 请求接取指定任务。
-func accept_quest(quest_id: int, npc_id: int = 0) -> void:
-	_send_command(CommandIds.QUEST_ACCEPT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
+func accept_quest(quest_id: int, npc_id: int = 0) -> int:
+	return _send_command(CommandIds.QUEST_ACCEPT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
 
 # 请求提交指定任务；NPC 交付任务时同时带上提交 NPC。
-func submit_quest(quest_id: int, npc_id: int = 0) -> void:
-	_send_command(CommandIds.QUEST_SUBMIT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
+func submit_quest(quest_id: int, npc_id: int = 0) -> int:
+	return _send_command(CommandIds.QUEST_SUBMIT_REQ, {"quest_id": quest_id, "npc_id": npc_id})
 
 # 请求切换当前追踪任务。
-func track_quest(quest_id: int) -> void:
-	_send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
+func track_quest(quest_id: int) -> int:
+	return _send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
 
 # 向服务端提交与指定实体的交互意图。
 func request_interact(entity_id: int) -> int:

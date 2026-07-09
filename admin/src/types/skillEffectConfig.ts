@@ -10,6 +10,7 @@ export type SkillEffectConfigType =
   | 'fixed_damage'
   | 'formula_flags'
   | 'advanced_coefficients'
+  | 'hit_bonus'
   | 'seal'
   | 'control'
   | 'bleed'
@@ -36,6 +37,7 @@ export interface SkillEffectConfigEntry {
   defense_pct?: number;
   speed_pct?: number;
   skill_crit_add?: number;
+  skill_hit_bonus?: number;
   target_current_hp_pct?: number;
   seal_chance_pct?: number;
   seal_power?: number;
@@ -81,6 +83,7 @@ export const SKILL_EFFECT_CONFIG_TYPE_LABELS: Record<SkillEffectConfigType, stri
   fixed_damage: '固定伤害',
   formula_flags: '战斗开关',
   advanced_coefficients: '高级系数',
+  hit_bonus: '命中加成',
   seal: '封印',
   control: '通用控制',
   bleed: '流血',
@@ -105,6 +108,7 @@ export const UNIQUE_SKILL_EFFECT_CONFIG_TYPES = new Set<SkillEffectConfigType>([
   'fixed_damage',
   'formula_flags',
   'advanced_coefficients',
+  'hit_bonus',
   'seal',
   'control',
   'bleed',
@@ -179,6 +183,7 @@ export function normalizeSkillEffectConfigEntry(
     defense_pct: Number(formValues.defense_pct ?? 0),
     speed_pct: Number(formValues.speed_pct ?? 0),
     skill_crit_add: Number(formValues.skill_crit_add ?? 0),
+    skill_hit_bonus: Number(formValues.skill_hit_bonus ?? 0),
     target_current_hp_pct: Number(formValues.target_current_hp_pct ?? 0),
     seal_chance_pct: Number(formValues.seal_chance_pct ?? 0),
     seal_power: Number(formValues.seal_power ?? 0),
@@ -269,6 +274,9 @@ export function skillEffectEntriesFromPayload(payload: AdminUpsertSkillPayload):
       skill_crit_add: payload.skill_crit_add,
       target_current_hp_pct: payload.target_current_hp_pct,
     });
+  }
+  if (payload.skill_hit_bonus > 0) {
+    push({ entry_type: 'hit_bonus', skill_hit_bonus: payload.skill_hit_bonus });
   }
   if (payload.seal_chance_pct > 0 || payload.seal_power > 0 || payload.seal_rounds > 0) {
     push({
@@ -376,6 +384,7 @@ export function mergePayloadFromSkillEffectEntries(
     defense_pct: 0,
     speed_pct: 0,
     skill_crit_add: 0,
+    skill_hit_bonus: 0,
     target_current_hp_pct: 0,
     seal_chance_pct: 0,
     seal_power: 0,
@@ -445,6 +454,9 @@ export function mergePayloadFromSkillEffectEntries(
         nextPayload.speed_pct = Number(entry.speed_pct ?? 0);
         nextPayload.skill_crit_add = Number(entry.skill_crit_add ?? 0);
         nextPayload.target_current_hp_pct = Number(entry.target_current_hp_pct ?? 0);
+        break;
+      case 'hit_bonus':
+        nextPayload.skill_hit_bonus = Number(entry.skill_hit_bonus ?? 0);
         break;
       case 'seal':
         nextPayload.seal_chance_pct = Number(entry.seal_chance_pct ?? 0);
@@ -524,6 +536,8 @@ export function formatSkillEffectConfigSummary(entry: SkillEffectConfigEntry): s
     }
     case 'advanced_coefficients':
       return `法${Number(entry.mana_pct ?? 0)} / 防${Number(entry.defense_pct ?? 0)} / 速${Number(entry.speed_pct ?? 0)} / 爆伤+${Number(entry.skill_crit_add ?? 0)}`;
+    case 'hit_bonus':
+      return `本次技能命中 +${Number(entry.skill_hit_bonus ?? 0)}`;
     case 'seal':
       return `概率 ${Number(entry.seal_chance_pct ?? 0)}% / 威力 ${Number(entry.seal_power ?? 0)} / ${Number(entry.seal_rounds ?? 0)} 回合`;
     case 'control':
@@ -584,6 +598,8 @@ export function createDefaultSkillEffectConfigRow(
         skill_crit_add: 0,
         target_current_hp_pct: 0,
       }, nextSortOrder);
+    case 'hit_bonus':
+      return normalizeSkillEffectConfigEntry({ entry_type: entryType, skill_hit_bonus: 40 }, nextSortOrder);
     case 'seal':
       return normalizeSkillEffectConfigEntry({ entry_type: entryType, seal_chance_pct: 0, seal_power: 0, seal_rounds: 1 }, nextSortOrder);
     case 'control':

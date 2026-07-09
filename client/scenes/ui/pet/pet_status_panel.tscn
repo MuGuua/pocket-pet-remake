@@ -341,7 +341,7 @@ theme_override_styles/focus = SubResource("StyleBoxTexture_ulxww")
 toggle_mode = true
 text = "基础属性"
 
-[node name="状态资质" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=1779687883]
+[node name="状态抗性" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=1779687883]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 theme_override_constants/outline_size = 4
@@ -351,7 +351,7 @@ theme_override_styles/pressed = SubResource("StyleBoxTexture_bmldw")
 theme_override_styles/hover = SubResource("StyleBoxTexture_wha43")
 theme_override_styles/focus = SubResource("StyleBoxTexture_ulxww")
 toggle_mode = true
-text = "状态资质"
+text = "状态抗性"
 
 [node name="技能资质" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮" unique_id=2136072749]
 custom_minimum_size = Vector2(120, 0)

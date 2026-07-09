@@ -1676,7 +1676,7 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 	}
 	if skill.isGuaranteedHit() {
 		// 必中技能跳过闪避判定。
-	} else if dodgeChancePct := b.calculateDodgeChancePct(actor, target, skill.SkillCritAdd); dodgeChancePct > 0 && b.rollChance(dodgeChancePct, target.actorID+83, actor.actorID+89) {
+	} else if dodgeChancePct := b.calculateDodgeChancePct(actor, target, skill.SkillHitBonus); dodgeChancePct > 0 && b.rollChance(dodgeChancePct, target.actorID+83, actor.actorID+89) {
 		return []Event{{
 			EventType: EventTypeDodge,
 			SourceID:  target.actorID,

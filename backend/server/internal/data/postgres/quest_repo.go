@@ -21,6 +21,7 @@ const listQuestTemplatesQuery = `
 SELECT
   quest_id,
   quest_type,
+  client_icon_id,
   title,
   description,
   accept_mode,
@@ -40,6 +41,7 @@ const findQuestTemplateByIDQuery = `
 SELECT
   quest_id,
   quest_type,
+  client_icon_id,
   title,
   description,
   accept_mode,
@@ -273,6 +275,7 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 	err := scanner.Scan(
 		&value.QuestID,
 		&value.QuestType,
+		&value.ClientIconID,
 		&value.Title,
 		&value.Description,
 		&value.AcceptMode,

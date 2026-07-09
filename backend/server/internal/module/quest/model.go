@@ -18,18 +18,19 @@ var (
 )
 
 type Template struct {
-	QuestID     uint64
-	QuestType   string
-	Title       string
-	Description string
-	AcceptMode  string
-	SubmitMode  string
-	StartNPCID  uint64
-	SubmitNPCID uint64
-	AutoTrack   bool
-	PreQuestIDs []uint64
-	Objectives  []ObjectiveTemplate
-	Rewards     []Reward
+	QuestID      uint64
+	QuestType    string
+	ClientIconID uint64
+	Title        string
+	Description  string
+	AcceptMode   string
+	SubmitMode   string
+	StartNPCID   uint64
+	SubmitNPCID  uint64
+	AutoTrack    bool
+	PreQuestIDs  []uint64
+	Objectives   []ObjectiveTemplate
+	Rewards      []Reward
 }
 
 type ObjectiveTemplate struct {
@@ -59,19 +60,22 @@ type PlayerObjective struct {
 }
 
 type Summary struct {
-	QuestID     uint64
-	QuestType   string
-	State       string
-	Tracked     bool
-	StartNPCID  uint64
-	SubmitNPCID uint64
-	Title       string
-	Description string
-	Objectives  []ObjectiveSummary
+	QuestID      uint64
+	QuestType    string
+	ClientIconID uint64
+	State        string
+	Tracked      bool
+	StartNPCID   uint64
+	SubmitNPCID  uint64
+	Title        string
+	Description  string
+	Objectives   []ObjectiveSummary
+	Rewards      []Reward
 }
 
 type ObjectiveSummary struct {
 	ObjectiveID uint64
+	EventType   string
 	Description string
 	Current     uint32
 	Target      uint32
@@ -168,11 +172,11 @@ type ObjectiveGuideInput struct {
 // AdminObjectiveInput 让后台可以直接维护模板目标定义。
 // 多阶段任务通过多个 objective_id 顺序排列；guide 字段用于记录 NPC/菜单/剧情绑定提示。
 type AdminObjectiveInput struct {
-	ObjectiveID    uint64              `json:"objective_id"`
-	EventType      string              `json:"event_type"`
-	Description    string              `json:"description"`
-	TargetValue    uint32              `json:"target_value"`
-	TargetSelector map[string]any      `json:"target_selector"`
+	ObjectiveID    uint64               `json:"objective_id"`
+	EventType      string               `json:"event_type"`
+	Description    string               `json:"description"`
+	TargetValue    uint32               `json:"target_value"`
+	TargetSelector map[string]any       `json:"target_selector"`
 	Guide          *ObjectiveGuideInput `json:"guide,omitempty"`
 }
 
@@ -201,6 +205,7 @@ type AdminCreateTemplateInput struct {
 	AcceptMode     string                `json:"accept_mode"`
 	SubmitMode     string                `json:"submit_mode"`
 	AutoTrack      bool                  `json:"auto_track"`
+	ClientIconID   uint64                `json:"client_icon_id"`
 	StartNPCID     uint64                `json:"start_npc_id"`
 	SubmitNPCID    uint64                `json:"submit_npc_id"`
 	MinPlayerLevel uint32                `json:"min_player_level"`
@@ -226,6 +231,9 @@ func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 	if input.SubmitMode == "" {
 		input.SubmitMode = "AUTO"
 	}
+	if input.ClientIconID == 0 {
+		input.ClientIconID = 1
+	}
 	if input.MinPlayerLevel == 0 {
 		input.MinPlayerLevel = 1
 	}
@@ -246,6 +254,7 @@ type AdminUpdateTemplateInput struct {
 	AcceptMode     string                `json:"accept_mode"`
 	SubmitMode     string                `json:"submit_mode"`
 	AutoTrack      bool                  `json:"auto_track"`
+	ClientIconID   uint64                `json:"client_icon_id"`
 	StartNPCID     uint64                `json:"start_npc_id"`
 	SubmitNPCID    uint64                `json:"submit_npc_id"`
 	MinPlayerLevel uint32                `json:"min_player_level"`
@@ -271,6 +280,9 @@ func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
 	if input.SubmitMode == "" {
 		input.SubmitMode = "AUTO"
 	}
+	if input.ClientIconID == 0 {
+		input.ClientIconID = 1
+	}
 	if input.MinPlayerLevel == 0 {
 		input.MinPlayerLevel = 1
 	}
@@ -290,6 +302,7 @@ type AdminTemplateSummary struct {
 	AcceptMode     string    `json:"accept_mode"`
 	SubmitMode     string    `json:"submit_mode"`
 	AutoTrack      bool      `json:"auto_track"`
+	ClientIconID   uint64    `json:"client_icon_id"`
 	MinPlayerLevel uint32    `json:"min_player_level"`
 	Status         uint32    `json:"status"`
 	StatusText     string    `json:"status_text"`
@@ -315,6 +328,7 @@ type AdminTemplateDetail struct {
 	AcceptMode     string                `json:"accept_mode"`
 	SubmitMode     string                `json:"submit_mode"`
 	AutoTrack      bool                  `json:"auto_track"`
+	ClientIconID   uint64                `json:"client_icon_id"`
 	StartNPCID     uint64                `json:"start_npc_id"`
 	SubmitNPCID    uint64                `json:"submit_npc_id"`
 	MinPlayerLevel uint32                `json:"min_player_level"`

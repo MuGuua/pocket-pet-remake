@@ -1090,6 +1090,7 @@ func _set_panel_interactive(enabled: bool) -> void:
 	if panel == null:
 		return
 	_apply_panel_interactive_state(panel, enabled)
+	_keep_top_close_button_visible()
 	if not enabled:
 		if _enhance_button != null:
 			_enhance_button.disabled = true
@@ -1102,10 +1103,23 @@ func _set_panel_interactive(enabled: bool) -> void:
 		_refresh_enhance_button_state()
 
 
+## 强化演出锁定时关闭按钮仍要常驻显示；是否允许关闭由 _block_dismiss 单独控制。
+func _keep_top_close_button_visible() -> void:
+	if _top_close_button == null:
+		return
+	_top_close_button.visible = true
+	_top_close_button.disabled = false
+	_top_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
 func _apply_panel_interactive_state(node: Node, enabled: bool) -> void:
 	if node is BaseButton:
 		var button: BaseButton = node as BaseButton
-		button.disabled = not enabled
+		if button == _top_close_button:
+			button.visible = true
+			button.disabled = false
+		else:
+			button.disabled = not enabled
 	elif node is CheckBox:
 		var checkbox: CheckBox = node as CheckBox
 		checkbox.disabled = not enabled

@@ -225,6 +225,8 @@ func (h *QuestHandler) sendQuestDomainError(conn packetSender, seq uint32, err e
 		reason = "quest locked"
 	case errors.Is(err, quest.ErrQuestNotAvailable):
 		reason = "quest not available"
+	case errors.Is(err, quest.ErrQuestNotReady):
+		reason = "quest not ready to submit"
 	case errors.Is(err, quest.ErrQuestAcceptNPCMismatch):
 		reason = "quest accept npc mismatch"
 	case errors.Is(err, quest.ErrQuestSubmitNPCMismatch):

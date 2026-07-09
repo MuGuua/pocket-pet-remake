@@ -46,6 +46,7 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		IgnoreDefense:          item.IgnoreDefense,
 		SkillMult:              item.SkillMult,
 		SkillCritAdd:           item.SkillCritAdd,
+		SkillHitBonus:          item.SkillHitBonus,
 		ArmorBreakPct:          item.ArmorBreakPct,
 		VulnerabilityPct:       item.VulnerabilityPct,
 		BleedChancePct:         item.BleedChancePct,

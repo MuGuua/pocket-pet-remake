@@ -134,9 +134,8 @@ mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 12
 text = "设置"
 
-[node name="AutoEncounterButton" type="Button" parent="UiLayer/HudRoot"]
+[node name="TaskButton" type="Button" parent="UiLayer/HudRoot"]
 unique_name_in_owner = true
-visible = false
 layout_mode = 1
 anchor_left = 1.0
 anchor_top = 1.0
@@ -145,6 +144,25 @@ anchor_bottom = 1.0
 offset_left = -210.0
 offset_top = -58.0
 offset_right = -148.0
+offset_bottom = -18.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 12
+text = "任务"
+
+[node name="AutoEncounterButton" type="Button" parent="UiLayer/HudRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -278.0
+offset_top = -58.0
+offset_right = -216.0
 offset_bottom = -18.0
 grow_horizontal = 0
 grow_vertical = 0

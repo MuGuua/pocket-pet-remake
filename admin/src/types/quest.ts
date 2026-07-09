@@ -8,6 +8,7 @@ export interface AdminQuestTemplateSummary {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  client_icon_id: number;
   min_player_level: number;
   status: number;
   status_text: string;
@@ -57,6 +58,7 @@ export interface AdminQuestTemplateDetail {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
   min_player_level: number;
@@ -87,6 +89,7 @@ export interface AdminCreateQuestTemplatePayload {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
   min_player_level: number;

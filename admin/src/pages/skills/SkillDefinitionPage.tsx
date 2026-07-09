@@ -398,6 +398,7 @@ export function SkillDefinitionPage() {
               <Descriptions.Item label="攻击系数">{detail.formula.attack_pct}</Descriptions.Item>
               <Descriptions.Item label="法力系数">{detail.formula.mana_pct}</Descriptions.Item>
               <Descriptions.Item label="速度系数">{detail.formula.speed_pct}</Descriptions.Item>
+              <Descriptions.Item label="技能命中加成">{detail.formula.skill_hit_bonus}</Descriptions.Item>
               <Descriptions.Item label="精力消耗">{detail.formula.energy_cost}</Descriptions.Item>
               <Descriptions.Item label="治疗系数">{detail.formula.heal_pct}</Descriptions.Item>
               <Descriptions.Item label="固定伤害">{detail.formula.fixed_damage}</Descriptions.Item>

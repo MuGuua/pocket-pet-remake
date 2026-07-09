@@ -1,5 +1,8 @@
 # 最新变更记录
 
+## 2026-07-09
+- 系统技能新增“技能命中加成”配置：迁移 `backend/server/migrations/094_skill_hit_bonus.sql` 为 `skill_definition` 增加 `skill_hit_bonus`；后端技能模板、运行时缓存与战斗结算已同步读取该字段，命中/闪避判定现在使用“施法者命中 + 技能命中加成”，不会再复用 `skill_crit_add` 造成暴伤字段污染；后台技能效果编辑器新增“命中加成”条目，默认可直接配置 `40` 点本次技能命中
+
 ## 2026-07-08
 - 后台任务阶段编辑器改为摘要卡片 + 原生拖拽排序：`admin/src/pages/quests/QuestStageEditor.tsx` 不再使用表格平铺阶段，而是按卡片展示“阶段顺序 / 阶段ID / 事件类型 / NPC / 菜单 / 剧情 / 引导”等摘要信息，并支持直接拖拽卡片调整任务推进顺序；保存结构仍沿用原有 `stages` 列表，不改接口契约
 - 后台任务模板创建改为服务端自动分配任务 ID：`backend/server/internal/module/quest/service.go`、`backend/server/internal/data/postgres/quest_admin_repo.go` 与 `backend/server/internal/teststub/repos.go` 现支持在创建任务模板时省略 `quest_id`，由服务端按当前最大 `quest_id + 1` 自动生成；`admin/src/pages/quests/QuestAdminPage.tsx` 同步移除新增表单中的手填任务 ID，改为“保存后自动生成”，减少人工编号冲突
@@ -305,3 +308,29 @@
 - 新增统一运行时快照刷新服务 `backend/server/internal/module/runtimeview/service.go`：把人物战斗属性、宠物战斗属性、已佩戴装备视图和人物技能进度视图刷新收口成单一入口；`bootstrap.go` 已在进入世界、装备面板、战斗开战等主链路注入该服务，减少不同入口各自拼刷新逻辑
 - `backend/server/internal/data/postgres/runtime_view_snapshot_repo.go` 新增 PostgreSQL 视图快照实现：`EquipmentRepository.ListEquipped()` 现会刷新并读取 `player_equipment_snapshot`；`PlayerSkillProgressRepository.ListByPlayerID()` 现会刷新并读取 `player_skill_progress_snapshot`；战斗处理器读取武器类型、武器附加技能与技能学习进度时，已经统一复用这两张视图快照表
 - 装备操作与技能进度写链路已同步双更快照：`backend/server/internal/data/postgres/equipment_runtime_repo.go` 在佩戴、卸下、模板热刷新后会同步刷新装备视图快照；`backend/server/internal/data/postgres/player_skill_progress_repo.go` 在战斗结算落库技能经验后会同步刷新技能进度快照，尽量保证操作后下一次查询直接命中新结果
+
+## 2026-07-09 装备强化弹窗关闭按钮常驻
+- 客户端装备强化弹窗在强化进度演出锁定期间不再禁用右上角关闭按钮节点，避免通用关闭按钮的 disabled 空样式导致按钮视觉消失；关闭行为仍由演出锁定状态拦截，强化完成后恢复正常关闭。
+
+## 2026-07-09 背包装备详情背景修正
+- 客户端背包装备物品详情移除详情面板内部的屏幕采样模糊背景，改为普通半透明底色，避免打开详情时背景直接采样到世界场景；详情现在作为背包内层弹窗叠在背包面板之上。
+
+## 2026-07-09 任务面板真实数据与交付闭环
+- 任务列表协议 `QuestSummary` 补充奖励预览与目标事件类型，客户端任务面板现在直接读取 `GameState.quests` 中的服务端任务快照，按主线/支线/日常分类展示标题、当前目标和进度。
+- 任务提交改为必须处于 `READY_TO_SUBMIT` 且目标全部完成，禁止客户端直接提交未完成任务把进度强制补满；未完成提交会返回 `quest not ready to submit`。
+- Godot 任务面板复用现有任务卡片节点填充真实数据，支持领取、追踪、交付三类操作；交付成功后沿用现有任务结算与统一发奖服务推送钱包、背包、宠物等奖励更新。
+
+## 2026-07-09 任务列表滚动动态卡片与面板领奖
+- 客户端任务面板的主线、支线、日常列表改为 `ScrollContainer` 承载动态卡片容器，列表内容可上下滑动查看；每条服务端 `QuestSummary` 只实例化一个 `task_list.tscn` 卡片，任务图标本期先隐藏不渲染。
+- 任务卡片进度条严格使用服务端目标进度：`min_value=0`、`max_value=target`、`value=current`、`step=1`，杀怪、经验、对话等任务都统一按 `current/target` 显示。
+- 服务端目标完成后统一进入 `READY_TO_SUBMIT`，不再因 `SubmitMode=AUTO` 直接完成发奖；无交付 NPC 的任务由任务面板显示“领取”并发送 `QUEST_SUBMIT_REQ` 领取奖励，有交付 NPC 的剧情主线/支线仍只提示前往 NPC 交付。
+
+## 2026-07-09 任务图标 ID 下发与客户端本地映射
+- 任务模板新增 `client_icon_id` 数据库字段并通过 `QuestSummary.client_icon_id` 下发；服务端只传任务图标 ID，不下发客户端资源路径。
+- 客户端新增 `TaskIcons` 任务图标注册表，按服务端 `client_icon_id` 解析 `resources/task_icons/` 下的本地图标资源；未命中时回退到默认任务图标。
+- 任务卡片图标改为动态读取 `client_icon_id` 对应贴图，当前预置 `1=主线默认`、`2=对话任务`、`3=战斗任务` 三个占位图标。
+
+## 2026-07-09 任务图标改为客户端图标 ID
+- 任务图标字段明确改为 `client_icon_id`，表示该值由客户端 `TaskIcons` 注册表定义；服务端任务模板只保存并下发引用 ID。
+- `client_icon_id` 不设置唯一约束，多个任务模板可以配置同一个客户端图标 ID，从而复用同一张任务图标。
+- 后台任务模板列表、详情、新增和编辑表单已同步展示与保存 `client_icon_id`。

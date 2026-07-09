@@ -45,6 +45,7 @@ export interface AdminSkillFormula {
   ignore_defense: boolean;
   skill_mult: number;
   skill_crit_add: number;
+  skill_hit_bonus: number;
 }
 
 export interface AdminSkillStatusEffects {
@@ -150,6 +151,7 @@ export interface AdminUpsertSkillPayload {
   ignore_defense: boolean;
   skill_mult: number;
   skill_crit_add: number;
+  skill_hit_bonus: number;
   attack_pct: number;
   mana_pct: number;
   defense_pct: number;
@@ -217,6 +219,7 @@ export function defaultSkillValues(skillID: number): AdminUpsertSkillPayload {
     ignore_defense: false,
     skill_mult: 0,
     skill_crit_add: 0,
+    skill_hit_bonus: 0,
     attack_pct: 100,
     mana_pct: 30,
     defense_pct: 0,
@@ -288,6 +291,7 @@ export function detailToPayload(detail: AdminSkillDetail): AdminUpsertSkillPaylo
     ignore_defense: detail.formula.ignore_defense,
     skill_mult: detail.formula.skill_mult,
     skill_crit_add: detail.formula.skill_crit_add,
+    skill_hit_bonus: detail.formula.skill_hit_bonus,
     attack_pct: detail.formula.attack_pct,
     mana_pct: detail.formula.mana_pct,
     defense_pct: detail.formula.defense_pct,

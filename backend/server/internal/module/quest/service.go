@@ -220,28 +220,20 @@ func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, n
 	}
 
 	existing := playerQuestMap[questID]
-	if existing == nil || (existing.State != StateAccepted && existing.State != StateReadyToSubmit && existing.State != StateAvailable) {
+	if existing == nil {
 		return SubmitResult{}, ErrQuestNotAvailable
+	}
+	if existing.State == StateCompleted {
+		completed := completedQuestSet(playerQuestMap)
+		return SubmitResult{Summary: buildSummary(*template, existing, playerObjectiveMap[questID], completed)}, nil
+	}
+	if existing.State != StateReadyToSubmit {
+		return SubmitResult{}, ErrQuestNotReady
 	}
 
 	objectives := playerObjectiveMap[questID]
-	if len(objectives) == 0 {
-		for _, objective := range template.Objectives {
-			objectives = append(objectives, PlayerObjective{
-				PlayerID:     playerID,
-				QuestID:      questID,
-				ObjectiveID:  objective.ObjectiveID,
-				Description:  objective.Description,
-				CurrentValue: objective.TargetValue,
-				TargetValue:  objective.TargetValue,
-				Completed:    true,
-			})
-		}
-	} else {
-		for index := range objectives {
-			objectives[index].CurrentValue = objectives[index].TargetValue
-			objectives[index].Completed = true
-		}
+	if len(objectives) == 0 || !allObjectivesCompleted(objectives) {
+		return SubmitResult{}, ErrQuestNotReady
 	}
 
 	if err := s.repo.UpsertPlayerQuest(ctx, PlayerQuest{
@@ -310,12 +302,7 @@ func (s *Service) HandleEvent(ctx context.Context, event Event) ([]Summary, erro
 
 		nextState := StateAccepted
 		if allObjectivesCompleted(updatedObjectives) {
-			if template.SubmitMode == "AUTO" {
-				nextState = StateCompleted
-				completed[template.QuestID] = true
-			} else {
-				nextState = StateReadyToSubmit
-			}
+			nextState = StateReadyToSubmit
 		}
 		current.State = nextState
 		if err := s.repo.UpsertPlayerQuest(ctx, *current); err != nil {
@@ -455,6 +442,7 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 		if ok {
 			objectiveSummaries = append(objectiveSummaries, ObjectiveSummary{
 				ObjectiveID: existing.ObjectiveID,
+				EventType:   objective.EventType,
 				Description: existing.Description,
 				Current:     existing.CurrentValue,
 				Target:      existing.TargetValue,
@@ -464,6 +452,7 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 		}
 		objectiveSummaries = append(objectiveSummaries, ObjectiveSummary{
 			ObjectiveID: objective.ObjectiveID,
+			EventType:   objective.EventType,
 			Description: objective.Description,
 			Current:     0,
 			Target:      objective.TargetValue,
@@ -472,15 +461,17 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 	}
 
 	return Summary{
-		QuestID:     template.QuestID,
-		QuestType:   template.QuestType,
-		State:       state,
-		Tracked:     tracked,
-		StartNPCID:  template.StartNPCID,
-		SubmitNPCID: template.SubmitNPCID,
-		Title:       template.Title,
-		Description: template.Description,
-		Objectives:  objectiveSummaries,
+		QuestID:      template.QuestID,
+		QuestType:    template.QuestType,
+		ClientIconID: template.ClientIconID,
+		State:        state,
+		Tracked:      tracked,
+		StartNPCID:   template.StartNPCID,
+		SubmitNPCID:  template.SubmitNPCID,
+		Title:        template.Title,
+		Description:  template.Description,
+		Objectives:   objectiveSummaries,
+		Rewards:      collectSupportedRewards(template.Rewards),
 	}
 }
 

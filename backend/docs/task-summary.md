@@ -1,5 +1,14 @@
 # 任务总结
 
+## 2026-07-09 技能释放期命中加成配置
+
+本次补充聚焦把“某个技能释放时临时提高命中”从字段复用收敛成独立配置：
+- 新增迁移 `backend/server/migrations/094_skill_hit_bonus.sql`，为 `skill_definition` 增加 `skill_hit_bonus`，用于保存本次技能释放的命中加成
+- `backend/server/internal/module/skill/model.go` 与 `backend/server/internal/data/postgres/skill_repo.go` 已同步接入该字段，后台详情、创建、编辑和运行时技能缓存都能完整读写
+- `backend/server/internal/module/battle/skill.go`、`skill_resolver.go` 与 `service.go` 已把命中/闪避判定切到 `SkillHitBonus`，不再使用 `SkillCritAdd` 作为技能命中加成，避免暴伤配置影响命中
+- 后台技能效果编辑器新增“命中加成”效果类型，默认值为 `40`，保存时自动合并为 `skill_hit_bonus`
+- 已补充 `TestCalculateDodgeChanceUsesSkillHitBonus`，锁定“施法者命中 + 技能命中加成”参与本次闪避概率计算，技能释放结束后不污染角色或宠物基础属性
+
 ## 2026-07-07 技能被动属性加成显式配置
 
 本次补充聚焦把“系统技能库的永久属性被动”从旧的技能名前缀推断，收敛成后台可显式配置、数据库可持久化的正式字段：
@@ -686,3 +695,45 @@
 - 至此，当前战斗入口读取人物数据时，已基本从“散落在多张原始表的直接读”收敛为“人物战斗快照 + 宠物战斗快照 + 装备视图快照 + 技能进度视图快照”的数据库快照体系
 - 当前仍未做的部分：还没有把“活动战斗中的中间回合状态”持久化成数据库 battle snapshot 表；本次只覆盖开战前权威输入与主要展示视图快照，不改现有战斗进行中的内存态主链路
 - 已执行验证：`cd backend && GOCACHE=/private/tmp/pocketpet-go-cache go test ./server/...`，当前通过
+
+## 2026-07-09 装备强化弹窗关闭按钮常驻
+- 问题原因：`equipment_enhance_popup.gd` 在强化演出开始时递归禁用弹窗内所有按钮，右上角关闭按钮使用通用 `panel_close_button.tscn`，其 disabled 样式为空，导致强化中看起来像“关闭按钮消失”。
+- 修改内容：`client/scripts/ui/bag/equipment_enhance_popup.gd` 新增关闭按钮常驻处理，递归锁定交互时跳过 `_top_close_button`，保持其可见和鼠标命中；实际关闭仍由 `_block_dismiss` 拦截，避免中断强化演出与服务端回包同步。
+- 影响范围：仅调整装备强化弹窗的关闭按钮显示状态，不改变强化请求、进度条、材料选择、背包刷新和服务端协议。
+
+## 2026-07-09 背包装备详情背景修正
+- 问题原因：`client/scenes/ui/bag/bag_item_detail.tscn` 在详情面板内部复用了 `模糊背景.tscn`，该资源通过 `SCREEN_TEXTURE` 采样屏幕，详情作为背包内层弹窗打开时会采到世界场景，而不是局部背包面板。
+- 修改内容：将详情面板内部背景从通用模糊 Shader 改为普通半透明 `ColorRect`，保留原详情布局、描述、按钮和外层详情遮罩逻辑不变。
+- 影响范围：仅调整背包物品详情的背景显示，不改变背包面板背景模糊、详情操作按钮、装备强化入口和服务端协议。
+
+## 2026-07-09 任务面板真实数据与交付闭环
+- 后端任务摘要补齐 `rewards` 与目标 `event_type` 输出，客户端可以在任务面板展示奖励预览和当前目标进度，不再依赖静态场景文案。
+- 后端提交校验收紧：`quest.Service.Submit()` 只允许 `READY_TO_SUBMIT` 且所有目标完成的任务进入完成与发奖流程，避免未做任务时直接交付并把进度强制补满。
+- WebSocket 任务错误映射新增 `quest not ready to submit`，领取/交付/追踪仍通过 `QUEST_ACCEPT_REQ`、`QUEST_SUBMIT_REQ`、`QUEST_TRACK_REQ` 走服务端权威链路。
+- 客户端 `TaskPanel` 复用场景内已有任务卡片节点，打开前通过 `QUEST_LIST_REQ` 拉取最新列表，打开后监听 `GameState.quests_changed` 实时刷新；卡片主按钮按状态执行“领取 / 追踪 / 交付”。
+- `App.accept_quest()`、`App.submit_quest()`、`App.track_quest()` 改为返回请求序列号，方便 UI 在操作回包前锁定按钮，避免重复点击产生并发请求。
+
+## 2026-07-09 任务列表滚动动态卡片与面板领奖
+
+本次补充聚焦任务面板的真实列表展示和面板领奖规则：
+- `client/scenes/ui/task/主线任务列表.tscn`、`支线任务列表.tscn`、`日常任务列表.tscn` 的任务区域改为 `ScrollContainer + TaskCardVBox`，支持任务较多时上下滑动。
+- `client/scripts/ui/task/task_panel.gd` 改为按 `GameState.quests` 动态实例化 `task_list.tscn`，一条后端任务对应一个卡片；卡片图标节点暂时隐藏，标题、目标描述、进度、奖励提示和按钮状态均来自后端快照。
+- 任务进度条统一按服务端目标设置：`max_value=target`、`value=current`、`step=1`，因此杀怪 `3/10`、经验 `1500/4000`、对话 `0/1` 都走同一套渲染规则。
+- `backend/server/internal/module/quest/service.go` 将目标完成后的状态统一收敛到 `READY_TO_SUBMIT`；面板可领奖任务点击“领取”后仍通过 `QUEST_SUBMIT_REQ` 由服务端发奖，NPC 领取/交付任务只在面板提示“前往”，不把权威交付下放给客户端。
+- 已同步调整 `backend/server/internal/transport/ws/world_handler_test.go`，覆盖自动类任务需先领取奖励后才解锁后续任务的链路。
+
+## 2026-07-09 任务图标 ID 下发与客户端本地映射
+
+本次补充聚焦让任务图标像背包物品图标一样由“服务端 ID + 客户端本地资源表”驱动：
+- 新增迁移 `backend/server/migrations/095_quest_client_icon_id.sql`，为 `quest_template` 增加 `client_icon_id`，并给现有 1001/1002/1003 任务分别配置主线、对话、战斗占位图标 ID。
+- `quest.Template`、`quest.Summary` 与协议 `QuestSummary` 同步补充 `client_icon_id`，WebSocket 任务列表和任务更新推送都会带上该字段。
+- 客户端新增 `client/scripts/ui/task/task_icon_definition.gd`、`client/autoload/task_icons.gd` 与 `client/resources/task_icons/` 图标资源，按显式资源清单加载，兼容 Web 导出。
+- `client/scripts/ui/task/task_panel.gd` 在渲染任务卡片时调用 `TaskIcons.resolve_texture(client_icon_id)` 设置 `TextureRect.texture`，如果服务端未配置或客户端未命中，会自动使用默认任务图标。
+
+## 2026-07-09 任务图标改为客户端图标 ID
+
+本次补充把任务图标字段从通用 `icon_id` 收紧为客户端语义更明确的 `client_icon_id`：
+- `quest_template.client_icon_id` 只作为客户端本地图标表的引用 ID，不绑定任务模板主键，也不设置唯一约束。
+- 多个任务可以配置相同 `client_icon_id`，客户端会统一通过 `TaskIcons.resolve_texture(client_icon_id)` 解析同一张图标。
+- 后台任务模板类型、列表、详情、创建、编辑均补充 `client_icon_id`，运营可以直接配置客户端图标 ID。
+- 客户端任务面板优先读取 `client_icon_id`，并保留旧 `icon_id` 回退，避免灰度期间旧包缺字段导致图标空白。

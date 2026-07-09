@@ -42,6 +42,7 @@ type skillDef struct {
 	// SkillMult 为新表「技能倍数」；缺省时回退 AttackPct/100。
 	SkillMult              uint32
 	SkillCritAdd           uint32
+	SkillHitBonus          uint32
 	AllowCrit              bool
 	IgnoreDefense          bool
 	ArmorBreakPct          uint32

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TaskIconDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/task/task_icon_definition.gd" id="1_definition"]
+[ext_resource type="Texture2D" uid="uid://neqmpk1jqqv5" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/RPG Maker MV and MZ/IconSet.png" id="2_atlas"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_main"]
+atlas = ExtResource("2_atlas")
+region = Rect2(256, 1440, 32, 32)
+
+[resource]
+script = ExtResource("1_definition")
+icon_id = 1
+static_texture = SubResource("AtlasTexture_main")

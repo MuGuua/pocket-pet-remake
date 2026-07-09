@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://byj1f4bjgu4nf"]
+
+[ext_resource type="Texture2D" uid="uid://dnildif8vujac" path="res://asset/分类/ui/UI.png" id="1_nx4qt"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aw20c"]
+bg_color = Color(0.07450981, 0.07450981, 0.07450981, 0.3137255)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y1mnv"]
+atlas = ExtResource("1_nx4qt")
+region = Rect2(192, 176, 64, 16)
+
+[node name="主线任务列表" type="MarginContainer" unique_id=468046839]
+custom_minimum_size = Vector2(0, 800)
+size_flags_vertical = 3
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = -3
+theme_override_constants/margin_right = 16
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1017524025]
+custom_minimum_size = Vector2(700, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_aw20c")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=343455144]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer" unique_id=1817822498]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84705883, 0.6745098, 0.44705883, 1)
+theme_override_font_sizes/font_size = 32
+text = "主线任务"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer/Label2" unique_id=1975539376]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer/VBoxContainer/Label2/HBoxContainer" unique_id=1955332804]
+custom_minimum_size = Vector2(350, 40)
+custom_maximum_size = Vector2(350, -1)
+layout_mode = 2
+offset_transform_enabled = true
+offset_transform_position = Vector2(57, 0)
+texture = SubResource("AtlasTexture_y1mnv")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="TextureRect2" type="TextureRect" parent="PanelContainer/VBoxContainer/Label2/HBoxContainer" unique_id=176347766]
+custom_minimum_size = Vector2(350, 40)
+custom_maximum_size = Vector2(350, -1)
+layout_mode = 2
+offset_transform_enabled = true
+offset_transform_position = Vector2(130, 0)
+texture = SubResource("AtlasTexture_y1mnv")
+expand_mode = 1
+stretch_mode = 4
+flip_h = true
+
+[node name="任务列表" type="MarginContainer" parent="PanelContainer/VBoxContainer" unique_id=15041634]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBoxContainer/任务列表" unique_id=223920414]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="TaskCardVBox" type="VBoxContainer" parent="PanelContainer/VBoxContainer/任务列表/ScrollContainer" unique_id=223920415]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8

@@ -1079,6 +1079,7 @@ type QuestListReq struct{}
 
 type QuestObjectiveState struct {
 	ObjectiveID uint64 `json:"objective_id"`
+	EventType   string `json:"event_type,omitempty"`
 	Description string `json:"description"`
 	Current     uint32 `json:"current"`
 	Target      uint32 `json:"target"`
@@ -1096,15 +1097,17 @@ type QuestReward struct {
 }
 
 type QuestSummary struct {
-	QuestID     uint64                `json:"quest_id"`
-	QuestType   string                `json:"quest_type"`
-	State       string                `json:"state"`
-	Tracked     bool                  `json:"tracked"`
-	StartNPCID  uint64                `json:"start_npc_id"`
-	SubmitNPCID uint64                `json:"submit_npc_id"`
-	Title       string                `json:"title"`
-	Description string                `json:"description"`
-	Objectives  []QuestObjectiveState `json:"objectives"`
+	QuestID      uint64                `json:"quest_id"`
+	QuestType    string                `json:"quest_type"`
+	ClientIconID uint64                `json:"client_icon_id"`
+	State        string                `json:"state"`
+	Tracked      bool                  `json:"tracked"`
+	StartNPCID   uint64                `json:"start_npc_id"`
+	SubmitNPCID  uint64                `json:"submit_npc_id"`
+	Title        string                `json:"title"`
+	Description  string                `json:"description"`
+	Objectives   []QuestObjectiveState `json:"objectives"`
+	Rewards      []QuestReward         `json:"rewards,omitempty"`
 }
 
 type QuestListResp struct {

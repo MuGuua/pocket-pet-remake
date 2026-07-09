@@ -115,6 +115,7 @@ type AdminFormula struct {
 	IgnoreDefense      bool   `json:"ignore_defense"`
 	SkillMult          uint32 `json:"skill_mult"`
 	SkillCritAdd       uint32 `json:"skill_crit_add"`
+	SkillHitBonus      uint32 `json:"skill_hit_bonus"`
 }
 
 // AdminStatusEffects 描述技能附带的状态效果概率与数值。
@@ -214,6 +215,7 @@ type AdminUpsertInput struct {
 	IgnoreDefense          bool   `json:"ignore_defense"`
 	SkillMult              uint32 `json:"skill_mult"`
 	SkillCritAdd           uint32 `json:"skill_crit_add"`
+	SkillHitBonus          uint32 `json:"skill_hit_bonus"`
 	AttackPct              int32  `json:"attack_pct"`
 	ManaPct                int32  `json:"mana_pct"`
 	DefensePct             int32  `json:"defense_pct"`
@@ -343,6 +345,7 @@ type RuntimeDefinition struct {
 	EnergyCost             uint32
 	SkillMult              uint32
 	SkillCritAdd           uint32
+	SkillHitBonus          uint32
 	AttackPct              int32
 	ManaPct                int32
 	DefensePct             int32

@@ -18,6 +18,8 @@ const SETTINGS_ACTIONS: Array[Dictionary] = [
 @onready var bag_button: Button = %BagButton
 ## 背包按钮旁边的设置按钮。
 @onready var settings_button: Button = %SettingsButton
+## 设置按钮旁边的任务按钮，移动端玩家可以直接打开任务面板。
+@onready var task_button: Button = %TaskButton
 ## 设置按钮旁边的挂机按钮；仅暗雷地图展示。
 @onready var auto_encounter_button: Button = %AutoEncounterButton
 ## 底部调试日志输出控件。
@@ -27,6 +29,8 @@ const SETTINGS_ACTIONS: Array[Dictionary] = [
 signal avatar_pressed
 ## 背包按钮被点击时向外转发，供主场景复用现有背包打开链路。
 signal bag_pressed
+## 任务按钮被点击时向外转发，供主场景复用任务面板打开链路。
+signal task_pressed
 ## 宠物 HUD 被点击时向外转发，供主场景打开宠物状态面板。
 signal pet_pressed
 ## 玩家选择返回登录页时向外转发。
@@ -50,6 +54,8 @@ func _ready() -> void:
 		bag_button.pressed.connect(_on_bag_button_pressed)
 	if settings_button != null:
 		settings_button.pressed.connect(_on_settings_button_pressed)
+	if task_button != null:
+		task_button.pressed.connect(_on_task_button_pressed)
 	if auto_encounter_button != null:
 		auto_encounter_button.pressed.connect(_on_auto_encounter_button_pressed)
 	_ensure_settings_menu()
@@ -106,6 +112,12 @@ func _on_pet_status_pressed() -> void:
 func _on_bag_button_pressed() -> void:
 	_hide_settings_menu()
 	bag_pressed.emit()
+
+
+## 点击右下角任务按钮时，只广播意图，不在 HUD 内直接操作任务面板。
+func _on_task_button_pressed() -> void:
+	_hide_settings_menu()
+	task_pressed.emit()
 
 
 ## 点击挂机按钮时只广播意图，由主场景根据地图暗雷状态决定是否真正切换。

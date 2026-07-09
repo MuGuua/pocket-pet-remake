@@ -714,6 +714,25 @@ func TestAdjustStatusChancePctUsesSpecificResistance(t *testing.T) {
 	}
 }
 
+func TestCalculateDodgeChanceUsesSkillHitBonus(t *testing.T) {
+	battle := &activeBattle{}
+	attacker := &actorRuntime{
+		hitPct:   20,
+		statuses: map[uint32]*statusRuntime{},
+	}
+	target := &actorRuntime{
+		dodgeRatePct: 100,
+		statuses:     map[uint32]*statusRuntime{},
+	}
+
+	if got := battle.calculateDodgeChancePct(attacker, target, 0); got != 80 {
+		t.Fatalf("calculateDodgeChancePct without skill bonus = %d, want 80", got)
+	}
+	if got := battle.calculateDodgeChancePct(attacker, target, 40); got != 40 {
+		t.Fatalf("calculateDodgeChancePct with skill bonus = %d, want 40", got)
+	}
+}
+
 func TestServiceMultiTargetSkillHitsConfiguredEnemyCount(t *testing.T) {
 	svc := NewService(nil)
 	ctx := context.Background()

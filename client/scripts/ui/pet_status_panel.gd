@@ -7,8 +7,8 @@ const ConfirmPromptPopupScene: PackedScene = preload(ConfirmPromptPopup.SCENE_PA
 const OPEN_REQUEST_TIMEOUT_FRAMES: int = 300
 ## 宠物基础属性页在场景中的相对路径，集中管理便于后续 UI 调整。
 const BASIC_PANEL_PATH: NodePath = NodePath("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板/基础属性")
-## 宠物状态资质页在场景中的相对路径；页内仍复用状态抗性明细场景。
-const STATUS_PANEL_PATH: NodePath = NodePath("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板/状态资质")
+## 宠物状态抗性页在场景中的相对路径，必须和场景节点名保持一致。
+const STATUS_PANEL_PATH: NodePath = NodePath("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板/状态抗性")
 ## 宠物资质技能页在场景中的相对路径，集中管理便于后续 UI 调整。
 const SKILL_PANEL_PATH: NodePath = NodePath("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据面板/技能资质")
 ## 宠物法宝装备页在场景中的相对路径。
@@ -33,7 +33,7 @@ const DEFAULT_TAB_KEY: String = "basic"
 @onready var _preview_sprite: AnimatedSprite2D = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer2/Control/HBoxContainer/Control/HBoxContainer/Pet") as AnimatedSprite2D
 ## 基础属性数据页。
 @onready var _basic_panel: Control = get_node_or_null(BASIC_PANEL_PATH) as Control
-## 状态资质数据页，当前展示服务端下发的状态抗性类数值。
+## 状态抗性数据页，当前展示服务端下发的状态抗性类数值。
 @onready var _status_panel: Control = get_node_or_null(STATUS_PANEL_PATH) as Control
 ## 技能资质数据页。
 @onready var _skill_panel: Control = get_node_or_null(SKILL_PANEL_PATH) as Control
@@ -41,8 +41,8 @@ const DEFAULT_TAB_KEY: String = "basic"
 @onready var _artifact_panel: Control = get_node_or_null(ARTIFACT_PANEL_PATH) as Control
 ## 基础属性分页按钮。
 @onready var _basic_tab_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮/基础属性") as BaseButton
-## 状态资质分页按钮。
-@onready var _status_tab_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮/状态资质") as BaseButton
+## 状态抗性分页按钮。
+@onready var _status_tab_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮/状态抗性") as BaseButton
 ## 技能资质分页按钮。
 @onready var _skill_tab_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/数据按钮/技能资质") as BaseButton
 ## 法宝装备分页按钮。

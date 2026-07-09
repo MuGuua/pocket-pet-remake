@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://cy7ymccdw2m71" path="res://scenes/ui/slot.tscn" id="3_jctgi"]
 [ext_resource type="Texture2D" uid="uid://sebrg5lnyrs4" path="res://asset/分类/ui/bagUI2.png" id="3_oqfbl"]
 [ext_resource type="Texture2D" uid="uid://b51pfmmmjcs0d" path="res://asset/分类/ui/背包图标2.png" id="4_42kmg"]
+[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="5_blur"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -294,7 +295,10 @@ region = Rect2(555, 501, 10, 9)
 texture = SubResource("AtlasTexture_fdui7")
 
 [node name="BagPanel" type="CanvasLayer" unique_id=1561311213]
+visible = false
 script = ExtResource("1_bagpanel")
+
+[node name="ColorRect" parent="." unique_id=1128971371 instance=ExtResource("5_blur")]
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=1850279401]
 custom_minimum_size = Vector2(720, 1084)

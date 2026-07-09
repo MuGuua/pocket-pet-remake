@@ -1,0 +1,29 @@
+[gd_resource type="Theme" format=3 uid="uid://562g1jits6go"]
+
+[ext_resource type="Texture2D" uid="uid://rflbvkp80raj" path="res://asset/WenrexaAssetsUI_SciFI/PNG/Button16.png" id="2_q0rwk"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_yllvb"]
+texture = ExtResource("2_q0rwk")
+texture_margin_left = 6.0
+texture_margin_top = 6.0
+texture_margin_right = 6.0
+texture_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_q0rwk"]
+texture = ExtResource("2_q0rwk")
+texture_margin_left = 6.0
+texture_margin_top = 6.0
+texture_margin_right = 6.0
+texture_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_k4xe6"]
+texture = ExtResource("2_q0rwk")
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[resource]
+Button/styles/hover = SubResource("StyleBoxTexture_yllvb")
+Button/styles/normal = SubResource("StyleBoxTexture_q0rwk")
+Button/styles/pressed = SubResource("StyleBoxTexture_k4xe6")

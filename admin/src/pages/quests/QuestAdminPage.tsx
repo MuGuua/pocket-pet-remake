@@ -69,6 +69,7 @@ interface TemplateFormValues {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
   min_player_level: number;
@@ -266,6 +267,7 @@ function QuestTemplatePanel() {
         width: 140,
         render: (_v, record) => `${formatDisplayLabel(QUEST_MODE_LABELS, record.accept_mode)}/${formatDisplayLabel(QUEST_MODE_LABELS, record.submit_mode)}`,
       },
+      { title: '客户端图标ID', dataIndex: 'client_icon_id', key: 'client_icon_id', width: 120 },
       { title: '自动追踪', dataIndex: 'auto_track', key: 'auto_track', width: 100, render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '是' : '否'}</Tag> },
       { title: '状态', dataIndex: 'status_text', key: 'status_text', width: 100, render: (value: string) => <Tag color={value === '启用' ? 'blue' : 'default'}>{value}</Tag> },
       {
@@ -338,6 +340,7 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
             <Descriptions.Item label="接取方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.accept_mode)}</Descriptions.Item>
             <Descriptions.Item label="提交方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.submit_mode)}</Descriptions.Item>
+            <Descriptions.Item label="客户端图标ID">{detail.client_icon_id}</Descriptions.Item>
             <Descriptions.Item label="起始 NPC">{detail.start_npc_id}</Descriptions.Item>
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
             <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
@@ -405,6 +408,7 @@ function QuestTemplatePanel() {
                             <Col xs={12} md={6}><Form.Item label="排序" name="sort_order" extra="同章节内排序值。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={questModeOptions} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="客户端图标ID" name="client_icon_id" extra="由客户端 TaskIcons 注册表解释，多个任务可共用。"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="提交 NPC" name="submit_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
@@ -724,6 +728,7 @@ function defaultTemplateValues(): TemplateFormValues {
     accept_mode: 'AUTO',
     submit_mode: 'AUTO',
     auto_track: true,
+    client_icon_id: 1,
     start_npc_id: 0,
     submit_npc_id: 0,
     min_player_level: 1,
@@ -757,6 +762,7 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     accept_mode: detail.accept_mode,
     submit_mode: detail.submit_mode,
     auto_track: detail.auto_track,
+    client_icon_id: detail.client_icon_id || 1,
     start_npc_id: detail.start_npc_id,
     submit_npc_id: detail.submit_npc_id,
     min_player_level: detail.min_player_level,
@@ -790,6 +796,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     accept_mode: values.accept_mode,
     submit_mode: values.submit_mode,
     auto_track: values.auto_track,
+    client_icon_id: values.client_icon_id || 1,
     start_npc_id: values.start_npc_id,
     submit_npc_id: values.submit_npc_id,
     min_player_level: values.min_player_level,

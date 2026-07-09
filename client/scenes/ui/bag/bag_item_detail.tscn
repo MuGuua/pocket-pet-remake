@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://b2wjw7r065n80" path="res://scripts/ui/bag/bag_item_detail.gd" id="1_detail"]
 [ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_gemxe"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
-[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="3_e7727"]
 [ext_resource type="Script" uid="uid://bmopqquagswcc" path="res://scripts/ui/common/item_description_view.gd" id="4_desc_view"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="5_close_btn"]
 
@@ -24,8 +23,9 @@ offset_bottom = 344.0
 theme_override_styles/panel = SubResource("StyleBoxTexture_on3p7")
 script = ExtResource("1_detail")
 
-[node name="ColorRect" parent="." unique_id=1617070159 instance=ExtResource("3_e7727")]
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1617070159]
 layout_mode = 2
+color = Color(0.050980393, 0.078431375, 0.18039216, 1)
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=948122808]
 layout_mode = 2

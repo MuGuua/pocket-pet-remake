@@ -1,0 +1,142 @@
+[gd_scene load_steps=9 format=3 uid="uid://cf2m3wp76yxj2"]
+
+[ext_resource type="Texture2D" uid="uid://neqmpk1jqqv5" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/RPG Maker MV and MZ/IconSet.png" id="1_3ureb"]
+[ext_resource type="Theme" uid="uid://562g1jits6go" path="res://scenes/ui/task/task_goto_blue_button_theme.tres" id="2_re4hj"]
+[ext_resource type="Theme" uid="uid://df6o8mhj60gm6" path="res://scenes/ui/task/task_goto_green_button_theme.tres" id="3_wv1on"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_q0sm6"]
+bg_color = Color(0.47058824, 0.61960787, 0.7529412, 0.11372549)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.47058824, 0.61960787, 0.7529412, 0.23529412)
+border_blend = true
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_skkc2"]
+bg_color = Color(0, 0.003921569, 0.078431375, 0.36862746)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.47058824, 0.61960787, 0.7529412, 0.23529412)
+border_blend = true
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q0rwk"]
+atlas = ExtResource("1_3ureb")
+region = Rect2(256, 1440, 32, 32)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xksrd"]
+bg_color = Color(0, 0, 0.10980392, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_jt51b"]
+bg_color = Color(0.24825242, 0.70180124, 0.4043854, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="PanelContainer" type="PanelContainer" unique_id=197064006]
+theme_override_styles/panel = SubResource("StyleBoxFlat_q0sm6")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1952578346]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer" unique_id=390407831]
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_skkc2")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/PanelContainer" unique_id=2122139319]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/PanelContainer/HBoxContainer" unique_id=616306097]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 4
+texture = SubResource("AtlasTexture_q0rwk")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/PanelContainer/HBoxContainer" unique_id=1250030886]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Label" type="Label" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer" unique_id=1626090061]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "取得战斗胜利"
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer" unique_id=1282069284]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(1, 1, 1, 0.6666667)
+theme_override_font_sizes/font_size = 17
+text = "取得任意战斗胜利30次"
+vertical_alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer" unique_id=1280898395]
+layout_mode = 2
+theme_override_constants/margin_bottom = 6
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/MarginContainer" unique_id=1782093413]
+layout_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=535695505]
+custom_minimum_size = Vector2(200, 14)
+custom_maximum_size = Vector2(200, -1)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_xksrd")
+theme_override_styles/fill = SubResource("StyleBoxFlat_jt51b")
+step = 1.0
+value = 50.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=791392275]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "5/30"
+vertical_alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/PanelContainer/HBoxContainer" unique_id=994808357]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=1641884901]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="Button" type="Button" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1991365075]
+layout_mode = 2
+theme = ExtResource("2_re4hj")
+theme_override_font_sizes/font_size = 23
+text = "前往"
+
+[node name="Button2" type="Button" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1901155745]
+layout_mode = 2
+theme = ExtResource("3_wv1on")
+theme_override_font_sizes/font_size = 23
+text = "详情"

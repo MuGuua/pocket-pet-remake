@@ -807,3 +807,38 @@ next_quest_refresh_at: int
 - 客户端实现简单
 - 服务端幂等和一致性更容易保证
 - 出现断线或异常时，也能通过 `QUEST_LIST_REQ` 快速恢复状态
+
+## 2026-07-09 实装补充：任务面板闭环
+
+- `QuestSummary` 运行时响应已补充 `rewards` 奖励预览数组，结构沿用 `QuestReward`。
+- `QuestObjectiveState` 已补充 `event_type`，客户端可直接显示当前目标类型与进度。
+- `QUEST_SUBMIT_REQ` 只允许提交 `READY_TO_SUBMIT` 且所有目标完成的任务；未完成任务提交会通过 `ERROR_PUSH` 返回 `quest not ready to submit`。
+- 客户端任务面板按 `quest_type` 分为 `MAIN`、`SIDE`、`DAILY`，主按钮根据 `state` 映射为：`AVAILABLE=领取`、`ACCEPTED=追踪`、`READY_TO_SUBMIT=交付`。
+
+## 2026-07-09 实装补充：滚动任务列表与领取规则
+
+- 客户端任务列表按 `quest_type` 分类后使用滚动容器展示；每个服务端返回的可见任务生成一个任务卡片，`LOCKED` 与 `COMPLETED` 不在面板中展示。
+- 任务卡片进度只信任 `QuestObjectiveState.current / target`：进度条 `step=1`，当前值为 `current`，最大值为 `target`，文案显示 `current/target`。
+- 任务达到目标后服务端状态为 `READY_TO_SUBMIT`。如果 `submit_npc_id > 0`，客户端只展示“前往”，奖励仍在对应 NPC 处交付领取；如果 `submit_npc_id = 0`，客户端展示“领取”，点击后发送 `QUEST_SUBMIT_REQ`。
+- `AVAILABLE` 且 `start_npc_id > 0` 的任务同样只展示“前往”，需要到 NPC 处领取；`start_npc_id = 0` 时才允许任务面板直接发送 `QUEST_ACCEPT_REQ`。
+
+## 2026-07-09 实装补充：任务图标 ID
+
+`QuestSummary` 新增字段：
+
+```json
+{
+  "client_icon_id": 1
+}
+```
+
+说明：
+- `client_icon_id` 是服务端任务模板中的任务图标编号，客户端只用它查本地任务图标注册表。
+- 服务端不得下发 `res://` 路径或贴图文件名，避免把客户端资源组织暴露给服务端配置。
+- 客户端当前预置：`1=主线默认`、`2=对话任务`、`3=战斗任务`；未命中时回退默认任务图标。
+
+## 2026-07-09 实装补充：客户端图标 ID 复用规则
+
+- `client_icon_id` 是客户端任务图标注册表的 ID，不是任务 ID，也不是服务端资源路径。
+- 多个 `QuestSummary` 可以携带相同的 `client_icon_id`，客户端应渲染为同一张图标。
+- 服务端不对 `client_icon_id` 做唯一性限制；如果客户端未注册该 ID，应显示默认任务图标。

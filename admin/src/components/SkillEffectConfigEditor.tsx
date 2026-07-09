@@ -240,6 +240,11 @@ export function SkillEffectConfigEditor({ value = [], onChange, activationMode =
               <Form.Item label="目标当前生命%" name="target_current_hp_pct"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
             </>
           ) : null}
+          {entryType === 'hit_bonus' ? (
+            <Form.Item label="技能命中加成" name="skill_hit_bonus" rules={[{ required: true, message: '请输入技能命中加成' }]}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          ) : null}
           {entryType === 'seal' ? (
             <>
               <Form.Item label="封印概率 (%)" name="seal_chance_pct"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>

@@ -280,8 +280,8 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(conn.packets) != 4 {
-		t.Fatalf("len(conn.packets) = %d, want 4", len(conn.packets))
+	if len(conn.packets) != 3 {
+		t.Fatalf("len(conn.packets) = %d, want 3", len(conn.packets))
 	}
 
 	respPacket := conn.packets[0]
@@ -317,11 +317,11 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	}
 
 	questUpdates := collectQuestUpdatesByID(t, conn.packets[2:])
-	if got := questUpdates[1001].State; got != quest.StateCompleted {
-		t.Fatalf("quest 1001 state = %q, want %q", got, quest.StateCompleted)
+	if got := questUpdates[1001].State; got != quest.StateReadyToSubmit {
+		t.Fatalf("quest 1001 state = %q, want %q", got, quest.StateReadyToSubmit)
 	}
-	if got := questUpdates[1002].State; got != quest.StateAvailable {
-		t.Fatalf("quest 1002 state = %q, want %q", got, quest.StateAvailable)
+	if _, exists := questUpdates[1002]; exists {
+		t.Fatalf("quest 1002 should stay locked before claiming quest 1001 reward")
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), 10001)
@@ -622,13 +622,15 @@ func TestRouterHandleNPCActionPushesQuestUpdate(t *testing.T) {
 		PortalID:      1001,
 	})
 	clearPackets(conn)
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 201, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 201, protocol.QuestSubmitReq{QuestID: 1001})
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 202, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
 	clearPackets(conn)
 
 	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
 		t.Fatalf("UpdatePosition() error = %v", err)
 	}
-	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 202, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 203, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
 
 	if len(conn.packets) != 2 {
 		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
@@ -654,16 +656,18 @@ func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
 		PortalID:      1001,
 	})
 	clearPackets(conn)
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 211, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 211, protocol.QuestSubmitReq{QuestID: 1001})
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 212, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
 	clearPackets(conn)
 
 	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
 		t.Fatalf("UpdatePosition() error = %v", err)
 	}
-	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 212, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCActionReq, 213, protocol.NPCActionReq{EntityID: 93001, EntryID: "dialog_market_news"})
 	clearPackets(conn)
 
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 213, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93002})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 214, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93002})
 	if len(conn.packets) != 1 {
 		t.Fatalf("len(conn.packets) after wrong submit = %d, want 1", len(conn.packets))
 	}
@@ -679,7 +683,7 @@ func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
 	}
 	clearPackets(conn)
 
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 214, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93001})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 215, protocol.QuestSubmitReq{QuestID: 1002, NPCID: 93001})
 	if len(conn.packets) != 6 {
 		t.Fatalf("len(conn.packets) after correct submit = %d, want 6", len(conn.packets))
 	}
@@ -715,8 +719,8 @@ func TestRouterHandleQuestSubmitRequiresConfiguredNPC(t *testing.T) {
 	if walletUpdate.ReasonType != "quest_reward" || walletUpdate.ReasonRefID != 1002 {
 		t.Fatalf("walletUpdate = %#v, want quest_reward/1002", walletUpdate)
 	}
-	if walletUpdate.Wallet.TotalCopper != 2345828 {
-		t.Fatalf("walletUpdate.Wallet.TotalCopper = %d, want 2345828 after +150 copper quest reward", walletUpdate.Wallet.TotalCopper)
+	if walletUpdate.Wallet.TotalCopper != 2345928 {
+		t.Fatalf("walletUpdate.Wallet.TotalCopper = %d, want 2345928 after +100 and +150 copper quest rewards", walletUpdate.Wallet.TotalCopper)
 	}
 	if conn.packets[2].Cmd != protocol.CmdBagUpdatePush {
 		t.Fatalf("conn.packets[2].Cmd = %d, want %d", conn.packets[2].Cmd, protocol.CmdBagUpdatePush)
@@ -756,8 +760,10 @@ func TestRouterHandleQuestAcceptRequiresConfiguredNPC(t *testing.T) {
 		PortalID:      1001,
 	})
 	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 216, protocol.QuestSubmitReq{QuestID: 1001})
+	clearPackets(conn)
 
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 216, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93002})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 217, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93002})
 	if len(conn.packets) != 1 {
 		t.Fatalf("len(conn.packets) after wrong accept = %d, want 1", len(conn.packets))
 	}
@@ -773,7 +779,7 @@ func TestRouterHandleQuestAcceptRequiresConfiguredNPC(t *testing.T) {
 	}
 	clearPackets(conn)
 
-	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 217, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestAcceptReq, 218, protocol.QuestAcceptReq{QuestID: 1002, NPCID: 93001})
 	if len(conn.packets) != 3 {
 		t.Fatalf("len(conn.packets) after correct accept = %d, want 3", len(conn.packets))
 	}
@@ -1046,6 +1052,8 @@ func TestRouterHandleInteractMenuShowsQuestEntryAfterUnlock(t *testing.T) {
 		TargetSceneID: 2,
 		PortalID:      1001,
 	})
+	clearPackets(conn)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdQuestSubmitReq, 163, protocol.QuestSubmitReq{QuestID: 1001})
 	clearPackets(conn)
 	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
 		t.Fatalf("UpdatePosition() error = %v", err)
