@@ -674,13 +674,13 @@ export function NPCMenuEntryDrawer({ open, entityId, entityName, onClose }: NPCM
                     </Col>
                     {!isBattleEntry ? (
                       <Col span={24}>
-                        <Form.Item label="提示文案" name="action_notice" extra="玩家点击菜单前看到的提示，支持 BBCode 富文本。">
+                        <Form.Item label="提示文案" name="action_notice" extra="玩家点击菜单前看到的提示，可在下方预览中刷色。">
                           <RichTextEditor rows={3} />
                         </Form.Item>
                       </Col>
                     ) : (
                       <Col span={24}>
-                        <Form.Item label="提示文案（可选）" name="action_notice" extra="支持 BBCode 富文本。">
+                        <Form.Item label="提示文案（可选）" name="action_notice" extra="可在下方预览中刷色。">
                           <RichTextEditor rows={2} placeholder="挑战菜单通常无需提示文案" />
                         </Form.Item>
                       </Col>

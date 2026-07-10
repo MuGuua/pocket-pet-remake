@@ -1,55 +1,39 @@
 [gd_resource type="Theme" format=3 uid="uid://dishtikvukgt4"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e3o4x"]
-bg_color = Color(0.08235294, 0.08235294, 0.08235294, 0.78431374)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.47071463, 0.4273266, 0.18125159, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_u0twp"]
+load_path = "res://.godot/imported/技能边框.png-ca68c4e5a29daff3b6244289243afc26.ctex"
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_j7ppe"]
-bg_color = Color(0.08235294, 0.08235294, 0.08235294, 0.78431374)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 1, 1, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="AtlasTexture" id="AtlasTexture_jh5gf"]
+atlas = SubResource("CompressedTexture2D_u0twp")
+region = Rect2(501, 150, 238, 232)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dsdad"]
-bg_color = Color(0.08235294, 0.08235294, 0.08235294, 0.78431374)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.23211998, 0.23211983, 0.23211968, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lq3j1"]
+texture = SubResource("AtlasTexture_jh5gf")
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_q0sm6"]
-bg_color = Color(0.08235294, 0.08235294, 0.08235294, 0.78431374)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.89863443, 0.78814054, 0.5391446, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_457fx"]
+load_path = "res://.godot/imported/技能边框.png-ca68c4e5a29daff3b6244289243afc26.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4hxbg"]
+atlas = SubResource("CompressedTexture2D_457fx")
+region = Rect2(501, 453, 238, 233)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bl43q"]
+texture = SubResource("AtlasTexture_4hxbg")
+texture_margin_left = 10.0
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_um88o"]
+load_path = "res://.godot/imported/技能边框.png-ca68c4e5a29daff3b6244289243afc26.ctex"
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_u0twp"]
+atlas = SubResource("CompressedTexture2D_um88o")
+region = Rect2(501, 760, 238, 233)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7juny"]
+texture = SubResource("AtlasTexture_u0twp")
 
 [resource]
-Button/styles/focus = SubResource("StyleBoxFlat_e3o4x")
-Button/styles/hover = SubResource("StyleBoxFlat_j7ppe")
-Button/styles/normal = SubResource("StyleBoxFlat_dsdad")
-Button/styles/pressed = SubResource("StyleBoxFlat_q0sm6")
+Button/styles/hover = SubResource("StyleBoxTexture_lq3j1")
+Button/styles/hover_pressed = SubResource("StyleBoxTexture_bl43q")
+Button/styles/hover_pressed_mirrored = SubResource("StyleBoxTexture_bl43q")
+Button/styles/normal = SubResource("StyleBoxTexture_7juny")
+Button/styles/pressed = SubResource("StyleBoxTexture_bl43q")

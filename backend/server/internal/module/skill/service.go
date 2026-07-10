@@ -180,6 +180,9 @@ func validateAdminSkillDefinitionInput(input AdminUpsertInput) error {
 	if input.SkillID == 0 || input.SkillName == "" {
 		return ErrInvalidAdminSkillDefinitionInput
 	}
+	if !IsValidQuality(input.SkillQuality) {
+		return ErrInvalidAdminSkillDefinitionInput
+	}
 	if !IsValidPassiveAttrKey(input.PassiveAttrKey) || !IsValidPassiveAttrMode(input.PassiveAttrMode) {
 		return ErrInvalidAdminSkillDefinitionInput
 	}

@@ -15,8 +15,10 @@ var (
 
 // SkillMetadata 描述客户端技能详情展示所需的服务端权威文案。
 type SkillMetadata struct {
-	SkillName   string
-	Description string
+	SkillName     string
+	Description   string
+	SkillVisualID string
+	SkillQuality  string
 }
 
 type Pet struct {

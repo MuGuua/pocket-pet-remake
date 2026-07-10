@@ -734,9 +734,9 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
               <Form.Item
                 label="介绍"
                 name="desc"
-                extra="支持 BBCode 富文本与 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+                extra="可在下方预览中刷色；{item:物品ID} 占位符会在客户端内联展示物品 icon 与名称。"
               >
-                <RichTextEditor rows={4} placeholder="例如：攻击 [color=green]+50[/color]" />
+                <RichTextEditor rows={4} placeholder="例如：攻击 +50" />
               </Form.Item>
             </Col>
             <Form.Item name="icon" hidden>

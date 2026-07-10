@@ -88,6 +88,7 @@ const skillDefinitionSelectColumns = `
   passive_attr_key,
   passive_attr_mode,
   passive_attr_value,
+  skill_quality,
   sort_weight,
   status,
   created_at,
@@ -102,6 +103,7 @@ SELECT
   skill_category,
   skill_type,
   activation_mode,
+  skill_quality,
   target_type,
   energy_cost,
   is_basic_attack,
@@ -126,12 +128,12 @@ const skillDefinitionInsertColumns = `
   crit_boost_rounds, crit_boost_pct,
   curse_chance_pct, curse_rounds, curse_damage, curse_mana_pct,
   control_chance_pct, control_power, control_rounds, control_status_id,
-  passive_attr_key, passive_attr_mode, passive_attr_value,
+  passive_attr_key, passive_attr_mode, passive_attr_value, skill_quality,
   sort_weight, status
 `
 
 const skillDefinitionInsertPlaceholders = `
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60,$61,$62,$63,$64,$65,$66
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60,$61,$62,$63,$64,$65,$66,$67
 `
 
 const insertSkillDefinitionQuery = `
@@ -204,8 +206,9 @@ SET skill_code = $2,
     passive_attr_key = $62,
     passive_attr_mode = $63,
     passive_attr_value = $64,
-    sort_weight = $65,
-    status = $66
+    skill_quality = $65,
+    sort_weight = $66,
+    status = $67
 WHERE skill_id = $1
 `
 
@@ -240,6 +243,9 @@ func (r *SkillRepository) ListForAdmin(ctx context.Context, query skill.AdminLis
 	}
 	if query.ActivationMode != "" {
 		conditions = append(conditions, "activation_mode = "+nextArg(query.ActivationMode))
+	}
+	if query.Quality != "" {
+		conditions = append(conditions, "skill_quality = "+nextArg(query.Quality))
 	}
 	if query.Enabled != nil {
 		status := int64(0)
@@ -504,6 +510,7 @@ func skillUpsertArgs(skillID uint32, input skill.AdminUpsertInput, status int64)
 		input.CurseChancePct, input.CurseRounds, input.CurseDamage, input.CurseManaPct,
 		input.ControlChancePct, input.ControlPower, input.ControlRounds, input.ControlStatusID,
 		input.PassiveAttrKey, input.PassiveAttrMode, input.PassiveAttrValue,
+		input.SkillQuality,
 		input.SortWeight, status,
 	}
 }
@@ -512,7 +519,7 @@ func scanAdminSkillSummaryRow(rows *sql.Rows) (skill.AdminSummary, error) {
 	var item skill.AdminSummary
 	var skillID, energyCost, status int64
 	var isBasicAttack bool
-	if err := rows.Scan(&skillID, &item.SkillCode, &item.SkillName, &item.SkillCategory, &item.SkillType, &item.ActivationMode, &item.TargetType, &energyCost, &isBasicAttack, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
+	if err := rows.Scan(&skillID, &item.SkillCode, &item.SkillName, &item.SkillCategory, &item.SkillType, &item.ActivationMode, &item.SkillQuality, &item.TargetType, &energyCost, &isBasicAttack, &status, &item.UpdatedAt, &item.CreatedAt); err != nil {
 		return skill.AdminSummary{}, err
 	}
 	item.SkillID = uint32(skillID)
@@ -592,6 +599,7 @@ type skillDefinitionRow struct {
 	passiveAttrKey   string
 	passiveAttrMode  string
 	passiveAttrValue int64
+	skillQuality     string
 	sortWeight       int64
 	status           int64
 	createdAt        time.Time
@@ -619,6 +627,7 @@ func scanSkillDefinitionRow(scanner interface {
 		&row.curseChance, &row.curseRounds, &row.curseDamage, &row.curseManaPct,
 		&row.controlChance, &row.controlPower, &row.controlRounds, &row.controlStatus,
 		&row.passiveAttrKey, &row.passiveAttrMode, &row.passiveAttrValue,
+		&row.skillQuality,
 		&row.sortWeight, &row.status, &row.createdAt, &row.updatedAt,
 	)
 	return row, err
@@ -651,6 +660,7 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 		LearnExpPerUse:   uint32(raw.learnExpPerUse),
 		SkillType:        raw.skillType,
 		ActivationMode:   raw.activationMode,
+		SkillQuality:     raw.skillQuality,
 		Description:      raw.description,
 		AcquireMethod:    raw.acquireMethod,
 		IsBasicAttack:    raw.isBasicAttack,
@@ -730,6 +740,7 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
 		SkillID:                uint32(raw.skillID),
+		SkillCode:              raw.skillCode,
 		SkillType:              raw.skillType,
 		SkillCategory:          raw.skillCategory,
 		WeaponDiscipline:       raw.weaponDiscipline,
@@ -738,6 +749,7 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		SkillName:              raw.skillName,
 		Description:            raw.description,
 		ActivationMode:         raw.activationMode,
+		SkillQuality:           raw.skillQuality,
 		TargetType:             raw.targetType,
 		TargetCount:            uint32(raw.targetCount),
 		PreferredTargetHP:      raw.preferredHP,

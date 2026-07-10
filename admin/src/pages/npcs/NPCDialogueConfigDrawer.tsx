@@ -90,7 +90,7 @@ const questStateOptions: Array<{ label: string; value: string }> = [
 
 const contentFormatOptions: Array<{ label: string; value: string }> = [
   { label: '纯文本', value: 'plain' },
-  { label: 'BBCode', value: 'bbcode' },
+  { label: '富文本', value: 'bbcode' },
 ];
 
 // 单条 NPC 菜单项对应一段剧情聚合配置；这里固定按 entity_id + entry_id 编辑，避免后台拆成多套页面。
@@ -815,7 +815,7 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                             <Form.Item
                               label="对白/说明内容"
                               name={[field.name, 'content']}
-                              extra="支持 BBCode 富文本；可写：欢迎 {player_name}，这是 {item:1001}。物品名和 icon 会从 item_definition 读取。"
+                              extra="可在下方预览中刷色；可写：欢迎 {player_name}，这是 {item:1001}。物品名和 icon 会从 item_definition 读取。"
                             >
                               <RichTextEditor
                                 rows={isChoiceNode ? 3 : 4}

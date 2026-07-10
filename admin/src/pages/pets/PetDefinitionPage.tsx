@@ -407,7 +407,7 @@ export function PetDefinitionPage() {
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="描述 / 运营备注" name="description" extra="支持 BBCode 富文本，客户端宠物详情会原样渲染。">
+              <Form.Item label="描述 / 运营备注" name="description" extra="可在下方预览中刷色，客户端宠物详情会保持同样效果。">
                 <RichTextEditor rows={4} placeholder="加点推荐、宝石推荐、不可交易说明等" />
               </Form.Item>
             </Col>

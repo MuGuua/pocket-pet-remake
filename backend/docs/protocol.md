@@ -891,7 +891,9 @@
 }
 ```
 
-响应 `pet` 结构与 `PetDetail` 一致，包含基础属性、成长资质、状态抗性、技能槽和法宝槽完整技能 ID。每个非空技能槽会尽量附带服务端技能模板中的 `skill_name` 与支持 BBCode 的 `description`，客户端宠物技能按钮悬停或按下时直接用这两个字段渲染技能说明，不在本地硬编码技能文案。
+响应 `pet` 结构与 `PetDetail` 一致，包含基础属性、成长资质、状态抗性、技能槽和法宝槽完整技能 ID。每个非空技能槽会尽量附带服务端技能模板中的 `skill_name`、支持 BBCode 的 `description`、`skill_visual_id` 和 `skill_quality`。客户端用前两个字段渲染技能说明，按 `skill_visual_id` 查找本地 `SkillVisualConfig.tres` 图标，并按 `skill_quality` 切换按钮边框；服务端不保存或下发 `res://` 客户端资源路径。历史技能的 `skill_visual_id` 为空时，运行时暂以数据库 `skill_code` 作为兼容标识，显式配置的 `skill_visual_id` 始终优先。
+
+`skill_quality` 支持 `normal`（普通）、`divine`（神技）、`soul`（魂技）、`sacred`（圣技）、`peerless`（绝世）。品质只控制客户端展示，不参与技能公式、释放方式或被动判定。
 
 ### 5021 神符槽道具解锁
 

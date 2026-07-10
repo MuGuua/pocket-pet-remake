@@ -70,17 +70,35 @@ export function renderMentionContentFragments(
       fragments.push(
         <span
           key={`text-${lastIndex}`}
+          data-rich-source-start={lastIndex}
+          data-rich-source-end={match.index}
+          data-rich-source-kind="text"
           dangerouslySetInnerHTML={{ __html: bbcodeToHtml(textSlice) }}
         />,
       );
     }
     if (match[1] === PLAYER_NAME_TOKEN && options?.showPlayerName) {
-      fragments.push(<strong key={`player-${match.index}`}>玩家</strong>);
+      fragments.push(
+        <strong
+          key={`player-${match.index}`}
+          data-rich-source-start={match.index}
+          data-rich-source-end={match.index + match[0].length}
+          data-rich-source-kind="mention"
+        >
+          玩家
+        </strong>,
+      );
     } else if (match[2]) {
       const itemID = Number(match[2]);
       const item = itemMap[itemID];
       fragments.push(
-        <strong key={`item-${match.index}-${itemID}`} style={{ color: '#f0d5b1' }}>
+        <strong
+          key={`item-${match.index}-${itemID}`}
+          data-rich-source-start={match.index}
+          data-rich-source-end={match.index + match[0].length}
+          data-rich-source-kind="mention"
+          style={{ color: '#f0d5b1' }}
+        >
           {item?.item_name ?? `物品${itemID}`}
         </strong>,
       );
@@ -88,7 +106,13 @@ export function renderMentionContentFragments(
       const petID = Number(match[3]);
       const pet = petMap[petID];
       fragments.push(
-        <strong key={`pet-${match.index}-${petID}`} style={{ color: '#f0d5b1' }}>
+        <strong
+          key={`pet-${match.index}-${petID}`}
+          data-rich-source-start={match.index}
+          data-rich-source-end={match.index + match[0].length}
+          data-rich-source-kind="mention"
+          style={{ color: '#f0d5b1' }}
+        >
           {pet?.pet_name ?? `宠物${petID}`}
         </strong>,
       );
@@ -100,6 +124,9 @@ export function renderMentionContentFragments(
     fragments.push(
       <span
         key={`text-${lastIndex}`}
+        data-rich-source-start={lastIndex}
+        data-rich-source-end={content.length}
+        data-rich-source-kind="text"
         dangerouslySetInnerHTML={{ __html: bbcodeToHtml(content.slice(lastIndex)) }}
       />,
     );

@@ -137,11 +137,13 @@ type PetGrowthAptitudes struct {
 
 // PetSkillSlotEntry 单个技能槽位。
 type PetSkillSlotEntry struct {
-	SlotIndex   uint32 `json:"slot_index"`
-	SkillID     uint32 `json:"skill_id"`
-	Enabled     bool   `json:"enabled,omitempty"`
-	SkillName   string `json:"skill_name,omitempty"`
-	Description string `json:"description,omitempty"`
+	SlotIndex     uint32 `json:"slot_index"`
+	SkillID       uint32 `json:"skill_id"`
+	Enabled       bool   `json:"enabled,omitempty"`
+	SkillName     string `json:"skill_name,omitempty"`
+	Description   string `json:"description,omitempty"`
+	SkillVisualID string `json:"skill_visual_id,omitempty"`
+	SkillQuality  string `json:"skill_quality,omitempty"`
 }
 
 // PetSkillSlots 宠物分分类技能槽；artifact 仅在查看技能详情时填充 skill_id。

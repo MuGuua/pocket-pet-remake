@@ -46,6 +46,8 @@ import {
   SKILL_ACTIVATION_MODE_OPTIONS,
   SKILL_CATEGORY_LABELS,
   SKILL_CATEGORY_OPTIONS,
+  SKILL_QUALITY_LABELS,
+  SKILL_QUALITY_OPTIONS,
   SKILL_TYPE_LABELS,
   SKILL_TYPE_OPTIONS,
   TARGET_TYPE_LABELS,
@@ -227,6 +229,13 @@ export function SkillDefinitionPage() {
         render: (value: string) => formatDisplayLabel(SKILL_ACTIVATION_MODE_LABELS, value),
       },
       {
+        title: '品质',
+        dataIndex: 'skill_quality',
+        key: 'skill_quality',
+        width: 90,
+        render: (value: string) => <Tag>{formatDisplayLabel(SKILL_QUALITY_LABELS, value)}</Tag>,
+      },
+      {
         title: '目标',
         dataIndex: 'target_type',
         key: 'target_type',
@@ -302,6 +311,9 @@ export function SkillDefinitionPage() {
           <Form.Item name="activation_mode" label="释放">
             <Select allowClear placeholder="释放" style={{ width: 100 }} options={SKILL_ACTIVATION_MODE_OPTIONS} />
           </Form.Item>
+          <Form.Item name="skill_quality" label="品质">
+            <Select allowClear placeholder="品质" style={{ width: 110 }} options={SKILL_QUALITY_OPTIONS} />
+          </Form.Item>
           <Form.Item name="enabled" label="启用">
             <Select
               allowClear
@@ -374,6 +386,7 @@ export function SkillDefinitionPage() {
                 {formatDisplayLabel(SKILL_CATEGORY_LABELS, detail.skill_category)} / {formatDisplayLabel(SKILL_TYPE_LABELS, detail.skill_type)}
               </Descriptions.Item>
               <Descriptions.Item label="释放方式">{formatDisplayLabel(SKILL_ACTIVATION_MODE_LABELS, detail.activation_mode)}</Descriptions.Item>
+              <Descriptions.Item label="技能品质">{formatDisplayLabel(SKILL_QUALITY_LABELS, detail.skill_quality)}</Descriptions.Item>
               <Descriptions.Item label="普攻模板">{detail.is_basic_attack ? '是' : '否'}</Descriptions.Item>
               {detail.skill_category === 'weapon' ? (
                 <>

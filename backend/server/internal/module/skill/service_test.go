@@ -2,6 +2,63 @@ package skill
 
 import "testing"
 
+func TestSkillQualityValidation(t *testing.T) {
+	validQualities := []string{
+		QualityNormal,
+		QualityDivine,
+		QualitySoul,
+		QualitySacred,
+		QualityPeerless,
+	}
+	for _, quality := range validQualities {
+		if !IsValidQuality(quality) {
+			t.Fatalf("IsValidQuality(%q) = false, want true", quality)
+		}
+	}
+	if IsValidQuality("legendary") {
+		t.Fatal("IsValidQuality(\"legendary\") = true, want false")
+	}
+}
+
+func TestAdminUpsertInputNormalizeDefaultsSkillQuality(t *testing.T) {
+	input := AdminUpsertInput{}.Normalize()
+	if input.SkillQuality != QualityNormal {
+		t.Fatalf("SkillQuality = %q, want %q", input.SkillQuality, QualityNormal)
+	}
+}
+
+func TestRuntimeDefinitionResolvedSkillVisualID(t *testing.T) {
+	tests := []struct {
+		name       string
+		definition RuntimeDefinition
+		want       string
+	}{
+		{
+			name: "explicit visual id wins",
+			definition: RuntimeDefinition{
+				SkillCode:     "pet_圣技_幻影闪击",
+				SkillVisualID: "custom_visual",
+			},
+			want: "custom_visual",
+		},
+		{
+			name: "skill code supports legacy empty visual id",
+			definition: RuntimeDefinition{
+				SkillCode: "pet_圣技_幻影闪击",
+			},
+			want: "pet_圣技_幻影闪击",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if actual := test.definition.ResolvedSkillVisualID(); actual != test.want {
+				t.Fatalf("ResolvedSkillVisualID() = %q, want %q", actual, test.want)
+			}
+		})
+	}
+}
+
 func TestValidateAdminSkillDefinitionInputRejectsPassiveBasicAttack(t *testing.T) {
 	input := AdminUpsertInput{
 		SkillID:           2001,

@@ -230,8 +230,8 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="阶段描述" name="description" rules={[{ required: true, message: '请输入阶段描述' }]} extra="支持 BBCode 富文本。">
-                <RichTextEditor rows={2} placeholder="例如：与市场理萌交谈" showPreview={false} />
+              <Form.Item label="阶段描述" name="description" rules={[{ required: true, message: '请输入阶段描述' }]} extra="可在下方预览中刷色。">
+                <RichTextEditor rows={2} placeholder="例如：与市场理萌交谈" />
               </Form.Item>
             </Col>
             <Col xs={12} md={6}>
@@ -255,8 +255,8 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="引导文案" name="guide_text" extra="任务追踪/引导提示，支持 BBCode 富文本。">
-                <RichTextEditor rows={2} placeholder="例如：去商业区找市场理萌" showPreview={false} />
+              <Form.Item label="引导文案" name="guide_text" extra="任务追踪/引导提示，可在下方预览中刷色。">
+                <RichTextEditor rows={2} placeholder="例如：去商业区找市场理萌" />
               </Form.Item>
             </Col>
             <Col xs={12} md={6}>

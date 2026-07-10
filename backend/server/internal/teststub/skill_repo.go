@@ -58,6 +58,9 @@ func (r *SkillRepository) ListForAdmin(_ context.Context, query skill.AdminListQ
 		if query.ActivationMode != "" && current.ActivationMode != query.ActivationMode {
 			continue
 		}
+		if query.Quality != "" && current.SkillQuality != query.Quality {
+			continue
+		}
 		if query.Enabled != nil && current.IsEnabled != *query.Enabled {
 			continue
 		}
@@ -181,7 +184,7 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 		SkillID: input.SkillID, SkillCode: input.SkillCode, SkillName: input.SkillName,
 		SkillCategory: input.SkillCategory, WeaponDiscipline: input.WeaponDiscipline,
 		LearnExpRequired: input.LearnExpRequired, LearnExpPerUse: input.LearnExpPerUse,
-		SkillType: input.SkillType, ActivationMode: input.ActivationMode,
+		SkillType: input.SkillType, ActivationMode: input.ActivationMode, SkillQuality: input.SkillQuality,
 		Description: input.Description, AcquireMethod: input.AcquireMethod,
 		IsBasicAttack: input.IsBasicAttack, IsEnabled: input.IsEnabled, StatusText: statusText, SortWeight: input.SortWeight,
 		TargetRule: skill.AdminTargetRule{TargetType: input.TargetType, TargetCount: input.TargetCount, PreferredTargetHP: input.PreferredTargetHP},
@@ -209,7 +212,7 @@ func buildStubSkillDetail(input skill.AdminUpsertInput, createdAt time.Time) ski
 func adminSummaryFromSkillDetail(detail skill.AdminDetail) skill.AdminSummary {
 	return skill.AdminSummary{
 		SkillID: detail.SkillID, SkillCode: detail.SkillCode, SkillName: detail.SkillName,
-		SkillCategory: detail.SkillCategory, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, TargetType: detail.TargetRule.TargetType,
+		SkillCategory: detail.SkillCategory, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, SkillQuality: detail.SkillQuality, TargetType: detail.TargetRule.TargetType,
 		EnergyCost: detail.Formula.EnergyCost, IsBasicAttack: detail.IsBasicAttack, IsEnabled: detail.IsEnabled, StatusText: detail.StatusText,
 		CreatedAt: detail.CreatedAt, UpdatedAt: detail.UpdatedAt,
 	}
@@ -217,7 +220,7 @@ func adminSummaryFromSkillDetail(detail skill.AdminDetail) skill.AdminSummary {
 
 func runtimeFromSkillDetail(detail skill.AdminDetail) skill.RuntimeDefinition {
 	return skill.RuntimeDefinition{
-		SkillID: detail.SkillID, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, SkillCategory: detail.SkillCategory, WeaponDiscipline: detail.WeaponDiscipline,
+		SkillID: detail.SkillID, SkillCode: detail.SkillCode, SkillType: detail.SkillType, ActivationMode: detail.ActivationMode, SkillQuality: detail.SkillQuality, SkillCategory: detail.SkillCategory, WeaponDiscipline: detail.WeaponDiscipline,
 		LearnExpRequired: detail.LearnExpRequired, LearnExpPerUse: detail.LearnExpPerUse,
 		SkillName:  detail.SkillName,
 		TargetType: detail.TargetRule.TargetType, TargetCount: detail.TargetRule.TargetCount, PreferredTargetHP: detail.TargetRule.PreferredTargetHP,

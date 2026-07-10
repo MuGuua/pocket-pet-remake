@@ -85,12 +85,12 @@ export function EnhanceMaterialConfigEditor({ value, onChange }: EnhanceMaterial
             />
           </Form.Item>
         ) : null}
-        <Form.Item label="客户端说明文案" extra="可选；会随强化预览材料选项下发，供弹窗展示；支持 BBCode。">
+        <Form.Item label="客户端说明文案" extra="可选；会随强化预览材料选项下发，供弹窗展示；可在下方预览中刷色。">
           <RichTextEditor
             rows={3}
             value={normalized.description}
             onChange={(nextValue) => emitChange({ description: nextValue })}
-            placeholder="例如：精炼宝石，成功率 [color=green]+15%[/color]，失败仍会损坏装备。"
+            placeholder="例如：精炼宝石，成功率 +15%，失败仍会损坏装备。"
           />
         </Form.Item>
       </Form>

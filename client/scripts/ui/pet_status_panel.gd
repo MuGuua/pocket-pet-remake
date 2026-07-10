@@ -20,6 +20,17 @@ const DEFAULT_TAB_KEY: String = "basic"
 @export var preview_sprite_position: Vector2 = Vector2(207.77693, 106.18534)
 ## 宠物技能描述弹窗主体位置；对应 confirm_prompt_popup.tscn 中 VBoxContainer 的 position，可在 Inspector 自行微调。
 @export var skill_description_popup_position: Vector2 = Vector2(-280.0, -74.5)
+@export_group("技能品质边框")
+## 普通技能按钮主题。
+@export var normal_skill_button_theme: Theme = null
+## 神技按钮主题。
+@export var divine_skill_button_theme: Theme = null
+## 魂技按钮主题。
+@export var soul_skill_button_theme: Theme = null
+## 圣技按钮主题。
+@export var sacred_skill_button_theme: Theme = null
+## 绝世技能按钮主题。
+@export var peerless_skill_button_theme: Theme = null
 
 ## 标题栏关闭按钮。
 @onready var _close_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer/Button") as BaseButton
@@ -51,6 +62,8 @@ const DEFAULT_TAB_KEY: String = "basic"
 @onready var _operation_button_box: HBoxContainer = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/数据/VBoxContainer/其他按钮") as HBoxContainer
 ## 切换宠物时使用的通用 Loading；短请求会延迟 1 秒显示，避免闪屏。
 @onready var _request_loading: GenericLoadingScene = get_node_or_null("RequestLoadingOverlay") as GenericLoadingScene
+## 技能表现资源注册表；按服务端下发的 skill_visual_id 解析本地技能图标。
+@onready var _skill_visual_registry: BattleContentRegistry = get_node_or_null("BattleContentRegistry") as BattleContentRegistry
 
 ## 当前宠物列表按钮集合。
 var _pet_buttons: Array[BaseButton] = []
@@ -706,7 +719,23 @@ func _refresh_skill_buttons(skill_entries: Array[Dictionary]) -> void:
         button.disabled = not has_skill
         button.button_pressed = false
         button.tooltip_text = _build_skill_tooltip(entry)
+        button.theme = _resolve_skill_button_theme(str(entry.get("skill_quality", "normal")))
         _set_skill_button_icon(button, _resolve_skill_icon(entry), has_skill)
+
+
+## 按服务端技能品质选择场景配置的按钮边框主题，未知值回退普通品质。
+func _resolve_skill_button_theme(skill_quality: String) -> Theme:
+    match skill_quality.strip_edges().to_lower():
+        "divine":
+            return divine_skill_button_theme if divine_skill_button_theme != null else normal_skill_button_theme
+        "soul":
+            return soul_skill_button_theme if soul_skill_button_theme != null else normal_skill_button_theme
+        "sacred":
+            return sacred_skill_button_theme if sacred_skill_button_theme != null else normal_skill_button_theme
+        "peerless":
+            return peerless_skill_button_theme if peerless_skill_button_theme != null else normal_skill_button_theme
+        _:
+            return normal_skill_button_theme
 
 
 ## 生成技能槽提示文案，移动端无 tooltip 时也不影响主显示。
@@ -803,8 +832,13 @@ func _resolve_skill_description(entry: Dictionary) -> String:
     return "服务端暂未配置该技能描述。"
 
 
-## 从服务端 icon 字段解析技能图标；缺失时使用技能按钮场景自带默认图标。
+## 优先按服务端 skill_visual_id 读取本地技能表现图标，并兼容旧版图标路径字段。
 func _resolve_skill_icon(entry: Dictionary) -> Texture2D:
+    var skill_visual_id: String = str(entry.get("skill_visual_id", "")).strip_edges()
+    if _skill_visual_registry != null and not skill_visual_id.is_empty():
+        var configured_icon: Texture2D = _skill_visual_registry.get_skill_icon(skill_visual_id)
+        if configured_icon != null:
+            return configured_icon
     var icon_path: String = str(entry.get("icon", entry.get("skill_icon", entry.get("icon_path", "")))).strip_edges()
     if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
         var resource: Resource = load(icon_path)

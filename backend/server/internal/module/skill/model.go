@@ -20,6 +20,11 @@ var (
 const (
 	ActivationModeActive  = "active"
 	ActivationModePassive = "passive"
+	QualityNormal         = "normal"
+	QualityDivine         = "divine"
+	QualitySoul           = "soul"
+	QualitySacred         = "sacred"
+	QualityPeerless       = "peerless"
 
 	PassiveAttrModeFlat    = "flat"
 	PassiveAttrModePercent = "percent"
@@ -42,6 +47,7 @@ type AdminListQuery struct {
 	Category       string
 	Type           string
 	ActivationMode string
+	Quality        string
 	Enabled        *bool
 	OrderBy        string
 	Page           uint32
@@ -63,6 +69,7 @@ func (q AdminListQuery) Normalize() AdminListQuery {
 	q.Category = strings.TrimSpace(q.Category)
 	q.Type = strings.TrimSpace(q.Type)
 	q.ActivationMode = strings.TrimSpace(q.ActivationMode)
+	q.Quality = strings.TrimSpace(q.Quality)
 	q.OrderBy = strings.TrimSpace(q.OrderBy)
 	return q
 }
@@ -75,6 +82,7 @@ type AdminSummary struct {
 	SkillCategory  string    `json:"skill_category"`
 	SkillType      string    `json:"skill_type"`
 	ActivationMode string    `json:"activation_mode"`
+	SkillQuality   string    `json:"skill_quality"`
 	TargetType     string    `json:"target_type"`
 	EnergyCost     uint32    `json:"energy_cost"`
 	IsBasicAttack  bool      `json:"is_basic_attack"`
@@ -168,6 +176,7 @@ type AdminDetail struct {
 	LearnExpPerUse   uint32             `json:"learn_exp_per_use"`
 	SkillType        string             `json:"skill_type"`
 	ActivationMode   string             `json:"activation_mode"`
+	SkillQuality     string             `json:"skill_quality"`
 	Description      string             `json:"description"`
 	AcquireMethod    string             `json:"acquire_method"`
 	IsBasicAttack    bool               `json:"is_basic_attack"`
@@ -196,6 +205,7 @@ type AdminUpsertInput struct {
 	LearnExpPerUse         uint32 `json:"learn_exp_per_use"`
 	SkillType              string `json:"skill_type"`
 	ActivationMode         string `json:"activation_mode"`
+	SkillQuality           string `json:"skill_quality"`
 	Description            string `json:"description"`
 	AcquireMethod          string `json:"acquire_method"`
 	IsBasicAttack          bool   `json:"is_basic_attack"`
@@ -263,6 +273,7 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	input.WeaponDiscipline = strings.TrimSpace(input.WeaponDiscipline)
 	input.SkillType = strings.TrimSpace(input.SkillType)
 	input.ActivationMode = strings.TrimSpace(input.ActivationMode)
+	input.SkillQuality = strings.TrimSpace(input.SkillQuality)
 	input.Description = strings.TrimSpace(input.Description)
 	input.AcquireMethod = strings.TrimSpace(input.AcquireMethod)
 	input.TargetType = strings.TrimSpace(input.TargetType)
@@ -292,6 +303,9 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 	}
 	if input.ActivationMode != ActivationModePassive {
 		input.ActivationMode = ActivationModeActive
+	}
+	if input.SkillQuality == "" {
+		input.SkillQuality = QualityNormal
 	}
 	if input.TargetType == "" {
 		input.TargetType = "enemy_single"
@@ -325,6 +339,7 @@ func (input AdminUpsertInput) Normalize() AdminUpsertInput {
 // RuntimeDefinition 是战斗运行时读取的技能模板快照。
 type RuntimeDefinition struct {
 	SkillID                uint32
+	SkillCode              string
 	SkillType              string
 	SkillCategory          string
 	WeaponDiscipline       string
@@ -333,6 +348,7 @@ type RuntimeDefinition struct {
 	SkillName              string
 	Description            string
 	ActivationMode         string
+	SkillQuality           string
 	TargetType             string
 	TargetCount            uint32
 	PreferredTargetHP      string
@@ -386,6 +402,24 @@ type RuntimeDefinition struct {
 	PassiveAttrMode        string
 	PassiveAttrValue       int32
 	IsBasicAttack          bool
+}
+
+// 返回客户端技能表现资源标识；历史数据未配置专用标识时使用数据库技能编码兼容。
+func (d RuntimeDefinition) ResolvedSkillVisualID() string {
+	if visualID := strings.TrimSpace(d.SkillVisualID); visualID != "" {
+		return visualID
+	}
+	return strings.TrimSpace(d.SkillCode)
+}
+
+// 判断技能品质是否属于客户端已支持的五档边框范围。
+func IsValidQuality(value string) bool {
+	switch strings.TrimSpace(value) {
+	case QualityNormal, QualityDivine, QualitySoul, QualitySacred, QualityPeerless:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsValidPassiveAttrKey 判断后台选择的永久被动属性字段是否在当前受支持范围内。

@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" format=3 uid="uid://cysqg2hrg111q"]
+
+[ext_resource type="Texture2D" uid="uid://dgpu784qrux6a" path="res://asset/分类/特效/新技能特效/Water Effect and Bullet 16x16.png" id="1_hdp6j"]
+[ext_resource type="Script" uid="uid://dr0rih5va8au0" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="2_r0hv4"]
+[ext_resource type="Texture2D" uid="uid://neqmpk1jqqv5" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/RPG Maker MV and MZ/IconSet.png" id="2_siahb"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r0hv4"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(480, 0, 16, 17)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_siahb"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(496, 0, 16, 17)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lppyd"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(512, 0, 16, 17)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ros4h"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(528, 0, 16, 17)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0fia4"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(544, 0, 16, 17)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yn2a6"]
+atlas = ExtResource("1_hdp6j")
+region = Rect2(560, 0, 16, 17)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_blade"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r0hv4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_siahb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lppyd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ros4h")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0fia4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yn2a6")
+}],
+"loop": 0,
+"name": &"默认",
+"speed": 14.0
+}]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jd1u0"]
+atlas = ExtResource("2_siahb")
+region = Rect2(384, 2240, 32, 32)
+
+[resource]
+script = ExtResource("2_r0hv4")
+skill_visual_id = "pet_圣技_幻影闪击"
+icon = SubResource("AtlasTexture_jd1u0")
+animation_key = "pet_圣技_幻影闪击"
+action_type = "skill"
+effect_id = "pet_圣技_幻影闪击"
+effect_frames = SubResource("SpriteFrames_blade")
+effect_tint = Color(0.8862745, 0.8901961, 0.8901961, 1)
+effect_player_animation = "冲击"

@@ -150,10 +150,12 @@ func toProtocolSkillSlotEntries(entries []pet.SkillSlotEntry, metadata map[uint3
 func toProtocolSkillSlotEntry(entry pet.SkillSlotEntry, metadata map[uint32]pet.SkillMetadata) protocol.PetSkillSlotEntry {
 	skillMetadata := metadata[entry.SkillID]
 	return protocol.PetSkillSlotEntry{
-		SlotIndex:   entry.SlotIndex,
-		SkillID:     entry.SkillID,
-		Enabled:     entry.Enabled,
-		SkillName:   strings.TrimSpace(skillMetadata.SkillName),
-		Description: strings.TrimSpace(skillMetadata.Description),
+		SlotIndex:     entry.SlotIndex,
+		SkillID:       entry.SkillID,
+		Enabled:       entry.Enabled,
+		SkillName:     strings.TrimSpace(skillMetadata.SkillName),
+		Description:   strings.TrimSpace(skillMetadata.Description),
+		SkillVisualID: strings.TrimSpace(skillMetadata.SkillVisualID),
+		SkillQuality:  strings.TrimSpace(skillMetadata.SkillQuality),
 	}
 }

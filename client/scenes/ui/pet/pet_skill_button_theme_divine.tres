@@ -1,0 +1,30 @@
+[gd_resource type="Theme" format=3]
+
+[ext_resource type="Texture2D" path="res://asset/分类/ui/技能边框.png" id="1_border"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hover"]
+atlas = ExtResource("1_border")
+region = Rect2(1470, 150, 238, 232)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_hover"]
+texture = SubResource("AtlasTexture_hover")
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pressed"]
+atlas = ExtResource("1_border")
+region = Rect2(1470, 453, 238, 233)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_pressed"]
+texture = SubResource("AtlasTexture_pressed")
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_normal"]
+atlas = ExtResource("1_border")
+region = Rect2(1470, 760, 238, 233)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_normal"]
+texture = SubResource("AtlasTexture_normal")
+
+[resource]
+Button/styles/hover = SubResource("StyleBoxTexture_hover")
+Button/styles/hover_pressed = SubResource("StyleBoxTexture_pressed")
+Button/styles/normal = SubResource("StyleBoxTexture_normal")
+Button/styles/pressed = SubResource("StyleBoxTexture_pressed")

@@ -499,9 +499,9 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
               <Form.Item
                 label="描述"
                 name="desc"
-                extra="支持 BBCode 富文本与 {item:物品ID} 占位符，客户端会在占位符处内联展示物品 icon 与名称。"
+                extra="可在下方预览中刷色；{item:物品ID} 占位符会在客户端内联展示物品 icon 与名称。"
               >
-                <RichTextEditor rows={4} placeholder="例如：恢复HP [color=green]+300[/color]" />
+                <RichTextEditor rows={4} placeholder="例如：恢复HP +300" />
               </Form.Item>
             </Col>
 

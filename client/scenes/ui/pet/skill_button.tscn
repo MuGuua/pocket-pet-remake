@@ -13,9 +13,7 @@ theme = ExtResource("1_b68a6")
 toggle_mode = true
 
 [node name="Icon" type="TextureRect" parent="." unique_id=115112985]
-visible = false
-custom_minimum_size = Vector2(64, 64)
-custom_maximum_size = Vector2(64, 64)
+custom_maximum_size = Vector2(60, 60)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5

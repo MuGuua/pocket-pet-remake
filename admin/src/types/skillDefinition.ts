@@ -8,6 +8,7 @@ export interface AdminSkillSummary {
   learn_exp_per_use?: number;
   skill_type: string;
   activation_mode: string;
+  skill_quality: string;
   target_type: string;
   energy_cost: number;
   is_basic_attack: boolean;
@@ -95,6 +96,7 @@ export interface AdminSkillDetail {
   learn_exp_per_use?: number;
   skill_type: string;
   activation_mode: string;
+  skill_quality: string;
   description: string;
   acquire_method: string;
   is_basic_attack: boolean;
@@ -118,6 +120,7 @@ export interface AdminSkillListFilters {
   category?: string;
   skill_type?: string;
   activation_mode?: string;
+  skill_quality?: string;
   enabled?: 'true' | 'false';
   order_by?: string;
 }
@@ -132,6 +135,7 @@ export interface AdminUpsertSkillPayload {
   learn_exp_per_use?: number;
   skill_type: string;
   activation_mode: string;
+  skill_quality: string;
   description: string;
   acquire_method: string;
   is_basic_attack: boolean;
@@ -200,6 +204,7 @@ export function defaultSkillValues(skillID: number): AdminUpsertSkillPayload {
     skill_category: 'pet',
     skill_type: 'attack',
     activation_mode: 'active',
+    skill_quality: 'normal',
     description: '',
     acquire_method: '运营配置',
     is_basic_attack: false,
@@ -272,6 +277,7 @@ export function detailToPayload(detail: AdminSkillDetail): AdminUpsertSkillPaylo
     learn_exp_per_use: detail.learn_exp_per_use,
     skill_type: detail.skill_type,
     activation_mode: detail.activation_mode,
+    skill_quality: detail.skill_quality,
     description: detail.description,
     acquire_method: detail.acquire_method,
     is_basic_attack: detail.is_basic_attack,

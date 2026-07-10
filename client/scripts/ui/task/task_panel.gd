@@ -179,9 +179,9 @@ func _apply_quest_to_card(card: Control, quest: Dictionary) -> void:
     var title_label: Label = _task_title_label(card)
     if title_label != null:
         title_label.text = UiFormat.normalize_text(str(quest.get("title", "任务")))
-    var description_label: Label = _task_description_label(card)
+    var description_label: RichTextLabel = _task_description_label(card)
     if description_label != null:
-        description_label.text = _build_task_description(quest)
+        RichTextContent.apply_bbcode_text(description_label, _build_task_description(quest))
     var progress: Dictionary = _resolve_task_progress(quest)
     var progress_bar: ProgressBar = _task_progress_bar(card)
     if progress_bar != null:
@@ -403,8 +403,8 @@ func _task_title_label(card: Control) -> Label:
 
 
 ## 通用任务卡片描述标签。
-func _task_description_label(card: Control) -> Label:
-    return card.get_node_or_null("MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/Label2") as Label
+func _task_description_label(card: Control) -> RichTextLabel:
+    return card.get_node_or_null("MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/Label2") as RichTextLabel
 
 
 ## 通用任务卡片进度条。

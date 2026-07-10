@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SkillVisualConfig" format=3 uid="uid://cjtdb3uu5wsuf"]
+
+[ext_resource type="Texture2D" uid="uid://neqmpk1jqqv5" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/RPG Maker MV and MZ/IconSet.png" id="1_im0hm"]
+[ext_resource type="Script" uid="uid://dr0rih5va8au0" path="res://scripts/feature/battle/resources/skill_visual_config.gd" id="2_w8tgu"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_im0hm"]
+atlas = ExtResource("1_im0hm")
+region = Rect2(416, 1760, 32, 32)
+
+[resource]
+script = ExtResource("2_w8tgu")
+skill_visual_id = "pet_迅捷A"
+icon = SubResource("AtlasTexture_im0hm")
+animation_key = "pet_迅捷A"
+action_type = "skill"
+effect_id = "pet_迅捷A"

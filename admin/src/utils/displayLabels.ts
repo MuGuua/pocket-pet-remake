@@ -148,6 +148,15 @@ export const SKILL_ACTIVATION_MODE_LABELS: Record<string, string> = {
   passive: '被动',
 };
 
+/** 技能展示品质，只影响客户端技能按钮边框。 */
+export const SKILL_QUALITY_LABELS: Record<string, string> = {
+  normal: '普通技能',
+  divine: '神技',
+  soul: '魂技',
+  sacred: '圣技',
+  peerless: '绝世',
+};
+
 /** 技能目标类型 */
 export const TARGET_TYPE_LABELS: Record<string, string> = {
   enemy_single: '单个敌人',
@@ -222,6 +231,7 @@ export function buildSelectOptions(labels: Record<string, string>): Array<{ labe
 
 export const SKILL_TYPE_OPTIONS = buildSelectOptions(SKILL_TYPE_LABELS);
 export const SKILL_ACTIVATION_MODE_OPTIONS = buildSelectOptions(SKILL_ACTIVATION_MODE_LABELS);
+export const SKILL_QUALITY_OPTIONS = buildSelectOptions(SKILL_QUALITY_LABELS);
 export const TARGET_TYPE_OPTIONS = buildSelectOptions(TARGET_TYPE_LABELS);
 export const PREFERRED_TARGET_OPTIONS = [
   { value: '', label: '默认 / 不指定' },

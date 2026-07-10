@@ -988,8 +988,10 @@ func (s *Service) applySkillMetadata(item *Pet) {
 			continue
 		}
 		metadata[skillID] = SkillMetadata{
-			SkillName:   strings.TrimSpace(definition.SkillName),
-			Description: strings.TrimSpace(definition.Description),
+			SkillName:     strings.TrimSpace(definition.SkillName),
+			Description:   strings.TrimSpace(definition.Description),
+			SkillVisualID: definition.ResolvedSkillVisualID(),
+			SkillQuality:  strings.TrimSpace(definition.SkillQuality),
 		}
 	}
 	item.SkillMetadata = metadata

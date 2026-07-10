@@ -396,7 +396,7 @@ function QuestTemplatePanel() {
                             <Col xs={24} md={12}><Form.Item label="任务类型" name="quest_type" rules={[{ required: true, message: '请选择任务类型' }]}><Select options={questTypeOptions} /></Form.Item></Col>
                             <Col span={24}><Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]} extra="展示给玩家的正式任务标题。"><Input placeholder="例如：初识市场理萌" /></Form.Item></Col>
                             <Col span={24}>
-                              <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端任务详情会原样渲染。">
+                              <Form.Item label="描述" name="description" extra="可在下方预览中刷色，客户端任务详情会保持同样效果。">
                                 <RichTextEditor rows={5} />
                               </Form.Item>
                             </Col>

@@ -8,6 +8,7 @@ import {
   PREFERRED_TARGET_OPTIONS,
   SKILL_ACTIVATION_MODE_OPTIONS,
   SKILL_CATEGORY_OPTIONS,
+  SKILL_QUALITY_OPTIONS,
   SKILL_TYPE_OPTIONS,
   TARGET_TYPE_OPTIONS,
   WEAPON_DISCIPLINE_OPTIONS,
@@ -107,6 +108,11 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
+          <Form.Item label="技能品质" name="skill_quality" rules={[{ required: true, message: '请选择技能品质' }]}>
+            <Select options={SKILL_QUALITY_OPTIONS} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
           <Form.Item label="排序权重" name="sort_weight">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
@@ -131,8 +137,8 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
           </>
         ) : null}
         <Col span={24}>
-          <Form.Item label="描述" name="description" extra="支持 BBCode 富文本，客户端技能详情会原样渲染。">
-            <RichTextEditor rows={4} placeholder="例如：对单个敌人造成物理伤害，伤害 [color=green]+120%[/color]" />
+          <Form.Item label="描述" name="description" extra="可在下方预览中刷色，客户端技能详情会保持同样效果。">
+            <RichTextEditor rows={4} placeholder="例如：对单个敌人造成物理伤害，伤害 +120%" />
           </Form.Item>
         </Col>
         <Col xs={24} md={12}>

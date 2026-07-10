@@ -204,8 +204,8 @@ export function EquipmentEnhanceSuccessPage({ embedded = false }: EquipmentEnhan
           >
             <InputNumber min={0} max={100} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item label="说明" name="description" extra="运营备注，支持 BBCode 富文本。">
-            <RichTextEditor rows={2} placeholder="例如：41~50级装备强化至 +10" showPreview={false} />
+          <Form.Item label="说明" name="description" extra="运营备注，可在下方预览中刷色。">
+            <RichTextEditor rows={2} placeholder="例如：41~50级装备强化至 +10" />
           </Form.Item>
           <Form.Item label="启用" name="status" valuePropName="checked">
             <Switch checkedChildren="启用" unCheckedChildren="停用" />

@@ -3,8 +3,34 @@ package wstransport
 import (
 	"testing"
 
+	"pocket-pet-remake/server/internal/module/pet"
+	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/protocol"
 )
+
+func TestToProtocolSkillSlotEntryIncludesSkillVisualID(t *testing.T) {
+	entry := pet.SkillSlotEntry{
+		SlotIndex: 2,
+		SkillID:   20001,
+		Enabled:   true,
+	}
+	metadata := map[uint32]pet.SkillMetadata{
+		20001: {
+			SkillName:     "圣技幻影闪击",
+			Description:   "快速攻击目标。",
+			SkillVisualID: "pet_圣技_幻影闪击",
+			SkillQuality:  skill.QualitySacred,
+		},
+	}
+
+	actual := toProtocolSkillSlotEntry(entry, metadata)
+	if actual.SkillVisualID != "pet_圣技_幻影闪击" {
+		t.Fatalf("SkillVisualID = %q, want %q", actual.SkillVisualID, "pet_圣技_幻影闪击")
+	}
+	if actual.SkillQuality != skill.QualitySacred {
+		t.Fatalf("SkillQuality = %q, want %q", actual.SkillQuality, skill.QualitySacred)
+	}
+}
 
 func TestRouterHandlePetList(t *testing.T) {
 	_, router, _, conn := buildWorldRouterForTest(t)

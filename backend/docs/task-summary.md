@@ -1,5 +1,28 @@
 # 任务总结
 
+## 2026-07-10 技能品质按钮边框
+
+本次新增独立技能品质展示链路：
+- 迁移 `backend/server/migrations/097_skill_quality.sql` 为技能模板增加 `skill_quality`，支持 `normal/divine/soul/sacred/peerless`，并按历史技能名称中的神技、魂技、圣技、绝世自动回填
+- 后台技能模板新增品质选择、列表列、筛选项和详情字段；新技能默认普通品质，非法品质由服务端拒绝
+- 宠物技能详情槽位新增 `skill_quality`，服务端从权威技能运行时缓存下发，客户端不根据技能名称自行猜测
+- 宠物技能按钮通过场景配置的五套 Theme 切换边框：普通灰、神技绿、魂技蓝、圣技紫、绝世金；普通技能 A 至 F 共用普通品质边框
+- 品质只影响客户端边框，不参与 `activation_mode`、`skill_type`、伤害公式、被动效果或技能释放规则
+
+## 2026-07-10 技能表现资源图标接入
+
+本次改动复用技能模板已有的 `skill_visual_id`，完成服务端技能数据到客户端本地图标的最小闭环：
+- `client/scripts/feature/battle/resources/skill_visual_config.gd` 新增导出字段 `icon: Texture2D`，每个技能表现 `.tres` 可在 Godot Inspector 独立指定技能图标
+- `client/scripts/feature/battle/battle_content_registry.gd` 新增按表现 ID 获取图标的方法，并通过 `ResourceLoader.list_directory()` 自动注册技能资源目录内的全部 `.tres/.res`
+- 宠物技能详情协议的每个技能槽新增 `skill_visual_id`；该值来自数据库技能模板，不新增图标字段或迁移，也不向客户端下发 `res://` 路径
+- `client/scenes/ui/pet/pet_status_panel.tscn` 预置技能资源注册表节点，宠物状态面板优先使用 `.tres.icon`，并保留旧图标路径字段与默认技能图标回退
+- `client/scripts/feature/battle/action_panel.gd` 复用战斗场景已有资源注册表，让服务端技能列表中的 `skill_visual_id` 同样驱动选择按钮图标；未配置图标时保持原有纯文字按钮
+- 已补充协议转换单测，锁定技能表现 ID 能完整进入宠物技能槽响应
+- 排查实际运行数据后确认技能 `20191` 的旧种子把 `skill_visual_id` 留空；新增 `backend/server/migrations/096_backfill_signature_skill_visual_id.sql` 只对空值回填 `pet_圣技_幻影闪击`，不会覆盖运营后台已有配置
+- 技能运行时快照补充数据库 `skill_code`，历史 `skill_visual_id` 为空时临时用技能编码解析客户端资源；宠物详情和战斗技能快照共用该规则，避免两处展示口径不一致
+- 后续新增的 `迅捷A.tres` 与 `致命A.tres` 会由技能资源目录自动注册；两个被动技能只复用资源中的 `icon` 做宠物技能栏展示，不要求配置或播放特效
+- 技能资源注册已取消手工路径清单；当前导出配置使用 `all_resources`，新增配置只需放入 `client/resources/battle/skill_visuals/` 并填写唯一 `skill_visual_id`，桌面与 Web 导出包都可通过 `ResourceLoader` 枚举
+
 ## 2026-07-09 技能释放期命中加成配置
 
 本次补充聚焦把“某个技能释放时临时提高命中”从字段复用收敛成独立配置：
@@ -737,3 +760,18 @@
 - 多个任务可以配置相同 `client_icon_id`，客户端会统一通过 `TaskIcons.resolve_texture(client_icon_id)` 解析同一张图标。
 - 后台任务模板类型、列表、详情、创建、编辑均补充 `client_icon_id`，运营可以直接配置客户端图标 ID。
 - 客户端任务面板优先读取 `client_icon_id`，并保留旧 `icon_id` 回退，避免灰度期间旧包缺字段导致图标空白。
+
+## 2026-07-10 后台富文本双栏编辑与可视化刷色
+
+本次改动收口后台所有已声明支持 BBCode 的编辑入口：
+- `admin/src/components/RichTextEditor.tsx` 统一改为上方纯文本输入、下方客户端效果与刷色的单列布局。
+- 下方预览中拖选文字后，编辑器会把 DOM 选区精确映射回内部 BBCode 偏移，再用所选颜色标签包裹；物品、宠物和玩家名占位符仍保留原 token。
+- 六个颜色笔刷使用精确色值：`rgb(42,255,42)`、`rgb(255,255,0)`、`rgb(0,255,255)`、`rgb(255,125,0)`、`rgb(255,100,255)`、`rgb(255,0,0)`。
+- `admin/src/utils/richTextBbcode.ts` 新增可见字符与 BBCode 原文偏移转换、指定区间刷色能力；颜色笔刷统一使用精确十六进制色值。
+- 已清理装备强化成功、宠物属性上限、宠物技能槽解锁、任务阶段等入口中的 `showPreview={false}`，保证所有富文本编辑都显示右侧效果。
+- 客户端 `task_list.tscn` 的任务描述节点保留原节点名与布局，只把类型切换为 `RichTextLabel`；`task_panel.gd` 通过通用富文本工具写入 BBCode。
+- 根据最终界面要求，上方仅保留受控 `Input.TextArea`，显示时去除 `[color]` / `[b]` / `[i]` / `[u]` 标签，删除原文标题、格式工具、插入系统模板、插入示例与底部说明。
+- 下方颜色区增加常用白 `rgb(255,255,255)` / `#FFFFFF`，当前共七个常用色。
+- `admin/src/utils/richTextBbcode.ts` 增加 BBCode 格式字符解析与重建；运营修改纯文本时，未变部分的颜色、加粗、斜体和下划线继续保留，实际表单值仍为服务端和 Godot 可直接识别的 BBCode。
+- 重新刷色不再向已有颜色内直接嵌套新标签；刷色时会把源码选区转换为可见字符区间，替换该区间的颜色格式后统一重建 BBCode。
+- 已验证三类情况：单个颜色内局部重刷、跨两个颜色重刷、加粗+颜色文字重刷；可见文字和非颜色格式均保持不变。

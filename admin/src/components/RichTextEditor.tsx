@@ -1,16 +1,12 @@
-import { Button, Card, Dropdown, Input, Space, Typography } from 'antd';
-import type { TextAreaRef } from 'antd/es/input/TextArea';
-import { useMemo, useRef, useState } from 'react';
+import { Button, Card, Input, Space, Typography } from 'antd';
+import { useRef, useState } from 'react';
 import {
   RICH_TEXT_COLOR_PRESETS,
-  RICH_TEXT_EXAMPLE_TEMPLATES,
-  RICH_TEXT_TOOLBAR_ACTIONS,
-  applyTextareaBbcodeAction,
-  insertTextAtCursor,
-  type RichTextToolbarAction,
+  applyBbcodeColorRange,
+  bbcodeToPlainText,
+  updateBbcodeFromPlainText,
+  visibleOffsetToBbcodeOffset,
 } from '../utils/richTextBbcode';
-import { PLAYER_NAME_TOKEN } from '../utils/itemMentionContent';
-import { ItemMentionPickerModal } from './ItemMentionPickerModal';
 import { ItemMentionPreview } from './ItemMentionPreview';
 
 interface RichTextEditorProps {
@@ -19,17 +15,63 @@ interface RichTextEditorProps {
   rows?: number;
   placeholder?: string;
   disabled?: boolean;
-  /** 是否展示实时预览区。 */
-  showPreview?: boolean;
-  /** 是否展示「插入系统模板」按钮（物品/装备/宠物）。 */
-  enableItemMention?: boolean;
-  /** 是否展示「@玩家」按钮（剧情对白专用）。 */
+  /** 是否在右侧预览中把玩家名占位符渲染为示例名称。 */
   enablePlayerNameMention?: boolean;
 }
 
+interface RichTextVisualSelection {
+  sourceStart: number;
+  sourceEnd: number;
+  text: string;
+}
+
+/** 查找预览边界所在的原文映射节点。 */
+function findSourceElement(node: Node, previewRoot: HTMLElement): HTMLElement | null {
+  let current: HTMLElement | null = node.nodeType === Node.ELEMENT_NODE
+    ? node as HTMLElement
+    : node.parentElement;
+  while (current && current !== previewRoot) {
+    if (current.dataset.richSourceStart !== undefined && current.dataset.richSourceEnd !== undefined) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+/** 将右侧 DOM 选区边界映射回 BBCode 原文偏移。 */
+function resolveSourceBoundary(
+  source: string,
+  previewRoot: HTMLElement,
+  boundaryNode: Node,
+  boundaryOffset: number,
+  isEndBoundary: boolean,
+): number | null {
+  const sourceElement = findSourceElement(boundaryNode, previewRoot);
+  if (!sourceElement) {
+    return null;
+  }
+  const sourceStart = Number(sourceElement.dataset.richSourceStart ?? 0);
+  const sourceEnd = Number(sourceElement.dataset.richSourceEnd ?? sourceStart);
+  if (sourceElement.dataset.richSourceKind === 'mention') {
+    return isEndBoundary ? sourceEnd : sourceStart;
+  }
+
+  try {
+    const localRange = document.createRange();
+    localRange.selectNodeContents(sourceElement);
+    localRange.setEnd(boundaryNode, boundaryOffset);
+    const visibleOffset = localRange.toString().length;
+    const sourceSlice = source.slice(sourceStart, sourceEnd);
+    return sourceStart + visibleOffsetToBbcodeOffset(sourceSlice, visibleOffset);
+  } catch {
+    return isEndBoundary ? sourceEnd : sourceStart;
+  }
+}
+
 /**
- * 面向运营的 BBCode 富文本编辑器：工具栏快捷插入 + 系统模板选择 + 客户端效果预览。
- * 可直接作为 Ant Design Form.Item 的受控子组件。
+ * 后台统一 BBCode 富文本编辑器。
+ * 左侧编辑服务端持久化的原文，右侧按客户端规则渲染并支持选中文字后刷色。
  */
 export function RichTextEditor({
   value = '',
@@ -37,157 +79,113 @@ export function RichTextEditor({
   rows = 3,
   placeholder,
   disabled = false,
-  showPreview = true,
-  enableItemMention = true,
   enablePlayerNameMention = false,
 }: RichTextEditorProps) {
-  const textareaRef = useRef<TextAreaRef>(null);
-  const [itemPickerOpen, setItemPickerOpen] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [visualSelection, setVisualSelection] = useState<RichTextVisualSelection | null>(null);
 
-  const previewTitle = useMemo(
-    () => (enablePlayerNameMention ? '对话预览（客户端最终效果）' : '客户端预览'),
-    [enablePlayerNameMention],
-  );
-
-  function focusTextarea() {
-    textareaRef.current?.focus();
-  }
-
-  function commitTextareaChange(nextValue: string, selectionStart: number, selectionEnd: number) {
-    onChange?.(nextValue);
-    requestAnimationFrame(() => {
-      const native = textareaRef.current?.resizableTextArea?.textArea;
-      if (!native) {
-        return;
-      }
-      native.focus();
-      native.setSelectionRange(selectionStart, selectionEnd);
-    });
-  }
-
-  function insertToken(token: string) {
-    const native = textareaRef.current?.resizableTextArea?.textArea;
-    if (!native || disabled) {
-      onChange?.(`${value}${value && !value.endsWith(' ') ? ' ' : ''}${token}`);
+  function captureVisualSelection() {
+    const previewRoot = previewRef.current;
+    const selection = window.getSelection();
+    if (!previewRoot || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      setVisualSelection(null);
       return;
     }
-    focusTextarea();
-    const result = insertTextAtCursor(native, token);
-    commitTextareaChange(result.nextValue, result.selectionStart, result.selectionEnd);
+    const range = selection.getRangeAt(0);
+    if (!previewRoot.contains(range.startContainer) || !previewRoot.contains(range.endContainer)) {
+      setVisualSelection(null);
+      return;
+    }
+    const sourceStart = resolveSourceBoundary(value, previewRoot, range.startContainer, range.startOffset, false);
+    const sourceEnd = resolveSourceBoundary(value, previewRoot, range.endContainer, range.endOffset, true);
+    if (sourceStart === null || sourceEnd === null || sourceEnd <= sourceStart) {
+      setVisualSelection(null);
+      return;
+    }
+    setVisualSelection({ sourceStart, sourceEnd, text: selection.toString() });
   }
 
-  function handleToolbarAction(action: RichTextToolbarAction) {
-    const native = textareaRef.current?.resizableTextArea?.textArea;
-    if (!native || disabled) {
-      onChange?.(`${value}${action.insert}`);
+  function handleVisualColorBrush(colorValue: string) {
+    if (disabled || !visualSelection) {
       return;
     }
-    focusTextarea();
-    const result = applyTextareaBbcodeAction(native, action);
-    commitTextareaChange(result.nextValue, result.selectionStart, result.selectionEnd);
+    onChange?.(applyBbcodeColorRange(value, visualSelection.sourceStart, visualSelection.sourceEnd, colorValue));
+    setVisualSelection(null);
+    window.getSelection()?.removeAllRanges();
   }
 
-  function handleColorPreset(colorValue: string) {
-    const native = textareaRef.current?.resizableTextArea?.textArea;
-    if (!native || disabled) {
-      onChange?.(`${value}[color=${colorValue}]文字[/color]`);
-      return;
-    }
-    focusTextarea();
-    const result = applyTextareaBbcodeAction(native, RICH_TEXT_TOOLBAR_ACTIONS[0], colorValue);
-    commitTextareaChange(result.nextValue, result.selectionStart, result.selectionEnd);
-  }
-
-  function handleInsertTemplate(templateValue: string) {
-    if (disabled) {
-      return;
-    }
-    if (!value.trim()) {
-      onChange?.(templateValue);
-      return;
-    }
-    onChange?.(`${value}\n${templateValue}`);
-  }
+  const previewTitle = enablePlayerNameMention ? '对话效果与刷色' : '客户端效果与刷色';
+  const previewMinHeight = Math.max(120, rows * 24);
+  const plainTextValue = bbcodeToPlainText(value);
 
   return (
-    <>
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
-        <Space wrap size={[4, 4]}>
-          {RICH_TEXT_TOOLBAR_ACTIONS.map((action) => (
-            <Button key={action.key} size="small" disabled={disabled} onClick={() => handleToolbarAction(action)}>
-              {action.label}
-            </Button>
-          ))}
-          {RICH_TEXT_COLOR_PRESETS.map((preset) => (
-            <Button
-              key={preset.value}
-              size="small"
-              disabled={disabled}
-              onClick={() => handleColorPreset(preset.value)}
-            >
-              {preset.label}
-            </Button>
-          ))}
-          {enableItemMention ? (
-            <Button size="small" disabled={disabled} onClick={() => setItemPickerOpen(true)}>
-              插入系统模板
-            </Button>
-          ) : null}
-          {enablePlayerNameMention ? (
-            <Button size="small" disabled={disabled} onClick={() => insertToken(PLAYER_NAME_TOKEN)}>
-              @玩家
-            </Button>
-          ) : null}
-          <Dropdown
-            menu={{
-              items: RICH_TEXT_EXAMPLE_TEMPLATES.map((item) => ({
-                key: item.label,
-                label: item.label,
-                onClick: () => handleInsertTemplate(item.value),
-              })),
+    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Input.TextArea
+        value={plainTextValue}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={(event) => {
+          setVisualSelection(null);
+          onChange?.(updateBbcodeFromPlainText(value, event.target.value));
+        }}
+      />
+
+      <Card size="small" title={previewTitle} styles={{ body: { padding: 12 } }}>
+        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+          <Space wrap size={[6, 6]}>
+            {RICH_TEXT_COLOR_PRESETS.map((preset) => (
+              <Button
+                key={preset.value}
+                size="small"
+                disabled={disabled || !visualSelection}
+                title={`${preset.label} ${preset.value}`}
+                onClick={() => handleVisualColorBrush(preset.value)}
+                style={{ paddingInline: 8 }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'inline-block',
+                    width: 14,
+                    height: 14,
+                    marginRight: 6,
+                    border: '1px solid rgba(0, 0, 0, 0.35)',
+                    background: preset.value,
+                    verticalAlign: -2,
+                  }}
+                />
+                {preset.label}
+              </Button>
+            ))}
+          </Space>
+
+          <Typography.Text type={visualSelection ? 'success' : 'secondary'} style={{ fontSize: 12 }}>
+            {visualSelection ? `已选中「${visualSelection.text}」，点击颜色完成刷色。` : '在下方预览中拖选文字，再点击颜色笔刷。'}
+          </Typography.Text>
+
+          <div
+            ref={previewRef}
+            onMouseUp={captureVisualSelection}
+            onKeyUp={captureVisualSelection}
+            style={{
+              minHeight: previewMinHeight,
+              padding: 12,
+              overflow: 'auto',
+              border: '1px solid #424b57',
+              background: '#171b20',
+              cursor: 'text',
+              userSelect: 'text',
             }}
-            trigger={['click']}
-            disabled={disabled}
           >
-            <Button size="small">插入示例</Button>
-          </Dropdown>
+            <ItemMentionPreview
+              content={value}
+              embedded
+              showPlayerName={enablePlayerNameMention}
+            />
+          </div>
         </Space>
-
-        <Input.TextArea
-          ref={textareaRef}
-          value={value}
-          rows={rows}
-          placeholder={placeholder}
-          disabled={disabled}
-          onChange={(event) => onChange?.(event.target.value)}
-        />
-
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          支持 Godot BBCode：{' '}
-          <Typography.Text code>[b][/b]</Typography.Text>{' '}
-          <Typography.Text code>[color=green][/color]</Typography.Text>{' '}
-          <Typography.Text code>[i][/i]</Typography.Text>{' '}
-          <Typography.Text code>[u][/u]</Typography.Text>
-          ；占位符 {'{item:物品ID}'} / {'{pet:宠物ID}'}
-          {enablePlayerNameMention ? ' / {player_name}' : ''}。
-        </Typography.Text>
-
-        {showPreview ? (
-          <ItemMentionPreview
-            content={value}
-            title={previewTitle}
-            showPlayerName={enablePlayerNameMention}
-          />
-        ) : null}
-      </Space>
-
-      {enableItemMention ? (
-        <ItemMentionPickerModal
-          open={itemPickerOpen}
-          onCancel={() => setItemPickerOpen(false)}
-          onSelect={(token) => insertToken(token)}
-        />
-      ) : null}
-    </>
+      </Card>
+    </Space>
   );
 }

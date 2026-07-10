@@ -8,6 +8,11 @@ class_name SkillVisualConfig
 ## 技能表现唯一 ID，需与服务端字段一致（例如 "刃光斩_一级"）
 @export var skill_visual_id: String = ""
 
+@export_group("界面")
+## 技能按钮和技能详情使用的本地图标；服务端只需下发 skill_visual_id。
+@export var icon: Texture2D = null
+
+@export_group("动作")
 ## 角色侧动画映射键，对应 UnitSkin.animation_map 的键名
 @export var animation_key: String = ""
 
@@ -40,22 +45,22 @@ class_name SkillVisualConfig
 @export var effect_player_animation: String = "effect_default"
 
 func resolve_effect_frames() -> SpriteFrames:
-	if effect_frames != null:
-		return effect_frames
-	if effect_texture == null:
-		return null
-	var frames: SpriteFrames = SpriteFrames.new()
-	frames.add_animation("默认")
-	frames.set_animation_loop("默认", false)
-	frames.set_animation_speed("默认", 8.0)
-	frames.add_frame("默认", effect_texture)
-	return frames
+    if effect_frames != null:
+        return effect_frames
+    if effect_texture == null:
+        return null
+    var frames: SpriteFrames = SpriteFrames.new()
+    frames.add_animation("默认")
+    frames.set_animation_loop("默认", false)
+    frames.set_animation_speed("默认", 8.0)
+    frames.add_frame("默认", effect_texture)
+    return frames
 
 func resolve_effect_animation_name() -> String:
-	var resolved_animation_key: String = effect_animation_key.strip_edges()
-	if resolved_animation_key.is_empty():
-		resolved_animation_key = "默认"
-	var frames: SpriteFrames = resolve_effect_frames()
-	if frames != null and frames.has_animation(resolved_animation_key):
-		return resolved_animation_key
-	return "默认"
+    var resolved_animation_key: String = effect_animation_key.strip_edges()
+    if resolved_animation_key.is_empty():
+        resolved_animation_key = "默认"
+    var frames: SpriteFrames = resolve_effect_frames()
+    if frames != null and frames.has_animation(resolved_animation_key):
+        return resolved_animation_key
+    return "默认"
