@@ -1,0 +1,224 @@
+[gd_scene format=3 uid="uid://cqxaaec3sstdf"]
+
+[ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="1_ri6tm"]
+[ext_resource type="Texture2D" uid="uid://w3kvywlhigut" path="res://asset/分类/NPC/2018.png" id="2_4fony"]
+[ext_resource type="Texture2D" uid="uid://c4438wbhnyroh" path="res://asset/分类/NPC/2024.png" id="3_ywwmi"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6a7rk"]
+atlas = ExtResource("3_ywwmi")
+region = Rect2(0, 0, 33, 35)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vctg2"]
+atlas = ExtResource("2_4fony")
+region = Rect2(84, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c04k1"]
+atlas = ExtResource("2_4fony")
+region = Rect2(105, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_teuea"]
+atlas = ExtResource("2_4fony")
+region = Rect2(126, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4er5g"]
+atlas = ExtResource("2_4fony")
+region = Rect2(147, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5v2io"]
+atlas = ExtResource("2_4fony")
+region = Rect2(0, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pe057"]
+atlas = ExtResource("2_4fony")
+region = Rect2(21, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_shdgj"]
+atlas = ExtResource("2_4fony")
+region = Rect2(42, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d8lmd"]
+atlas = ExtResource("2_4fony")
+region = Rect2(63, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_oe3k7"]
+atlas = ExtResource("2_4fony")
+region = Rect2(252, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_os2qd"]
+atlas = ExtResource("2_4fony")
+region = Rect2(273, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ee0au"]
+atlas = ExtResource("2_4fony")
+region = Rect2(294, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3l65x"]
+atlas = ExtResource("2_4fony")
+region = Rect2(315, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_26byt"]
+atlas = ExtResource("2_4fony")
+region = Rect2(168, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ijwvx"]
+atlas = ExtResource("2_4fony")
+region = Rect2(189, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e3hpw"]
+atlas = ExtResource("2_4fony")
+region = Rect2(210, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d1xrm"]
+atlas = ExtResource("2_4fony")
+region = Rect2(231, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_eves6"]
+atlas = ExtResource("2_4fony")
+region = Rect2(84, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ywwmi"]
+atlas = ExtResource("2_4fony")
+region = Rect2(0, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bbtxv"]
+atlas = ExtResource("2_4fony")
+region = Rect2(252, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w4pwa"]
+atlas = ExtResource("2_4fony")
+region = Rect2(168, 0, 21, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a63gp"]
+atlas = ExtResource("3_ywwmi")
+region = Rect2(33, 0, 33, 35)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_xpfc1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6a7rk")
+}],
+"loop": 0,
+"name": &"受惊",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vctg2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_c04k1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_teuea")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4er5g")
+}],
+"loop": 1,
+"name": &"向上走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5v2io")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pe057")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_shdgj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d8lmd")
+}],
+"loop": 1,
+"name": &"向下走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_oe3k7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_os2qd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ee0au")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3l65x")
+}],
+"loop": 1,
+"name": &"向右走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_26byt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ijwvx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e3hpw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d1xrm")
+}],
+"loop": 1,
+"name": &"向左走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_eves6")
+}],
+"loop": 1,
+"name": &"待机上",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ywwmi")
+}],
+"loop": 1,
+"name": &"待机下",
+"speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bbtxv")
+}],
+"loop": 1,
+"name": &"待机右",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_w4pwa")
+}],
+"loop": 1,
+"name": &"待机左",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a63gp")
+}],
+"loop": 0,
+"name": &"死亡",
+"speed": 6.0
+}]
+
+[node name="Taozi" type="Node2D" unique_id=1919893855]
+script = ExtResource("1_ri6tm")
+entity_id = 1
+npc_code = "taozi"
+npc_name = "taozi"
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
+position = Vector2(0, -18)
+sprite_frames = SubResource("SpriteFrames_xpfc1")
+animation = &"待机上"
+autoplay = "待机下"

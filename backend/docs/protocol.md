@@ -767,6 +767,9 @@
 - 剧情节点与会话位置由服务端权威维护，客户端必须原样回传 `dialogue_id/node_id`
 - `node_type` 支持 `line/choice/action/end`
 - 节点 `effects_json.notice` 会通过 `effect_notice` 字段同步给客户端展示
+- `action.client_animation_key` 与客户端 `res://scenes/cinematics/{key}.tscn` 或 `res://剧情动画/{key}.tscn` 文件名对应；客户端会按目录顺序自动解析同名场景，不维护硬编码注册表
+- 阻塞动作场景可以复用 `common/world_player_cinematic.tscn`，按统一场景坐标驱动真实玩家沿导航路径移动、设置朝向并播放指定动画帧；演出发出 `finished` 后客户端才发送 `2037`
+- 固定过场允许在动画 Key 对应的客户端脚本内写死 Tween、角色动画和多句展示对白；这些本地对白的继续操作只推进客户端演出，不发送 `2037`，整段脚本最终发出 `finished` 后才发送一次 `2037`
 
 ### 3001 PET_LIST_REQ
 

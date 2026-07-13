@@ -1,6 +1,6 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" format=3 uid="uid://bf8gtcb5isp3r"]
 
-[ext_resource type="Texture2D" path="res://asset/分类/ui/技能边框.png" id="1_border"]
+[ext_resource type="Texture2D" uid="uid://bvx6veoktnlac" path="res://asset/分类/ui/技能边框.png" id="1_border"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_hover"]
 atlas = ExtResource("1_border")

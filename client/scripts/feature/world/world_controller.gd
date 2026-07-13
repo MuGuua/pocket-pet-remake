@@ -1302,6 +1302,39 @@ func set_runtime_input_locked(locked: bool) -> void:
 	else:
 		_unlock_local_player()
 
+## 返回当前世界玩家节点，供受控剧情动作场景调用公开的剧情接口。
+func get_cinematic_player_node() -> CharacterBody2D:
+	return player_node
+
+## 把统一场景坐标中的剧情途经点转换为遵守地图碰撞的玩家本地路径。
+func build_cinematic_player_path(scene_waypoints: Array[Vector2]) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if player_node == null or _current_level == null or _navigation_grid == null or _navigation_layer == null:
+		return result
+	var start_cell: Vector2i = _resolve_walkable_navigation_cell(_world_to_navigation_cell(player_node.global_position))
+	if not _is_navigation_cell_valid(start_cell):
+		return result
+	var scene_id: int = _current_scene_id()
+	for scene_waypoint: Vector2 in scene_waypoints:
+		var target_local_pixels: Vector2 = _scene_coordinate_to_local_pixels(scene_id, scene_waypoint)
+		var target_world_position: Vector2 = _current_level.to_global(target_local_pixels)
+		var target_cell: Vector2i = _resolve_walkable_navigation_cell(_world_to_navigation_cell(target_world_position))
+		if not _is_navigation_cell_valid(target_cell):
+			push_warning("剧情路径点不可到达: %s" % scene_waypoint)
+			result.clear()
+			return result
+		var cell_path: Array[Vector2i] = _navigation_grid.get_id_path(start_cell, target_cell)
+		if cell_path.is_empty():
+			push_warning("剧情路径无法生成: %s" % scene_waypoint)
+			result.clear()
+			return result
+		for path_index: int in range(cell_path.size()):
+			if path_index == 0 and not result.is_empty():
+				continue
+			result.append(_navigation_cell_to_player_local_position(cell_path[path_index]))
+		start_cell = target_cell
+	return result
+
 func _set_transition_loading(_active: bool) -> void:
 	# 地图切换改由主场景黑色遮罩过渡负责，不再显示本地加载层。
 	pass

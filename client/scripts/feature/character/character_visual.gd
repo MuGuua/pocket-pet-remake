@@ -1,7 +1,6 @@
 extends Node2D
 class_name CharacterVisual
 
-const CharacterVisualScene: PackedScene = preload("res://scenes/character/character_visual.tscn")
 const RENDER_MODE_CHJ: String = "chj"
 const RENDER_MODE_PNG: String = "png"
 
@@ -81,6 +80,26 @@ func play_battle(animation_name: String) -> void:
 		return
 	var resolved_name: String = _skin.resolve_animation(animation_name)
 	_play_animation(resolved_name)
+
+
+## 播放剧情动作；指定帧只对具有 SpriteFrames 的 PNG 动画生效。
+func play_cinematic_pose(animation_name: String, frame_index: int = -1) -> bool:
+	if _skin == null:
+		return false
+	var resolved_name: String = _skin.resolve_animation(animation_name)
+	if not _skin.has_animation(resolved_name) or _sprite == null:
+		play_battle(animation_name)
+		return frame_index < 0
+	if _render_mode == RENDER_MODE_CHJ:
+		_show_png_override(resolved_name)
+	else:
+		_play_animation(resolved_name)
+	if frame_index >= 0 and _sprite.sprite_frames != null:
+		var frame_count: int = _sprite.sprite_frames.get_frame_count(resolved_name)
+		if frame_count > 0:
+			_sprite.frame = clampi(frame_index, 0, frame_count - 1)
+			_sprite.pause()
+	return true
 
 
 ## 返回脚底锚点在 CharacterVisual 本地坐标中的位置，默认对齐到节点原点。

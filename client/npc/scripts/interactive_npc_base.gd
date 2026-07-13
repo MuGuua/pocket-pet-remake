@@ -11,7 +11,8 @@ signal interaction_exited(entity_id: int, npc_name: String)
 # NPC 的前端显示名；菜单标题、日志和气泡文案会使用这个名字。
 @export var npc_name: String = "NPC"
 
-@onready var interact_area: Area2D = $Area2D
+## 可选的 NPC 交互区域；固定过场角色可以不配置该节点。
+@onready var interact_area: Area2D = get_node_or_null("Area2D") as Area2D
 
 func _ready() -> void:
 	# 没有交互区域时直接返回，避免空节点在加载期报错。

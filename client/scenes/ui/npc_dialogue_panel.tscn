@@ -33,34 +33,34 @@ color = Color(0, 0, 0, 0.62)
 
 [node name="DialogueVBox" type="VBoxContainer" parent="Root" unique_id=39689053]
 unique_name_in_owner = true
-custom_maximum_size = Vector2(250, -1)
+custom_minimum_size = Vector2(720, 0)
+custom_maximum_size = Vector2(720, -1)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -160.0
+offset_left = -360.0
 offset_top = -101.0
-offset_right = 160.0
+offset_right = 360.0
 offset_bottom = 101.0
 grow_horizontal = 2
 grow_vertical = 2
+offset_transform_enabled = true
+offset_transform_position = Vector2(0, 350)
 theme_override_constants/separation = 0
 
 [node name="SpeakerRow" type="HBoxContainer" parent="Root/DialogueVBox" unique_id=1353239236]
 unique_name_in_owner = true
-custom_maximum_size = Vector2(-1, 24)
+custom_minimum_size = Vector2(0, 60)
+custom_maximum_size = Vector2(-1, 60)
 layout_mode = 2
 
 [node name="NpcSpeakerPanel" type="PanelContainer" parent="Root/DialogueVBox/SpeakerRow" unique_id=1930243910]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
-theme_override_constants/margin_left = 2
-theme_override_constants/margin_top = 1
-theme_override_constants/margin_right = 6
-theme_override_constants/margin_bottom = 1
 theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
 
 [node name="NpcSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/NpcSpeakerPanel" unique_id=1606228021]
@@ -69,7 +69,7 @@ layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 1
 theme_override_colors/default_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/normal_font_size = 9
+theme_override_font_sizes/normal_font_size = 24
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
@@ -85,10 +85,6 @@ mouse_filter = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
-theme_override_constants/margin_left = 6
-theme_override_constants/margin_top = 1
-theme_override_constants/margin_right = 2
-theme_override_constants/margin_bottom = 1
 theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
 
 [node name="PlayerSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/PlayerSpeakerPanel" unique_id=679601457]
@@ -97,7 +93,7 @@ layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 1
 theme_override_colors/default_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/normal_font_size = 10
+theme_override_font_sizes/normal_font_size = 24
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
@@ -120,14 +116,14 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="TopCloseButton" parent="Root/DialogueVBox/Panel/Layout/HeaderRow" instance=ExtResource("5_close_btn")]
+[node name="TopCloseButton" parent="Root/DialogueVBox/Panel/Layout/HeaderRow" unique_id=757326486 instance=ExtResource("5_close_btn")]
 unique_name_in_owner = true
 layout_mode = 2
 
 [node name="ContentLabel" type="RichTextLabel" parent="Root/DialogueVBox/Panel/Layout" unique_id=328413872]
 layout_mode = 2
 size_flags_vertical = 0
-theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/normal_font_size = 32
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
@@ -138,7 +134,7 @@ theme_override_constants/separation = 8
 
 [node name="StatusLabel" type="Label" parent="Root/DialogueVBox/Panel/Layout" unique_id=797711055]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
 [node name="OptionsContainer" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Layout" unique_id=1152968195]
@@ -146,8 +142,8 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="ContinueButton" parent="Root/DialogueVBox/Panel/Layout" unique_id=164704163 instance=ExtResource("4_action_btn")]
-custom_minimum_size = Vector2(40, 18)
-custom_maximum_size = Vector2(40, 18)
+custom_minimum_size = Vector2(96, 44)
+custom_maximum_size = Vector2(96, 44)
 layout_mode = 2
 size_flags_horizontal = 8
 button_label = "继续"

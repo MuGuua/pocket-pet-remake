@@ -1,13 +1,19 @@
 class_name CinematicRegistry
 extends RefCounted
 
-## 剧情动画键到客户端内置场景路径的映射表；服务端只下发稳定 key，不直接暴露资源路径。
-static var CINEMATIC_PATH_BY_KEY: Dictionary = {
-	"market_limeng_step_aside": "res://scenes/cinematics/market_limeng_step_aside.tscn"
-}
+## 客户端剧情场景目录；按顺序兼容通用目录与项目中文剧情动画目录。
+const CINEMATIC_DIRECTORIES: Array[String] = [
+    "res://scenes/cinematics",
+    "res://剧情动画"
+]
 
 ## 根据服务端下发的剧情动画键返回本地可实例化的场景路径。
 static func get_path_by_key(animation_key: String) -> String:
-	if not CINEMATIC_PATH_BY_KEY.has(animation_key):
-		return ""
-	return str(CINEMATIC_PATH_BY_KEY.get(animation_key, ""))
+    var normalized_key: String = animation_key.strip_edges()
+    if normalized_key.is_empty() or normalized_key.get_file() != normalized_key or normalized_key.get_basename() != normalized_key:
+        return ""
+    for cinematic_directory: String in CINEMATIC_DIRECTORIES:
+        var scene_path: String = cinematic_directory.path_join(normalized_key + ".tscn")
+        if ResourceLoader.exists(scene_path, "PackedScene"):
+            return scene_path
+    return ""

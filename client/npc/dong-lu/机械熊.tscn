@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://deqnd1htnwhqn"]
+
+[ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="1_ehswd"]
+[ext_resource type="Texture2D" uid="uid://cls7ya5lc0hqa" path="res://asset/分类/NPC/2022.png" id="2_kq3xs"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ehswd"]
+atlas = ExtResource("2_kq3xs")
+region = Rect2(0, 0, 53, 57)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rofmf"]
+atlas = ExtResource("2_kq3xs")
+region = Rect2(53, 0, 53, 57)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_n3r5p"]
+atlas = ExtResource("2_kq3xs")
+region = Rect2(0, 0, 53, 57)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7m5ro"]
+atlas = ExtResource("2_kq3xs")
+region = Rect2(106, 0, 53, 57)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8lp5d"]
+atlas = ExtResource("2_kq3xs")
+region = Rect2(159, 0, 53, 57)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_xpfc1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ehswd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rofmf")
+}],
+"loop": 1,
+"name": &"向左走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_n3r5p")
+}],
+"loop": 1,
+"name": &"待机左",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7m5ro")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8lp5d")
+}],
+"loop": 0,
+"name": &"攻击",
+"speed": 3.0
+}]
+
+[node name="机械熊" type="Node2D" unique_id=1919893855]
+script = ExtResource("1_ehswd")
+entity_id = 2
+npc_code = "jixiexiong"
+npc_name = "jixiexiong"
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
+position = Vector2(0, -18)
+sprite_frames = SubResource("SpriteFrames_xpfc1")
+animation = &"攻击"
+autoplay = "待机左"
+frame = 1
+frame_progress = 1.0

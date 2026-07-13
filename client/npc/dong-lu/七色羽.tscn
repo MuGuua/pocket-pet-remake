@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://ctuo6t1a5elc5"]
+
+[ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="1_575tp"]
+[ext_resource type="Texture2D" uid="uid://d34fu2mviq4wm" path="res://asset/口袋所有形象/imgs/129.png" id="2_575tp"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mpxlo"]
+atlas = ExtResource("2_575tp")
+region = Rect2(74, 0, 37, 44)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4g0w4"]
+atlas = ExtResource("2_575tp")
+region = Rect2(111, 0, 37, 44)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_brtdq"]
+atlas = ExtResource("2_575tp")
+region = Rect2(0, 0, 37, 44)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hy7mv"]
+atlas = ExtResource("2_575tp")
+region = Rect2(37, 0, 37, 44)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_xpfc1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_mpxlo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4g0w4")
+}],
+"loop": 1,
+"name": &"向左走",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_brtdq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hy7mv")
+}],
+"loop": 1,
+"name": &"待机左",
+"speed": 5.0
+}]
+
+[node name="七色羽" type="Node2D" unique_id=1919893855]
+script = ExtResource("1_575tp")
+entity_id = 2
+npc_code = "jixiexiong"
+npc_name = "jixiexiong"
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
+position = Vector2(0, -18)
+sprite_frames = SubResource("SpriteFrames_xpfc1")
+animation = &"向左走"
+autoplay = "待机左"

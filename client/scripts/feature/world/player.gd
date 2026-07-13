@@ -1,6 +1,9 @@
 class_name player
 extends CharacterBody2D
 
+## 剧情或自动寻路完整走完当前路径后发出；主动取消路径不会触发。
+signal auto_move_finished
+
 const CharacterVisualScene: PackedScene = preload("res://scenes/character/character_visual.tscn")
 
 # 角色待机状态标识。
@@ -35,6 +38,14 @@ var _battle_locked: bool = false
 var _auto_move_path: Array[Vector2] = []
 # 自动寻路判定到达路径点时使用的像素容差。
 var _auto_move_stop_tolerance: float = 3.0
+## 当前自动路径是否需要在自然完成后发出完成信号。
+var _auto_move_active: bool = false
+## 路径请求代次，避免旧的延迟完成回调误结束新路径。
+var _auto_move_generation: int = 0
+## 剧情控制期间屏蔽方向键，但仍允许脚本自动路径驱动移动。
+var _cinematic_input_locked: bool = false
+## 进入剧情控制前的场景锁状态，演出结束时原样恢复。
+var _cinematic_previous_scene_lock: bool = false
 
 # 负责播放角色动画的动画播放器节点。
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
@@ -75,10 +86,12 @@ func _process(_delta: float) -> void:
 			_update_animation()
 		return
 
-	# 读取水平输入并计算横向移动分量。
-	direction.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
-	# 读取垂直输入并计算纵向移动分量。
-	direction.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	# 剧情演出屏蔽手动方向输入，但保留自动路径驱动。
+	if _cinematic_input_locked:
+		direction = Vector2.ZERO
+	else:
+		direction.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+		direction.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
 	if direction != Vector2.ZERO:
 		# 玩家手动输入优先级最高，按下方向键后立即取消点击寻路。
 		_clear_auto_move_path()
@@ -183,12 +196,17 @@ func set_battle_active(active: bool) -> void:
 
 # 写入一条新的自动寻路路径，路径点使用玩家父节点本地坐标。
 func set_auto_move_path(path_points: Array[Vector2]) -> void:
-	_auto_move_path.clear()
+	_clear_auto_move_path()
+	_auto_move_generation += 1
+	var generation: int = _auto_move_generation
 	for path_point in path_points:
 		# 跳过距离当前点过近的路径点，避免角色在首点原地抖动。
 		if position.distance_to(path_point) <= _auto_move_stop_tolerance:
 			continue
 		_auto_move_path.append(path_point)
+	_auto_move_active = true
+	if _auto_move_path.is_empty():
+		call_deferred("_complete_auto_move", generation)
 
 # 主动清空当前自动寻路状态，供世界控制器或锁定逻辑调用。
 func clear_auto_move_path() -> void:
@@ -197,6 +215,51 @@ func clear_auto_move_path() -> void:
 	velocity = Vector2.ZERO
 	if _update_state():
 		_update_animation()
+
+## 返回当前是否仍在执行一条等待自然完成的自动路径。
+func is_auto_move_active() -> bool:
+	return _auto_move_active
+
+## 进入剧情控制：保留原场景锁，临时允许脚本路径移动并屏蔽玩家方向输入。
+func begin_cinematic_control() -> void:
+	_cinematic_previous_scene_lock = _scene_transition_locked
+	_scene_transition_locked = false
+	_cinematic_input_locked = true
+	_clear_auto_move_path()
+	direction = Vector2.ZERO
+	velocity = Vector2.ZERO
+	_update_state()
+	_update_animation()
+
+## 结束剧情控制并恢复进入前的锁定状态与常规世界动画。
+func end_cinematic_control() -> void:
+	_clear_auto_move_path()
+	_cinematic_input_locked = false
+	_scene_transition_locked = _cinematic_previous_scene_lock
+	direction = Vector2.ZERO
+	velocity = Vector2.ZERO
+	_update_state()
+	_update_animation()
+
+## 播放剧情指定动作；frame_index 大于等于 0 时暂停在对应帧。
+func play_cinematic_animation(animation_name: String, frame_index: int = -1, frame_fps: float = 12.0) -> bool:
+	var normalized_name: String = animation_name.strip_edges()
+	if normalized_name.is_empty():
+		return false
+	if _uses_character_visual and _character_visual != null:
+		return _character_visual.play_cinematic_pose(normalized_name, frame_index)
+	if animation_player == null or not animation_player.has_animation(normalized_name):
+		return false
+	animation_player.play(normalized_name)
+	if frame_index >= 0:
+		var safe_fps: float = maxf(frame_fps, 1.0)
+		animation_player.seek(float(frame_index) / safe_fps, true)
+		animation_player.pause()
+	return true
+
+## 恢复角色当前状态和朝向对应的世界动画。
+func restore_world_animation() -> void:
+	_update_animation()
 
 # 刷新角色状态机，并在状态变化时返回 `true`。
 func _update_state() -> bool:
@@ -373,7 +436,18 @@ func _update_auto_move_direction() -> void:
 		return
 
 	direction = Vector2.ZERO
+	if _auto_move_active:
+		_complete_auto_move(_auto_move_generation)
 
 # 内部统一使用的自动寻路清理入口。
 func _clear_auto_move_path() -> void:
+	_auto_move_generation += 1
+	_auto_move_active = false
 	_auto_move_path.clear()
+
+## 仅在当前代次路径自然走完时发出完成信号。
+func _complete_auto_move(generation: int) -> void:
+	if generation != _auto_move_generation or not _auto_move_active:
+		return
+	_auto_move_active = false
+	auto_move_finished.emit()
