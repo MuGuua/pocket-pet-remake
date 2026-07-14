@@ -20,6 +20,8 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useState } from 'react';
+import { RichTextEditor } from '../../components/RichTextEditor';
+import { RichTextDisplay } from '../../components/RichTextDisplay';
 import {
   createAdminNPCEntity,
   deleteAdminNPCEntity,
@@ -205,7 +207,7 @@ function MapNPCPanel() {
   const columns = useMemo<ColumnsType<AdminNPCEntitySummary>>(() => [
     { title: '实体ID', dataIndex: 'entity_id', key: 'entity_id', width: 110, fixed: 'left' },
     { title: '实体编码', dataIndex: 'entity_code', key: 'entity_code', width: 160 },
-    { title: '显示名', dataIndex: 'display_name', key: 'display_name', width: 160 },
+    { title: '显示名', dataIndex: 'display_name', key: 'display_name', width: 160, render: (value: string) => <RichTextDisplay value={value} /> },
     {
       title: '所属场景',
       dataIndex: 'scene_name',
@@ -346,7 +348,7 @@ function MapNPCPanel() {
           <Descriptions bordered column={2} size="small">
             <Descriptions.Item label="实体ID">{detail.entity_id}</Descriptions.Item>
             <Descriptions.Item label="编码">{detail.entity_code}</Descriptions.Item>
-            <Descriptions.Item label="显示名">{detail.display_name}</Descriptions.Item>
+            <Descriptions.Item label="显示名"><RichTextDisplay value={detail.display_name} /></Descriptions.Item>
             <Descriptions.Item label="所属场景">{detail.scene_name || `场景 ${detail.scene_id}`}</Descriptions.Item>
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
           </Descriptions>
@@ -395,7 +397,7 @@ function MapNPCPanel() {
             </Col>
             <Col xs={24} md={editingRecord ? 12 : 8}>
               <Form.Item label="显示名" name="display_name" rules={[{ required: true, message: '请输入显示名' }]}>
-                <Input />
+                <RichTextEditor rows={1} placeholder="支持为 NPC 系统名称刷色" />
               </Form.Item>
             </Col>
             <Col xs={12} md={8}>

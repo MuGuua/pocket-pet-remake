@@ -192,7 +192,7 @@ export function PetDefinitionPage() {
   const columns = useMemo<ColumnsType<AdminPetDefinitionSummary>>(
     () => [
       { title: '宠物ID', dataIndex: 'pet_id', key: 'pet_id', width: 100, fixed: 'left' },
-      { title: '名称', dataIndex: 'pet_name', key: 'pet_name', width: 160 },
+      { title: '名称', dataIndex: 'pet_name', key: 'pet_name', width: 160, render: (value: string) => <RichTextDisplay value={value} /> },
       {
         title: '品质',
         dataIndex: 'quality',
@@ -289,7 +289,7 @@ export function PetDefinitionPage() {
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions bordered column={2} size="small" title="基础信息">
               <Descriptions.Item label="宠物ID">{detail.pet_id}</Descriptions.Item>
-              <Descriptions.Item label="名称">{detail.pet_name}</Descriptions.Item>
+              <Descriptions.Item label="名称"><RichTextDisplay value={detail.pet_name} /></Descriptions.Item>
               <Descriptions.Item label="品质">
                 <Tag color={getPetQualityTagColor(detail.base_stats.quality)}>
                   {formatPetQualityLabel(detail.base_stats.quality)}
@@ -372,7 +372,7 @@ export function PetDefinitionPage() {
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="宠物名称" name="pet_name" rules={[{ required: true, message: '请输入宠物名称' }]}>
-                <Input placeholder="例如：白色幻影" />
+                <RichTextEditor rows={1} placeholder="支持为宠物系统名称刷色" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

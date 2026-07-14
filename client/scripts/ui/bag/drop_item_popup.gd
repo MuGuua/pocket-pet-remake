@@ -8,7 +8,7 @@ const SCENE_PATH: String = "res://scenes/ui/bag/drop_item_popup.tscn"
 signal prompt_finished(result: Dictionary)
 
 @onready var _item_icon: TextureRect = %ItemIcon
-@onready var _item_name_label: Label = %ItemNameLabel
+@onready var _item_name_label: RichTextLabel = %ItemNameLabel
 @onready var _item_meta_label: Label = %ItemMetaLabel
 @onready var _warning_label: RichTextLabel = %WarningLabel
 @onready var _quantity_row: HBoxContainer = %QuantityRow
@@ -109,7 +109,7 @@ func _is_dismiss_event(event: InputEvent) -> bool:
 func _apply_item_view() -> void:
 	var item_name: String = BagUiMapper.item_name(_item)
 	if _item_name_label != null:
-		_item_name_label.text = item_name
+		RichTextContent.apply_system_name(_item_name_label, item_name)
 	if _item_icon != null:
 		_item_icon.texture = BagUiMapper.icon_texture(_item)
 	if _item_meta_label != null:
@@ -125,7 +125,7 @@ func _apply_item_view() -> void:
 			meta_parts.append("数量 %d" % qty)
 		_item_meta_label.text = " · ".join(meta_parts) if not meta_parts.is_empty() else ""
 	if _warning_label != null:
-		_warning_label.text = "确定要丢弃 [color=#82d563]%s[/color] 吗？\n[color=#c9a227]此操作不可撤销。[/color]" % item_name
+		_warning_label.text = "确定要丢弃 %s 吗？\n[color=#c9a227]此操作不可撤销。[/color]" % item_name
 	var supports_partial: bool = BagUiMapper.supports_partial_drop(_item)
 	_quantity_min = 1
 	_quantity_max = maxi(1, BagUiMapper.quantity(_item)) if supports_partial else 1

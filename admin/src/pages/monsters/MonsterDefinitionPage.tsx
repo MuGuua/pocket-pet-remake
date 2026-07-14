@@ -244,7 +244,7 @@ export function MonsterDefinitionPage() {
   const columns = useMemo<ColumnsType<AdminMonsterDefinitionSummary>>(
     () => [
       { title: '怪物ID', dataIndex: 'monster_id', key: 'monster_id', width: 100, fixed: 'left' },
-      { title: '名称', dataIndex: 'monster_name', key: 'monster_name', width: 160 },
+      { title: '名称', dataIndex: 'monster_name', key: 'monster_name', width: 160, render: (value: string) => <RichTextDisplay value={value} /> },
       { title: '等级', dataIndex: 'level', key: 'level', width: 90 },
       { title: '品质', dataIndex: 'quality', key: 'quality', width: 90 },
       { title: '战斗外观ID', dataIndex: 'skin_id', key: 'skin_id', width: 140, ellipsis: true },
@@ -334,7 +334,7 @@ export function MonsterDefinitionPage() {
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions bordered column={2} size="small" title="基础信息">
               <Descriptions.Item label="怪物ID">{detail.monster_id}</Descriptions.Item>
-              <Descriptions.Item label="名称">{detail.monster_name}</Descriptions.Item>
+              <Descriptions.Item label="名称"><RichTextDisplay value={detail.monster_name} /></Descriptions.Item>
               <Descriptions.Item label="战斗外观ID">{detail.skin_id || '-'}</Descriptions.Item>
               <Descriptions.Item label="启用">{detail.is_enabled ? '是' : '否'}</Descriptions.Item>
               <Descriptions.Item label="描述" span={2}>
@@ -390,7 +390,7 @@ export function MonsterDefinitionPage() {
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmit(values)}>
           <Row gutter={16}>
             <Col xs={24} md={8}><Form.Item label="怪物ID" name="monster_id" rules={[{ required: true, message: '请输入怪物ID' }]}><InputNumber min={1} disabled={Boolean(editingRecord)} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item label="怪物名称" name="monster_name" rules={[{ required: true, message: '请输入怪物名称' }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item label="怪物名称" name="monster_name" rules={[{ required: true, message: '请输入怪物名称' }]}><RichTextEditor rows={1} placeholder="支持为怪物名称刷色" /></Form.Item></Col>
             <Col xs={24} md={8}>
               <Form.Item
                 label="战斗外观ID"
