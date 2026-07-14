@@ -46,6 +46,12 @@ const NPC_ACTION_RESP: int = 2034
 const NPC_MENU_REQ: int = 2042
 # NPC 菜单拉取响应消息号。
 const NPC_MENU_RESP: int = 2043
+# 场景剧情触发推送消息号。
+const SCENE_TRIGGER_PUSH: int = 2044
+# 场景剧情播放完成确认请求消息号。
+const SCENE_TRIGGER_ACK_REQ: int = 2045
+# 场景剧情播放完成确认响应消息号。
+const SCENE_TRIGGER_ACK_RESP: int = 2046
 # NPC 剧情继续请求消息号。
 const NPC_DIALOGUE_NEXT_REQ: int = 2037
 # NPC 剧情节点响应消息号。
@@ -201,244 +207,244 @@ const KICKOUT_PUSH: int = 9002
 
 # 返回指定消息号对应的稳定名称，方便统一打印服务端请求结果日志。
 static func name_of(cmd: int) -> String:
-	match cmd:
-		WS_AUTH_REQ:
-			return "WS_AUTH_REQ"
-		WS_AUTH_RESP:
-			return "WS_AUTH_RESP"
-		HEARTBEAT_REQ:
-			return "HEARTBEAT_REQ"
-		HEARTBEAT_RESP:
-			return "HEARTBEAT_RESP"
-		FORCE_OFFLINE_PUSH:
-			return "FORCE_OFFLINE_PUSH"
-		ERROR_PUSH:
-			return "ERROR_PUSH"
-		RECONNECT_REQ:
-			return "RECONNECT_REQ"
-		RECONNECT_RESP:
-			return "RECONNECT_RESP"
-		ENTER_WORLD_REQ:
-			return "ENTER_WORLD_REQ"
-		ENTER_WORLD_RESP:
-			return "ENTER_WORLD_RESP"
-		ENTITY_ENTER_PUSH:
-			return "ENTITY_ENTER_PUSH"
-		ENTITY_LEAVE_PUSH:
-			return "ENTITY_LEAVE_PUSH"
-		ENTITY_MOVE_PUSH:
-			return "ENTITY_MOVE_PUSH"
-		WORLD_RESYNC_PUSH:
-			return "WORLD_RESYNC_PUSH"
-		MOVE_INTENT_REQ:
-			return "MOVE_INTENT_REQ"
-		MOVE_INTENT_RESP:
-			return "MOVE_INTENT_RESP"
-		INTERACT_REQ:
-			return "INTERACT_REQ"
-		INTERACT_RESP:
-			return "INTERACT_RESP"
-		NPC_ACTION_REQ:
-			return "NPC_ACTION_REQ"
-		NPC_ACTION_RESP:
-			return "NPC_ACTION_RESP"
-		NPC_MENU_REQ:
-			return "NPC_MENU_REQ"
-		NPC_MENU_RESP:
-			return "NPC_MENU_RESP"
-		NPC_DIALOGUE_NEXT_REQ:
-			return "NPC_DIALOGUE_NEXT_REQ"
-		NPC_DIALOGUE_RESP:
-			return "NPC_DIALOGUE_RESP"
-		NPC_DIALOGUE_CHOOSE_REQ:
-			return "NPC_DIALOGUE_CHOOSE_REQ"
-		WILD_ENCOUNTER_REQ:
-			return "WILD_ENCOUNTER_REQ"
-		WILD_ENCOUNTER_RESP:
-			return "WILD_ENCOUNTER_RESP"
-		ENCOUNTER_PUSH:
-			return "ENCOUNTER_PUSH"
-		PLAYER_ALLOCATE_ATTR_REQ:
-			return "PLAYER_ALLOCATE_ATTR_REQ"
-		PLAYER_ALLOCATE_ATTR_RESP:
-			return "PLAYER_ALLOCATE_ATTR_RESP"
-		PET_ALLOCATE_ATTR_REQ:
-			return "PET_ALLOCATE_ATTR_REQ"
-		PET_ALLOCATE_ATTR_RESP:
-			return "PET_ALLOCATE_ATTR_RESP"
-		PLAYER_EQUIPMENT_LIST_REQ:
-			return "PLAYER_EQUIPMENT_LIST_REQ"
-		PLAYER_EQUIPMENT_LIST_RESP:
-			return "PLAYER_EQUIPMENT_LIST_RESP"
-		PLAYER_EQUIP_REQ:
-			return "PLAYER_EQUIP_REQ"
-		PLAYER_EQUIP_RESP:
-			return "PLAYER_EQUIP_RESP"
-		PLAYER_UNEQUIP_REQ:
-			return "PLAYER_UNEQUIP_REQ"
-		PLAYER_UNEQUIP_RESP:
-			return "PLAYER_UNEQUIP_RESP"
-		PLAYER_EQUIPMENT_ENHANCE_REQ:
-			return "PLAYER_EQUIPMENT_ENHANCE_REQ"
-		PLAYER_EQUIPMENT_ENHANCE_RESP:
-			return "PLAYER_EQUIPMENT_ENHANCE_RESP"
-		PLAYER_EQUIPMENT_REPAIR_REQ:
-			return "PLAYER_EQUIPMENT_REPAIR_REQ"
-		PLAYER_EQUIPMENT_REPAIR_RESP:
-			return "PLAYER_EQUIPMENT_REPAIR_RESP"
-		PET_LIST_REQ:
-			return "PET_LIST_REQ"
-		PET_LIST_RESP:
-			return "PET_LIST_RESP"
-		PET_UPDATE_PUSH:
-			return "PET_UPDATE_PUSH"
-		PET_LINEUP_SET_REQ:
-			return "PET_LINEUP_SET_REQ"
-		PET_LINEUP_SET_RESP:
-			return "PET_LINEUP_SET_RESP"
-		PET_ARTIFACT_EQUIP_REQ:
-			return "PET_ARTIFACT_EQUIP_REQ"
-		PET_ARTIFACT_EQUIP_RESP:
-			return "PET_ARTIFACT_EQUIP_RESP"
-		PET_ARTIFACT_UNEQUIP_REQ:
-			return "PET_ARTIFACT_UNEQUIP_REQ"
-		PET_ARTIFACT_UNEQUIP_RESP:
-			return "PET_ARTIFACT_UNEQUIP_RESP"
-		PET_SKILL_DETAIL_REQ:
-			return "PET_SKILL_DETAIL_REQ"
-		PET_SKILL_DETAIL_RESP:
-			return "PET_SKILL_DETAIL_RESP"
-		BATTLE_ACTION_REQ:
-			return "BATTLE_ACTION_REQ"
-		BATTLE_ACTION_RESP:
-			return "BATTLE_ACTION_RESP"
-		BATTLE_START_PUSH:
-			return "BATTLE_START_PUSH"
-		BATTLE_STATE_PUSH:
-			return "BATTLE_STATE_PUSH"
-		BATTLE_RESULT_PUSH:
-			return "BATTLE_RESULT_PUSH"
-		BATTLE_EXIT_REQ:
-			return "BATTLE_EXIT_REQ"
-		BATTLE_EXIT_RESP:
-			return "BATTLE_EXIT_RESP"
-		PVP_CHALLENGE_REQ:
-			return "PVP_CHALLENGE_REQ"
-		PVP_CHALLENGE_RESP:
-			return "PVP_CHALLENGE_RESP"
-		PVP_CHALLENGE_PUSH:
-			return "PVP_CHALLENGE_PUSH"
-		PVP_CHALLENGE_REPLY_REQ:
-			return "PVP_CHALLENGE_REPLY_REQ"
-		PVP_CHALLENGE_REPLY_RESP:
-			return "PVP_CHALLENGE_REPLY_RESP"
-		BAG_LIST_REQ:
-			return "BAG_LIST_REQ"
-		BAG_LIST_RESP:
-			return "BAG_LIST_RESP"
-		BAG_UPDATE_PUSH:
-			return "BAG_UPDATE_PUSH"
-		USE_ITEM_REQ:
-			return "USE_ITEM_REQ"
-		USE_ITEM_RESP:
-			return "USE_ITEM_RESP"
-		DROP_ITEM_REQ:
-			return "DROP_ITEM_REQ"
-		DROP_ITEM_RESP:
-			return "DROP_ITEM_RESP"
-		CONTAINER_LIST_REQ:
-			return "CONTAINER_LIST_REQ"
-		CONTAINER_LIST_RESP:
-			return "CONTAINER_LIST_RESP"
-		BAG_TO_WAREHOUSE_REQ:
-			return "BAG_TO_WAREHOUSE_REQ"
-		BAG_TO_WAREHOUSE_RESP:
-			return "BAG_TO_WAREHOUSE_RESP"
-		WAREHOUSE_TO_BAG_REQ:
-			return "WAREHOUSE_TO_BAG_REQ"
-		WAREHOUSE_TO_BAG_RESP:
-			return "WAREHOUSE_TO_BAG_RESP"
-		WALLET_QUERY_REQ:
-			return "WALLET_QUERY_REQ"
-		WALLET_QUERY_RESP:
-			return "WALLET_QUERY_RESP"
-		WALLET_UPDATE_PUSH:
-			return "WALLET_UPDATE_PUSH"
-		BUY_ITEM_REQ:
-			return "BUY_ITEM_REQ"
-		BUY_ITEM_RESP:
-			return "BUY_ITEM_RESP"
-		QUEST_LIST_REQ:
-			return "QUEST_LIST_REQ"
-		QUEST_LIST_RESP:
-			return "QUEST_LIST_RESP"
-		QUEST_UPDATE_PUSH:
-			return "QUEST_UPDATE_PUSH"
-		QUEST_REMOVE_PUSH:
-			return "QUEST_REMOVE_PUSH"
-		QUEST_ACCEPT_REQ:
-			return "QUEST_ACCEPT_REQ"
-		QUEST_ACCEPT_RESP:
-			return "QUEST_ACCEPT_RESP"
-		QUEST_SUBMIT_REQ:
-			return "QUEST_SUBMIT_REQ"
-		QUEST_SUBMIT_RESP:
-			return "QUEST_SUBMIT_RESP"
-		QUEST_TRACK_REQ:
-			return "QUEST_TRACK_REQ"
-		QUEST_TRACK_RESP:
-			return "QUEST_TRACK_RESP"
-		NOTICE_PUSH:
-			return "NOTICE_PUSH"
-		KICKOUT_PUSH:
-			return "KICKOUT_PUSH"
-		_:
-			return "CMD_%d" % cmd
+    match cmd:
+        WS_AUTH_REQ:
+            return "WS_AUTH_REQ"
+        WS_AUTH_RESP:
+            return "WS_AUTH_RESP"
+        HEARTBEAT_REQ:
+            return "HEARTBEAT_REQ"
+        HEARTBEAT_RESP:
+            return "HEARTBEAT_RESP"
+        FORCE_OFFLINE_PUSH:
+            return "FORCE_OFFLINE_PUSH"
+        ERROR_PUSH:
+            return "ERROR_PUSH"
+        RECONNECT_REQ:
+            return "RECONNECT_REQ"
+        RECONNECT_RESP:
+            return "RECONNECT_RESP"
+        ENTER_WORLD_REQ:
+            return "ENTER_WORLD_REQ"
+        ENTER_WORLD_RESP:
+            return "ENTER_WORLD_RESP"
+        ENTITY_ENTER_PUSH:
+            return "ENTITY_ENTER_PUSH"
+        ENTITY_LEAVE_PUSH:
+            return "ENTITY_LEAVE_PUSH"
+        ENTITY_MOVE_PUSH:
+            return "ENTITY_MOVE_PUSH"
+        WORLD_RESYNC_PUSH:
+            return "WORLD_RESYNC_PUSH"
+        MOVE_INTENT_REQ:
+            return "MOVE_INTENT_REQ"
+        MOVE_INTENT_RESP:
+            return "MOVE_INTENT_RESP"
+        INTERACT_REQ:
+            return "INTERACT_REQ"
+        INTERACT_RESP:
+            return "INTERACT_RESP"
+        NPC_ACTION_REQ:
+            return "NPC_ACTION_REQ"
+        NPC_ACTION_RESP:
+            return "NPC_ACTION_RESP"
+        NPC_MENU_REQ:
+            return "NPC_MENU_REQ"
+        NPC_MENU_RESP:
+            return "NPC_MENU_RESP"
+        NPC_DIALOGUE_NEXT_REQ:
+            return "NPC_DIALOGUE_NEXT_REQ"
+        NPC_DIALOGUE_RESP:
+            return "NPC_DIALOGUE_RESP"
+        NPC_DIALOGUE_CHOOSE_REQ:
+            return "NPC_DIALOGUE_CHOOSE_REQ"
+        WILD_ENCOUNTER_REQ:
+            return "WILD_ENCOUNTER_REQ"
+        WILD_ENCOUNTER_RESP:
+            return "WILD_ENCOUNTER_RESP"
+        ENCOUNTER_PUSH:
+            return "ENCOUNTER_PUSH"
+        PLAYER_ALLOCATE_ATTR_REQ:
+            return "PLAYER_ALLOCATE_ATTR_REQ"
+        PLAYER_ALLOCATE_ATTR_RESP:
+            return "PLAYER_ALLOCATE_ATTR_RESP"
+        PET_ALLOCATE_ATTR_REQ:
+            return "PET_ALLOCATE_ATTR_REQ"
+        PET_ALLOCATE_ATTR_RESP:
+            return "PET_ALLOCATE_ATTR_RESP"
+        PLAYER_EQUIPMENT_LIST_REQ:
+            return "PLAYER_EQUIPMENT_LIST_REQ"
+        PLAYER_EQUIPMENT_LIST_RESP:
+            return "PLAYER_EQUIPMENT_LIST_RESP"
+        PLAYER_EQUIP_REQ:
+            return "PLAYER_EQUIP_REQ"
+        PLAYER_EQUIP_RESP:
+            return "PLAYER_EQUIP_RESP"
+        PLAYER_UNEQUIP_REQ:
+            return "PLAYER_UNEQUIP_REQ"
+        PLAYER_UNEQUIP_RESP:
+            return "PLAYER_UNEQUIP_RESP"
+        PLAYER_EQUIPMENT_ENHANCE_REQ:
+            return "PLAYER_EQUIPMENT_ENHANCE_REQ"
+        PLAYER_EQUIPMENT_ENHANCE_RESP:
+            return "PLAYER_EQUIPMENT_ENHANCE_RESP"
+        PLAYER_EQUIPMENT_REPAIR_REQ:
+            return "PLAYER_EQUIPMENT_REPAIR_REQ"
+        PLAYER_EQUIPMENT_REPAIR_RESP:
+            return "PLAYER_EQUIPMENT_REPAIR_RESP"
+        PET_LIST_REQ:
+            return "PET_LIST_REQ"
+        PET_LIST_RESP:
+            return "PET_LIST_RESP"
+        PET_UPDATE_PUSH:
+            return "PET_UPDATE_PUSH"
+        PET_LINEUP_SET_REQ:
+            return "PET_LINEUP_SET_REQ"
+        PET_LINEUP_SET_RESP:
+            return "PET_LINEUP_SET_RESP"
+        PET_ARTIFACT_EQUIP_REQ:
+            return "PET_ARTIFACT_EQUIP_REQ"
+        PET_ARTIFACT_EQUIP_RESP:
+            return "PET_ARTIFACT_EQUIP_RESP"
+        PET_ARTIFACT_UNEQUIP_REQ:
+            return "PET_ARTIFACT_UNEQUIP_REQ"
+        PET_ARTIFACT_UNEQUIP_RESP:
+            return "PET_ARTIFACT_UNEQUIP_RESP"
+        PET_SKILL_DETAIL_REQ:
+            return "PET_SKILL_DETAIL_REQ"
+        PET_SKILL_DETAIL_RESP:
+            return "PET_SKILL_DETAIL_RESP"
+        BATTLE_ACTION_REQ:
+            return "BATTLE_ACTION_REQ"
+        BATTLE_ACTION_RESP:
+            return "BATTLE_ACTION_RESP"
+        BATTLE_START_PUSH:
+            return "BATTLE_START_PUSH"
+        BATTLE_STATE_PUSH:
+            return "BATTLE_STATE_PUSH"
+        BATTLE_RESULT_PUSH:
+            return "BATTLE_RESULT_PUSH"
+        BATTLE_EXIT_REQ:
+            return "BATTLE_EXIT_REQ"
+        BATTLE_EXIT_RESP:
+            return "BATTLE_EXIT_RESP"
+        PVP_CHALLENGE_REQ:
+            return "PVP_CHALLENGE_REQ"
+        PVP_CHALLENGE_RESP:
+            return "PVP_CHALLENGE_RESP"
+        PVP_CHALLENGE_PUSH:
+            return "PVP_CHALLENGE_PUSH"
+        PVP_CHALLENGE_REPLY_REQ:
+            return "PVP_CHALLENGE_REPLY_REQ"
+        PVP_CHALLENGE_REPLY_RESP:
+            return "PVP_CHALLENGE_REPLY_RESP"
+        BAG_LIST_REQ:
+            return "BAG_LIST_REQ"
+        BAG_LIST_RESP:
+            return "BAG_LIST_RESP"
+        BAG_UPDATE_PUSH:
+            return "BAG_UPDATE_PUSH"
+        USE_ITEM_REQ:
+            return "USE_ITEM_REQ"
+        USE_ITEM_RESP:
+            return "USE_ITEM_RESP"
+        DROP_ITEM_REQ:
+            return "DROP_ITEM_REQ"
+        DROP_ITEM_RESP:
+            return "DROP_ITEM_RESP"
+        CONTAINER_LIST_REQ:
+            return "CONTAINER_LIST_REQ"
+        CONTAINER_LIST_RESP:
+            return "CONTAINER_LIST_RESP"
+        BAG_TO_WAREHOUSE_REQ:
+            return "BAG_TO_WAREHOUSE_REQ"
+        BAG_TO_WAREHOUSE_RESP:
+            return "BAG_TO_WAREHOUSE_RESP"
+        WAREHOUSE_TO_BAG_REQ:
+            return "WAREHOUSE_TO_BAG_REQ"
+        WAREHOUSE_TO_BAG_RESP:
+            return "WAREHOUSE_TO_BAG_RESP"
+        WALLET_QUERY_REQ:
+            return "WALLET_QUERY_REQ"
+        WALLET_QUERY_RESP:
+            return "WALLET_QUERY_RESP"
+        WALLET_UPDATE_PUSH:
+            return "WALLET_UPDATE_PUSH"
+        BUY_ITEM_REQ:
+            return "BUY_ITEM_REQ"
+        BUY_ITEM_RESP:
+            return "BUY_ITEM_RESP"
+        QUEST_LIST_REQ:
+            return "QUEST_LIST_REQ"
+        QUEST_LIST_RESP:
+            return "QUEST_LIST_RESP"
+        QUEST_UPDATE_PUSH:
+            return "QUEST_UPDATE_PUSH"
+        QUEST_REMOVE_PUSH:
+            return "QUEST_REMOVE_PUSH"
+        QUEST_ACCEPT_REQ:
+            return "QUEST_ACCEPT_REQ"
+        QUEST_ACCEPT_RESP:
+            return "QUEST_ACCEPT_RESP"
+        QUEST_SUBMIT_REQ:
+            return "QUEST_SUBMIT_REQ"
+        QUEST_SUBMIT_RESP:
+            return "QUEST_SUBMIT_RESP"
+        QUEST_TRACK_REQ:
+            return "QUEST_TRACK_REQ"
+        QUEST_TRACK_RESP:
+            return "QUEST_TRACK_RESP"
+        NOTICE_PUSH:
+            return "NOTICE_PUSH"
+        KICKOUT_PUSH:
+            return "KICKOUT_PUSH"
+        _:
+            return "CMD_%d" % cmd
 
 
 # 判断当前消息是否值得打印到请求结果日志中；跳过高频心跳与状态同步推送，避免 HUD 与控制台被刷爆。
 static func should_log_result(cmd: int) -> bool:
-	match cmd:
-		HEARTBEAT_RESP, BATTLE_STATE_PUSH, ENTITY_MOVE_PUSH:
-			return false
-		_:
-			return true
+    match cmd:
+        HEARTBEAT_RESP, BATTLE_STATE_PUSH, ENTITY_MOVE_PUSH:
+            return false
+        _:
+            return true
 
 
 # 判断消息是否属于背包/装备/钱包链路，便于调试构建下输出完整 JSON。
 static func is_bag_related(cmd: int) -> bool:
-	match cmd:
-		BAG_LIST_REQ, BAG_LIST_RESP, BAG_UPDATE_PUSH, \
-		USE_ITEM_REQ, USE_ITEM_RESP, \
-		DROP_ITEM_REQ, DROP_ITEM_RESP, \
-		BAG_TO_WAREHOUSE_REQ, BAG_TO_WAREHOUSE_RESP, \
-		WAREHOUSE_TO_BAG_REQ, WAREHOUSE_TO_BAG_RESP, \
-		WALLET_QUERY_REQ, WALLET_QUERY_RESP, \
-		BUY_ITEM_REQ, BUY_ITEM_RESP, \
-		PLAYER_EQUIPMENT_LIST_REQ, PLAYER_EQUIPMENT_LIST_RESP, \
-		PLAYER_EQUIP_REQ, PLAYER_EQUIP_RESP, \
-		PLAYER_UNEQUIP_REQ, PLAYER_UNEQUIP_RESP, \
-		PLAYER_EQUIPMENT_ENHANCE_REQ, PLAYER_EQUIPMENT_ENHANCE_RESP, \
-		PLAYER_EQUIPMENT_REPAIR_REQ, PLAYER_EQUIPMENT_REPAIR_RESP:
-			return true
-		_:
-			return false
+    match cmd:
+        BAG_LIST_REQ, BAG_LIST_RESP, BAG_UPDATE_PUSH, \
+        USE_ITEM_REQ, USE_ITEM_RESP, \
+        DROP_ITEM_REQ, DROP_ITEM_RESP, \
+        BAG_TO_WAREHOUSE_REQ, BAG_TO_WAREHOUSE_RESP, \
+        WAREHOUSE_TO_BAG_REQ, WAREHOUSE_TO_BAG_RESP, \
+        WALLET_QUERY_REQ, WALLET_QUERY_RESP, \
+        BUY_ITEM_REQ, BUY_ITEM_RESP, \
+        PLAYER_EQUIPMENT_LIST_REQ, PLAYER_EQUIPMENT_LIST_RESP, \
+        PLAYER_EQUIP_REQ, PLAYER_EQUIP_RESP, \
+        PLAYER_UNEQUIP_REQ, PLAYER_UNEQUIP_RESP, \
+        PLAYER_EQUIPMENT_ENHANCE_REQ, PLAYER_EQUIPMENT_ENHANCE_RESP, \
+        PLAYER_EQUIPMENT_REPAIR_REQ, PLAYER_EQUIPMENT_REPAIR_RESP:
+            return true
+        _:
+            return false
 
 
 # 判断消息是否属于战斗链路（开战入口、回合动作、状态推送、PVP 与重连恢复）。
 static func is_battle_related(cmd: int) -> bool:
-	match cmd:
-		INTERACT_REQ, INTERACT_RESP, \
-		NPC_ACTION_REQ, NPC_ACTION_RESP, \
-		NPC_MENU_REQ, NPC_MENU_RESP, \
-		NPC_DIALOGUE_NEXT_REQ, NPC_DIALOGUE_RESP, NPC_DIALOGUE_CHOOSE_REQ, \
-		WILD_ENCOUNTER_REQ, WILD_ENCOUNTER_RESP, \
-		BATTLE_ACTION_REQ, BATTLE_ACTION_RESP, \
-		BATTLE_START_PUSH, BATTLE_STATE_PUSH, BATTLE_RESULT_PUSH, \
-		BATTLE_EXIT_REQ, BATTLE_EXIT_RESP, \
-		PVP_CHALLENGE_REQ, PVP_CHALLENGE_RESP, PVP_CHALLENGE_PUSH, \
-		PVP_CHALLENGE_REPLY_REQ, PVP_CHALLENGE_REPLY_RESP, \
-		RECONNECT_REQ, RECONNECT_RESP:
-			return true
-		_:
-			return false
+    match cmd:
+        INTERACT_REQ, INTERACT_RESP, \
+        NPC_ACTION_REQ, NPC_ACTION_RESP, \
+        NPC_MENU_REQ, NPC_MENU_RESP, \
+        NPC_DIALOGUE_NEXT_REQ, NPC_DIALOGUE_RESP, NPC_DIALOGUE_CHOOSE_REQ, \
+        WILD_ENCOUNTER_REQ, WILD_ENCOUNTER_RESP, \
+        BATTLE_ACTION_REQ, BATTLE_ACTION_RESP, \
+        BATTLE_START_PUSH, BATTLE_STATE_PUSH, BATTLE_RESULT_PUSH, \
+        BATTLE_EXIT_REQ, BATTLE_EXIT_RESP, \
+        PVP_CHALLENGE_REQ, PVP_CHALLENGE_RESP, PVP_CHALLENGE_PUSH, \
+        PVP_CHALLENGE_REPLY_REQ, PVP_CHALLENGE_REPLY_RESP, \
+        RECONNECT_REQ, RECONNECT_RESP:
+            return true
+        _:
+            return false

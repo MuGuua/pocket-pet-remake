@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 
 	"pocket-pet-remake/server/internal/module/world"
 )
@@ -105,7 +106,7 @@ var worldScenes = map[uint32]sceneData{
 }
 
 const listSceneEntitiesQuery = `
-SELECT entity_id, entity_type, display_name
+SELECT entity_id, entity_type, display_name, visibility_conditions_json
 FROM world_entity_definition
 WHERE scene_id = $1 AND status = 1
 ORDER BY entity_id ASC
@@ -115,7 +116,7 @@ func NewWorldRepository(db DBTX) *WorldRepository {
 	return &WorldRepository{db: db}
 }
 
-func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, _ uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
+func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
 	if _, ok := worldScenes[sceneID]; !ok {
 		return nil, world.ErrSnapshotUnavailable
 	}
@@ -129,12 +130,21 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, _ uint64, sceneI
 	nearby := []world.Entity{}
 	for rows.Next() {
 		var value world.Entity
+		var visibilityConditionsJSON []byte
 		if err := rows.Scan(
 			&value.EntityID,
 			&value.EntityType,
 			&value.Name,
+			&visibilityConditionsJSON,
 		); err != nil {
 			return nil, err
+		}
+		visible, err := r.entityVisibleForPlayer(ctx, playerID, visibilityConditionsJSON)
+		if err != nil {
+			return nil, err
+		}
+		if !visible {
+			continue
 		}
 		// NPC 坐标由客户端场景资源维护；服务端快照只保留 entity_id/name 供交互与附近列表使用。
 		value.Pos = world.Vec2i{}
@@ -158,6 +168,45 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, _ uint64, sceneI
 		SceneVersion:   1,
 		NearbyEntities: nearby,
 	}, nil
+}
+
+// entityVisibleForPlayer 根据 world_entity_definition.visibility_conditions_json 判断 NPC 是否对当前玩家可见。
+// 第一版只支持 required_flags，后续任务状态、等级、活动开关都可以继续扩展到这里。
+func (r *WorldRepository) entityVisibleForPlayer(ctx context.Context, playerID uint64, raw []byte) (bool, error) {
+	conditions := struct {
+		RequiredFlags []string `json:"required_flags"`
+	}{}
+	if len(raw) == 0 || string(raw) == "{}" || string(raw) == "null" {
+		return true, nil
+	}
+	if err := json.Unmarshal(raw, &conditions); err != nil {
+		return true, nil
+	}
+	if len(conditions.RequiredFlags) == 0 {
+		return true, nil
+	}
+	if playerID == 0 {
+		return false, nil
+	}
+	for _, flagKey := range conditions.RequiredFlags {
+		if flagKey == "" {
+			continue
+		}
+		var exists bool
+		err := r.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM player_story_flag
+  WHERE player_id = $1 AND flag_key = $2
+)
+`, playerID, flagKey).Scan(&exists)
+		if err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {

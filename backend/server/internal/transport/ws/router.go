@@ -11,15 +11,15 @@ import (
 )
 
 type Router struct {
-	authHandler       *AuthHandler
-	worldHandler      *WorldHandler
-	petHandler        *PetHandler
-	playerHandler     *PlayerHandler
-	equipmentHandler  *EquipmentHandler
-	battleHandler     *BattleHandler
-	bagHandler        *BagHandler
-	questHandler      *QuestHandler
-	sessionService    *session.Service
+	authHandler      *AuthHandler
+	worldHandler     *WorldHandler
+	petHandler       *PetHandler
+	playerHandler    *PlayerHandler
+	equipmentHandler *EquipmentHandler
+	battleHandler    *BattleHandler
+	bagHandler       *BagHandler
+	questHandler     *QuestHandler
+	sessionService   *session.Service
 }
 
 func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, playerHandler *PlayerHandler, equipmentHandler *EquipmentHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
@@ -81,6 +81,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.worldHandler.HandleMoveIntent(conn, packet)
+	case protocol.CmdSceneTriggerAckReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.worldHandler.HandleSceneTriggerAck(conn, packet)
 	case protocol.CmdInteractReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

@@ -11,6 +11,7 @@ import (
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/storyprogress"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
@@ -33,6 +34,7 @@ type WorldHandler struct {
 	monsterService   *monster.Service
 	equipmentService *equipment.Service
 	runtimeSnapshots *runtimeview.Service
+	storyService     *storyprogress.Service
 }
 
 func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
@@ -54,6 +56,14 @@ func (h *WorldHandler) SetRuntimeSnapshotService(service *runtimeview.Service) {
 		return
 	}
 	h.runtimeSnapshots = service
+}
+
+// SetStoryProgressService 注入玩家剧情进度服务，用于场景进入时触发一次性过场。
+func (h *WorldHandler) SetStoryProgressService(service *storyprogress.Service) {
+	if h == nil {
+		return
+	}
+	h.storyService = service
 }
 
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
@@ -164,7 +174,7 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	if h.questService != nil {
 		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
 	}
-	return nil
+	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, responseBody.SceneID)
 }
 
 func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Packet) error {
@@ -242,9 +252,95 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			return err
 		}
 		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
+		return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
+	}
+	if err := h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos); err != nil {
+		return err
+	}
+	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
+}
+
+// HandleSceneTriggerAck 在客户端播放完服务端触发的场景剧情后落库剧情进度，并执行解锁 NPC / 接取任务等副作用。
+func (h *WorldHandler) HandleSceneTriggerAck(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.SceneTriggerAckReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid scene trigger ack body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	if h.storyService == nil {
+		return h.sendSceneTriggerAck(conn, packet.Seq, false, "scene trigger unavailable", request.TriggerCode)
+	}
+
+	ctx := context.Background()
+	questBefore := []quest.Summary{}
+	if h.questService != nil {
+		questBefore, _ = listQuestSummaries(ctx, h.questService, sess.PlayerID)
+	}
+	trigger, err := h.storyService.CompleteSceneTrigger(ctx, sess.PlayerID, request.TriggerCode)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "complete scene trigger failed", err)
+	}
+	if trigger == nil {
+		return h.sendSceneTriggerAck(conn, packet.Seq, false, "scene trigger not found", request.TriggerCode)
+	}
+	if h.questService != nil && trigger.EffectAcceptQuestID > 0 {
+		_, err := h.questService.Accept(ctx, sess.PlayerID, trigger.EffectAcceptQuestID, 92001)
+		if err != nil && !errors.Is(err, quest.ErrQuestLocked) {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "accept scene trigger quest failed", err)
+		}
+	}
+	if err := h.sendSceneTriggerAck(conn, packet.Seq, true, "scene trigger completed", request.TriggerCode); err != nil {
+		return err
+	}
+	profile, err := h.playerService.GetProfile(ctx, sess.PlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
+	}
+	if err := h.sendWorldResync(conn, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY}); err != nil {
+		return err
+	}
+	if h.questService != nil {
+		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
+	}
+	return nil
+}
+
+func (h *WorldHandler) sendSceneTriggerAck(conn packetSender, seq uint32, accepted bool, reason string, triggerCode string) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdSceneTriggerAckResp, seq, errcode.WSCodeSuccess, protocol.SceneTriggerAckResp{
+		Accepted:    accepted,
+		Reason:      reason,
+		TriggerCode: triggerCode,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
+func (h *WorldHandler) pushPendingSceneTrigger(ctx context.Context, conn packetSender, playerID uint64, sceneID uint32) error {
+	if h.storyService == nil || conn == nil || playerID == 0 || sceneID == 0 {
 		return nil
 	}
-	return h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos)
+	trigger, err := h.storyService.EvaluateSceneEntry(ctx, playerID, sceneID)
+	if err != nil {
+		return err
+	}
+	if trigger == nil {
+		return nil
+	}
+	packet, err := protocol.NewJSONPacket(protocol.CmdSceneTriggerPush, 0, errcode.WSCodeSuccess, protocol.SceneTriggerPush{
+		TriggerCode:        trigger.TriggerCode,
+		SceneID:            trigger.SceneID,
+		ClientAnimationKey: trigger.ClientAnimationKey,
+		BlockMovement:      trigger.BlockMovement,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
 }
 
 func toProtocolEntities(entities []world.Entity) []protocol.EntityBrief {

@@ -325,6 +325,27 @@ type MoveIntentResp struct {
 	Reason       string `json:"reason"`
 }
 
+// SceneTriggerPush 通知客户端播放服务端判定的一次性场景剧情。
+// 客户端播放完成后必须发送 SceneTriggerAckReq，让服务端落库 flag、解锁 NPC 和接取任务。
+type SceneTriggerPush struct {
+	TriggerCode        string `json:"trigger_code"`
+	SceneID            uint32 `json:"scene_id"`
+	ClientAnimationKey string `json:"client_animation_key"`
+	BlockMovement      bool   `json:"block_movement"`
+}
+
+// SceneTriggerAckReq 表示客户端已完成指定场景剧情播放。
+type SceneTriggerAckReq struct {
+	TriggerCode string `json:"trigger_code"`
+}
+
+// SceneTriggerAckResp 返回服务端是否接受本次剧情完成确认。
+type SceneTriggerAckResp struct {
+	Accepted    bool   `json:"accepted"`
+	Reason      string `json:"reason"`
+	TriggerCode string `json:"trigger_code"`
+}
+
 type InteractReq struct {
 	EntityID uint64 `json:"entity_id"`
 	SelfPos  *Vec2i `json:"self_pos,omitempty"`

@@ -73,6 +73,9 @@
 - `2034 NPC_ACTION_RESP`（已实现）
 - `2042 NPC_MENU_REQ`（已实现）
 - `2043 NPC_MENU_RESP`（已实现）
+- `2044 SCENE_TRIGGER_PUSH`（已实现）
+- `2045 SCENE_TRIGGER_ACK_REQ`（已实现）
+- `2046 SCENE_TRIGGER_ACK_RESP`（已实现）
 - `2037 NPC_DIALOGUE_NEXT_REQ`（已实现）
 - `2038 NPC_DIALOGUE_RESP`（已实现）
 - `2039 NPC_DIALOGUE_CHOOSE_REQ`（已实现）
@@ -532,6 +535,43 @@
     "encounter_rate": 0,
     "spawn_monster_ids": []
   }
+}
+```
+
+### 2044 SCENE_TRIGGER_PUSH
+
+服务端在 `ENTER_WORLD_RESP` 或 `WORLD_RESYNC_PUSH` 之后，按玩家个人剧情进度判断是否需要播放一次性场景剧情。客户端只负责播放 `client_animation_key` 对应的本地剧情场景，不能自行决定是否已完成。
+
+```json
+{
+  "trigger_code": "first_enter_east_road_taozi",
+  "scene_id": 2,
+  "client_animation_key": "初见桃子",
+  "block_movement": true
+}
+```
+
+- `trigger_code`：服务端剧情触发器唯一编码，用于后续 Ack。
+- `client_animation_key`：客户端本地剧情场景 Key，按现有 `CinematicRegistry` 规则解析。
+- `block_movement`：客户端播放期间应锁住玩家移动和运行时菜单。
+
+### 2045 SCENE_TRIGGER_ACK_REQ
+
+客户端播放完服务端触发的场景剧情后发送。服务端收到后写入 `player_story_flag`，执行 NPC 解锁、任务接取等权威副作用，并随后推送最新世界快照和任务更新。
+
+```json
+{
+  "trigger_code": "first_enter_east_road_taozi"
+}
+```
+
+### 2046 SCENE_TRIGGER_ACK_RESP
+
+```json
+{
+  "accepted": true,
+  "reason": "scene trigger completed",
+  "trigger_code": "first_enter_east_road_taozi"
 }
 ```
 

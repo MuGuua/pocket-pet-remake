@@ -29,6 +29,7 @@ import (
 	"pocket-pet-remake/server/internal/module/runtimeview"
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/module/skill"
+	"pocket-pet-remake/server/internal/module/storyprogress"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
@@ -110,6 +111,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 		skillSnapshotRefresher,
 	)
 	questService := quest.NewService(repos.Quests)
+	storyProgressService := storyprogress.NewService(repos.StoryProgress)
 	unlockService := unlock.NewService(repos.Unlocks)
 	npcService := npc.NewService(repos.NPCs)
 	npcDialogueService := npcdialogue.NewService(repos.NPCDialogues, &npcdialogue.QuestServiceAdapter{Service: questService})
@@ -135,6 +137,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	equipmentHandler := wstransport.NewEquipmentHandler(sessionService, equipmentService)
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, equipmentService, playerSkillService, itemService)
 	worldHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
+	worldHandler.SetStoryProgressService(storyProgressService)
 	equipmentHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	battleHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)

@@ -227,7 +227,11 @@ func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
 		input.Level = 1
 	}
 	if input.SceneID == 0 {
-		input.SceneID = 1
+		input.SceneID = 7
+	}
+	if input.PosX == 0 && input.PosY == 0 && input.SceneID == 7 {
+		input.PosX = 4
+		input.PosY = 4
 	}
 	if input.HPMax == 0 {
 		input.HPMax = starter.HPMax
@@ -371,7 +375,11 @@ func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
 		input.Level = 1
 	}
 	if input.SceneID == 0 {
-		input.SceneID = 1
+		input.SceneID = 7
+	}
+	if input.PosX == 0 && input.PosY == 0 && input.SceneID == 7 {
+		input.PosX = 4
+		input.PosY = 4
 	}
 	if input.HPMax == 0 {
 		input.HPMax = input.HP
