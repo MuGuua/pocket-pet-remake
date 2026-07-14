@@ -22,7 +22,7 @@ const META_VALUE_COLOR_HEX: String = "#f0d5b1"
 const ENHANCE_VALUE_COLOR_HEX: String = "#82d563"
 
 ## 物品名称标签；布局与样式在 bag_item_detail.tscn 中编辑。
-@onready var _name_label: Label = %NameLabel
+@onready var _name_label: RichTextLabel = %NameLabel
 ## 佩戴等级标签。
 @onready var _level_label: RichTextLabel = %LevelLabel
 ## 强化等级标签。
@@ -116,7 +116,7 @@ func _apply_item_snapshot(item: Dictionary) -> void:
 	_item = item.duplicate(true)
 	_hide_more_menu()
 	if _name_label != null:
-		_name_label.text = BagUiMapper.item_name(_item)
+		RichTextContent.apply_system_name(_name_label, BagUiMapper.item_name(_item))
 		_name_label.add_theme_color_override("font_color", NAME_COLOR)
 	_refresh_level_labels()
 	if _type_label != null:

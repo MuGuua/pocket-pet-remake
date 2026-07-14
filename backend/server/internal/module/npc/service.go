@@ -75,7 +75,7 @@ func (s *Service) GetAdminEntityDetail(ctx context.Context, entityID uint64) (*A
 
 func (s *Service) CreateAdminEntity(ctx context.Context, input AdminCreateEntityInput) (*AdminEntityDetail, error) {
 	input = input.Normalize()
-	if input.EntityID == 0 || input.EntityCode == "" || input.DisplayName == "" || input.SceneID == 0 {
+	if input.DisplayName == "" || input.SceneID == 0 {
 		return nil, ErrInvalidAdminNPCInput
 	}
 	return s.repo.CreateEntityForAdmin(ctx, input)
@@ -83,7 +83,7 @@ func (s *Service) CreateAdminEntity(ctx context.Context, input AdminCreateEntity
 
 func (s *Service) UpdateAdminEntity(ctx context.Context, entityID uint64, input AdminUpdateEntityInput) (*AdminEntityDetail, error) {
 	input = input.Normalize()
-	if entityID == 0 || input.EntityCode == "" || input.DisplayName == "" || input.SceneID == 0 {
+	if entityID == 0 || input.DisplayName == "" || input.SceneID == 0 {
 		return nil, ErrInvalidAdminNPCInput
 	}
 	result, err := s.repo.UpdateEntityForAdmin(ctx, entityID, input)

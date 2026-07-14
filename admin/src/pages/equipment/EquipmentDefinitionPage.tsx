@@ -429,7 +429,7 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
     () => [
       { title: '物品ID', dataIndex: 'item_id', width: 90 },
       { title: '编码', dataIndex: 'item_code', width: 140 },
-      { title: '名称', dataIndex: 'item_name', width: 160 },
+      { title: '名称', dataIndex: 'item_name', width: 160, render: (value: string) => <RichTextDisplay value={value} /> },
       { title: '部位', dataIndex: 'equip_slot_label', width: 100 },
       { title: '佩戴等级', dataIndex: 'required_level', width: 90 },
       {
@@ -637,7 +637,7 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="物品ID">{detail.item_id}</Descriptions.Item>
               <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
-              <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
+              <Descriptions.Item label="名称"><RichTextDisplay value={detail.item_name} /></Descriptions.Item>
               <Descriptions.Item label="部位">{detail.equip_slot_label}</Descriptions.Item>
               {(detail.equip_slot === 'weapon' || detail.equip_slot === 'class_weapon') && detail.weapon_type ? (
                 <Descriptions.Item label="武器类型">{formatDisplayLabel(WEAPON_TYPE_LABELS, detail.weapon_type)}</Descriptions.Item>
@@ -711,7 +711,7 @@ export function EquipmentDefinitionPage({ embedded = false }: EquipmentDefinitio
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="名称" name="item_name" rules={[{ required: true, message: '请输入名称' }]}>
-                <Input />
+                <RichTextEditor rows={1} placeholder="支持为装备名称刷色" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

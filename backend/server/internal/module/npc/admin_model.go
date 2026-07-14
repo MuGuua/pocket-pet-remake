@@ -77,7 +77,7 @@ type AdminWorldSceneSummary struct {
 }
 
 // AdminCreateEntityInput 描述后台新增 NPC/世界实体时允许维护的字段。
-// 坐标与朝向由客户端场景资源维护，服务端只记录 entity 归属 scene_id。
+// EntityID 与 EntityCode 仅用于兼容旧请求，创建时由仓储统一生成并忽略客户端传值。
 type AdminCreateEntityInput struct {
 	EntityID    uint64 `json:"entity_id"`
 	EntityCode  string `json:"entity_code"`
@@ -122,20 +122,20 @@ func (input AdminUpdateEntityInput) Normalize() AdminUpdateEntityInput {
 
 // AdminCreateMenuEntryInput 描述后台新增 NPC 菜单项时允许维护的字段。
 type AdminCreateMenuEntryInput struct {
-	EntityID         uint64 `json:"entity_id"`
-	EntryID          string `json:"entry_id"`
-	EntryType        string `json:"entry_type"`
-	Title            string `json:"title"`
-	Subtitle         string `json:"subtitle"`
-	State            string `json:"state"`
-	Priority         uint32 `json:"priority"`
-	SortOrder        uint32 `json:"sort_order"`
-	ActionResultType        string `json:"action_result_type"`
-	ActionNotice            string `json:"action_notice"`
-	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
-	LinkedQuestID           uint64 `json:"linked_quest_id"`
+	EntityID                uint64                              `json:"entity_id"`
+	EntryID                 string                              `json:"entry_id"`
+	EntryType               string                              `json:"entry_type"`
+	Title                   string                              `json:"title"`
+	Subtitle                string                              `json:"subtitle"`
+	State                   string                              `json:"state"`
+	Priority                uint32                              `json:"priority"`
+	SortOrder               uint32                              `json:"sort_order"`
+	ActionResultType        string                              `json:"action_result_type"`
+	ActionNotice            string                              `json:"action_notice"`
+	BattleEncounterEntityID uint64                              `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64                              `json:"linked_quest_id"`
 	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
-	Status                  uint32 `json:"status"`
+	Status                  uint32                              `json:"status"`
 }
 
 func (input AdminCreateMenuEntryInput) Normalize() AdminCreateMenuEntryInput {
@@ -162,19 +162,19 @@ func (input AdminCreateMenuEntryInput) Normalize() AdminCreateMenuEntryInput {
 
 // AdminUpdateMenuEntryInput 描述后台编辑 NPC 菜单项时允许调整的字段。
 type AdminUpdateMenuEntryInput struct {
-	EntityID         uint64 `json:"entity_id"`
-	EntryType        string `json:"entry_type"`
-	Title            string `json:"title"`
-	Subtitle         string `json:"subtitle"`
-	State            string `json:"state"`
-	Priority         uint32 `json:"priority"`
-	SortOrder        uint32 `json:"sort_order"`
-	ActionResultType        string `json:"action_result_type"`
-	ActionNotice            string `json:"action_notice"`
-	BattleEncounterEntityID uint64 `json:"battle_encounter_entity_id"`
-	LinkedQuestID           uint64 `json:"linked_quest_id"`
+	EntityID                uint64                              `json:"entity_id"`
+	EntryType               string                              `json:"entry_type"`
+	Title                   string                              `json:"title"`
+	Subtitle                string                              `json:"subtitle"`
+	State                   string                              `json:"state"`
+	Priority                uint32                              `json:"priority"`
+	SortOrder               uint32                              `json:"sort_order"`
+	ActionResultType        string                              `json:"action_result_type"`
+	ActionNotice            string                              `json:"action_notice"`
+	BattleEncounterEntityID uint64                              `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64                              `json:"linked_quest_id"`
 	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
-	Status                  uint32 `json:"status"`
+	Status                  uint32                              `json:"status"`
 }
 
 func (input AdminUpdateMenuEntryInput) Normalize() AdminUpdateMenuEntryInput {
@@ -265,21 +265,21 @@ type AdminEntityDetail struct {
 }
 
 type AdminMenuEntrySummary struct {
-	EntityID         uint64    `json:"entity_id"`
-	EntryID          string    `json:"entry_id"`
-	EntryType        string    `json:"entry_type"`
-	Title            string    `json:"title"`
-	Subtitle         string    `json:"subtitle"`
-	State            string    `json:"state"`
-	Priority         uint32    `json:"priority"`
-	SortOrder        uint32    `json:"sort_order"`
+	EntityID                uint64    `json:"entity_id"`
+	EntryID                 string    `json:"entry_id"`
+	EntryType               string    `json:"entry_type"`
+	Title                   string    `json:"title"`
+	Subtitle                string    `json:"subtitle"`
+	State                   string    `json:"state"`
+	Priority                uint32    `json:"priority"`
+	SortOrder               uint32    `json:"sort_order"`
 	ActionResultType        string    `json:"action_result_type"`
 	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
 	LinkedQuestID           uint64    `json:"linked_quest_id"`
 	Status                  uint32    `json:"status"`
-	StatusText       string    `json:"status_text"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	CreatedAt        time.Time `json:"created_at"`
+	StatusText              string    `json:"status_text"`
+	UpdatedAt               time.Time `json:"updated_at"`
+	CreatedAt               time.Time `json:"created_at"`
 }
 
 type AdminMenuEntryList struct {
@@ -290,23 +290,23 @@ type AdminMenuEntryList struct {
 }
 
 type AdminMenuEntryDetail struct {
-	EntityID         uint64    `json:"entity_id"`
-	EntryID          string    `json:"entry_id"`
-	EntryType        string    `json:"entry_type"`
-	Title            string    `json:"title"`
-	Subtitle         string    `json:"subtitle"`
-	State            string    `json:"state"`
-	Priority         uint32    `json:"priority"`
-	SortOrder        uint32    `json:"sort_order"`
-	ActionResultType        string    `json:"action_result_type"`
-	ActionNotice            string    `json:"action_notice"`
-	BattleEncounterEntityID uint64    `json:"battle_encounter_entity_id"`
-	LinkedQuestID           uint64    `json:"linked_quest_id"`
+	EntityID                uint64                              `json:"entity_id"`
+	EntryID                 string                              `json:"entry_id"`
+	EntryType               string                              `json:"entry_type"`
+	Title                   string                              `json:"title"`
+	Subtitle                string                              `json:"subtitle"`
+	State                   string                              `json:"state"`
+	Priority                uint32                              `json:"priority"`
+	SortOrder               uint32                              `json:"sort_order"`
+	ActionResultType        string                              `json:"action_result_type"`
+	ActionNotice            string                              `json:"action_notice"`
+	BattleEncounterEntityID uint64                              `json:"battle_encounter_entity_id"`
+	LinkedQuestID           uint64                              `json:"linked_quest_id"`
 	Conditions              npcdialogue.AdminDialogueConditions `json:"conditions"`
-	Status                  uint32    `json:"status"`
-	StatusText       string    `json:"status_text"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	Status                  uint32                              `json:"status"`
+	StatusText              string                              `json:"status_text"`
+	CreatedAt               time.Time                           `json:"created_at"`
+	UpdatedAt               time.Time                           `json:"updated_at"`
 }
 
 func AdminNPCStatusText(status uint32) string {

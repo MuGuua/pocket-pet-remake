@@ -41,7 +41,7 @@ theme_override_constants/separation = 10
 [node name="HeaderRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1881246272]
 layout_mode = 2
 
-[node name="NameLabel" type="Label" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=1881246273]
+[node name="NameLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=1881246273]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -50,6 +50,8 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 33
 text = "圣品·夜游神之枪"
+bbcode_enabled = true
+fit_content = true
 
 [node name="TopCloseButton" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=188570467 instance=ExtResource("5_close_btn")]
 unique_name_in_owner = true

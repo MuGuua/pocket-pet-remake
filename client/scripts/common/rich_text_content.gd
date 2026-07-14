@@ -34,3 +34,17 @@ static func apply_bbcode_text(label: RichTextLabel, bbcode_text: String) -> void
     if bbcode_text.strip_edges().is_empty():
         return
     label.text = bbcode_text
+
+
+## 将数据库配置的系统名称写入名称标签；名称允许使用后台编辑器支持的 BBCode。
+static func apply_system_name(label: RichTextLabel, system_name: String) -> void:
+    apply_bbcode_text(label, system_name.strip_edges())
+
+
+## 将玩家自定义名称按纯文本写入富文本标签，避免方括号内容被解析为 BBCode。
+static func apply_plain_name(label: RichTextLabel, plain_name: String) -> void:
+    if label == null:
+        return
+    label.clear()
+    label.bbcode_enabled = true
+    label.text = plain_name.replace("[", "[lb]")

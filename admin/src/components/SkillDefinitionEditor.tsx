@@ -57,7 +57,7 @@ export function SkillDefinitionEditor({ form, editingRecord }: SkillDefinitionEd
         </Col>
         <Col xs={24} md={8}>
           <Form.Item label="技能名称" name="skill_name" rules={[{ required: true, message: '请输入技能名称' }]}>
-            <Input />
+            <RichTextEditor rows={1} placeholder="支持为技能名称刷色" />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>

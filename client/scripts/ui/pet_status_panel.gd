@@ -37,7 +37,7 @@ const DEFAULT_TAB_KEY: String = "basic"
 ## 左侧宠物列表容器，复用场景里已有的宠物按钮组件。
 @onready var _pet_grid: GridContainer = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer") as GridContainer
 ## 顶部展示区的宠物名称。
-@onready var _pet_name_label: Label = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer/PetName") as Label
+@onready var _pet_name_label: RichTextLabel = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer/PetName") as RichTextLabel
 ## 顶部展示区的宠物等级。
 @onready var _pet_level_label: Label = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer/PetLevel") as Label
 ## 顶部展示区的宠物动画节点；没有服务端形象时隐藏，避免展示场景模板假数据。
@@ -519,7 +519,11 @@ func _refresh_summary(pet: Dictionary) -> void:
             _preview_sprite.visible = false
         return
     if _pet_name_label != null:
-        _pet_name_label.text = _resolve_pet_name(pet)
+        var custom_name: String = str(pet.get("custom_name", "")).strip_edges()
+        if custom_name.is_empty():
+            RichTextContent.apply_system_name(_pet_name_label, _resolve_pet_name(pet))
+        else:
+            RichTextContent.apply_plain_name(_pet_name_label, _resolve_pet_name(pet))
     if _pet_level_label != null:
         var level: int = int(pet.get("level", 0))
         _pet_level_label.text = "%s级" % UiFormat.value_to_text(level) if level > 0 else ""

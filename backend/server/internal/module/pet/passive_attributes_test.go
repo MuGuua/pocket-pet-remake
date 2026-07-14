@@ -21,7 +21,7 @@ func TestApplyPersistentPassiveBonusesToPetUpdatesDisplayedStats(t *testing.T) {
 		case 3001:
 			return skill.RuntimeDefinition{
 				SkillID:        3001,
-				SkillName:      "迅捷之心",
+				SkillName:      "[color=#00ffff]迅捷[/color]之心",
 				SkillType:      "support",
 				ActivationMode: skill.ActivationModePassive,
 				SpeedPct:       50,
@@ -29,7 +29,7 @@ func TestApplyPersistentPassiveBonusesToPetUpdatesDisplayedStats(t *testing.T) {
 		case 3002:
 			return skill.RuntimeDefinition{
 				SkillID:        3002,
-				SkillName:      "强壮之躯",
+				SkillName:      "[b]强壮[/b]之躯",
 				SkillType:      "support",
 				ActivationMode: skill.ActivationModePassive,
 				HealPct:        20,

@@ -250,7 +250,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
     () => [
       { title: '物品ID', dataIndex: 'item_id', key: 'item_id', width: 110, fixed: 'left' },
       { title: '编码', dataIndex: 'item_code', key: 'item_code', width: 150 },
-      { title: '名称', dataIndex: 'item_name', key: 'item_name', width: 160 },
+      { title: '名称', dataIndex: 'item_name', key: 'item_name', width: 160, render: (value: string) => <RichTextDisplay value={value} /> },
       { title: '分类', dataIndex: 'item_type', key: 'item_type', width: 120, render: (value: string) => <Tag color="blue">{formatDisplayLabel(ITEM_TYPE_LABELS, value)}</Tag> },
       { title: '堆叠上限', dataIndex: 'max_stack', key: 'max_stack', width: 110 },
       { title: '买价(铜)', dataIndex: 'buy_price_copper', key: 'buy_price_copper', width: 120 },
@@ -336,7 +336,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="物品ID">{detail.item_id}</Descriptions.Item>
               <Descriptions.Item label="编码">{detail.item_code}</Descriptions.Item>
-              <Descriptions.Item label="名称">{detail.item_name}</Descriptions.Item>
+              <Descriptions.Item label="名称"><RichTextDisplay value={detail.item_name} /></Descriptions.Item>
               <Descriptions.Item label="分类">{formatDisplayLabel(ITEM_TYPE_LABELS, detail.item_type)}</Descriptions.Item>
               {detail.item_sub_type ? (
                 <Descriptions.Item label="子分类">{formatDisplayLabel(ITEM_SUB_TYPE_LABELS, detail.item_sub_type)}</Descriptions.Item>
@@ -464,7 +464,7 @@ export function ItemDefinitionPage({ excludeItemType }: ItemDefinitionPageProps)
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="物品名称" name="item_name" rules={[{ required: true, message: '请输入物品名称' }]}>
-                <Input />
+                <RichTextEditor rows={1} placeholder="支持为物品名称刷色" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

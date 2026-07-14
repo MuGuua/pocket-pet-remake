@@ -8,7 +8,7 @@ const SCENE_PATH: String = "res://scenes/ui/bag/repair_equipment_popup.tscn"
 signal prompt_finished(result: Dictionary)
 
 @onready var _item_icon: TextureRect = %ItemIcon
-@onready var _item_name_label: Label = %ItemNameLabel
+@onready var _item_name_label: RichTextLabel = %ItemNameLabel
 @onready var _item_meta_label: Label = %ItemMetaLabel
 @onready var _warning_label: RichTextLabel = %WarningLabel
 @onready var _confirm_button: RuntimeActionButton = %ConfirmButton
@@ -92,7 +92,7 @@ func _is_dismiss_event(event: InputEvent) -> bool:
 func _apply_item_view() -> void:
     var item_name: String = BagUiMapper.item_name(_item)
     if _item_name_label != null:
-        _item_name_label.text = item_name
+        RichTextContent.apply_system_name(_item_name_label, item_name)
     if _item_icon != null:
         _item_icon.texture = BagUiMapper.icon_texture(_item)
     if _item_meta_label != null:

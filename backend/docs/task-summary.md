@@ -822,3 +822,29 @@
 - 原因是 `RichTextLabel.clear()` 会清空内部解析缓冲，但相同字符串再次赋给 `text` 属性时，Godot 将其判断为属性值未变化，不会重建字符缓冲；因此面板保存的正文和 `label.text` 都正确，但 `get_total_character_count()` 为 `0`。
 - `client/scripts/ui/npc_dialogue_panel.gd` 改为先 `clear()`，BBCode 使用 `append_text()`、纯文本使用 `add_text()`，确保每次打开对话都重新解析正文。
 - 已使用临时 Godot 场景连续两次显示相同的“啾啾～～啾～啾～”，两次解析字符数均为 `8`；临时测试文件验证后已删除。
+
+## 2026-07-14 时光小屋地图脚本接入
+
+本次仅补齐新地图的客户端场景脚本，不扩展服务端场景数据：
+- 新增 `client/scripts/feature/world/scene_levels/time_house_level.gd`，沿用 `NetworkDoorLevelBase`，提供与现有地图一致的 HUD 名称、缩放、出生点、居中和出口配置接口。
+- `client/scenes/maps/fashtown/时光小屋.tscn` 根节点已绑定该脚本；地图使用多个中文命名 `TileMapLayer`，因此居中点按全部有效图层的合并边界计算。
+- `LeftDoor` 固定使用 `portal_id=7001` 请求进入 `scene_id=2`；东路脚本将该 portal 映射到东侧门内的 `(8, 1)`，但 `_get_door_configs()` 仍不包含 `RightPortal`，因此不能从东路返回。
+- 客户端 `WorldSceneRegistry` 注册 `scene_id=7`，服务端 PostgreSQL 仓储与测试桩同步配置 `7 -> 2` 单向出口，并新增迁移 `099_time_house_scene.sql`。
+- 新增服务端测试覆盖正向传送成功与东路反向返回失败，确保一次性场景约束不会被后续改动破坏。
+- 检查世界渲染链路后，将时光小屋承担房间边界和物理碰撞的 TileMapLayer 从“墙壁”改名为 `Collision`；瓦片、位置和碰撞数据保持不变，使其与其他地图使用相同的边界识别规则。
+
+## 2026-07-14 新增地图 NPC 表单优化
+
+本次只优化后台地图 NPC 表单，不改变接口和数据库结构：
+- `admin/src/pages/npcs/NPCConfigPage.tsx` 将实体 ID、实体编码、富文本显示名、所属场景和发布状态重新分区，降低新增时的录入歧义。
+- NPC 显示名编辑器占用整行，保留现有 BBCode 刷色能力；实体编码增加小写字母、数字、下划线格式校验。
+- 场景下拉展示“场景名（Scene ID）”，支持按名称和 ID 检索；实体类型固定展示为地图 NPC（类型 2）。
+- 默认新增值只保留 `entity_type=2` 和启用状态，不再预填测试 ID、测试编码、测试名称或固定场景。
+- 弹窗复用 `FIXED_FORM_MODAL_STYLES`，内容较多时在弹窗内部滚动，底部创建/取消操作区保持可见。
+- 已执行 `cd admin && npm run build`，TypeScript 编译与 Vite 生产构建通过；仅保留项目既有的大包体积提示。
+- 新增 `backend/server/migrations/100_npc_entity_auto_identity.sql`，序列从现有最大 `entity_id` 或 `90000` 之后继续，避免与已有实体冲突。
+- PostgreSQL NPC 仓储在单条 `INSERT ... RETURNING` 中生成实体 ID，并写入 `npc_{ID}` 编码；并发新增不再依赖前端计算最大值。
+- 后台新增表单不再显示 ID/编码输入框，创建成功转为编辑态后只读展示服务端生成结果；更新接口不会修改实体编码。
+- HTTP CRUD 测试新增自动身份断言，并验证生成后的实体仍可正常更新和删除。
+- 已执行 `cd backend && GOCACHE=/tmp/pocket-pet-go-cache go test ./server/internal/module/npc ./server/internal/data/postgres ./server/internal/transport/http`，测试通过。
+- 按最终录入界面要求，删除地图 NPC 表单中的顶部说明、自动生成说明、所有 `extra` 文案及说明型 placeholder；提交字段和服务端自动生成逻辑不变。

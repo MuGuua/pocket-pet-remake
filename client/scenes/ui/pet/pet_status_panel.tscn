@@ -193,12 +193,13 @@ custom_maximum_size = Vector2(400, 48)
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="PetName" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=2114362760]
+[node name="PetName" type="RichTextLabel" parent="PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer" unique_id=2114362760]
 custom_minimum_size = Vector2(232, 48)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 28
 text = "天空之王"
+bbcode_enabled = true
 horizontal_alignment = 1
 vertical_alignment = 1
 

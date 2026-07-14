@@ -1,10 +1,15 @@
 package pet
 
 import (
+	"regexp"
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/skill"
 )
+
+// systemNameBBCodePattern 只剥离后台名称编辑器允许写入的展示标签。
+// 技能效果仍由稳定配置决定；此前按名称前缀兼容的旧数据也不能因刷色而失效。
+var systemNameBBCodePattern = regexp.MustCompile(`(?i)\[/?(?:b|i|u|color(?:=[^\]]+)?)\]`)
 
 // applyPersistentPassiveBonusesToPets 把会常驻参与面板计算的被动技能效果应用到宠物快照。
 // 这里只处理“应该直接反映到属性面板”的加成，吸血/反伤等战斗期效果仍留在 battle 运行时处理。
@@ -87,32 +92,33 @@ func collectPersistentPassiveProfile(
 			applied = true
 			continue
 		}
+		plainSkillName := systemNameBBCodePattern.ReplaceAllString(def.SkillName, "")
 		switch {
-		case strings.HasPrefix(def.SkillName, "强壮"):
+		case strings.HasPrefix(plainSkillName, "强壮"):
 			profile.hpMaxPct += def.HealPct
 			applied = true
-		case strings.HasPrefix(def.SkillName, "强力"):
+		case strings.HasPrefix(plainSkillName, "强力"):
 			profile.atkPct += uint32(maxInt32(def.AttackPct, 0))
 			applied = true
-		case strings.HasPrefix(def.SkillName, "迅捷"):
+		case strings.HasPrefix(plainSkillName, "迅捷"):
 			profile.spdPct += uint32(maxInt32(def.SpeedPct, 0))
 			applied = true
-		case strings.HasPrefix(def.SkillName, "魔心"):
+		case strings.HasPrefix(plainSkillName, "魔心"):
 			profile.manaPct += uint32(maxInt32(def.ManaPct, 0))
 			applied = true
-		case strings.HasPrefix(def.SkillName, "致命"):
+		case strings.HasPrefix(plainSkillName, "致命"):
 			profile.critRatePct += def.CritBoostPct
 			applied = true
-		case strings.HasPrefix(def.SkillName, "暴伤"):
+		case strings.HasPrefix(plainSkillName, "暴伤"):
 			profile.critDmgPct += def.SkillCritAdd
 			applied = true
-		case strings.HasPrefix(def.SkillName, "厚甲"):
+		case strings.HasPrefix(plainSkillName, "厚甲"):
 			profile.physicalResistPct += uint32(maxInt32(def.DefensePct, 0))
 			applied = true
-		case strings.HasPrefix(def.SkillName, "坚韧"):
+		case strings.HasPrefix(plainSkillName, "坚韧"):
 			profile.allStatusResistPct += def.SealPower
 			applied = true
-		case strings.HasPrefix(def.SkillName, "结界"):
+		case strings.HasPrefix(plainSkillName, "结界"):
 			profile.skillResistPct += def.VulnerabilityApplyPct
 			applied = true
 		}

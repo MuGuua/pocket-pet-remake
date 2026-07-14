@@ -7,7 +7,7 @@ const ANCHOR_GAP_Y: float = 2.0
 const SCENE_PATH: String = "res://scenes/ui/common/bag_item_hover_name.tscn"
 
 ## 悬停名称标签；右对齐显示，便于固定在物品右上方。
-@onready var _name_label: Label = %NameLabel
+@onready var _name_label: RichTextLabel = %NameLabel
 
 
 ## 初始化时忽略鼠标，避免遮挡格子点击。
@@ -25,7 +25,7 @@ func show_for_anchor(anchor: Control, item_name: String) -> void:
     if normalized_name.is_empty():
         hide_name()
         return
-    _name_label.text = normalized_name
+    RichTextContent.apply_system_name(_name_label, normalized_name)
     top_level = true
     z_index = 32
     show()

@@ -206,7 +206,7 @@ export function SkillDefinitionPage() {
     () => [
       { title: '技能ID', dataIndex: 'skill_id', key: 'skill_id', width: 90, fixed: 'left' },
       { title: '编码', dataIndex: 'skill_code', key: 'skill_code', width: 130, ellipsis: true },
-      { title: '名称', dataIndex: 'skill_name', key: 'skill_name', width: 140 },
+      { title: '名称', dataIndex: 'skill_name', key: 'skill_name', width: 140, render: (value: string) => <RichTextDisplay value={value} /> },
       {
         title: '分类',
         dataIndex: 'skill_category',
@@ -381,7 +381,7 @@ export function SkillDefinitionPage() {
             <Descriptions bordered column={2} size="small" title="基础信息">
               <Descriptions.Item label="技能ID">{detail.skill_id}</Descriptions.Item>
               <Descriptions.Item label="编码">{detail.skill_code || '-'}</Descriptions.Item>
-              <Descriptions.Item label="名称">{detail.skill_name}</Descriptions.Item>
+              <Descriptions.Item label="名称"><RichTextDisplay value={detail.skill_name} /></Descriptions.Item>
               <Descriptions.Item label="分类 / 类型">
                 {formatDisplayLabel(SKILL_CATEGORY_LABELS, detail.skill_category)} / {formatDisplayLabel(SKILL_TYPE_LABELS, detail.skill_type)}
               </Descriptions.Item>

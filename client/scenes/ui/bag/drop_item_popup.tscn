@@ -69,12 +69,14 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="ItemNameLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1883863541]
+[node name="ItemNameLabel" type="RichTextLabel" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1883863541]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
 theme_override_font_sizes/font_size = 18
 text = "物品名称"
+bbcode_enabled = true
+fit_content = true
 autowrap_mode = 2
 
 [node name="ItemMetaLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/ItemRow/ItemInfoVBox" unique_id=1969716579]

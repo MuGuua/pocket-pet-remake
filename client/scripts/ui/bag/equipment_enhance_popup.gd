@@ -62,7 +62,7 @@ signal enhance_presentation_finished
 
 @onready var _item_icon: TextureRect = %ItemIcon
 @onready var _item_enhance_badge: Label = %ItemEnhanceBadge
-@onready var _item_name_label: Label = %ItemNameLabel
+@onready var _item_name_label: RichTextLabel = %ItemNameLabel
 @onready var _item_level_label: Label = %ItemLevelLabel
 @onready var _item_slot_label: Label = %ItemSlotLabel
 @onready var _preview_rows: VBoxContainer = %PreviewRows
@@ -206,7 +206,7 @@ func _refresh_all() -> void:
 ## 刷新顶部装备信息区。
 func _refresh_item_header() -> void:
 	if _item_name_label != null:
-		_item_name_label.text = BagUiMapper.item_name(_item)
+		RichTextContent.apply_system_name(_item_name_label, BagUiMapper.item_name(_item))
 	if _item_icon != null:
 		_item_icon.texture = BagUiMapper.icon_texture(_item)
 	if _item_enhance_badge != null:

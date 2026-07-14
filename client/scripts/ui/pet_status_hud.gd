@@ -18,7 +18,7 @@ const PET_UNIT_CLASS: int = 2
 ## 宠物经验值进度条，颜色与人物 HUD 的黄色经验条保持一致。
 @onready var _exp_bar: ProgressBar = %ExpBar
 ## 宠物名称与等级摘要。
-@onready var _name_label: Label = %NameLabel
+@onready var _name_label: RichTextLabel = %NameLabel
 
 ## 当前 HUD 展示的宠物唯一标识，用于战斗态匹配实时生命。
 var _current_pet_uid: int = 0
@@ -106,7 +106,10 @@ func _update_name_label(pet: Dictionary) -> void:
 	if pet.is_empty():
 		_name_label.text = "宠物"
 		return
-	var pet_name: String = str(pet.get("name", pet.get("pet_name", ""))).strip_edges()
+	var custom_name: String = str(pet.get("custom_name", "")).strip_edges()
+	var pet_name: String = custom_name
+	if pet_name.is_empty():
+		pet_name = str(pet.get("pet_name", pet.get("system_pet_name", pet.get("name", "")))).strip_edges()
 	if pet_name.is_empty():
 		var pet_id: int = int(pet.get("pet_id", 0))
 		var pet_uid: int = int(pet.get("pet_uid", 0))
@@ -117,10 +120,13 @@ func _update_name_label(pet: Dictionary) -> void:
 		else:
 			pet_name = "宠物"
 	var pet_level: int = int(pet.get("level", 0))
+	var display_text: String = pet_name
 	if pet_level > 0:
-		_name_label.text = "%s Lv.%s" % [pet_name, UiFormat.value_to_text(pet_level)]
+		display_text = "%s Lv.%s" % [pet_name, UiFormat.value_to_text(pet_level)]
+	if custom_name.is_empty():
+		RichTextContent.apply_system_name(_name_label, display_text)
 	else:
-		_name_label.text = pet_name
+		RichTextContent.apply_plain_name(_name_label, display_text)
 
 
 ## 刷新宠物头像贴图；skin_id 缺失时保持为空，不在客户端硬编码假宠物形象。
