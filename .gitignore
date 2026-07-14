@@ -4,3 +4,5 @@ client/.godot/
 admin/node_modules/
 admin/dist/
 admin/*.tsbuildinfo
+.DS_Store
+backend/.cache/

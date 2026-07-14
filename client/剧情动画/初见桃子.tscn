@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://cae7b2nafi3wu" path="res://asset/分类/特效/顺序播放特效/2021.png" id="4_xom2b"]
 [ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="6_umojt"]
 [ext_resource type="PackedScene" uid="uid://ctktslgpn3tsi" path="res://scenes/ui/npc_dialogue_panel.tscn" id="7_dialogue"]
+[ext_resource type="PackedScene" uid="uid://x7y5vjkhwgme" path="res://scenes/ui/common/plot_image.tscn" id="8_plot"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_lktq1"]
 atlas = ExtResource("4_xom2b")
@@ -108,3 +109,5 @@ position = Vector2(212, 135)
 
 [node name="StandaloneDialoguePanel" parent="." unique_id=159451974 instance=ExtResource("7_dialogue")]
 visible = false
+
+[node name="PlotImage" parent="." unique_id=639342883 instance=ExtResource("8_plot")]

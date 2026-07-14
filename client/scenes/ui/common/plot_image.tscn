@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://x7y5vjkhwgme"]
+
+[ext_resource type="Script" path="res://scripts/ui/common/plot_image.gd" id="1_ee3c7"]
+[ext_resource type="Texture2D" uid="uid://c4bk6efv5s0ub" path="res://asset/分类/新补充图标/dh.png" id="2_ee3c7"]
+
+[node name="Plot" type="CanvasLayer" unique_id=1305943536]
+visible = false
+layer = 50
+script = ExtResource("1_ee3c7")
+
+[node name="Root" type="Control" parent="." unique_id=1970105681]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TextureRect" type="TextureRect" parent="Root" unique_id=1491453228]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_right = 20.0
+offset_bottom = 40.0
+grow_horizontal = 2
+offset_transform_enabled = true
+offset_transform_position = Vector2(0, 20)
+mouse_filter = 2
+texture = ExtResource("2_ee3c7")
+expand_mode = 1
+stretch_mode = 4

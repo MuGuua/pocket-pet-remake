@@ -2,16 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dai0y0bcuiupj" path="res://scripts/ui/npc_dialogue_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="3_name_style"]
-[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="4_action_btn"]
-[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="5_close_btn"]
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_speaker"]
-texture = ExtResource("3_name_style")
-texture_margin_left = 14.0
-texture_margin_top = 14.0
-texture_margin_right = 14.0
-texture_margin_bottom = 14.0
+[ext_resource type="PackedScene" uid="uid://cyno3jl548n14" path="res://scenes/ui/common/continue_button.tscn" id="3_80pdx"]
 
 [node name="NPCDialoguePanel" type="CanvasLayer" unique_id=1513106823]
 layer = 25
@@ -29,7 +20,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.62)
+color = Color(0, 0, 0, 0)
 
 [node name="DialogueVBox" type="VBoxContainer" parent="Root" unique_id=39689053]
 unique_name_in_owner = true
@@ -61,7 +52,7 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
-theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
+theme_override_styles/panel = ExtResource("2_style")
 
 [node name="NpcSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/NpcSpeakerPanel" unique_id=1606228021]
 unique_name_in_owner = true
@@ -85,7 +76,7 @@ mouse_filter = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
-theme_override_styles/panel = SubResource("StyleBoxTexture_speaker")
+theme_override_styles/panel = ExtResource("2_style")
 
 [node name="PlayerSpeakerLabel" type="RichTextLabel" parent="Root/DialogueVBox/SpeakerRow/PlayerSpeakerPanel" unique_id=679601457]
 unique_name_in_owner = true
@@ -108,18 +99,6 @@ theme_override_styles/panel = ExtResource("2_style")
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderRow" type="HBoxContainer" parent="Root/DialogueVBox/Panel/Layout" unique_id=328413871]
-layout_mode = 2
-
-[node name="HeaderSpacer" type="Control" parent="Root/DialogueVBox/Panel/Layout/HeaderRow" unique_id=328413870]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="TopCloseButton" parent="Root/DialogueVBox/Panel/Layout/HeaderRow" unique_id=757326486 instance=ExtResource("5_close_btn")]
-unique_name_in_owner = true
-layout_mode = 2
-
 [node name="ContentLabel" type="RichTextLabel" parent="Root/DialogueVBox/Panel/Layout" unique_id=328413872]
 layout_mode = 2
 size_flags_vertical = 0
@@ -141,9 +120,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ContinueButton" parent="Root/DialogueVBox/Panel/Layout" unique_id=164704163 instance=ExtResource("4_action_btn")]
-custom_minimum_size = Vector2(96, 44)
-custom_maximum_size = Vector2(96, 44)
+[node name="Button" parent="Root/DialogueVBox/Panel/Layout" unique_id=563716072 instance=ExtResource("3_80pdx")]
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-size_flags_horizontal = 8
-button_label = "继续"
+size_flags_vertical = 3

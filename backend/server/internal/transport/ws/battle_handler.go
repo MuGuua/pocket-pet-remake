@@ -1947,6 +1947,10 @@ func (h *BattleHandler) toProtocolNPCDialogueNode(ctx context.Context, playerID 
 	playerName := h.resolveDialoguePlayerName(ctx, playerID)
 	speaker, portraitKey, isPlayerSpeaker := resolveDialogueSpeaker(node.Speaker, node.PortraitKey, playerName)
 	content, mentionedItems := h.renderDialogueContent(ctx, playerID, node.Content)
+	contentFormat := node.ContentFormat
+	if len(mentionedItems) > 0 && strings.TrimSpace(strings.ToLower(contentFormat)) != "bbcode" {
+		contentFormat = "bbcode"
+	}
 	return &protocol.NPCDialogueNode{
 		DialogueID:           node.DialogueID,
 		NodeID:               node.NodeID,
@@ -1954,7 +1958,7 @@ func (h *BattleHandler) toProtocolNPCDialogueNode(ctx context.Context, playerID 
 		Speaker:              speaker,
 		IsPlayerSpeaker:      isPlayerSpeaker,
 		Content:              content,
-		ContentFormat:        node.ContentFormat,
+		ContentFormat:        contentFormat,
 		PortraitKey:          portraitKey,
 		ClientAnimationKey:   node.ClientAnimationKey,
 		ClientAnimationBlock: node.ClientAnimationBlock,
@@ -1982,6 +1986,9 @@ func (h *BattleHandler) resolveDialoguePlayerName(ctx context.Context, playerID 
 
 // renderDialogueContent renders safe server-side placeholders before the node
 // reaches the client. Item names and icons always come from item_definition.
+// {item:ID} is emitted as a lightweight custom rich-text token so the client
+// can insert the item icon at the exact mention position instead of appending
+// every icon after the sentence.
 func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint64, content string) (string, []protocol.NPCDialogueItem) {
 	rendered := content
 	playerName := h.resolveDialoguePlayerName(ctx, playerID)
@@ -2013,7 +2020,7 @@ func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint
 				ItemName: itemName,
 			})
 		}
-		return itemName
+		return fmt.Sprintf("[item id=%d]%s[/item]", itemID, escapeDialogueInlineTagText(itemName))
 	})
 	rendered = dialoguePetTokenPattern.ReplaceAllStringFunc(rendered, func(token string) string {
 		matches := dialoguePetTokenPattern.FindStringSubmatch(token)
@@ -2034,6 +2041,13 @@ func (h *BattleHandler) renderDialogueContent(ctx context.Context, playerID uint
 		return petName
 	})
 	return rendered, mentionedItems
+}
+
+// escapeDialogueInlineTagText removes square brackets from custom inline tag
+// text, preventing item names from accidentally closing the [item] token.
+func escapeDialogueInlineTagText(text string) string {
+	replacer := strings.NewReplacer("[", "［", "]", "］")
+	return replacer.Replace(text)
 }
 
 // applyDialogueNodeSideEffects 在进入某个剧情节点后执行 effects_json 中配置的服务端权威副作用。

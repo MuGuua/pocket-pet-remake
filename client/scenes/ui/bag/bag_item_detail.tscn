@@ -17,6 +17,7 @@ texture_margin_bottom = 5.0
 bg_color = Color(0.019607844, 0.019607844, 0.019607844, 0.37254903)
 
 [node name="BagItemDetail" type="PanelContainer" unique_id=390760406]
+visible = false
 custom_minimum_size = Vector2(200, 500)
 offset_right = 540.0
 offset_bottom = 344.0

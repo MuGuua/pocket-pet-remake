@@ -1,8 +1,8 @@
 class_name RichTextContent
 extends RefCounted
 
-## 识别常见 Godot BBCode 标签，用于判断服务端文案是否已带格式。
-const BBCODE_TAG_HINT_REGEX: String = "\\[(?:\\/)?(?:b|i|u|color(?:=[^\\]]+)?)\\]"
+## 识别常见 Godot BBCode 标签和项目自定义行内标签，用于判断服务端文案是否已带格式。
+const BBCODE_TAG_HINT_REGEX: String = "\\[(?:\\/)?(?:b|i|u|img|item|color(?:=[^\\]]+)?)(?:\\s+[^\\]]+)?\\]"
 
 
 ## 判断文本是否包含 BBCode 标签。

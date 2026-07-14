@@ -13,12 +13,12 @@
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="9_close_btn"]
 [ext_resource type="PackedScene" uid="uid://bc0lb4q5o4ees" path="res://scenes/ui/pet/pet_qualification_skill_panel.tscn" id="10_status"]
 [ext_resource type="PackedScene" uid="uid://bbmrtwr0qog8c" path="res://scenes/ui/common/generic_loading_scene.tscn" id="11_loading"]
-[ext_resource type="Script" path="res://scripts/feature/battle/battle_content_registry.gd" id="12_skill_registry"]
-[ext_resource type="Theme" path="res://scenes/ui/pet/pet_skill_button_theme.tres" id="13_quality_normal"]
-[ext_resource type="Theme" path="res://scenes/ui/pet/pet_skill_button_theme_divine.tres" id="14_quality_divine"]
-[ext_resource type="Theme" path="res://scenes/ui/pet/pet_skill_button_theme_soul.tres" id="15_quality_soul"]
-[ext_resource type="Theme" path="res://scenes/ui/pet/pet_skill_button_theme_sacred.tres" id="16_quality_sacred"]
-[ext_resource type="Theme" path="res://scenes/ui/pet/pet_skill_button_theme_peerless.tres" id="17_quality_peerless"]
+[ext_resource type="Script" uid="uid://bbqpe23lupqrj" path="res://scripts/feature/battle/battle_content_registry.gd" id="12_skill_registry"]
+[ext_resource type="Theme" uid="uid://dishtikvukgt4" path="res://scenes/ui/pet/pet_skill_button_theme.tres" id="13_quality_normal"]
+[ext_resource type="Theme" uid="uid://bo4qqi2a3pn2s" path="res://scenes/ui/pet/pet_skill_button_theme_divine.tres" id="14_quality_divine"]
+[ext_resource type="Theme" uid="uid://mcb7k8ggh2to" path="res://scenes/ui/pet/pet_skill_button_theme_soul.tres" id="15_quality_soul"]
+[ext_resource type="Theme" uid="uid://dks4mcjhro3fl" path="res://scenes/ui/pet/pet_skill_button_theme_sacred.tres" id="16_quality_sacred"]
+[ext_resource type="Theme" uid="uid://bf8gtcb5isp3r" path="res://scenes/ui/pet/pet_skill_button_theme_peerless.tres" id="17_quality_peerless"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_n3uqk"]
 load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
@@ -113,7 +113,7 @@ soul_skill_button_theme = ExtResource("15_quality_soul")
 sacred_skill_button_theme = ExtResource("16_quality_sacred")
 peerless_skill_button_theme = ExtResource("17_quality_peerless")
 
-[node name="BattleContentRegistry" type="Node" parent="."]
+[node name="BattleContentRegistry" type="Node" parent="." unique_id=2078750072]
 script = ExtResource("12_skill_registry")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=77391200]
@@ -489,3 +489,4 @@ theme_override_styles/focus = SubResource("StyleBoxTexture_co84h")
 text = "放生"
 
 [node name="RequestLoadingOverlay" parent="." unique_id=60160921 instance=ExtResource("11_loading")]
+visible = false

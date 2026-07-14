@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://cf2m3wp76yxj2"]
+[gd_scene format=3 uid="uid://cf2m3wp76yxj2"]
 
 [ext_resource type="Texture2D" uid="uid://neqmpk1jqqv5" path="res://asset/分类/Free - Raven Fantasy Icons/Free - Raven Fantasy Icons/RPG Maker MV and MZ/IconSet.png" id="1_3ureb"]
 [ext_resource type="Theme" uid="uid://562g1jits6go" path="res://scenes/ui/task/task_goto_blue_button_theme.tres" id="2_re4hj"]

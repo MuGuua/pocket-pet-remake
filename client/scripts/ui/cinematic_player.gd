@@ -47,7 +47,8 @@ func play_cinematic(animation_key: String) -> void:
             "local_dialogue_requested",
             Callable(self, "_on_local_dialogue_requested").bind(cinematic_node, playback_generation)
         )
-    add_child(cinematic_node)
+    var cinematic_parent: Node = _resolve_cinematic_mount_parent()
+    cinematic_parent.add_child(cinematic_node)
     if cinematic_node.has_signal("finished"):
         cinematic_node.connect("finished", Callable(self, "_on_cinematic_finished").bind(animation_key, cinematic_node, playback_generation))
         return
@@ -110,6 +111,16 @@ func _release_active_cinematic() -> void:
     if _active_cinematic_node != null and is_instance_valid(_active_cinematic_node):
         _active_cinematic_node.queue_free()
     _active_cinematic_node = null
+
+## 解析剧情场景的挂载父节点；优先放进世界 SubViewport，让地图、背景、相机缩放与正常世界完全一致。
+func _resolve_cinematic_mount_parent() -> Node:
+    if _world_controller != null:
+        var game_viewport_variant: Variant = _world_controller.get("game_viewport")
+        if game_viewport_variant is Node:
+            var game_viewport_node: Node = game_viewport_variant as Node
+            if game_viewport_node.is_inside_tree():
+                return game_viewport_node
+    return self
 
 ## 仅为当前播放代次发出完成事件，避免旧的延迟回调推进新剧情。
 func _emit_finished(animation_key: String, playback_generation: int) -> void:

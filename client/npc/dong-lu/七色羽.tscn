@@ -11,6 +11,10 @@ region = Rect2(74, 0, 37, 44)
 atlas = ExtResource("2_575tp")
 region = Rect2(111, 0, 37, 44)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_575tp"]
+atlas = ExtResource("2_575tp")
+region = Rect2(0, 0, 37, 44)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_brtdq"]
 atlas = ExtResource("2_575tp")
 region = Rect2(0, 0, 37, 44)
@@ -34,6 +38,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_575tp")
+}],
+"loop": 1,
+"name": &"待机下",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_brtdq")
 }, {
 "duration": 1.0,
@@ -53,5 +65,5 @@ npc_name = "jixiexiong"
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
 position = Vector2(0, -18)
 sprite_frames = SubResource("SpriteFrames_xpfc1")
-animation = &"向左走"
+animation = &"待机下"
 autoplay = "待机左"
