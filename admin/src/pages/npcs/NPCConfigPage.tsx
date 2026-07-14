@@ -3,11 +3,11 @@ import {
   Card,
   Col,
   Descriptions,
+  Divider,
   Drawer,
   Empty,
   Form,
   Input,
-  InputNumber,
   Modal,
   Row,
   Select,
@@ -15,7 +15,6 @@ import {
   Spin,
   Table,
   Tag,
-  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -40,13 +39,14 @@ import type {
 } from '../../types/npc';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { NPCMenuEntryDrawer } from './NPCMenuEntryDrawer';
+import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 
 interface EntityFormValues {
   entity_id?: number;
-  entity_code: string;
+  entity_code?: string;
   display_name: string;
   entity_type: number;
-  scene_id: number;
+  scene_id?: number;
   status: number;
 }
 
@@ -95,7 +95,7 @@ function MapNPCPanel() {
     try {
       const result = await fetchAdminWorldScenes();
       setSceneOptions(result.items.map((scene: AdminWorldSceneSummary) => ({
-        label: scene.scene_name,
+        label: `${scene.scene_name}（Scene ${scene.scene_id}）`,
         value: scene.scene_id,
       })));
     } catch {
@@ -366,7 +366,9 @@ function MapNPCPanel() {
         onOk={() => editorForm.submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={720}
+        width={880}
+        style={{ top: FIXED_FORM_MODAL_TOP }}
+        styles={FIXED_FORM_MODAL_STYLES}
         okText={editingRecord ? '保存修改' : '创建 NPC'}
         cancelText="取消"
         footer={(_, { OkBtn, CancelBtn }) => (
@@ -382,39 +384,61 @@ function MapNPCPanel() {
         )}
       >
         <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
+          <Divider plain orientation="left">身份信息</Divider>
           <Row gutter={16}>
-            {!editingRecord ? (
-              <Col xs={24} md={8}>
-                <Form.Item label="实体ID" name="entity_id" rules={[{ required: true, message: '请输入实体ID' }]}>
-                  <InputNumber min={1} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
+            {editingRecord ? (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="实体 ID" name="entity_id">
+                    <Input disabled />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="实体编码" name="entity_code">
+                    <Input disabled />
+                  </Form.Item>
+                </Col>
+              </>
             ) : null}
-            <Col xs={24} md={editingRecord ? 12 : 8}>
-              <Form.Item label="实体编码" name="entity_code" rules={[{ required: true, message: '请输入实体编码' }]}>
-                <Input />
+            <Col span={24}>
+              <Form.Item
+                label="NPC 显示名"
+                name="display_name"
+                rules={[{ required: true, message: '请输入 NPC 显示名' }]}
+              >
+                <RichTextEditor rows={1} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={editingRecord ? 12 : 8}>
-              <Form.Item label="显示名" name="display_name" rules={[{ required: true, message: '请输入显示名' }]}>
-                <RichTextEditor rows={1} placeholder="支持为 NPC 系统名称刷色" />
+
+            <Col xs={24} md={12}>
+              <Form.Item label="实体类型" name="entity_type">
+                <Select disabled options={[{ label: '地图 NPC（类型 2）', value: 2 }]} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={8}>
-              <Form.Item label="实体类型" name="entity_type"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+
+            <Col span={24}>
+              <Divider plain orientation="left">归属与发布</Divider>
+            </Col>
+            <Col xs={24} md={16}>
+              <Form.Item
+                label="所属场景"
+                name="scene_id"
+                rules={[{ required: true, message: '请选择所属场景' }]}
+              >
+                <Select
+                  showSearch
+                  allowClear
+                  optionFilterProp="label"
+                  options={sceneOptions}
+                />
+              </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="所属场景" name="scene_id" rules={[{ required: true, message: '请选择所属场景' }]}>
-                <Select showSearch optionFilterProp="label" placeholder="选择场景" options={sceneOptions} />
+              <Form.Item label="发布状态" name="status">
+                <Select options={editableStatusOptions} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={8}>
-              <Form.Item label="状态" name="status"><Select options={editableStatusOptions} /></Form.Item>
-            </Col>
           </Row>
-          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            NPC 在场景中的坐标与朝向由客户端 Godot 场景资源维护，后台仅配置 entity_id 与所属 scene_id。
-          </Typography.Paragraph>
         </Form>
       </Modal>
 
@@ -433,11 +457,11 @@ function MapNPCPanel() {
 
 function defaultEntityValues(): EntityFormValues {
   return {
-    entity_id: 99001,
-    entity_code: 'ops_npc',
-    display_name: '后台测试 NPC',
+    entity_id: undefined,
+    entity_code: undefined,
+    display_name: '',
     entity_type: 2,
-    scene_id: 3,
+    scene_id: undefined,
     status: 1,
   };
 }
@@ -455,16 +479,13 @@ function mapEntityDetailToForm(detail: AdminNPCEntityDetail): EntityFormValues {
 
 function mapEntityFormToCreatePayload(values: EntityFormValues): AdminCreateNPCEntityPayload {
   return {
-    entity_id: values.entity_id ?? 0,
-    entity_code: values.entity_code,
     display_name: values.display_name,
     entity_type: values.entity_type,
-    scene_id: values.scene_id,
+    scene_id: values.scene_id ?? 0,
     status: values.status,
   };
 }
 
 function mapEntityFormToUpdatePayload(values: EntityFormValues): AdminUpdateNPCEntityPayload {
-  const { entity_id: _entityID, ...rest } = mapEntityFormToCreatePayload(values);
-  return rest;
+  return mapEntityFormToCreatePayload(values);
 }

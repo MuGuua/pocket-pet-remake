@@ -375,7 +375,7 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
 
-	createBody := marshalJSON(t, npc.AdminCreateEntityInput{EntityID: 99001, EntityCode: "ops_npc", DisplayName: "后台测试 NPC", EntityType: 2, SceneID: 3, Status: 1})
+	createBody := marshalJSON(t, npc.AdminCreateEntityInput{DisplayName: "后台测试 NPC", EntityType: 2, SceneID: 3, Status: 1})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/npcs/entities", bytes.NewReader(createBody))
 	createRequest.Header.Set("Authorization", "Bearer "+token)
 	createResponse := httptest.NewRecorder()
@@ -383,9 +383,19 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 	if createResponse.Code != http.StatusOK {
 		t.Fatalf("create npc entity response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
 	}
+	var createPayload struct {
+		Data npc.AdminEntityDetail `json:"data"`
+	}
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createPayload); err != nil {
+		t.Fatalf("json.Unmarshal(create npc entity) error = %v", err)
+	}
+	if createPayload.Data.EntityID == 0 || createPayload.Data.EntityCode != "npc_"+strconv.FormatUint(createPayload.Data.EntityID, 10) {
+		t.Fatalf("created npc identity = %d/%q, want generated npc_{id}", createPayload.Data.EntityID, createPayload.Data.EntityCode)
+	}
 
-	updateBody := marshalJSON(t, npc.AdminUpdateEntityInput{EntityCode: "ops_npc_updated", DisplayName: "后台测试 NPC 已更新", EntityType: 2, SceneID: 4, Status: 1})
-	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/npcs/entities/99001", bytes.NewReader(updateBody))
+	updateBody := marshalJSON(t, npc.AdminUpdateEntityInput{DisplayName: "后台测试 NPC 已更新", EntityType: 2, SceneID: 4, Status: 1})
+	entityPath := "/api/admin/npcs/entities/" + strconv.FormatUint(createPayload.Data.EntityID, 10)
+	updateRequest := httptest.NewRequest(http.MethodPut, entityPath, bytes.NewReader(updateBody))
 	updateRequest.Header.Set("Authorization", "Bearer "+token)
 	updateResponse := httptest.NewRecorder()
 	handlers.NPCs.ServeHTTP(updateResponse, updateRequest)
@@ -393,7 +403,7 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 		t.Fatalf("update npc entity response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
 	}
 
-	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/admin/npcs/entities/99001", nil)
+	deleteRequest := httptest.NewRequest(http.MethodDelete, entityPath, nil)
 	deleteRequest.Header.Set("Authorization", "Bearer "+token)
 	deleteResponse := httptest.NewRecorder()
 	handlers.NPCs.ServeHTTP(deleteResponse, deleteRequest)

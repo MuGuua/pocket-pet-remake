@@ -45,6 +45,9 @@ LIMIT 1
 `
 
 const insertAdminNPCEntityQuery = `
+WITH generated AS (
+  SELECT nextval('world_entity_definition_entity_id_seq')::BIGINT AS entity_id
+)
 INSERT INTO world_entity_definition (
   entity_id,
   entity_code,
@@ -52,16 +55,23 @@ INSERT INTO world_entity_definition (
   entity_type,
   scene_id,
   status
-) VALUES ($1, $2, $3, $4, $5, $6)
+) SELECT
+  generated.entity_id,
+  'npc_' || generated.entity_id::TEXT,
+  $1,
+  $2,
+  $3,
+  $4
+FROM generated
+RETURNING entity_id
 `
 
 const updateAdminNPCEntityQuery = `
 UPDATE world_entity_definition
-SET entity_code = $2,
-    display_name = $3,
-    entity_type = $4,
-    scene_id = $5,
-    status = $6
+SET display_name = $2,
+    entity_type = $3,
+    scene_id = $4,
+    status = $5
 WHERE entity_id = $1
 `
 
@@ -229,18 +239,19 @@ func (r *NPCRepository) FindAdminEntityDetailByEntityID(ctx context.Context, ent
 }
 
 func (r *NPCRepository) CreateEntityForAdmin(ctx context.Context, input npc.AdminCreateEntityInput) (*npc.AdminEntityDetail, error) {
-	_, err := r.db.ExecContext(ctx, insertAdminNPCEntityQuery, input.EntityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.Status)
+	var entityID uint64
+	err := r.db.QueryRowContext(ctx, insertAdminNPCEntityQuery, input.DisplayName, input.EntityType, input.SceneID, input.Status).Scan(&entityID)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
 		}
 		return nil, err
 	}
-	return r.FindAdminEntityDetailByEntityID(ctx, input.EntityID)
+	return r.FindAdminEntityDetailByEntityID(ctx, entityID)
 }
 
 func (r *NPCRepository) UpdateEntityForAdmin(ctx context.Context, entityID uint64, input npc.AdminUpdateEntityInput) (*npc.AdminEntityDetail, error) {
-	result, err := r.db.ExecContext(ctx, updateAdminNPCEntityQuery, entityID, input.EntityCode, input.DisplayName, input.EntityType, input.SceneID, input.Status)
+	result, err := r.db.ExecContext(ctx, updateAdminNPCEntityQuery, entityID, input.DisplayName, input.EntityType, input.SceneID, input.Status)
 	if err != nil {
 		if isNPCUniqueViolation(err) {
 			return nil, npc.ErrAdminNPCConflict
@@ -403,9 +414,9 @@ func (r *NPCRepository) ListWorldScenesForAdmin(ctx context.Context) ([]npc.Admi
 	items := make([]npc.AdminWorldSceneSummary, 0)
 	for rows.Next() {
 		var (
-			item     npc.AdminWorldSceneSummary
-			sceneID  int64
-			status   int64
+			item    npc.AdminWorldSceneSummary
+			sceneID int64
+			status  int64
 		)
 		if err := rows.Scan(&sceneID, &item.SceneCode, &item.SceneName, &status); err != nil {
 			return nil, err
@@ -456,11 +467,11 @@ func scanAdminNPCEntityDetail(row *sql.Row) (*npc.AdminEntityDetail, error) {
 
 func scanAdminNPCMenuEntrySummary(rows *sql.Rows) (npc.AdminMenuEntrySummary, error) {
 	var (
-		item      npc.AdminMenuEntrySummary
-		priority  int64
-		sortOrder int64
+		item          npc.AdminMenuEntrySummary
+		priority      int64
+		sortOrder     int64
 		linkedQuestID int64
-		status    int64
+		status        int64
 	)
 	if err := rows.Scan(&item.EntityID, &item.EntryID, &item.EntryType, &item.Title, &item.Subtitle, &item.State, &priority, &sortOrder, &item.ActionResultType, &item.BattleEncounterEntityID, &linkedQuestID, &status, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return npc.AdminMenuEntrySummary{}, err

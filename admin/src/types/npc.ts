@@ -29,15 +29,13 @@ export interface AdminNPCEntityFilters {
 }
 
 export interface AdminCreateNPCEntityPayload {
-  entity_id: number;
-  entity_code: string;
   display_name: string;
   entity_type: number;
   scene_id: number;
   status: number;
 }
 
-export interface AdminUpdateNPCEntityPayload extends Omit<AdminCreateNPCEntityPayload, 'entity_id'> {}
+export interface AdminUpdateNPCEntityPayload extends AdminCreateNPCEntityPayload {}
 
 export interface AdminWorldSceneSummary {
   scene_id: number;
