@@ -9,7 +9,7 @@ const PLAYER_START_POSITION: Vector2 = Vector2(17.0, 170.0)
 ## 机械熊在东路过场中的初始位置。
 const BEAR_START_POSITION: Vector2 = Vector2(215.0, 121.0)
 ## 切换到罗克萨斯家后玩家的显示位置。
-const WAREHOUSE_PLAYER_POSITION: Vector2 = Vector2(115.0, 180.0)
+const WAREHOUSE_PLAYER_POSITION: Vector2 = Vector2(80.0, 220.0)
 ## 固定过场角色移动速度，调整为原速度的一半。
 const CINEMATIC_MOVE_SPEED: float = 80.0
 ## NPC 与玩家剧情动画播放倍率，统一调整为原速度的一半。
@@ -42,6 +42,8 @@ const PLAYER_WALK_UP_ANIMATION: String = "walk_up"
 
 ## 当前过场使用的东路地图。
 @onready var _east_road: Node2D = $EastRoadOfShanguangTown
+## 东路地图内默认隐藏的时光小屋图层，只在机械熊出现前的剧情阶段临时展示。
+@onready var _time_house_layer: TileMapLayer = $EastRoadOfShanguangTown/时光小屋
 ## 结尾切换后显示的罗克萨斯家地图。
 @onready var _warehouse: Node2D = $RoxusHouse
 ## 桃子节点及动画节点。
@@ -83,6 +85,8 @@ func _exit_tree() -> void:
 		_flash_overlay.hide()
 	if _scene_camera != null:
 		_scene_camera.offset = _camera_base_offset
+	if _time_house_layer != null:
+		_time_house_layer.hide()
 	super._exit_tree()
 
 
@@ -137,6 +141,7 @@ func _run_sequence() -> void:
 	)
 
 	await _fade_to_black()
+	_time_house_layer.hide()
 	_bear.show()
 	_black_fade.hide()
 	_black_fade.modulate.a = 0.0
@@ -154,7 +159,7 @@ func _run_sequence() -> void:
 		_get_scene_player_portrait(),
 		true
 	)
-	await _move_actor(_bear, _bear_sprite, Vector2(-10.0, 0.0), WALK_LEFT_ANIMATION, false)
+	await _move_actor(_bear, _bear_sprite, Vector2(-30.0, 0.0), WALK_LEFT_ANIMATION, false)
 	_bear_sprite.play(IDLE_LEFT_ANIMATION)
 	await _show_actor_dialogue(
 		"机械熊",
@@ -174,7 +179,7 @@ func _run_sequence() -> void:
 		"啾！啾啾，啾啾啾！啾啾！啾啾啾啾啾！",
 		_get_animated_sprite_portrait(_qiseyu_sprite)
 	)
-	await _move_actor(_qiseyu, _qiseyu_sprite, Vector2(30.0, 0.0), WALK_LEFT_ANIMATION, true)
+	await _move_actor(_qiseyu, _qiseyu_sprite, Vector2(50.0, 0.0), WALK_LEFT_ANIMATION, true)
 	await _move_actor(_qiseyu, _qiseyu_sprite, Vector2(0.0, -10.0), WALK_LEFT_ANIMATION, true)
 	_qiseyu_sprite.flip_h = true
 	_qiseyu_sprite.play(IDLE_LEFT_ANIMATION)
@@ -229,6 +234,7 @@ func _prepare_scene() -> void:
 	sync_cinematic_camera_with_world(_scene_camera, _east_road)
 	_camera_base_offset = _scene_camera.offset
 	_east_road.show()
+	_time_house_layer.show()
 	_warehouse.hide()
 	_taozi.position = TAOZI_START_POSITION
 	_taozi.show()
@@ -288,31 +294,36 @@ func _create_linear_move_tween(actor: Node2D, relative_offset: Vector2) -> Tween
 	return move_tween
 
 
-## 播放双方后退、机械熊分帧攻击、桃子击飞和其他角色退让动作。
+## 播放机械熊压迫前移、分帧攻击、桃子受惊后退和其他角色退让动作。
 func _play_taozi_attack_sequence() -> void:
 	_taozi_sprite.play(WALK_LEFT_ANIMATION)
-	_bear_sprite.flip_h = true
+	_bear_sprite.flip_h = false
 	_bear_sprite.play(WALK_LEFT_ANIMATION)
-	var retreat_tween: Tween = create_tween().set_parallel(true)
-	retreat_tween.tween_property(_bear, "position", _bear.position + Vector2(15.0, 0.0), 0.4)
-	retreat_tween.tween_property(_taozi, "position", _taozi.position + Vector2(-15.0, 0.0), 0.4)
-	await retreat_tween.finished
+	var pressure_tween: Tween = create_tween().set_parallel(true)
+	pressure_tween.tween_property(_bear, "position", _bear.position + Vector2(-15.0, 0.0), 0.4)
+	pressure_tween.tween_property(_taozi, "position", _taozi.position + Vector2(-15.0, 0.0), 0.4)
+	await pressure_tween.finished
 	_taozi_sprite.play(IDLE_RIGHT_ANIMATION)
 	_bear_sprite.flip_h = false
-	await _play_black_flash()
+	await get_tree().create_timer(1).timeout
 	_bear_sprite.play(BEAR_ATTACK_FIRST_FRAME_ANIMATION)
-	await get_tree().create_timer(0.5).timeout
 	await _play_black_flash()
+	await get_tree().create_timer(1).timeout
 	_bear_sprite.play(BEAR_ATTACK_SECOND_FRAME_ANIMATION)
+	await _play_black_flash()
 	_taozi_sprite.play(SCARED_ANIMATION)
-	var hit_tween: Tween = create_tween().set_parallel(true)
-	hit_tween.tween_property(_taozi, "position", _taozi.position + Vector2(-100.0, 0.0), 1.2)
-	hit_tween.tween_property(_scene_player, "position", _scene_player.position + Vector2(-20.0, 0.0), 0.4)
-	_qiseyu_sprite.flip_h = false
-	_qiseyu_sprite.play(WALK_LEFT_ANIMATION)
-	hit_tween.tween_property(_qiseyu, "position", _qiseyu.position + Vector2(-100.0, 0.0), 1.0)
+	var hit_tween: Tween = create_tween()
+	hit_tween.tween_property(_taozi, "position", _taozi.position + Vector2(-110.0, 0.0), 1.2)
 	await hit_tween.finished
 	_taozi_sprite.play(DEATH_ANIMATION)
+	_scene_player.call("set_facing_direction", Vector2.LEFT)
+	_scene_player.call("play_cinematic_animation", PLAYER_WALK_LEFT_ANIMATION, -1, 12.0)
+	_qiseyu_sprite.flip_h = false
+	_qiseyu_sprite.play(WALK_LEFT_ANIMATION)
+	var companion_retreat_tween: Tween = create_tween().set_parallel(true)
+	companion_retreat_tween.tween_property(_scene_player, "position", _scene_player.position + Vector2(-40.0, 0.0), 0.4)
+	companion_retreat_tween.tween_property(_qiseyu, "position", _qiseyu.position + Vector2(-100.0, 0.0), 1.0)
+	await companion_retreat_tween.finished
 	_scene_player.call("set_facing_direction", Vector2.LEFT)
 	_qiseyu_sprite.play(IDLE_LEFT_ANIMATION)
 

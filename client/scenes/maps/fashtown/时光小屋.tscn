@@ -1,4 +1,4 @@
-[gd_scene format=4 uid="uid://cyqwklufcyx4e"]
+[gd_scene format=4 uid="uid://brpfhmwidyvdm"]
 
 [ext_resource type="Texture2D" uid="uid://h15ivxghe5ts" path="res://asset/分类/ui/地板/4.png" id="1_11c4h"]
 [ext_resource type="Script" uid="uid://byvjmg6fg4if2" path="res://scripts/feature/world/scene_levels/time_house_level.gd" id="1_time_house"]
