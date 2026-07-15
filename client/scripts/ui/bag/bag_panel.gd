@@ -684,6 +684,8 @@ func _show_equipped_item_detail(item: Dictionary, anchor: Control = null) -> voi
 func _open_detail_popup(anchor: Control = null) -> void:
 	if _detail_overlay == null:
 		return
+	if _detail_panel != null:
+		_detail_panel.show()
 	_detail_overlay.show()
 	move_child(_detail_overlay, get_child_count() - 1)
 	call_deferred("_apply_detail_panel_position", anchor)
@@ -694,6 +696,7 @@ func _hide_detail_popup() -> void:
 	if _detail_overlay != null:
 		_detail_overlay.hide()
 	if _detail_panel != null:
+		_detail_panel.hide()
 		_detail_panel.clear_item()
 	_detail_anchor = null
 	_selected_item.clear()

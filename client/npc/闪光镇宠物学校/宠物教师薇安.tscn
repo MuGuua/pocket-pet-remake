@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://kfnln13aavnl"]
+
+[ext_resource type="Texture2D" uid="uid://56ie2p24vap6" path="res://asset/分类/NPC/2007.png" id="1_buiou"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hff80"]
+atlas = ExtResource("1_buiou")
+region = Rect2(0, 0, 22, 37)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_rb6tm"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hff80")
+}],
+"loop": 1,
+"name": &"待机下",
+"speed": 24.0
+}]
+
+[node name="宠物教师薇安" type="Node2D" unique_id=1002151189]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1494354715]
+position = Vector2(0, -18)
+sprite_frames = SubResource("SpriteFrames_rb6tm")
+animation = &"待机下"
+autoplay = "待机下"

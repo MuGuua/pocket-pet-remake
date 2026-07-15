@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://s62728wn8gdr"]
+
+[ext_resource type="Script" uid="uid://cf28b8jeriw1i" path="res://剧情动画/闪光镇宠物学校.gd" id="1_g6f8p"]
+[ext_resource type="PackedScene" uid="uid://mb8t47j50d1y" path="res://scenes/maps/fashtown/xue_xiao.tscn" id="2_a2njk"]
+[ext_resource type="PackedScene" uid="uid://cqxaaec3sstdf" path="res://npc/dong-lu/桃子.tscn" id="3_4ccsg"]
+[ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="4_qe3xh"]
+[ext_resource type="PackedScene" uid="uid://kfnln13aavnl" path="res://npc/闪光镇宠物学校/宠物教师薇安.tscn" id="5_4fcos"]
+[ext_resource type="PackedScene" uid="uid://ctktslgpn3tsi" path="res://scenes/ui/npc_dialogue_panel.tscn" id="6_dialogue"]
+[ext_resource type="PackedScene" uid="uid://x7y5vjkhwgme" path="res://scenes/ui/common/plot_image.tscn" id="7_plot"]
+
+[node name="闪光镇宠物学校" type="Node2D" unique_id=1670665107]
+script = ExtResource("1_g6f8p")
+
+[node name="XueXiao" parent="." unique_id=402574364 instance=ExtResource("2_a2njk")]
+
+[node name="桃子" parent="." unique_id=1919893855 instance=ExtResource("3_4ccsg")]
+position = Vector2(191, 122)
+
+[node name="Player" parent="." unique_id=1322619257 instance=ExtResource("4_qe3xh")]
+position = Vector2(270, 67)
+
+[node name="宠物教师薇安" parent="." unique_id=1002151189 instance=ExtResource("5_4fcos")]
+position = Vector2(140, 122)
+
+[node name="StandaloneDialoguePanel" parent="." unique_id=979843739 instance=ExtResource("6_dialogue")]
+visible = false
+
+[node name="PlotImage" parent="." instance=ExtResource("7_plot")]

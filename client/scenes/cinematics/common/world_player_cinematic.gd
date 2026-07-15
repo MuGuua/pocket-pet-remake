@@ -15,6 +15,11 @@ signal local_dialogue_requested(
 ## 玩家点击本地对白继续后唤醒当前过场脚本。
 signal local_dialogue_advanced
 
+## 单帧最多记录的剧情宠物跟随路径步数，避免角色瞬移时产生过长循环。
+const CINEMATIC_PET_MAX_LEADER_STEPS_PER_FRAME: int = 6
+## 剧情本地玩家在场景中的统一节点路径。
+const CINEMATIC_LOCAL_PLAYER_PATH: NodePath = NodePath("Player")
+
 @export_group("路径")
 ## 玩家依次经过的统一场景坐标；运行时会通过当前地图导航网格生成碰撞路径。
 @export var scene_waypoints: Array[Vector2] = []
@@ -45,6 +50,14 @@ var _finished_emitted: bool = false
 var _active_move_tween: Tween = null
 ## 当前是否正在等待玩家推进客户端固定对白。
 var _waiting_local_dialogue: bool = false
+## 剧情场景中复用世界表现逻辑的出战宠物跟随节点。
+var _cinematic_pet_follower: WorldPetFollower = null
+## 当前作为宠物跟随目标的剧情本地玩家节点。
+var _cinematic_pet_leader: CharacterBody2D = null
+## 宠物跟随路径当前记录锚点，按世界逻辑每 24px 压入一个路径点。
+var _cinematic_pet_leader_anchor: Vector2 = Vector2.INF
+## 上一物理帧的剧情玩家位置，用于从 Tween 位移解析四方向移动。
+var _cinematic_pet_last_leader_position: Vector2 = Vector2.INF
 
 ## 在节点入树前接收当前世界控制器，避免剧情场景自行查找全局节点路径。
 func configure_world_context(world_controller: Node) -> void:
@@ -52,14 +65,133 @@ func configure_world_context(world_controller: Node) -> void:
 
 ## 入树后延迟一帧启动，确保当前世界玩家与导航网格已经就绪。
 func _ready() -> void:
+    _setup_cinematic_pet_follower()
     call_deferred("_run_sequence")
+    call_deferred("_reset_cinematic_pet_near_leader")
+
+## 按物理帧记录剧情玩家走过的路径，并复用世界宠物节点推进跟随与动画。
+func _physics_process(delta: float) -> void:
+    _update_cinematic_pet_follow(delta)
 
 ## 场景被外部提前释放时恢复玩家控制状态。
 func _exit_tree() -> void:
     if _active_move_tween != null and _active_move_tween.is_valid():
         _active_move_tween.kill()
     _active_move_tween = null
+    if GameState.pets_changed.is_connected(_sync_cinematic_pet_lineup):
+        GameState.pets_changed.disconnect(_sync_cinematic_pet_lineup)
     _restore_player_control()
+
+## 创建剧情专用宠物表现节点，并绑定服务端下发的首只出战宠物。
+func _setup_cinematic_pet_follower() -> void:
+    _cinematic_pet_leader = get_node_or_null(CINEMATIC_LOCAL_PLAYER_PATH) as CharacterBody2D
+    if _cinematic_pet_leader == null:
+        return
+    _cinematic_pet_follower = WorldPetFollower.new()
+    _cinematic_pet_follower.name = "CinematicPetFollower"
+    add_child(_cinematic_pet_follower)
+    if not GameState.pets_changed.is_connected(_sync_cinematic_pet_lineup):
+        GameState.pets_changed.connect(_sync_cinematic_pet_lineup)
+    _sync_cinematic_pet_lineup()
+    _reset_cinematic_pet_near_leader()
+
+## 使用当前权威编队首只宠物刷新剧情跟随显示；没有出战宠物时保持隐藏。
+func _sync_cinematic_pet_lineup() -> void:
+    if _cinematic_pet_follower == null:
+        return
+    if GameState.lineup.is_empty():
+        _cinematic_pet_follower.clear_binding()
+        return
+    var first_lineup_variant: Variant = GameState.lineup[0]
+    if first_lineup_variant is Dictionary:
+        _cinematic_pet_follower.sync_lineup_pet(first_lineup_variant as Dictionary)
+        _reset_cinematic_pet_near_leader()
+        return
+    _cinematic_pet_follower.clear_binding()
+
+## 把剧情宠物放到玩家身后半格，并重置路径锚点以匹配世界场景切图行为。
+func _reset_cinematic_pet_near_leader() -> void:
+    if _cinematic_pet_follower == null or _cinematic_pet_leader == null:
+        return
+    _cinematic_pet_leader_anchor = _cinematic_pet_leader.position
+    _cinematic_pet_last_leader_position = _cinematic_pet_leader.position
+    var follow_offset: Vector2 = _resolve_cinematic_pet_follow_offset()
+    _cinematic_pet_follower.reset_near_leader(
+        _cinematic_pet_leader.position,
+        follow_offset
+    )
+
+## 根据剧情玩家当前朝向计算身后半格位置，与世界宠物初始站位规则保持一致。
+func _resolve_cinematic_pet_follow_offset() -> Vector2:
+    var half_step: float = PathFollowController.PATH_STEP_SIZE * 0.5
+    if _cinematic_pet_leader == null or not _cinematic_pet_leader.has_method("get_cardinal_direction"):
+        return Vector2(0.0, -half_step)
+    var facing: Vector2 = _cinematic_pet_leader.call("get_cardinal_direction") as Vector2
+    if facing == Vector2.UP:
+        return Vector2(0.0, half_step)
+    if facing == Vector2.LEFT:
+        return Vector2(half_step, 0.0)
+    if facing == Vector2.RIGHT:
+        return Vector2(-half_step, 0.0)
+    return Vector2(0.0, -half_step)
+
+## 根据剧情玩家实际位移记录世界同规格路径，并驱动宠物等速跟随。
+func _update_cinematic_pet_follow(delta: float) -> void:
+    if _cinematic_pet_follower == null or _cinematic_pet_leader == null:
+        return
+    if not _cinematic_pet_follower.visible:
+        return
+    var leader_position: Vector2 = _cinematic_pet_leader.position
+    if _cinematic_pet_last_leader_position == Vector2.INF:
+        _cinematic_pet_last_leader_position = leader_position
+        _cinematic_pet_leader_anchor = leader_position
+    var frame_offset: Vector2 = leader_position - _cinematic_pet_last_leader_position
+    var leader_direction: Vector2 = _resolve_cinematic_pet_move_direction(frame_offset)
+    if leader_direction != Vector2.ZERO:
+        _record_cinematic_pet_leader_path(leader_position, leader_direction)
+    _cinematic_pet_last_leader_position = leader_position
+    var move_speed: float = 100.0
+    if _cinematic_pet_leader.has_method("get_move_speed"):
+        move_speed = float(_cinematic_pet_leader.call("get_move_speed"))
+    _cinematic_pet_follower.update_follow(delta, move_speed)
+
+## 把当前帧位移归一为四方向，保证路径控制器收到与世界移动一致的方向值。
+func _resolve_cinematic_pet_move_direction(frame_offset: Vector2) -> Vector2:
+    if frame_offset.length_squared() <= 0.0001:
+        return Vector2.ZERO
+    if absf(frame_offset.x) >= absf(frame_offset.y):
+        return Vector2.RIGHT if frame_offset.x > 0.0 else Vector2.LEFT
+    return Vector2.DOWN if frame_offset.y > 0.0 else Vector2.UP
+
+## 每移动 24px 记录玩家刚离开的格点，并保留世界场景相同的循环保护。
+func _record_cinematic_pet_leader_path(
+    leader_position: Vector2,
+    leader_direction: Vector2
+) -> void:
+    if _cinematic_pet_follower == null:
+        return
+    if _cinematic_pet_leader_anchor == Vector2.INF:
+        _cinematic_pet_leader_anchor = leader_position
+        return
+    var anchor_to_leader: Vector2 = leader_position - _cinematic_pet_leader_anchor
+    if anchor_to_leader.dot(leader_direction) <= 0.0:
+        _cinematic_pet_leader_anchor = leader_position
+        return
+    var recorded_steps: int = 0
+    while leader_position.distance_to(_cinematic_pet_leader_anchor) >= PathFollowController.PATH_STEP_SIZE:
+        if recorded_steps >= CINEMATIC_PET_MAX_LEADER_STEPS_PER_FRAME:
+            _cinematic_pet_leader_anchor = leader_position
+            return
+        var previous_distance: float = leader_position.distance_to(_cinematic_pet_leader_anchor)
+        _cinematic_pet_follower.push_leader_step(
+            _cinematic_pet_leader_anchor,
+            leader_direction
+        )
+        _cinematic_pet_leader_anchor += leader_direction * PathFollowController.PATH_STEP_SIZE
+        recorded_steps += 1
+        if leader_position.distance_to(_cinematic_pet_leader_anchor) >= previous_distance:
+            _cinematic_pet_leader_anchor = leader_position
+            return
 
 ## 获取玩家并进入过场控制；自定义动画 Key 场景应在执行 Tween 前调用。
 func begin_player_cinematic() -> bool:

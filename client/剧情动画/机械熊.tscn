@@ -1,0 +1,154 @@
+[gd_scene format=3 uid="uid://lsj5r644txb0"]
+
+[ext_resource type="PackedScene" uid="uid://dcstad24p8d6n" path="res://scenes/maps/fashtown/east_road_of_shanguang_town.tscn" id="1_5qag0"]
+[ext_resource type="Script" uid="uid://b1pinccqyqye3" path="res://剧情动画/机械熊.gd" id="1_kr8e0"]
+[ext_resource type="PackedScene" uid="uid://deqnd1htnwhqn" path="res://npc/dong-lu/机械熊.tscn" id="2_f7l7j"]
+[ext_resource type="PackedScene" uid="uid://ctuo6t1a5elc5" path="res://npc/dong-lu/七色羽.tscn" id="3_kr8e0"]
+[ext_resource type="PackedScene" uid="uid://cqxaaec3sstdf" path="res://npc/dong-lu/桃子.tscn" id="4_taozi"]
+[ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="5_player"]
+[ext_resource type="PackedScene" uid="uid://ctktslgpn3tsi" path="res://scenes/ui/npc_dialogue_panel.tscn" id="6_dialogue"]
+[ext_resource type="PackedScene" uid="uid://x7y5vjkhwgme" path="res://scenes/ui/common/plot_image.tscn" id="7_plot"]
+[ext_resource type="PackedScene" uid="uid://bmtsiogflkwo5" path="res://scenes/maps/fashtown/roxus_house.tscn" id="8_warehouse"]
+[ext_resource type="Texture2D" uid="uid://c832aknvt11b2" path="res://asset/口袋所有形象/imgs/罗克萨斯.png" id="9_roxus"]
+
+[sub_resource type="Shader" id="Shader_npc_texture_blur"]
+code = "shader_type canvas_item;
+
+uniform float blur_radius : hint_range(0.0, 3.0, 0.1) = 1.0;
+
+void fragment() {
+    vec2 pixel_offset = TEXTURE_PIXEL_SIZE * blur_radius;
+    vec4 blurred_color = texture(TEXTURE, UV) * 0.20;
+    blurred_color += texture(TEXTURE, UV + vec2(pixel_offset.x, 0.0)) * 0.12;
+    blurred_color += texture(TEXTURE, UV - vec2(pixel_offset.x, 0.0)) * 0.12;
+    blurred_color += texture(TEXTURE, UV + vec2(0.0, pixel_offset.y)) * 0.12;
+    blurred_color += texture(TEXTURE, UV - vec2(0.0, pixel_offset.y)) * 0.12;
+    blurred_color += texture(TEXTURE, UV + pixel_offset) * 0.08;
+    blurred_color += texture(TEXTURE, UV - pixel_offset) * 0.08;
+    blurred_color += texture(TEXTURE, UV + vec2(pixel_offset.x, -pixel_offset.y)) * 0.08;
+    blurred_color += texture(TEXTURE, UV + vec2(-pixel_offset.x, pixel_offset.y)) * 0.08;
+    COLOR = blurred_color;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_npc_texture_blur"]
+shader = SubResource("Shader_npc_texture_blur")
+shader_parameter/blur_radius = 0.0
+
+[sub_resource type="Shader" id="Shader_white_glow"]
+code = "shader_type canvas_item;
+render_mode blend_add, unshaded;
+
+uniform vec4 glow_color : source_color = vec4(1.0);
+uniform float glow_intensity : hint_range(0.0, 4.0, 0.05) = 1.5;
+uniform float glow_falloff : hint_range(0.5, 6.0, 0.1) = 2.2;
+
+void fragment() {
+    float radial_distance = length(UV * 2.0 - vec2(1.0));
+    float halo = pow(max(1.0 - radial_distance, 0.0), glow_falloff);
+    float core = 1.0 - smoothstep(0.0, 0.22, radial_distance);
+    float alpha = clamp(halo * 0.72 + core, 0.0, 1.0) * glow_color.a;
+    COLOR = vec4(glow_color.rgb * glow_intensity, alpha);
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_white_glow"]
+shader = SubResource("Shader_white_glow")
+shader_parameter/glow_color = Color(1, 1, 1, 1)
+shader_parameter/glow_intensity = 1.5
+shader_parameter/glow_falloff = 2.2
+
+[node name="机械熊" type="Node2D" unique_id=916215548]
+script = ExtResource("1_kr8e0")
+
+[node name="EastRoadOfShanguangTown" parent="." unique_id=2086656840 instance=ExtResource("1_5qag0")]
+
+[node name="RoxusHouse" parent="." unique_id=1942281978 instance=ExtResource("8_warehouse")]
+visible = false
+
+[node name="桃子" parent="." unique_id=401612642 instance=ExtResource("4_taozi")]
+position = Vector2(75, 126)
+
+[node name="机械熊" parent="." unique_id=1919893855 instance=ExtResource("2_f7l7j")]
+visible = false
+position = Vector2(175, 126)
+
+[node name="AnimatedSprite2D" parent="机械熊" index="0" unique_id=1260575992]
+material = SubResource("ShaderMaterial_npc_texture_blur")
+
+[node name="七色羽" parent="." unique_id=974499608 instance=ExtResource("3_kr8e0")]
+position = Vector2(105, 134)
+
+[node name="AnimatedSprite2D" parent="七色羽" index="0" unique_id=1260575992]
+material = SubResource("ShaderMaterial_npc_texture_blur")
+
+[node name="Player" parent="." unique_id=1091889978 instance=ExtResource("5_player")]
+position = Vector2(45, 160)
+
+[node name="发光特效" type="Control" parent="." unique_id=929867956]
+visible = false
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 149.0
+offset_top = 99.0
+offset_right = 189.0
+offset_bottom = 139.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="发光特效" unique_id=2120925078]
+material = SubResource("ShaderMaterial_white_glow")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -32.0
+offset_top = -32.0
+offset_right = 32.0
+offset_bottom = 32.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StandaloneDialoguePanel" parent="." unique_id=690209380 instance=ExtResource("6_dialogue")]
+visible = false
+
+[node name="PlotImage" parent="." unique_id=1655852857 instance=ExtResource("7_plot")]
+
+[node name="ScreenFade" type="CanvasLayer" parent="." unique_id=1183854057]
+layer = 20
+
+[node name="BlackFade" type="ColorRect" parent="ScreenFade" unique_id=585772986]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="ImpactOverlay" type="CanvasLayer" parent="." unique_id=988079797]
+layer = 90
+
+[node name="FlashOverlay" type="ColorRect" parent="ImpactOverlay" unique_id=2072674207]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="RoxusPortraitSource" type="Sprite2D" parent="." unique_id=188445800]
+visible = false
+texture = ExtResource("9_roxus")
+
+[editable path="机械熊"]
+[editable path="七色羽"]

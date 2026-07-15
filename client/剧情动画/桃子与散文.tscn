@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://dp8cd6q0kp2sb"]
+
+[ext_resource type="Script" uid="uid://bkmhaxn16rvcs" path="res://剧情动画/桃子与散文.gd" id="1_7cmjx"]
+[ext_resource type="PackedScene" uid="uid://tnq4fgoetvfj" path="res://scenes/maps/fashtown/bei_lu.tscn" id="2_et5s0"]
+[ext_resource type="PackedScene" uid="uid://cqxaaec3sstdf" path="res://npc/dong-lu/桃子.tscn" id="3_g1xjf"]
+[ext_resource type="PackedScene" uid="uid://ctuo6t1a5elc5" path="res://npc/dong-lu/七色羽.tscn" id="4_gub0w"]
+[ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="5_ph34g"]
+[ext_resource type="PackedScene" uid="uid://ctktslgpn3tsi" path="res://scenes/ui/npc_dialogue_panel.tscn" id="6_dialogue"]
+[ext_resource type="PackedScene" uid="uid://x7y5vjkhwgme" path="res://scenes/ui/common/plot_image.tscn" id="7_plot"]
+
+[node name="桃子与散文" type="Node2D" unique_id=1977935524]
+script = ExtResource("1_7cmjx")
+
+[node name="BeiLu" parent="." unique_id=1020552606 instance=ExtResource("2_et5s0")]
+
+[node name="桃子" parent="." unique_id=1919893855 instance=ExtResource("3_g1xjf")]
+position = Vector2(113, 172)
+
+[node name="七色羽" parent="." unique_id=518812847 instance=ExtResource("4_gub0w")]
+position = Vector2(144, 168)
+
+[node name="Player" parent="." unique_id=1322619257 instance=ExtResource("5_ph34g")]
+position = Vector2(115, 280)
+
+[node name="StandaloneDialoguePanel" parent="." unique_id=1991361927 instance=ExtResource("6_dialogue")]
+visible = false
+
+[node name="PlotImage" parent="." unique_id=598921 instance=ExtResource("7_plot")]
+
+[node name="FadeOverlay" type="CanvasLayer" parent="." unique_id=1707211398]
+layer = 20
+
+[node name="FadeToBlack" type="ColorRect" parent="FadeOverlay" unique_id=1423379542]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

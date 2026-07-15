@@ -54,6 +54,22 @@ animations = [{
 "loop": 0,
 "name": &"攻击",
 "speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7m5ro")
+}],
+"loop": 1,
+"name": &"攻击第一帧",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8lp5d")
+}],
+"loop": 1,
+"name": &"攻击第二帧",
+"speed": 5.0
 }]
 
 [node name="机械熊" type="Node2D" unique_id=1919893855]
@@ -65,7 +81,5 @@ npc_name = "jixiexiong"
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
 position = Vector2(0, -18)
 sprite_frames = SubResource("SpriteFrames_xpfc1")
-animation = &"攻击"
+animation = &"攻击第二帧"
 autoplay = "待机左"
-frame = 1
-frame_progress = 1.0

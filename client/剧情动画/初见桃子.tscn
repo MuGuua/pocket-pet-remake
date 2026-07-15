@@ -111,3 +111,16 @@ position = Vector2(212, 135)
 visible = false
 
 [node name="PlotImage" parent="." unique_id=639342883 instance=ExtResource("8_plot")]
+
+[node name="ImpactOverlay" type="CanvasLayer" parent="." unique_id=911520372]
+layer = 90
+
+[node name="ImpactFlash" type="ColorRect" parent="ImpactOverlay" unique_id=318936833]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

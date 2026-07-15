@@ -848,3 +848,87 @@
 - HTTP CRUD 测试新增自动身份断言，并验证生成后的实体仍可正常更新和删除。
 - 已执行 `cd backend && GOCACHE=/tmp/pocket-pet-go-cache go test ./server/internal/module/npc ./server/internal/data/postgres ./server/internal/transport/http`，测试通过。
 - 按最终录入界面要求，删除地图 NPC 表单中的顶部说明、自动生成说明、所有 `extra` 文案及说明型 placeholder；提交字段和服务端自动生成逻辑不变。
+
+## 2026-07-15 初见桃子技能黑闪与震屏
+
+- `client/剧情动画/初见桃子.tscn` 新增默认隐藏的 `ImpactOverlay/ImpactFlash` 全屏黑色场景节点，不使用脚本动态生成 UI。
+- `client/剧情动画/初见桃子.gd` 在冲击波第一帧出现后保持黑屏 `0.06s`，再用 `0.08s` 退回透明，随后按四段短偏移震动剧情相机。
+- 冲击波自身的两秒移动 Tween 在反馈演出期间继续运行；剧情退出时统一隐藏黑闪层并恢复同步世界相机后的原始 offset。
+- 已使用 Godot 4.7 无头加载项目并单独运行“初见桃子”场景，场景与脚本成功解析；仅出现仓库既有物品图标 ID、macOS CA、ADB 和 ObjectDB 退出警告。
+- 修复 `Could not find type "PlotImage"`：剧情字段改为 `CanvasLayer`，图片显示/隐藏通过显式方法调用，避免依赖 Godot 全局类缓存；再次单独运行场景后不再出现该编译错误。
+
+## 2026-07-15 背包物品详情显示修复
+
+- `client/scripts/ui/bag/bag_panel.gd` 在打开详情遮罩时显式显示 `BagItemDetail`，关闭时显式隐藏并清空内容。
+- 保留 `bag_item_detail.tscn` 根节点默认隐藏，避免运行时弹窗在编辑器或场景预览中常驻显示。
+- 已使用 Godot 4.7 无头启动项目，脚本解析通过；仅出现仓库既有物品图标 ID、macOS CA 与 ObjectDB 退出警告。
+
+## 2026-07-15 闪光镇宠物学校固定剧情
+
+- `client/闪光镇宠物学校.gd` 改为继承 `WorldPlayerCinematic`，实现薇安、桃子、玩家的固定站位和完整串行动作。
+- 玩家按当前配置先向下移动 55px并转向左侧，移动完成后桃子再向右移动 50px并切换为右向待机；对白结束后桃子依次向右 20px、向上 70px并隐藏，玩家最后向左移动 120px。
+- 桃子和玩家对白使用 BBCode 富文本，角色名称按系统名称格式着色，并从当前场景角色帧提取上半身头像。
+- `client/剧情动画/闪光镇宠物学校.tscn` 接入默认隐藏的备用对话面板，保证 F6 单独运行与正式剧情播放器使用同一套剧情内容。
+- 剧情场景复用 `plot_image.tscn` 显示顶部闪烁“剧情”图片，脚本在正常完成和提前退出时均显式关闭图片。
+- 已使用 Godot 4.7 无头单独加载该剧情场景，场景与脚本解析通过；仅出现仓库既有物品图标 ID、macOS CA 与 ObjectDB 退出警告。
+
+## 2026-07-15 桃子与散文固定剧情
+
+- `client/剧情动画/桃子与散文.gd` 改为继承 `WorldPlayerCinematic`，实现北路地图原点归一化、世界相机参数同步和剧情完成信号。
+- 按剧情注释实现玩家向上、桃子转身移动、七色羽分段移动以及桃子与七色羽同时向下移动的完整动作序列；七色羽缺少右向动画时复用左向动画水平镜像。
+- 全部对白转为 Godot BBCode：比武大会、闪光平原、橙色风声、粉色心声及红色停顿均由现有富文本对话面板渲染。
+- `client/剧情动画/桃子与散文.tscn` 增加默认隐藏的备用对话面板、顶部剧情图片和场景节点构建的 `FadeOverlay/FadeToBlack` 渐黑层，没有使用脚本动态创建 UI。
+- 结尾先隐藏顶部剧情图片，再用 `1.2s` 渐变为全黑，随后在黑屏上显示“桃子（想）”内心独白；正常结束和中断退出都会清理视觉层。
+- 玩家推进完最后一句内心独白后，脚本显式隐藏 `FadeToBlack` 并重置透明度，再调用 `complete_cinematic()`，避免剧情释放前仍保持黑屏。
+- 渐黑 Tween 完成后、内心独白显示前，脚本调用 `_hide_cinematic_actors()` 关闭桃子和七色羽；取消黑屏时不会再次露出已结束演出的角色。
+- 已使用 Godot 4.7 无头单独加载剧情场景，场景和脚本解析通过；`git diff --check` 通过且脚本无 Tab，仅出现仓库既有物品图标 ID、macOS CA 与 ObjectDB 退出警告。
+
+## 2026-07-15 对话人物名字字号统一
+
+- `client/scenes/ui/npc_dialogue_panel.tscn` 将 `NpcSpeakerLabel` 与 `PlayerSpeakerLabel` 的 `normal_font_size` 从 `24` 统一调整为与 `ContentLabel` 相同的 `32`。
+- 未修改对话脚本、信号链路或服务端数据；名字框仍由现有 `_remeasure_speaker_panel()` 根据文字和头像动态计算尺寸。
+
+## 2026-07-15 剧情场景出战宠物跟随
+
+- `client/scenes/cinematics/common/world_player_cinematic.gd` 统一创建 `CinematicPetFollower`，数据直接读取服务端下发并保存在 `GameState.lineup` 的首只出战宠物摘要，不硬编码宠物或皮肤。
+- 跟随表现直接复用 `WorldPetFollower`，因此宠物皮肤解析、待机/行走动画和无效 `skin_id` 隐藏逻辑与世界场景一致。
+- 剧情基类根据本地 `Player` 的 Tween 实际位移解析四方向，每移动 `PathFollowController.PATH_STEP_SIZE`（24px）记录一个玩家离开的路径点，再调用同一个路径控制器等速推进宠物。
+- 宠物初始位置沿用世界场景规则，按玩家朝向放在身后半格；编队为空时隐藏，`pets_changed` 更新时重新绑定首只出战宠物，剧情退出时断开信号。
+- “初见桃子”“闪光镇宠物学校”“桃子与散文”三个现有剧情均已通过 Godot 4.7 无头单独加载和脚本解析；`git diff --check` 通过，基类无 Tab。
+- 带真实宠物 `skin_id` 的临时运行态冒烟脚本因执行安全策略未获准，未在本轮自动执行；实际登录态仍需进入任一剧情确认宠物视觉跟随效果。
+
+## 2026-07-15 机械熊剧情泛光颜色修正
+
+- 实际发光节点位于 `client/剧情动画/机械熊.tscn`；`WorldEnvironment` 只负责泛光后处理，绿色来自 `发光特效/ColorRect` 使用的 `StyleBoxFlat.bg_color`。
+- 将发光源从 `Color(2.1708035, 5.238883, 2.1782057, 1)` 调整为等 RGB 通道的 `Color(5.238883, 5.238883, 5.238883, 1)`，在保持 HDR 亮度的同时输出白色泛光。
+
+## 2026-07-15 机械熊单节点 Shader 泛光
+
+- `client/剧情动画/机械熊.tscn` 删除 `Environment` 子资源和 `发光特效/WorldEnvironment` 节点，泛光不再作为 Viewport 全局后处理。
+- 新增场景内 `canvas_item` Shader 与 `ShaderMaterial`，通过径向距离计算白色核心和衰减光晕，并使用 `blend_add` 叠加到背景，仅作用于 `发光特效/ColorRect`。
+- 发光节点由 `10x10px PanelContainer` 调整为以原中心点为基准的 `64x64px ColorRect`；可在 Inspector 的 Shader Parameters 中独立调整 `glow_color`、`glow_intensity` 和 `glow_falloff`。
+
+## 2026-07-15 机械熊剧情 NPC 局部模糊
+
+- `client/剧情动画/机械熊.tscn` 新增 `canvas_item` 九点纹理采样模糊 Shader，并由机械熊与七色羽实例下的 `AnimatedSprite2D` 共用一个 `ShaderMaterial`。
+- 通过场景实例子节点覆盖挂载材质，同时保留 `client/npc/dong-lu/机械熊.tscn` 与 `client/npc/dong-lu/七色羽.tscn` 原始资源不变，因此其他地图和剧情中的同名 NPC 不会模糊。
+- Shader 默认 `blur_radius=1.0`，仅采样当前 NPC 纹理；白色发光特效、东路地图和场景其余节点不使用该材质。
+
+## 2026-07-15 机械熊固定剧情
+
+- `client/剧情动画/机械熊.gd` 改为继承 `WorldPlayerCinematic`，接入东路/罗克萨斯家地图归一化、世界相机同步、顶部剧情图片、场景头像对白和统一剧情完成信号。
+- 东路初始站位配置为桃子 `(75,126)`、七色羽 `(105,134)`、玩家 `(45,160)`、机械熊 `(175,126)`；玩家按右 30px、上 30px、右 10px进入对白位置，三人随后按注释并行向右移动。
+- 实现一秒上下后左右震屏、机械熊黑屏揭示、两次黑白闪烁、桃子受惊状态非行走击飞 150px并切换死亡状态，以及玩家/七色羽同步退让。
+- 七色羽靠近机械熊后才把共享模糊材质从 `blur_radius=0` 调整为 `1`，同步显示白色 Shader 发光、循环黑白闪烁和短促震动，随后渐黑。
+- 黑屏对白结束后隐藏东路角色和特效，切换到 `roxus_house.tscn`，把玩家放到 `(115,180)`，渐亮后显示罗克萨斯与玩家对白。
+- `client/剧情动画/机械熊.tscn` 新增桃子、玩家、罗克萨斯家、备用对话面板、剧情图片、黑白闪烁/渐黑场景节点和罗克萨斯头像资源；UI 均由场景节点构建。
+- 屏幕闪烁函数改为 `_play_black_flash()`，遮罩资源默认色同步改为黑色，不再产生白屏；黑屏显示与间隔仍各保持 `0.07s`。
+- `CINEMATIC_MOVE_SPEED` 从 `100` 降为 `50px/s`，并行移动、机械熊接近及桃子击飞段的 Tween 时长同步翻倍；NPC 序列帧与玩家动画节点统一使用 `speed_scale=0.5`。
+- 三人右移动作仍分两阶段，但移除共用 `1.4s` 的强制同步：第二阶段为三个独立线性 Tween，桃子与七色羽移动 `40px/0.8s` 后各自停止，玩家移动 `70px/1.4s` 后停止。
+- 已使用 Godot 4.7 无头单独加载机械熊剧情场景，场景、脚本和 Shader 解析通过；`git diff --check` 通过且脚本无 Tab，仅出现仓库既有物品图标 ID、macOS CA 与 ObjectDB 退出警告。
+
+## 2026-07-15 机械熊分帧攻击演出调整
+
+- `client/剧情动画/机械熊.gd` 在机械熊解除黑屏并显示时追加短促震屏，不改变后续对白内容。
+- 桃子与机械熊先向相反方向同时后退 `15px`，再以两次纯黑闪烁分别切换机械熊资源已有的“攻击第一帧”和“攻击第二帧”，两帧之间保持 `0.5s`。
+- 第二帧出现后才启动桃子的受惊退让，以及玩家和七色羽原有的并行退让；角色仍按各自 Tween 时长自然停止。
