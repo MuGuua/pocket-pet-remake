@@ -284,6 +284,7 @@ func TestAdminQuestTemplateCRUDHandler(t *testing.T) {
 	createBody := marshalJSON(t, quest.AdminCreateTemplateInput{
 		Name: "ops_quest", QuestType: "SIDE", Title: "后台新增任务", Description: "用于验证后台任务模板 CRUD。",
 		Chapter: 9, SortOrder: 1, AcceptMode: "AUTO", SubmitMode: "AUTO", AutoTrack: true, MinPlayerLevel: 1, Status: 1,
+		AcceptAnimationKey: "quest_accept_ops", SubmitAnimationKey: "quest_submit_ops",
 		Objectives: []quest.AdminObjectiveInput{{ObjectiveID: 1, EventType: "ENTER_SCENE", Description: "进入测试场景", TargetValue: 1, TargetSelector: map[string]any{"scene_id": 99}}},
 	})
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/quests/templates", bytes.NewReader(createBody))
@@ -302,6 +303,9 @@ func TestAdminQuestTemplateCRUDHandler(t *testing.T) {
 	}
 	if createPayload.Data.QuestID == 0 {
 		t.Fatalf("create quest template quest_id = 0, want auto generated positive id")
+	}
+	if createPayload.Data.AcceptAnimationKey != "quest_accept_ops" || createPayload.Data.SubmitAnimationKey != "quest_submit_ops" {
+		t.Fatalf("create quest template animation keys = %q/%q", createPayload.Data.AcceptAnimationKey, createPayload.Data.SubmitAnimationKey)
 	}
 
 	updateBody := marshalJSON(t, quest.AdminUpdateTemplateInput{

@@ -18,10 +18,12 @@ interface QuestStageEditorProps {
   onChange?: (stages: QuestStageFormItem[]) => void;
   /** 当前任务 ID，用于弹窗内展示 NPC 菜单可见条件；新建时可传 0。 */
   questID: number;
+  /** 服务端 NPC 实体选项，阶段目标只保存选中实体的 ID。 */
+  npcOptions: Array<{ label: string; value: number }>;
 }
 
 /** 任务模板多阶段编辑器：主表单仅展示阶段列表，新增/编辑在弹窗中完成。 */
-export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorProps) {
+export function QuestStageEditor({ value, onChange, questID, npcOptions }: QuestStageEditorProps) {
   const stages: QuestStageFormItem[] = value ?? [];
   const [stageModalOpen, setStageModalOpen] = useState<boolean>(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -235,8 +237,8 @@ export function QuestStageEditor({ value, onChange, questID }: QuestStageEditorP
               </Form.Item>
             </Col>
             <Col xs={12} md={6}>
-              <Form.Item label="目标 NPC 实体 ID" name="npc_id" tooltip="TALK_TO_NPC 阶段必填">
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="93001" />
+              <Form.Item label="目标 NPC" name="npc_id" tooltip="TALK_TO_NPC 阶段必填">
+                <Select showSearch optionFilterProp="label" options={npcOptions} />
               </Form.Item>
             </Col>
             <Col xs={12} md={6}>

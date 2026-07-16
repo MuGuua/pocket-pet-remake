@@ -15,6 +15,7 @@ type SceneTrigger struct {
 	TriggerCode         string
 	SceneID             uint32
 	ClientAnimationKey  string
+	PromptText          string
 	BlockMovement       bool
 	EffectAcceptQuestID uint64
 	EffectSetFlags      []string

@@ -6,6 +6,7 @@ import type {
   AdminNPCEntityDetail,
   AdminNPCEntityFilters,
   AdminNPCEntityListResult,
+  AdminNPCEntitySummary,
   AdminNPCDialogueDetail,
   AdminNPCDialogueFilters,
   AdminNPCDialogueListResult,
@@ -28,6 +29,19 @@ export async function fetchAdminNPCEntities(params: { filters?: AdminNPCEntityFi
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminNPCEntityListResult>({ url: `/api/admin/npcs/entities?${query.toString()}`, method: 'GET' });
+}
+
+/** 分页读取全部 NPC 实体，供任务等关联配置下拉框使用。 */
+export async function fetchAllAdminNPCEntities(): Promise<AdminNPCEntitySummary[]> {
+  const pageSize = 100;
+  const firstPage = await fetchAdminNPCEntities({ page: 1, pageSize });
+  const entities: AdminNPCEntitySummary[] = [...firstPage.items];
+  const totalPages = Math.ceil(firstPage.total / firstPage.page_size);
+  for (let page = 2; page <= totalPages; page += 1) {
+    const result = await fetchAdminNPCEntities({ page, pageSize });
+    entities.push(...result.items);
+  }
+  return entities;
 }
 
 export async function fetchAdminNPCEntityDetail(entityID: number): Promise<AdminNPCEntityDetail> {

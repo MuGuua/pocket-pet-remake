@@ -1,5 +1,20 @@
 # 任务系统协议草案
 
+## 任务领取与交付动画
+
+- `QUEST_ACCEPT_RESP.client_animation_key`：领取成功后客户端播放的剧情注册键。
+- `QUEST_SUBMIT_RESP.client_animation_key`：交付成功并完成奖励持久化后客户端播放的剧情注册键。
+- NPC 菜单领取和交付通过 `NPC_ACTION_RESP.client_animation_key` 返回同一配置。
+- 空字符串表示不播放；客户端找不到对应场景时直接继续任务刷新或奖励弹窗，不回滚服务端状态。
+- 交付展示顺序固定为：服务端结算成功、客户端播放动画、动画结束、升级及奖励弹窗。
+
+## 对话驱动的任务流转
+
+- NPC 对话节点 `effects_json.accept_quest_id` 在玩家选择“接受”并进入后续节点时接取任务。
+- NPC 对话节点 `effects_json.quest_event` 先推进任务目标，`effects_json.submit_quest_id` 随后校验并交付任务、持久化奖励。
+- 对话副作用失败时返回失败响应，不允许客户端继续显示“任务完成”。
+- `SCENE_TRIGGER_PUSH.prompt_text` 用于一次性场景提示；有剧情动画时在动画结束后展示，无动画时进入场景立即展示。
+
 ## 1. 文档目的
 
 - 本文用于把任务系统协议层固定下来，作为客户端 Godot 和服务端 Go 并行实现的联调依据。

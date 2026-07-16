@@ -6,10 +6,13 @@ import (
 )
 
 func TestEncodeDecodeAdminEffectsJSON(t *testing.T) {
-	raw := EncodeAdminEffectsJSON(AdminDialogueEffects{Notice: "你好", QuestEvent: "TALK_TO_NPC"})
+	raw := EncodeAdminEffectsJSON(AdminDialogueEffects{Notice: "你好", QuestEvent: "TALK_TO_NPC", SubmitQuestID: 1101})
 	decoded := DecodeAdminEffectsJSON(raw)
 	if decoded.Notice != "你好" || decoded.QuestEvent != "TALK_TO_NPC" {
 		t.Fatalf("DecodeAdminEffectsJSON() = %#v, want notice=你好 quest_event=TALK_TO_NPC", decoded)
+	}
+	if decoded.SubmitQuestID != 1101 {
+		t.Fatalf("DecodeAdminEffectsJSON().SubmitQuestID = %d, want 1101", decoded.SubmitQuestID)
 	}
 }
 

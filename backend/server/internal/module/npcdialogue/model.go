@@ -72,12 +72,12 @@ type DialogueNode struct {
 
 // DialogueOption 表示 choice 节点下的一条分支选项。
 type DialogueOption struct {
-	DialogueID   int64
-	NodeID       string
-	OptionID     string
-	OptionText   string
-	OptionFormat string
-	NextNodeID   string
+	DialogueID     int64
+	NodeID         string
+	OptionID       string
+	OptionText     string
+	OptionFormat   string
+	NextNodeID     string
 	ConditionsJSON json.RawMessage
 }
 
@@ -106,5 +106,6 @@ type RuntimeNode struct {
 	EffectNotice         string
 	EffectQuestEvent     string
 	EffectAcceptQuestID  uint64
+	EffectSubmitQuestID  uint64
 	EffectGrantItems     []EffectGrantItem
 }

@@ -282,6 +282,26 @@ FROM player p
 WHERE p.account_id = a.id AND p.id = $1
 `
 
+const findAdminAccountIDByPlayerIDQuery = `
+SELECT account_id
+FROM player
+WHERE id = $1
+`
+
+const lockAdminAccountStatusQuery = `
+SELECT status
+FROM account
+WHERE id = $1
+FOR UPDATE
+`
+
+const lockAdminAccountPlayerStatusesQuery = `
+SELECT status
+FROM player
+WHERE account_id = $1
+FOR UPDATE
+`
+
 func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) (*player.Profile, error) {
 	if playerID == 0 {
 		return nil, nil
@@ -810,6 +830,108 @@ func (r *PlayerRepository) DeleteForAdmin(ctx context.Context, playerID uint64) 
 	}
 	if _, err := tx.ExecContext(ctx, softDeleteAdminAccountByPlayerIDQuery, playerID); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+// PurgeDisabledAccountForAdmin 在同一事务内删除账号下全部玩家数据和账号本身。
+// 只有 account 与其全部 player 均已处于 status=0 时才允许执行，避免误删仍可登录或仍在使用的账号。
+func (r *PlayerRepository) PurgeDisabledAccountForAdmin(ctx context.Context, playerID uint64) error {
+	tx, err := r.beginTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer rollbackTx(tx)
+
+	var accountID uint64
+	if err := tx.QueryRowContext(ctx, findAdminAccountIDByPlayerIDQuery, playerID).Scan(&accountID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return player.ErrPlayerNotFound
+		}
+		return err
+	}
+	var accountStatus uint32
+	if err := tx.QueryRowContext(ctx, lockAdminAccountStatusQuery, accountID).Scan(&accountStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return player.ErrPlayerNotFound
+		}
+		return err
+	}
+	playerStatusRows, err := tx.QueryContext(ctx, lockAdminAccountPlayerStatusesQuery, accountID)
+	if err != nil {
+		return err
+	}
+	allPlayersDisabled := true
+	playerCount := 0
+	for playerStatusRows.Next() {
+		var status uint32
+		if err := playerStatusRows.Scan(&status); err != nil {
+			playerStatusRows.Close()
+			return err
+		}
+		playerCount++
+		if status != 0 {
+			allPlayersDisabled = false
+		}
+	}
+	if err := playerStatusRows.Err(); err != nil {
+		playerStatusRows.Close()
+		return err
+	}
+	playerStatusRows.Close()
+	if accountStatus != 0 || playerCount == 0 || !allPlayersDisabled {
+		return player.ErrPlayerMustBeDisabled
+	}
+
+	// 删除顺序先处理引用装备、宠物的子表，再处理所有 player_id 数据，最后删除 player/account 主记录。
+	deleteQueries := []string{
+		`DELETE FROM player_equipment_slot WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_equipment_snapshot WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_container_item WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM equipment_instance_socket WHERE item_uid IN (SELECT ei.item_uid FROM equipment_instance ei JOIN player p ON p.id = ei.player_id WHERE p.account_id = $1)`,
+		`DELETE FROM equipment_instance WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM pet_artifact_equipment WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_pet_combat_snapshot WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM pet_attr_allocate_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_lineup WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_pet WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_combat_snapshot WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_skill_progress_snapshot WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_skill_progress WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_attr_allocate_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_feature_unlock WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_unique_item_obtained WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_npc_dialogue_session WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_story_flag WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_quest_event_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_quest_objective WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_quest WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM battle_record WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM item_change_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM container_expand_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM currency_change_log WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_wallet WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_container WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+		`DELETE FROM player_item WHERE player_id IN (SELECT id FROM player WHERE account_id = $1)`,
+	}
+	for _, query := range deleteQueries {
+		if _, err := tx.ExecContext(ctx, query, accountID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM player WHERE account_id = $1`, accountID); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM account WHERE id = $1 AND status = 0`, accountID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return player.ErrPlayerMustBeDisabled
 	}
 	return tx.Commit()
 }

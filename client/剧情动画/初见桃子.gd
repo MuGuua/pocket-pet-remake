@@ -252,6 +252,7 @@ func _run_sequence() -> void:
 	)
 	if _plot_image != null:
 		_plot_image.call("hide_plot_image")
+	complete_cinematic()
 
 
 ## 展示一条固定对白；正式客户端走 CinematicPlayer，单独运行时改用场景内备用面板。

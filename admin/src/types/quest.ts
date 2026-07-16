@@ -61,6 +61,8 @@ export interface AdminQuestTemplateDetail {
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
+  accept_animation_key: string;
+  submit_animation_key: string;
   min_player_level: number;
   status: number;
   status_text: string;
@@ -92,6 +94,8 @@ export interface AdminCreateQuestTemplatePayload {
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
+  accept_animation_key: string;
+  submit_animation_key: string;
   min_player_level: number;
   status: number;
   pre_quest_ids: number[];

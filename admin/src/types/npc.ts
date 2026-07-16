@@ -125,6 +125,7 @@ export interface AdminDialogueEffects {
   notice?: string;
   quest_event?: string;
   accept_quest_id?: number;
+  submit_quest_id?: number;
   grant_items?: AdminDialogueEffectGrantItem[];
 }
 

@@ -331,6 +331,7 @@ type SceneTriggerPush struct {
 	TriggerCode        string `json:"trigger_code"`
 	SceneID            uint32 `json:"scene_id"`
 	ClientAnimationKey string `json:"client_animation_key"`
+	PromptText         string `json:"prompt_text"`
 	BlockMovement      bool   `json:"block_movement"`
 }
 
@@ -390,16 +391,17 @@ type NPCActionReq struct {
 }
 
 type NPCActionResp struct {
-	Accepted    bool             `json:"accepted"`
-	Reason      string           `json:"reason"`
-	EntityID    uint64           `json:"entity_id"`
-	EntryID     string           `json:"entry_id"`
-	ResultType  string           `json:"result_type"`
-	Notice      string           `json:"notice"`
-	NPCName     string           `json:"npc_name"`
-	MenuEntries []NpcMenuEntry   `json:"menu_entries"`
-	Dialogue    *NPCDialogueNode `json:"dialogue"`
-	Shop        *NPCShopPayload  `json:"shop,omitempty"`
+	Accepted           bool             `json:"accepted"`
+	Reason             string           `json:"reason"`
+	EntityID           uint64           `json:"entity_id"`
+	EntryID            string           `json:"entry_id"`
+	ResultType         string           `json:"result_type"`
+	Notice             string           `json:"notice"`
+	NPCName            string           `json:"npc_name"`
+	MenuEntries        []NpcMenuEntry   `json:"menu_entries"`
+	Dialogue           *NPCDialogueNode `json:"dialogue"`
+	Shop               *NPCShopPayload  `json:"shop,omitempty"`
+	ClientAnimationKey string           `json:"client_animation_key,omitempty"`
 }
 
 type NPCShopGood struct {
@@ -1153,9 +1155,10 @@ type QuestAcceptReq struct {
 }
 
 type QuestAcceptResp struct {
-	Accepted bool         `json:"accepted"`
-	Reason   string       `json:"reason"`
-	Quest    QuestSummary `json:"quest"`
+	Accepted           bool         `json:"accepted"`
+	Reason             string       `json:"reason"`
+	Quest              QuestSummary `json:"quest"`
+	ClientAnimationKey string       `json:"client_animation_key,omitempty"`
 }
 
 type QuestSubmitReq struct {
@@ -1164,14 +1167,15 @@ type QuestSubmitReq struct {
 }
 
 type QuestSubmitResp struct {
-	Accepted         bool          `json:"accepted"`
-	Reason           string        `json:"reason"`
-	Quest            QuestSummary  `json:"quest"`
-	Rewards          []QuestReward `json:"rewards"`
-	PlayerLevel      uint32        `json:"player_level,omitempty"`
-	LevelUpCount     uint32        `json:"level_up_count,omitempty"`
-	AttrPointsGained uint32        `json:"attr_points_gained,omitempty"`
-	LevelUpBonus     *LevelUpBonus `json:"level_up_bonus,omitempty"`
+	Accepted           bool          `json:"accepted"`
+	Reason             string        `json:"reason"`
+	Quest              QuestSummary  `json:"quest"`
+	Rewards            []QuestReward `json:"rewards"`
+	PlayerLevel        uint32        `json:"player_level,omitempty"`
+	LevelUpCount       uint32        `json:"level_up_count,omitempty"`
+	AttrPointsGained   uint32        `json:"attr_points_gained,omitempty"`
+	LevelUpBonus       *LevelUpBonus `json:"level_up_bonus,omitempty"`
+	ClientAnimationKey string        `json:"client_animation_key,omitempty"`
 }
 
 type QuestTrackReq struct {

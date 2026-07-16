@@ -88,9 +88,10 @@ func (h *QuestHandler) HandleQuestAccept(conn packetSender, packet *protocol.Pac
 	}
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdQuestAcceptResp, packet.Seq, errcode.WSCodeSuccess, protocol.QuestAcceptResp{
-		Accepted: true,
-		Reason:   "quest accepted",
-		Quest:    toProtocolQuestSummary(summary),
+		Accepted:           true,
+		Reason:             "quest accepted",
+		Quest:              toProtocolQuestSummary(summary),
+		ClientAnimationKey: summary.AcceptAnimationKey,
 	})
 	if err != nil {
 		return err
@@ -126,10 +127,11 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 	}
 
 	submitResp := protocol.QuestSubmitResp{
-		Accepted: true,
-		Reason:   "quest submitted",
-		Quest:    toProtocolQuestSummary(result.Summary),
-		Rewards:  toProtocolPopupRewards(grantResult.Granted),
+		Accepted:           true,
+		Reason:             "quest submitted",
+		Quest:              toProtocolQuestSummary(result.Summary),
+		Rewards:            toProtocolPopupRewards(grantResult.Granted),
+		ClientAnimationKey: result.Summary.SubmitAnimationKey,
 	}
 	if grantResult != nil {
 		submitResp.LevelUpCount = grantResult.LevelUpCount

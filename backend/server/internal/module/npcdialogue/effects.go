@@ -16,6 +16,7 @@ type NodeEffects struct {
 	Notice        string
 	QuestEvent    string
 	AcceptQuestID uint64
+	SubmitQuestID uint64
 	GrantItems    []EffectGrantItem
 }
 
@@ -29,6 +30,7 @@ func ParseNodeEffects(raw json.RawMessage) NodeEffects {
 		Notice        string `json:"notice"`
 		QuestEvent    string `json:"quest_event"`
 		AcceptQuestID uint64 `json:"accept_quest_id"`
+		SubmitQuestID uint64 `json:"submit_quest_id"`
 		GrantItems    []struct {
 			ItemID   uint64 `json:"item_id"`
 			Quantity uint64 `json:"quantity"`
@@ -48,6 +50,7 @@ func ParseNodeEffects(raw json.RawMessage) NodeEffects {
 		Notice:        strings.TrimSpace(payload.Notice),
 		QuestEvent:    strings.TrimSpace(payload.QuestEvent),
 		AcceptQuestID: payload.AcceptQuestID,
+		SubmitQuestID: payload.SubmitQuestID,
 		GrantItems:    grantItems,
 	}
 }

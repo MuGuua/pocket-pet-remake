@@ -284,6 +284,7 @@ func (s *Service) assembleRuntimeNode(ctx context.Context, playerID uint64, dial
 	runtimeNode.EffectNotice = effects.Notice
 	runtimeNode.EffectQuestEvent = effects.QuestEvent
 	runtimeNode.EffectAcceptQuestID = effects.AcceptQuestID
+	runtimeNode.EffectSubmitQuestID = effects.SubmitQuestID
 	runtimeNode.EffectGrantItems = append([]EffectGrantItem{}, effects.GrantItems...)
 	return runtimeNode, nil
 }

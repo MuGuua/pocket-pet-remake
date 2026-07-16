@@ -461,17 +461,19 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 	}
 
 	return Summary{
-		QuestID:      template.QuestID,
-		QuestType:    template.QuestType,
-		ClientIconID: template.ClientIconID,
-		State:        state,
-		Tracked:      tracked,
-		StartNPCID:   template.StartNPCID,
-		SubmitNPCID:  template.SubmitNPCID,
-		Title:        template.Title,
-		Description:  template.Description,
-		Objectives:   objectiveSummaries,
-		Rewards:      collectSupportedRewards(template.Rewards),
+		QuestID:            template.QuestID,
+		QuestType:          template.QuestType,
+		ClientIconID:       template.ClientIconID,
+		State:              state,
+		Tracked:            tracked,
+		StartNPCID:         template.StartNPCID,
+		SubmitNPCID:        template.SubmitNPCID,
+		AcceptAnimationKey: template.AcceptAnimationKey,
+		SubmitAnimationKey: template.SubmitAnimationKey,
+		Title:              template.Title,
+		Description:        template.Description,
+		Objectives:         objectiveSummaries,
+		Rewards:            collectSupportedRewards(template.Rewards),
 	}
 }
 

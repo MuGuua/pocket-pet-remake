@@ -15,6 +15,7 @@ var (
 	ErrInvalidAdminInput     = errors.New("invalid admin player input")
 	ErrInvalidRegisterInput  = errors.New("invalid register input")
 	ErrInvalidRewardAttrKey  = errors.New("invalid reward attr key")
+	ErrPlayerMustBeDisabled  = errors.New("player account must be disabled before purge")
 )
 
 // DefaultPlayerSkinID 是玩家尚未配置形象时的服务端默认资源 ID。

@@ -622,6 +622,18 @@ func (r *PlayerRepository) DeleteForAdmin(_ context.Context, playerID uint64) er
 	return nil
 }
 
+// PurgeDisabledAccountForAdmin 模拟永久删除接口；测试桩没有独立账号表，因此直接移除玩家记录。
+func (r *PlayerRepository) PurgeDisabledAccountForAdmin(_ context.Context, playerID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.players[playerID]; !ok {
+		return player.ErrPlayerNotFound
+	}
+	delete(r.players, playerID)
+	return nil
+}
+
 func (r *PlayerRepository) CountActivePlayers(_ context.Context) (uint64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -2670,27 +2682,29 @@ func (r *QuestRepository) FindAdminTemplateDetailByQuestID(_ context.Context, qu
 		})
 	}
 	return &quest.AdminTemplateDetail{
-		QuestID:        template.QuestID,
-		Name:           fmt.Sprintf("quest_%d", template.QuestID),
-		QuestType:      template.QuestType,
-		Title:          template.Title,
-		Description:    template.Description,
-		Chapter:        1,
-		SortOrder:      uint32(template.QuestID),
-		AcceptMode:     template.AcceptMode,
-		SubmitMode:     template.SubmitMode,
-		AutoTrack:      template.AutoTrack,
-		ClientIconID:   template.ClientIconID,
-		StartNPCID:     template.StartNPCID,
-		SubmitNPCID:    template.SubmitNPCID,
-		MinPlayerLevel: 1,
-		Status:         1,
-		StatusText:     quest.AdminQuestTemplateStatusText(1),
-		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
-		Objectives:     objectives,
-		Rewards:        runtimeRewardsToAdmin(template.Rewards),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		QuestID:            template.QuestID,
+		Name:               fmt.Sprintf("quest_%d", template.QuestID),
+		QuestType:          template.QuestType,
+		Title:              template.Title,
+		Description:        template.Description,
+		Chapter:            1,
+		SortOrder:          uint32(template.QuestID),
+		AcceptMode:         template.AcceptMode,
+		SubmitMode:         template.SubmitMode,
+		AutoTrack:          template.AutoTrack,
+		ClientIconID:       template.ClientIconID,
+		StartNPCID:         template.StartNPCID,
+		SubmitNPCID:        template.SubmitNPCID,
+		AcceptAnimationKey: template.AcceptAnimationKey,
+		SubmitAnimationKey: template.SubmitAnimationKey,
+		MinPlayerLevel:     1,
+		Status:             1,
+		StatusText:         quest.AdminQuestTemplateStatusText(1),
+		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		Objectives:         objectives,
+		Rewards:            runtimeRewardsToAdmin(template.Rewards),
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}, nil
 }
 
@@ -2705,18 +2719,20 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		return nil, quest.ErrAdminQuestConflict
 	}
 	template := quest.Template{
-		QuestID:      input.QuestID,
-		QuestType:    input.QuestType,
-		Title:        input.Title,
-		Description:  input.Description,
-		AcceptMode:   input.AcceptMode,
-		SubmitMode:   input.SubmitMode,
-		ClientIconID: input.ClientIconID,
-		StartNPCID:   input.StartNPCID,
-		SubmitNPCID:  input.SubmitNPCID,
-		AutoTrack:    input.AutoTrack,
-		PreQuestIDs:  append([]uint64{}, input.PreQuestIDs...),
-		Rewards:      adminRewardsToRuntime(input.Rewards),
+		QuestID:            input.QuestID,
+		QuestType:          input.QuestType,
+		Title:              input.Title,
+		Description:        input.Description,
+		AcceptMode:         input.AcceptMode,
+		SubmitMode:         input.SubmitMode,
+		ClientIconID:       input.ClientIconID,
+		StartNPCID:         input.StartNPCID,
+		SubmitNPCID:        input.SubmitNPCID,
+		AcceptAnimationKey: input.AcceptAnimationKey,
+		SubmitAnimationKey: input.SubmitAnimationKey,
+		AutoTrack:          input.AutoTrack,
+		PreQuestIDs:        append([]uint64{}, input.PreQuestIDs...),
+		Rewards:            adminRewardsToRuntime(input.Rewards),
 	}
 	for _, objective := range input.Objectives {
 		template.Objectives = append(template.Objectives, quest.ObjectiveTemplate{
@@ -2731,27 +2747,29 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 	objectives := make([]quest.AdminObjectiveInput, 0, len(input.Objectives))
 	objectives = append(objectives, input.Objectives...)
 	return &quest.AdminTemplateDetail{
-		QuestID:        template.QuestID,
-		Name:           input.Name,
-		QuestType:      template.QuestType,
-		Title:          template.Title,
-		Description:    template.Description,
-		Chapter:        input.Chapter,
-		SortOrder:      input.SortOrder,
-		AcceptMode:     template.AcceptMode,
-		SubmitMode:     template.SubmitMode,
-		AutoTrack:      template.AutoTrack,
-		ClientIconID:   template.ClientIconID,
-		StartNPCID:     template.StartNPCID,
-		SubmitNPCID:    template.SubmitNPCID,
-		MinPlayerLevel: input.MinPlayerLevel,
-		Status:         input.Status,
-		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
-		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
-		Objectives:     objectives,
-		Rewards:        append([]quest.AdminRewardInput{}, input.Rewards...),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		QuestID:            template.QuestID,
+		Name:               input.Name,
+		QuestType:          template.QuestType,
+		Title:              template.Title,
+		Description:        template.Description,
+		Chapter:            input.Chapter,
+		SortOrder:          input.SortOrder,
+		AcceptMode:         template.AcceptMode,
+		SubmitMode:         template.SubmitMode,
+		AutoTrack:          template.AutoTrack,
+		ClientIconID:       template.ClientIconID,
+		StartNPCID:         template.StartNPCID,
+		SubmitNPCID:        template.SubmitNPCID,
+		AcceptAnimationKey: template.AcceptAnimationKey,
+		SubmitAnimationKey: template.SubmitAnimationKey,
+		MinPlayerLevel:     input.MinPlayerLevel,
+		Status:             input.Status,
+		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
+		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		Objectives:         objectives,
+		Rewards:            append([]quest.AdminRewardInput{}, input.Rewards...),
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}, nil
 }
 
@@ -2815,6 +2833,8 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 	template.ClientIconID = input.ClientIconID
 	template.StartNPCID = input.StartNPCID
 	template.SubmitNPCID = input.SubmitNPCID
+	template.AcceptAnimationKey = input.AcceptAnimationKey
+	template.SubmitAnimationKey = input.SubmitAnimationKey
 	template.AutoTrack = input.AutoTrack
 	template.PreQuestIDs = append([]uint64{}, input.PreQuestIDs...)
 	template.Rewards = adminRewardsToRuntime(input.Rewards)
@@ -2832,27 +2852,29 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 	objectives := make([]quest.AdminObjectiveInput, 0, len(input.Objectives))
 	objectives = append(objectives, input.Objectives...)
 	return &quest.AdminTemplateDetail{
-		QuestID:        template.QuestID,
-		Name:           input.Name,
-		QuestType:      template.QuestType,
-		Title:          template.Title,
-		Description:    template.Description,
-		Chapter:        input.Chapter,
-		SortOrder:      input.SortOrder,
-		AcceptMode:     template.AcceptMode,
-		SubmitMode:     template.SubmitMode,
-		AutoTrack:      template.AutoTrack,
-		ClientIconID:   template.ClientIconID,
-		StartNPCID:     template.StartNPCID,
-		SubmitNPCID:    template.SubmitNPCID,
-		MinPlayerLevel: input.MinPlayerLevel,
-		Status:         input.Status,
-		StatusText:     quest.AdminQuestTemplateStatusText(input.Status),
-		PreQuestIDs:    append([]uint64{}, template.PreQuestIDs...),
-		Objectives:     objectives,
-		Rewards:        append([]quest.AdminRewardInput{}, input.Rewards...),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		QuestID:            template.QuestID,
+		Name:               input.Name,
+		QuestType:          template.QuestType,
+		Title:              template.Title,
+		Description:        template.Description,
+		Chapter:            input.Chapter,
+		SortOrder:          input.SortOrder,
+		AcceptMode:         template.AcceptMode,
+		SubmitMode:         template.SubmitMode,
+		AutoTrack:          template.AutoTrack,
+		ClientIconID:       template.ClientIconID,
+		StartNPCID:         template.StartNPCID,
+		SubmitNPCID:        template.SubmitNPCID,
+		AcceptAnimationKey: template.AcceptAnimationKey,
+		SubmitAnimationKey: template.SubmitAnimationKey,
+		MinPlayerLevel:     input.MinPlayerLevel,
+		Status:             input.Status,
+		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
+		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		Objectives:         objectives,
+		Rewards:            append([]quest.AdminRewardInput{}, input.Rewards...),
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}, nil
 }
 

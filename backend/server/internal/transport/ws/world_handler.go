@@ -335,6 +335,7 @@ func (h *WorldHandler) pushPendingSceneTrigger(ctx context.Context, conn packetS
 		TriggerCode:        trigger.TriggerCode,
 		SceneID:            trigger.SceneID,
 		ClientAnimationKey: trigger.ClientAnimationKey,
+		PromptText:         trigger.PromptText,
 		BlockMovement:      trigger.BlockMovement,
 	})
 	if err != nil {

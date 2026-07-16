@@ -10,11 +10,17 @@ signal interaction_exited(entity_id: int, npc_name: String)
 @export var npc_code: String = ""
 # NPC 的前端显示名；菜单标题、日志和气泡文案会使用这个名字。
 @export var npc_name: String = "NPC"
+## 是否由服务端世界快照控制可见性；剧情中的同一打包角色应保持关闭。
+@export var server_visibility_managed: bool = false
 
 ## 可选的 NPC 交互区域；固定过场角色可以不配置该节点。
 @onready var interact_area: Area2D = get_node_or_null("Area2D") as Area2D
 
 func _ready() -> void:
+	if server_visibility_managed:
+		if not GameState.world_snapshot_changed.is_connected(_sync_server_visibility):
+			GameState.world_snapshot_changed.connect(_sync_server_visibility)
+		_sync_server_visibility()
 	# 没有交互区域时直接返回，避免空节点在加载期报错。
 	if interact_area == null:
 		return
@@ -35,6 +41,18 @@ func _ready() -> void:
 		interact_area.body_entered.connect(_on_body_entered)
 	if not interact_area.body_exited.is_connected(_on_body_exited):
 		interact_area.body_exited.connect(_on_body_exited)
+
+## 退出场景时断开世界快照信号，避免地图切换后旧 NPC 实例继续接收更新。
+func _exit_tree() -> void:
+	if GameState.world_snapshot_changed.is_connected(_sync_server_visibility):
+		GameState.world_snapshot_changed.disconnect(_sync_server_visibility)
+
+## 只在服务端快照包含当前实体时显示世界 NPC，剧情实例不启用该开关。
+func _sync_server_visibility() -> void:
+	var should_show: bool = entity_id > 0 and GameState.nearby_entities.has(entity_id)
+	visible = should_show
+	for collision_shape: CollisionShape2D in find_children("*", "CollisionShape2D", true, false):
+		collision_shape.set_deferred("disabled", not should_show)
 
 func _on_body_entered(body: Node2D) -> void:
 	if body == null or body.name != "Player" or entity_id <= 0:

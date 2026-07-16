@@ -30,7 +30,7 @@ height = 13.999393
 script = ExtResource("1_npcbase")
 entity_id = 93002
 npc_code = "radiant_market_luoge"
-npc_name = "市场罗格"
+npc_name = "杂货商人·罗格"
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(5, -13)

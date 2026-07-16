@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://do4ym0ge7fg2h" path="res://asset/分类/ui/地板/3.png" id="4_h0kuw"]
 [ext_resource type="Texture2D" uid="uid://j8ju5i0eoxc" path="res://asset/分类/ui/地板/0.png" id="5_h7i78"]
 [ext_resource type="Texture2D" uid="uid://cymtqjk1wxcxq" path="res://asset/分类/ui/地板/02.dat.png" id="6_hmry6"]
+[ext_resource type="PackedScene" uid="uid://cqxaaec3sstdf" path="res://npc/dong-lu/桃子.tscn" id="7_taozi"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_k3wvw"]
 texture = ExtResource("2_kthn8")
@@ -1711,3 +1712,7 @@ position = Vector2(84.5, -5.988022)
 shape = SubResource("RectangleShape2D_k53o8")
 
 [node name="Node" type="Node" parent="." unique_id=1952430481]
+
+[node name="桃子" parent="." instance=ExtResource("7_taozi")]
+position = Vector2(120, 120)
+server_visibility_managed = true

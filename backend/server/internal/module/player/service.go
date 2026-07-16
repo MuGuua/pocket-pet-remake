@@ -177,6 +177,11 @@ func (s *Service) DeleteAdminPlayer(ctx context.Context, playerID uint64) error 
 	return s.repo.DeleteForAdmin(ctx, playerID)
 }
 
+// PurgeDisabledAdminAccount 永久删除已禁用账号及其全部玩家数据；仓储层会在事务内再次校验禁用状态。
+func (s *Service) PurgeDisabledAdminAccount(ctx context.Context, playerID uint64) error {
+	return s.repo.PurgeDisabledAccountForAdmin(ctx, playerID)
+}
+
 func (s *Service) UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX, posY int32) error {
 	return s.repo.UpdatePosition(ctx, playerID, sceneID, posX, posY)
 }

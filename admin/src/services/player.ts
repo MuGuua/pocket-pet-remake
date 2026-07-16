@@ -61,6 +61,14 @@ export async function deleteAdminPlayer(playerID: number): Promise<{ player_id: 
   });
 }
 
+/** 永久删除已禁用账号及其全部玩家数据；服务端会再次校验账号状态。 */
+export async function purgeDisabledAdminAccount(playerID: number): Promise<{ player_id: number; purged: boolean }> {
+  return requestJSON<{ player_id: number; purged: boolean }>({
+    url: `/api/admin/players/${playerID}/purge`,
+    method: 'DELETE',
+  });
+}
+
 export interface AdminSetPetLineupPayload {
   pet_uids: number[];
 }

@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://cqxaaec3sstdf"]
+[gd_scene load_steps=29 format=3 uid="uid://cqxaaec3sstdf"]
 
 [ext_resource type="Script" uid="uid://dnp7r3ssmuw53" path="res://npc/scripts/interactive_npc_base.gd" id="1_ri6tm"]
 [ext_resource type="Texture2D" uid="uid://w3kvywlhigut" path="res://asset/分类/NPC/2018.png" id="2_4fony"]
@@ -211,14 +211,34 @@ animations = [{
 "speed": 6.0
 }]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_interaction"]
+size = Vector2(16, 7)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body_blocker"]
+size = Vector2(14, 5)
+
 [node name="Taozi" type="Node2D" unique_id=1919893855]
 script = ExtResource("1_ri6tm")
-entity_id = 1
+entity_id = 92001
 npc_code = "taozi"
-npc_name = "taozi"
+npc_name = "桃子"
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
 position = Vector2(0, -18)
 sprite_frames = SubResource("SpriteFrames_xpfc1")
 animation = &"待机上"
 autoplay = "待机下"
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+position = Vector2(0, -3.5)
+shape = SubResource("RectangleShape2D_interaction")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(0, -3.5)
+shape = SubResource("RectangleShape2D_body_blocker")

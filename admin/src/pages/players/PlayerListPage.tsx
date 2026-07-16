@@ -29,6 +29,7 @@ import {
   deleteAdminPlayer,
   fetchAdminPlayerDetail,
   fetchAdminPlayers,
+  purgeDisabledAdminAccount,
   updateAdminPlayer,
 } from '../../services/player';
 import type {
@@ -108,6 +109,7 @@ export function PlayerListPage() {
   const [editingRecord, setEditingRecord] = useState<AdminPlayerDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
+  const [purgingID, setPurgingID] = useState<number | null>(null);
 
   useEffect(() => {
     filterForm.setFieldsValue({ status: '1' });
@@ -221,7 +223,7 @@ export function PlayerListPage() {
     setDeletingID(playerID);
     try {
       await deleteAdminPlayer(playerID);
-      message.success('玩家已删除');
+      message.success('账号已禁用');
       if (detail?.player_id === playerID) {
         setDetailOpen(false);
         setDetail(null);
@@ -231,6 +233,24 @@ export function PlayerListPage() {
       message.error(error instanceof Error ? error.message : '删除玩家失败');
     } finally {
       setDeletingID(null);
+    }
+  }
+
+  /** 永久删除已禁用账号，成功后关闭相关详情并刷新服务端列表。 */
+  async function handlePurgeDisabledAccount(playerID: number) {
+    setPurgingID(playerID);
+    try {
+      await purgeDisabledAdminAccount(playerID);
+      message.success('禁用账号及全部关联数据已永久删除');
+      if (detail?.player_id === playerID) {
+        setDetailOpen(false);
+        setDetail(null);
+      }
+      await loadPlayers(filters, page, pageSize);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '永久删除账号失败');
+    } finally {
+      setPurgingID(null);
     }
   }
 
@@ -271,28 +291,39 @@ export function PlayerListPage() {
         fixed: 'right',
         render: (_value, record) => (
           <TableActionDropdown
-            loading={deletingID === record.player_id}
+            loading={deletingID === record.player_id || purgingID === record.player_id}
             actions={[
               { key: 'view', label: '查看', onClick: () => void handleViewDetail(record.player_id) },
               { key: 'edit', label: '编辑', onClick: () => void handleOpenEditor('edit', record.player_id) },
-              {
-                key: 'delete',
-                label: '删除',
+              ...(record.status === 0 ? [{
+                key: 'purge',
+                label: '永久删除',
                 danger: true,
                 confirm: {
-                  title: '确认删除这个玩家吗？',
-                  description: '删除会把账号与人物都软删除，不会物理清库。',
-                  okText: '确认删除',
+                  title: '确认永久删除这个禁用账号吗？',
+                  description: '账号、角色、宠物、背包、装备、钱包、任务、剧情进度、战斗记录和所有成长数据都会永久删除，无法恢复。',
+                  okText: '永久删除',
+                  cancelText: '取消',
+                },
+                onClick: () => void handlePurgeDisabledAccount(record.player_id),
+              }] : [{
+                key: 'disable',
+                label: '禁用账号',
+                danger: true,
+                confirm: {
+                  title: '确认禁用这个账号吗？',
+                  description: '账号和人物会被标记为已删除，但关联玩法数据仍会保留，可在已删除列表中继续永久删除。',
+                  okText: '确认禁用',
                   cancelText: '取消',
                 },
                 onClick: () => void handleDelete(record.player_id),
-              },
+              }]),
             ]}
           />
         ),
       },
     ],
-    [deletingID],
+    [deletingID, purgingID],
   );
 
   return (

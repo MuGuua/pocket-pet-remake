@@ -16,6 +16,7 @@ type AdminDialogueEffects struct {
 	Notice        string                         `json:"notice"`
 	QuestEvent    string                         `json:"quest_event"`
 	AcceptQuestID uint64                         `json:"accept_quest_id"`
+	SubmitQuestID uint64                         `json:"submit_quest_id"`
 	GrantItems    []AdminDialogueEffectGrantItem `json:"grant_items"`
 }
 
@@ -37,7 +38,7 @@ func (e AdminDialogueEffects) Normalize() AdminDialogueEffects {
 // IsEmpty 判断当前是否未配置任何副作用。
 func (e AdminDialogueEffects) IsEmpty() bool {
 	e = e.Normalize()
-	return e.Notice == "" && e.QuestEvent == "" && e.AcceptQuestID == 0 && len(e.GrantItems) == 0
+	return e.Notice == "" && e.QuestEvent == "" && e.AcceptQuestID == 0 && e.SubmitQuestID == 0 && len(e.GrantItems) == 0
 }
 
 // EncodeAdminEffectsJSON 把后台结构化副作用编码成数据库 effects_json。
@@ -55,6 +56,9 @@ func EncodeAdminEffectsJSON(effects AdminDialogueEffects) json.RawMessage {
 	}
 	if effects.AcceptQuestID > 0 {
 		payload["accept_quest_id"] = effects.AcceptQuestID
+	}
+	if effects.SubmitQuestID > 0 {
+		payload["submit_quest_id"] = effects.SubmitQuestID
 	}
 	if len(effects.GrantItems) > 0 {
 		payload["grant_items"] = effects.GrantItems
@@ -76,6 +80,7 @@ func DecodeAdminEffectsJSON(raw json.RawMessage) AdminDialogueEffects {
 		Notice        string                         `json:"notice"`
 		QuestEvent    string                         `json:"quest_event"`
 		AcceptQuestID uint64                         `json:"accept_quest_id"`
+		SubmitQuestID uint64                         `json:"submit_quest_id"`
 		GrantItems    []AdminDialogueEffectGrantItem `json:"grant_items"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
@@ -85,6 +90,7 @@ func DecodeAdminEffectsJSON(raw json.RawMessage) AdminDialogueEffects {
 		Notice:        strings.TrimSpace(payload.Notice),
 		QuestEvent:    strings.TrimSpace(payload.QuestEvent),
 		AcceptQuestID: payload.AcceptQuestID,
+		SubmitQuestID: payload.SubmitQuestID,
 		GrantItems:    payload.GrantItems,
 	}
 }

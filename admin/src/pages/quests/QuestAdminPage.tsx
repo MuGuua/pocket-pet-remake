@@ -57,6 +57,8 @@ import { formatDateTime } from '../../utils/formatDateTime';
 import { QuestStageEditor } from './QuestStageEditor';
 import { apiObjectivesToStages, createDefaultQuestStages, stagesToApiObjectives, type QuestStageFormItem } from './questStageUtils';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
+import { fetchAllAdminNPCEntities } from '../../services/npc';
+import type { AdminNPCEntitySummary } from '../../types/npc';
 
 interface TemplateFormValues {
   quest_id?: number;
@@ -72,6 +74,8 @@ interface TemplateFormValues {
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
+  accept_animation_key: string;
+  submit_animation_key: string;
   min_player_level: number;
   status: number;
   pre_quest_ids: number[];
@@ -139,8 +143,19 @@ function QuestTemplatePanel() {
   const [editingRecord, setEditingRecord] = useState<AdminQuestTemplateDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
+  const [npcEntities, setNPCEntities] = useState<AdminNPCEntitySummary[]>([]);
   const editingQuestID: number = editingRecord?.quest_id ?? 0;
   const pendingEditorValuesRef = useRef<TemplateFormValues | null>(null);
+  const npcOptions = useMemo(
+    () => [
+      { label: '无', value: 0 },
+      ...npcEntities.map((entity) => ({
+        label: `${entity.display_name || entity.entity_code}（${entity.entity_id}）`,
+        value: entity.entity_id,
+      })),
+    ],
+    [npcEntities],
+  );
 
   useEffect(() => {
     filterForm.setFieldsValue({ status: '1' });
@@ -182,18 +197,30 @@ function QuestTemplatePanel() {
   }
 
   async function handleOpenEditor(mode: 'create' | 'edit', questID?: number) {
+    setEditorLoading(true);
     if (mode === 'create') {
-      setEditingRecord(null);
-      pendingEditorValuesRef.current = defaultTemplateValues();
-      setEditorOpen(true);
+      try {
+        setNPCEntities(await fetchAllAdminNPCEntities());
+        setEditingRecord(null);
+        pendingEditorValuesRef.current = defaultTemplateValues();
+        setEditorOpen(true);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '加载 NPC 选项失败');
+      } finally {
+        setEditorLoading(false);
+      }
       return;
     }
     if (!questID) {
+      setEditorLoading(false);
       return;
     }
-    setEditorLoading(true);
     try {
-      const result = await fetchAdminQuestTemplateDetail(questID);
+      const [result, entities] = await Promise.all([
+        fetchAdminQuestTemplateDetail(questID),
+        fetchAllAdminNPCEntities(),
+      ]);
+      setNPCEntities(entities);
       setEditingRecord(result);
       pendingEditorValuesRef.current = mapTemplateDetailToForm(result);
       setEditorOpen(true);
@@ -343,6 +370,8 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="客户端图标ID">{detail.client_icon_id}</Descriptions.Item>
             <Descriptions.Item label="起始 NPC">{detail.start_npc_id}</Descriptions.Item>
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
+            <Descriptions.Item label="领取动画键">{detail.accept_animation_key || '不播放'}</Descriptions.Item>
+            <Descriptions.Item label="交付动画键">{detail.submit_animation_key || '不播放'}</Descriptions.Item>
             <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
             <Descriptions.Item label="任务阶段" span={2}>
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
@@ -377,9 +406,8 @@ function QuestTemplatePanel() {
         cancelText="取消"
       >
         <Spin spinning={editorLoading} tip="正在加载任务模板...">
-          <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)} preserve={false}>
+          <Form form={editorForm} layout="vertical" onFinish={(values) => void handleSubmitEditor(values)}>
             <Tabs
-              destroyOnHidden
               size="small"
               tabBarStyle={QUEST_TEMPLATE_EDITOR_TAB_BAR_STYLE}
               items={[
@@ -409,8 +437,10 @@ function QuestTemplatePanel() {
                             <Col xs={12} md={6}><Form.Item label="接取方式" name="accept_mode"><Select options={questModeOptions} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="提交方式" name="submit_mode"><Select options={questModeOptions} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="客户端图标ID" name="client_icon_id" extra="由客户端 TaskIcons 注册表解释，多个任务可共用。"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col xs={12} md={6}><Form.Item label="提交 NPC" name="submit_npc_id" extra="没有则填 0。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="起始 NPC" name="start_npc_id"><Select showSearch optionFilterProp="label" options={npcOptions} /></Form.Item></Col>
+                            <Col xs={12} md={6}><Form.Item label="目标 NPC" name="submit_npc_id"><Select showSearch optionFilterProp="label" options={npcOptions} /></Form.Item></Col>
+                            <Col xs={24} md={12}><Form.Item label="领取动画键" name="accept_animation_key" rules={[{ pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5-]*$/, message: '只能填写动画注册键' }]}><Input allowClear /></Form.Item></Col>
+                            <Col xs={24} md={12}><Form.Item label="交付动画键" name="submit_animation_key" rules={[{ pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5-]*$/, message: '只能填写动画注册键' }]}><Input allowClear /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
                             <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked" extra="接取后是否默认开启追踪。"><Switch /></Form.Item></Col>
@@ -470,7 +500,7 @@ function QuestTemplatePanel() {
                           ]}
                           tooltip="同一任务可配置多个阶段；每阶段可绑定不同 NPC、菜单 entry 与剧情。点击「添加阶段」在弹窗中编辑。"
                         >
-                          <QuestStageEditor questID={editingQuestID} />
+                          <QuestStageEditor questID={editingQuestID} npcOptions={npcOptions} />
                         </Form.Item>
                       </Card>
                     </div>
@@ -731,6 +761,8 @@ function defaultTemplateValues(): TemplateFormValues {
     client_icon_id: 1,
     start_npc_id: 0,
     submit_npc_id: 0,
+    accept_animation_key: '',
+    submit_animation_key: '',
     min_player_level: 1,
     status: 1,
     pre_quest_ids: [],
@@ -765,6 +797,8 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     client_icon_id: detail.client_icon_id || 1,
     start_npc_id: detail.start_npc_id,
     submit_npc_id: detail.submit_npc_id,
+    accept_animation_key: detail.accept_animation_key ?? '',
+    submit_animation_key: detail.submit_animation_key ?? '',
     min_player_level: detail.min_player_level,
     status: detail.status,
     pre_quest_ids: detail.pre_quest_ids ?? [],
@@ -799,6 +833,8 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     client_icon_id: values.client_icon_id || 1,
     start_npc_id: values.start_npc_id,
     submit_npc_id: values.submit_npc_id,
+    accept_animation_key: values.accept_animation_key?.trim() ?? '',
+    submit_animation_key: values.submit_animation_key?.trim() ?? '',
     min_player_level: values.min_player_level,
     status: values.status,
     pre_quest_ids: normalizePositiveNumberList(values.pre_quest_ids),

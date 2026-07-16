@@ -735,19 +735,24 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
                 </Row>
 
                 <Row gutter={12}>
-                  <Col xs={24} md={8}>
+                  <Col xs={24} md={6}>
                     <Form.Item label="进入节点提示" name={[field.name, 'effects', 'notice']}>
                       <Input placeholder="例如：理萌把货箱挪开了" />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} md={8}>
+                  <Col xs={24} md={6}>
                     <Form.Item label="任务事件Key" name={[field.name, 'effects', 'quest_event']}>
                       <Input placeholder="例如：TALK_TO_NPC" />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} md={8}>
+                  <Col xs={24} md={6}>
                     <Form.Item label="接取任务ID" name={[field.name, 'effects', 'accept_quest_id']}>
                       <InputNumber min={0} style={{ width: '100%' }} placeholder="0 表示不接取" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={6}>
+                    <Form.Item label="交付任务ID" name={[field.name, 'effects', 'submit_quest_id']}>
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="0 表示不交付" />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -1169,6 +1174,7 @@ function normalizeDialogueFormValues(values: DialogueEditorFormValues): Dialogue
         notice: node.effects?.notice?.trim() ?? '',
         quest_event: node.effects?.quest_event?.trim() ?? '',
         accept_quest_id: node.effects?.accept_quest_id ?? 0,
+        submit_quest_id: node.effects?.submit_quest_id ?? 0,
         grant_items: (node.effects?.grant_items ?? [])
           .filter((item) => (item.item_id ?? 0) > 0)
           .map((item) => ({

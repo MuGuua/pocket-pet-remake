@@ -31,30 +31,30 @@ import (
 // AdminHandlers 聚合后台管理入口使用的基础 handler。
 // 当前已经落地健康检查、管理员登录、当前用户信息，以及玩家/宠物管理 CRUD 一期闭环。
 type AdminHandlers struct {
-	Login               http.Handler
-	Me                  http.Handler
-	Health              http.Handler
-	Players             http.Handler
-	Pets                http.Handler
-	Bags                http.Handler
-	Items               http.Handler
-	Quests              http.Handler
-	NPCs                http.Handler
-	Wallets             http.Handler
-	Rewards             http.Handler
-	PetDefinitions      http.Handler
-	SkillDefinitions    http.Handler
-	MonsterDefinitions  http.Handler
-	MonsterEncounters   http.Handler
-	SceneWildEncounters http.Handler
-	PlayerProgression   http.Handler
-	PetProgression      http.Handler
-	PetSkillSlotUnlock  http.Handler
-	PetCombatStatCaps      http.Handler
-	EquipmentDefinitions          http.Handler
-	EquipmentEnhanceGoldCost      http.Handler
-	EquipmentEnhanceSuccess       http.Handler
-	Dashboard                     http.Handler
+	Login                    http.Handler
+	Me                       http.Handler
+	Health                   http.Handler
+	Players                  http.Handler
+	Pets                     http.Handler
+	Bags                     http.Handler
+	Items                    http.Handler
+	Quests                   http.Handler
+	NPCs                     http.Handler
+	Wallets                  http.Handler
+	Rewards                  http.Handler
+	PetDefinitions           http.Handler
+	SkillDefinitions         http.Handler
+	MonsterDefinitions       http.Handler
+	MonsterEncounters        http.Handler
+	SceneWildEncounters      http.Handler
+	PlayerProgression        http.Handler
+	PetProgression           http.Handler
+	PetSkillSlotUnlock       http.Handler
+	PetCombatStatCaps        http.Handler
+	EquipmentDefinitions     http.Handler
+	EquipmentEnhanceGoldCost http.Handler
+	EquipmentEnhanceSuccess  http.Handler
+	Dashboard                http.Handler
 }
 
 type AdminLoginHandler struct {
@@ -62,9 +62,10 @@ type AdminLoginHandler struct {
 }
 
 type AdminPlayerHandler struct {
-	adminService  *admin.Service
-	playerService *player.Service
-	petService    *pet.Service
+	adminService   *admin.Service
+	playerService  *player.Service
+	petService     *pet.Service
+	sessionService *session.Service
 }
 
 type AdminPetHandler struct {
@@ -96,30 +97,30 @@ type adminLoginRequest struct {
 func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, equipmentService *equipment.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service, petProgressionService *petprogression.Service) AdminHandlers {
 	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
-		Login:               &AdminLoginHandler{service: adminService},
-		Me:                  http.HandlerFunc(handleAdminMe(adminService)),
-		Health:              http.HandlerFunc(handleAdminHealth),
-		Dashboard:           &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
-		Players:             &AdminPlayerHandler{adminService: adminService, playerService: playerService, petService: petService},
-		Pets:                &AdminPetHandler{adminService: adminService, petService: petService},
-		Bags:                &AdminBagHandler{adminService: adminService, bagService: bagService},
-		Items:               &AdminItemHandler{adminService: adminService, itemService: itemService},
-		Quests:              &AdminQuestHandler{adminService: adminService, questService: questService},
-		NPCs:                &AdminNPCHandler{adminService: adminService, npcService: npcService, npcDialogueService: npcDialogueService},
-		Wallets:             &AdminWalletHandler{adminService: adminService, walletService: walletService},
-		Rewards:             &AdminRewardHandler{adminService: adminService, rewardService: rewardService, bagService: bagService},
-		PetDefinitions:      &AdminPetDefinitionHandler{adminService: adminService, petService: petService},
-		SkillDefinitions:    &AdminSkillDefinitionHandler{adminService: adminService, skillService: skillService},
-		MonsterDefinitions:  &AdminMonsterDefinitionHandler{adminService: adminService, monsterService: monsterService},
-		MonsterEncounters:   &AdminMonsterEncounterHandler{adminService: adminService, monsterService: monsterService},
-		SceneWildEncounters: &AdminSceneWildEncounterHandler{adminService: adminService, monsterService: monsterService},
-		PlayerProgression:   &AdminPlayerProgressionHandler{adminService: adminService, progressionService: progressionService},
-		PetProgression:      &AdminPetProgressionHandler{adminService: adminService, petProgressionService: petProgressionService},
-		PetSkillSlotUnlock:  &AdminPetSkillSlotUnlockHandler{adminService: adminService, petService: petService},
-		PetCombatStatCaps:      &AdminPetCombatStatCapHandler{adminService: adminService, petService: petService},
-		EquipmentDefinitions:      &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
-		EquipmentEnhanceGoldCost:  &AdminEquipmentEnhanceGoldCostHandler{adminService: adminService, equipmentService: equipmentService},
-		EquipmentEnhanceSuccess:   &AdminEquipmentEnhanceSuccessHandler{adminService: adminService, equipmentService: equipmentService},
+		Login:                    &AdminLoginHandler{service: adminService},
+		Me:                       http.HandlerFunc(handleAdminMe(adminService)),
+		Health:                   http.HandlerFunc(handleAdminHealth),
+		Dashboard:                &AdminDashboardHandler{adminService: adminService, authService: authService, playerService: playerService, sessionService: sessionService},
+		Players:                  &AdminPlayerHandler{adminService: adminService, playerService: playerService, petService: petService, sessionService: sessionService},
+		Pets:                     &AdminPetHandler{adminService: adminService, petService: petService},
+		Bags:                     &AdminBagHandler{adminService: adminService, bagService: bagService},
+		Items:                    &AdminItemHandler{adminService: adminService, itemService: itemService},
+		Quests:                   &AdminQuestHandler{adminService: adminService, questService: questService},
+		NPCs:                     &AdminNPCHandler{adminService: adminService, npcService: npcService, npcDialogueService: npcDialogueService},
+		Wallets:                  &AdminWalletHandler{adminService: adminService, walletService: walletService},
+		Rewards:                  &AdminRewardHandler{adminService: adminService, rewardService: rewardService, bagService: bagService},
+		PetDefinitions:           &AdminPetDefinitionHandler{adminService: adminService, petService: petService},
+		SkillDefinitions:         &AdminSkillDefinitionHandler{adminService: adminService, skillService: skillService},
+		MonsterDefinitions:       &AdminMonsterDefinitionHandler{adminService: adminService, monsterService: monsterService},
+		MonsterEncounters:        &AdminMonsterEncounterHandler{adminService: adminService, monsterService: monsterService},
+		SceneWildEncounters:      &AdminSceneWildEncounterHandler{adminService: adminService, monsterService: monsterService},
+		PlayerProgression:        &AdminPlayerProgressionHandler{adminService: adminService, progressionService: progressionService},
+		PetProgression:           &AdminPetProgressionHandler{adminService: adminService, petProgressionService: petProgressionService},
+		PetSkillSlotUnlock:       &AdminPetSkillSlotUnlockHandler{adminService: adminService, petService: petService},
+		PetCombatStatCaps:        &AdminPetCombatStatCapHandler{adminService: adminService, petService: petService},
+		EquipmentDefinitions:     &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
+		EquipmentEnhanceGoldCost: &AdminEquipmentEnhanceGoldCostHandler{adminService: adminService, equipmentService: equipmentService},
+		EquipmentEnhanceSuccess:  &AdminEquipmentEnhanceSuccessHandler{adminService: adminService, equipmentService: equipmentService},
 	}
 }
 
@@ -163,6 +164,9 @@ func (h *AdminPlayerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		permission = "players:edit"
 	}
+	if r.Method == http.MethodDelete && strings.HasSuffix(strings.Trim(r.URL.Path, "/"), "/purge") {
+		permission = "players:purge"
+	}
 	if _, ok := authenticateAdminRequest(w, r, h.adminService, permission); !ok {
 		return
 	}
@@ -193,6 +197,19 @@ func (h *AdminPlayerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.handleSetPetLineup(w, r, playerID)
+		return
+	}
+	if len(segments) == 2 && segments[1] == "purge" {
+		playerID, err := parseUintPathID(segments[0])
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid player_id", nil)
+			return
+		}
+		if r.Method != http.MethodDelete {
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+			return
+		}
+		h.handlePurgeDisabledAccount(w, r, playerID)
 		return
 	}
 
@@ -591,6 +608,31 @@ func (h *AdminPlayerHandler) handleDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"player_id": playerID, "deleted": true})
+}
+
+// handlePurgeDisabledAccount 永久清理已禁用账号；启用或封禁中的账号必须先执行普通禁用操作。
+func (h *AdminPlayerHandler) handlePurgeDisabledAccount(w http.ResponseWriter, r *http.Request, playerID uint64) {
+	if err := h.playerService.PurgeDisabledAdminAccount(r.Context(), playerID); err != nil {
+		switch {
+		case errors.Is(err, player.ErrPlayerNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "player not found", nil)
+		case errors.Is(err, player.ErrPlayerMustBeDisabled):
+			writeJSON(w, http.StatusConflict, http.StatusConflict, "account must be disabled before permanent deletion", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "purge disabled account failed", nil)
+		}
+		return
+	}
+	// 数据删除成功后同步断开残留会话，防止已登录客户端继续持有不存在的玩家身份。
+	if h.sessionService != nil {
+		if currentSession, err := h.sessionService.GetByPlayerID(playerID); err == nil && currentSession != nil {
+			if currentSession.Conn != nil {
+				_ = currentSession.Conn.Close()
+			}
+			h.sessionService.Disconnect(currentSession.ConnID)
+		}
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"player_id": playerID, "purged": true})
 }
 
 func (h *AdminPetHandler) handleList(w http.ResponseWriter, r *http.Request) {

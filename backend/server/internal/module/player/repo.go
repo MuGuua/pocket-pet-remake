@@ -9,6 +9,7 @@ type Repository interface {
 	CreateForAdmin(ctx context.Context, input AdminCreatePlayerInput) (*AdminPlayerDetail, error)
 	UpdateForAdmin(ctx context.Context, playerID uint64, input AdminUpdatePlayerInput) (*AdminPlayerDetail, error)
 	DeleteForAdmin(ctx context.Context, playerID uint64) error
+	PurgeDisabledAccountForAdmin(ctx context.Context, playerID uint64) error
 	UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX, posY int32) error
 	AddRewardAttribute(ctx context.Context, playerID uint64, attrKey string, value uint32) error
 	CountActivePlayers(ctx context.Context) (uint64, error)
