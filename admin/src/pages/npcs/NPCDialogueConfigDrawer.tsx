@@ -374,6 +374,7 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
   const [dragOverOptionKey, setDragOverOptionKey] = useState<string | null>(null);
   const [expandedNodeKeys, setExpandedNodeKeys] = useState<Record<string, boolean>>({});
   const [expandedOptionKeys, setExpandedOptionKeys] = useState<Record<string, boolean>>({});
+  const [simpleDialogueText, setSimpleDialogueText] = useState<string>('');
 
   // 节点 ID、线性跳转和排序都由当前表单列表顺序统一生成，避免运营手填引用关系。
   function applySequentialNodeLayout(nextNodes: AdminNPCDialogueNode[]): void {
@@ -567,8 +568,58 @@ function DialogueEditorFields({ hasExistingDetail, npcSpeakerName }: DialogueEdi
     setDragOverOptionKey(null);
   }
 
+  // 把“每行一句对白”的简易文本转换成线性节点，保留高级区继续做条件、奖励和分支。
+  function handleApplySimpleDialogue(): void {
+    const lines: string[] = simpleDialogueText
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+    if (lines.length === 0) {
+      message.warning('请先填写至少一行对白');
+      return;
+    }
+    const nextNodes: AdminNPCDialogueNode[] = lines.map((line: string, index: number) => {
+      const parsedLine: { speaker: string; content: string } = parseSimpleDialogueLine(line, npcSpeakerName);
+      return {
+        ...defaultDialogueNode(index + 1, parsedLine.speaker),
+        content: parsedLine.content,
+        content_format: containsBbcode(parsedLine.content) ? 'bbcode' : 'plain',
+      };
+    });
+    nextNodes.push({
+      ...defaultDialogueNode(nextNodes.length + 1, npcSpeakerName),
+      node_type: 'end',
+      speaker: '',
+      content: '',
+      content_format: 'plain',
+    });
+    applySequentialNodeLayout(nextNodes);
+    setExpandedNodeKeys({});
+    message.success('已按简易对白生成线性剧情节点');
+  }
+
   return (
     <>
+      <Card size="small" title="简易剧情编写" style={{ marginBottom: 16 }}>
+        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">
+            适合大多数 NPC 对话：每行写一句台词即可。支持「玩家：内容」切换说话人；不写前缀默认当前 NPC 说话。
+          </Typography.Text>
+          <Input.TextArea
+            rows={5}
+            value={simpleDialogueText}
+            onChange={(event) => setSimpleDialogueText(event.target.value)}
+            placeholder={`欢迎来到闪光镇，{player_name}。\n玩家：这里有什么要注意的吗？\n先去市场找生产导师·璃梦吧。`}
+          />
+          <Space wrap>
+            <Button type="primary" onClick={handleApplySimpleDialogue}>生成线性剧情</Button>
+            <Button onClick={() => setSimpleDialogueText('')}>清空简易文本</Button>
+          </Space>
+          <Typography.Text type="secondary">
+            生成后如需任务条件、接取/交付任务、奖励或分支，再展开下方高级节点配置补充。
+          </Typography.Text>
+        </Space>
+      </Card>
       <Row gutter={16}>
         <Col xs={24} md={8}>
           <Form.Item label="实体ID" name="entity_id">
@@ -1110,6 +1161,26 @@ function buildSpeakerOptions(npcSpeakerName: string): Array<{ label: string; val
     { label: npcSpeakerName, value: npcSpeakerName },
     { label: '玩家', value: '玩家' },
   ];
+}
+
+function parseSimpleDialogueLine(line: string, npcSpeakerName: string): { speaker: string; content: string } {
+  const normalizedLine: string = line.trim();
+  const separatorIndex: number = normalizedLine.indexOf('：') >= 0 ? normalizedLine.indexOf('：') : normalizedLine.indexOf(':');
+  if (separatorIndex <= 0) {
+    return { speaker: npcSpeakerName, content: normalizedLine };
+  }
+  const rawSpeaker: string = normalizedLine.slice(0, separatorIndex).trim();
+  const content: string = normalizedLine.slice(separatorIndex + 1).trim();
+  if (!content) {
+    return { speaker: npcSpeakerName, content: normalizedLine };
+  }
+  if (rawSpeaker === '玩家' || rawSpeaker.toLowerCase() === 'player') {
+    return { speaker: '玩家', content };
+  }
+  if (rawSpeaker === 'NPC' || rawSpeaker === '当前NPC' || rawSpeaker.toLowerCase() === 'npc') {
+    return { speaker: npcSpeakerName, content };
+  }
+  return { speaker: rawSpeaker, content };
 }
 
 // 独立剧情列表页可能拿不到 NPC 名称，此时用实体 ID 生成可识别的兜底显示值。

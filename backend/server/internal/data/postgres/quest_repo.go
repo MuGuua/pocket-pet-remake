@@ -147,6 +147,22 @@ SET tracked = TRUE
 WHERE player_id = $1 AND quest_id = $2
 `
 
+const revertCompletedQuestToReadyQuery = `
+UPDATE player_quest
+SET state = 'READY_TO_SUBMIT',
+    completed_at = NULL,
+    submitted_at = NULL,
+    reward_claimed = FALSE
+WHERE player_id = $1 AND quest_id = $2 AND state = 'COMPLETED'
+`
+
+const findQuestGuideNPCNameQuery = `
+SELECT display_name
+FROM world_entity_definition
+WHERE entity_id = $1 AND status = 1
+LIMIT 1
+`
+
 func (r *QuestRepository) ListTemplates(ctx context.Context) ([]quest.Template, error) {
 	rows, err := r.db.QueryContext(ctx, listQuestTemplatesQuery)
 	if err != nil {
@@ -158,6 +174,9 @@ func (r *QuestRepository) ListTemplates(ctx context.Context) ([]quest.Template, 
 	for rows.Next() {
 		value, err := scanQuestTemplate(rows)
 		if err != nil {
+			return nil, err
+		}
+		if err := r.enrichQuestGuideNPCNames(ctx, &value); err != nil {
 			return nil, err
 		}
 		result = append(result, value)
@@ -172,6 +191,9 @@ func (r *QuestRepository) FindTemplateByQuestID(ctx context.Context, questID uin
 		return nil, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := r.enrichQuestGuideNPCNames(ctx, &value); err != nil {
 		return nil, err
 	}
 	return &value, nil
@@ -256,6 +278,52 @@ func (r *QuestRepository) SetTrackedQuest(ctx context.Context, playerID uint64, 
 	return err
 }
 
+func (r *QuestRepository) RevertCompletedQuestToReady(ctx context.Context, playerID uint64, questID uint64) error {
+	_, err := r.db.ExecContext(ctx, revertCompletedQuestToReadyQuery, playerID, questID)
+	return err
+}
+
+func (r *QuestRepository) enrichQuestGuideNPCNames(ctx context.Context, template *quest.Template) error {
+	if template == nil {
+		return nil
+	}
+	npcNames := map[uint64]string{}
+	for objectiveIndex := range template.Objectives {
+		guide := template.Objectives[objectiveIndex].Guide
+		if guide == nil || guide.NPCID == 0 || guide.NPCName != "" {
+			continue
+		}
+		name, ok, err := r.findQuestGuideNPCName(ctx, guide.NPCID, npcNames)
+		if err != nil {
+			return err
+		}
+		if ok {
+			guide.NPCName = name
+		}
+	}
+	return nil
+}
+
+func (r *QuestRepository) findQuestGuideNPCName(ctx context.Context, npcID uint64, cache map[uint64]string) (string, bool, error) {
+	if npcID == 0 {
+		return "", false, nil
+	}
+	if value, ok := cache[npcID]; ok {
+		return value, value != "", nil
+	}
+	var name string
+	err := r.db.QueryRowContext(ctx, findQuestGuideNPCNameQuery, npcID).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		cache[npcID] = ""
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	cache[npcID] = name
+	return name, name != "", nil
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }
@@ -267,11 +335,12 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 		objectivesRaw  []byte
 		rewardsRaw     []byte
 		objectivesJSON []struct {
-			ObjectiveID    uint64         `json:"objective_id"`
-			EventType      string         `json:"event_type"`
-			Description    string         `json:"description"`
-			Target         uint32         `json:"target"`
-			TargetSelector map[string]any `json:"target_selector"`
+			ObjectiveID    uint64                     `json:"objective_id"`
+			EventType      string                     `json:"event_type"`
+			Description    string                     `json:"description"`
+			Target         uint32                     `json:"target"`
+			TargetSelector map[string]any             `json:"target_selector"`
+			Guide          *quest.ObjectiveGuideInput `json:"guide"`
 		}
 		rewardsJSON []quest.Reward
 	)
@@ -319,6 +388,7 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 			Description:    objective.Description,
 			TargetValue:    objective.Target,
 			TargetSelector: objective.TargetSelector,
+			Guide:          objective.Guide,
 		})
 	}
 	value.Rewards = append([]quest.Reward{}, rewardsJSON...)

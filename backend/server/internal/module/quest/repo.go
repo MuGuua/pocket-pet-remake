@@ -20,4 +20,5 @@ type Repository interface {
 	UpsertPlayerQuest(ctx context.Context, value PlayerQuest) error
 	ReplacePlayerObjectives(ctx context.Context, playerID uint64, questID uint64, objectives []PlayerObjective) error
 	SetTrackedQuest(ctx context.Context, playerID uint64, questID uint64) error
+	RevertCompletedQuestToReady(ctx context.Context, playerID uint64, questID uint64) error
 }

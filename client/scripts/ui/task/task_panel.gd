@@ -304,7 +304,7 @@ func _track_and_notice_quest(quest: Dictionary, notice: String) -> void:
     if quest_id <= 0:
         return
     _pending_action_seq = App.track_quest(quest_id)
-    App.notice_received.emit(notice)
+    App.notice_received.emit(_build_quest_guide_notice(quest, notice))
     if _pending_action_seq > 0:
         _refresh_task_lists()
         call_deferred("_wait_task_action_request", _pending_action_seq)
@@ -351,6 +351,9 @@ func _build_task_notice(quest: Dictionary) -> String:
         _build_task_description(quest),
         "进度：%s/%s" % [UiFormat.value_to_text(int(progress.get("current", 0))), UiFormat.value_to_text(int(progress.get("target", 1)))],
     ]
+    var guide_text: String = _build_quest_guide_notice(quest, "")
+    if not guide_text.is_empty():
+        parts.append("引导：%s" % guide_text)
     if not reward_text.is_empty():
         parts.append("奖励：%s" % reward_text)
     return _join_strings(parts, "\n")
@@ -380,6 +383,83 @@ func _format_rewards(quest: Dictionary) -> String:
             "feature_unlock":
                 texts.append("功能解锁")
     return _join_strings(texts, "，")
+
+
+## 生成任务前往提示，优先使用服务端配置的 guide 文案，再补充场景与 NPC 兜底信息。
+func _build_quest_guide_notice(quest: Dictionary, fallback_notice: String) -> String:
+    var guide: Dictionary = _current_objective_guide(quest)
+    var parts: Array[String] = []
+    var guide_text: String = UiFormat.normalize_text(str(guide.get("text", "")))
+    if not guide_text.is_empty():
+        parts.append(guide_text)
+
+    var scene_id: int = int(guide.get("scene_id", 0))
+    if scene_id <= 0:
+        scene_id = _fallback_guide_scene_id(quest)
+    if scene_id > 0:
+        parts.append("目标地图：%s" % _scene_display_name(scene_id))
+
+    var npc_id: int = int(guide.get("npc_id", 0))
+    if npc_id <= 0:
+        npc_id = _fallback_guide_npc_id(quest)
+    if npc_id > 0:
+        parts.append("目标 NPC：%s" % _npc_display_name(guide, npc_id))
+
+    if parts.is_empty():
+        return fallback_notice
+    if not fallback_notice.is_empty():
+        parts.push_front(fallback_notice)
+    return _join_strings(parts, "\n")
+
+
+## 读取当前目标的服务端引导配置；配置缺失时返回空字典。
+func _current_objective_guide(quest: Dictionary) -> Dictionary:
+    var objective: Dictionary = _current_objective(quest)
+    var guide_variant: Variant = objective.get("guide", {})
+    if guide_variant is Dictionary:
+        return (guide_variant as Dictionary).duplicate(true)
+    return {}
+
+
+## 当前目标未配置 guide.scene_id 时，尝试从目标选择器里兜底读取场景 ID。
+func _fallback_guide_scene_id(quest: Dictionary) -> int:
+    var objective: Dictionary = _current_objective(quest)
+    var selector_variant: Variant = objective.get("target_selector", {})
+    if selector_variant is Dictionary:
+        var selector: Dictionary = selector_variant as Dictionary
+        return int(selector.get("scene_id", 0))
+    return 0
+
+
+## 当前目标未配置 guide.npc_id 时，优先用目标选择器，其次根据任务状态使用接取/提交 NPC。
+func _fallback_guide_npc_id(quest: Dictionary) -> int:
+    var objective: Dictionary = _current_objective(quest)
+    var selector_variant: Variant = objective.get("target_selector", {})
+    if selector_variant is Dictionary:
+        var selector: Dictionary = selector_variant as Dictionary
+        var target_npc_id: int = int(selector.get("npc_id", 0))
+        if target_npc_id > 0:
+            return target_npc_id
+    var state: String = str(quest.get("state", ""))
+    if state == "READY_TO_SUBMIT":
+        return int(quest.get("submit_npc_id", 0))
+    return int(quest.get("start_npc_id", 0))
+
+
+## 把场景 ID 转成移动端提示里可读的地图名；未配置展示名时回退为场景编号。
+func _scene_display_name(scene_id: int) -> String:
+    var display_name: String = UiFormat.normalize_text(WorldSceneRegistry.get_scene_display_name(scene_id))
+    if not display_name.is_empty():
+        return display_name
+    return "场景 %s" % UiFormat.value_to_text(scene_id)
+
+
+## 把任务引导中的 NPC ID 转成可读名称；服务端未下发名称时保留 ID 兜底，方便排查配置。
+func _npc_display_name(guide: Dictionary, npc_id: int) -> String:
+    var npc_name: String = UiFormat.normalize_text(str(guide.get("npc_name", "")))
+    if not npc_name.is_empty():
+        return npc_name
+    return UiFormat.value_to_text(npc_id)
 
 
 ## 连接字符串数组，避免不同 Godot 小版本对 String.join 入参类型的兼容差异。

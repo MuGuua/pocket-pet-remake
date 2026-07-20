@@ -2741,6 +2741,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 			Description:    objective.Description,
 			TargetValue:    objective.TargetValue,
 			TargetSelector: objective.TargetSelector,
+			Guide:          objective.Guide,
 		})
 	}
 	r.templates[input.QuestID] = template
@@ -2846,6 +2847,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 			Description:    objective.Description,
 			TargetValue:    objective.TargetValue,
 			TargetSelector: objective.TargetSelector,
+			Guide:          objective.Guide,
 		})
 	}
 	r.templates[questID] = template
@@ -3160,6 +3162,18 @@ func (r *QuestRepository) SetTrackedQuest(_ context.Context, playerID uint64, qu
 		target.State = quest.StateAvailable
 	}
 	r.playerQuests[playerID][questID] = target
+	return nil
+}
+
+func (r *QuestRepository) RevertCompletedQuestToReady(_ context.Context, playerID uint64, questID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	target := r.playerQuests[playerID][questID]
+	if target.State == quest.StateCompleted {
+		target.State = quest.StateReadyToSubmit
+		r.playerQuests[playerID][questID] = target
+	}
 	return nil
 }
 

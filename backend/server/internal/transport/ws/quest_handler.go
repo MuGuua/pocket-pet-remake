@@ -123,6 +123,9 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 	}
 	grantResult, err := h.grantQuestRewards(ctx, playerID, request.QuestID, result.Rewards)
 	if err != nil {
+		if revertErr := h.questService.RevertCompletedQuestToReady(ctx, playerID, request.QuestID); revertErr != nil {
+			err = errors.Join(err, revertErr)
+		}
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "grant quest rewards failed", err)
 	}
 

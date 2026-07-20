@@ -41,6 +41,7 @@ type ObjectiveTemplate struct {
 	Description         string
 	TargetValue         uint32
 	TargetSelector      map[string]any
+	Guide               *ObjectiveGuideInput
 	AutoCompleteOnMatch bool
 }
 
@@ -78,12 +79,14 @@ type Summary struct {
 }
 
 type ObjectiveSummary struct {
-	ObjectiveID uint64
-	EventType   string
-	Description string
-	Current     uint32
-	Target      uint32
-	Completed   bool
+	ObjectiveID    uint64
+	EventType      string
+	Description    string
+	Current        uint32
+	Target         uint32
+	Completed      bool
+	TargetSelector map[string]any
+	Guide          *ObjectiveGuideInput
 }
 
 type Event struct {
@@ -168,6 +171,7 @@ func (q AdminPlayerQuestListQuery) Normalize() AdminPlayerQuestListQuery {
 type ObjectiveGuideInput struct {
 	SceneID         uint32 `json:"scene_id,omitempty"`
 	NPCID           uint64 `json:"npc_id,omitempty"`
+	NPCName         string `json:"npc_name,omitempty"`
 	Text            string `json:"text,omitempty"`
 	MenuEntryID     uint64 `json:"menu_entry_id,omitempty"`
 	DialogueEntryID uint64 `json:"dialogue_entry_id,omitempty"`

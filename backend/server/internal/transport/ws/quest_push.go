@@ -85,12 +85,14 @@ func toProtocolQuestSummary(value quest.Summary) protocol.QuestSummary {
 	objectives := make([]protocol.QuestObjectiveState, 0, len(value.Objectives))
 	for _, objective := range value.Objectives {
 		objectives = append(objectives, protocol.QuestObjectiveState{
-			ObjectiveID: objective.ObjectiveID,
-			EventType:   objective.EventType,
-			Description: objective.Description,
-			Current:     objective.Current,
-			Target:      objective.Target,
-			Completed:   objective.Completed,
+			ObjectiveID:    objective.ObjectiveID,
+			EventType:      objective.EventType,
+			Description:    objective.Description,
+			Current:        objective.Current,
+			Target:         objective.Target,
+			Completed:      objective.Completed,
+			TargetSelector: copyQuestTargetSelector(objective.TargetSelector),
+			Guide:          toProtocolQuestObjectiveGuide(objective.Guide),
 		})
 	}
 	return protocol.QuestSummary{
@@ -105,6 +107,34 @@ func toProtocolQuestSummary(value quest.Summary) protocol.QuestSummary {
 		Description:  value.Description,
 		Objectives:   objectives,
 		Rewards:      toProtocolQuestRewards(value.Rewards),
+	}
+}
+
+func copyQuestTargetSelector(value map[string]any) map[string]any {
+	if len(value) == 0 {
+		return nil
+	}
+	result := make(map[string]any, len(value))
+	for key, item := range value {
+		result[key] = item
+	}
+	return result
+}
+
+func toProtocolQuestObjectiveGuide(value *quest.ObjectiveGuideInput) *protocol.QuestObjectiveGuide {
+	if value == nil {
+		return nil
+	}
+	if value.SceneID == 0 && value.NPCID == 0 && value.NPCName == "" && value.Text == "" && value.MenuEntryID == 0 && value.DialogueEntryID == 0 {
+		return nil
+	}
+	return &protocol.QuestObjectiveGuide{
+		SceneID:         value.SceneID,
+		NPCID:           value.NPCID,
+		NPCName:         value.NPCName,
+		Text:            value.Text,
+		MenuEntryID:     value.MenuEntryID,
+		DialogueEntryID: value.DialogueEntryID,
 	}
 }
 

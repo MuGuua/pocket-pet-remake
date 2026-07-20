@@ -17,6 +17,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -231,6 +232,24 @@ function QuestTemplatePanel() {
     }
   }
 
+  /** 常用任务流程预设：隐藏复杂协议字段，让策划先选玩法流程，再按需微调。 */
+  function applyQuestFlowPreset(preset: 'auto' | 'npc' | 'npc-auto'): void {
+    const currentValues: TemplateFormValues = editorForm.getFieldsValue();
+    if (preset === 'auto') {
+      editorForm.setFieldsValue({ ...currentValues, accept_mode: 'AUTO', submit_mode: 'AUTO', start_npc_id: 0, submit_npc_id: 0, auto_track: true });
+      message.success('已套用：自动接取 / 自动完成');
+      return;
+    }
+    if (preset === 'npc') {
+      const fallbackNPCID: number = currentValues.start_npc_id > 0 ? currentValues.start_npc_id : currentValues.submit_npc_id;
+      editorForm.setFieldsValue({ ...currentValues, accept_mode: 'NPC', submit_mode: 'NPC', start_npc_id: fallbackNPCID, submit_npc_id: fallbackNPCID, auto_track: true });
+      message.success('已套用：NPC 领取 / NPC 交付');
+      return;
+    }
+    editorForm.setFieldsValue({ ...currentValues, accept_mode: 'NPC', submit_mode: 'AUTO', submit_npc_id: 0, auto_track: true });
+    message.success('已套用：NPC 领取 / 目标完成后自动结算');
+  }
+
   /** 模板编辑弹窗完全打开后再写入表单，避免 destroyOnClose 导致 setFieldsValue 失效。 */
   function handleEditorModalAfterOpenChange(open: boolean): void {
     if (open) {
@@ -431,6 +450,14 @@ function QuestTemplatePanel() {
                           </Row>
                         </Card>
                         <Card size="small" title="接取与提交流程">
+                          <Space direction="vertical" size={8} style={{ width: '100%', marginBottom: 12 }}>
+                            <Typography.Text type="secondary">先选常用流程；高级字段会自动填入，可再手动微调。</Typography.Text>
+                            <Space wrap>
+                              <Button onClick={() => applyQuestFlowPreset('auto')}>自动接取 / 自动完成</Button>
+                              <Button onClick={() => applyQuestFlowPreset('npc')}>NPC 领取 / NPC 交付</Button>
+                              <Button onClick={() => applyQuestFlowPreset('npc-auto')}>NPC 领取 / 自动结算</Button>
+                            </Space>
+                          </Space>
                           <Row gutter={16}>
                             <Col xs={12} md={6}><Form.Item label="章节" name="chapter" extra="用于章节分组展示。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="排序" name="sort_order" extra="同章节内排序值。"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>

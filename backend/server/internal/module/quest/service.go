@@ -257,6 +257,15 @@ func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, n
 	}, nil
 }
 
+// RevertCompletedQuestToReady 把已标记完成但奖励发放失败的任务退回“可提交”。
+// 任务目标仍保持完成状态，玩家下次点击提交即可重试领奖，避免出现任务完成但奖励缺失。
+func (s *Service) RevertCompletedQuestToReady(ctx context.Context, playerID uint64, questID uint64) error {
+	if playerID == 0 || questID == 0 {
+		return ErrQuestNotAvailable
+	}
+	return s.repo.RevertCompletedQuestToReady(ctx, playerID, questID)
+}
+
 func (s *Service) Track(ctx context.Context, playerID uint64, questID uint64) error {
 	template, _, _, err := s.loadSingle(ctx, playerID, questID)
 	if err != nil {
@@ -441,22 +450,26 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 		existing, ok := objectiveMap[objective.ObjectiveID]
 		if ok {
 			objectiveSummaries = append(objectiveSummaries, ObjectiveSummary{
-				ObjectiveID: existing.ObjectiveID,
-				EventType:   objective.EventType,
-				Description: existing.Description,
-				Current:     existing.CurrentValue,
-				Target:      existing.TargetValue,
-				Completed:   existing.Completed,
+				ObjectiveID:    existing.ObjectiveID,
+				EventType:      objective.EventType,
+				Description:    existing.Description,
+				Current:        existing.CurrentValue,
+				Target:         existing.TargetValue,
+				Completed:      existing.Completed,
+				TargetSelector: objective.TargetSelector,
+				Guide:          objective.Guide,
 			})
 			continue
 		}
 		objectiveSummaries = append(objectiveSummaries, ObjectiveSummary{
-			ObjectiveID: objective.ObjectiveID,
-			EventType:   objective.EventType,
-			Description: objective.Description,
-			Current:     0,
-			Target:      objective.TargetValue,
-			Completed:   false,
+			ObjectiveID:    objective.ObjectiveID,
+			EventType:      objective.EventType,
+			Description:    objective.Description,
+			Current:        0,
+			Target:         objective.TargetValue,
+			Completed:      false,
+			TargetSelector: objective.TargetSelector,
+			Guide:          objective.Guide,
 		})
 	}
 

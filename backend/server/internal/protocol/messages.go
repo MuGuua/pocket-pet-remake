@@ -1102,13 +1102,24 @@ type BuyItemResp struct {
 
 type QuestListReq struct{}
 
+type QuestObjectiveGuide struct {
+	SceneID         uint32 `json:"scene_id,omitempty"`
+	NPCID           uint64 `json:"npc_id,omitempty"`
+	NPCName         string `json:"npc_name,omitempty"`
+	Text            string `json:"text,omitempty"`
+	MenuEntryID     uint64 `json:"menu_entry_id,omitempty"`
+	DialogueEntryID uint64 `json:"dialogue_entry_id,omitempty"`
+}
+
 type QuestObjectiveState struct {
-	ObjectiveID uint64 `json:"objective_id"`
-	EventType   string `json:"event_type,omitempty"`
-	Description string `json:"description"`
-	Current     uint32 `json:"current"`
-	Target      uint32 `json:"target"`
-	Completed   bool   `json:"completed"`
+	ObjectiveID    uint64               `json:"objective_id"`
+	EventType      string               `json:"event_type,omitempty"`
+	Description    string               `json:"description"`
+	Current        uint32               `json:"current"`
+	Target         uint32               `json:"target"`
+	Completed      bool                 `json:"completed"`
+	TargetSelector map[string]any       `json:"target_selector,omitempty"`
+	Guide          *QuestObjectiveGuide `json:"guide,omitempty"`
 }
 
 type QuestReward struct {

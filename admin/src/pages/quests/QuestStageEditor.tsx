@@ -40,6 +40,51 @@ export function QuestStageEditor({ value, onChange, questID, npcOptions }: Quest
     setStageModalOpen(true);
   }
 
+  /** 按常用玩法模板快速填充阶段字段，减少策划手动理解 selector / guide 的成本。 */
+  function applyStagePreset(preset: 'talk' | 'scene' | 'battle'): void {
+    const currentValues: QuestStageFormItem = stageForm.getFieldsValue();
+    const baseValues: QuestStageFormItem = {
+      ...createDefaultStage(currentValues.objective_id || 1),
+      ...currentValues,
+      target_value: currentValues.target_value > 0 ? currentValues.target_value : 1,
+    };
+    if (preset === 'talk') {
+      const npcLabel: string = resolveNPCOptionLabel(npcOptions, baseValues.npc_id);
+      stageForm.setFieldsValue({
+        ...baseValues,
+        event_type: 'TALK_TO_NPC',
+        target_value: 1,
+        scene_id: 0,
+        battle_type: '',
+        description: baseValues.description || (npcLabel ? `与${npcLabel}对话` : '与指定 NPC 对话'),
+        guide_text: baseValues.guide_text || (npcLabel ? `找到${npcLabel}并对话` : '找到目标 NPC 并对话'),
+      });
+      return;
+    }
+    if (preset === 'scene') {
+      stageForm.setFieldsValue({
+        ...baseValues,
+        event_type: 'ENTER_SCENE',
+        target_value: 1,
+        npc_id: 0,
+        battle_type: '',
+        guide_scene_id: baseValues.guide_scene_id || baseValues.scene_id,
+        description: baseValues.description || '前往指定地图',
+        guide_text: baseValues.guide_text || '前往任务指定地图',
+      });
+      return;
+    }
+    stageForm.setFieldsValue({
+      ...baseValues,
+      event_type: 'WIN_BATTLE',
+      npc_id: 0,
+      scene_id: 0,
+      battle_type: baseValues.battle_type || 'PVE',
+      description: baseValues.description || '完成 1 场战斗',
+      guide_text: baseValues.guide_text || '前往野外或 NPC 处完成战斗',
+    });
+  }
+
   /** 打开编辑阶段弹窗。 */
   function openStageEditor(index: number): void {
     setEditingIndex(index);
@@ -210,6 +255,18 @@ export function QuestStageEditor({ value, onChange, questID, npcOptions }: Quest
         cancelText="取消"
       >
         <Form form={stageForm} layout="vertical" onFinish={(values) => handleStageModalSubmit(values)}>
+          <Card size="small" style={{ marginBottom: 12 }} title="简易配置">
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Typography.Text type="secondary">
+                先选一个常用目标模板，再只补 NPC / 场景 / 文案；高级字段会自动尽量清空无关项。
+              </Typography.Text>
+              <Space wrap>
+                <Button onClick={() => applyStagePreset('talk')}>NPC 对话任务</Button>
+                <Button onClick={() => applyStagePreset('scene')}>进入地图任务</Button>
+                <Button onClick={() => applyStagePreset('battle')}>战斗任务</Button>
+              </Space>
+            </Space>
+          </Card>
           <Row gutter={12}>
             <Col xs={12} md={6}>
               <Form.Item
@@ -293,6 +350,17 @@ function renderStageDescription(stage: QuestStageFormItem): string {
 
 function formatStageMetaLabel(label: string, value: string): string {
   return `${label}：${value}`;
+}
+
+function resolveNPCOptionLabel(npcOptions: Array<{ label: string; value: number }>, npcID: number): string {
+  if (!npcID || npcID <= 0) {
+    return '';
+  }
+  const matchedOption = npcOptions.find((option) => option.value === npcID);
+  if (!matchedOption) {
+    return `NPC ${npcID}`;
+  }
+  return matchedOption.label.replace(/（\d+）$/, '').trim();
 }
 
 function buildStageCardWrapperStyle(isDragging: boolean, isDragOver: boolean): CSSProperties {
