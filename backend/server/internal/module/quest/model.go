@@ -18,21 +18,22 @@ var (
 )
 
 type Template struct {
-	QuestID            uint64
-	QuestType          string
-	ClientIconID       uint64
-	Title              string
-	Description        string
-	AcceptMode         string
-	SubmitMode         string
-	StartNPCID         uint64
-	SubmitNPCID        uint64
-	AcceptAnimationKey string
-	SubmitAnimationKey string
-	AutoTrack          bool
-	PreQuestIDs        []uint64
-	Objectives         []ObjectiveTemplate
-	Rewards            []Reward
+	QuestID              uint64
+	QuestType            string
+	ClientIconID         uint64
+	Title                string
+	Description          string
+	CompletionPromptText string
+	AcceptMode           string
+	SubmitMode           string
+	StartNPCID           uint64
+	SubmitNPCID          uint64
+	AcceptAnimationKey   string
+	SubmitAnimationKey   string
+	AutoTrack            bool
+	PreQuestIDs          []uint64
+	Objectives           []ObjectiveTemplate
+	Rewards              []Reward
 }
 
 type ObjectiveTemplate struct {
@@ -63,19 +64,20 @@ type PlayerObjective struct {
 }
 
 type Summary struct {
-	QuestID            uint64
-	QuestType          string
-	ClientIconID       uint64
-	State              string
-	Tracked            bool
-	StartNPCID         uint64
-	SubmitNPCID        uint64
-	AcceptAnimationKey string
-	SubmitAnimationKey string
-	Title              string
-	Description        string
-	Objectives         []ObjectiveSummary
-	Rewards            []Reward
+	QuestID              uint64
+	QuestType            string
+	ClientIconID         uint64
+	State                string
+	Tracked              bool
+	StartNPCID           uint64
+	SubmitNPCID          uint64
+	AcceptAnimationKey   string
+	SubmitAnimationKey   string
+	Title                string
+	Description          string
+	CompletionPromptText string
+	Objectives           []ObjectiveSummary
+	Rewards              []Reward
 }
 
 type ObjectiveSummary struct {
@@ -203,26 +205,27 @@ func (input AdminRewardInput) Normalize() AdminRewardInput {
 
 // AdminCreateTemplateInput 描述后台新增任务模板时允许写入的持久化字段。
 type AdminCreateTemplateInput struct {
-	QuestID            uint64                `json:"quest_id"`
-	Name               string                `json:"name"`
-	QuestType          string                `json:"quest_type"`
-	Title              string                `json:"title"`
-	Description        string                `json:"description"`
-	Chapter            uint32                `json:"chapter"`
-	SortOrder          uint32                `json:"sort_order"`
-	AcceptMode         string                `json:"accept_mode"`
-	SubmitMode         string                `json:"submit_mode"`
-	AutoTrack          bool                  `json:"auto_track"`
-	ClientIconID       uint64                `json:"client_icon_id"`
-	StartNPCID         uint64                `json:"start_npc_id"`
-	SubmitNPCID        uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey string                `json:"accept_animation_key"`
-	SubmitAnimationKey string                `json:"submit_animation_key"`
-	MinPlayerLevel     uint32                `json:"min_player_level"`
-	Status             uint32                `json:"status"`
-	PreQuestIDs        []uint64              `json:"pre_quest_ids"`
-	Objectives         []AdminObjectiveInput `json:"objectives"`
-	Rewards            []AdminRewardInput    `json:"rewards"`
+	QuestID              uint64                `json:"quest_id"`
+	Name                 string                `json:"name"`
+	QuestType            string                `json:"quest_type"`
+	Title                string                `json:"title"`
+	Description          string                `json:"description"`
+	CompletionPromptText string                `json:"completion_prompt_text"`
+	Chapter              uint32                `json:"chapter"`
+	SortOrder            uint32                `json:"sort_order"`
+	AcceptMode           string                `json:"accept_mode"`
+	SubmitMode           string                `json:"submit_mode"`
+	AutoTrack            bool                  `json:"auto_track"`
+	ClientIconID         uint64                `json:"client_icon_id"`
+	StartNPCID           uint64                `json:"start_npc_id"`
+	SubmitNPCID          uint64                `json:"submit_npc_id"`
+	AcceptAnimationKey   string                `json:"accept_animation_key"`
+	SubmitAnimationKey   string                `json:"submit_animation_key"`
+	MinPlayerLevel       uint32                `json:"min_player_level"`
+	Status               uint32                `json:"status"`
+	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	Objectives           []AdminObjectiveInput `json:"objectives"`
+	Rewards              []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
@@ -230,6 +233,7 @@ func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 	input.QuestType = strings.TrimSpace(input.QuestType)
 	input.Title = strings.TrimSpace(input.Title)
 	input.Description = strings.TrimSpace(input.Description)
+	input.CompletionPromptText = strings.TrimSpace(input.CompletionPromptText)
 	input.AcceptMode = strings.TrimSpace(input.AcceptMode)
 	input.SubmitMode = strings.TrimSpace(input.SubmitMode)
 	input.AcceptAnimationKey = strings.TrimSpace(input.AcceptAnimationKey)
@@ -257,25 +261,26 @@ func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 
 // AdminUpdateTemplateInput 描述后台编辑任务模板时允许调整的字段。
 type AdminUpdateTemplateInput struct {
-	Name               string                `json:"name"`
-	QuestType          string                `json:"quest_type"`
-	Title              string                `json:"title"`
-	Description        string                `json:"description"`
-	Chapter            uint32                `json:"chapter"`
-	SortOrder          uint32                `json:"sort_order"`
-	AcceptMode         string                `json:"accept_mode"`
-	SubmitMode         string                `json:"submit_mode"`
-	AutoTrack          bool                  `json:"auto_track"`
-	ClientIconID       uint64                `json:"client_icon_id"`
-	StartNPCID         uint64                `json:"start_npc_id"`
-	SubmitNPCID        uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey string                `json:"accept_animation_key"`
-	SubmitAnimationKey string                `json:"submit_animation_key"`
-	MinPlayerLevel     uint32                `json:"min_player_level"`
-	Status             uint32                `json:"status"`
-	PreQuestIDs        []uint64              `json:"pre_quest_ids"`
-	Objectives         []AdminObjectiveInput `json:"objectives"`
-	Rewards            []AdminRewardInput    `json:"rewards"`
+	Name                 string                `json:"name"`
+	QuestType            string                `json:"quest_type"`
+	Title                string                `json:"title"`
+	Description          string                `json:"description"`
+	CompletionPromptText string                `json:"completion_prompt_text"`
+	Chapter              uint32                `json:"chapter"`
+	SortOrder            uint32                `json:"sort_order"`
+	AcceptMode           string                `json:"accept_mode"`
+	SubmitMode           string                `json:"submit_mode"`
+	AutoTrack            bool                  `json:"auto_track"`
+	ClientIconID         uint64                `json:"client_icon_id"`
+	StartNPCID           uint64                `json:"start_npc_id"`
+	SubmitNPCID          uint64                `json:"submit_npc_id"`
+	AcceptAnimationKey   string                `json:"accept_animation_key"`
+	SubmitAnimationKey   string                `json:"submit_animation_key"`
+	MinPlayerLevel       uint32                `json:"min_player_level"`
+	Status               uint32                `json:"status"`
+	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	Objectives           []AdminObjectiveInput `json:"objectives"`
+	Rewards              []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
@@ -283,6 +288,7 @@ func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
 	input.QuestType = strings.TrimSpace(input.QuestType)
 	input.Title = strings.TrimSpace(input.Title)
 	input.Description = strings.TrimSpace(input.Description)
+	input.CompletionPromptText = strings.TrimSpace(input.CompletionPromptText)
 	input.AcceptMode = strings.TrimSpace(input.AcceptMode)
 	input.SubmitMode = strings.TrimSpace(input.SubmitMode)
 	input.AcceptAnimationKey = strings.TrimSpace(input.AcceptAnimationKey)
@@ -334,29 +340,30 @@ type AdminTemplateList struct {
 }
 
 type AdminTemplateDetail struct {
-	QuestID            uint64                `json:"quest_id"`
-	Name               string                `json:"name"`
-	QuestType          string                `json:"quest_type"`
-	Title              string                `json:"title"`
-	Description        string                `json:"description"`
-	Chapter            uint32                `json:"chapter"`
-	SortOrder          uint32                `json:"sort_order"`
-	AcceptMode         string                `json:"accept_mode"`
-	SubmitMode         string                `json:"submit_mode"`
-	AutoTrack          bool                  `json:"auto_track"`
-	ClientIconID       uint64                `json:"client_icon_id"`
-	StartNPCID         uint64                `json:"start_npc_id"`
-	SubmitNPCID        uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey string                `json:"accept_animation_key"`
-	SubmitAnimationKey string                `json:"submit_animation_key"`
-	MinPlayerLevel     uint32                `json:"min_player_level"`
-	Status             uint32                `json:"status"`
-	StatusText         string                `json:"status_text"`
-	PreQuestIDs        []uint64              `json:"pre_quest_ids"`
-	Objectives         []AdminObjectiveInput `json:"objectives"`
-	Rewards            []AdminRewardInput    `json:"rewards"`
-	CreatedAt          time.Time             `json:"created_at"`
-	UpdatedAt          time.Time             `json:"updated_at"`
+	QuestID              uint64                `json:"quest_id"`
+	Name                 string                `json:"name"`
+	QuestType            string                `json:"quest_type"`
+	Title                string                `json:"title"`
+	Description          string                `json:"description"`
+	CompletionPromptText string                `json:"completion_prompt_text"`
+	Chapter              uint32                `json:"chapter"`
+	SortOrder            uint32                `json:"sort_order"`
+	AcceptMode           string                `json:"accept_mode"`
+	SubmitMode           string                `json:"submit_mode"`
+	AutoTrack            bool                  `json:"auto_track"`
+	ClientIconID         uint64                `json:"client_icon_id"`
+	StartNPCID           uint64                `json:"start_npc_id"`
+	SubmitNPCID          uint64                `json:"submit_npc_id"`
+	AcceptAnimationKey   string                `json:"accept_animation_key"`
+	SubmitAnimationKey   string                `json:"submit_animation_key"`
+	MinPlayerLevel       uint32                `json:"min_player_level"`
+	Status               uint32                `json:"status"`
+	StatusText           string                `json:"status_text"`
+	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	Objectives           []AdminObjectiveInput `json:"objectives"`
+	Rewards              []AdminRewardInput    `json:"rewards"`
+	CreatedAt            time.Time             `json:"created_at"`
+	UpdatedAt            time.Time             `json:"updated_at"`
 }
 
 // AdminPlayerObjectiveInput 让后台可以直接修正玩家任务目标进度。

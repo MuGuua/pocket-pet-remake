@@ -130,11 +130,12 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 	}
 
 	submitResp := protocol.QuestSubmitResp{
-		Accepted:           true,
-		Reason:             "quest submitted",
-		Quest:              toProtocolQuestSummary(result.Summary),
-		Rewards:            toProtocolPopupRewards(grantResult.Granted),
-		ClientAnimationKey: result.Summary.SubmitAnimationKey,
+		Accepted:             true,
+		Reason:               "quest submitted",
+		Quest:                toProtocolQuestSummary(result.Summary),
+		Rewards:              toProtocolPopupRewards(grantResult.Granted),
+		ClientAnimationKey:   result.Summary.SubmitAnimationKey,
+		CompletionPromptText: result.Summary.CompletionPromptText,
 	}
 	if grantResult != nil {
 		submitResp.LevelUpCount = grantResult.LevelUpCount

@@ -67,6 +67,7 @@ interface TemplateFormValues {
   quest_type: string;
   title: string;
   description: string;
+  completion_prompt_text: string;
   chapter: number;
   sort_order: number;
   accept_mode: string;
@@ -382,6 +383,9 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="描述" span={2}>
               <RichTextDisplay value={detail.description} />
             </Descriptions.Item>
+            <Descriptions.Item label="完成提示文案" span={2}>
+              <RichTextDisplay value={detail.completion_prompt_text} />
+            </Descriptions.Item>
             <Descriptions.Item label="类型">{formatDisplayLabel(QUEST_TYPE_LABELS, detail.quest_type)}</Descriptions.Item>
             <Descriptions.Item label="状态">{detail.status_text}</Descriptions.Item>
             <Descriptions.Item label="接取方式">{formatDisplayLabel(QUEST_MODE_LABELS, detail.accept_mode)}</Descriptions.Item>
@@ -443,7 +447,7 @@ function QuestTemplatePanel() {
                             <Col xs={24} md={12}><Form.Item label="任务类型" name="quest_type" rules={[{ required: true, message: '请选择任务类型' }]}><Select options={questTypeOptions} /></Form.Item></Col>
                             <Col span={24}><Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]} extra="展示给玩家的正式任务标题。"><Input placeholder="例如：初识市场理萌" /></Form.Item></Col>
                             <Col span={24}>
-                              <Form.Item label="描述" name="description" extra="可在下方预览中刷色，客户端任务详情会保持同样效果。">
+                              <Form.Item label="描述" name="description">
                                 <RichTextEditor rows={5} />
                               </Form.Item>
                             </Col>
@@ -541,6 +545,9 @@ function QuestTemplatePanel() {
                       <Card size="small" title="奖励配置" extra={<span style={{ color: '#8c8c8c', fontSize: 12 }}>配置完成任务后发放给玩家的奖励</span>}>
                         <Form.Item label="任务奖励" name="rewards">
                           <QuestRewardEditor />
+                        </Form.Item>
+                        <Form.Item label="完成提示文案" name="completion_prompt_text" extra="任务提交成功后先弹出该提示；支持富文本刷色，留空则不显示。">
+                          <RichTextEditor rows={3} placeholder="例如：任务完成！继续向下一位 NPC 出发吧。" />
                         </Form.Item>
                       </Card>
                     </div>
@@ -780,6 +787,7 @@ function defaultTemplateValues(): TemplateFormValues {
     quest_type: 'SIDE',
     title: '后台新任务',
     description: '用于后台创建测试任务模板。',
+    completion_prompt_text: '',
     chapter: 9,
     sort_order: 1,
     accept_mode: 'AUTO',
@@ -816,6 +824,7 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     quest_type: detail.quest_type,
     title: detail.title,
     description: detail.description,
+    completion_prompt_text: detail.completion_prompt_text ?? '',
     chapter: detail.chapter,
     sort_order: detail.sort_order,
     accept_mode: detail.accept_mode,
@@ -852,6 +861,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     quest_type: values.quest_type,
     title: values.title,
     description: values.description,
+    completion_prompt_text: values.completion_prompt_text ?? '',
     chapter: values.chapter,
     sort_order: values.sort_order,
     accept_mode: values.accept_mode,

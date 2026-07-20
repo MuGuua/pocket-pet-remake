@@ -1,4 +1,4 @@
-import { Button, Card, Input, Space, Typography } from 'antd';
+import { Button, Card, Input, Modal, Space, Typography } from 'antd';
 import { useRef, useState } from 'react';
 import {
   RICH_TEXT_COLOR_PRESETS,
@@ -71,7 +71,7 @@ function resolveSourceBoundary(
 
 /**
  * 后台统一 BBCode 富文本编辑器。
- * 左侧编辑服务端持久化的原文，右侧按客户端规则渲染并支持选中文字后刷色。
+ * 默认只展示合并后的客户端效果卡片，点击编辑后再打开“原文输入 + 刷色预览”的编辑表单。
  */
 export function RichTextEditor({
   value = '',
@@ -82,6 +82,8 @@ export function RichTextEditor({
   enablePlayerNameMention = false,
 }: RichTextEditorProps) {
   const previewRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(value);
   const [visualSelection, setVisualSelection] = useState<RichTextVisualSelection | null>(null);
 
   function captureVisualSelection() {
@@ -96,8 +98,8 @@ export function RichTextEditor({
       setVisualSelection(null);
       return;
     }
-    const sourceStart = resolveSourceBoundary(value, previewRoot, range.startContainer, range.startOffset, false);
-    const sourceEnd = resolveSourceBoundary(value, previewRoot, range.endContainer, range.endOffset, true);
+    const sourceStart = resolveSourceBoundary(draftValue, previewRoot, range.startContainer, range.startOffset, false);
+    const sourceEnd = resolveSourceBoundary(draftValue, previewRoot, range.endContainer, range.endOffset, true);
     if (sourceStart === null || sourceEnd === null || sourceEnd <= sourceStart) {
       setVisualSelection(null);
       return;
@@ -109,83 +111,141 @@ export function RichTextEditor({
     if (disabled || !visualSelection) {
       return;
     }
-    onChange?.(applyBbcodeColorRange(value, visualSelection.sourceStart, visualSelection.sourceEnd, colorValue));
+    setDraftValue(applyBbcodeColorRange(draftValue, visualSelection.sourceStart, visualSelection.sourceEnd, colorValue));
     setVisualSelection(null);
     window.getSelection()?.removeAllRanges();
   }
 
-  const previewTitle = enablePlayerNameMention ? '对话效果与刷色' : '客户端效果与刷色';
+  function openEditor() {
+    setDraftValue(value);
+    setVisualSelection(null);
+    setEditing(true);
+  }
+
+  function closeEditor() {
+    setVisualSelection(null);
+    setEditing(false);
+    window.getSelection()?.removeAllRanges();
+  }
+
+  function confirmEditor() {
+    onChange?.(draftValue);
+    closeEditor();
+  }
+
+  const previewTitle = enablePlayerNameMention ? '对话效果' : '客户端效果';
+  const editorPreviewTitle = enablePlayerNameMention ? '对话效果与刷色' : '客户端效果与刷色';
   const previewMinHeight = Math.max(120, rows * 24);
-  const plainTextValue = bbcodeToPlainText(value);
+  const plainTextValue = bbcodeToPlainText(draftValue);
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-      <Input.TextArea
-        value={plainTextValue}
-        rows={rows}
-        placeholder={placeholder}
-        disabled={disabled}
-        onChange={(event) => {
-          setVisualSelection(null);
-          onChange?.(updateBbcodeFromPlainText(value, event.target.value));
-        }}
-      />
-
-      <Card size="small" title={previewTitle} styles={{ body: { padding: 12 } }}>
-        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-          <Space wrap size={[6, 6]}>
-            {RICH_TEXT_COLOR_PRESETS.map((preset) => (
-              <Button
-                key={preset.value}
-                size="small"
-                disabled={disabled || !visualSelection}
-                title={`${preset.label} ${preset.value}`}
-                onClick={() => handleVisualColorBrush(preset.value)}
-                style={{ paddingInline: 8 }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    display: 'inline-block',
-                    width: 14,
-                    height: 14,
-                    marginRight: 6,
-                    border: '1px solid rgba(0, 0, 0, 0.35)',
-                    background: preset.value,
-                    verticalAlign: -2,
-                  }}
-                />
-                {preset.label}
-              </Button>
-            ))}
-          </Space>
-
-          <Typography.Text type={visualSelection ? 'success' : 'secondary'} style={{ fontSize: 12 }}>
-            {visualSelection ? `已选中「${visualSelection.text}」，点击颜色完成刷色。` : '在下方预览中拖选文字，再点击颜色笔刷。'}
-          </Typography.Text>
-
-          <div
-            ref={previewRef}
-            onMouseUp={captureVisualSelection}
-            onKeyUp={captureVisualSelection}
-            style={{
-              minHeight: previewMinHeight,
-              padding: 12,
-              overflow: 'auto',
-              border: '1px solid #424b57',
-              background: '#171b20',
-              cursor: 'text',
-              userSelect: 'text',
-            }}
-          >
-            <ItemMentionPreview
-              content={value}
-              embedded
-              showPlayerName={enablePlayerNameMention}
-            />
-          </div>
-        </Space>
+    <>
+      <Card
+        size="small"
+        title={previewTitle}
+        extra={
+          <Button size="small" type="link" disabled={disabled} onClick={openEditor}>
+            编辑
+          </Button>
+        }
+        styles={{ body: { padding: 12 } }}
+      >
+        <div
+          style={{
+            minHeight: Math.max(48, rows * 20),
+            padding: 12,
+            overflow: 'auto',
+            border: '1px solid #424b57',
+            background: '#171b20',
+          }}
+        >
+          <ItemMentionPreview
+            content={value}
+            embedded
+            showPlayerName={enablePlayerNameMention}
+          />
+        </div>
       </Card>
-    </Space>
+
+      <Modal
+        title="编辑富文本"
+        open={editing}
+        width={720}
+        okText="保存"
+        cancelText="取消"
+        destroyOnHidden
+        onOk={confirmEditor}
+        onCancel={closeEditor}
+      >
+        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+          <Input.TextArea
+            value={plainTextValue}
+            rows={rows}
+            placeholder={placeholder}
+            disabled={disabled}
+            onChange={(event) => {
+              setVisualSelection(null);
+              setDraftValue(updateBbcodeFromPlainText(draftValue, event.target.value));
+            }}
+          />
+
+          <Card size="small" title={editorPreviewTitle} styles={{ body: { padding: 12 } }}>
+            <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Space wrap size={[6, 6]}>
+                {RICH_TEXT_COLOR_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.value}
+                    size="small"
+                    disabled={disabled || !visualSelection}
+                    title={`${preset.label} ${preset.value}`}
+                    onClick={() => handleVisualColorBrush(preset.value)}
+                    style={{ paddingInline: 8 }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        display: 'inline-block',
+                        width: 14,
+                        height: 14,
+                        marginRight: 6,
+                        border: '1px solid rgba(0, 0, 0, 0.35)',
+                        background: preset.value,
+                        verticalAlign: -2,
+                      }}
+                    />
+                    {preset.label}
+                  </Button>
+                ))}
+              </Space>
+
+              <Typography.Text type={visualSelection ? 'success' : 'secondary'} style={{ fontSize: 12 }}>
+                {visualSelection ? `已选中「${visualSelection.text}」，点击颜色完成刷色。` : '在下方预览中拖选文字，再点击颜色笔刷。'}
+              </Typography.Text>
+
+              <div
+                ref={previewRef}
+                onMouseUp={captureVisualSelection}
+                onKeyUp={captureVisualSelection}
+                style={{
+                  minHeight: previewMinHeight,
+                  padding: 12,
+                  overflow: 'auto',
+                  border: '1px solid #424b57',
+                  background: '#171b20',
+                  cursor: 'text',
+                  userSelect: 'text',
+                }}
+              >
+                <ItemMentionPreview
+                  content={draftValue}
+                  embedded
+                  showPlayerName={enablePlayerNameMention}
+                />
+              </div>
+            </Space>
+          </Card>
+        </Space>
+      </Modal>
+    </>
   );
 }

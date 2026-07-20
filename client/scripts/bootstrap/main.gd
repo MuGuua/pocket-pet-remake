@@ -1155,6 +1155,11 @@ func _should_show_battle_reward_popup(payload: Dictionary, popup_rewards: Array,
 
 func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
     var flow_id: int = _popup_flow_generation
+    var completion_prompt_text: String = _resolve_quest_completion_prompt_text(payload)
+    if not completion_prompt_text.is_empty():
+        await _show_quest_completion_prompt_and_wait(completion_prompt_text)
+        if flow_id != _popup_flow_generation:
+            return
     if _should_show_player_level_up_popup(payload):
         var player_level: int = _resolve_player_level_for_popup(payload)
         var bonus_variant: Variant = payload.get("level_up_bonus", {})
@@ -1170,6 +1175,29 @@ func _on_quest_settlement_popup_requested(payload: Dictionary) -> void:
         _show_reward_popup("", rewards, [])
     if _should_show_player_level_up_popup(payload):
         App.refresh_player_status()
+
+
+## 从任务提交响应中解析服务端配置的完成提示文案；优先读取顶层字段，兼容任务摘要内字段。
+func _resolve_quest_completion_prompt_text(payload: Dictionary) -> String:
+    var prompt_text: String = str(payload.get("completion_prompt_text", "")).strip_edges()
+    if not prompt_text.is_empty():
+        return prompt_text
+    var quest_variant: Variant = payload.get("quest", {})
+    if quest_variant is not Dictionary:
+        return ""
+    var quest: Dictionary = quest_variant as Dictionary
+    return str(quest.get("completion_prompt_text", "")).strip_edges()
+
+
+## 展示任务完成提示；正文支持服务端下发的 RichTextLabel BBCode，关闭后才继续奖励弹窗。
+func _show_quest_completion_prompt_and_wait(prompt_text: String) -> void:
+    _create_info_modal_popup()
+    if _info_modal_popup == null:
+        return
+    _info_modal_popup.show_info("任务完成", [prompt_text], {"content_font_size": 20})
+    await get_tree().process_frame
+    if _info_modal_popup.visible:
+        await _info_modal_popup.popup_closed
 
 
 ## 判断结算包是否应展示玩家升级弹窗；优先看 level_up_count，其次看是否发放了升级属性点。

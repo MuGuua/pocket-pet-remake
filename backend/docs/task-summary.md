@@ -1,5 +1,22 @@
 # 任务总结
 
+## 2026-07-21 任务完成提示文案配置
+
+本次补齐任务提交成功后的自定义提示链路：
+- 新增迁移 `backend/server/migrations/107_quest_completion_prompt_text.sql`，为 `quest_template` 增加 `completion_prompt_text`，用于持久化任务完成提示文案并支持 Godot BBCode 富文本
+- 后端任务模板、后台详情/创建/编辑和运行时任务摘要已同步读写 `completion_prompt_text`；`QUEST_SUBMIT_RESP` 顶层也会下发该字段，客户端无需硬编码文案
+- 后台任务模板基础信息新增“完成提示文案”富文本编辑入口；为空时不展示额外提示，保存后与其他任务配置一起写入服务端权威接口
+- 客户端任务提交结算现在会先展示“任务完成”信息面板，关闭后再继续玩家升级和奖励弹窗；无奖励但有完成提示时也会弹出提示
+- `backend/docs/quest-protocol.md` 已补充 `completion_prompt_text` 字段说明，明确其为空时跳过、非空时支持 RichTextLabel BBCode
+
+## 2026-07-21 后台富文本编辑卡片化
+
+本次调整后台统一富文本入口的展示与编辑方式：
+- `admin/src/components/RichTextEditor.tsx` 默认合并为单个客户端效果卡片，不再在页面上同时铺开“文本原文”和“刷色编辑”两块区域
+- 富文本卡片右上角新增“编辑”按钮；点击后打开固定宽度弹窗，弹窗内上方输入纯文本、下方保留客户端效果预览与刷色笔刷
+- 弹窗内修改先写入本地草稿，点击“保存”后再回写 Ant Design Form 字段；取消关闭不会污染当前表单值
+- 物品、宠物和玩家名占位符的预览逻辑继续复用现有 `ItemMentionPreview`，服务端保存的 BBCode 契约不变
+
 ## 2026-07-13 世界剧情路径与角色动作
 
 本次在现有 NPC 结构化剧情 `line/action/choice/end` 链路上补齐真实世界玩家演出：

@@ -68,7 +68,12 @@ func finish_quest_animation(action: String) -> void:
         var rewards: Array = rewards_variant if rewards_variant is Array else []
         var level_up_count: int = int(payload.get("level_up_count", 0))
         var attr_points_gained: int = int(payload.get("attr_points_gained", 0))
-        if level_up_count > 0 or attr_points_gained > 0 or not rewards.is_empty():
+        var completion_prompt_text: String = str(payload.get("completion_prompt_text", "")).strip_edges()
+        if completion_prompt_text.is_empty():
+            var quest_variant: Variant = payload.get("quest", {})
+            var quest: Dictionary = quest_variant if quest_variant is Dictionary else {}
+            completion_prompt_text = str(quest.get("completion_prompt_text", "")).strip_edges()
+        if level_up_count > 0 or attr_points_gained > 0 or not rewards.is_empty() or not completion_prompt_text.is_empty():
             quest_settlement_popup_requested.emit(payload)
     App.request_quest_list()
 

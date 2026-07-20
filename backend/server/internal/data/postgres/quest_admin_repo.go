@@ -39,6 +39,7 @@ SELECT
   quest_type,
   title,
   description,
+  completion_prompt_text,
   chapter,
   sort_order,
   accept_mode,
@@ -68,6 +69,7 @@ INSERT INTO quest_template (
   name,
   title,
   description,
+  completion_prompt_text,
   chapter,
   sort_order,
   accept_mode,
@@ -84,7 +86,7 @@ INSERT INTO quest_template (
   rewards_json,
   status
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
 )
 `
 
@@ -97,21 +99,22 @@ SET quest_type = $2,
     name = $3,
     title = $4,
     description = $5,
-    chapter = $6,
-    sort_order = $7,
-    accept_mode = $8,
-    submit_mode = $9,
-    auto_track = $10,
-    client_icon_id = $11,
-    start_npc_id = $12,
-    submit_npc_id = $13,
-    accept_animation_key = $14,
-    submit_animation_key = $15,
-    min_player_level = $16,
-    pre_quest_ids = $17,
-    objectives_json = $18,
-    rewards_json = $19,
-    status = $20
+    completion_prompt_text = $6,
+    chapter = $7,
+    sort_order = $8,
+    accept_mode = $9,
+    submit_mode = $10,
+    auto_track = $11,
+    client_icon_id = $12,
+    start_npc_id = $13,
+    submit_npc_id = $14,
+    accept_animation_key = $15,
+    submit_animation_key = $16,
+    min_player_level = $17,
+    pre_quest_ids = $18,
+    objectives_json = $19,
+    rewards_json = $20,
+    status = $21
 WHERE quest_id = $1
 `
 
@@ -338,7 +341,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 		return nil, err
 	}
 	_, err = tx.ExecContext(ctx, insertAdminQuestTemplateQuery,
-		input.QuestID, input.QuestType, input.Name, input.Title, input.Description,
+		input.QuestID, input.QuestType, input.Name, input.Title, input.Description, input.CompletionPromptText,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
 		input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
@@ -369,7 +372,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(ctx context.Context, questID ui
 		return nil, err
 	}
 	result, err := r.db.ExecContext(ctx, updateAdminQuestTemplateQuery,
-		questID, input.QuestType, input.Name, input.Title, input.Description,
+		questID, input.QuestType, input.Name, input.Title, input.Description, input.CompletionPromptText,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
 		input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
@@ -774,7 +777,7 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 		objectivesRaw []byte
 		rewardsRaw    []byte
 	)
-	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &item.CompletionPromptText, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Chapter = uint32(chapter)

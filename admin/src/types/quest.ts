@@ -53,6 +53,7 @@ export interface AdminQuestTemplateDetail {
   quest_type: string;
   title: string;
   description: string;
+  completion_prompt_text: string;
   chapter: number;
   sort_order: number;
   accept_mode: string;
@@ -86,6 +87,7 @@ export interface AdminCreateQuestTemplatePayload {
   quest_type: string;
   title: string;
   description: string;
+  completion_prompt_text: string;
   chapter: number;
   sort_order: number;
   accept_mode: string;

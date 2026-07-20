@@ -102,6 +102,22 @@ func TestBuildSummaryKeepsObjectiveGuide(t *testing.T) {
 	}
 }
 
+// 验证任务完成提示会进入运行时摘要，后续协议层才能把后台富文本文案下发给客户端。
+func TestBuildSummaryKeepsCompletionPromptText(t *testing.T) {
+	summary := buildSummary(Template{
+		QuestID:              9102,
+		QuestType:            "MAIN",
+		CompletionPromptText: "任务完成！获得[color=green]新目标[/color]。",
+		Objectives: []ObjectiveTemplate{
+			{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "与 NPC 对话", TargetValue: 1},
+		},
+	}, nil, nil, map[uint64]bool{})
+
+	if summary.CompletionPromptText != "任务完成！获得[color=green]新目标[/color]。" {
+		t.Fatalf("completion prompt = %q", summary.CompletionPromptText)
+	}
+}
+
 type questServiceTestRepo struct {
 	templates        map[uint64]Template
 	playerQuests     map[uint64]map[uint64]PlayerQuest

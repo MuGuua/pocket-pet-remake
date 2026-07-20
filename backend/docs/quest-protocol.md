@@ -567,7 +567,7 @@
     "completed_at": 1780000100000,
     "submitted_at": 1780000200000,
     "expire_at": 0,
-    "toast_text": "任务完成：获得 100 金币",
+    "completion_prompt_text": "任务完成！继续下一段旅程吧。",
     "objectives": []
   },
   "rewards": [
@@ -592,7 +592,8 @@
       "count": 0,
       "pet_id": 102
     }
-  ]
+  ],
+  "completion_prompt_text": "任务完成！继续下一段旅程吧。"
 }
 ```
 
@@ -610,6 +611,7 @@
 - 当前运行时已正式接入 `gold` / `exp` / `item` / `pet` 四类任务奖励
 - `feature_unlock` 仍保留在任务模板配置中，后续由对应后端模块接入正式发放
 - `rewards` 字段表示本次已经实际走过服务端发奖链路的奖励
+- `completion_prompt_text` 表示任务提交成功后客户端先展示的完成提示文案，支持 Godot RichTextLabel BBCode；为空时客户端跳过该提示，直接展示升级/奖励结算
 - 如果本次奖励包含金币，服务端会继续推送 `5091 WALLET_UPDATE_PUSH`
 - 如果本次奖励包含道具，服务端会继续推送 `5011 BAG_UPDATE_PUSH`
 - 如果本次奖励包含宠物，服务端会继续推送 `3011 PET_UPDATE_PUSH`

@@ -1133,17 +1133,18 @@ type QuestReward struct {
 }
 
 type QuestSummary struct {
-	QuestID      uint64                `json:"quest_id"`
-	QuestType    string                `json:"quest_type"`
-	ClientIconID uint64                `json:"client_icon_id"`
-	State        string                `json:"state"`
-	Tracked      bool                  `json:"tracked"`
-	StartNPCID   uint64                `json:"start_npc_id"`
-	SubmitNPCID  uint64                `json:"submit_npc_id"`
-	Title        string                `json:"title"`
-	Description  string                `json:"description"`
-	Objectives   []QuestObjectiveState `json:"objectives"`
-	Rewards      []QuestReward         `json:"rewards,omitempty"`
+	QuestID              uint64                `json:"quest_id"`
+	QuestType            string                `json:"quest_type"`
+	ClientIconID         uint64                `json:"client_icon_id"`
+	State                string                `json:"state"`
+	Tracked              bool                  `json:"tracked"`
+	StartNPCID           uint64                `json:"start_npc_id"`
+	SubmitNPCID          uint64                `json:"submit_npc_id"`
+	Title                string                `json:"title"`
+	Description          string                `json:"description"`
+	CompletionPromptText string                `json:"completion_prompt_text,omitempty"`
+	Objectives           []QuestObjectiveState `json:"objectives"`
+	Rewards              []QuestReward         `json:"rewards,omitempty"`
 }
 
 type QuestListResp struct {
@@ -1178,15 +1179,16 @@ type QuestSubmitReq struct {
 }
 
 type QuestSubmitResp struct {
-	Accepted           bool          `json:"accepted"`
-	Reason             string        `json:"reason"`
-	Quest              QuestSummary  `json:"quest"`
-	Rewards            []QuestReward `json:"rewards"`
-	PlayerLevel        uint32        `json:"player_level,omitempty"`
-	LevelUpCount       uint32        `json:"level_up_count,omitempty"`
-	AttrPointsGained   uint32        `json:"attr_points_gained,omitempty"`
-	LevelUpBonus       *LevelUpBonus `json:"level_up_bonus,omitempty"`
-	ClientAnimationKey string        `json:"client_animation_key,omitempty"`
+	Accepted             bool          `json:"accepted"`
+	Reason               string        `json:"reason"`
+	Quest                QuestSummary  `json:"quest"`
+	Rewards              []QuestReward `json:"rewards"`
+	PlayerLevel          uint32        `json:"player_level,omitempty"`
+	LevelUpCount         uint32        `json:"level_up_count,omitempty"`
+	AttrPointsGained     uint32        `json:"attr_points_gained,omitempty"`
+	LevelUpBonus         *LevelUpBonus `json:"level_up_bonus,omitempty"`
+	ClientAnimationKey   string        `json:"client_animation_key,omitempty"`
+	CompletionPromptText string        `json:"completion_prompt_text,omitempty"`
 }
 
 type QuestTrackReq struct {

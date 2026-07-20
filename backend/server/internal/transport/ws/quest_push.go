@@ -96,17 +96,18 @@ func toProtocolQuestSummary(value quest.Summary) protocol.QuestSummary {
 		})
 	}
 	return protocol.QuestSummary{
-		QuestID:      value.QuestID,
-		QuestType:    value.QuestType,
-		ClientIconID: value.ClientIconID,
-		State:        value.State,
-		Tracked:      value.Tracked,
-		StartNPCID:   value.StartNPCID,
-		SubmitNPCID:  value.SubmitNPCID,
-		Title:        value.Title,
-		Description:  value.Description,
-		Objectives:   objectives,
-		Rewards:      toProtocolQuestRewards(value.Rewards),
+		QuestID:              value.QuestID,
+		QuestType:            value.QuestType,
+		ClientIconID:         value.ClientIconID,
+		State:                value.State,
+		Tracked:              value.Tracked,
+		StartNPCID:           value.StartNPCID,
+		SubmitNPCID:          value.SubmitNPCID,
+		Title:                value.Title,
+		Description:          value.Description,
+		CompletionPromptText: value.CompletionPromptText,
+		Objectives:           objectives,
+		Rewards:              toProtocolQuestRewards(value.Rewards),
 	}
 }
 
