@@ -52,6 +52,7 @@ SELECT
   submit_animation_key,
   min_player_level,
   status,
+  accept_conditions,
   pre_quest_ids,
   objectives_json,
   rewards_json,
@@ -81,12 +82,13 @@ INSERT INTO quest_template (
   accept_animation_key,
   submit_animation_key,
   min_player_level,
+  accept_conditions,
   pre_quest_ids,
   objectives_json,
   rewards_json,
   status
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
 )
 `
 
@@ -111,10 +113,11 @@ SET quest_type = $2,
     accept_animation_key = $15,
     submit_animation_key = $16,
     min_player_level = $17,
-    pre_quest_ids = $18,
-    objectives_json = $19,
-    rewards_json = $20,
-    status = $21
+    accept_conditions = $18,
+    pre_quest_ids = $19,
+    objectives_json = $20,
+    rewards_json = $21,
+    status = $22
 WHERE quest_id = $1
 `
 
@@ -332,6 +335,10 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 	if err != nil {
 		return nil, err
 	}
+	acceptConditionsJSON, err := json.Marshal(input.AcceptConditions)
+	if err != nil {
+		return nil, err
+	}
 	objectivesJSON, err := marshalAdminQuestObjectives(input.Objectives)
 	if err != nil {
 		return nil, err
@@ -344,7 +351,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 		input.QuestID, input.QuestType, input.Name, input.Title, input.Description, input.CompletionPromptText,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
-		input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
+		input.MinPlayerLevel, acceptConditionsJSON, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -363,6 +370,10 @@ func (r *QuestRepository) UpdateTemplateForAdmin(ctx context.Context, questID ui
 	if err != nil {
 		return nil, err
 	}
+	acceptConditionsJSON, err := json.Marshal(input.AcceptConditions)
+	if err != nil {
+		return nil, err
+	}
 	objectivesJSON, err := marshalAdminQuestObjectives(input.Objectives)
 	if err != nil {
 		return nil, err
@@ -375,7 +386,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(ctx context.Context, questID ui
 		questID, input.QuestType, input.Name, input.Title, input.Description, input.CompletionPromptText,
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
-		input.MinPlayerLevel, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
+		input.MinPlayerLevel, acceptConditionsJSON, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
 	)
 	if err != nil {
 		return nil, err
@@ -773,11 +784,12 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 		sortOrder     int64
 		minLevel      int64
 		status        int64
+		acceptRaw     []byte
 		preQuestRaw   []byte
 		objectivesRaw []byte
 		rewardsRaw    []byte
 	)
-	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &item.CompletionPromptText, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &item.CompletionPromptText, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &acceptRaw, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.Chapter = uint32(chapter)
@@ -785,6 +797,11 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 	item.MinPlayerLevel = uint32(minLevel)
 	item.Status = uint32(status)
 	item.StatusText = quest.AdminQuestTemplateStatusText(item.Status)
+	if len(acceptRaw) > 0 {
+		if err := json.Unmarshal(acceptRaw, &item.AcceptConditions); err != nil {
+			return nil, err
+		}
+	}
 	if len(preQuestRaw) > 0 {
 		if err := json.Unmarshal(preQuestRaw, &item.PreQuestIDs); err != nil {
 			return nil, err

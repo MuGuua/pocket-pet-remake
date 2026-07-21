@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"pocket-pet-remake/server/internal/module/quest"
 )
@@ -32,6 +33,8 @@ SELECT
   accept_animation_key,
   submit_animation_key,
   auto_track,
+  min_player_level,
+  accept_conditions,
   pre_quest_ids,
   objectives_json,
   rewards_json
@@ -55,6 +58,8 @@ SELECT
   accept_animation_key,
   submit_animation_key,
   auto_track,
+  min_player_level,
+  accept_conditions,
   pre_quest_ids,
   objectives_json,
   rewards_json
@@ -219,6 +224,84 @@ func (r *QuestRepository) ListPlayerQuestsByPlayerID(ctx context.Context, player
 	return result, rows.Err()
 }
 
+// LoadAcceptConditionFacts 一次性读取任务开启条件需要的玩家、背包、宠物和剧情权威数据。
+func (r *QuestRepository) LoadAcceptConditionFacts(ctx context.Context, playerID uint64) (quest.AcceptConditionFacts, error) {
+	facts := quest.AcceptConditionFacts{
+		Stats:      map[string]uint64{},
+		ItemCounts: map[uint64]uint64{},
+		PetLevels:  map[uint64]uint64{},
+		StoryFlags: map[string]bool{},
+		Now:        time.Now(),
+	}
+	var hpMax, atk, def, spd, mana uint64
+	err := r.db.QueryRowContext(ctx, `
+SELECT p.level, p.scene_id,
+       COALESCE(s.hp_max, p.hp_max), COALESCE(s.atk, p.atk), COALESCE(s.def, p.def),
+       COALESCE(s.spd, p.spd), COALESCE(s.mana, p.mana)
+FROM player p
+LEFT JOIN player_combat_snapshot s ON s.player_id = p.id
+WHERE p.id = $1 AND p.status = 1`, playerID).Scan(
+		&facts.Level, &facts.SceneID, &hpMax, &atk, &def, &spd, &mana,
+	)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	facts.Stats = map[string]uint64{"hp_max": hpMax, "atk": atk, "def": def, "spd": spd, "mana": mana}
+
+	itemRows, err := r.db.QueryContext(ctx, `
+SELECT item_id, SUM(quantity)
+FROM player_container_item
+WHERE player_id = $1 AND quantity > 0
+GROUP BY item_id`, playerID)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	for itemRows.Next() {
+		var itemID, count uint64
+		if err := itemRows.Scan(&itemID, &count); err != nil {
+			itemRows.Close()
+			return quest.AcceptConditionFacts{}, err
+		}
+		facts.ItemCounts[itemID] = count
+	}
+	if err := itemRows.Close(); err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+
+	petRows, err := r.db.QueryContext(ctx, `SELECT pet_id, MAX(level) FROM player_pet WHERE player_id = $1 GROUP BY pet_id`, playerID)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	for petRows.Next() {
+		var petID, level uint64
+		if err := petRows.Scan(&petID, &level); err != nil {
+			petRows.Close()
+			return quest.AcceptConditionFacts{}, err
+		}
+		facts.PetLevels[petID] = level
+		if level > facts.MaxPetLevel {
+			facts.MaxPetLevel = level
+		}
+	}
+	if err := petRows.Close(); err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+
+	flagRows, err := r.db.QueryContext(ctx, `SELECT flag_key FROM player_story_flag WHERE player_id = $1 AND flag_value <> '' AND flag_value <> '0'`, playerID)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	defer flagRows.Close()
+	for flagRows.Next() {
+		var flagKey string
+		if err := flagRows.Scan(&flagKey); err != nil {
+			return quest.AcceptConditionFacts{}, err
+		}
+		facts.StoryFlags[flagKey] = true
+	}
+	return facts, flagRows.Err()
+}
+
 func (r *QuestRepository) ListPlayerObjectivesByPlayerID(ctx context.Context, playerID uint64) ([]quest.PlayerObjective, error) {
 	rows, err := r.db.QueryContext(ctx, listPlayerObjectivesQuery, playerID)
 	if err != nil {
@@ -333,6 +416,7 @@ type rowScanner interface {
 func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 	var (
 		value          quest.Template
+		acceptRaw      []byte
 		preQuestRaw    []byte
 		objectivesRaw  []byte
 		rewardsRaw     []byte
@@ -361,12 +445,19 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 		&value.AcceptAnimationKey,
 		&value.SubmitAnimationKey,
 		&value.AutoTrack,
+		&value.MinPlayerLevel,
+		&acceptRaw,
 		&preQuestRaw,
 		&objectivesRaw,
 		&rewardsRaw,
 	)
 	if err != nil {
 		return quest.Template{}, err
+	}
+	if len(acceptRaw) > 0 {
+		if err := json.Unmarshal(acceptRaw, &value.AcceptConditions); err != nil {
+			return quest.Template{}, err
+		}
 	}
 	if len(preQuestRaw) > 0 {
 		if err := json.Unmarshal(preQuestRaw, &value.PreQuestIDs); err != nil {

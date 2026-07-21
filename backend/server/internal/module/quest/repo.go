@@ -12,6 +12,7 @@ type Repository interface {
 	DeleteTemplateForAdmin(ctx context.Context, questID uint64) error
 	ListPlayerQuestsByPlayerID(ctx context.Context, playerID uint64) ([]PlayerQuest, error)
 	ListPlayerObjectivesByPlayerID(ctx context.Context, playerID uint64) ([]PlayerObjective, error)
+	LoadAcceptConditionFacts(ctx context.Context, playerID uint64) (AcceptConditionFacts, error)
 	ListPlayerQuestsForAdmin(ctx context.Context, query AdminPlayerQuestListQuery) (*AdminPlayerQuestList, error)
 	FindAdminPlayerQuestDetailByRecordID(ctx context.Context, recordID uint64) (*AdminPlayerQuestDetail, error)
 	CreatePlayerQuestForAdmin(ctx context.Context, input AdminCreatePlayerQuestInput) (*AdminPlayerQuestDetail, error)

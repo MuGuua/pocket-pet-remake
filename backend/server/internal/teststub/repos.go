@@ -2701,6 +2701,7 @@ func (r *QuestRepository) FindAdminTemplateDetailByQuestID(_ context.Context, qu
 		Status:             1,
 		StatusText:         quest.AdminQuestTemplateStatusText(1),
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
 		Rewards:            runtimeRewardsToAdmin(template.Rewards),
 		CreatedAt:          time.Now(),
@@ -2731,7 +2732,9 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		AcceptAnimationKey: input.AcceptAnimationKey,
 		SubmitAnimationKey: input.SubmitAnimationKey,
 		AutoTrack:          input.AutoTrack,
+		MinPlayerLevel:     input.MinPlayerLevel,
 		PreQuestIDs:        append([]uint64{}, input.PreQuestIDs...),
+		AcceptConditions:   append([]quest.AcceptCondition{}, input.AcceptConditions...),
 		Rewards:            adminRewardsToRuntime(input.Rewards),
 	}
 	for _, objective := range input.Objectives {
@@ -2767,6 +2770,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		Status:             input.Status,
 		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
 		Rewards:            append([]quest.AdminRewardInput{}, input.Rewards...),
 		CreatedAt:          time.Now(),
@@ -2838,6 +2842,8 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 	template.SubmitAnimationKey = input.SubmitAnimationKey
 	template.AutoTrack = input.AutoTrack
 	template.PreQuestIDs = append([]uint64{}, input.PreQuestIDs...)
+	template.AcceptConditions = append([]quest.AcceptCondition{}, input.AcceptConditions...)
+	template.MinPlayerLevel = input.MinPlayerLevel
 	template.Rewards = adminRewardsToRuntime(input.Rewards)
 	template.Objectives = []quest.ObjectiveTemplate{}
 	for _, objective := range input.Objectives {
@@ -2873,6 +2879,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 		Status:             input.Status,
 		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
+		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
 		Rewards:            append([]quest.AdminRewardInput{}, input.Rewards...),
 		CreatedAt:          time.Now(),
@@ -2919,6 +2926,14 @@ func (r *QuestRepository) ListPlayerObjectivesByPlayerID(_ context.Context, play
 		result = append(result, values...)
 	}
 	return result, nil
+}
+
+// LoadAcceptConditionFacts 为测试桩返回稳定的高等级人物快照，具体条件分支由 quest 包单元测试覆盖。
+func (r *QuestRepository) LoadAcceptConditionFacts(_ context.Context, _ uint64) (quest.AcceptConditionFacts, error) {
+	return quest.AcceptConditionFacts{
+		Level: 100, Stats: map[string]uint64{"hp_max": 999999, "atk": 999999, "def": 999999, "spd": 999999, "mana": 999999},
+		ItemCounts: map[uint64]uint64{}, PetLevels: map[uint64]uint64{}, StoryFlags: map[string]bool{}, Now: time.Now(),
+	}, nil
 }
 
 func (r *QuestRepository) ListPlayerQuestsForAdmin(_ context.Context, query quest.AdminPlayerQuestListQuery) (*quest.AdminPlayerQuestList, error) {

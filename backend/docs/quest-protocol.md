@@ -459,6 +459,19 @@
 
 ## 8. 接取任务协议
 
+任务模板的 `accept_conditions` 使用结构化 JSON 数组保存开启条件，数组内条件全部按 AND 关系判断。当前支持：
+
+- `quest_completed`：指定任务必须完成
+- `player_level`：人物等级比较
+- `player_stat`：人物最终 `hp_max/atk/def/spd/mana` 属性比较
+- `scene`：玩家当前持久化地图必须匹配
+- `item_count`：背包与仓库内指定物品总数比较
+- `pet_level`：指定宠物模板或任意宠物的最高等级比较
+- `story_flag`：指定服务端剧情标记必须存在
+- `time_window`：当前服务端时间必须位于 RFC3339 起止时间内
+
+数值条件的 `operator` 支持 `gte`、`eq`、`lte`。任务列表状态计算、自动接取和主动接取均执行同一套服务端校验；客户端不能自行判定或绕过。历史 `pre_quest_ids` 与 `min_player_level` 仍作为兼容条件继续生效。
+
 ### 8.1 `6021 QUEST_ACCEPT_REQ`
 
 用途：

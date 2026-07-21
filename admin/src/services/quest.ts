@@ -8,6 +8,7 @@ import type {
   AdminQuestTemplateDetail,
   AdminQuestTemplateFilters,
   AdminQuestTemplateListResult,
+  AdminQuestTemplateSummary,
   AdminUpdatePlayerQuestPayload,
   AdminUpdateQuestTemplatePayload,
 } from '../types/quest';
@@ -25,6 +26,19 @@ export async function fetchAdminQuestTemplates(params: {
   query.set('page', String(params.page ?? 1));
   query.set('page_size', String(params.pageSize ?? 20));
   return requestJSON<AdminQuestTemplateListResult>({ url: `/api/admin/quests/templates?${query.toString()}`, method: 'GET' });
+}
+
+/** 分页读取全部任务模板，供前置任务等关联配置下拉框使用。 */
+export async function fetchAllAdminQuestTemplates(): Promise<AdminQuestTemplateSummary[]> {
+  const pageSize = 100;
+  const firstPage = await fetchAdminQuestTemplates({ page: 1, pageSize });
+  const templates: AdminQuestTemplateSummary[] = [...firstPage.items];
+  const totalPages = Math.ceil(firstPage.total / firstPage.page_size);
+  for (let page = 2; page <= totalPages; page += 1) {
+    const result = await fetchAdminQuestTemplates({ page, pageSize });
+    templates.push(...result.items);
+  }
+  return templates;
 }
 
 export async function fetchAdminQuestTemplateDetail(questID: number): Promise<AdminQuestTemplateDetail> {

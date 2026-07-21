@@ -47,6 +47,31 @@ export interface AdminQuestRewardInput {
   count: number;
 }
 
+export type AdminQuestAcceptConditionType =
+  | 'quest_completed'
+  | 'player_level'
+  | 'player_stat'
+  | 'scene'
+  | 'item_count'
+  | 'pet_level'
+  | 'story_flag'
+  | 'time_window';
+
+/** 任务开启条件与服务端 accept_conditions JSONB 契约保持一致。 */
+export interface AdminQuestAcceptCondition {
+  type: AdminQuestAcceptConditionType;
+  operator?: 'gte' | 'eq' | 'lte';
+  value?: number;
+  quest_id?: number;
+  stat_key?: string;
+  scene_id?: number;
+  item_id?: number;
+  pet_id?: number;
+  flag_key?: string;
+  start_at?: string;
+  end_at?: string;
+}
+
 export interface AdminQuestTemplateDetail {
   quest_id: number;
   name: string;
@@ -68,6 +93,7 @@ export interface AdminQuestTemplateDetail {
   status: number;
   status_text: string;
   pre_quest_ids: number[];
+  accept_conditions: AdminQuestAcceptCondition[];
   objectives: AdminQuestObjectiveInput[];
   rewards: AdminQuestRewardInput[];
   created_at: string;
@@ -101,6 +127,7 @@ export interface AdminCreateQuestTemplatePayload {
   min_player_level: number;
   status: number;
   pre_quest_ids: number[];
+  accept_conditions: AdminQuestAcceptCondition[];
   objectives: AdminQuestObjectiveInput[];
   rewards: AdminQuestRewardInput[];
 }

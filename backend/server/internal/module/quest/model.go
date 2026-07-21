@@ -32,8 +32,48 @@ type Template struct {
 	SubmitAnimationKey   string
 	AutoTrack            bool
 	PreQuestIDs          []uint64
+	MinPlayerLevel       uint32
+	AcceptConditions     []AcceptCondition
 	Objectives           []ObjectiveTemplate
 	Rewards              []Reward
+}
+
+const (
+	AcceptConditionQuestCompleted = "quest_completed"
+	AcceptConditionPlayerLevel    = "player_level"
+	AcceptConditionPlayerStat     = "player_stat"
+	AcceptConditionScene          = "scene"
+	AcceptConditionItemCount      = "item_count"
+	AcceptConditionPetLevel       = "pet_level"
+	AcceptConditionStoryFlag      = "story_flag"
+	AcceptConditionTimeWindow     = "time_window"
+)
+
+// AcceptCondition 描述一条服务端权威的任务开启条件；不同类型只读取与自身相关的字段。
+type AcceptCondition struct {
+	Type     string `json:"type"`
+	Operator string `json:"operator,omitempty"`
+	Value    uint64 `json:"value,omitempty"`
+	QuestID  uint64 `json:"quest_id,omitempty"`
+	StatKey  string `json:"stat_key,omitempty"`
+	SceneID  uint32 `json:"scene_id,omitempty"`
+	ItemID   uint64 `json:"item_id,omitempty"`
+	PetID    uint64 `json:"pet_id,omitempty"`
+	FlagKey  string `json:"flag_key,omitempty"`
+	StartAt  string `json:"start_at,omitempty"`
+	EndAt    string `json:"end_at,omitempty"`
+}
+
+// AcceptConditionFacts 汇总一次任务状态计算所需的玩家权威快照，避免逐任务重复访问数据库。
+type AcceptConditionFacts struct {
+	Level       uint64
+	SceneID     uint32
+	Stats       map[string]uint64
+	ItemCounts  map[uint64]uint64
+	PetLevels   map[uint64]uint64
+	MaxPetLevel uint64
+	StoryFlags  map[string]bool
+	Now         time.Time
 }
 
 type ObjectiveTemplate struct {
@@ -224,6 +264,7 @@ type AdminCreateTemplateInput struct {
 	MinPlayerLevel       uint32                `json:"min_player_level"`
 	Status               uint32                `json:"status"`
 	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
 	Objectives           []AdminObjectiveInput `json:"objectives"`
 	Rewards              []AdminRewardInput    `json:"rewards"`
 }
@@ -238,6 +279,7 @@ func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 	input.SubmitMode = strings.TrimSpace(input.SubmitMode)
 	input.AcceptAnimationKey = strings.TrimSpace(input.AcceptAnimationKey)
 	input.SubmitAnimationKey = strings.TrimSpace(input.SubmitAnimationKey)
+	input.AcceptConditions = normalizeAcceptConditions(input.AcceptConditions)
 	if input.QuestType == "" {
 		input.QuestType = "MAIN"
 	}
@@ -279,6 +321,7 @@ type AdminUpdateTemplateInput struct {
 	MinPlayerLevel       uint32                `json:"min_player_level"`
 	Status               uint32                `json:"status"`
 	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
 	Objectives           []AdminObjectiveInput `json:"objectives"`
 	Rewards              []AdminRewardInput    `json:"rewards"`
 }
@@ -293,6 +336,7 @@ func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
 	input.SubmitMode = strings.TrimSpace(input.SubmitMode)
 	input.AcceptAnimationKey = strings.TrimSpace(input.AcceptAnimationKey)
 	input.SubmitAnimationKey = strings.TrimSpace(input.SubmitAnimationKey)
+	input.AcceptConditions = normalizeAcceptConditions(input.AcceptConditions)
 	if input.QuestType == "" {
 		input.QuestType = "MAIN"
 	}
@@ -312,6 +356,21 @@ func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
 		input.Status = 1
 	}
 	return input
+}
+
+// normalizeAcceptConditions 只规范字符串字段，不替后台猜测缺失的条件值。
+func normalizeAcceptConditions(conditions []AcceptCondition) []AcceptCondition {
+	result := make([]AcceptCondition, 0, len(conditions))
+	for _, condition := range conditions {
+		condition.Type = strings.TrimSpace(condition.Type)
+		condition.Operator = strings.TrimSpace(condition.Operator)
+		condition.StatKey = strings.TrimSpace(condition.StatKey)
+		condition.FlagKey = strings.TrimSpace(condition.FlagKey)
+		condition.StartAt = strings.TrimSpace(condition.StartAt)
+		condition.EndAt = strings.TrimSpace(condition.EndAt)
+		result = append(result, condition)
+	}
+	return result
 }
 
 type AdminTemplateSummary struct {
@@ -360,6 +419,7 @@ type AdminTemplateDetail struct {
 	Status               uint32                `json:"status"`
 	StatusText           string                `json:"status_text"`
 	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
+	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
 	Objectives           []AdminObjectiveInput `json:"objectives"`
 	Rewards              []AdminRewardInput    `json:"rewards"`
 	CreatedAt            time.Time             `json:"created_at"`

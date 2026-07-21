@@ -3,6 +3,7 @@ package quest
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // 验证多阶段任务只会推进当前最早未完成阶段，避免跳阶段完成后续目标。
@@ -86,7 +87,7 @@ func TestBuildSummaryKeepsObjectiveGuide(t *testing.T) {
 		Objectives: []ObjectiveTemplate{
 			{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "与生产导师对话", TargetValue: 1, Guide: guide},
 		},
-	}, nil, nil, map[uint64]bool{})
+	}, nil, nil, map[uint64]bool{}, AcceptConditionFacts{})
 
 	if len(summary.Objectives) != 1 {
 		t.Fatalf("objective count = %d, want 1", len(summary.Objectives))
@@ -111,10 +112,47 @@ func TestBuildSummaryKeepsCompletionPromptText(t *testing.T) {
 		Objectives: []ObjectiveTemplate{
 			{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "与 NPC 对话", TargetValue: 1},
 		},
-	}, nil, nil, map[uint64]bool{})
+	}, nil, nil, map[uint64]bool{}, AcceptConditionFacts{})
 
 	if summary.CompletionPromptText != "任务完成！获得[color=green]新目标[/color]。" {
 		t.Fatalf("completion prompt = %q", summary.CompletionPromptText)
+	}
+}
+
+// TestAcceptConditionMatchesSupportedTypes 锁定全部后台可配置条件都只读取对应的服务端权威快照。
+func TestAcceptConditionMatchesSupportedTypes(t *testing.T) {
+	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
+	facts := AcceptConditionFacts{
+		Level: 20, SceneID: 7, Stats: map[string]uint64{"atk": 300},
+		ItemCounts: map[uint64]uint64{1001: 5}, PetLevels: map[uint64]uint64{2001: 30}, MaxPetLevel: 30,
+		StoryFlags: map[string]bool{"main_started": true}, Now: now,
+	}
+	completed := map[uint64]bool{9001: true}
+	conditions := []AcceptCondition{
+		{Type: AcceptConditionQuestCompleted, QuestID: 9001},
+		{Type: AcceptConditionPlayerLevel, Operator: "gte", Value: 20},
+		{Type: AcceptConditionPlayerStat, StatKey: "atk", Operator: "eq", Value: 300},
+		{Type: AcceptConditionScene, SceneID: 7},
+		{Type: AcceptConditionItemCount, ItemID: 1001, Operator: "gte", Value: 5},
+		{Type: AcceptConditionPetLevel, PetID: 2001, Operator: "gte", Value: 30},
+		{Type: AcceptConditionStoryFlag, FlagKey: "main_started"},
+		{Type: AcceptConditionTimeWindow, StartAt: "2026-07-21T11:00:00Z", EndAt: "2026-07-21T13:00:00Z"},
+	}
+	for _, condition := range conditions {
+		if !acceptConditionMatches(condition, completed, facts) {
+			t.Fatalf("condition %#v should match", condition)
+		}
+	}
+}
+
+// TestAcceptConditionsUseANDRelationship 验证任意一条条件失败时任务保持锁定。
+func TestAcceptConditionsUseANDRelationship(t *testing.T) {
+	template := &Template{AcceptConditions: []AcceptCondition{
+		{Type: AcceptConditionPlayerLevel, Operator: "gte", Value: 10},
+		{Type: AcceptConditionScene, SceneID: 8},
+	}}
+	if isUnlocked(template, map[uint64]bool{}, AcceptConditionFacts{Level: 10, SceneID: 7}) {
+		t.Fatal("quest should stay locked when one AND condition does not match")
 	}
 }
 
@@ -182,6 +220,10 @@ func (r *questServiceTestRepo) ListPlayerObjectivesByPlayerID(_ context.Context,
 		values = append(values, objectiveValues...)
 	}
 	return values, nil
+}
+
+func (r *questServiceTestRepo) LoadAcceptConditionFacts(context.Context, uint64) (AcceptConditionFacts, error) {
+	return AcceptConditionFacts{Level: 100, Stats: map[string]uint64{}, ItemCounts: map[uint64]uint64{}, PetLevels: map[uint64]uint64{}, StoryFlags: map[string]bool{}, Now: time.Now()}, nil
 }
 
 func (r *questServiceTestRepo) ListPlayerQuestsForAdmin(context.Context, AdminPlayerQuestListQuery) (*AdminPlayerQuestList, error) {

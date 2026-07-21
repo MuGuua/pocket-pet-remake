@@ -32,6 +32,7 @@ import {
   createAdminQuestTemplate,
   deleteAdminPlayerQuest,
   deleteAdminQuestTemplate,
+  fetchAllAdminQuestTemplates,
   fetchAdminPlayerQuestDetail,
   fetchAdminPlayerQuests,
   fetchAdminQuestTemplateDetail,
@@ -42,6 +43,7 @@ import {
 import type {
   AdminCreatePlayerQuestPayload,
   AdminCreateQuestTemplatePayload,
+  AdminQuestAcceptCondition,
   AdminPlayerQuestDetail,
   AdminPlayerQuestFilters,
   AdminPlayerQuestObjectiveInput,
@@ -60,6 +62,13 @@ import { apiObjectivesToStages, createDefaultQuestStages, stagesToApiObjectives,
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
 import { fetchAllAdminNPCEntities } from '../../services/npc';
 import type { AdminNPCEntitySummary } from '../../types/npc';
+import type { AdminWorldSceneSummary } from '../../types/npc';
+import { fetchAdminWorldScenes } from '../../services/npc';
+import { fetchAllAdminItems } from '../../services/item';
+import { fetchAllEnabledAdminPetDefinitions } from '../../services/petDefinition';
+import type { AdminItemSummary } from '../../types/item';
+import type { AdminPetDefinitionSummary } from '../../types/petDefinition';
+import { QuestAcceptConditionEditor } from './QuestAcceptConditionEditor';
 
 interface TemplateFormValues {
   quest_id?: number;
@@ -81,6 +90,7 @@ interface TemplateFormValues {
   min_player_level: number;
   status: number;
   pre_quest_ids: number[];
+  accept_conditions: AdminQuestAcceptCondition[];
   stages: QuestStageFormItem[];
   rewards: AdminQuestRewardInput[];
 }
@@ -146,6 +156,10 @@ function QuestTemplatePanel() {
   const [saving, setSaving] = useState(false);
   const [deletingID, setDeletingID] = useState<number | null>(null);
   const [npcEntities, setNPCEntities] = useState<AdminNPCEntitySummary[]>([]);
+  const [questTemplates, setQuestTemplates] = useState<AdminQuestTemplateSummary[]>([]);
+  const [worldScenes, setWorldScenes] = useState<AdminWorldSceneSummary[]>([]);
+  const [items, setItems] = useState<AdminItemSummary[]>([]);
+  const [petDefinitions, setPetDefinitions] = useState<AdminPetDefinitionSummary[]>([]);
   const editingQuestID: number = editingRecord?.quest_id ?? 0;
   const pendingEditorValuesRef = useRef<TemplateFormValues | null>(null);
   const npcOptions = useMemo(
@@ -158,6 +172,18 @@ function QuestTemplatePanel() {
     ],
     [npcEntities],
   );
+  const prerequisiteQuestOptions = useMemo(
+    () => questTemplates
+      .filter((template) => template.quest_id !== editingQuestID)
+      .map((template) => ({
+        label: `${template.title}（任务 ID：${template.quest_id}）${template.status === 0 ? ' · 已停用' : ''}`,
+        value: template.quest_id,
+      })),
+    [editingQuestID, questTemplates],
+  );
+  const sceneOptions = useMemo(() => worldScenes.map((scene) => ({ label: `${scene.scene_name}（地图 ID：${scene.scene_id}）`, value: scene.scene_id })), [worldScenes]);
+  const itemOptions = useMemo(() => items.map((item) => ({ label: `${item.item_name}（物品 ID：${item.item_id}）`, value: item.item_id })), [items]);
+  const petOptions = useMemo(() => petDefinitions.map((pet) => ({ label: `${pet.pet_name}（宠物 ID：${pet.pet_id}）`, value: pet.pet_id })), [petDefinitions]);
 
   useEffect(() => {
     filterForm.setFieldsValue({ status: '1' });
@@ -202,12 +228,23 @@ function QuestTemplatePanel() {
     setEditorLoading(true);
     if (mode === 'create') {
       try {
-        setNPCEntities(await fetchAllAdminNPCEntities());
+        const [entities, templates, scenesResult, itemList, pets] = await Promise.all([
+          fetchAllAdminNPCEntities(),
+          fetchAllAdminQuestTemplates(),
+          fetchAdminWorldScenes(),
+          fetchAllAdminItems({ enabled: 'true' }),
+          fetchAllEnabledAdminPetDefinitions(),
+        ]);
+        setNPCEntities(entities);
+        setQuestTemplates(templates);
+        setWorldScenes(scenesResult.items);
+        setItems(itemList);
+        setPetDefinitions(pets);
         setEditingRecord(null);
         pendingEditorValuesRef.current = defaultTemplateValues();
         setEditorOpen(true);
       } catch (error) {
-        message.error(error instanceof Error ? error.message : '加载 NPC 选项失败');
+        message.error(error instanceof Error ? error.message : '加载任务编辑选项失败');
       } finally {
         setEditorLoading(false);
       }
@@ -218,11 +255,19 @@ function QuestTemplatePanel() {
       return;
     }
     try {
-      const [result, entities] = await Promise.all([
+      const [result, entities, templates, scenesResult, itemList, pets] = await Promise.all([
         fetchAdminQuestTemplateDetail(questID),
         fetchAllAdminNPCEntities(),
+        fetchAllAdminQuestTemplates(),
+        fetchAdminWorldScenes(),
+        fetchAllAdminItems({ enabled: 'true' }),
+        fetchAllEnabledAdminPetDefinitions(),
       ]);
       setNPCEntities(entities);
+      setQuestTemplates(templates);
+      setWorldScenes(scenesResult.items);
+      setItems(itemList);
+      setPetDefinitions(pets);
       setEditingRecord(result);
       pendingEditorValuesRef.current = mapTemplateDetailToForm(result);
       setEditorOpen(true);
@@ -395,7 +440,7 @@ function QuestTemplatePanel() {
             <Descriptions.Item label="提交 NPC">{detail.submit_npc_id}</Descriptions.Item>
             <Descriptions.Item label="领取动画键">{detail.accept_animation_key || '不播放'}</Descriptions.Item>
             <Descriptions.Item label="交付动画键">{detail.submit_animation_key || '不播放'}</Descriptions.Item>
-            <Descriptions.Item label="前置任务" span={2}>{detail.pre_quest_ids.length > 0 ? detail.pre_quest_ids.join(', ') : '无'}</Descriptions.Item>
+            <Descriptions.Item label="任务开启条件" span={2}>{countTemplateAcceptConditions(detail) > 0 ? `已配置 ${countTemplateAcceptConditions(detail)} 条（全部满足后开启）` : '无额外条件'}</Descriptions.Item>
             <Descriptions.Item label="任务阶段" span={2}>
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
                 {detail.objectives.map((stage) => (
@@ -472,37 +517,16 @@ function QuestTemplatePanel() {
                             <Col xs={12} md={6}><Form.Item label="目标 NPC" name="submit_npc_id"><Select showSearch optionFilterProp="label" options={npcOptions} /></Form.Item></Col>
                             <Col xs={24} md={12}><Form.Item label="领取动画键" name="accept_animation_key" rules={[{ pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5-]*$/, message: '只能填写动画注册键' }]}><Input allowClear /></Form.Item></Col>
                             <Col xs={24} md={12}><Form.Item label="交付动画键" name="submit_animation_key" rules={[{ pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5-]*$/, message: '只能填写动画注册键' }]}><Input allowClear /></Form.Item></Col>
-                            <Col xs={12} md={6}><Form.Item label="最低等级" name="min_player_level"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
                             <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked" extra="接取后是否默认开启追踪。"><Switch /></Form.Item></Col>
                             <Col span={24}>
-                              <Form.Item label="前置任务" extra="按顺序添加前置任务 ID；不需要前置任务时可留空。">
-                                <Form.List name="pre_quest_ids">
-                                  {(fields, { add, remove }) => (
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                      {fields.length > 0 ? fields.map((field, index) => (
-                                        <Space key={field.key} align="start" style={{ display: 'flex' }}>
-                                          <Form.Item
-                                            {...field}
-                                            label={index === 0 ? '前置任务 ID' : ' '}
-                                            rules={[{ required: true, message: '请输入任务ID' }]}
-                                            style={{ marginBottom: 0, minWidth: 220 }}
-                                          >
-                                            <InputNumber min={1} style={{ width: '100%' }} placeholder="例如：1001" />
-                                          </Form.Item>
-                                          <Button danger onClick={() => remove(field.name)}>
-                                            删除
-                                          </Button>
-                                        </Space>
-                                      )) : (
-                                        <span style={{ color: '#8c8c8c', fontSize: 12 }}>当前没有前置任务，任务可独立接取。</span>
-                                      )}
-                                      <Button type="dashed" onClick={() => add(0)}>
-                                        添加前置任务
-                                      </Button>
-                                    </Space>
-                                  )}
-                                </Form.List>
+                              <Form.Item label="任务开启条件" tooltip="所有条件均由服务端读取数据库权威数据并按 AND 关系校验。">
+                                <QuestAcceptConditionEditor
+                                  questOptions={prerequisiteQuestOptions}
+                                  sceneOptions={sceneOptions}
+                                  itemOptions={itemOptions}
+                                  petOptions={petOptions}
+                                />
                               </Form.Item>
                             </Col>
                           </Row>
@@ -801,6 +825,7 @@ function defaultTemplateValues(): TemplateFormValues {
     min_player_level: 1,
     status: 1,
     pre_quest_ids: [],
+    accept_conditions: [],
     stages: createDefaultQuestStages(),
     rewards: [{ type: 'exp', value: 50, item_id: 0, count: 0 }],
   };
@@ -835,9 +860,10 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     submit_npc_id: detail.submit_npc_id,
     accept_animation_key: detail.accept_animation_key ?? '',
     submit_animation_key: detail.submit_animation_key ?? '',
-    min_player_level: detail.min_player_level,
+    min_player_level: 1,
     status: detail.status,
-    pre_quest_ids: detail.pre_quest_ids ?? [],
+    pre_quest_ids: [],
+    accept_conditions: mergeLegacyAcceptConditions(detail).map(mapAcceptConditionToForm),
     stages: apiObjectivesToStages(detail.objectives),
     rewards: detail.rewards ?? [],
   };
@@ -875,6 +901,7 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     min_player_level: values.min_player_level,
     status: values.status,
     pre_quest_ids: normalizePositiveNumberList(values.pre_quest_ids),
+    accept_conditions: (values.accept_conditions ?? []).map(mapAcceptConditionToPayload),
     objectives: stagesToApiObjectives(values.stages ?? []),
     rewards: values.rewards ?? [],
   };
@@ -883,6 +910,65 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
 function mapTemplateFormToUpdatePayload(values: TemplateFormValues): AdminUpdateQuestTemplatePayload {
   const { quest_id: _questID, ...rest } = mapTemplateFormToCreatePayload(values);
   return rest;
+}
+
+/** 把服务端 RFC3339 时间转换为 datetime-local 可编辑值，其余字段保持原始契约。 */
+function mapAcceptConditionToForm(condition: AdminQuestAcceptCondition): AdminQuestAcceptCondition {
+  if (condition.type !== 'time_window') return condition;
+  return {
+    ...condition,
+    start_at: toLocalDateTimeValue(condition.start_at),
+    end_at: toLocalDateTimeValue(condition.end_at),
+  };
+}
+
+/** 保存时仅提交当前条件类型需要的字段，避免切换类型后把旧输入残留写入数据库。 */
+function mapAcceptConditionToPayload(condition: AdminQuestAcceptCondition): AdminQuestAcceptCondition {
+  switch (condition.type) {
+    case 'quest_completed': return { type: condition.type, quest_id: condition.quest_id };
+    case 'player_level': return { type: condition.type, operator: condition.operator, value: condition.value };
+    case 'player_stat': return { type: condition.type, stat_key: condition.stat_key, operator: condition.operator, value: condition.value };
+    case 'scene': return { type: condition.type, scene_id: condition.scene_id };
+    case 'item_count': return { type: condition.type, item_id: condition.item_id, operator: condition.operator, value: condition.value };
+    case 'pet_level': return { type: condition.type, pet_id: condition.pet_id, operator: condition.operator, value: condition.value };
+    case 'story_flag': return { type: condition.type, flag_key: condition.flag_key?.trim() };
+    case 'time_window': return { type: condition.type, start_at: toRFC3339(condition.start_at), end_at: toRFC3339(condition.end_at) };
+  }
+}
+
+/** 把历史前置任务与最低等级配置合并进新编辑器，保存后即可自然迁移到 accept_conditions。 */
+function mergeLegacyAcceptConditions(detail: AdminQuestTemplateDetail): AdminQuestAcceptCondition[] {
+  const conditions: AdminQuestAcceptCondition[] = [...(detail.accept_conditions ?? [])];
+  for (const questID of detail.pre_quest_ids ?? []) {
+    if (!conditions.some((condition) => condition.type === 'quest_completed' && condition.quest_id === questID)) {
+      conditions.push({ type: 'quest_completed', quest_id: questID });
+    }
+  }
+  if (detail.min_player_level > 1 && !conditions.some((condition) => condition.type === 'player_level')) {
+    conditions.push({ type: 'player_level', operator: 'gte', value: detail.min_player_level });
+  }
+  return conditions;
+}
+
+/** 详情页同时统计历史字段，确保旧任务在首次保存前也能正确提示限制数量。 */
+function countTemplateAcceptConditions(detail: AdminQuestTemplateDetail): number {
+  return mergeLegacyAcceptConditions(detail).length;
+}
+
+/** 浏览器原生时间输入不带时区，保存时按运营人员本地时区转换为服务端可解析的 RFC3339。 */
+function toRFC3339(value?: string): string | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+}
+
+/** RFC3339 回显到 datetime-local 时移除时区标记，并保留到分钟。 */
+function toLocalDateTimeValue(value?: string): string | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  const offsetMilliseconds = parsed.getTimezoneOffset() * 60_000;
+  return new Date(parsed.getTime() - offsetMilliseconds).toISOString().slice(0, 16);
 }
 
 function mapPlayerQuestFormToCreatePayload(values: PlayerQuestFormValues): AdminCreatePlayerQuestPayload {
