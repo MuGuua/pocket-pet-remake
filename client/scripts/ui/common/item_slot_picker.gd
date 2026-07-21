@@ -205,18 +205,14 @@ func _refresh_panel_layout() -> void:
 	var visible_rows: int = mini(row_count, _active_max_visible_rows)
 	var grid_width: float = _grid_width_for_columns(_active_grid_columns)
 	var grid_viewport_height: float = _grid_height_for_rows(visible_rows)
+	# GridScroll 位于容器布局中，只声明最小尺寸即可。父级容器会在下一布局帧逐级刷新，
+	# 直接写 size 或对全矩形锚定的 ScrollContainer 调用 reset_size() 会与 anchors 的拉伸结果冲突。
 	_grid_scroll.custom_minimum_size = Vector2(grid_width, grid_viewport_height)
-	_grid_scroll.size = Vector2(grid_width, grid_viewport_height)
 	if row_count > _active_max_visible_rows:
 		_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	else:
 		_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_grid_scroll.scroll_vertical = 0
-	_panel_root.reset_size()
-	if _content_root != null:
-		_content_root.reset_size()
-	if _popup_scroll != null:
-		_popup_scroll.reset_size()
 
 
 ## 计算物品条目对应的网格行数。
