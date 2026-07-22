@@ -14,6 +14,7 @@ import (
 type PetHandler struct {
 	sessionService *session.Service
 	petService     *pet.Service
+	worldHandler   *WorldHandler
 }
 
 func NewPetHandler(sessionService *session.Service, petService *pet.Service, _ *petprogression.Service) *PetHandler {
@@ -21,6 +22,11 @@ func NewPetHandler(sessionService *session.Service, petService *pet.Service, _ *
 		sessionService: sessionService,
 		petService:     petService,
 	}
+}
+
+// SetWorldHandler 注入世界广播入口，使编队变化能同步刷新同场景玩家看到的跟随宠物。
+func (h *PetHandler) SetWorldHandler(worldHandler *WorldHandler) {
+	h.worldHandler = worldHandler
 }
 
 func (h *PetHandler) HandlePetList(conn packetSender, packet *protocol.Packet) error {
@@ -72,7 +78,13 @@ func (h *PetHandler) HandleLineupSet(conn packetSender, packet *protocol.Packet)
 		}
 		return sendError(conn, packet.Seq, errcode.WSCodePetLineupInvalid, "set pet lineup failed", err)
 	}
-	return h.sendLineupSetResponse(conn, packet.Seq, true, lineup, "lineup updated")
+	if err := h.sendLineupSetResponse(conn, packet.Seq, true, lineup, "lineup updated"); err != nil {
+		return err
+	}
+	if h.worldHandler != nil {
+		h.worldHandler.BroadcastPlayerEntityRefresh(context.Background(), sess.PlayerID)
+	}
+	return nil
 }
 
 // HandleAllocateAttr 处理宠物主动分配自由属性点。

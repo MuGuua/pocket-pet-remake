@@ -444,6 +444,26 @@
       "dir": 2,
       "speed": 0,
       "name": "GuideNPC"
+    },
+    {
+      "entity_id": 10002,
+      "player_id": 10002,
+      "entity_type": 1,
+      "pos": {
+        "x": 7,
+        "y": 7
+      },
+      "dir": 2,
+      "speed": 0,
+      "name": "RivalTrainer",
+      "following_pet": {
+        "pet_uid": 21001,
+        "pet_id": 101,
+        "level": 5,
+        "hp": 31,
+        "hp_max": 31,
+        "skin_id": "嫩叶犬_001"
+      }
     }
   ],
   "lineup": [],
@@ -457,6 +477,9 @@
 }
 ```
 
+- 玩家实体的 `following_pet` 来自服务端持久化编队首位；无出战宠物或形象资源时省略该字段。
+- `ENTER_WORLD_RESP.nearby_entities` 与 `ENTITY_ENTER_PUSH.entity` 使用同一结构；玩家更换编队后服务端复用 `ENTITY_ENTER_PUSH` 刷新同场景远端表现。
+
 `wild_encounter` 字段说明：
 
 - 服务端在 `ENTER_WORLD_RESP` 与 `WORLD_RESYNC_PUSH` 中下发当前地图暗雷配置
@@ -467,7 +490,7 @@
 
 ### 2021 MOVE_INTENT_REQ
 
-当前实现里，`MOVE_INTENT_REQ` 用于“申请切换到目标地图”。地图内逐点移动由客户端本地表现，不需要每步都上报服务端。
+`MOVE_INTENT_REQ` 同时承载地图切换意图和同场景移动同步。切图继续使用 `target_scene_id`、`portal_id`；同场景移动使用整数 `target_pos` 持久化落点，并以限频后的表现字段同步其他玩家。
 
 ```json
 {
@@ -479,10 +502,47 @@
 }
 ```
 
+同场景移动示例：
+
+```json
+{
+  "op_id": 2,
+  "move_seq": 18,
+  "scene_id": 1,
+  "target_pos": {"x": 10, "y": 7},
+  "precise_pos": {"x": 10250, "y": 7000},
+  "facing": {"x": 1, "y": 0},
+  "moving": true
+}
+```
+
 说明：
 
 - `target_scene_id`：目标地图
 - `portal_id`：可选，表示通过哪个门/入口触发切图；当前门区切图优先带上该字段
+- `target_pos`：同场景移动的整数格坐标，服务端持久化并作为权威落点
+- `precise_pos`：千分之一场景格的定点表现坐标；服务端会限制在 `target_pos` 周围半格内，不直接写入数据库
+- `facing`：四方向单位向量，只接受上下左右，服务端拒绝斜向表现数据并回退为位移方向
+- `moving`：明确人物正在行走或已经停止；旧客户端缺少该字段时由服务端按整数格变化兼容推导
+
+### 2013 ENTITY_MOVE_PUSH
+
+服务端持久化或确认移动后，仅向同场景其他玩家推送。`to_pos` 继续作为整数权威位置，`precise_pos`、`facing`、`moving` 用于远端人物与宠物的实时表现。
+
+```json
+{
+  "scene_id": 1,
+  "scene_version": 1,
+  "entity_id": 10001,
+  "move_seq": 18,
+  "from_pos": {"x": 10, "y": 7},
+  "to_pos": {"x": 10, "y": 7},
+  "precise_pos": {"x": 10250, "y": 7000},
+  "facing": {"x": 1, "y": 0},
+  "moving": true,
+  "speed": 0
+}
+```
 
 ### 2022 MOVE_INTENT_RESP
 

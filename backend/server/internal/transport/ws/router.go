@@ -23,6 +23,9 @@ type Router struct {
 }
 
 func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler *PetHandler, playerHandler *PlayerHandler, equipmentHandler *EquipmentHandler, battleHandler *BattleHandler, bagHandler *BagHandler, questHandler *QuestHandler, sessionService *session.Service) *Router {
+	if petHandler != nil {
+		petHandler.SetWorldHandler(worldHandler)
+	}
 	return &Router{
 		authHandler:      authHandler,
 		worldHandler:     worldHandler,

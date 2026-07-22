@@ -213,8 +213,10 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		reason := "local movement handled by client"
 		if request.TargetPos != nil {
 			correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
-			if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, profile.SceneID, correctedPos.X, correctedPos.Y); err != nil {
-				return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
+			if correctedPos != currentPos {
+				if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, profile.SceneID, correctedPos.X, correctedPos.Y); err != nil {
+					return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
+				}
 			}
 			reason = "position synchronized"
 		}
@@ -233,7 +235,16 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		}
 		if request.TargetPos != nil {
 			h.enterPlayerScene(ctx, sess.PlayerID, profile.SceneID)
-			h.broadcastEntityMove(profile.SceneID, sess.PlayerID, request.MoveSeq, currentPos, correctedPos)
+			h.broadcastEntityMove(
+				profile.SceneID,
+				sess.PlayerID,
+				request.MoveSeq,
+				currentPos,
+				correctedPos,
+				normalizePreciseMovementPosition(correctedPos, request.PrecisePos),
+				normalizeMovementFacing(currentPos, correctedPos, request.Facing),
+				normalizeMovementState(currentPos, correctedPos, request.Moving),
+			)
 		}
 		return nil
 	}
@@ -300,8 +311,12 @@ func (h *WorldHandler) HandleSessionDisconnect(playerID uint64) {
 // appendOnlinePlayerEntities 把进程内已进入世界的同场景玩家合并到数据库场景实体快照。
 func (h *WorldHandler) appendOnlinePlayerEntities(ctx context.Context, selfPlayerID uint64, sceneID uint32, entities []protocol.EntityBrief) []protocol.EntityBrief {
 	seenEntityIDs := make(map[uint64]struct{}, len(entities))
-	for _, entity := range entities {
+	for index := range entities {
+		entity := entities[index]
 		seenEntityIDs[entity.EntityID] = struct{}{}
+		if entity.EntityType == 1 && entity.PlayerID != 0 && entity.PlayerID != selfPlayerID {
+			entities[index] = h.attachFollowingPet(ctx, entity)
+		}
 	}
 	for _, playerID := range h.playerIDsInScene(sceneID, selfPlayerID) {
 		if _, exists := seenEntityIDs[playerID]; exists {
@@ -311,7 +326,7 @@ func (h *WorldHandler) appendOnlinePlayerEntities(ctx context.Context, selfPlaye
 		if err != nil {
 			continue
 		}
-		entities = append(entities, h.playerEntity(profile))
+		entities = append(entities, h.playerEntity(ctx, profile))
 		seenEntityIDs[playerID] = struct{}{}
 	}
 	return entities
@@ -332,7 +347,7 @@ func (h *WorldHandler) enterPlayerScene(ctx context.Context, playerID uint64, sc
 	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
 		SceneID: sceneID,
-		Entity:  h.playerEntity(profile),
+		Entity:  h.playerEntity(ctx, profile),
 	})
 	if err == nil {
 		h.sendPacketToScene(sceneID, playerID, packet)
@@ -349,7 +364,7 @@ func (h *WorldHandler) transferPlayerScene(ctx context.Context, playerID uint64,
 }
 
 // broadcastEntityMove 把持久化后的坐标发给同场景其他玩家，发送失败不反向中断移动者连接。
-func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i) {
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool) {
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
 		SceneID:      sceneID,
 		SceneVersion: 1,
@@ -357,10 +372,72 @@ func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, move
 		MoveSeq:      moveSeq,
 		FromPos:      protocol.Vec2i{X: fromPos.X, Y: fromPos.Y},
 		ToPos:        protocol.Vec2i{X: toPos.X, Y: toPos.Y},
+		PrecisePos:   precisePos,
+		Facing:       facing,
+		Moving:       moving,
 	})
 	if err == nil {
 		h.sendPacketToScene(sceneID, playerID, packet)
 	}
+}
+
+const movementPositionFixedScale int32 = 1000
+const movementPositionHalfCell int32 = movementPositionFixedScale / 2
+
+// normalizePreciseMovementPosition 把客户端表现坐标限制在权威整数格周围半格，阻止表现位置脱离持久化落点。
+func normalizePreciseMovementPosition(targetPos world.Vec2i, precisePos *protocol.Vec2i) protocol.Vec2i {
+	targetX := targetPos.X * movementPositionFixedScale
+	targetY := targetPos.Y * movementPositionFixedScale
+	if precisePos == nil {
+		return protocol.Vec2i{X: targetX, Y: targetY}
+	}
+	return protocol.Vec2i{
+		X: clampMovementCoordinate(precisePos.X, targetX-movementPositionHalfCell, targetX+movementPositionHalfCell),
+		Y: clampMovementCoordinate(precisePos.Y, targetY-movementPositionHalfCell, targetY+movementPositionHalfCell),
+	}
+}
+
+// clampMovementCoordinate 将一个定点坐标限制到服务端允许的闭区间。
+func clampMovementCoordinate(value int32, minimum int32, maximum int32) int32 {
+	if value < minimum {
+		return minimum
+	}
+	if value > maximum {
+		return maximum
+	}
+	return value
+}
+
+// normalizeMovementFacing 只接受四方向单位向量，旧客户端未提供时按本次整数格位移推导。
+func normalizeMovementFacing(fromPos world.Vec2i, toPos world.Vec2i, facing *protocol.Vec2i) protocol.Vec2i {
+	if facing != nil {
+		if (facing.X == -1 || facing.X == 1) && facing.Y == 0 {
+			return *facing
+		}
+		if (facing.Y == -1 || facing.Y == 1) && facing.X == 0 {
+			return *facing
+		}
+	}
+	offsetX := toPos.X - fromPos.X
+	offsetY := toPos.Y - fromPos.Y
+	if offsetX != 0 {
+		if offsetX < 0 {
+			return protocol.Vec2i{X: -1}
+		}
+		return protocol.Vec2i{X: 1}
+	}
+	if offsetY < 0 {
+		return protocol.Vec2i{Y: -1}
+	}
+	return protocol.Vec2i{Y: 1}
+}
+
+// normalizeMovementState 保留新客户端明确上报的起停状态，旧客户端则按整数格是否变化兼容推导。
+func normalizeMovementState(fromPos world.Vec2i, toPos world.Vec2i, moving *bool) bool {
+	if moving != nil {
+		return *moving
+	}
+	return fromPos != toPos
 }
 
 // broadcastEntityLeave 通知指定场景中的其他在线玩家移除目标角色。
@@ -398,14 +475,53 @@ func (h *WorldHandler) playerIDsInScene(sceneID uint32, excludedPlayerID uint64)
 	return result
 }
 
-// playerEntity 把权威玩家档案转换成客户端远端角色使用的场景实体摘要。
-func (h *WorldHandler) playerEntity(profile *player.Profile) protocol.EntityBrief {
-	return protocol.EntityBrief{
+// playerEntity 把权威玩家档案和首只出战宠物转换成客户端远端世界表现摘要。
+func (h *WorldHandler) playerEntity(ctx context.Context, profile *player.Profile) protocol.EntityBrief {
+	entity := protocol.EntityBrief{
 		EntityID:   profile.PlayerID,
 		PlayerID:   profile.PlayerID,
 		EntityType: 1,
 		Pos:        protocol.Vec2i{X: profile.PosX, Y: profile.PosY},
 		Name:       profile.Name,
+	}
+	return h.attachFollowingPet(ctx, entity)
+}
+
+// attachFollowingPet 从持久化编队读取首只宠物，并补充世界展示需要的实例与形象信息。
+func (h *WorldHandler) attachFollowingPet(ctx context.Context, entity protocol.EntityBrief) protocol.EntityBrief {
+	if h.petService == nil || entity.PlayerID == 0 {
+		return entity
+	}
+	lineup, err := h.petService.ListLineupSummaries(ctx, entity.PlayerID)
+	if err != nil || len(lineup) == 0 {
+		return entity
+	}
+	petBrief := toProtocolPetBrief(lineup[0], h.petService.ResolveSkinID)
+	if petBrief.PetUID == 0 || petBrief.SkinID == "" {
+		return entity
+	}
+	entity.FollowingPet = &petBrief
+	return entity
+}
+
+// BroadcastPlayerEntityRefresh 在玩家编队变化后向同场景其他客户端刷新角色与跟随宠物摘要。
+func (h *WorldHandler) BroadcastPlayerEntityRefresh(ctx context.Context, playerID uint64) {
+	h.presenceMu.RLock()
+	sceneID, exists := h.playerScenes[playerID]
+	h.presenceMu.RUnlock()
+	if !exists {
+		return
+	}
+	profile, err := h.playerService.GetProfile(ctx, playerID)
+	if err != nil {
+		return
+	}
+	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
+		SceneID: sceneID,
+		Entity:  h.playerEntity(ctx, profile),
+	})
+	if err == nil {
+		h.sendPacketToScene(sceneID, playerID, packet)
 	}
 }
 
@@ -518,16 +634,21 @@ func toProtocolLineup(lineup []pet.LineupPet, resolveSkinID func(petID uint32) s
 	}
 	result := make([]protocol.PetBrief, 0, len(lineup))
 	for _, lineupPet := range lineup {
-		result = append(result, protocol.PetBrief{
-			PetUID: lineupPet.PetUID,
-			PetID:  lineupPet.PetID,
-			Level:  lineupPet.Level,
-			HP:     lineupPet.HP,
-			HPMax:  lineupPet.HPMax,
-			SkinID: resolveSkinID(lineupPet.PetID),
-		})
+		result = append(result, toProtocolPetBrief(lineupPet, resolveSkinID))
 	}
 	return result
+}
+
+// toProtocolPetBrief 统一转换宠物摘要，保证自身编队和远端跟随宠物使用同一协议口径。
+func toProtocolPetBrief(lineupPet pet.LineupPet, resolveSkinID func(petID uint32) string) protocol.PetBrief {
+	return protocol.PetBrief{
+		PetUID: lineupPet.PetUID,
+		PetID:  lineupPet.PetID,
+		Level:  lineupPet.Level,
+		HP:     lineupPet.HP,
+		HPMax:  lineupPet.HPMax,
+		SkinID: resolveSkinID(lineupPet.PetID),
+	}
 }
 
 func (h *WorldHandler) sendMoveRejectedWithResync(conn packetSender, seq uint32, moveSeq uint32, sceneID uint32, currentPos world.Vec2i, reason string) error {

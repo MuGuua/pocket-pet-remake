@@ -75,14 +75,82 @@ func _dismiss_modal() -> void:
     _close_with_result(false)
 
 
-## 确认弹窗需要按钮走 GUI 点击；禁用基类全局输入吞噬，避免底部按钮无法触发 pressed。
+## 启用确认弹窗专用输入监听，统一处理继续键和移动端按钮热区。
 func _enable_modal_input_listeners() -> void:
-    pass
+    set_process_input(true)
 
 
-## 与 _enable_modal_input_listeners 配套，当前脚本不启用全局输入监听。
+## 关闭弹窗后停止接收全局输入，避免影响世界场景和其他面板。
 func _disable_modal_input_listeners() -> void:
-    pass
+    set_process_input(false)
+
+
+## 优先处理 5 键、回车和两个按钮的点击，其余输入只阻断穿透到底层场景。
+## event 是 Godot 分发的键盘、鼠标或触摸输入事件。
+func _input(event: InputEvent) -> void:
+    if not visible or not _is_topmost_runtime_modal():
+        return
+    if _is_continue_key_event(event):
+        get_viewport().set_input_as_handled()
+        _close_with_result(true)
+        return
+    var click_position: Vector2 = _extract_pressed_position(event)
+    if click_position == Vector2.INF:
+        get_viewport().set_input_as_handled()
+        return
+    if _is_position_inside_button(_top_close_button, click_position, 24.0):
+        get_viewport().set_input_as_handled()
+        _close_with_result(false)
+        return
+    if _is_position_inside_button(_continue_button, click_position, 12.0):
+        get_viewport().set_input_as_handled()
+        _close_with_result(true)
+        return
+    get_viewport().set_input_as_handled()
+
+
+## 判断输入是否为确认继续键，同时兼容主键盘、小键盘和物理键位。
+## event 是待判断的输入事件。
+func _is_continue_key_event(event: InputEvent) -> bool:
+    if not (event is InputEventKey):
+        return false
+    var key_event: InputEventKey = event as InputEventKey
+    if not key_event.pressed or key_event.echo:
+        return false
+    return (
+        key_event.keycode == KEY_5
+        or key_event.keycode == KEY_KP_5
+        or key_event.keycode == KEY_ENTER
+        or key_event.keycode == KEY_KP_ENTER
+        or key_event.physical_keycode == KEY_5
+        or key_event.physical_keycode == KEY_KP_5
+        or key_event.physical_keycode == KEY_ENTER
+        or key_event.physical_keycode == KEY_KP_ENTER
+    )
+
+
+## 提取鼠标或触摸按下时的屏幕坐标，其他事件返回无效坐标。
+## event 是待解析的输入事件。
+func _extract_pressed_position(event: InputEvent) -> Vector2:
+    if event is InputEventMouseButton:
+        var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+        if mouse_event.pressed:
+            return mouse_event.position
+    if event is InputEventScreenTouch:
+        var touch_event: InputEventScreenTouch = event as InputEventScreenTouch
+        if touch_event.pressed:
+            return touch_event.position
+    return Vector2.INF
+
+
+## 判断点击位置是否落在按钮热区内，并为移动端提供额外可点击边距。
+## button 是需要检测的按钮节点。
+## click_position 是当前鼠标或触摸的屏幕坐标。
+## touch_margin 是按钮矩形向外扩展的像素数。
+func _is_position_inside_button(button: BaseButton, click_position: Vector2, touch_margin: float) -> bool:
+    if button == null:
+        return false
+    return button.get_global_rect().grow(touch_margin).has_point(click_position)
 
 
 ## 弹窗打开后短暂忽略关闭，避免移动端同一次触屏穿透导致刚打开就取消。
@@ -101,6 +169,14 @@ func _apply_interactive_nodes() -> void:
         _top_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
     if _continue_button != null:
         _continue_button.mouse_filter = Control.MOUSE_FILTER_STOP
+        _set_button_children_mouse_ignore(_continue_button)
+
+
+## 让按钮内部贴图、文字和动画只负责显示，不抢占父按钮的点击事件。
+## button 是需要整理子节点鼠标过滤规则的按钮。
+func _set_button_children_mouse_ignore(button: BaseButton) -> void:
+    for child: Node in button.get_children():
+        _apply_mouse_filter_recursive(child, true)
 
 
 ## 清空旧正文并按换行重建富文本行。

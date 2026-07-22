@@ -116,6 +116,8 @@ type EntityBrief struct {
 	Dir        uint32 `json:"dir"`
 	Speed      uint32 `json:"speed"`
 	Name       string `json:"name"`
+	// FollowingPet 仅用于玩家实体，表示当前编队首只宠物的权威世界展示摘要。
+	FollowingPet *PetBrief `json:"following_pet,omitempty"`
 }
 
 type PetBrief struct {
@@ -317,6 +319,12 @@ type MoveIntentReq struct {
 	PortalID      uint32 `json:"portal_id"`
 	// TargetPos 仅用于同场景移动上报；保留为可选字段以兼容只负责切图的旧客户端。
 	TargetPos *Vec2i `json:"target_pos,omitempty"`
+	// PrecisePos 使用千分之一场景格的定点整数，仅用于同场景实时表现；持久化仍使用 TargetPos。
+	PrecisePos *Vec2i `json:"precise_pos,omitempty"`
+	// Facing 是客户端当前四方向朝向，服务端归一化后再广播，避免观察端根据延迟坐标猜测朝向。
+	Facing *Vec2i `json:"facing,omitempty"`
+	// Moving 表示客户端当前是否仍在移动；指针用于区分旧客户端未发送字段与明确停止。
+	Moving *bool `json:"moving,omitempty"`
 }
 
 type MoveIntentResp struct {
@@ -515,7 +523,13 @@ type EntityMovePush struct {
 	MoveSeq      uint32 `json:"move_seq"`
 	FromPos      Vec2i  `json:"from_pos"`
 	ToPos        Vec2i  `json:"to_pos"`
-	Speed        uint32 `json:"speed"`
+	// PrecisePos 是服务端限制在 ToPos 半格范围内的千分之一格表现坐标。
+	PrecisePos Vec2i `json:"precise_pos"`
+	// Facing 是服务端归一化后的四方向朝向。
+	Facing Vec2i `json:"facing"`
+	// Moving 决定观察端播放行走还是待机动画。
+	Moving bool   `json:"moving"`
+	Speed  uint32 `json:"speed"`
 }
 
 // EntityEnterPush 通知同场景客户端创建一个新进入视野的实体。

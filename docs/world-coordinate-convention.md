@@ -5,6 +5,7 @@
 ## 坐标来源
 
 - 服务端 `world.Vec2i` 是持久化场景坐标，字段包括 `self_pos`、玩家持久化 `pos_x/pos_y`，仍用于进入世界和无客户端落点配置时兜底。
+- 同场景实时移动额外使用 `precise_pos` 千分之一格定点坐标；该字段只负责短时表现，服务端会将其限制在当前整数权威格周围半格内，不替代数据库坐标。
 - 客户端地图显示使用像素坐标；传送门切图后的实际站位由目标场景脚本按 `portal_id` 配置场景坐标，再由 `world_controller` 统一换算为像素。
 - 每个场景自己的地图左上角统一视为 `(0, 0)`，不再使用每张地图单独维护的 `world_anchor/local_anchor` 偏移。
 
@@ -13,6 +14,7 @@
 - 当前客户端统一使用 `grid_to_pixels = 24`。
 - 服务端场景坐标 `(x, y)` 渲染到客户端像素位置：`Vector2(x, y) * grid_to_pixels + map_origin_pixels`。
 - 客户端像素位置换算回场景坐标：`(local_pixels - map_origin_pixels) / grid_to_pixels`。
+- 实时表现坐标换算：`scene_position = Vector2(precise_pos.x, precise_pos.y) / 1000`，再使用相同 `grid_to_pixels` 规则转成像素。
 - `map_origin_pixels` 由客户端在加载地图时根据 TileMap 可用矩形自动计算，保证地图左上角对应统一坐标 `(0, 0)`。
 
 ## 开发要求

@@ -110,6 +110,12 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	for _, entity := range payload.NearbyEntities {
 		if entity.PlayerID == teststub.RivalPlayerID {
 			sawRivalPlayer = true
+			if entity.FollowingPet == nil {
+				t.Fatal("rival player entity missing following_pet")
+			}
+			if entity.FollowingPet.PetUID != 21001 || entity.FollowingPet.SkinID != "嫩叶犬_001" {
+				t.Fatalf("rival following pet = %+v, want pet_uid 21001 skin 嫩叶犬_001", entity.FollowingPet)
+			}
 			break
 		}
 	}
@@ -317,11 +323,17 @@ func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
 	clearPackets(secondConn)
 
 	targetPos := protocol.Vec2i{X: 10, Y: 7}
+	precisePos := protocol.Vec2i{X: 10250, Y: 7000}
+	facing := protocol.Vec2i{X: 1}
+	moving := true
 	mustHandleJSONPacket(t, router, firstConn, protocol.CmdMoveIntentReq, 134, protocol.MoveIntentReq{
-		OpID:      12,
-		MoveSeq:   32,
-		SceneID:   1,
-		TargetPos: &targetPos,
+		OpID:       12,
+		MoveSeq:    32,
+		SceneID:    1,
+		TargetPos:  &targetPos,
+		PrecisePos: &precisePos,
+		Facing:     &facing,
+		Moving:     &moving,
 	})
 	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
 		t.Fatalf("moving player packets = %+v, want only move response", firstConn.packets)
@@ -336,6 +348,83 @@ func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
 	}
 	if push.SceneID != 1 || push.EntityID != teststub.DemoPlayerID || push.ToPos != targetPos {
 		t.Fatalf("entity move push = %+v, want demo player target %+v in scene 1", push, targetPos)
+	}
+	if push.PrecisePos != precisePos || push.Facing != facing || !push.Moving {
+		t.Fatalf("entity movement presentation = %+v, want precise=%+v facing=%+v moving=true", push, precisePos, facing)
+	}
+}
+
+// TestNormalizeMovementPresentation 验证服务端会限制高精度表现位置并拒绝斜向朝向。
+func TestNormalizeMovementPresentation(t *testing.T) {
+	targetPos := world.Vec2i{X: 10, Y: 7}
+	outOfRange := protocol.Vec2i{X: 12000, Y: 5000}
+	precisePos := normalizePreciseMovementPosition(targetPos, &outOfRange)
+	if precisePos.X != 10500 || precisePos.Y != 6500 {
+		t.Fatalf("precise position = %+v, want clamped (10500,6500)", precisePos)
+	}
+
+	diagonalFacing := protocol.Vec2i{X: 1, Y: 1}
+	facing := normalizeMovementFacing(world.Vec2i{X: 9, Y: 7}, targetPos, &diagonalFacing)
+	if facing != (protocol.Vec2i{X: 1}) {
+		t.Fatalf("facing = %+v, want inferred right direction", facing)
+	}
+	if !normalizeMovementState(world.Vec2i{X: 9, Y: 7}, targetPos, nil) {
+		t.Fatal("legacy movement state = false, want inferred moving=true")
+	}
+	stopped := false
+	if normalizeMovementState(world.Vec2i{X: 9, Y: 7}, targetPos, &stopped) {
+		t.Fatal("explicit movement state = true, want stopped=false")
+	}
+}
+
+// TestRouterBroadcastsFollowingPetAfterLineupChange 验证玩家更换首只出战宠物后同场景客户端立即刷新跟随表现。
+func TestRouterBroadcastsFollowingPetAfterLineupChange(t *testing.T) {
+	_, router, _, firstConn := buildWorldRouterForTest(t)
+	secondConn := &fakeConn{id: "conn-2"}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, secondConn); err != nil {
+		t.Fatalf("Bind(rival) error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdEnterWorldReq, 135, protocol.EnterWorldReq{})
+	mustHandleJSONPacket(t, router, secondConn, protocol.CmdEnterWorldReq, 136, protocol.EnterWorldReq{})
+	clearPackets(firstConn)
+	clearPackets(secondConn)
+
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdPetLineupSetReq, 137, protocol.PetLineupSetReq{
+		PetUIDs: []uint64{20002},
+	})
+	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdPetLineupSetResp {
+		t.Fatalf("lineup owner packets = %+v, want one lineup response", firstConn.packets)
+	}
+	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityEnterPush {
+		t.Fatalf("nearby player packets = %+v, want one entity refresh push", secondConn.packets)
+	}
+
+	var push protocol.EntityEnterPush
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
+		t.Fatalf("UnmarshalBody(entity refresh) error = %v", err)
+	}
+	if push.Entity.PlayerID != teststub.DemoPlayerID || push.Entity.FollowingPet == nil {
+		t.Fatalf("entity refresh = %+v, want demo player with following pet", push.Entity)
+	}
+	if push.Entity.FollowingPet.PetUID != 20002 || push.Entity.FollowingPet.SkinID != "潮汐狐_001" {
+		t.Fatalf("following pet = %+v, want pet_uid 20002 skin 潮汐狐_001", push.Entity.FollowingPet)
+	}
+
+	clearPackets(firstConn)
+	clearPackets(secondConn)
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdPetLineupSetReq, 138, protocol.PetLineupSetReq{
+		PetUIDs: []uint64{},
+	})
+	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityEnterPush {
+		t.Fatalf("empty lineup nearby packets = %+v, want one entity refresh push", secondConn.packets)
+	}
+	push = protocol.EntityEnterPush{}
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
+		t.Fatalf("UnmarshalBody(empty lineup entity refresh) error = %v", err)
+	}
+	if push.Entity.FollowingPet != nil {
+		t.Fatalf("empty lineup following pet = %+v, want nil", push.Entity.FollowingPet)
 	}
 }
 
