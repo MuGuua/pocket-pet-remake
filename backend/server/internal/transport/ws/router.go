@@ -383,7 +383,13 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(responsePacket)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	if r.worldHandler != nil && worldSnapshot != nil {
+		r.worldHandler.enterPlayerScene(context.Background(), sess.PlayerID, worldSnapshot.SceneID)
+	}
+	return nil
 }
 
 func sendError(conn packetSender, seq uint32, code uint32, message string, causes ...error) error {

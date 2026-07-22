@@ -13,7 +13,7 @@
 - NPC 对话节点 `effects_json.accept_quest_id` 在玩家选择“接受”并进入后续节点时接取任务。
 - NPC 对话节点 `effects_json.quest_event` 先推进任务目标，`effects_json.submit_quest_id` 随后校验并交付任务、持久化奖励。
 - 对话副作用失败时返回失败响应，不允许客户端继续显示“任务完成”。
-- `SCENE_TRIGGER_PUSH.prompt_text` 用于一次性场景提示；有剧情动画时在动画结束后展示，无动画时进入场景立即展示。
+- `SCENE_TRIGGER_PUSH.prompt_text` 用于一次性场景提示；有剧情动画时在动画结束后展示，无动画时进入场景立即展示，客户端统一通过 `ConfirmPromptPopup` 渲染 BBCode 正文。
 
 ## 1. 文档目的
 
@@ -624,7 +624,7 @@
 - 当前运行时已正式接入 `gold` / `exp` / `item` / `pet` 四类任务奖励
 - `feature_unlock` 仍保留在任务模板配置中，后续由对应后端模块接入正式发放
 - `rewards` 字段表示本次已经实际走过服务端发奖链路的奖励
-- `completion_prompt_text` 表示任务提交成功后客户端先展示的完成提示文案，支持 Godot RichTextLabel BBCode；为空时客户端跳过该提示，直接展示升级/奖励结算
+- `completion_prompt_text` 表示任务提交成功后客户端先通过 `ConfirmPromptPopup` 展示的完成提示文案，支持 Godot RichTextLabel BBCode；为空时客户端跳过该提示，直接展示升级/奖励结算
 - 如果本次奖励包含金币，服务端会继续推送 `5091 WALLET_UPDATE_PUSH`
 - 如果本次奖励包含道具，服务端会继续推送 `5011 BAG_UPDATE_PUSH`
 - 如果本次奖励包含宠物，服务端会继续推送 `3011 PET_UPDATE_PUSH`
@@ -688,6 +688,7 @@
 说明：
 - 追踪状态变化后，服务端也可补发 `QUEST_UPDATE_PUSH`
 - 客户端本地不应只靠按钮状态自行切换最终追踪结果
+- 任务面板根据服务端任务快照生成的前置或目标引导文案统一通过 `ConfirmPromptPopup` 展示；普通系统通知仍保留 HUD 日志行为
 
 ## 11. 引导推送协议
 

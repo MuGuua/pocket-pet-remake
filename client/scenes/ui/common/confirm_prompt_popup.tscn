@@ -7,6 +7,7 @@
 
 [node name="ConfirmPromptPopup" type="CanvasLayer" unique_id=1206606595]
 layer = 133
+visible = false
 script = ExtResource("1_script")
 
 [node name="DimLayer" type="ColorRect" parent="." unique_id=1168750911]

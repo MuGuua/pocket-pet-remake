@@ -1,6 +1,10 @@
 extends RuntimeRootPanel
 class_name TaskPanel
 
+## 请求主场景展示任务前置或目标引导确认提示。
+## message 是根据服务端任务快照生成的 BBCode 提示正文。
+signal quest_prompt_requested(message: String)
+
 ## 通用任务卡片场景；列表按服务端任务数量逐个实例化该场景。
 const TASK_CARD_SCENE: PackedScene = preload("res://scenes/ui/task/task_list.tscn")
 
@@ -304,7 +308,7 @@ func _track_and_notice_quest(quest: Dictionary, notice: String) -> void:
     if quest_id <= 0:
         return
     _pending_action_seq = App.track_quest(quest_id)
-    App.notice_received.emit(_build_quest_guide_notice(quest, notice))
+    quest_prompt_requested.emit(_build_quest_guide_notice(quest, notice))
     if _pending_action_seq > 0:
         _refresh_task_lists()
         call_deferred("_wait_task_action_request", _pending_action_seq)

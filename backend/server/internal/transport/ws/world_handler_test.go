@@ -258,6 +258,87 @@ func TestRouterHandleMoveIntentLocalOnly(t *testing.T) {
 	}
 }
 
+// TestRouterHandleMoveIntentSynchronizesPosition 验证新客户端上报坐标后，服务端先持久化再返回权威坐标。
+func TestRouterHandleMoveIntentSynchronizesPosition(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+	targetPos := protocol.Vec2i{X: 9, Y: 7}
+
+	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 131, 0, protocol.MoveIntentReq{
+		OpID:      11,
+		MoveSeq:   31,
+		SceneID:   1,
+		TargetPos: &targetPos,
+	})
+	if err != nil {
+		t.Fatalf("NewJSONPacket() error = %v", err)
+	}
+	raw, err := protocol.EncodePacket(packet)
+	if err != nil {
+		t.Fatalf("EncodePacket() error = %v", err)
+	}
+	if err := router.Handle(conn, raw); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+
+	var resp protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted || resp.CorrectedPos != targetPos {
+		t.Fatalf("response = %+v, want accepted target position %+v", resp, targetPos)
+	}
+	if resp.Reason != "position synchronized" {
+		t.Fatalf("resp.Reason = %q, want position synchronized", resp.Reason)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.PosX != targetPos.X || profile.PosY != targetPos.Y {
+		t.Fatalf("profile position = (%d,%d), want (%d,%d)", profile.PosX, profile.PosY, targetPos.X, targetPos.Y)
+	}
+}
+
+// TestRouterBroadcastsMovementOnlyToPlayersInSameScene 验证移动推送会到达同场景玩家，且不会回推给移动者自身。
+func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
+	_, router, _, firstConn := buildWorldRouterForTest(t)
+	secondConn := &fakeConn{id: "conn-2"}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, secondConn); err != nil {
+		t.Fatalf("Bind(rival) error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdEnterWorldReq, 132, protocol.EnterWorldReq{})
+	mustHandleJSONPacket(t, router, secondConn, protocol.CmdEnterWorldReq, 133, protocol.EnterWorldReq{})
+	clearPackets(firstConn)
+	clearPackets(secondConn)
+
+	targetPos := protocol.Vec2i{X: 10, Y: 7}
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdMoveIntentReq, 134, protocol.MoveIntentReq{
+		OpID:      12,
+		MoveSeq:   32,
+		SceneID:   1,
+		TargetPos: &targetPos,
+	})
+	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
+		t.Fatalf("moving player packets = %+v, want only move response", firstConn.packets)
+	}
+	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityMovePush {
+		t.Fatalf("nearby player packets = %+v, want one entity move push", secondConn.packets)
+	}
+
+	var push protocol.EntityMovePush
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
+		t.Fatalf("UnmarshalBody(entity move) error = %v", err)
+	}
+	if push.SceneID != 1 || push.EntityID != teststub.DemoPlayerID || push.ToPos != targetPos {
+		t.Fatalf("entity move push = %+v, want demo player target %+v in scene 1", push, targetPos)
+	}
+}
+
 func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 

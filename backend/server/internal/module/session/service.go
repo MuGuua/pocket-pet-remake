@@ -16,16 +16,17 @@ var ErrSessionNotFound = errors.New("session not found")
 var ErrReconnectTokenInvalid = errors.New("reconnect token invalid")
 
 type Service struct {
-	mu                sync.RWMutex
-	sessionsByID      map[string]*Session
-	sessionIDByPlayer map[uint64]string
-	sessionIDByConn   map[string]string
-	sessionIDByToken  map[string]string
-	heartbeatInterval time.Duration
-	heartbeatTimeout  time.Duration
-	now               func() time.Time
-	logger            *log.Logger
-	onDisconnect      func(playerID uint64)
+	mu                           sync.RWMutex
+	sessionsByID                 map[string]*Session
+	sessionIDByPlayer            map[uint64]string
+	sessionIDByConn              map[string]string
+	sessionIDByToken             map[string]string
+	heartbeatInterval            time.Duration
+	heartbeatTimeout             time.Duration
+	now                          func() time.Time
+	logger                       *log.Logger
+	onDisconnect                 func(playerID uint64)
+	additionalDisconnectHandlers []func(playerID uint64)
 }
 
 func NewService(logger *log.Logger, heartbeatInterval, heartbeatTimeout time.Duration) *Service {
@@ -103,10 +104,35 @@ func (s *Service) GetByPlayerID(playerID uint64) (*Session, error) {
 	return &copy, nil
 }
 
+// ListConnected 返回当前仍绑定 WebSocket 的会话副本，供同服实时消息按玩家筛选接收者。
+func (s *Service) ListConnected() []Session {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]Session, 0, len(s.sessionsByID))
+	for _, current := range s.sessionsByID {
+		if current.ConnID == "" || current.Conn == nil {
+			continue
+		}
+		result = append(result, *current)
+	}
+	return result
+}
+
 func (s *Service) SetDisconnectHandler(handler func(playerID uint64)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onDisconnect = handler
+}
+
+// AddDisconnectHandler 追加互不覆盖的断线清理逻辑，让战斗结算与世界离场广播可以同时执行。
+func (s *Service) AddDisconnectHandler(handler func(playerID uint64)) {
+	if handler == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.additionalDisconnectHandlers = append(s.additionalDisconnectHandlers, handler)
 }
 
 func (s *Service) Bind(playerID uint64, conn Conn) (*Session, error) {
@@ -226,10 +252,16 @@ func (s *Service) Disconnect(connID string) {
 	s.mu.Lock()
 	playerID, removed := s.disconnectConnLocked(connID)
 	handler := s.onDisconnect
+	additionalHandlers := append([]func(playerID uint64){}, s.additionalDisconnectHandlers...)
 	s.mu.Unlock()
 
-	if removed && handler != nil {
-		handler(playerID)
+	if removed {
+		if handler != nil {
+			handler(playerID)
+		}
+		for _, additionalHandler := range additionalHandlers {
+			additionalHandler(playerID)
+		}
 	}
 }
 
@@ -255,9 +287,10 @@ func (s *Service) cleanupExpired() {
 	now := s.now()
 	stale := make([]Conn, 0)
 	stalePlayerIDs := make([]uint64, 0)
-	handler := s.onDisconnect
 
 	s.mu.Lock()
+	handler := s.onDisconnect
+	additionalHandlers := append([]func(playerID uint64){}, s.additionalDisconnectHandlers...)
 	for sessionID, session := range s.sessionsByID {
 		if session.ConnID == "" || session.Conn == nil {
 			if session.DisconnectedAt.IsZero() || now.Sub(session.DisconnectedAt) <= s.heartbeatTimeout {
@@ -282,6 +315,11 @@ func (s *Service) cleanupExpired() {
 	if handler != nil {
 		for _, playerID := range stalePlayerIDs {
 			handler(playerID)
+		}
+	}
+	for _, additionalHandler := range additionalHandlers {
+		for _, playerID := range stalePlayerIDs {
+			additionalHandler(playerID)
 		}
 	}
 }

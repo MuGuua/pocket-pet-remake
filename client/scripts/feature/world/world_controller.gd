@@ -19,6 +19,10 @@ const CLICK_MARKER_WIDTH: float = 2.0
 const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
 ## 每帧最多记录的宠物跟随路径步数，防止主角锚点异常时在单帧 while 中卡死。
 const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
+## 远端玩家复用现有角色场景，确保人物形象、动画和地图层级口径一致。
+const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/world/player.tscn")
+## 服务端场景实体中代表玩家的类型值。
+const PLAYER_ENTITY_TYPE: int = 1
 
 @export_group("点击移动反馈")
 ## 点击地面时播放的精灵帧动画；在检查器拖入 SpriteFrames 后优先于 Line2D 圆环。
@@ -77,6 +81,12 @@ var _force_battle_pose_active: bool = false
 var _pet_follower: WorldPetFollower = null
 ## 主角路径记录锚点，用于按 24px 格距压入跟随路径。
 var _leader_path_anchor: Vector2 = Vector2.INF
+## 当前地图已创建的远端玩家节点，键为服务端 entity_id。
+var _remote_player_nodes: Dictionary = {}
+## 最近一次发给服务端的整数场景坐标，用于限制移动同步为每格一次。
+var _last_network_position: Vector2i = Vector2i.ZERO
+## 标记最近网络坐标是否有效，切图后会重新上报新地图落点。
+var _has_last_network_position: bool = false
 
 func _process(delta: float) -> void:
 	_update_pet_follow(delta)
@@ -128,20 +138,32 @@ func handle_enter_world(payload: Dictionary) -> void:
 	_emit_scene_loaded_if_changed(true)
 
 func handle_entity_enter(payload: Dictionary) -> void:
+	if payload.has("scene_id") and int(payload.get("scene_id", 0)) != _current_scene_id():
+		return
 	var entity_variant: Variant = payload.get("entity", payload)
 	var entity: Dictionary = entity_variant if entity_variant is Dictionary else {}
 	GameState.add_entity(entity)
+	_sync_remote_players()
 
 func handle_entity_leave(payload: Dictionary) -> void:
+	if payload.has("scene_id") and int(payload.get("scene_id", 0)) != _current_scene_id():
+		return
 	GameState.remove_entity(int(payload.get("entity_id", 0)))
+	_sync_remote_players()
 
 func handle_entity_move(payload: Dictionary) -> void:
+	if payload.has("scene_id") and int(payload.get("scene_id", 0)) != _current_scene_id():
+		return
 	GameState.apply_entity_move(payload)
+	_sync_remote_players()
 
 func handle_move_intent_response(payload: Dictionary) -> void:
 	var accepted: bool = bool(payload.get("accepted", false))
 	var scene_id: int = int(payload.get("scene_id", _current_scene_id()))
 	if accepted and scene_id == _current_scene_id():
+		# 普通坐标同步不持有切图锁；延迟响应不能解除随后发生的战斗、剧情或弹窗输入锁。
+		if _pending_target_scene_id == 0:
+			return
 		_pending_target_scene_id = 0
 		_pending_portal_id = 0
 		_pending_player_facing_requested = false
@@ -307,12 +329,14 @@ func mount_level(level_scene: PackedScene) -> void:
 	_rebuild_navigation_grid()
 	_sync_local_actor_y_sort()
 	_sync_pet_follower_lineup()
+	_sync_remote_players()
 
 func unmount_current_level() -> void:
 	if _current_level == null:
 		return
 
 	_clear_current_interactable_npc()
+	_clear_remote_players()
 	_clear_navigation_grid()
 	_detach_player_from_current_level()
 	_detach_pet_follower_from_current_level()
@@ -531,6 +555,7 @@ func _apply_authoritative_snapshot() -> void:
 	_sync_pet_follower_lineup()
 	_apply_level_camera_limits()
 	_sync_local_actor_y_sort()
+	_sync_remote_players()
 	_refresh_background_fill()
 
 	_pending_target_scene_id = 0
@@ -1372,6 +1397,81 @@ func _report_player_position_if_changed() -> void:
 	_last_reported_player_position = current_position
 	GameState.sync_player_scene_position(current_position)
 	player_position_changed.emit(current_position, _current_player_global_position())
+	_report_player_position_to_server(current_position)
+
+## 把本地移动结果按整数场景格上报服务端；同一格内的像素变化不会重复写库或广播。
+func _report_player_position_to_server(scene_position: Vector2) -> void:
+	var scene_id: int = _current_scene_id()
+	if scene_id <= 0 or not GameState.is_ws_authenticated or _pending_target_scene_id != 0:
+		return
+	var network_position: Vector2i = Vector2i(roundi(scene_position.x), roundi(scene_position.y))
+	if _has_last_network_position and network_position == _last_network_position:
+		return
+	_last_network_position = network_position
+	_has_last_network_position = true
+	NetClient.send_command(
+		CommandIds.MOVE_INTENT_REQ,
+		{
+			"op_id": _take_next_op_id(),
+			"move_seq": _take_next_move_seq(),
+			"scene_id": scene_id,
+			"target_pos": {"x": network_position.x, "y": network_position.y},
+		}
+	)
+
+## 根据 GameState 的附近实体快照创建、更新或移除当前地图中的远端玩家节点。
+func _sync_remote_players() -> void:
+	if _current_level == null or not is_instance_valid(_current_level):
+		return
+	var expected_entity_ids: Dictionary = {}
+	for entity_id_variant: Variant in GameState.nearby_entities.keys():
+		var entity_variant: Variant = GameState.nearby_entities.get(entity_id_variant, {})
+		if entity_variant is not Dictionary:
+			continue
+		var entity: Dictionary = entity_variant
+		var entity_id: int = int(entity.get("entity_id", entity_id_variant))
+		var remote_player_id: int = int(entity.get("player_id", 0))
+		if int(entity.get("entity_type", 0)) != PLAYER_ENTITY_TYPE:
+			continue
+		if entity_id <= 0 or remote_player_id == GameState.player_id:
+			continue
+		expected_entity_ids[entity_id] = true
+		var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
+		var position_variant: Variant = entity.get("pos", {})
+		var server_position: Vector2 = Vector2(
+			float(position_variant.get("x", entity.get("x", 0.0))) if position_variant is Dictionary else float(entity.get("x", 0.0)),
+			float(position_variant.get("y", entity.get("y", 0.0))) if position_variant is Dictionary else float(entity.get("y", 0.0))
+		)
+		var local_position: Vector2 = _server_to_local_position(_current_scene_id(), server_position)
+		if remote_node == null or not is_instance_valid(remote_node):
+			remote_node = REMOTE_PLAYER_SCENE.instantiate() as player
+			if remote_node == null:
+				continue
+			remote_node.name = "RemotePlayer_%d" % entity_id
+			remote_node.is_remote_avatar = true
+			_get_player_host(_current_level).add_child(remote_node)
+			remote_node.apply_remote_initial_position(local_position)
+			_configure_actor_y_sort(remote_node)
+			_remote_player_nodes[entity_id] = remote_node
+		else:
+			remote_node.set_remote_target_position(local_position)
+	for entity_id_variant: Variant in _remote_player_nodes.keys():
+		var entity_id: int = int(entity_id_variant)
+		if expected_entity_ids.has(entity_id):
+			continue
+		var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
+		if remote_node != null and is_instance_valid(remote_node):
+			remote_node.queue_free()
+		_remote_player_nodes.erase(entity_id)
+
+## 清理旧地图上的远端玩家引用，避免切图后继续更新已经释放的节点。
+func _clear_remote_players() -> void:
+	for remote_node_variant: Variant in _remote_player_nodes.values():
+		var remote_node: player = remote_node_variant as player
+		if remote_node != null and is_instance_valid(remote_node):
+			remote_node.queue_free()
+	_remote_player_nodes.clear()
+	_has_last_network_position = false
 
 
 func _ensure_pet_follower() -> void:

@@ -16,6 +16,8 @@ const STATE_BATTLE := "battle"
 const LEGACY_BATTLE_ANIMATION := "battle_pose"
 # 世界场景进入战斗后统一替换的形象资源 ID，对应 resources/battle/unit_skins/其他/战斗待机_004.tres。
 const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
+## 远端角色追赶服务端目标点时使用的像素速度，略高于本地移速以吸收网络抖动。
+const REMOTE_INTERPOLATION_SPEED_PX_PER_SEC: float = 140.0
 
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
@@ -23,6 +25,8 @@ const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 @export var camera_zoom_scale: float = 2.0
 # 世界相机相对玩家的垂直偏移；负值表示画面整体上移。
 @export var camera_vertical_offset: float = 150.0
+## 标记该实例是否代表其他在线玩家；远端角色不读取输入、不启用相机和碰撞。
+@export var is_remote_avatar: bool = false
 
 # 当前角色朝向的四方向单位向量。
 var cardinal_direction: Vector2 = Vector2.DOWN
@@ -60,13 +64,28 @@ var _character_visual: CharacterVisual = null
 var _uses_character_visual: bool = false
 # 标记当前是否正在使用战斗专用形象覆盖正常 skin_id。
 var _battle_skin_override_active: bool = false
+## 远端角色最近一次收到的服务端目标像素坐标。
+var _remote_target_position: Vector2 = Vector2.ZERO
+## 标记远端角色是否已经取得有效目标点。
+var _remote_target_initialized: bool = false
 
 func _ready() -> void:
-	if camera_node != null:
+	if camera_node != null and not is_remote_avatar:
 		camera_node.make_current()
+	if is_remote_avatar:
+		collision_layer = 0
+		collision_mask = 0
+		if body_collision_shape != null:
+			body_collision_shape.disabled = true
+		if click_collision_shape != null:
+			click_collision_shape.disabled = true
+		if camera_node != null:
+			camera_node.enabled = false
 	_apply_camera_zoom()
 	_apply_camera_offset()
 	_setup_character_visual()
+	if is_remote_avatar:
+		return
 	if not GameState.world_snapshot_changed.is_connected(_on_world_snapshot_changed):
 		GameState.world_snapshot_changed.connect(_on_world_snapshot_changed)
 	_sync_skin_from_snapshot()
@@ -77,6 +96,9 @@ func _exit_tree() -> void:
 
 # 每帧读取输入并更新角色状态与动画。
 func _process(_delta: float) -> void:
+	if is_remote_avatar:
+		_update_remote_avatar(_delta)
+		return
 	if _is_movement_locked():
 		# 锁定移动时同时清空自动寻路，避免切图或战斗结束后继续沿旧路径前进。
 		_clear_auto_move_path()
@@ -112,6 +134,8 @@ func _process(_delta: float) -> void:
 
 # 在物理帧中执行角色移动。
 func _physics_process(_delta: float) -> void:
+	if is_remote_avatar:
+		return
 	move_and_slide()
 	# 像素风世界要求角色始终落在整数像素上，避免相机跟随时把整张地图带成半像素采样。
 	position = position.round()
@@ -138,6 +162,37 @@ func apply_authoritative_position(local_position: Vector2) -> void:
 	_scene_transition_locked = false
 	if _update_state():
 		_update_animation()
+
+## 立即放置远端角色，首次创建或切图重建时不播放从原点飞入的插值。
+func apply_remote_initial_position(local_position: Vector2) -> void:
+	_remote_target_position = local_position.round()
+	_remote_target_initialized = true
+	position = _remote_target_position
+	direction = Vector2.ZERO
+	velocity = Vector2.ZERO
+	_update_state()
+	_update_animation()
+
+## 写入远端角色最新权威目标点，后续帧只做平滑追赶，不参与本地碰撞判定。
+func set_remote_target_position(local_position: Vector2) -> void:
+	_remote_target_position = local_position.round()
+	if not _remote_target_initialized:
+		apply_remote_initial_position(_remote_target_position)
+
+## 根据服务端目标点更新远端角色位置、朝向和行走动画。
+func _update_remote_avatar(delta: float) -> void:
+	if not _remote_target_initialized:
+		return
+	var offset: Vector2 = _remote_target_position - position
+	if offset.length() <= 0.5:
+		position = _remote_target_position
+		direction = Vector2.ZERO
+	else:
+		direction = offset.normalized()
+		position = position.move_toward(_remote_target_position, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta).round()
+	_set_direction()
+	_update_state()
+	_update_animation()
 
 func set_facing_direction(facing_direction: Vector2) -> void:
 	var resolved_direction := _resolve_cardinal_direction(facing_direction)

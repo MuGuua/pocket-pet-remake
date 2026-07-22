@@ -315,6 +315,8 @@ type MoveIntentReq struct {
 	SceneID       uint32 `json:"scene_id"`
 	TargetSceneID uint32 `json:"target_scene_id"`
 	PortalID      uint32 `json:"portal_id"`
+	// TargetPos 仅用于同场景移动上报；保留为可选字段以兼容只负责切图的旧客户端。
+	TargetPos *Vec2i `json:"target_pos,omitempty"`
 }
 
 type MoveIntentResp struct {
@@ -507,12 +509,25 @@ type PVPChallengeReplyResp struct {
 }
 
 type EntityMovePush struct {
+	SceneID      uint32 `json:"scene_id"`
 	SceneVersion uint32 `json:"scene_version"`
 	EntityID     uint64 `json:"entity_id"`
 	MoveSeq      uint32 `json:"move_seq"`
 	FromPos      Vec2i  `json:"from_pos"`
 	ToPos        Vec2i  `json:"to_pos"`
 	Speed        uint32 `json:"speed"`
+}
+
+// EntityEnterPush 通知同场景客户端创建一个新进入视野的实体。
+type EntityEnterPush struct {
+	SceneID uint32      `json:"scene_id"`
+	Entity  EntityBrief `json:"entity"`
+}
+
+// EntityLeavePush 通知同场景客户端移除已经离线或切图的实体。
+type EntityLeavePush struct {
+	SceneID  uint32 `json:"scene_id"`
+	EntityID uint64 `json:"entity_id"`
 }
 
 type WorldResyncPush struct {

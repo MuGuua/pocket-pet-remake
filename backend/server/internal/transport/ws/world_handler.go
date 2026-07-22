@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/monster"
@@ -35,6 +36,8 @@ type WorldHandler struct {
 	equipmentService *equipment.Service
 	runtimeSnapshots *runtimeview.Service
 	storyService     *storyprogress.Service
+	presenceMu       sync.RWMutex
+	playerScenes     map[uint64]uint32
 }
 
 func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
@@ -47,6 +50,7 @@ func NewWorldHandler(sessionService *session.Service, playerService *player.Serv
 		worldService:     worldService,
 		monsterService:   monsterService,
 		equipmentService: equipmentService,
+		playerScenes:     make(map[uint64]uint32),
 	}
 }
 
@@ -121,6 +125,8 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 		}
 		playerSnapshot.EquippedItems = toProtocolEquippedItems(equippedItems)
 	}
+	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
+	nearbyEntities = h.appendOnlinePlayerEntities(ctx, playerID, snapshot.SceneID, nearbyEntities)
 	return &protocol.EnterWorldResp{
 		Self: protocol.PlayerBrief{
 			PlayerID: profile.PlayerID,
@@ -131,7 +137,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
-		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
+		NearbyEntities: nearbyEntities,
 		Lineup:         toProtocolLineup(lineup, h.petService.ResolveSkinID),
 		Gold:           legacyGold,
 		WildEncounter:  wildEncounter,
@@ -171,6 +177,7 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	if err := conn.SendPacket(responsePacket); err != nil {
 		return err
 	}
+	h.enterPlayerScene(ctx, sess.PlayerID, responseBody.SceneID)
 	if h.questService != nil {
 		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
 	}
@@ -199,19 +206,36 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, profile.SceneID, currentPos, "scene mismatch")
 	}
 
-	// In-scene movement is client-authoritative now; the server only tracks scene/map transfers.
+	// 新客户端会持续上报当前格子坐标；服务端先持久化，再把权威结果广播给同场景其他玩家。
+	// 旧客户端没有 target_pos 时仍维持原有响应，避免破坏已有切图协议兼容性。
 	if request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID {
+		correctedPos := currentPos
+		reason := "local movement handled by client"
+		if request.TargetPos != nil {
+			correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
+			if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, profile.SceneID, correctedPos.X, correctedPos.Y); err != nil {
+				return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
+			}
+			reason = "position synchronized"
+		}
 		responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 			Accepted:     true,
 			MoveSeq:      request.MoveSeq,
 			SceneID:      profile.SceneID,
-			CorrectedPos: protocol.Vec2i{X: currentPos.X, Y: currentPos.Y},
-			Reason:       "local movement handled by client",
+			CorrectedPos: protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
+			Reason:       reason,
 		})
 		if err != nil {
 			return err
 		}
-		return conn.SendPacket(responsePacket)
+		if err := conn.SendPacket(responsePacket); err != nil {
+			return err
+		}
+		if request.TargetPos != nil {
+			h.enterPlayerScene(ctx, sess.PlayerID, profile.SceneID)
+			h.broadcastEntityMove(profile.SceneID, sess.PlayerID, request.MoveSeq, currentPos, correctedPos)
+		}
+		return nil
 	}
 
 	decision, err := h.worldService.EvaluateTransfer(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
@@ -240,6 +264,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 	}
+	h.transferPlayerScene(ctx, sess.PlayerID, profile.SceneID, decision.ToSceneID)
 	if h.questService != nil {
 		questBefore, _ := listQuestSummaries(ctx, h.questService, sess.PlayerID)
 		_, _ = h.questService.HandleEvent(ctx, quest.Event{
@@ -258,6 +283,130 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return err
 	}
 	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
+}
+
+// HandleSessionDisconnect 从在线场景索引移除玩家，并通知原场景剩余客户端删除远端角色。
+func (h *WorldHandler) HandleSessionDisconnect(playerID uint64) {
+	h.presenceMu.Lock()
+	sceneID, exists := h.playerScenes[playerID]
+	delete(h.playerScenes, playerID)
+	h.presenceMu.Unlock()
+	if !exists {
+		return
+	}
+	h.broadcastEntityLeave(sceneID, playerID)
+}
+
+// appendOnlinePlayerEntities 把进程内已进入世界的同场景玩家合并到数据库场景实体快照。
+func (h *WorldHandler) appendOnlinePlayerEntities(ctx context.Context, selfPlayerID uint64, sceneID uint32, entities []protocol.EntityBrief) []protocol.EntityBrief {
+	seenEntityIDs := make(map[uint64]struct{}, len(entities))
+	for _, entity := range entities {
+		seenEntityIDs[entity.EntityID] = struct{}{}
+	}
+	for _, playerID := range h.playerIDsInScene(sceneID, selfPlayerID) {
+		if _, exists := seenEntityIDs[playerID]; exists {
+			continue
+		}
+		profile, err := h.playerService.GetProfile(ctx, playerID)
+		if err != nil {
+			continue
+		}
+		entities = append(entities, h.playerEntity(profile))
+		seenEntityIDs[playerID] = struct{}{}
+	}
+	return entities
+}
+
+// enterPlayerScene 记录在线场景，并仅在首次进入或切换场景时向其他玩家广播实体进入。
+func (h *WorldHandler) enterPlayerScene(ctx context.Context, playerID uint64, sceneID uint32) {
+	h.presenceMu.Lock()
+	previousSceneID, existed := h.playerScenes[playerID]
+	h.playerScenes[playerID] = sceneID
+	h.presenceMu.Unlock()
+	if existed && previousSceneID == sceneID {
+		return
+	}
+	profile, err := h.playerService.GetProfile(ctx, playerID)
+	if err != nil {
+		return
+	}
+	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
+		SceneID: sceneID,
+		Entity:  h.playerEntity(profile),
+	})
+	if err == nil {
+		h.sendPacketToScene(sceneID, playerID, packet)
+	}
+}
+
+// transferPlayerScene 广播旧场景离开后登记新场景，保证两边客户端实体列表同步。
+func (h *WorldHandler) transferPlayerScene(ctx context.Context, playerID uint64, fromSceneID uint32, toSceneID uint32) {
+	h.presenceMu.Lock()
+	delete(h.playerScenes, playerID)
+	h.presenceMu.Unlock()
+	h.broadcastEntityLeave(fromSceneID, playerID)
+	h.enterPlayerScene(ctx, playerID, toSceneID)
+}
+
+// broadcastEntityMove 把持久化后的坐标发给同场景其他玩家，发送失败不反向中断移动者连接。
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i) {
+	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
+		SceneID:      sceneID,
+		SceneVersion: 1,
+		EntityID:     playerID,
+		MoveSeq:      moveSeq,
+		FromPos:      protocol.Vec2i{X: fromPos.X, Y: fromPos.Y},
+		ToPos:        protocol.Vec2i{X: toPos.X, Y: toPos.Y},
+	})
+	if err == nil {
+		h.sendPacketToScene(sceneID, playerID, packet)
+	}
+}
+
+// broadcastEntityLeave 通知指定场景中的其他在线玩家移除目标角色。
+func (h *WorldHandler) broadcastEntityLeave(sceneID uint32, playerID uint64) {
+	packet, err := protocol.NewJSONPacket(protocol.CmdEntityLeavePush, 0, errcode.WSCodeSuccess, protocol.EntityLeavePush{
+		SceneID:  sceneID,
+		EntityID: playerID,
+	})
+	if err == nil {
+		h.sendPacketToScene(sceneID, playerID, packet)
+	}
+}
+
+// sendPacketToScene 按在线场景索引筛选接收者，避免把坐标泄漏给其他地图玩家。
+func (h *WorldHandler) sendPacketToScene(sceneID uint32, excludedPlayerID uint64, packet *protocol.Packet) {
+	for _, playerID := range h.playerIDsInScene(sceneID, excludedPlayerID) {
+		sess, err := h.sessionService.GetByPlayerID(playerID)
+		if err != nil || sess.Conn == nil {
+			continue
+		}
+		_ = sess.Conn.SendPacket(packet)
+	}
+}
+
+// playerIDsInScene 返回场景内玩家 ID 快照，避免发送网络包时长期持有在线索引锁。
+func (h *WorldHandler) playerIDsInScene(sceneID uint32, excludedPlayerID uint64) []uint64 {
+	h.presenceMu.RLock()
+	defer h.presenceMu.RUnlock()
+	result := make([]uint64, 0)
+	for playerID, currentSceneID := range h.playerScenes {
+		if currentSceneID == sceneID && playerID != excludedPlayerID {
+			result = append(result, playerID)
+		}
+	}
+	return result
+}
+
+// playerEntity 把权威玩家档案转换成客户端远端角色使用的场景实体摘要。
+func (h *WorldHandler) playerEntity(profile *player.Profile) protocol.EntityBrief {
+	return protocol.EntityBrief{
+		EntityID:   profile.PlayerID,
+		PlayerID:   profile.PlayerID,
+		EntityType: 1,
+		Pos:        protocol.Vec2i{X: profile.PosX, Y: profile.PosY},
+		Name:       profile.Name,
+	}
 }
 
 // HandleSceneTriggerAck 在客户端播放完服务端触发的场景剧情后落库剧情进度，并执行解锁 NPC / 接取任务等副作用。
@@ -417,7 +566,7 @@ func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPo
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
-		NearbyEntities: toProtocolEntities(snapshot.NearbyEntities),
+		NearbyEntities: h.appendOnlinePlayerEntities(context.Background(), sess.PlayerID, snapshot.SceneID, toProtocolEntities(snapshot.NearbyEntities)),
 		WildEncounter:  wildEncounter,
 	})
 	if err != nil {

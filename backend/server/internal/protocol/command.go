@@ -11,6 +11,8 @@ const (
 	CmdReconnectResp              uint16 = 1022
 	CmdEnterWorldReq              uint16 = 2001
 	CmdEnterWorldResp             uint16 = 2002
+	CmdEntityEnterPush            uint16 = 2011
+	CmdEntityLeavePush            uint16 = 2012
 	CmdEntityMovePush             uint16 = 2013
 	CmdWorldResyncPush            uint16 = 2014
 	CmdMoveIntentReq              uint16 = 2021
