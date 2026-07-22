@@ -18,6 +18,8 @@ const LEGACY_BATTLE_ANIMATION := "battle_pose"
 const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
 ## 远端角色追赶服务端目标点时使用的像素速度，略高于本地移速以吸收网络抖动。
 const REMOTE_INTERPOLATION_SPEED_PX_PER_SEC: float = 140.0
+## 单个移动包允许连续预测的最长时间，超过后停止外推，避免断网时人物持续走远。
+const REMOTE_PREDICTION_MAX_SECONDS: float = 0.18
 
 # 本地角色移动速度。
 @export var move_speed: float = 100.0
@@ -72,6 +74,10 @@ var _remote_target_initialized: bool = false
 var _remote_authoritative_direction: Vector2 = Vector2.DOWN
 ## 服务端明确下发的远端角色移动状态，用于在网络采样间隔内保持动画连续。
 var _remote_authoritative_moving: bool = false
+## 最近一次收到远端移动表现包的单调时钟毫秒数。
+var _remote_target_received_msec: int = 0
+## 是否收到支持明确起停状态的新协议；旧协议仍只追赶整数目标点，不执行外推。
+var _remote_prediction_enabled: bool = false
 
 func _ready() -> void:
     if camera_node != null and not is_remote_avatar:
@@ -173,6 +179,8 @@ func apply_remote_initial_position(local_position: Vector2) -> void:
     _remote_target_initialized = true
     _remote_authoritative_direction = Vector2.DOWN
     _remote_authoritative_moving = false
+    _remote_target_received_msec = Time.get_ticks_msec()
+    _remote_prediction_enabled = false
     position = _remote_target_position
     direction = Vector2.ZERO
     velocity = Vector2.ZERO
@@ -182,7 +190,14 @@ func apply_remote_initial_position(local_position: Vector2) -> void:
 ## 写入远端角色最新权威目标点，后续帧只做平滑追赶，不参与本地碰撞判定。
 func set_remote_target_position(local_position: Vector2) -> void:
     var inferred_direction: Vector2 = _resolve_cardinal_direction(local_position - _remote_target_position)
-    set_remote_motion_target(local_position, inferred_direction, not local_position.is_equal_approx(_remote_target_position))
+    _remote_target_position = local_position.round()
+    if inferred_direction != Vector2.ZERO:
+        _remote_authoritative_direction = inferred_direction
+    _remote_authoritative_moving = not local_position.is_equal_approx(position)
+    _remote_target_received_msec = Time.get_ticks_msec()
+    _remote_prediction_enabled = false
+    if not _remote_target_initialized:
+        apply_remote_initial_position(_remote_target_position)
 
 ## 写入服务端校验后的远端表现位置、朝向和移动状态。
 ## local_position 是换算后的地图像素目标点。
@@ -191,25 +206,39 @@ func set_remote_target_position(local_position: Vector2) -> void:
 func set_remote_motion_target(local_position: Vector2, facing_direction: Vector2, moving: bool) -> void:
     _remote_target_position = local_position.round()
     var resolved_direction: Vector2 = _resolve_cardinal_direction(facing_direction)
+    var received_msec: int = Time.get_ticks_msec()
     if resolved_direction != Vector2.ZERO:
         _remote_authoritative_direction = resolved_direction
     _remote_authoritative_moving = moving
+    _remote_target_received_msec = received_msec
+    _remote_prediction_enabled = true
     if not _remote_target_initialized:
         apply_remote_initial_position(_remote_target_position)
         _remote_authoritative_direction = resolved_direction if resolved_direction != Vector2.ZERO else Vector2.DOWN
         _remote_authoritative_moving = moving
+        _remote_target_received_msec = received_msec
+        _remote_prediction_enabled = true
 
 ## 根据服务端目标点更新远端角色位置、朝向和行走动画。
 func _update_remote_avatar(delta: float) -> void:
     if not _remote_target_initialized:
         return
-    var offset: Vector2 = _remote_target_position - position
+    var presentation_target: Vector2 = _remote_target_position
+    var predicting_motion: bool = false
+    if _remote_prediction_enabled and _remote_authoritative_moving:
+        # 在相邻网络包之间按服务端确认的朝向和角色速度继续前进，下一包到达后自然纠正目标。
+        var raw_elapsed_seconds: float = float(Time.get_ticks_msec() - _remote_target_received_msec) / 1000.0
+        var elapsed_seconds: float = minf(raw_elapsed_seconds, REMOTE_PREDICTION_MAX_SECONDS)
+        predicting_motion = raw_elapsed_seconds < REMOTE_PREDICTION_MAX_SECONDS
+        presentation_target += _remote_authoritative_direction * move_speed * elapsed_seconds
+    var offset: Vector2 = presentation_target - position
     if offset.length() <= 0.5:
-        position = _remote_target_position
+        position = presentation_target.round()
     else:
-        position = position.move_toward(_remote_target_position, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta).round()
+        position = position.move_toward(presentation_target, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta).round()
     # 停止包到达时如果仍有少量插值距离，先走到最终位置再切待机，避免人物静止滑动。
-    direction = _remote_authoritative_direction if _remote_authoritative_moving or offset.length() > 0.5 else Vector2.ZERO
+    var should_walk: bool = offset.length() > 0.5 or predicting_motion
+    direction = _remote_authoritative_direction if should_walk else Vector2.ZERO
     _set_direction()
     _update_state()
     _update_animation()
