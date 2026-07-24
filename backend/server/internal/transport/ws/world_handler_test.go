@@ -18,6 +18,7 @@ import (
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/module/storyprogress"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
@@ -25,6 +26,109 @@ import (
 	"pocket-pet-remake/server/internal/protocol"
 	"pocket-pet-remake/server/internal/teststub"
 )
+
+func TestIsPromptOnlySceneTrigger(t *testing.T) {
+	tests := []struct {
+		name    string
+		trigger *storyprogress.SceneTrigger
+		want    bool
+	}{
+		{
+			name: "plain map prompt",
+			trigger: &storyprogress.SceneTrigger{
+				TriggerCode: "first_enter_market",
+				PromptText:  "首次进入市场提示",
+			},
+			want: true,
+		},
+		{
+			name: "cinematic prompt",
+			trigger: &storyprogress.SceneTrigger{
+				PromptText:         "剧情结束提示",
+				ClientAnimationKey: "初见桃子",
+			},
+			want: false,
+		},
+		{
+			name: "quest side effect",
+			trigger: &storyprogress.SceneTrigger{
+				PromptText:          "接取任务提示",
+				EffectAcceptQuestID: 1101,
+			},
+			want: false,
+		},
+		{
+			name: "story flag side effect",
+			trigger: &storyprogress.SceneTrigger{
+				PromptText:     "剧情解锁提示",
+				EffectSetFlags: []string{"npc_unlocked"},
+			},
+			want: false,
+		},
+		{
+			name:    "missing trigger",
+			trigger: nil,
+			want:    false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isPromptOnlySceneTrigger(test.trigger); got != test.want {
+				t.Fatalf("isPromptOnlySceneTrigger() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+// fakeScenePromptRepository 模拟数据库中的一次性地图提示标记，供世界推送测试验证首次消费行为。
+type fakeScenePromptRepository struct {
+	trigger  *storyprogress.SceneTrigger
+	consumed bool
+}
+
+func (r *fakeScenePromptRepository) FindPendingSceneTrigger(_ context.Context, _ uint64, sceneID uint32) (*storyprogress.SceneTrigger, error) {
+	if r.consumed || r.trigger == nil || r.trigger.SceneID != sceneID {
+		return nil, nil
+	}
+	return r.trigger, nil
+}
+
+func (r *fakeScenePromptRepository) CompleteSceneTrigger(_ context.Context, _ uint64, triggerCode string) (*storyprogress.SceneTrigger, error) {
+	if r.trigger == nil || r.trigger.TriggerCode != triggerCode {
+		return nil, nil
+	}
+	r.consumed = true
+	return r.trigger, nil
+}
+
+func TestPushPendingSceneTriggerConsumesPlainMapPromptBeforeSend(t *testing.T) {
+	repo := &fakeScenePromptRepository{
+		trigger: &storyprogress.SceneTrigger{
+			TriggerCode: "first_enter_market",
+			SceneID:     3,
+			PromptText:  "首次进入市场提示",
+		},
+	}
+	handler := &WorldHandler{storyService: storyprogress.NewService(repo)}
+	conn := &fakeConn{id: "scene-prompt-conn"}
+
+	if err := handler.pushPendingSceneTrigger(context.Background(), conn, 10001, 3); err != nil {
+		t.Fatalf("first pushPendingSceneTrigger() error = %v", err)
+	}
+	if err := handler.pushPendingSceneTrigger(context.Background(), conn, 10001, 3); err != nil {
+		t.Fatalf("second pushPendingSceneTrigger() error = %v", err)
+	}
+	if !repo.consumed {
+		t.Fatal("plain map prompt was not persisted as consumed")
+	}
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdSceneTriggerPush {
+		t.Fatalf("packet.Cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdSceneTriggerPush)
+	}
+}
 
 type fakeConn struct {
 	id      string

@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"pocket-pet-remake/server/internal/module/equipment"
@@ -596,6 +597,18 @@ func (h *WorldHandler) pushPendingSceneTrigger(ctx context.Context, conn packetS
 	if trigger == nil {
 		return nil
 	}
+	// 纯地图提示没有剧情动画和服务端副作用，首次进入时立即持久化一次性标记。
+	// 这样即使客户端尚未关闭提示便重复同步世界，也不会再次收到同一地图提示。
+	if isPromptOnlySceneTrigger(trigger) {
+		completedTrigger, completeErr := h.storyService.CompleteSceneTrigger(ctx, playerID, trigger.TriggerCode)
+		if completeErr != nil {
+			return completeErr
+		}
+		if completedTrigger == nil {
+			return nil
+		}
+		trigger = completedTrigger
+	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdSceneTriggerPush, 0, errcode.WSCodeSuccess, protocol.SceneTriggerPush{
 		TriggerCode:        trigger.TriggerCode,
 		SceneID:            trigger.SceneID,
@@ -607,6 +620,17 @@ func (h *WorldHandler) pushPendingSceneTrigger(ctx context.Context, conn packetS
 		return err
 	}
 	return conn.SendPacket(packet)
+}
+
+// isPromptOnlySceneTrigger 判断触发器是否只是首次进图提示。
+// 带动画、任务接取或剧情标记副作用的触发器仍必须等待客户端播放完成后 Ack，避免提前推进剧情。
+func isPromptOnlySceneTrigger(trigger *storyprogress.SceneTrigger) bool {
+	if trigger == nil || strings.TrimSpace(trigger.PromptText) == "" {
+		return false
+	}
+	return strings.TrimSpace(trigger.ClientAnimationKey) == "" &&
+		trigger.EffectAcceptQuestID == 0 &&
+		len(trigger.EffectSetFlags) == 0
 }
 
 func toProtocolEntities(entities []world.Entity) []protocol.EntityBrief {

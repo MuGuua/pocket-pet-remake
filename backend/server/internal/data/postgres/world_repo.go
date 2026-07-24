@@ -41,7 +41,7 @@ var worldScenes = map[uint32]sceneData{
 		entries: map[uint32]world.Vec2i{
 			1: {X: 4, Y: 1},
 			3: {X: 0, Y: 4},
-			7: {X: 8, Y: 1},
+			7: {X: 9, Y: 5},
 		},
 		exits: map[uint32]struct{}{1: {}, 3: {}},
 		portals: map[uint32]portalData{
@@ -100,7 +100,7 @@ var worldScenes = map[uint32]sceneData{
 		entries:  map[uint32]world.Vec2i{},
 		exits:    map[uint32]struct{}{2: {}},
 		portals: map[uint32]portalData{
-			7001: {targetSceneID: 2, targetPos: world.Vec2i{X: 8, Y: 1}},
+			7001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}},
 		},
 	},
 }

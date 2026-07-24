@@ -15,11 +15,11 @@ func TestTimeHousePortalIsOneWay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateTransfer(time house -> east road) error = %v", err)
 	}
-	if !toEastRoad.Accepted || toEastRoad.ToSceneID != 2 || toEastRoad.SpawnPos != (world.Vec2i{X: 8, Y: 1}) {
+	if !toEastRoad.Accepted || toEastRoad.ToSceneID != 2 || toEastRoad.SpawnPos != (world.Vec2i{X: 9, Y: 5}) {
 		t.Fatalf("EvaluateTransfer(time house -> east road) = %#v, want accepted east road east entrance", toEastRoad)
 	}
 
-	toTimeHouse, err := repository.EvaluateTransfer(context.Background(), 1, 2, world.Vec2i{X: 8, Y: 1}, 7, 7001)
+	toTimeHouse, err := repository.EvaluateTransfer(context.Background(), 1, 2, world.Vec2i{X: 9, Y: 5}, 7, 7001)
 	if err != nil {
 		t.Fatalf("EvaluateTransfer(east road -> time house) error = %v", err)
 	}

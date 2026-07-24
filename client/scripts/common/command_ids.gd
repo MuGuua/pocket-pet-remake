@@ -405,7 +405,7 @@ static func name_of(cmd: int) -> String:
 # 判断当前消息是否值得打印到请求结果日志中；跳过高频心跳与状态同步推送，避免 HUD 与控制台被刷爆。
 static func should_log_result(cmd: int) -> bool:
     match cmd:
-        HEARTBEAT_RESP, BATTLE_STATE_PUSH, ENTITY_MOVE_PUSH:
+        HEARTBEAT_RESP, BATTLE_STATE_PUSH, ENTITY_MOVE_PUSH, MOVE_INTENT_RESP:
             return false
         _:
             return true
