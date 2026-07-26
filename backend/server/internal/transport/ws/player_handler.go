@@ -26,6 +26,36 @@ func NewPlayerHandler(sessionService *session.Service, playerService *player.Ser
 	}
 }
 
+// HandleProfile 返回人物状态面板所需的权威属性，不进入完整世界、背包、宠物或任务查询链路。
+func (h *PlayerHandler) HandleProfile(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.PlayerProfileReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid player profile body")
+	}
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	if h.playerService == nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "player service unavailable")
+	}
+
+	profile, err := h.playerService.GetBattleReadyProfile(context.Background(), sess.PlayerID)
+	if err != nil {
+		if errors.Is(err, player.ErrPlayerNotFound) {
+			return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found", err)
+		}
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "load player profile failed", err)
+	}
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdPlayerProfileResp, packet.Seq, errcode.WSCodeSuccess, protocol.PlayerProfileResp{
+		Player: toProtocolPlayerSnapshot(profile),
+	})
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(responsePacket)
+}
+
 // HandleAllocateAttr 处理玩家主动分配自由属性点。
 func (h *PlayerHandler) HandleAllocateAttr(conn packetSender, packet *protocol.Packet) error {
 	var request protocol.PlayerAllocateAttrReq

@@ -48,6 +48,12 @@ var _next_op_id: int = 1
 var _next_move_seq: int = 1
 var _pending_target_scene_id: int = 0
 var _pending_portal_id: int = 0
+## 尚未收到服务端确认的普通移动序号；限制同时只有一个移动请求在途，避免慢数据库链路堆积并阻塞切图请求。
+var _pending_position_move_seq: int = 0
+## 当前切图请求使用的移动序号；只有相同序号的回包才能改变转场状态。
+var _pending_transition_move_seq: int = 0
+## 当前切图是否来自世界地图快速传送，用于区分同地图传送与普通坐标同步。
+var _pending_map_teleport: bool = false
 var _pending_player_spawn_position: Vector2 = Vector2.ZERO
 var _pending_player_spawn_requested: bool = false
 var _pending_player_facing_direction: Vector2 = Vector2.ZERO
@@ -183,34 +189,68 @@ func handle_entity_move(payload: Dictionary) -> void:
 func handle_move_intent_response(payload: Dictionary) -> void:
 	var accepted: bool = bool(payload.get("accepted", false))
 	var scene_id: int = int(payload.get("scene_id", _current_scene_id()))
-	if accepted and scene_id == _current_scene_id():
-		# 普通坐标同步不持有切图锁；延迟响应不能解除随后发生的战斗、剧情或弹窗输入锁。
-		if _pending_target_scene_id == 0:
-			return
-		_pending_target_scene_id = 0
-		_pending_portal_id = 0
-		_pending_player_facing_requested = false
-		_set_transition_loading(false)
-		_unlock_local_player()
+	var response_move_seq: int = int(payload.get("move_seq", 0))
+	# 普通移动严格保持单请求在途；确认到达后，下一帧会把角色最新状态而不是中间历史位置补发给服务端。
+	if response_move_seq == _pending_position_move_seq:
+		_pending_position_move_seq = 0
+	# 普通移动回包不参与切图状态机；特别是延迟回包不能清除随后创建的切图 pending 状态。
+	if _pending_target_scene_id == 0:
+		return
+	if response_move_seq != _pending_transition_move_seq:
+		_debug_scene_transition(
+			"MOVE_INTENT_RESP ignored stale move_seq=%d pending_move_seq=%d response_scene=%d reason=%s" % [
+				response_move_seq,
+				_pending_transition_move_seq,
+				scene_id,
+				str(payload.get("reason", "")),
+			]
+		)
 		return
 
+	_debug_scene_transition(
+		"MOVE_INTENT_RESP accepted=%s move_seq=%d current_scene=%d response_scene=%d pending_target=%d portal=%d reason=%s" % [
+			str(accepted),
+			response_move_seq,
+			_current_scene_id(),
+			scene_id,
+			_pending_target_scene_id,
+			_pending_portal_id,
+			str(payload.get("reason", "")),
+		]
+	)
 	if accepted:
+		# 服务端接受后继续等待 WORLD_RESYNC_PUSH；同地图快速传送同样需要应用权威中心坐标。
 		return
 
 	_pending_target_scene_id = 0
 	_pending_portal_id = 0
+	_pending_position_move_seq = 0
+	_pending_transition_move_seq = 0
+	_pending_map_teleport = false
 	_pending_player_facing_requested = false
 	_set_transition_loading(false)
 	_unlock_local_player()
 	scene_transition_failed.emit(str(payload.get("reason", "scene transfer rejected")))
 
 func handle_world_resync(payload: Dictionary) -> void:
+	# 权威快照已经覆盖此前的普通移动请求；解除背压，以便新场景从最新位置重新开始同步。
+	_pending_position_move_seq = 0
+	var force_scene_loaded: bool = _pending_map_teleport
+	_debug_scene_transition(
+		"WORLD_RESYNC_PUSH scene=%d current_scene=%d pending_target=%d visual_locked=%s" % [
+			int(payload.get("scene_id", 0)),
+			_current_scene_id(),
+			_pending_target_scene_id,
+			str(_scene_visual_apply_locked),
+		]
+	)
 	GameState.set_world_snapshot(payload)
 	if _scene_visual_apply_locked:
 		_deferred_scene_apply_pending = true
+		_debug_scene_transition("WORLD_RESYNC_PUSH deferred until transition midpoint")
 		return
 	_apply_authoritative_snapshot()
-	_emit_scene_loaded_if_changed(false)
+	_emit_scene_loaded_if_changed(force_scene_loaded)
 
 func handle_wild_encounter_response(payload: Dictionary) -> void:
 	var accepted: bool = bool(payload.get("accepted", false))
@@ -222,13 +262,21 @@ func handle_wild_encounter_response(payload: Dictionary) -> void:
 		_unlock_local_player()
 	wild_encounter_responded.emit(accepted, reason)
 
-func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_direction: Vector2 = Vector2.ZERO) -> void:
-	var current_scene_id := _current_scene_id()
+## 请求世界地图快速传送；客户端只提交目标场景，中心出生格由服务端数据库决定。
+## target_scene_id 是当前地图标点配置的目标场景 ID。
+func request_map_teleport(target_scene_id: int) -> void:
+	request_scene_transition(target_scene_id, 0, Vector2.ZERO, true)
+
+
+## 请求普通传送门切图或世界地图快速传送。
+## target_scene_id 是目标场景 ID；portal_id 是普通传送门 ID；facing_direction 是切图后的角色朝向；map_teleport 表示是否使用数据库地图中心配置。
+func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_direction: Vector2 = Vector2.ZERO, map_teleport: bool = false) -> void:
+	var current_scene_id: int = _current_scene_id()
 	if current_scene_id <= 0:
 		_unlock_local_player()
 		scene_transition_failed.emit("scene not initialized")
 		return
-	if target_scene_id <= 0 or target_scene_id == current_scene_id:
+	if target_scene_id <= 0 or (target_scene_id == current_scene_id and not map_teleport):
 		_unlock_local_player()
 		return
 	if _pending_target_scene_id != 0:
@@ -236,22 +284,36 @@ func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_d
 
 	_pending_target_scene_id = target_scene_id
 	_pending_portal_id = portal_id
+	var transition_move_seq: int = _take_next_move_seq()
+	_pending_transition_move_seq = transition_move_seq
+	_pending_map_teleport = map_teleport
 	_pending_player_facing_requested = facing_direction != Vector2.ZERO
 	if _pending_player_facing_requested:
 		_pending_player_facing_direction = facing_direction
 	_lock_local_player()
 	_set_transition_loading(true)
+	_debug_scene_transition(
+		"request from_scene=%d target_scene=%d portal=%d map_teleport=%s player_pos=%s" % [
+			current_scene_id,
+			target_scene_id,
+			portal_id,
+			str(map_teleport),
+			str(_current_player_scene_position()),
+		]
+	)
 	scene_transition_requested.emit(current_scene_id, target_scene_id)
-	NetClient.send_command(
+	var request_seq: int = NetClient.send_command(
 		CommandIds.MOVE_INTENT_REQ,
 		{
 			"op_id": _take_next_op_id(),
-			"move_seq": _take_next_move_seq(),
+			"move_seq": transition_move_seq,
 			"scene_id": current_scene_id,
 			"target_scene_id": target_scene_id,
 			"portal_id": portal_id,
+			"map_teleport": map_teleport,
 		}
 	)
+	_debug_scene_transition("MOVE_INTENT_REQ sent seq=%d move_seq=%d" % [request_seq, transition_move_seq])
 
 ## 主场景在地图过渡开始时加锁，避免新地图在渐入前半段就渲染到视口。
 func set_scene_visual_apply_locked(locked: bool) -> void:
@@ -272,12 +334,37 @@ func cancel_scene_visual_apply_lock() -> void:
 	_deferred_scene_apply_pending = false
 
 
+## 主动中止尚未完成的地图切换，并恢复玩家输入。
+## reason 是用于定向日志定位超时或上层取消原因的简短说明。
+func abort_scene_transition(reason: String) -> void:
+	_debug_scene_transition(
+		"transition aborted pending_target=%d portal=%d reason=%s" % [
+			_pending_target_scene_id,
+			_pending_portal_id,
+			reason,
+		]
+	)
+	_pending_target_scene_id = 0
+	_pending_portal_id = 0
+	_pending_position_move_seq = 0
+	_pending_transition_move_seq = 0
+	_pending_map_teleport = false
+	_pending_player_facing_requested = false
+	_pending_player_spawn_requested = false
+	_set_transition_loading(false)
+	cancel_scene_visual_apply_lock()
+	_unlock_local_player()
+
+
 func _flush_deferred_scene_apply() -> void:
 	if not _deferred_scene_apply_pending:
+		_debug_scene_transition("transition midpoint has no deferred world snapshot yet")
 		return
 	_deferred_scene_apply_pending = false
+	_debug_scene_transition("applying deferred world snapshot at transition midpoint")
+	var force_scene_loaded: bool = _pending_map_teleport
 	_apply_authoritative_snapshot()
-	_emit_scene_loaded_if_changed(false)
+	_emit_scene_loaded_if_changed(force_scene_loaded)
 
 func set_render_frame_size(frame_size: Vector2) -> void:
 	if frame_size.x <= 0.0 or frame_size.y <= 0.0:
@@ -319,15 +406,26 @@ func capture_current_map_snapshot_async() -> Texture2D:
 
 func load_level(scene_path: String) -> void:
 	if scene_path.is_empty():
+		_debug_scene_transition("load_level rejected: empty scene path")
 		push_warning("Level scene path is empty.")
 		return
 
-	var level_scene := load(scene_path) as PackedScene
+	var load_started_msec: int = Time.get_ticks_msec()
+	_debug_scene_transition("load_level begin path=%s" % scene_path)
+	var level_scene: PackedScene = load(scene_path) as PackedScene
 	if level_scene == null:
+		_debug_scene_transition("load_level failed path=%s" % scene_path)
 		push_warning("Failed to load level scene: %s" % scene_path)
 		return
 
 	mount_level(level_scene)
+	_debug_scene_transition(
+		"load_level end path=%s elapsed_ms=%d mounted=%s" % [
+			scene_path,
+			Time.get_ticks_msec() - load_started_msec,
+			str(is_instance_valid(_current_level)),
+		]
+	)
 
 func mount_level(level_scene: PackedScene) -> void:
 	unmount_current_level()
@@ -563,6 +661,9 @@ func _apply_authoritative_snapshot() -> void:
 	if not _ensure_scene_loaded(scene_id):
 		_pending_target_scene_id = 0
 		_pending_portal_id = 0
+		_pending_position_move_seq = 0
+		_pending_transition_move_seq = 0
+		_pending_map_teleport = false
 		_pending_player_facing_requested = false
 		_set_transition_loading(false)
 		_unlock_local_player()
@@ -583,6 +684,9 @@ func _apply_authoritative_snapshot() -> void:
 
 	_pending_target_scene_id = 0
 	_pending_portal_id = 0
+	_pending_position_move_seq = 0
+	_pending_transition_move_seq = 0
+	_pending_map_teleport = false
 	_pending_player_facing_requested = false
 	_portal_cooldown_until_ms = Time.get_ticks_msec() + PORTAL_ACTIVATION_COOLDOWN_MS
 	_set_transition_loading(false)
@@ -682,28 +786,39 @@ func _request_wild_encounter_battle(scene_id: int) -> void:
 
 func _ensure_scene_loaded(scene_id: int) -> bool:
 	if scene_id <= 0:
+		_debug_scene_transition("ensure_scene_loaded rejected invalid scene=%d" % scene_id)
 		return false
 	if _loaded_scene_id == scene_id and is_instance_valid(_current_level):
+		_debug_scene_transition("ensure_scene_loaded reused scene=%d" % scene_id)
 		_attach_player_to_current_level()
 		return true
 
 	var scene_config := _scene_config(scene_id)
 	var scene_path := str(scene_config.get("scene_path", ""))
 	if scene_path.is_empty():
+		_debug_scene_transition("ensure_scene_loaded missing registry path scene=%d" % scene_id)
 		return false
 
 	load_level(scene_path)
 	if not is_instance_valid(_current_level):
+		_debug_scene_transition("ensure_scene_loaded mount failed scene=%d path=%s" % [scene_id, scene_path])
 		return false
 	_loaded_scene_id = scene_id
 	_refresh_game_layout()
 	return true
 
 func _emit_scene_loaded_if_changed(force_emit: bool) -> void:
-	var scene_id := _current_scene_id()
+	var scene_id: int = _current_scene_id()
 	if force_emit or scene_id != _last_loaded_scene_id:
 		_last_loaded_scene_id = scene_id
+		_debug_scene_transition("scene_loaded emitted scene=%d force=%s" % [scene_id, str(force_emit)])
 		scene_loaded.emit(str(scene_id))
+
+
+## 输出地图切换专用调试日志；其他客户端业务日志继续保持关闭。
+## message 是当前切图阶段及其关键权威参数。
+func _debug_scene_transition(message: String) -> void:
+	print("[SceneTransition][Client][World] %s" % message)
 
 ## 返回当前已加载场景导出的展示名称；没有配置时回退为 scene_id，避免 HUD 空白。
 func get_current_scene_display_name() -> String:
@@ -1554,17 +1669,19 @@ func _report_player_position_if_changed() -> void:
 	var current_position: Vector2 = _current_player_scene_position()
 	# 网络表现同步需要在人物停止后补发 moving=false，即使当前坐标与上一帧相同也不能提前返回。
 	_report_player_position_to_server(current_position)
-	if current_position.is_equal_approx(_last_reported_player_position):
+	# HUD 和本地权威快照只需要整数场景格；逐像素重排文字和复制字典会造成移动时主线程抖动。
+	var display_position: Vector2 = Vector2(roundi(current_position.x), roundi(current_position.y))
+	if display_position.is_equal_approx(_last_reported_player_position):
 		return
-	_last_reported_player_position = current_position
-	GameState.sync_player_scene_position(current_position)
-	player_position_changed.emit(current_position, _current_player_global_position())
+	_last_reported_player_position = display_position
+	GameState.sync_player_scene_position(display_position)
+	player_position_changed.emit(display_position, _current_player_global_position())
 
 ## 上报整数持久化格和限频后的高精度表现状态；朝向、起停或跨格变化会立即发送。
 ## scene_position 是当前人物以场景格为单位的高精度位置。
 func _report_player_position_to_server(scene_position: Vector2) -> void:
 	var scene_id: int = _current_scene_id()
-	if scene_id <= 0 or not GameState.is_ws_authenticated or _pending_target_scene_id != 0:
+	if scene_id <= 0 or not GameState.is_ws_authenticated or _pending_target_scene_id != 0 or _pending_position_move_seq != 0:
 		return
 	var network_position: Vector2i = Vector2i(roundi(scene_position.x), roundi(scene_position.y))
 	var precise_position: Vector2i = Vector2i(
@@ -1586,17 +1703,12 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
 	var now_msec: int = Time.get_ticks_msec()
 	if not movement_state_changed and now_msec - _last_network_report_msec < NETWORK_MOVEMENT_REPORT_INTERVAL_MS:
 		return
-	_last_network_position = network_position
-	_last_network_precise_position = precise_position
-	_last_network_facing = network_facing
-	_last_network_moving = moving
-	_last_network_report_msec = now_msec
-	_has_last_network_position = true
-	NetClient.send_command(
+	var move_seq: int = _take_next_move_seq()
+	var request_seq: int = NetClient.send_command(
 		CommandIds.MOVE_INTENT_REQ,
 		{
 			"op_id": _take_next_op_id(),
-			"move_seq": _take_next_move_seq(),
+			"move_seq": move_seq,
 			"scene_id": scene_id,
 			"target_pos": {"x": network_position.x, "y": network_position.y},
 			"precise_pos": {"x": precise_position.x, "y": precise_position.y},
@@ -1604,6 +1716,15 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
 			"moving": moving,
 		}
 	)
+	if request_seq <= 0:
+		return
+	_pending_position_move_seq = move_seq
+	_last_network_position = network_position
+	_last_network_precise_position = precise_position
+	_last_network_facing = network_facing
+	_last_network_moving = moving
+	_last_network_report_msec = now_msec
+	_has_last_network_position = true
 
 ## 根据 GameState 的附近实体快照创建、更新或移除当前地图中的远端玩家节点。
 func _sync_remote_players() -> void:

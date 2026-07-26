@@ -302,6 +302,64 @@ GROUP BY item_id`, playerID)
 	return facts, flagRows.Err()
 }
 
+// LoadSceneEventConditionFacts 读取场景任务需要的玩家、宠物和剧情事实，刻意跳过背包容器查询。
+func (r *QuestRepository) LoadSceneEventConditionFacts(ctx context.Context, playerID uint64) (quest.AcceptConditionFacts, error) {
+	facts := quest.AcceptConditionFacts{
+		Stats:      map[string]uint64{},
+		ItemCounts: map[uint64]uint64{},
+		PetLevels:  map[uint64]uint64{},
+		StoryFlags: map[string]bool{},
+		Now:        time.Now(),
+	}
+	var hpMax, atk, def, spd, mana uint64
+	err := r.db.QueryRowContext(ctx, `
+SELECT p.level, p.scene_id,
+       COALESCE(s.hp_max, p.hp_max), COALESCE(s.atk, p.atk), COALESCE(s.def, p.def),
+       COALESCE(s.spd, p.spd), COALESCE(s.mana, p.mana)
+FROM player p
+LEFT JOIN player_combat_snapshot s ON s.player_id = p.id
+WHERE p.id = $1 AND p.status = 1`, playerID).Scan(
+		&facts.Level, &facts.SceneID, &hpMax, &atk, &def, &spd, &mana,
+	)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	facts.Stats = map[string]uint64{"hp_max": hpMax, "atk": atk, "def": def, "spd": spd, "mana": mana}
+
+	petRows, err := r.db.QueryContext(ctx, `SELECT pet_id, MAX(level) FROM player_pet WHERE player_id = $1 GROUP BY pet_id`, playerID)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	for petRows.Next() {
+		var petID, level uint64
+		if err := petRows.Scan(&petID, &level); err != nil {
+			petRows.Close()
+			return quest.AcceptConditionFacts{}, err
+		}
+		facts.PetLevels[petID] = level
+		if level > facts.MaxPetLevel {
+			facts.MaxPetLevel = level
+		}
+	}
+	if err := petRows.Close(); err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+
+	flagRows, err := r.db.QueryContext(ctx, `SELECT flag_key FROM player_story_flag WHERE player_id = $1 AND flag_value <> '' AND flag_value <> '0'`, playerID)
+	if err != nil {
+		return quest.AcceptConditionFacts{}, err
+	}
+	defer flagRows.Close()
+	for flagRows.Next() {
+		var flagKey string
+		if err := flagRows.Scan(&flagKey); err != nil {
+			return quest.AcceptConditionFacts{}, err
+		}
+		facts.StoryFlags[flagKey] = true
+	}
+	return facts, flagRows.Err()
+}
+
 func (r *QuestRepository) ListPlayerObjectivesByPlayerID(ctx context.Context, playerID uint64) ([]quest.PlayerObjective, error) {
 	rows, err := r.db.QueryContext(ctx, listPlayerObjectivesQuery, playerID)
 	if err != nil {

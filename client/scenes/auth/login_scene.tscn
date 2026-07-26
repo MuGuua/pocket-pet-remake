@@ -130,6 +130,7 @@ text = "玩家: 未登录"
 
 [node name="LogOutput" type="RichTextLabel" parent="UiLayer/PanelContainer/LoginCard/VBox" unique_id=1055572468]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(0, 86)
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 20

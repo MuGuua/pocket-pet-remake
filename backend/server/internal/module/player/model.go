@@ -134,6 +134,24 @@ type Profile struct {
 	BaseDodgePct uint32
 }
 
+// WorldSummary 只包含场景同屏展示需要的玩家字段，避免切图时读取完整战斗属性和背包等无关数据。
+type WorldSummary struct {
+	PlayerID  uint64
+	Name      string
+	Level     uint32
+	Exp       uint64
+	SceneID   uint32
+	PosX      int32
+	PosY      int32
+	HP        uint32
+	HPMax     uint32
+	Vigor     uint32
+	VigorMax  uint32
+	Spirit    uint32
+	SpiritMax uint32
+	SkinID    string
+}
+
 // RegisterInput 描述公开注册接口所需的最小字段。
 // 当前版本直接把账号名复用为玩家名，避免额外增加昵称流程。
 type RegisterInput struct {

@@ -108,16 +108,7 @@ func _apply_canvas_constraints() -> void:
         return canvas.clientWidth + 'x' + canvas.clientHeight + '|' + viewportWidth + 'x' + viewportHeight;
     })();
     """ % [TARGET_CANVAS_ASPECT, TARGET_CANVAS_WIDTH, TARGET_CANVAS_HEIGHT]
-    var metrics: String = str(JavaScriptBridge.eval(script, true)).strip_edges()
+    JavaScriptBridge.eval(script, true)
     if _metrics_logged:
         return
     _metrics_logged = true
-    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-    print(
-        "[WebRuntimeCanvas] DOM=%s Godot=%dx%d aspect=%.6f" % [
-            metrics,
-            int(viewport_size.x),
-            int(viewport_size.y),
-            TARGET_CANVAS_ASPECT
-        ]
-    )

@@ -259,7 +259,7 @@ func apply_entity_move(payload: Dictionary) -> void:
 		player_snapshot["x"] = entity["x"]
 		player_snapshot["y"] = entity["y"]
 
-	world_snapshot_changed.emit()
+	# 实体移动由世界控制器直接消费；不广播全局快照变化，避免每 100ms 刷新 HUD、NPC 与装备预览。
 
 # 整体替换宠物列表和编队摘要，并刷新编队标记。
 func set_pets(next_pets: Array, next_lineup: Array = []) -> void:

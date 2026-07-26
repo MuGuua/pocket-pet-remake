@@ -34,3 +34,15 @@ func (s *Service) EvaluateTransfer(ctx context.Context, playerID uint64, sceneID
 	}
 	return decision, nil
 }
+
+// EvaluateMapTeleport 校验世界地图快速传送，并返回数据库配置的目标地图中心落点。
+func (s *Service) EvaluateMapTeleport(ctx context.Context, playerID uint64, sceneID uint32, currentPos Vec2i, targetSceneID uint32) (*MoveDecision, error) {
+	decision, err := s.repo.EvaluateMapTeleport(ctx, playerID, sceneID, currentPos, targetSceneID)
+	if err != nil {
+		return nil, err
+	}
+	if decision == nil {
+		return nil, ErrSnapshotUnavailable
+	}
+	return decision, nil
+}

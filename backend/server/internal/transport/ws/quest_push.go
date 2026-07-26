@@ -36,6 +36,22 @@ func pushQuestDiff(ctx context.Context, conn packetSender, service *quest.Servic
 	return sendQuestDiff(conn, before, after)
 }
 
+// pushQuestUpdates 推送已由领域服务确定发生变化的任务，避免为了生成差异再次读取全部任务和开启条件事实。
+func pushQuestUpdates(conn packetSender, summaries []quest.Summary) error {
+	for _, summary := range summaries {
+		packet, err := protocol.NewJSONPacket(protocol.CmdQuestUpdatePush, 0, errcode.WSCodeSuccess, protocol.QuestUpdatePush{
+			Quest: toProtocolQuestSummary(summary),
+		})
+		if err != nil {
+			return err
+		}
+		if err := conn.SendPacket(packet); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sendQuestDiff(conn packetSender, before []quest.Summary, after []quest.Summary) error {
 	beforeMap := snapshotQuestSummaries(before)
 	afterMap := snapshotQuestSummaries(after)

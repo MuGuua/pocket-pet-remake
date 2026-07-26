@@ -88,6 +88,34 @@
 - `2062 PLAYER_ALLOCATE_ATTR_RESP`
 - `2063 PET_ALLOCATE_ATTR_REQ`
 - `2064 PET_ALLOCATE_ATTR_RESP`
+- `2065 PLAYER_PROFILE_REQ`
+- `2066 PLAYER_PROFILE_RESP`
+
+`PLAYER_PROFILE_REQ` 只获取当前会话人物的权威属性，供人物状态面板打开前刷新数据。该请求不加载世界快照、背包物品、钱包、宠物、任务或场景触发器。
+
+```json
+{}
+```
+
+`PLAYER_PROFILE_RESP`：
+
+```json
+{
+  "player": {
+    "player_id": 10001,
+    "name": "DemoTrainer",
+    "level": 12,
+    "exp": 3456,
+    "hp": 120,
+    "hp_max": 120,
+    "vigor": 100,
+    "vigor_max": 100,
+    "spirit": 40,
+    "spirit_max": 40,
+    "skin_id": "初始形象男_001"
+  }
+}
+```
 
 ### 3000-3099 宠物 / 编队
 - `3001 PET_LIST_REQ`
@@ -456,12 +484,25 @@
       "dir": 2,
       "speed": 0,
       "name": "RivalTrainer",
+      "level": 1,
+      "exp": 0,
+      "hp": 110,
+      "hp_max": 110,
+      "vigor": 100,
+      "vigor_max": 100,
+      "spirit": 40,
+      "spirit_max": 40,
+      "skin_id": "初始形象男_001",
       "following_pet": {
         "pet_uid": 21001,
         "pet_id": 101,
+        "name": "小火龙",
         "level": 5,
+        "exp": 110,
         "hp": 31,
         "hp_max": 31,
+        "spirit": 12,
+        "spirit_max": 20,
         "skin_id": "嫩叶犬_001"
       }
     }
@@ -478,6 +519,7 @@
 ```
 
 - 玩家实体的 `following_pet` 来自服务端持久化编队首位；无出战宠物或形象资源时省略该字段。
+- 玩家实体与跟随宠物只携带世界同屏展示所需的名字、等级、经验、血量、精力和形象等轻量字段；这些字段来自服务端持久化数据，不包含背包内容。
 - `ENTER_WORLD_RESP.nearby_entities` 与 `ENTITY_ENTER_PUSH.entity` 使用同一结构；玩家更换编队后服务端复用 `ENTITY_ENTER_PUSH` 刷新同场景远端表现。
 
 `wild_encounter` 字段说明：
@@ -490,7 +532,7 @@
 
 ### 2021 MOVE_INTENT_REQ
 
-`MOVE_INTENT_REQ` 同时承载地图切换意图和同场景移动同步。切图继续使用 `target_scene_id`、`portal_id`；同场景移动使用整数 `target_pos` 持久化落点，并以限频后的表现字段同步其他玩家。
+`MOVE_INTENT_REQ` 同时承载门区切图、世界地图快速传送和同场景移动同步。门区切图使用 `target_scene_id`、`portal_id`；地图快速传送额外传 `map_teleport=true`；同场景移动使用整数 `target_pos` 持久化落点，并以限频后的表现字段同步其他玩家。
 
 ```json
 {
@@ -499,6 +541,19 @@
   "scene_id": 1,
   "target_scene_id": 2,
   "portal_id": 1001
+}
+```
+
+世界地图快速传送示例：
+
+```json
+{
+  "op_id": 3,
+  "move_seq": 19,
+  "scene_id": 1,
+  "target_scene_id": 6,
+  "portal_id": 0,
+  "map_teleport": true
 }
 ```
 
@@ -520,6 +575,7 @@
 
 - `target_scene_id`：目标地图
 - `portal_id`：可选，表示通过哪个门/入口触发切图；当前门区切图优先带上该字段
+- `map_teleport`：可选，缺省为 `false`；为 `true` 时服务端从 `world_map_teleport_node` 校验开放状态并读取中心出生格，客户端不得提交或覆盖出生坐标
 - `target_pos`：同场景移动的整数格坐标，服务端持久化并作为权威落点
 - `precise_pos`：千分之一场景格的定点表现坐标；服务端会限制在 `target_pos` 周围半格内，不直接写入数据库
 - `facing`：四方向单位向量，只接受上下左右，服务端拒绝斜向表现数据并回退为位移方向
@@ -567,6 +623,8 @@
 - 如果带了 `portal_id`，服务端用于校验门/目标地图是否匹配；客户端最终出生场景坐标由目标场景配置决定，未配置时才使用 `corrected_pos` 兜底
 
 ### 2014 WORLD_RESYNC_PUSH
+
+跨地图切换时，服务端优先发送不含在线玩家资料的基础快照，使客户端立即完成地图加载和解除黑屏；在线玩家随后通过 `2011 ENTITY_ENTER_PUSH` 增量补齐。NPC、地图实体和暗雷配置仍包含在基础快照中。
 
 ```json
 {

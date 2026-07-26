@@ -2936,6 +2936,14 @@ func (r *QuestRepository) LoadAcceptConditionFacts(_ context.Context, _ uint64) 
 	}, nil
 }
 
+// LoadSceneEventConditionFacts 模拟切图任务使用的轻量事实，明确不构造任何背包物品计数。
+func (r *QuestRepository) LoadSceneEventConditionFacts(_ context.Context, _ uint64) (quest.AcceptConditionFacts, error) {
+	return quest.AcceptConditionFacts{
+		Level: 100, Stats: map[string]uint64{"hp_max": 999999, "atk": 999999, "def": 999999, "spd": 999999, "mana": 999999},
+		ItemCounts: map[uint64]uint64{}, PetLevels: map[uint64]uint64{}, StoryFlags: map[string]bool{}, Now: time.Now(),
+	}, nil
+}
+
 func (r *QuestRepository) ListPlayerQuestsForAdmin(_ context.Context, query quest.AdminPlayerQuestListQuery) (*quest.AdminPlayerQuestList, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -3644,5 +3652,28 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID 
 	if entryPos, ok := targetScene.entries[sceneID]; ok {
 		decision.SpawnPos = entryPos
 	}
+	return decision, nil
+}
+
+// EvaluateMapTeleport 为传输层测试提供与正式迁移一致的地图中心配置。
+func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
+	decision := &world.MoveDecision{SceneVersion: 1, ToSceneID: sceneID, SpawnPos: currentPos}
+	mapCenters := map[uint32]world.Vec2i{
+		1: {X: 5, Y: 7},
+		2: {X: 5, Y: 5},
+		3: {X: 7, Y: 7},
+		4: {X: 4, Y: 5},
+		5: {X: 6, Y: 6},
+		6: {X: 5, Y: 5},
+	}
+	center, ok := mapCenters[targetSceneID]
+	if !ok {
+		decision.Reason = "map teleport unavailable"
+		return decision, nil
+	}
+	decision.Accepted = true
+	decision.ToSceneID = targetSceneID
+	decision.SpawnPos = center
+	decision.Reason = "map teleport accepted"
 	return decision, nil
 }

@@ -156,10 +156,33 @@ func TestAcceptConditionsUseANDRelationship(t *testing.T) {
 	}
 }
 
+// TestHandleProgressEventUsesSceneFacts 验证切图任务事件只读取场景轻量事实，不能退回包含背包物品的完整条件查询。
+func TestHandleProgressEventUsesSceneFacts(t *testing.T) {
+	repo := newQuestServiceTestRepo()
+	service := NewService(repo)
+
+	if _, err := service.HandleProgressEvent(context.Background(), Event{
+		PlayerID:  10001,
+		EventType: "ENTER_SCENE",
+		SceneID:   2,
+		Count:     1,
+	}); err != nil {
+		t.Fatalf("HandleProgressEvent() error = %v", err)
+	}
+	if repo.sceneFactsCalls != 1 {
+		t.Fatalf("scene facts calls = %d, want 1", repo.sceneFactsCalls)
+	}
+	if repo.fullFactsCalls != 0 {
+		t.Fatalf("full facts calls = %d, want 0 because scene transfer must not query bag items", repo.fullFactsCalls)
+	}
+}
+
 type questServiceTestRepo struct {
 	templates        map[uint64]Template
 	playerQuests     map[uint64]map[uint64]PlayerQuest
 	playerObjectives map[uint64]map[uint64][]PlayerObjective
+	fullFactsCalls   int
+	sceneFactsCalls  int
 }
 
 func newQuestServiceTestRepo() *questServiceTestRepo {
@@ -223,6 +246,13 @@ func (r *questServiceTestRepo) ListPlayerObjectivesByPlayerID(_ context.Context,
 }
 
 func (r *questServiceTestRepo) LoadAcceptConditionFacts(context.Context, uint64) (AcceptConditionFacts, error) {
+	r.fullFactsCalls++
+	return AcceptConditionFacts{Level: 100, Stats: map[string]uint64{}, ItemCounts: map[uint64]uint64{}, PetLevels: map[uint64]uint64{}, StoryFlags: map[string]bool{}, Now: time.Now()}, nil
+}
+
+// LoadSceneEventConditionFacts 模拟生产仓储的轻量场景事实读取，ItemCounts 始终为空以代表未访问背包。
+func (r *questServiceTestRepo) LoadSceneEventConditionFacts(context.Context, uint64) (AcceptConditionFacts, error) {
+	r.sceneFactsCalls++
 	return AcceptConditionFacts{Level: 100, Stats: map[string]uint64{}, ItemCounts: map[uint64]uint64{}, PetLevels: map[uint64]uint64{}, StoryFlags: map[string]bool{}, Now: time.Now()}, nil
 }
 

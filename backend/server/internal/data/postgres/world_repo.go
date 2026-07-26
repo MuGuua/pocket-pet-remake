@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"pocket-pet-remake/server/internal/module/world"
@@ -110,6 +111,15 @@ SELECT entity_id, entity_type, display_name, visibility_conditions_json
 FROM world_entity_definition
 WHERE scene_id = $1 AND status = 1
 ORDER BY entity_id ASC
+`
+
+const getMapTeleportTargetQuery = `
+SELECT teleport.center_x, teleport.center_y
+FROM world_map_teleport_node AS teleport
+JOIN world_scene_definition AS scene ON scene.scene_id = teleport.scene_id
+WHERE teleport.scene_id = $1
+  AND teleport.status = 1
+  AND scene.status = 1
 `
 
 func NewWorldRepository(db DBTX) *WorldRepository {
@@ -260,5 +270,38 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID 
 	if entryPos, ok := targetScene.entries[sceneID]; ok {
 		decision.SpawnPos = entryPos
 	}
+	return decision, nil
+}
+
+// EvaluateMapTeleport 只接受数据库中已启用的地图节点，并使用服务端配置的中心格作为权威出生点。
+func (r *WorldRepository) EvaluateMapTeleport(ctx context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
+	decision := &world.MoveDecision{
+		SceneVersion: 1,
+		ToSceneID:    sceneID,
+		SpawnPos:     currentPos,
+	}
+	if _, ok := worldScenes[sceneID]; !ok {
+		decision.Reason = "current scene unavailable"
+		return decision, nil
+	}
+	if targetSceneID == 0 {
+		decision.Reason = "map teleport unavailable"
+		return decision, nil
+	}
+
+	var center world.Vec2i
+	err := r.db.QueryRowContext(ctx, getMapTeleportTargetQuery, targetSceneID).Scan(&center.X, &center.Y)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			decision.Reason = "map teleport unavailable"
+			return decision, nil
+		}
+		return nil, err
+	}
+
+	decision.Accepted = true
+	decision.ToSceneID = targetSceneID
+	decision.SpawnPos = center
+	decision.Reason = "map teleport accepted"
 	return decision, nil
 }

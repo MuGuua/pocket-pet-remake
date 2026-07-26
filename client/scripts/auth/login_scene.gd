@@ -32,8 +32,6 @@ const REGISTER_GENDER_FEMALE: String = "female"
 @onready var scene_label: Label = %SceneLabel
 # 当前玩家摘要标签。
 @onready var player_label: Label = %PlayerLabel
-# 登录页日志输出区域。
-@onready var log_output: RichTextLabel = %LogOutput
 # 登录页内嵌的开发切服面板。
 @onready var dev_server_switcher: DevServerSwitcher = %DevServerSwitcher
 # 登录切场景使用的全屏过渡遮罩。
@@ -47,6 +45,8 @@ var _switching_scene: bool = false
 var _world_entry_flow_running: bool = false
 # 登录页全流程使用的 loading 遮罩（点击登录后立即展示）。
 var _login_loading: GenericLoadingScene = null
+## 登录页当前展示的单条状态或错误提示；刷新连接摘要时继续保留。
+var _latest_login_message: String = ""
 
 # 初始化登录页并绑定登录链路所需信号。
 func _ready() -> void:
@@ -261,7 +261,10 @@ func _refresh_view() -> void:
 	player_label.text = "玩家: %s" % player_text
 	player_label.text = UiFormat.normalize_text(player_label.text)
 
-	hint_label.text = "演示账号: %s  演示密码: %s" % [DEMO_ACCOUNT, DEMO_PASSWORD]
+	if _latest_login_message.is_empty():
+		hint_label.text = "演示账号: %s  演示密码: %s" % [DEMO_ACCOUNT, DEMO_PASSWORD]
+	else:
+		hint_label.text = _latest_login_message
 	if dev_server_switcher != null:
 		dev_server_switcher.refresh_from_active_config()
 
@@ -280,9 +283,14 @@ func _set_login_busy(busy: bool) -> void:
 		_hide_login_loading()
 	_refresh_view()
 
-# 向登录页日志区域追加一条文本。
+## 客户端已关闭登录页日志；状态与错误仍通过现有标签和提示弹窗展示。
 func _append_log(message: String) -> void:
-	log_output.append_text(UiFormat.normalize_text(message) + "\n")
+	var normalized_message: String = UiFormat.normalize_text(message).strip_edges()
+	if normalized_message.is_empty():
+		return
+	_latest_login_message = normalized_message
+	if hint_label != null:
+		hint_label.text = normalized_message
 
 # 返回当前注册表单选中的规范性别值。
 func _selected_register_gender() -> String:

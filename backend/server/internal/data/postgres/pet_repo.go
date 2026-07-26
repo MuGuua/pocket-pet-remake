@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"pocket-pet-remake/server/internal/module/pet"
 	"pocket-pet-remake/server/internal/module/petprogression"
@@ -85,6 +86,24 @@ JOIN player_pet pp ON pp.id = pl.pet_uid
 WHERE pl.player_id = $1
 ORDER BY pl.slot_index ASC
 `
+
+const listWorldFollowingPetsQueryPrefix = `
+SELECT DISTINCT ON (pl.player_id)
+  pl.player_id,
+  pp.id,
+  pp.pet_id,
+  COALESCE(NULLIF(pp.custom_name, ''), pd.pet_name, ''),
+  COALESCE(pd.skin_id, ''),
+  pp.level,
+  pp.exp,
+  pp.hp,
+  pp.hp_max,
+  pp.spirit,
+  pp.spirit_max
+FROM player_lineup pl
+JOIN player_pet pp ON pp.id = pl.pet_uid
+LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
+WHERE pl.player_id IN (`
 
 const listPetSummariesByPlayerIDQuery = `
 SELECT
@@ -607,6 +626,47 @@ func (r *PetRepository) ListLineupSummariesByPlayerID(ctx context.Context, playe
 		return nil, err
 	}
 	return lineup, nil
+}
+
+// ListWorldFollowingPetsByPlayerIDs 使用一次查询返回每名同屏玩家编队首槽的宠物轻量摘要。
+func (r *PetRepository) ListWorldFollowingPetsByPlayerIDs(ctx context.Context, playerIDs []uint64) (map[uint64]pet.WorldFollowingPet, error) {
+	if len(playerIDs) == 0 {
+		return map[uint64]pet.WorldFollowingPet{}, nil
+	}
+	placeholders := make([]string, 0, len(playerIDs))
+	args := make([]any, 0, len(playerIDs))
+	for index, playerID := range playerIDs {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", index+1))
+		args = append(args, playerID)
+	}
+	query := listWorldFollowingPetsQueryPrefix + strings.Join(placeholders, ",") + ") ORDER BY pl.player_id, pl.slot_index"
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uint64]pet.WorldFollowingPet, len(playerIDs))
+	for rows.Next() {
+		var value pet.WorldFollowingPet
+		if err := rows.Scan(
+			&value.PlayerID,
+			&value.PetUID,
+			&value.PetID,
+			&value.Name,
+			&value.SkinID,
+			&value.Level,
+			&value.Exp,
+			&value.HP,
+			&value.HPMax,
+			&value.Spirit,
+			&value.SpiritMax,
+		); err != nil {
+			return nil, err
+		}
+		result[value.PlayerID] = value
+	}
+	return result, rows.Err()
 }
 
 func (r *PetRepository) ListLineupByPlayerID(ctx context.Context, playerID uint64) ([]pet.LineupPet, error) {

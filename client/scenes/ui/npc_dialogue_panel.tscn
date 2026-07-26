@@ -39,7 +39,7 @@ offset_bottom = 101.0
 grow_horizontal = 2
 grow_vertical = 2
 offset_transform_enabled = true
-offset_transform_position = Vector2(0, 350)
+offset_transform_position = Vector2(0, 250)
 theme_override_constants/separation = 0
 
 [node name="SpeakerRow" type="HBoxContainer" parent="Root/DialogueVBox" unique_id=1353239236]

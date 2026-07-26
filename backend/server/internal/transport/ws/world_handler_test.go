@@ -228,6 +228,81 @@ func TestRouterHandleEnterWorld(t *testing.T) {
 	}
 }
 
+// TestWorldSummaryEntityIncludesLightweightStatus 验证切图后增量实体包含移动端展示所需字段，无需加载完整玩家或背包档案。
+func TestWorldSummaryEntityIncludesLightweightStatus(t *testing.T) {
+	entity := worldSummaryEntity(player.WorldSummary{
+		PlayerID:  10002,
+		Name:      "RivalTrainer",
+		Level:     12,
+		Exp:       3456,
+		SceneID:   3,
+		PosX:      7,
+		PosY:      8,
+		HP:        88,
+		HPMax:     120,
+		Vigor:     70,
+		VigorMax:  100,
+		Spirit:    25,
+		SpiritMax: 40,
+		SkinID:    player.DefaultPlayerSkinID,
+	})
+	if entity.Name != "RivalTrainer" || entity.Level != 12 || entity.Exp != 3456 {
+		t.Fatalf("player identity summary = %+v", entity)
+	}
+	if entity.HP != 88 || entity.HPMax != 120 || entity.Vigor != 70 || entity.VigorMax != 100 || entity.Spirit != 25 || entity.SpiritMax != 40 {
+		t.Fatalf("player status summary = %+v", entity)
+	}
+	if entity.SkinID != player.DefaultPlayerSkinID || entity.Pos != (protocol.Vec2i{X: 7, Y: 8}) {
+		t.Fatalf("player visual summary = %+v", entity)
+	}
+}
+
+// TestProtocolWorldFollowingPetIncludesLightweightStatus 验证跟随宠物增量实体携带名字、经验、血量、精力和形象。
+func TestProtocolWorldFollowingPetIncludesLightweightStatus(t *testing.T) {
+	brief := toProtocolWorldFollowingPet(pet.WorldFollowingPet{
+		PlayerID:  10002,
+		PetUID:    21001,
+		PetID:     101,
+		Name:      "小火龙",
+		SkinID:    "嫩叶犬_001",
+		Level:     5,
+		Exp:       110,
+		HP:        31,
+		HPMax:     32,
+		Spirit:    12,
+		SpiritMax: 20,
+	})
+	if brief.Name != "小火龙" || brief.Level != 5 || brief.Exp != 110 || brief.SkinID != "嫩叶犬_001" {
+		t.Fatalf("pet identity summary = %+v", brief)
+	}
+	if brief.HP != 31 || brief.HPMax != 32 || brief.Spirit != 12 || brief.SpiritMax != 20 {
+		t.Fatalf("pet status summary = %+v", brief)
+	}
+}
+
+// TestRouterHandlePlayerProfile 验证人物面板通过独立请求获取权威属性，不再依赖完整进入世界响应。
+func TestRouterHandlePlayerProfile(t *testing.T) {
+	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdPlayerProfileReq, 1201, protocol.PlayerProfileReq{})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1 player profile response", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdPlayerProfileResp {
+		t.Fatalf("response cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdPlayerProfileResp)
+	}
+	var response protocol.PlayerProfileResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(player profile) error = %v", err)
+	}
+	if response.Player.PlayerID != demoPlayerID || response.Player.Name != "DemoTrainer" {
+		t.Fatalf("player profile identity = %+v", response.Player)
+	}
+	if response.Player.HP == 0 || response.Player.HPMax == 0 || response.Player.SkinID == "" {
+		t.Fatalf("player profile status = %+v", response.Player)
+	}
+}
+
 func TestRouterHandleEnterWorldFallsBackToMarketWhenSceneMissing(t *testing.T) {
 	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
 
@@ -410,6 +485,70 @@ func TestRouterHandleMoveIntentSynchronizesPosition(t *testing.T) {
 	}
 	if profile.PosX != targetPos.X || profile.PosY != targetPos.Y {
 		t.Fatalf("profile position = (%d,%d), want (%d,%d)", profile.PosX, profile.PosY, targetPos.X, targetPos.Y)
+	}
+}
+
+// TestRouterHandleMapTeleportToAnotherScene 验证快速传送可以跨越普通出口关系，并使用服务端配置的地图中心格。
+func TestRouterHandleMapTeleportToAnotherScene(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 1321, protocol.MoveIntentReq{
+		OpID:          121,
+		MoveSeq:       321,
+		SceneID:       1,
+		TargetSceneID: 6,
+		MapTeleport:   true,
+	})
+	if len(conn.packets) < 2 {
+		t.Fatalf("len(conn.packets) = %d, want at least move response and world resync", len(conn.packets))
+	}
+
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !response.Accepted || response.SceneID != 6 || response.CorrectedPos != (protocol.Vec2i{X: 5, Y: 5}) {
+		t.Fatalf("map teleport response = %+v, want accepted scene 6 center (5,5)", response)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 6 || profile.PosX != 5 || profile.PosY != 5 {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want 6/(5,5)", profile.SceneID, profile.PosX, profile.PosY)
+	}
+}
+
+// TestRouterHandleMapTeleportWithinCurrentScene 验证再次点击当前地图也会移动到中心，但不会误走普通坐标上报分支。
+func TestRouterHandleMapTeleportWithinCurrentScene(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 1322, protocol.MoveIntentReq{
+		OpID:          122,
+		MoveSeq:       322,
+		SceneID:       1,
+		TargetSceneID: 1,
+		MapTeleport:   true,
+	})
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want move response and world resync only", len(conn.packets))
+	}
+
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !response.Accepted || response.SceneID != 1 || response.CorrectedPos != (protocol.Vec2i{X: 5, Y: 7}) {
+		t.Fatalf("same-scene map teleport response = %+v, want accepted scene 1 center (5,7)", response)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 1 || profile.PosX != 5 || profile.PosY != 7 {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want 1/(5,7)", profile.SceneID, profile.PosX, profile.PosY)
 	}
 }
 
@@ -1102,8 +1241,11 @@ func TestRouterHandleMoveIntentSceneTransferToBeiLu(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(conn.packets) != 2 {
-		t.Fatalf("len(conn.packets) = %d, want 2", len(conn.packets))
+	if len(conn.packets) < 2 {
+		t.Fatalf("len(conn.packets) = %d, want at least move response and world resync", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdMoveIntentResp || conn.packets[1].Cmd != protocol.CmdWorldResyncPush {
+		t.Fatalf("packet order = [%d,%d], want MOVE_INTENT_RESP then WORLD_RESYNC_PUSH", conn.packets[0].Cmd, conn.packets[1].Cmd)
 	}
 
 	var resp protocol.MoveIntentResp

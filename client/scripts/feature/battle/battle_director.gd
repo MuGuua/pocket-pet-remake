@@ -139,14 +139,6 @@ func handle_battle_state_update() -> void:
 			continue
 		var events: Array[Dictionary] = batch.get("events", []) as Array[Dictionary]
 		var runtime_actors: Array[Dictionary] = batch.get("actors", []) as Array[Dictionary]
-		if OS.is_debug_build():
-			print(
-				"[BattleScene][PLAY_EVENTS] frame=%d events=%d phase=%s" % [
-					frame,
-					events.size(),
-					str(batch.get("phase", _network.get_phase()))
-				]
-			)
 		_lock_interaction("正在播放战斗演出")
 		await _play_state_events(events, runtime_actors)
 		_last_played_frame = frame

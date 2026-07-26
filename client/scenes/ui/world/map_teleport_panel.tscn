@@ -1,0 +1,591 @@
+[gd_scene format=3 uid="uid://1tfwmmj6fo00"]
+
+[ext_resource type="Script" uid="uid://c5qjullp1cqr6" path="res://scripts/ui/world/map_teleport_panel.gd" id="1_e04bd"]
+[ext_resource type="Texture2D" uid="uid://bq58q1t83flc2" path="res://asset/kdjl-map-points/闪光镇.png" id="2_rfn2d"]
+[ext_resource type="Script" uid="uid://ceyrpfqwhwddw" path="res://scripts/ui/world/map_teleport_point_button.gd" id="3_rfn2d"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_c3nwd"]
+bg_color = Color(0.09019608, 0.15686275, 0.23921569, 0.9607843)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.8666667, 0.72156864, 0.40392157, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0, 0, 0, 0.5019608)
+shadow_size = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e3hnr"]
+bg_color = Color(0.02745098, 0.07450981, 0.12156863, 0.93333334)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.28235295, 0.41568628, 0.49803922, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sg106"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ot0fe"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1u3ya"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dxg17"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ijkgu"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bgd3b"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_n0sjv"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ng88"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1l31h"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6aaqv"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_coc8i"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6w6xp"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tkdqa"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_885g4"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ktfe6"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8w7f7"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h17o1"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lfpl6"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_83v0m"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_j7sfd"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0b6dd"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_65nib"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7vbef"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mv04v"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dl8mx"]
+bg_color = Color(0, 0, 0, 0)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8thlc"]
+bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.81960785, 0.36078432, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bujju"]
+bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0brfp"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.9411765, 0.627451, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[node name="MapTeleportPanel" type="CanvasLayer" unique_id=2076813502]
+layer = 8
+visible = false
+script = ExtResource("1_e04bd")
+
+[node name="Overlay" type="Control" parent="." unique_id=284844014]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Overlay" unique_id=145057439]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.0627451, 0.1254902, 0.1882353, 0.6039216)
+
+[node name="Panel" type="PanelContainer" parent="Overlay" unique_id=2116402111]
+custom_minimum_size = Vector2(680, 900)
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -340.0
+offset_top = -450.0
+offset_right = 340.0
+offset_bottom = 450.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_c3nwd")
+
+[node name="PanelMargin" type="MarginContainer" parent="Overlay/Panel" unique_id=1872875853]
+layout_mode = 2
+theme_override_constants/margin_left = 34
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 34
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="Overlay/Panel/PanelMargin" unique_id=1002392804]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Header" type="HBoxContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=875621506]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Overlay/Panel/PanelMargin/Content/Header" unique_id=1572543154]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95686275, 0.9019608, 0.7411765, 1)
+theme_override_font_sizes/font_size = 34
+text = "闪光镇地图"
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Header" unique_id=1545545634]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 32
+text = "×"
+
+[node name="MapFrame" type="PanelContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=301140501]
+custom_minimum_size = Vector2(544, 544)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_e3hnr")
+
+[node name="MapCanvas" type="Control" parent="Overlay/Panel/PanelMargin/Content/MapFrame" unique_id=1961835259]
+custom_minimum_size = Vector2(544, 544)
+layout_mode = 2
+
+[node name="MapTexture" type="TextureRect" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=119786525]
+texture_filter = 1
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 528.0
+offset_bottom = 528.0
+mouse_filter = 2
+texture = ExtResource("2_rfn2d")
+expand_mode = 1
+
+[node name="PointButtons" type="Control" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=26094184]
+unique_name_in_owner = true
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="NorthRoadPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1274150882]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 22.0
+offset_right = 202.0
+offset_bottom = 74.0
+tooltip_text = "闪光镇北"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_ot0fe")
+theme_override_styles/hover = SubResource("StyleBoxFlat_1u3ya")
+theme_override_styles/focus = SubResource("StyleBoxFlat_dxg17")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 4
+
+[node name="RoxusHousePoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=313610481]
+layout_mode = 0
+offset_left = 342.0
+offset_top = 118.0
+offset_right = 394.0
+offset_bottom = 170.0
+tooltip_text = "罗克萨斯家"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_ijkgu")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bgd3b")
+theme_override_styles/hover = SubResource("StyleBoxFlat_n0sjv")
+theme_override_styles/focus = SubResource("StyleBoxFlat_1ng88")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 1
+
+[node name="RadiantMarketPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1305490423]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 214.0
+offset_right = 202.0
+offset_bottom = 266.0
+tooltip_text = "光芒市场"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_1l31h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_6aaqv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_coc8i")
+theme_override_styles/focus = SubResource("StyleBoxFlat_6w6xp")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 3
+
+[node name="EastRoadPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=128936115]
+layout_mode = 0
+offset_left = 342.0
+offset_top = 218.0
+offset_right = 394.0
+offset_bottom = 270.0
+tooltip_text = "闪光镇东路"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_tkdqa")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_885g4")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ktfe6")
+theme_override_styles/focus = SubResource("StyleBoxFlat_8w7f7")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 2
+
+[node name="PlainPortalPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1183419399]
+layout_mode = 0
+offset_left = 438.0
+offset_top = 214.0
+offset_right = 490.0
+offset_bottom = 266.0
+tooltip_text = "通往闪光平原"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_h17o1")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_lfpl6")
+theme_override_styles/hover = SubResource("StyleBoxFlat_83v0m")
+theme_override_styles/focus = SubResource("StyleBoxFlat_j7sfd")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+teleport_enabled = false
+
+[node name="PetSchoolPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1789559224]
+layout_mode = 0
+offset_left = 54.0
+offset_top = 314.0
+offset_right = 106.0
+offset_bottom = 366.0
+tooltip_text = "宠物学校"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_0b6dd")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_65nib")
+theme_override_styles/hover = SubResource("StyleBoxFlat_7vbef")
+theme_override_styles/focus = SubResource("StyleBoxFlat_mv04v")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 5
+
+[node name="WildAreaPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=5666091]
+layout_mode = 0
+offset_left = 58.0
+offset_top = 406.0
+offset_right = 110.0
+offset_bottom = 458.0
+tooltip_text = "原野怪区"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_dl8mx")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_8thlc")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bujju")
+theme_override_styles/focus = SubResource("StyleBoxFlat_0brfp")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 6
+
+[node name="SelectedNameLabel" type="Label" parent="Overlay/Panel/PanelMargin/Content" unique_id=808648922]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8784314, 0.5411765, 1)
+theme_override_font_sizes/font_size = 26
+text = "当前位置"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HintLabel" type="Label" parent="Overlay/Panel/PanelMargin/Content" unique_id=1579704424]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7254902, 0.78431374, 0.8392157, 1)
+theme_override_font_sizes/font_size = 18
+text = "点击标点选择，再次点击传送；也可以使用上 / 下切换"
+horizontal_alignment = 1
+
+[node name="Navigation" type="HBoxContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=1950016843]
+layout_mode = 2
+theme_override_constants/separation = 22
+alignment = 1
+
+[node name="PreviousButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 68)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 22
+text = "↑ 上一个"
+
+[node name="NextButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Navigation" unique_id=245441841]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 68)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 22
+text = "↓ 下一个"

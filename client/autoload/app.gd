@@ -127,10 +127,9 @@ func authenticate_ws() -> void:
 func enter_world() -> int:
 	return _send_command(CommandIds.ENTER_WORLD_REQ, {})
 
-# 人物状态面板打开时，仅重新拉取一次服务端权威玩家快照。
-# 当前人物属性挂在 EnterWorldResp.player 中，因此这里复用同一条请求。
+## 人物状态面板打开时只拉取人物权威属性，不重新进入世界，也不加载背包、钱包、宠物或任务。
 func refresh_player_status() -> int:
-	return _send_command(CommandIds.ENTER_WORLD_REQ, {})
+	return _send_command(CommandIds.PLAYER_PROFILE_REQ, {})
 
 # 请求刷新当前玩家的宠物列表摘要；完整属性由单只宠物详情请求拉取。
 func request_pet_list() -> int:
@@ -603,22 +602,14 @@ func is_reconnecting() -> bool:
 	return _reconnect_in_progress
 
 
-# 把统一格式化后的服务端结果日志同时输出到控制台和上层 UI。
-func _emit_server_result_log(cmd: int, message: String) -> void:
-	if message.strip_edges().is_empty():
-		return
-	var prefix: String = "[BattleNet]" if CommandIds.is_battle_related(cmd) else "[ServerResult]"
-	print("%s %s" % [prefix, message])
-	server_result_logged.emit(message)
+## 客户端正式运行不再输出协议日志；保留统一入口可避免改动网络请求与回包处理链路。
+func _emit_server_result_log(_cmd: int, _message: String) -> void:
+	pass
 
 
 # 包装全部由 App 发起的 WebSocket 请求，统一补充发送日志，便于核对
 # 客户端按钮是否真的触发了服务端权威链路。
 func _send_command(cmd: int, payload: Dictionary) -> int:
-	if CommandIds.should_log_result(cmd):
-		_emit_server_result_log(cmd, _format_ws_request_log(cmd, payload))
-		_log_battle_payload_debug(cmd, payload)
-		_log_bag_payload_debug(cmd, payload)
 	var seq := NetClient.send_command(cmd, payload)
 	if seq > 0:
 		_pending_request_cmds_by_seq[seq] = cmd
@@ -680,6 +671,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.PET_LINEUP_SET_REQ
 		CommandIds.PLAYER_ALLOCATE_ATTR_RESP:
 			return CommandIds.PLAYER_ALLOCATE_ATTR_REQ
+		CommandIds.PLAYER_PROFILE_RESP:
+			return CommandIds.PLAYER_PROFILE_REQ
 		CommandIds.PET_ALLOCATE_ATTR_RESP:
 			return CommandIds.PET_ALLOCATE_ATTR_REQ
 		CommandIds.PLAYER_EQUIPMENT_LIST_RESP:
@@ -788,23 +781,13 @@ func _format_battle_payload_json(payload: Dictionary) -> String:
 
 
 # 调试构建下把战斗载荷完整 JSON 输出到控制台；不进入 HUD，避免 RichTextLabel 内存膨胀。
-func _log_battle_payload_debug(cmd: int, payload: Dictionary) -> void:
-	if not OS.is_debug_build():
-		return
-	if not CommandIds.is_battle_related(cmd):
-		return
-	print("[BattleNet][DEBUG_PAYLOAD][%s]\n%s" % [CommandIds.name_of(cmd), _format_battle_payload_json(payload)])
+func _log_battle_payload_debug(_cmd: int, _payload: Dictionary) -> void:
+	pass
 
 
 # 调试构建下把背包/装备/丢弃载荷完整 JSON 输出到控制台。
-func _log_bag_payload_debug(cmd: int, payload: Dictionary) -> void:
-	if not ENABLE_VERBOSE_BAG_PAYLOAD_LOGS:
-		return
-	if not OS.is_debug_build():
-		return
-	if not CommandIds.is_bag_related(cmd):
-		return
-	print("[BagNet][DEBUG_PAYLOAD][%s]\n%s" % [CommandIds.name_of(cmd), _format_battle_payload_json(payload)])
+func _log_bag_payload_debug(_cmd: int, _payload: Dictionary) -> void:
+	pass
 
 
 # 组装 WebSocket 请求结果日志；只保留摘要字段，完整 JSON 见 _log_battle_payload_debug。

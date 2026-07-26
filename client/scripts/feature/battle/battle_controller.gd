@@ -43,28 +43,9 @@ func _try_emit_battle_finished_fallback(state_snapshot: Dictionary, generation: 
 	_emit_battle_finished_from_state(state_snapshot)
 
 
-# 打印战斗场景消费到的协议载荷；高频状态推送只打一行摘要，避免 JSON 刷屏导致卡顿。
-func _log_battle_scene(tag: String, payload: Dictionary) -> void:
-	if tag == "BATTLE_STATE_PUSH":
-		if OS.is_debug_build():
-			var events_count: int = 0
-			var events_variant: Variant = payload.get("events", [])
-			if events_variant is Array:
-				events_count = (events_variant as Array).size()
-			print(
-				"[BattleScene][%s] frame=%s round=%s phase=%s events=%d" % [
-					tag,
-					str(payload.get("frame", 0)),
-					str(payload.get("round", 0)),
-					str(payload.get("phase", "")),
-					events_count,
-				]
-			)
-		return
-	if not OS.is_debug_build():
-		return
-	var payload_json: String = JSON.stringify(payload, "\t")
-	print("[BattleScene][%s] %s" % [tag, payload_json])
+## 客户端不再格式化或输出战斗协议日志，避免高频状态包产生额外序列化开销。
+func _log_battle_scene(_tag: String, _payload: Dictionary) -> void:
+	pass
 
 
 # 处理世界交互响应，并转为统一信号事件。

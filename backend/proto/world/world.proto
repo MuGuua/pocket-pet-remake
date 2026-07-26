@@ -22,6 +22,9 @@ enum EncounterType {
 
 message EnterWorldReq {}
 
+// PlayerProfileReq 请求当前会话人物的权威属性，不触发完整世界或背包加载。
+message PlayerProfileReq {}
+
 message PlayerSnapshot {
   uint64 player_id = 1;
   string name = 2;
@@ -67,6 +70,10 @@ message EnterWorldResp {
   uint32 gold = 8;
 }
 
+message PlayerProfileResp {
+  PlayerSnapshot player = 1;
+}
+
 message EntityEnterPush {
   uint32 scene_version = 1;
   pocketpet.common.EntityBrief entity = 2;
@@ -83,6 +90,8 @@ message MoveIntentReq {
   uint32 scene_id = 3;
   uint32 target_scene_id = 4;
   uint32 portal_id = 5;
+  // 可选；为 true 时表示从世界地图快速传送，目标落点由服务端数据库配置决定。
+  bool map_teleport = 6;
 }
 
 message MoveIntentResp {

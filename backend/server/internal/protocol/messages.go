@@ -116,17 +116,30 @@ type EntityBrief struct {
 	Dir        uint32 `json:"dir"`
 	Speed      uint32 `json:"speed"`
 	Name       string `json:"name"`
+	Level      uint32 `json:"level,omitempty"`
+	Exp        uint64 `json:"exp,omitempty"`
+	HP         uint32 `json:"hp,omitempty"`
+	HPMax      uint32 `json:"hp_max,omitempty"`
+	Vigor      uint32 `json:"vigor,omitempty"`
+	VigorMax   uint32 `json:"vigor_max,omitempty"`
+	Spirit     uint32 `json:"spirit,omitempty"`
+	SpiritMax  uint32 `json:"spirit_max,omitempty"`
+	SkinID     string `json:"skin_id,omitempty"`
 	// FollowingPet 仅用于玩家实体，表示当前编队首只宠物的权威世界展示摘要。
 	FollowingPet *PetBrief `json:"following_pet,omitempty"`
 }
 
 type PetBrief struct {
-	PetUID uint64 `json:"pet_uid"`
-	PetID  uint32 `json:"pet_id"`
-	Level  uint32 `json:"level"`
-	HP     uint32 `json:"hp"`
-	HPMax  uint32 `json:"hp_max"`
-	SkinID string `json:"skin_id"`
+	PetUID    uint64 `json:"pet_uid"`
+	PetID     uint32 `json:"pet_id"`
+	Name      string `json:"name,omitempty"`
+	Exp       uint64 `json:"exp,omitempty"`
+	Level     uint32 `json:"level"`
+	HP        uint32 `json:"hp"`
+	HPMax     uint32 `json:"hp_max"`
+	Spirit    uint32 `json:"spirit,omitempty"`
+	SpiritMax uint32 `json:"spirit_max,omitempty"`
+	SkinID    string `json:"skin_id"`
 }
 
 type PetGrowthAptitudes struct {
@@ -317,6 +330,8 @@ type MoveIntentReq struct {
 	SceneID       uint32 `json:"scene_id"`
 	TargetSceneID uint32 `json:"target_scene_id"`
 	PortalID      uint32 `json:"portal_id"`
+	// MapTeleport 表示玩家从世界地图发起快速传送；服务端会忽略客户端落点并读取数据库中的地图中心坐标。
+	MapTeleport bool `json:"map_teleport,omitempty"`
 	// TargetPos 仅用于同场景移动上报；保留为可选字段以兼容只负责切图的旧客户端。
 	TargetPos *Vec2i `json:"target_pos,omitempty"`
 	// PrecisePos 使用千分之一场景格的定点整数，仅用于同场景实时表现；持久化仍使用 TargetPos。
@@ -579,6 +594,14 @@ type PlayerAllocateAttrReq struct {
 }
 
 type PlayerAllocateAttrResp struct {
+	Player PlayerSnapshot `json:"player"`
+}
+
+// PlayerProfileReq 请求当前会话玩家的人物属性，不携带客户端可修改字段。
+type PlayerProfileReq struct{}
+
+// PlayerProfileResp 只返回人物面板需要的服务端权威属性，不包含背包、宠物、地图或任务数据。
+type PlayerProfileResp struct {
 	Player PlayerSnapshot `json:"player"`
 }
 

@@ -24,6 +24,11 @@ type CombatSnapshotRepository interface {
 	FindPlayerPetCombatSnapshotByUID(ctx context.Context, playerID uint64, petUID uint64) (*Pet, error)
 }
 
+// WorldFollowingPetRepository 批量读取同屏玩家首只跟随宠物的轻量摘要。
+type WorldFollowingPetRepository interface {
+	ListWorldFollowingPetsByPlayerIDs(ctx context.Context, playerIDs []uint64) (map[uint64]WorldFollowingPet, error)
+}
+
 // SummaryRepository 提供宠物面板列表需要的轻量摘要读取能力。
 // 摘要接口不刷新战斗快照，也不加载技能、法宝和完整数值，避免打开面板时一次性计算所有宠物。
 type SummaryRepository interface {
@@ -108,6 +113,35 @@ func (s *Service) ListLineupSummaries(ctx context.Context, playerID uint64) ([]L
 		return []LineupPet{}, nil
 	}
 	return lineup, nil
+}
+
+// ListWorldFollowingPets 批量读取世界同屏跟随宠物；旧仓储回退到逐玩家轻量编队查询。
+func (s *Service) ListWorldFollowingPets(ctx context.Context, playerIDs []uint64) (map[uint64]WorldFollowingPet, error) {
+	if len(playerIDs) == 0 {
+		return map[uint64]WorldFollowingPet{}, nil
+	}
+	if summaryRepo, ok := s.repo.(WorldFollowingPetRepository); ok {
+		return summaryRepo.ListWorldFollowingPetsByPlayerIDs(ctx, playerIDs)
+	}
+	result := make(map[uint64]WorldFollowingPet, len(playerIDs))
+	for _, playerID := range playerIDs {
+		lineup, err := s.ListLineupSummaries(ctx, playerID)
+		if err != nil || len(lineup) == 0 {
+			continue
+		}
+		result[playerID] = WorldFollowingPet{
+			PlayerID:  playerID,
+			PetUID:    lineup[0].PetUID,
+			PetID:     lineup[0].PetID,
+			SkinID:    s.ResolveSkinID(lineup[0].PetID),
+			Level:     lineup[0].Level,
+			HP:        lineup[0].HP,
+			HPMax:     lineup[0].HPMax,
+			Spirit:    lineup[0].Spirit,
+			SpiritMax: lineup[0].SpiritMax,
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) {

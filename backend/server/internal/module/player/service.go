@@ -61,6 +61,40 @@ func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, er
 	return profile, nil
 }
 
+// ListWorldSummaries 批量读取场景同屏玩家摘要；旧仓储回退到逐个档案读取以保持兼容。
+func (s *Service) ListWorldSummaries(ctx context.Context, playerIDs []uint64) ([]WorldSummary, error) {
+	if len(playerIDs) == 0 {
+		return []WorldSummary{}, nil
+	}
+	if summaryRepo, ok := s.repo.(WorldSummaryRepository); ok {
+		return summaryRepo.ListWorldSummariesByPlayerIDs(ctx, playerIDs)
+	}
+	result := make([]WorldSummary, 0, len(playerIDs))
+	for _, playerID := range playerIDs {
+		profile, err := s.GetProfile(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, WorldSummary{
+			PlayerID:  profile.PlayerID,
+			Name:      profile.Name,
+			Level:     profile.Level,
+			Exp:       profile.Exp,
+			SceneID:   profile.SceneID,
+			PosX:      profile.PosX,
+			PosY:      profile.PosY,
+			HP:        profile.HP,
+			HPMax:     profile.HPMax,
+			Vigor:     profile.Vigor,
+			VigorMax:  profile.VigorMax,
+			Spirit:    profile.Spirit,
+			SpiritMax: profile.SpiritMax,
+			SkinID:    profile.SkinID,
+		})
+	}
+	return result, nil
+}
+
 // Register 创建一个可直接登录的新账号与初始玩家角色。
 // 当前公开注册阶段复用账号名作为玩家名，并按性别选择初始形象。
 func (s *Service) Register(ctx context.Context, input RegisterInput) (*RegisterResult, error) {

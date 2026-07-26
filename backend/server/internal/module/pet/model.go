@@ -150,6 +150,21 @@ type LineupPet struct {
 	SkillIDs                 []uint32
 }
 
+// WorldFollowingPet 只包含世界同屏展示首只跟随宠物需要的轻量字段。
+type WorldFollowingPet struct {
+	PlayerID  uint64
+	PetUID    uint64
+	PetID     uint32
+	Name      string
+	SkinID    string
+	Level     uint32
+	Exp       uint64
+	HP        uint32
+	HPMax     uint32
+	Spirit    uint32
+	SpiritMax uint32
+}
+
 // ToLineupPet 把完整宠物快照转换为战斗编队读取用的精简结构。
 func ToLineupPet(item Pet) LineupPet {
 	ResolvePetBattleSkills(&item)

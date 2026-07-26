@@ -94,47 +94,22 @@ func show_rewards(
 
 ## 关闭奖励弹窗。
 func close_popup() -> void:
-	print("[RewardPopup] close_popup requested visible=%s topmost=%s frame=%d" % [visible, _is_topmost_runtime_modal(), Engine.get_process_frames()])
 	if not visible:
-		print("[RewardPopup] close_popup ignored because popup is not visible")
 		return
 	_dismiss_modal()
-	print("[RewardPopup] close_popup dismissed visible=%s" % visible)
 
 
 ## 奖励弹窗单独绑定右上角关闭按钮，避免场景层级调整后基类绑定失效或被事件链吞掉。
 func _bind_direct_close_button() -> void:
 	if _top_close_button_direct == null:
-		print("[RewardPopup] TopCloseButton bind failed: node is null")
 		return
 	_top_close_button_direct.mouse_filter = Control.MOUSE_FILTER_STOP
-	print("[RewardPopup] TopCloseButton bound disabled=%s visible=%s mouse_filter=%s" % [_top_close_button_direct.disabled, _top_close_button_direct.visible, _top_close_button_direct.mouse_filter])
-	if not _top_close_button_direct.gui_input.is_connected(_on_direct_top_close_button_gui_input):
-		_top_close_button_direct.gui_input.connect(_on_direct_top_close_button_gui_input)
-	if not _top_close_button_direct.button_down.is_connected(_on_direct_top_close_button_down):
-		_top_close_button_direct.button_down.connect(_on_direct_top_close_button_down)
 	if not _top_close_button_direct.pressed.is_connected(_on_direct_top_close_button_pressed):
 		_top_close_button_direct.pressed.connect(_on_direct_top_close_button_pressed)
 
 
-## 记录关闭按钮原始 GUI 输入，用于确认点击是否到达按钮节点。
-func _on_direct_top_close_button_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
-		print("[RewardPopup] TopCloseButton gui_input mouse button=%s pressed=%s visible=%s disabled=%s" % [mouse_event.button_index, mouse_event.pressed, visible, _top_close_button_direct.disabled])
-	elif event is InputEventScreenTouch:
-		var touch_event: InputEventScreenTouch = event as InputEventScreenTouch
-		print("[RewardPopup] TopCloseButton gui_input touch index=%s pressed=%s visible=%s disabled=%s" % [touch_event.index, touch_event.pressed, visible, _top_close_button_direct.disabled])
-
-
-## 记录关闭按钮按下态，用于区分 GUI 输入到达但 Button 未触发 pressed 的情况。
-func _on_direct_top_close_button_down() -> void:
-	print("[RewardPopup] TopCloseButton button_down visible=%s topmost=%s disabled=%s" % [visible, _is_topmost_runtime_modal(), _top_close_button_direct.disabled])
-
-
 ## 直接关闭奖励弹窗；不再额外依赖基类的按钮冷却判断。
 func _on_direct_top_close_button_pressed() -> void:
-	print("[RewardPopup] TopCloseButton pressed visible=%s topmost=%s disabled=%s" % [visible, _is_topmost_runtime_modal(), _top_close_button_direct.disabled])
 	close_popup()
 
 
@@ -181,7 +156,6 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if _is_position_inside_close_button(click_position):
-		print("[RewardPopup] TopCloseButton fallback_input position=%s visible=%s topmost=%s" % [click_position, visible, _is_topmost_runtime_modal()])
 		get_viewport().set_input_as_handled()
 		close_popup()
 		return
@@ -227,7 +201,6 @@ func _is_position_inside_close_button(click_position: Vector2) -> bool:
 	if _top_close_button_direct == null:
 		return false
 	var close_rect: Rect2 = _resolve_button_screen_rect(_top_close_button_direct).grow(24.0)
-	print("[RewardPopup] close button hit test click=%s rect=%s" % [click_position, close_rect])
 	return close_rect.has_point(click_position)
 
 

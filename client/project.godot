@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Pocket Pet Remake Client"
 run/main_scene="res://scenes/auth/login_scene.tscn"
+run/disable_stderr=true
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/max_fps=60
 config/icon="res://icon.svg"
@@ -32,6 +33,7 @@ ItemIcons="*res://autoload/item_icons.gd"
 TaskIcons="*res://autoload/task_icons.gd"
 BackgroundAudioKeeper="*res://autoload/background_audio_keeper.gd"
 WebRuntimeCanvas="*res://autoload/web_runtime_canvas.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [dialogue_manager]
 
@@ -45,6 +47,10 @@ window/size/window_width_override=780
 window/size/window_height_override=1440
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
 [gui]
 

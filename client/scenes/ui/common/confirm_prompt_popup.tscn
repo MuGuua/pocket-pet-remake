@@ -7,7 +7,6 @@
 
 [node name="ConfirmPromptPopup" type="CanvasLayer" unique_id=1206606595]
 layer = 133
-visible = false
 script = ExtResource("1_script")
 
 [node name="DimLayer" type="ColorRect" parent="." unique_id=1168750911]
@@ -80,6 +79,7 @@ theme_override_styles/panel = ExtResource("2_style")
 
 [node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/CenterContainer/PanelContainer" unique_id=1932605241]
 layout_mode = 2
+theme_override_constants/margin_bottom = -8
 
 [node name="RootVBox" type="VBoxContainer" parent="VBoxContainer/CenterContainer/PanelContainer/MarginContainer" unique_id=1632437417]
 custom_minimum_size = Vector2(0, 80)

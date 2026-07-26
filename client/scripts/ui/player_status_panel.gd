@@ -51,10 +51,6 @@ func _ready() -> void:
 		GameState.session_changed.connect(refresh_panel_data)
 	if not GameState.world_snapshot_changed.is_connected(refresh_panel_data):
 		GameState.world_snapshot_changed.connect(refresh_panel_data)
-	if not GameState.bag_changed.is_connected(refresh_panel_data):
-		GameState.bag_changed.connect(refresh_panel_data)
-	if not GameState.wallet_changed.is_connected(refresh_panel_data):
-		GameState.wallet_changed.connect(refresh_panel_data)
 	if not App.request_finished.is_connected(_on_request_finished):
 		App.request_finished.connect(_on_request_finished)
 
@@ -68,15 +64,11 @@ func _exit_tree() -> void:
 		GameState.session_changed.disconnect(refresh_panel_data)
 	if GameState.world_snapshot_changed.is_connected(refresh_panel_data):
 		GameState.world_snapshot_changed.disconnect(refresh_panel_data)
-	if GameState.bag_changed.is_connected(refresh_panel_data):
-		GameState.bag_changed.disconnect(refresh_panel_data)
-	if GameState.wallet_changed.is_connected(refresh_panel_data):
-		GameState.wallet_changed.disconnect(refresh_panel_data)
 	if App.request_finished.is_connected(_on_request_finished):
 		App.request_finished.disconnect(_on_request_finished)
 
 
-## 面板展示前拉取人物/背包/钱包快照；自身保持隐藏，由主场景负责 loading。
+## 面板展示前只拉取人物权威属性；背包内容必须等玩家点击背包入口后再查询。
 func prepare_open_data() -> bool:
 	_open_load_generation += 1
 	var load_id: int = _open_load_generation
@@ -85,9 +77,7 @@ func prepare_open_data() -> bool:
 	if not GameState.is_ws_authenticated:
 		return load_id == _open_load_generation
 	var status_seq: int = App.refresh_player_status()
-	var bag_seq: int = App.request_bag_list()
-	var wallet_seq: int = App.request_wallet()
-	var wait_result: Dictionary = await _wait_player_panel_open_requests(status_seq, bag_seq, wallet_seq)
+	var wait_result: Dictionary = await _wait_player_panel_open_request(status_seq)
 	if load_id != _open_load_generation:
 		return false
 	return bool(wait_result.get("all_succeeded", false))
@@ -205,49 +195,23 @@ func _apply_close_button_static_style(button: BaseButton) -> void:
 			button_control.add_theme_stylebox_override("focus", normal_style)
 
 
-## 并行等待人物状态、背包与钱包回包；打开面板前缩短总等待时间。
-func _wait_player_panel_open_requests(status_seq: int, bag_seq: int, wallet_seq: int) -> Dictionary:
-	var pending_cmds: Dictionary = {}
-	if status_seq > 0:
-		pending_cmds[status_seq] = CommandIds.ENTER_WORLD_REQ
-	if bag_seq > 0:
-		pending_cmds[bag_seq] = CommandIds.BAG_LIST_REQ
-	if wallet_seq > 0:
-		pending_cmds[wallet_seq] = CommandIds.WALLET_QUERY_REQ
-	if pending_cmds.is_empty():
-		return {
-			"status_succeeded": true,
-			"bag_succeeded": true,
-			"wallet_succeeded": true,
-			"all_succeeded": true,
-		}
-	var status_succeeded: bool = status_seq <= 0
-	var bag_succeeded: bool = bag_seq <= 0
-	var wallet_succeeded: bool = wallet_seq <= 0
-	while not pending_cmds.is_empty():
+## 等待独立人物资料回包；发送失败时直接结束 loading，避免面板永久等待。
+func _wait_player_panel_open_request(status_seq: int) -> Dictionary:
+	if status_seq <= 0:
+		return {"all_succeeded": false}
+	var request_succeeded: bool = false
+	while true:
 		var result: Array = await App.request_finished
 		if result.size() < 5:
 			continue
 		var request_cmd: int = int(result[0])
 		var seq: int = int(result[1])
 		var succeeded: bool = bool(result[2])
-		if not pending_cmds.has(seq):
+		if seq != status_seq or request_cmd != CommandIds.PLAYER_PROFILE_REQ:
 			continue
-		if int(pending_cmds.get(seq, 0)) != request_cmd:
-			continue
-		pending_cmds.erase(seq)
-		if request_cmd == CommandIds.ENTER_WORLD_REQ and seq == status_seq:
-			status_succeeded = succeeded
-		elif request_cmd == CommandIds.BAG_LIST_REQ and seq == bag_seq:
-			bag_succeeded = succeeded
-		elif request_cmd == CommandIds.WALLET_QUERY_REQ and seq == wallet_seq:
-			wallet_succeeded = succeeded
-	return {
-		"status_succeeded": status_succeeded,
-		"bag_succeeded": bag_succeeded,
-		"wallet_succeeded": wallet_succeeded,
-		"all_succeeded": status_succeeded and bag_succeeded and wallet_succeeded,
-	}
+		request_succeeded = succeeded
+		break
+	return {"all_succeeded": request_succeeded}
 
 
 ## 面板已打开时向服务端重新拉取一次完整人物面板数据。
@@ -258,10 +222,6 @@ func _request_panel_data() -> void:
 
 	var player_status_seq: int = App.refresh_player_status()
 	_track_request_seq(player_status_seq)
-	var bag_seq: int = App.request_bag_list()
-	_track_request_seq(bag_seq)
-	var wallet_seq: int = App.request_wallet()
-	_track_request_seq(wallet_seq)
 
 	if _pending_request_seqs.is_empty():
 		refresh_panel_data()
@@ -341,7 +301,7 @@ func _refresh_status_resistance(player_snapshot: Dictionary) -> void:
 	_set_label_text(status_resistance_panel, "PanelContainer/VBoxContainer/抗人物和抗宠物/HBoxContainer/HBoxContainer2/Label2", _snapshot_text(player_snapshot, ["pet_resist_pct"], "0"))
 
 
-## 刷新社会属性分页，优先读取玩家快照，背包数量来自当前背包容器快照。
+## 刷新社会属性分页；背包数量不在人物面板查询，避免隐式加载背包物品。
 func _refresh_social_attribute(player_snapshot: Dictionary) -> void:
 	_set_label_text(social_attribute_panel, "PanelContainer/VBoxContainer/家族/HBoxContainer/Label2", _snapshot_text(player_snapshot, ["guild_name", "family_name", "family"], "无"))
 	_set_label_text(social_attribute_panel, "PanelContainer/VBoxContainer/背包数量/HBoxContainer/Label2", _build_bag_count_text())
@@ -411,11 +371,7 @@ func _resolve_level_exp_required(snapshot: Dictionary) -> int:
 
 ## 构建背包容量文案，优先使用服务端容器容量，缺失时退回当前物品数量。
 func _build_bag_count_text() -> String:
-	var used_count: int = int(GameState.bag_container.get("used_slots", GameState.bag_items.size()))
-	var capacity: int = int(GameState.bag_container.get("capacity", GameState.bag_container.get("max_slots", 0)))
-	if capacity > 0:
-		return "%d/%d" % [used_count, capacity]
-	return _format_value(used_count)
+	return "请打开背包查看"
 
 
 ## 将服务端字段格式化为 UI 文案；浮点数进入 UI 前统一转成整数。

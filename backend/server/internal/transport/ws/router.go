@@ -249,6 +249,14 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "player handler unavailable")
 		}
 		return r.playerHandler.HandleAllocateAttr(conn, packet)
+	case protocol.CmdPlayerProfileReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.playerHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "player handler unavailable")
+		}
+		return r.playerHandler.HandleProfile(conn, packet)
 	case protocol.CmdPlayerEquipmentListReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

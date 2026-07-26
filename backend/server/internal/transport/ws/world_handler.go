@@ -3,8 +3,10 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/monster"
@@ -203,13 +205,23 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 
 	currentPos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
+	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != profile.SceneID
+	if isSceneTransfer {
+		log.Printf(
+			"[SceneTransition][Server] request player_id=%d seq=%d move_seq=%d from_scene=%d profile_scene=%d target_scene=%d portal=%d current_pos=(%d,%d)",
+			sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, profile.SceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
+		)
+	}
 	if request.SceneID != profile.SceneID {
+		if isSceneTransfer {
+			log.Printf("[SceneTransition][Server] reject player_id=%d reason=scene_mismatch request_scene=%d profile_scene=%d", sess.PlayerID, request.SceneID, profile.SceneID)
+		}
 		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, profile.SceneID, currentPos, "scene mismatch")
 	}
 
 	// 新客户端会持续上报当前格子坐标；服务端先持久化，再把权威结果广播给同场景其他玩家。
 	// 旧客户端没有 target_pos 时仍维持原有响应，避免破坏已有切图协议兼容性。
-	if request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID {
+	if !request.MapTeleport && (request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID) {
 		correctedPos := currentPos
 		reason := "local movement handled by client"
 		if request.TargetPos != nil {
@@ -250,10 +262,20 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return nil
 	}
 
-	decision, err := h.worldService.EvaluateTransfer(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
+	var decision *world.MoveDecision
+	if request.MapTeleport {
+		decision, err = h.worldService.EvaluateMapTeleport(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID)
+	} else {
+		decision, err = h.worldService.EvaluateTransfer(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
+	}
 	if err != nil {
+		log.Printf("[SceneTransition][Server] evaluate failed player_id=%d err=%v", sess.PlayerID, err)
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "evaluate move failed")
 	}
+	log.Printf(
+		"[SceneTransition][Server] decision player_id=%d accepted=%t from_scene=%d to_scene=%d spawn=(%d,%d) reason=%s",
+		sess.PlayerID, decision.Accepted, profile.SceneID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y, decision.Reason,
+	)
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 		Accepted:     decision.Accepted,
@@ -266,33 +288,53 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return err
 	}
 	if err := conn.SendPacket(responsePacket); err != nil {
+		log.Printf("[SceneTransition][Server] response send failed player_id=%d err=%v", sess.PlayerID, err)
 		return err
 	}
+	log.Printf("[SceneTransition][Server] MOVE_INTENT_RESP sent player_id=%d accepted=%t scene=%d", sess.PlayerID, decision.Accepted, decision.ToSceneID)
 
 	if !decision.Accepted {
+		log.Printf("[SceneTransition][Server] rejected transfer resync player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, profile.SceneID, currentPos.X, currentPos.Y)
 		return h.sendWorldResync(conn, profile.SceneID, currentPos)
 	}
 
 	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
+		log.Printf("[SceneTransition][Server] persist position failed player_id=%d err=%v", sess.PlayerID, err)
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 	}
-	h.transferPlayerScene(ctx, sess.PlayerID, profile.SceneID, decision.ToSceneID)
+	log.Printf("[SceneTransition][Server] position persisted player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y)
+	// 同地图快速传送只更新权威坐标并同步 AOI，不重复触发离开/进入场景和 ENTER_SCENE 任务事件。
+	if request.MapTeleport && decision.ToSceneID == profile.SceneID {
+		h.enterPlayerScene(ctx, sess.PlayerID, profile.SceneID)
+		h.broadcastEntityMove(
+			profile.SceneID,
+			sess.PlayerID,
+			request.MoveSeq,
+			currentPos,
+			decision.SpawnPos,
+			normalizePreciseMovementPosition(decision.SpawnPos, nil),
+			normalizeMovementFacing(currentPos, decision.SpawnPos, nil),
+			false,
+		)
+		return h.sendWorldResync(conn, profile.SceneID, decision.SpawnPos)
+	}
+	// 先更新进程内场景索引并推送基础权威快照，客户端无需等待多人资料、宠物或任务查询即可完成换图。
+	h.movePlayerScenePresence(sess.PlayerID, profile.SceneID, decision.ToSceneID)
+	if err := h.sendWorldResyncWithOnlinePlayers(conn, decision.ToSceneID, decision.SpawnPos, false); err != nil {
+		return err
+	}
+	// 多人实体与跟随宠物使用轻量批量查询，并在黑屏关键路径结束后通过增量推送补齐。
+	h.syncPlayerSceneEntities(ctx, conn, sess.PlayerID, decision.ToSceneID)
 	if h.questService != nil {
-		questBefore, _ := listQuestSummaries(ctx, h.questService, sess.PlayerID)
-		_, _ = h.questService.HandleEvent(ctx, quest.Event{
+		changedQuests, questErr := h.questService.HandleProgressEvent(ctx, quest.Event{
 			PlayerID:  sess.PlayerID,
 			EventType: "ENTER_SCENE",
 			SceneID:   decision.ToSceneID,
 			Count:     1,
 		})
-		if err := h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos); err != nil {
-			return err
+		if questErr == nil {
+			_ = pushQuestUpdates(conn, changedQuests)
 		}
-		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
-		return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
-	}
-	if err := h.sendWorldResync(conn, decision.ToSceneID, decision.SpawnPos); err != nil {
-		return err
 	}
 	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
 }
@@ -312,25 +354,97 @@ func (h *WorldHandler) HandleSessionDisconnect(playerID uint64) {
 // appendOnlinePlayerEntities 把进程内已进入世界的同场景玩家合并到数据库场景实体快照。
 func (h *WorldHandler) appendOnlinePlayerEntities(ctx context.Context, selfPlayerID uint64, sceneID uint32, entities []protocol.EntityBrief) []protocol.EntityBrief {
 	seenEntityIDs := make(map[uint64]struct{}, len(entities))
-	for index := range entities {
-		entity := entities[index]
+	playerIDs := make([]uint64, 0, len(entities))
+	for _, entity := range entities {
 		seenEntityIDs[entity.EntityID] = struct{}{}
 		if entity.EntityType == 1 && entity.PlayerID != 0 && entity.PlayerID != selfPlayerID {
-			entities[index] = h.attachFollowingPet(ctx, entity)
+			playerIDs = append(playerIDs, entity.PlayerID)
 		}
 	}
 	for _, playerID := range h.playerIDsInScene(sceneID, selfPlayerID) {
 		if _, exists := seenEntityIDs[playerID]; exists {
 			continue
 		}
-		profile, err := h.playerService.GetProfile(ctx, playerID)
+		playerIDs = append(playerIDs, playerID)
+	}
+	worldPlayers := h.loadPlayerEntities(ctx, playerIDs)
+	for index := range entities {
+		entity := entities[index]
+		if entity.EntityType != 1 || entity.PlayerID == 0 || entity.PlayerID == selfPlayerID {
+			continue
+		}
+		if worldPlayer, exists := worldPlayers[entity.PlayerID]; exists {
+			entities[index] = worldPlayer
+		}
+	}
+	for _, playerID := range playerIDs {
+		if _, exists := seenEntityIDs[playerID]; exists {
+			continue
+		}
+		if entity, exists := worldPlayers[playerID]; exists {
+			entities = append(entities, entity)
+			seenEntityIDs[playerID] = struct{}{}
+		}
+	}
+	return entities
+}
+
+// loadOnlinePlayerEntities 使用一次玩家查询和一次宠物查询组装场景同屏摘要，不读取背包或完整战斗档案。
+func (h *WorldHandler) loadOnlinePlayerEntities(ctx context.Context, selfPlayerID uint64, sceneID uint32) []protocol.EntityBrief {
+	playerIDs := h.playerIDsInScene(sceneID, selfPlayerID)
+	worldPlayers := h.loadPlayerEntities(ctx, playerIDs)
+	result := make([]protocol.EntityBrief, 0, len(worldPlayers))
+	for _, playerID := range playerIDs {
+		if entity, exists := worldPlayers[playerID]; exists {
+			result = append(result, entity)
+		}
+	}
+	return result
+}
+
+// loadPlayerEntities 批量读取指定玩家及首只出战宠物的世界展示字段，不进入背包或完整战斗快照链路。
+func (h *WorldHandler) loadPlayerEntities(ctx context.Context, playerIDs []uint64) map[uint64]protocol.EntityBrief {
+	if len(playerIDs) == 0 || h.playerService == nil {
+		return map[uint64]protocol.EntityBrief{}
+	}
+	summaries, err := h.playerService.ListWorldSummaries(ctx, playerIDs)
+	if err != nil {
+		return map[uint64]protocol.EntityBrief{}
+	}
+	followingPets := map[uint64]pet.WorldFollowingPet{}
+	if h.petService != nil {
+		followingPets, _ = h.petService.ListWorldFollowingPets(ctx, playerIDs)
+	}
+	result := make(map[uint64]protocol.EntityBrief, len(summaries))
+	for _, summary := range summaries {
+		entity := worldSummaryEntity(summary)
+		if followingPet, exists := followingPets[summary.PlayerID]; exists {
+			petBrief := toProtocolWorldFollowingPet(followingPet)
+			if petBrief.PetUID != 0 && petBrief.SkinID != "" {
+				entity.FollowingPet = &petBrief
+			}
+		}
+		result[summary.PlayerID] = entity
+	}
+	return result
+}
+
+// syncPlayerSceneEntities 用一组批量查询同时完成“通知旧玩家”和“补齐新玩家视图”，避免重复读取同场景摘要。
+func (h *WorldHandler) syncPlayerSceneEntities(ctx context.Context, conn packetSender, selfPlayerID uint64, sceneID uint32) {
+	for _, entity := range h.loadOnlinePlayerEntities(ctx, 0, sceneID) {
+		packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
+			SceneID: sceneID,
+			Entity:  entity,
+		})
 		if err != nil {
 			continue
 		}
-		entities = append(entities, h.playerEntity(ctx, profile))
-		seenEntityIDs[playerID] = struct{}{}
+		if entity.PlayerID == selfPlayerID {
+			h.sendPacketToScene(sceneID, selfPlayerID, packet)
+			continue
+		}
+		_ = conn.SendPacket(packet)
 	}
-	return entities
 }
 
 // enterPlayerScene 记录在线场景，并仅在首次进入或切换场景时向其他玩家广播实体进入。
@@ -342,26 +456,37 @@ func (h *WorldHandler) enterPlayerScene(ctx context.Context, playerID uint64, sc
 	if existed && previousSceneID == sceneID {
 		return
 	}
-	profile, err := h.playerService.GetProfile(ctx, playerID)
-	if err != nil {
+	h.broadcastPlayerSceneEntry(ctx, playerID, sceneID)
+}
+
+// broadcastPlayerSceneEntry 使用轻量世界摘要通知目标场景内其他玩家。
+func (h *WorldHandler) broadcastPlayerSceneEntry(ctx context.Context, playerID uint64, sceneID uint32) {
+	entities := h.loadOnlinePlayerEntities(ctx, 0, sceneID)
+	var entity protocol.EntityBrief
+	for _, candidate := range entities {
+		if candidate.PlayerID == playerID {
+			entity = candidate
+			break
+		}
+	}
+	if entity.PlayerID == 0 {
 		return
 	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
 		SceneID: sceneID,
-		Entity:  h.playerEntity(ctx, profile),
+		Entity:  entity,
 	})
 	if err == nil {
 		h.sendPacketToScene(sceneID, playerID, packet)
 	}
 }
 
-// transferPlayerScene 广播旧场景离开后登记新场景，保证两边客户端实体列表同步。
-func (h *WorldHandler) transferPlayerScene(ctx context.Context, playerID uint64, fromSceneID uint32, toSceneID uint32) {
+// movePlayerScenePresence 只更新在线索引并广播旧场景离开，不执行任何数据库查询。
+func (h *WorldHandler) movePlayerScenePresence(playerID uint64, fromSceneID uint32, toSceneID uint32) {
 	h.presenceMu.Lock()
-	delete(h.playerScenes, playerID)
+	h.playerScenes[playerID] = toSceneID
 	h.presenceMu.Unlock()
 	h.broadcastEntityLeave(fromSceneID, playerID)
-	h.enterPlayerScene(ctx, playerID, toSceneID)
 }
 
 // broadcastEntityMove 把持久化后的坐标发给同场景其他玩家，发送失败不反向中断移动者连接。
@@ -484,8 +609,37 @@ func (h *WorldHandler) playerEntity(ctx context.Context, profile *player.Profile
 		EntityType: 1,
 		Pos:        protocol.Vec2i{X: profile.PosX, Y: profile.PosY},
 		Name:       profile.Name,
+		Level:      profile.Level,
+		Exp:        profile.Exp,
+		HP:         profile.HP,
+		HPMax:      profile.HPMax,
+		Vigor:      profile.Vigor,
+		VigorMax:   profile.VigorMax,
+		Spirit:     profile.Spirit,
+		SpiritMax:  profile.SpiritMax,
+		SkinID:     profile.SkinID,
 	}
 	return h.attachFollowingPet(ctx, entity)
+}
+
+// worldSummaryEntity 把数据库轻量玩家摘要转换为世界实体协议。
+func worldSummaryEntity(summary player.WorldSummary) protocol.EntityBrief {
+	return protocol.EntityBrief{
+		EntityID:   summary.PlayerID,
+		PlayerID:   summary.PlayerID,
+		EntityType: 1,
+		Pos:        protocol.Vec2i{X: summary.PosX, Y: summary.PosY},
+		Name:       summary.Name,
+		Level:      summary.Level,
+		Exp:        summary.Exp,
+		HP:         summary.HP,
+		HPMax:      summary.HPMax,
+		Vigor:      summary.Vigor,
+		VigorMax:   summary.VigorMax,
+		Spirit:     summary.Spirit,
+		SpiritMax:  summary.SpiritMax,
+		SkinID:     summary.SkinID,
+	}
 }
 
 // attachFollowingPet 从持久化编队读取首只宠物，并补充世界展示需要的实例与形象信息。
@@ -666,12 +820,30 @@ func toProtocolLineup(lineup []pet.LineupPet, resolveSkinID func(petID uint32) s
 // toProtocolPetBrief 统一转换宠物摘要，保证自身编队和远端跟随宠物使用同一协议口径。
 func toProtocolPetBrief(lineupPet pet.LineupPet, resolveSkinID func(petID uint32) string) protocol.PetBrief {
 	return protocol.PetBrief{
-		PetUID: lineupPet.PetUID,
-		PetID:  lineupPet.PetID,
-		Level:  lineupPet.Level,
-		HP:     lineupPet.HP,
-		HPMax:  lineupPet.HPMax,
-		SkinID: resolveSkinID(lineupPet.PetID),
+		PetUID:    lineupPet.PetUID,
+		PetID:     lineupPet.PetID,
+		Level:     lineupPet.Level,
+		HP:        lineupPet.HP,
+		HPMax:     lineupPet.HPMax,
+		Spirit:    lineupPet.Spirit,
+		SpiritMax: lineupPet.SpiritMax,
+		SkinID:    resolveSkinID(lineupPet.PetID),
+	}
+}
+
+// toProtocolWorldFollowingPet 转换世界同屏使用的跟随宠物轻量摘要。
+func toProtocolWorldFollowingPet(value pet.WorldFollowingPet) protocol.PetBrief {
+	return protocol.PetBrief{
+		PetUID:    value.PetUID,
+		PetID:     value.PetID,
+		Name:      value.Name,
+		Exp:       value.Exp,
+		Level:     value.Level,
+		HP:        value.HP,
+		HPMax:     value.HPMax,
+		Spirit:    value.Spirit,
+		SpiritMax: value.SpiritMax,
+		SkinID:    value.SkinID,
 	}
 }
 
@@ -693,6 +865,12 @@ func (h *WorldHandler) sendMoveRejectedWithResync(conn packetSender, seq uint32,
 }
 
 func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPos world.Vec2i) error {
+	return h.sendWorldResyncWithOnlinePlayers(conn, sceneID, selfPos, true)
+}
+
+// sendWorldResyncWithOnlinePlayers 推送权威场景快照；切图关键路径可先省略在线玩家，再通过实体进入推送补齐。
+func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, sceneID uint32, selfPos world.Vec2i, includeOnlinePlayers bool) error {
+	startedAt := time.Now()
 	sess, err := h.sessionService.GetByConnID(conn.ID())
 	if err != nil {
 		return sendError(conn, 0, errcode.WSCodeSessionInvalid, "session invalid")
@@ -707,17 +885,29 @@ func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPo
 		return sendError(conn, 0, errcode.WSCodeWorldMoveFailed, "load wild encounter config failed")
 	}
 
+	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
+	if includeOnlinePlayers {
+		nearbyEntities = h.appendOnlinePlayerEntities(context.Background(), sess.PlayerID, snapshot.SceneID, nearbyEntities)
+	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdWorldResyncPush, 0, errcode.WSCodeSuccess, protocol.WorldResyncPush{
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
 		SceneVersion:   snapshot.SceneVersion,
-		NearbyEntities: h.appendOnlinePlayerEntities(context.Background(), sess.PlayerID, snapshot.SceneID, toProtocolEntities(snapshot.NearbyEntities)),
+		NearbyEntities: nearbyEntities,
 		WildEncounter:  wildEncounter,
 	})
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(packet)
+	if err := conn.SendPacket(packet); err != nil {
+		log.Printf("[SceneTransition][Server] WORLD_RESYNC_PUSH send failed player_id=%d scene=%d err=%v", sess.PlayerID, snapshot.SceneID, err)
+		return err
+	}
+	log.Printf(
+		"[SceneTransition][Server] WORLD_RESYNC_PUSH sent player_id=%d scene=%d pos=(%d,%d) entities=%d include_online=%t elapsed_ms=%d",
+		sess.PlayerID, snapshot.SceneID, snapshot.SelfPos.X, snapshot.SelfPos.Y, len(nearbyEntities), includeOnlinePlayers, time.Since(startedAt).Milliseconds(),
+	)
+	return nil
 }
 
 func (h *WorldHandler) loadWildEncounterConfig(ctx context.Context, sceneID uint32) (protocol.WildEncounterConfig, error) {

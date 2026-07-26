@@ -36,6 +36,8 @@ const (
 	CmdPlayerAllocateAttrResp     uint16 = 2062
 	CmdPetAllocateAttrReq         uint16 = 2063
 	CmdPetAllocateAttrResp        uint16 = 2064
+	CmdPlayerProfileReq           uint16 = 2065
+	CmdPlayerProfileResp          uint16 = 2066
 	CmdPlayerEquipmentListReq     uint16 = 2070
 	CmdPlayerEquipmentListResp    uint16 = 2071
 	CmdPlayerEquipReq             uint16 = 2072

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=11 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" uid="uid://e4qhgh866py3" path="res://scripts/feature/quest/quest_controller.gd" id="5"]
 [ext_resource type="Script" uid="uid://fth187sgihde" path="res://scripts/bootstrap/runtime_hud.gd" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/ui/combined_status_hud.tscn" id="7_status_hud"]
+[ext_resource type="PackedScene" uid="uid://1tfwmmj6fo00" path="res://scenes/ui/world/map_teleport_panel.tscn" id="9_psdj5"]
+[ext_resource type="Script" uid="uid://bhgtqv6w416wu" path="res://scripts/ui/world/map_panel_controller.gd" id="10_s4kh0"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -174,21 +176,42 @@ text = "挂机"
 [node name="BottomPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
 visible = false
 layout_mode = 0
+anchor_left = 0.05
 anchor_top = 1.0
-anchor_right = 1.0
+anchor_right = 0.95
 anchor_bottom = 1.0
-offset_left = 4.0
-offset_top = -4.0
-offset_right = -4.0
-offset_bottom = -4.0
+offset_top = -158.0
+offset_bottom = -70.0
 grow_horizontal = 2
 grow_vertical = 0
 
 [node name="LogOutput" type="RichTextLabel" parent="UiLayer/HudRoot/BottomPanel"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 11
-scroll_following = true
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 20
+fit_content = true
+scroll_active = false
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MapButton" type="Button" parent="UiLayer/HudRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -346.0
+offset_top = -58.0
+offset_right = -284.0
+offset_bottom = -18.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 12
+text = "地图"
 
 [node name="TransitionOverlay" type="ColorRect" parent="UiLayer"]
 unique_name_in_owner = true
@@ -199,3 +222,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
+
+[node name="MapTeleportPanel" parent="." instance=ExtResource("9_psdj5")]
+
+[node name="MapPanelController" type="Node" parent="."]
+script = ExtResource("10_s4kh0")

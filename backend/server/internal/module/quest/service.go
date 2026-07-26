@@ -194,7 +194,7 @@ func (s *Service) List(ctx context.Context, playerID uint64) ([]Summary, uint64,
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := s.materializeAutoAcceptedQuests(ctx, playerID, templates, playerQuestMap, playerObjectiveMap, facts); err != nil {
+	if _, err := s.materializeAutoAcceptedQuests(ctx, playerID, templates, playerQuestMap, playerObjectiveMap, facts); err != nil {
 		return nil, 0, err
 	}
 
@@ -357,8 +357,12 @@ func (s *Service) HandleEvent(ctx context.Context, event Event) ([]Summary, erro
 		return nil, err
 	}
 
-	if err := s.materializeAutoAcceptedQuests(ctx, event.PlayerID, templates, playerQuestMap, playerObjectiveMap, facts); err != nil {
+	autoAcceptedQuestIDs, err := s.materializeAutoAcceptedQuests(ctx, event.PlayerID, templates, playerQuestMap, playerObjectiveMap, facts)
+	if err != nil {
 		return nil, err
+	}
+	for _, questID := range autoAcceptedQuestIDs {
+		changedQuestIDs[questID] = true
 	}
 
 	for _, template := range templates {
@@ -405,8 +409,73 @@ func (s *Service) HandleEvent(ctx context.Context, event Event) ([]Summary, erro
 	return summaries, nil
 }
 
-func (s *Service) materializeAutoAcceptedQuests(ctx context.Context, playerID uint64, templates []Template, playerQuestMap map[uint64]*PlayerQuest, playerObjectiveMap map[uint64][]PlayerObjective, facts AcceptConditionFacts) error {
+// HandleProgressEvent 使用不含背包的轻量事实推进场景任务，并保留场景条件自动接取能力。
+// 完整物品持有条件仍在任务列表和主动接取入口校验，切图过程不会读取背包容器。
+func (s *Service) HandleProgressEvent(ctx context.Context, event Event) ([]Summary, error) {
+	templates, playerQuestMap, playerObjectiveMap, err := s.loadState(ctx, event.PlayerID)
+	if err != nil {
+		return nil, err
+	}
+
+	facts := AcceptConditionFacts{
+		Stats:      map[string]uint64{},
+		ItemCounts: map[uint64]uint64{},
+		PetLevels:  map[uint64]uint64{},
+		StoryFlags: map[string]bool{},
+	}
+	facts, err = s.repo.LoadSceneEventConditionFacts(ctx, event.PlayerID)
+	if err != nil {
+		return nil, err
+	}
+	changedQuestIDs := map[uint64]bool{}
+	autoAcceptedQuestIDs, err := s.materializeAutoAcceptedQuests(ctx, event.PlayerID, templates, playerQuestMap, playerObjectiveMap, facts)
+	if err != nil {
+		return nil, err
+	}
+	for _, questID := range autoAcceptedQuestIDs {
+		changedQuestIDs[questID] = true
+	}
+	for _, template := range templates {
+		current := playerQuestMap[template.QuestID]
+		if current == nil || current.State != StateAccepted {
+			continue
+		}
+		objectives := playerObjectiveMap[template.QuestID]
+		if len(objectives) == 0 {
+			objectives = buildInitialObjectives(event.PlayerID, template)
+		}
+		updatedObjectives, changed := applyEventToObjectives(template, objectives, event)
+		if !changed {
+			continue
+		}
+		if err := s.repo.ReplacePlayerObjectives(ctx, event.PlayerID, template.QuestID, updatedObjectives); err != nil {
+			return nil, err
+		}
+		playerObjectiveMap[template.QuestID] = updatedObjectives
+
+		current.State = StateAccepted
+		if allObjectivesCompleted(updatedObjectives) {
+			current.State = StateReadyToSubmit
+		}
+		if err := s.repo.UpsertPlayerQuest(ctx, *current); err != nil {
+			return nil, err
+		}
+		changedQuestIDs[template.QuestID] = true
+	}
+
 	completed := completedQuestSet(playerQuestMap)
+	result := make([]Summary, 0, len(changedQuestIDs))
+	for _, template := range templates {
+		if changedQuestIDs[template.QuestID] {
+			result = append(result, buildSummary(template, playerQuestMap[template.QuestID], playerObjectiveMap[template.QuestID], completed, facts))
+		}
+	}
+	return result, nil
+}
+
+func (s *Service) materializeAutoAcceptedQuests(ctx context.Context, playerID uint64, templates []Template, playerQuestMap map[uint64]*PlayerQuest, playerObjectiveMap map[uint64][]PlayerObjective, facts AcceptConditionFacts) ([]uint64, error) {
+	completed := completedQuestSet(playerQuestMap)
+	autoAcceptedQuestIDs := make([]uint64, 0)
 	for _, template := range templates {
 		if playerQuestMap[template.QuestID] != nil || template.AcceptMode != "AUTO" || !isUnlocked(&template, completed, facts) {
 			continue
@@ -419,21 +488,22 @@ func (s *Service) materializeAutoAcceptedQuests(ctx context.Context, playerID ui
 			Tracked:  tracked,
 		}
 		if err := s.repo.UpsertPlayerQuest(ctx, *current); err != nil {
-			return err
+			return nil, err
 		}
 		objectives := buildInitialObjectives(playerID, template)
 		if err := s.repo.ReplacePlayerObjectives(ctx, playerID, template.QuestID, objectives); err != nil {
-			return err
+			return nil, err
 		}
 		if tracked {
 			if err := s.repo.SetTrackedQuest(ctx, playerID, template.QuestID); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		playerQuestMap[template.QuestID] = current
 		playerObjectiveMap[template.QuestID] = objectives
+		autoAcceptedQuestIDs = append(autoAcceptedQuestIDs, template.QuestID)
 	}
-	return nil
+	return autoAcceptedQuestIDs, nil
 }
 
 func (s *Service) loadState(ctx context.Context, playerID uint64) ([]Template, map[uint64]*PlayerQuest, map[uint64][]PlayerObjective, error) {

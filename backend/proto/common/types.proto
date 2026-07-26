@@ -22,6 +22,17 @@ message EntityBrief {
   uint32 dir = 4;
   uint32 speed = 5;
   string name = 6;
+  uint64 player_id = 7;
+  uint32 level = 8;
+  uint64 exp = 9;
+  uint32 hp = 10;
+  uint32 hp_max = 11;
+  uint32 vigor = 12;
+  uint32 vigor_max = 13;
+  uint32 spirit = 14;
+  uint32 spirit_max = 15;
+  string skin_id = 16;
+  PetBrief following_pet = 17;
 }
 
 message PetBrief {
@@ -30,6 +41,11 @@ message PetBrief {
   uint32 level = 3;
   uint32 hp = 4;
   uint32 hp_max = 5;
+  string name = 6;
+  uint64 exp = 7;
+  uint32 spirit = 8;
+  uint32 spirit_max = 9;
+  string skin_id = 10;
 }
 
 message ItemBrief {

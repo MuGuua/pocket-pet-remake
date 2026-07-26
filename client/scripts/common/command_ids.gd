@@ -72,6 +72,10 @@ const PLAYER_ALLOCATE_ATTR_RESP: int = 2062
 const PET_ALLOCATE_ATTR_REQ: int = 2063
 # 宠物分配属性点响应消息号。
 const PET_ALLOCATE_ATTR_RESP: int = 2064
+## 当前人物权威属性请求消息号，不加载背包、宠物或世界快照。
+const PLAYER_PROFILE_REQ: int = 2065
+## 当前人物权威属性响应消息号。
+const PLAYER_PROFILE_RESP: int = 2066
 # 人物已佩戴装备列表请求消息号。
 const PLAYER_EQUIPMENT_LIST_REQ: int = 2070
 # 人物已佩戴装备列表响应消息号。
@@ -272,6 +276,10 @@ static func name_of(cmd: int) -> String:
             return "PET_ALLOCATE_ATTR_REQ"
         PET_ALLOCATE_ATTR_RESP:
             return "PET_ALLOCATE_ATTR_RESP"
+        PLAYER_PROFILE_REQ:
+            return "PLAYER_PROFILE_REQ"
+        PLAYER_PROFILE_RESP:
+            return "PLAYER_PROFILE_RESP"
         PLAYER_EQUIPMENT_LIST_REQ:
             return "PLAYER_EQUIPMENT_LIST_REQ"
         PLAYER_EQUIPMENT_LIST_RESP:

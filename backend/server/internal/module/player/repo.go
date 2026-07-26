@@ -14,3 +14,8 @@ type Repository interface {
 	AddRewardAttribute(ctx context.Context, playerID uint64, attrKey string, value uint32) error
 	CountActivePlayers(ctx context.Context) (uint64, error)
 }
+
+// WorldSummaryRepository 批量读取场景同屏展示所需的轻量玩家摘要。
+type WorldSummaryRepository interface {
+	ListWorldSummariesByPlayerIDs(ctx context.Context, playerIDs []uint64) ([]WorldSummary, error)
+}

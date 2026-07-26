@@ -95,6 +95,25 @@ SET scene_id = $2,
 WHERE id = $1
 `
 
+const listWorldPlayerSummariesQueryPrefix = `
+SELECT
+  id,
+  name,
+  level,
+  exp,
+  scene_id,
+  pos_x,
+  pos_y,
+  hp,
+  hp_max,
+  vigor,
+  vigor_max,
+  spirit,
+  spirit_max,
+  skin_id
+FROM player
+WHERE status = 1 AND id IN (`
+
 const findAdminPlayerDetailByIDQuery = `
 SELECT
   p.id,
@@ -317,6 +336,50 @@ func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) 
 		return profile, nil
 	}
 	return r.findPlayerByIDRaw(ctx, playerID)
+}
+
+// ListWorldSummariesByPlayerIDs 使用一次查询返回同屏展示需要的玩家轻量字段。
+func (r *PlayerRepository) ListWorldSummariesByPlayerIDs(ctx context.Context, playerIDs []uint64) ([]player.WorldSummary, error) {
+	if len(playerIDs) == 0 {
+		return []player.WorldSummary{}, nil
+	}
+	placeholders := make([]string, 0, len(playerIDs))
+	args := make([]any, 0, len(playerIDs))
+	for index, playerID := range playerIDs {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", index+1))
+		args = append(args, playerID)
+	}
+	query := listWorldPlayerSummariesQueryPrefix + strings.Join(placeholders, ",") + ") ORDER BY id"
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]player.WorldSummary, 0, len(playerIDs))
+	for rows.Next() {
+		var value player.WorldSummary
+		if err := rows.Scan(
+			&value.PlayerID,
+			&value.Name,
+			&value.Level,
+			&value.Exp,
+			&value.SceneID,
+			&value.PosX,
+			&value.PosY,
+			&value.HP,
+			&value.HPMax,
+			&value.Vigor,
+			&value.VigorMax,
+			&value.Spirit,
+			&value.SpiritMax,
+			&value.SkinID,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
 }
 
 func (r *PlayerRepository) findPlayerByIDRaw(ctx context.Context, playerID uint64) (*player.Profile, error) {

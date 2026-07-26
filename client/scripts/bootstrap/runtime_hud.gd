@@ -3,8 +3,8 @@ class_name RuntimeHud
 
 const SETTINGS_MENU_SCENE: PackedScene = preload("res://scenes/ui/common/action_menu_popup.tscn")
 
-## HUD 日志区最多保留的行数，防止 RichTextLabel 无限增长拖慢主线程。
-const MAX_LOG_LINES: int = 120
+## 单条业务提示在移动端 HUD 中保留的秒数。
+const NOTICE_DISPLAY_DURATION_SEC: float = 3.0
 const SETTINGS_ACTIONS: Array[Dictionary] = [
 	{"key": "return_login", "label": "返回登录页"},
 	{"key": "quit_game", "label": "退出游戏"},
@@ -22,8 +22,10 @@ const SETTINGS_ACTIONS: Array[Dictionary] = [
 @onready var task_button: Button = %TaskButton
 ## 设置按钮旁边的挂机按钮；仅暗雷地图展示。
 @onready var auto_encounter_button: Button = %AutoEncounterButton
-## 底部调试日志输出控件。
+## 底部单条业务提示正文。
 @onready var log_output: RichTextLabel = %LogOutput
+## 单条业务提示使用的既有底部面板；默认隐藏，不恢复历史调试日志区域。
+@onready var notice_panel: PanelContainer = $BottomPanel
 
 ## 头像被点击时向外转发，供主场景打开人物面板。
 signal avatar_pressed
@@ -42,6 +44,8 @@ signal auto_encounter_pressed
 
 ## 右下角设置动作菜单。
 var _settings_menu: ActionMenuPopup = null
+## 当前业务提示的显示代次；新提示会让旧提示的延迟隐藏失效。
+var _notice_generation: int = 0
 
 
 ## 初始化 HUD 常驻按钮与头像事件转发。
@@ -143,25 +147,27 @@ func _on_settings_button_pressed() -> void:
 	})
 
 
-## 追加一条运行时日志。
-func append_log(message: String) -> void:
-	if log_output == null:
-		return
-	log_output.append_text(UiFormat.normalize_text(message) + "\n")
-	_trim_log_lines()
+## 客户端已关闭运行时日志；保留空入口避免业务流程为日志产生额外分支。
+func append_log(_message: String) -> void:
+	pass
 
 
-## 超出上限时丢弃最旧行，避免长时间运行后日志控件占用过多内存。
-func _trim_log_lines() -> void:
-	if log_output == null:
+## 展示一条由业务流程产生的玩家提示，并在固定时间后自动隐藏。
+## message 是服务端或客户端业务校验生成的提示正文。
+func show_notice(message: String) -> void:
+	var normalized_message: String = UiFormat.normalize_text(message).strip_edges()
+	if normalized_message.is_empty() or log_output == null or notice_panel == null:
 		return
-	var current_text: String = log_output.text
-	if current_text.is_empty():
-		return
-	var lines: PackedStringArray = current_text.split("\n", false)
-	if lines.size() <= MAX_LOG_LINES:
-		return
-	log_output.text = "\n".join(lines.slice(lines.size() - MAX_LOG_LINES))
+	_notice_generation += 1
+	var generation: int = _notice_generation
+	log_output.text = normalized_message
+	notice_panel.show()
+	var notice_timer: SceneTreeTimer = get_tree().create_timer(NOTICE_DISPLAY_DURATION_SEC)
+	await notice_timer.timeout
+	if generation == _notice_generation and log_output != null:
+		log_output.text = ""
+		if notice_panel != null:
+			notice_panel.hide()
 
 
 ## 懒创建设置动作菜单并挂到 HUD 根节点下，复用通用锚点弹层样式。
