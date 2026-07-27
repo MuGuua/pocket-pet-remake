@@ -76,6 +76,8 @@
 - `2044 SCENE_TRIGGER_PUSH`（已实现）
 - `2045 SCENE_TRIGGER_ACK_REQ`（已实现）
 - `2046 SCENE_TRIGGER_ACK_RESP`（已实现）
+- `2047 NPC_MENU_BATCH_REQ`（已实现）
+- `2048 NPC_MENU_BATCH_RESP`（已实现）
 - `2037 NPC_DIALOGUE_NEXT_REQ`（已实现）
 - `2038 NPC_DIALOGUE_RESP`（已实现）
 - `2039 NPC_DIALOGUE_CHOOSE_REQ`（已实现）
@@ -758,7 +760,7 @@
 
 ### 2042 NPC_MENU_REQ
 
-拉取指定 NPC 的动态菜单列表；客户端点击附近 NPC 时应优先走该协议，而不是 `2031 INTERACT_REQ`：
+拉取指定 NPC 的动态菜单列表；当前主要保留给任务状态变化后需要立即刷新单个 NPC 的兼容流程，地图首次菜单准备使用 `2047 NPC_MENU_BATCH_REQ`：
 
 ```json
 {
@@ -786,6 +788,48 @@
   ]
 }
 ```
+
+### 2047 NPC_MENU_BATCH_REQ
+
+客户端进入地图后异步请求当前场景全部可见 NPC 菜单。该请求不参与地图转场完成判定，也不能锁定玩家移动：
+
+```json
+{
+  "scene_id": 3
+}
+```
+
+### 2048 NPC_MENU_BATCH_RESP
+
+服务端校验玩家权威场景后，一次读取场景实体、任务摘要和全部 NPC 静态菜单，再返回按 NPC 分组的结果：
+
+```json
+{
+  "accepted": true,
+  "reason": "scene npc menus loaded",
+  "scene_id": 3,
+  "menus": [
+    {
+      "accepted": true,
+      "reason": "menu loaded",
+      "entity_id": 93001,
+      "npc_name": "市场理萌",
+      "menu_entries": [
+        {
+          "entry_id": "dialog_market_intro",
+          "entry_type": "dialog",
+          "title": "让个路",
+          "subtitle": "看看市场理萌的轻剧情演出",
+          "state": "available",
+          "priority": 90
+        }
+      ]
+    }
+  ]
+}
+```
+
+响应到达时若 `scene_id` 已不是客户端当前场景，客户端必须丢弃该批缓存，避免旧地图迟到数据污染新地图。
 
 ### 2033 NPC_ACTION_REQ
 

@@ -52,6 +52,10 @@ const SCENE_TRIGGER_PUSH: int = 2044
 const SCENE_TRIGGER_ACK_REQ: int = 2045
 # 场景剧情播放完成确认响应消息号。
 const SCENE_TRIGGER_ACK_RESP: int = 2046
+## 当前地图全部 NPC 菜单批量请求消息号。
+const NPC_MENU_BATCH_REQ: int = 2047
+## 当前地图全部 NPC 菜单批量响应消息号。
+const NPC_MENU_BATCH_RESP: int = 2048
 # NPC 剧情继续请求消息号。
 const NPC_DIALOGUE_NEXT_REQ: int = 2037
 # NPC 剧情节点响应消息号。
@@ -256,6 +260,10 @@ static func name_of(cmd: int) -> String:
             return "NPC_MENU_REQ"
         NPC_MENU_RESP:
             return "NPC_MENU_RESP"
+        NPC_MENU_BATCH_REQ:
+            return "NPC_MENU_BATCH_REQ"
+        NPC_MENU_BATCH_RESP:
+            return "NPC_MENU_BATCH_RESP"
         NPC_DIALOGUE_NEXT_REQ:
             return "NPC_DIALOGUE_NEXT_REQ"
         NPC_DIALOGUE_RESP:
@@ -444,7 +452,7 @@ static func is_battle_related(cmd: int) -> bool:
     match cmd:
         INTERACT_REQ, INTERACT_RESP, \
         NPC_ACTION_REQ, NPC_ACTION_RESP, \
-        NPC_MENU_REQ, NPC_MENU_RESP, \
+        NPC_MENU_REQ, NPC_MENU_RESP, NPC_MENU_BATCH_REQ, NPC_MENU_BATCH_RESP, \
         NPC_DIALOGUE_NEXT_REQ, NPC_DIALOGUE_RESP, NPC_DIALOGUE_CHOOSE_REQ, \
         WILD_ENCOUNTER_REQ, WILD_ENCOUNTER_RESP, \
         BATTLE_ACTION_REQ, BATTLE_ACTION_RESP, \

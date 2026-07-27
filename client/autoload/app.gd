@@ -380,6 +380,15 @@ func request_npc_menu(entity_id: int) -> int:
 		}
 	)
 
+## 一次请求当前场景全部 NPC 的动态菜单；响应在后台写入地图缓存，不阻塞玩家进入地图。
+func request_npc_menu_batch(scene_id: int) -> int:
+	return _send_command(
+		CommandIds.NPC_MENU_BATCH_REQ,
+		{
+			"scene_id": scene_id,
+		}
+	)
+
 # 向服务端提交 NPC 菜单项执行请求。
 func request_npc_action(entity_id: int, entry_id: String) -> int:
 	return _send_command(
@@ -665,6 +674,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.NPC_ACTION_REQ
 		CommandIds.NPC_MENU_RESP:
 			return CommandIds.NPC_MENU_REQ
+		CommandIds.NPC_MENU_BATCH_RESP:
+			return CommandIds.NPC_MENU_BATCH_REQ
 		CommandIds.PET_LIST_RESP:
 			return CommandIds.PET_LIST_REQ
 		CommandIds.PET_LINEUP_SET_RESP:

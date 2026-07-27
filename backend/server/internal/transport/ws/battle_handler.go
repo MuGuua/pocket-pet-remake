@@ -65,6 +65,9 @@ func (h *BattleHandler) SetRuntimeSnapshotService(service *runtimeview.Service) 
 var dialogueItemTokenPattern = regexp.MustCompile(`\{item:(\d+)\}`)
 var dialoguePetTokenPattern = regexp.MustCompile(`\{pet:(\d+)\}`)
 
+// worldNPCEntityType 与世界实体表中的 NPC 类型保持一致；批量菜单只处理这种实体。
+const worldNPCEntityType uint32 = 2
+
 func NewBattleHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, walletService *wallet.Service, worldService *world.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, battleService *battle.Service, battleRepo battle.Repository, equipmentService *equipment.Service, playerSkillService *playerskill.Service, itemServices ...*item.Service) *BattleHandler {
 	var itemService *item.Service
 	if len(itemServices) > 0 {
@@ -218,6 +221,78 @@ func (h *BattleHandler) HandleNPCMenu(conn packetSender, packet *protocol.Packet
 	menuResp.Accepted = true
 	menuResp.Reason = "menu loaded"
 	return h.sendNPCMenuResponse(conn, packet.Seq, menuResp)
+}
+
+// HandleNPCMenuBatch 一次返回玩家当前场景全部可见 NPC 菜单，供客户端进图后异步填充缓存。
+func (h *BattleHandler) HandleNPCMenuBatch(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.NPCMenuBatchReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid npc menu batch body")
+	}
+
+	sess, err := h.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	ctx := context.Background()
+	profile, err := h.playerService.GetProfile(ctx, sess.PlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
+	}
+	if request.SceneID == 0 || request.SceneID != profile.SceneID {
+		return h.sendNPCMenuBatchResponse(conn, packet.Seq, protocol.NPCMenuBatchResp{
+			Accepted: false,
+			Reason:   "scene mismatch",
+			SceneID:  profile.SceneID,
+			Menus:    []protocol.NPCMenuResp{},
+		})
+	}
+
+	snapshot, err := h.worldService.GetSceneSnapshot(ctx, sess.PlayerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "load npc menu scene failed")
+	}
+	summaries, err := listQuestSummaries(ctx, h.questService, sess.PlayerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "load npc menu quests failed")
+	}
+
+	npcTargets := make([]world.Entity, 0, len(snapshot.NearbyEntities))
+	npcEntityIDs := make([]uint64, 0, len(snapshot.NearbyEntities))
+	for _, entity := range snapshot.NearbyEntities {
+		if entity.EntityType != worldNPCEntityType {
+			continue
+		}
+		npcTargets = append(npcTargets, entity)
+		npcEntityIDs = append(npcEntityIDs, entity.EntityID)
+	}
+	staticEntriesByEntityID, err := h.npcService.ListMenuEntriesByEntityIDs(ctx, npcEntityIDs)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "load npc menu entries failed")
+	}
+
+	menus := make([]protocol.NPCMenuResp, 0, len(npcTargets))
+	for _, target := range npcTargets {
+		entries := h.buildNPCMenuEntriesFromLoadedData(ctx, sess.PlayerID, target.EntityID, summaries, staticEntriesByEntityID[target.EntityID])
+		accepted := len(entries) > 0
+		reason := "menu loaded"
+		if !accepted {
+			reason = "npc menu unavailable"
+		}
+		menus = append(menus, protocol.NPCMenuResp{
+			Accepted:    accepted,
+			Reason:      reason,
+			EntityID:    target.EntityID,
+			NPCName:     target.Name,
+			MenuEntries: entries,
+		})
+	}
+	return h.sendNPCMenuBatchResponse(conn, packet.Seq, protocol.NPCMenuBatchResp{
+		Accepted: true,
+		Reason:   "scene npc menus loaded",
+		SceneID:  snapshot.SceneID,
+		Menus:    menus,
+	})
 }
 
 const wildEncounterCooldown = 2 * time.Second
@@ -1371,6 +1446,15 @@ func (h *BattleHandler) sendNPCMenuResponse(conn packetSender, seq uint32, respo
 	return conn.SendPacket(packet)
 }
 
+// sendNPCMenuBatchResponse 发送批量菜单响应；不输出完整载荷，避免大量菜单文本污染服务端日志。
+func (h *BattleHandler) sendNPCMenuBatchResponse(conn packetSender, seq uint32, response protocol.NPCMenuBatchResp) error {
+	packet, err := protocol.NewJSONPacket(protocol.CmdNPCMenuBatchResp, seq, errcode.WSCodeSuccess, response)
+	if err != nil {
+		return err
+	}
+	return conn.SendPacket(packet)
+}
+
 func (h *BattleHandler) sendPVPChallengeResponse(conn packetSender, seq uint32, accepted bool, reason string, challengeID uint64, targetPlayerID uint64) error {
 	response := protocol.PVPChallengeResp{
 		Accepted:       accepted,
@@ -2149,40 +2233,57 @@ func (h *BattleHandler) applyDialogueNodeSideEffects(ctx context.Context, conn p
 }
 
 func (h *BattleHandler) npcMenuEntriesByEntityID(ctx context.Context, playerID uint64, entityID uint64) ([]protocol.NpcMenuEntry, bool) {
-	result := []protocol.NpcMenuEntry{}
-	questReader := &npcdialogue.QuestServiceAdapter{Service: h.questService}
-	if h.questService != nil && playerID != 0 {
-		if summaries, err := listQuestSummaries(ctx, h.questService, playerID); err == nil {
-			result = append(result, questMenuEntriesForNPC(entityID, summaries)...)
-		}
+	summaries, err := listQuestSummaries(ctx, h.questService, playerID)
+	if err != nil {
+		return nil, false
 	}
-
 	staticEntries, err := h.npcService.ListMenuEntriesByEntityID(ctx, entityID)
-	if err == nil {
-		for _, entry := range staticEntries {
-			visible, matchErr := npcdialogue.MatchNodeConditions(ctx, questReader, playerID, entry.ConditionsJSON)
-			if matchErr != nil || !visible {
-				continue
-			}
-			menuEntry := protocol.NpcMenuEntry{
-				EntryID:   entry.EntryID,
-				EntryType: entry.EntryType,
-				Title:     entry.Title,
-				Subtitle:  entry.Subtitle,
-				State:     entry.State,
-				Priority:  entry.Priority,
-			}
-			if entry.LinkedQuestID > 0 {
-				menuEntry.QuestID = entry.LinkedQuestID
-			}
-			result = append(result, menuEntry)
-		}
+	if err != nil {
+		return nil, false
 	}
-
+	result := h.buildNPCMenuEntriesFromLoadedData(ctx, playerID, entityID, summaries, staticEntries)
 	if len(result) == 0 {
 		return nil, false
 	}
 	return result, true
+}
+
+// loadedQuestSummaryReader 让同一批菜单条件复用已读取的任务摘要，避免每个条件再次查询任务。
+type loadedQuestSummaryReader struct {
+	summaries []quest.Summary
+}
+
+// ListSummaries 返回本批请求开始时的只读任务快照。
+func (r *loadedQuestSummaryReader) ListSummaries(_ context.Context, _ uint64) ([]quest.Summary, error) {
+	if r == nil {
+		return []quest.Summary{}, nil
+	}
+	return r.summaries, nil
+}
+
+// buildNPCMenuEntriesFromLoadedData 使用一次性加载的任务与静态菜单数据计算单个 NPC 的最终可见菜单。
+func (h *BattleHandler) buildNPCMenuEntriesFromLoadedData(ctx context.Context, playerID uint64, entityID uint64, summaries []quest.Summary, staticEntries []npc.MenuEntry) []protocol.NpcMenuEntry {
+	result := questMenuEntriesForNPC(entityID, summaries)
+	questReader := &loadedQuestSummaryReader{summaries: summaries}
+	for _, entry := range staticEntries {
+		visible, matchErr := npcdialogue.MatchNodeConditions(ctx, questReader, playerID, entry.ConditionsJSON)
+		if matchErr != nil || !visible {
+			continue
+		}
+		menuEntry := protocol.NpcMenuEntry{
+			EntryID:   entry.EntryID,
+			EntryType: entry.EntryType,
+			Title:     entry.Title,
+			Subtitle:  entry.Subtitle,
+			State:     entry.State,
+			Priority:  entry.Priority,
+		}
+		if entry.LinkedQuestID > 0 {
+			menuEntry.QuestID = entry.LinkedQuestID
+		}
+		result = append(result, menuEntry)
+	}
+	return result
 }
 
 // handleNPCQuestAcceptAction 通过菜单项接取绑定的任务模板。

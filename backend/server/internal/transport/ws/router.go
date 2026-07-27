@@ -104,6 +104,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.battleHandler.HandleNPCMenu(conn, packet)
+	case protocol.CmdNPCMenuBatchReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.battleHandler.HandleNPCMenuBatch(conn, packet)
 	case protocol.CmdNPCDialogueNextReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

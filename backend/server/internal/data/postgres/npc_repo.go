@@ -36,6 +36,25 @@ WHERE entity_id = $1 AND status = 1
 ORDER BY priority DESC, sort_order ASC, entry_id ASC
 `
 
+const listNPCMenuEntriesByEntityIDsQuery = `
+SELECT
+  entity_id,
+  entry_id,
+  entry_type,
+  title,
+  subtitle,
+  state,
+  priority,
+  action_result_type,
+  action_notice,
+  battle_encounter_entity_id,
+  conditions_json,
+  linked_quest_id
+FROM npc_menu_entry
+WHERE entity_id = ANY($1) AND status = 1
+ORDER BY entity_id ASC, priority DESC, sort_order ASC, entry_id ASC
+`
+
 const findNPCActionResultQuery = `
 SELECT
   entity_id,
@@ -78,6 +97,50 @@ func (r *NPCRepository) ListMenuEntriesByEntityID(ctx context.Context, entityID 
 		}
 		value.ConditionsJSON = json.RawMessage(conditionsJSON)
 		result = append(result, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListMenuEntriesByEntityIDs 用单条 SQL 返回整张地图 NPC 的菜单配置，并按实体 ID 分组。
+func (r *NPCRepository) ListMenuEntriesByEntityIDs(ctx context.Context, entityIDs []uint64) (map[uint64][]npc.MenuEntry, error) {
+	result := make(map[uint64][]npc.MenuEntry, len(entityIDs))
+	if len(entityIDs) == 0 {
+		return result, nil
+	}
+	databaseIDs := make([]int64, 0, len(entityIDs))
+	for _, entityID := range entityIDs {
+		databaseIDs = append(databaseIDs, int64(entityID))
+	}
+	rows, err := r.db.QueryContext(ctx, listNPCMenuEntriesByEntityIDsQuery, databaseIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var value npc.MenuEntry
+		var conditionsJSON []byte
+		if err := rows.Scan(
+			&value.EntityID,
+			&value.EntryID,
+			&value.EntryType,
+			&value.Title,
+			&value.Subtitle,
+			&value.State,
+			&value.Priority,
+			&value.ActionResultType,
+			&value.ActionNotice,
+			&value.BattleEncounterEntityID,
+			&conditionsJSON,
+			&value.LinkedQuestID,
+		); err != nil {
+			return nil, err
+		}
+		value.ConditionsJSON = json.RawMessage(conditionsJSON)
+		result[value.EntityID] = append(result[value.EntityID], value)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

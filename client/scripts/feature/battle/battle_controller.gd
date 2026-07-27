@@ -5,6 +5,8 @@ signal interact_responded(accepted: bool, reason: String)
 signal interact_payload_received(payload: Dictionary)
 signal npc_action_payload_received(payload: Dictionary)
 signal npc_menu_payload_received(payload: Dictionary)
+## 当前地图全部 NPC 菜单批量回包到达后广播完整载荷。
+signal npc_menu_batch_payload_received(payload: Dictionary)
 signal npc_dialogue_payload_received(payload: Dictionary)
 # PVP 挑战请求回执返回后向外广播完整载荷。
 signal pvp_challenge_responded(payload: Dictionary)
@@ -63,6 +65,10 @@ func handle_npc_action_response(payload: Dictionary) -> void:
 ## 处理 NPC 菜单拉取响应，供主运行态打开统一菜单面板。
 func handle_npc_menu_response(payload: Dictionary) -> void:
 	npc_menu_payload_received.emit(payload)
+
+## 转发当前地图 NPC 批量菜单响应，主运行态会按场景 ID 校验后异步写入缓存。
+func handle_npc_menu_batch_response(payload: Dictionary) -> void:
+	npc_menu_batch_payload_received.emit(payload)
 
 ## 处理 NPC 结构化剧情节点回包，供主运行态驱动客户端面板或本地剧情动画。
 func handle_npc_dialogue_response(payload: Dictionary) -> void:

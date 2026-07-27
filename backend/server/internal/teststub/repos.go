@@ -3301,6 +3301,19 @@ func (r *NPCRepository) ListMenuEntriesByEntityID(_ context.Context, entityID ui
 	return result, nil
 }
 
+// ListMenuEntriesByEntityIDs 返回测试仓储中多个 NPC 的菜单配置，行为与正式批量仓储保持一致。
+func (r *NPCRepository) ListMenuEntriesByEntityIDs(ctx context.Context, entityIDs []uint64) (map[uint64][]npc.MenuEntry, error) {
+	result := make(map[uint64][]npc.MenuEntry, len(entityIDs))
+	for _, entityID := range entityIDs {
+		entries, err := r.ListMenuEntriesByEntityID(ctx, entityID)
+		if err != nil {
+			return nil, err
+		}
+		result[entityID] = entries
+	}
+	return result, nil
+}
+
 func (r *NPCRepository) FindActionResult(_ context.Context, entityID uint64, entryID string) (*npc.ActionResult, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

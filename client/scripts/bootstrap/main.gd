@@ -28,7 +28,6 @@ const SCENE_MAP_TRANSITION_DURATION := 0.37
 ## 等待服务端世界快照和地图挂载完成的最长时间；超时后必须解除黑屏，避免客户端永久卡在转场。
 const SCENE_MAP_LOAD_TIMEOUT_MSEC: int = 15000
 ## 单个 NPC 菜单预加载的最长等待时间；超时后跳过该 NPC，避免地图输入永久锁定。
-const NPC_MENU_PRELOAD_TIMEOUT_MSEC: int = 5000
 # 过渡遮罩 CanvasLayer 层级，需高于战斗弹窗层以便盖住切换过程。
 const TRANSITION_LAYER := 20
 # 世界场景内战斗弹窗的固定尺寸；与当前全局设计分辨率保持一致，
@@ -160,10 +159,12 @@ var _pending_npc_menu_should_open: bool = false
 var _scene_npc_menu_cache: Dictionary = {}
 ## NPC 菜单缓存所属的场景 ID，切图后旧场景数据不能继续使用。
 var _scene_npc_menu_cache_scene_id: int = 0
-## NPC 菜单预加载代次；切图或退出场景时递增可终止旧的异步流程。
-var _npc_menu_preload_generation: int = 0
-## 标记当前是否正在为新地图预加载全部 NPC 菜单。
+## 标记当前是否正在后台请求当前地图全部 NPC 菜单；该状态不会锁定玩家输入。
 var _npc_menu_preload_active: bool = false
+## 当前地图 NPC 批量菜单请求序号，用于忽略切图后到达的旧请求结果。
+var _pending_npc_menu_batch_seq: int = 0
+## 当前地图 NPC 批量菜单请求所属场景 ID。
+var _pending_npc_menu_batch_scene_id: int = 0
 ## 防止同一帧的多次世界快照更新重复排队 NPC 菜单补载任务。
 var _npc_menu_refresh_scheduled: bool = false
 # 当前等待 NPC_ACTION_RESP 的请求序列号。
@@ -235,8 +236,9 @@ func _exit_tree() -> void:
 	# 使仍在等待下一帧或地图回包的异步流程立即失效，避免节点离树后继续访问空 SceneTree。
 	_scene_map_transition_generation += 1
 	_scene_map_transition_active = false
-	_npc_menu_preload_generation += 1
 	_npc_menu_preload_active = false
+	_pending_npc_menu_batch_seq = 0
+	_pending_npc_menu_batch_scene_id = 0
 	_unregister_routes()
 	if App.notice_received.is_connected(_on_notice_received):
 		App.notice_received.disconnect(_on_notice_received)
@@ -297,6 +299,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.register_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.register_handler(CommandIds.NPC_MENU_RESP, Callable(battle_controller, "handle_npc_menu_response"))
+	MessageRouter.register_handler(CommandIds.NPC_MENU_BATCH_RESP, Callable(battle_controller, "handle_npc_menu_batch_response"))
 	MessageRouter.register_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
 	MessageRouter.register_handler(CommandIds.NPC_DIALOGUE_RESP, Callable(battle_controller, "handle_npc_dialogue_response"))
 	MessageRouter.register_handler(CommandIds.SCENE_TRIGGER_PUSH, Callable(self, "_on_scene_trigger_push"))
@@ -354,6 +357,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.MOVE_INTENT_RESP, Callable(_world_controller, "handle_move_intent_response"))
 	MessageRouter.unregister_handler(CommandIds.INTERACT_RESP, Callable(battle_controller, "handle_interact_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_MENU_RESP, Callable(battle_controller, "handle_npc_menu_response"))
+	MessageRouter.unregister_handler(CommandIds.NPC_MENU_BATCH_RESP, Callable(battle_controller, "handle_npc_menu_batch_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_ACTION_RESP, Callable(battle_controller, "handle_npc_action_response"))
 	MessageRouter.unregister_handler(CommandIds.NPC_DIALOGUE_RESP, Callable(battle_controller, "handle_npc_dialogue_response"))
 	MessageRouter.unregister_handler(CommandIds.SCENE_TRIGGER_PUSH, Callable(self, "_on_scene_trigger_push"))
@@ -410,6 +414,8 @@ func _connect_signals() -> void:
 		battle_controller.connect("interact_payload_received", Callable(self, "_on_interact_payload_received"))
 	if battle_controller.has_signal("npc_menu_payload_received"):
 		battle_controller.connect("npc_menu_payload_received", Callable(self, "_on_npc_menu_payload_received"))
+	if battle_controller.has_signal("npc_menu_batch_payload_received"):
+		battle_controller.connect("npc_menu_batch_payload_received", Callable(self, "_on_npc_menu_batch_payload_received"))
 	if battle_controller.has_signal("npc_action_payload_received"):
 		battle_controller.connect("npc_action_payload_received", Callable(self, "_on_npc_action_payload_received"))
 	if battle_controller.has_signal("npc_dialogue_payload_received"):
@@ -542,17 +548,17 @@ func _on_connection_state_changed(state: String) -> void:
 	if state == "closed" and not _redirecting_to_login and not App.is_reconnecting():
 		_return_to_login_scene()
 
-# 处理世界场景装载完成事件，并在首次进入世界后拉取基础摘要数据。
+# 处理世界场景装载完成事件；地图就绪立即结束转场，其他数据在玩家进入后并发返回。
 func _on_world_scene_loaded(scene_id: String) -> void:
 	var scene_display_name: String = scene_id
 	if _world_controller != null and _world_controller.has_method("get_current_scene_display_name"):
 		scene_display_name = str(_world_controller.call("get_current_scene_display_name"))
 	hud_root.set_scene_name(scene_display_name)
 	_append_log("已进入场景: %s" % scene_display_name)
-	await _preload_scene_npc_menus(int(scene_id))
 	if _scene_map_transition_active:
 		_debug_scene_transition("world scene ready scene=%s" % scene_id)
 		_scene_map_new_scene_ready = true
+	_preload_scene_npc_menus(int(scene_id))
 	if not _runtime_data_requested:
 		_runtime_data_requested = true
 		App.request_pet_list()
@@ -619,6 +625,32 @@ func _on_npc_menu_payload_received(payload: Dictionary) -> void:
 		return
 	# 超时后的迟到响应没有可靠的场景归属，直接忽略，避免污染新地图缓存。
 	return
+
+## 接收当前地图 NPC 批量菜单；旧地图迟到回包只结束旧请求，不写入新地图缓存。
+func _on_npc_menu_batch_payload_received(payload: Dictionary) -> void:
+	var response_scene_id: int = int(payload.get("scene_id", 0))
+	var current_scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
+	if response_scene_id != _pending_npc_menu_batch_scene_id:
+		return
+	_pending_npc_menu_batch_seq = 0
+	_pending_npc_menu_batch_scene_id = 0
+	_npc_menu_preload_active = false
+	if response_scene_id <= 0 or response_scene_id != current_scene_id:
+		return
+	if not bool(payload.get("accepted", false)):
+		return
+	var menus_variant: Variant = payload.get("menus", [])
+	if menus_variant is not Array:
+		return
+	for menu_variant: Variant in menus_variant:
+		if menu_variant is not Dictionary:
+			continue
+		var menu_payload: Dictionary = menu_variant as Dictionary
+		if bool(menu_payload.get("accepted", false)):
+			_cache_scene_npc_menu(menu_payload)
+		else:
+			_mark_scene_npc_menu_attempted(response_scene_id, int(menu_payload.get("entity_id", 0)))
+	_schedule_missing_scene_npc_menu_preload()
 
 func _on_npc_action_payload_received(payload: Dictionary) -> void:
 	if _pending_npc_action_seq > 0:
@@ -1803,7 +1835,7 @@ func _begin_npc_menu_request(entity_id: int, open_when_ready: bool = true) -> bo
 	_pending_npc_menu_entity_id = entity_id
 	_pending_npc_menu_scene_id = int(GameState.scene_snapshot.get("scene_id", 0))
 	_pending_npc_menu_should_open = open_when_ready
-	if open_when_ready and not _npc_menu_preload_active:
+	if open_when_ready:
 		_show_npc_request_loading()
 	call_deferred("_wait_npc_menu_request", request_seq)
 	return true
@@ -1816,7 +1848,7 @@ func _finish_npc_menu_request(expected_seq: int, succeeded: bool) -> void:
 	var request_entity_id: int = _pending_npc_menu_entity_id
 	var request_scene_id: int = _pending_npc_menu_scene_id
 	var should_open: bool = _pending_npc_menu_should_open
-	if should_open and not _npc_menu_preload_active:
+	if should_open:
 		_hide_npc_request_loading()
 	_pending_npc_menu_seq = 0
 	_pending_npc_menu_entity_id = 0
@@ -1830,65 +1862,30 @@ func _finish_npc_menu_request(expected_seq: int, succeeded: bool) -> void:
 	if should_open:
 		_open_npc_menu_from_payload(payload)
 
-## 在地图允许玩家交互前加载 NPC 动态菜单；reset_cache 表示本次是否为完整切图加载。
+## 进入地图后异步批量请求全部 NPC 动态菜单；该请求不参与转场等待，也不锁定玩家输入。
 func _preload_scene_npc_menus(scene_id: int, reset_cache: bool = true) -> void:
-	_npc_menu_preload_generation += 1
-	var generation: int = _npc_menu_preload_generation
+	if scene_id <= 0:
+		return
 	if reset_cache:
-		if _pending_npc_menu_seq > 0:
-			_cancel_pending_npc_menu_request()
-		_npc_menu_preload_active = false
-		_hide_npc_request_loading()
 		_scene_npc_menu_cache.clear()
 		_scene_npc_menu_cache_scene_id = scene_id
 	elif _scene_npc_menu_cache_scene_id != scene_id:
 		return
 	var npc_entries: Array[Dictionary] = _collect_nearby_npc_entries()
-	if not reset_cache:
-		npc_entries = npc_entries.filter(func(entry: Dictionary) -> bool:
-			return not _scene_npc_menu_cache.has(int(entry.get("entity_id", 0)))
-		)
 	if npc_entries.is_empty():
-		if reset_cache and not _scene_map_transition_active and not _has_blocking_ui_open():
-			_set_runtime_menu_locked(false)
+		_npc_menu_preload_active = false
+		_pending_npc_menu_batch_seq = 0
+		_pending_npc_menu_batch_scene_id = 0
 		return
-
+	if _npc_menu_preload_active and _pending_npc_menu_batch_scene_id == scene_id:
+		return
+	var request_seq: int = App.request_npc_menu_batch(scene_id)
+	if request_seq <= 0:
+		return
 	_npc_menu_preload_active = true
-	_set_runtime_menu_locked(true)
-	_show_npc_request_loading_immediate()
-	for entry: Dictionary in npc_entries:
-		if generation != _npc_menu_preload_generation or not is_inside_tree():
-			break
-		if int(GameState.scene_snapshot.get("scene_id", 0)) != scene_id:
-			break
-		# 等待上一地图可能仍在途的菜单响应完成，避免跳过新地图的首个 NPC。
-		var previous_request_deadline_msec: int = Time.get_ticks_msec() + NPC_MENU_PRELOAD_TIMEOUT_MSEC
-		while _pending_npc_menu_seq > 0:
-			if Time.get_ticks_msec() >= previous_request_deadline_msec:
-				_cancel_pending_npc_menu_request()
-				break
-			if generation != _npc_menu_preload_generation or not await _wait_for_next_process_frame():
-				break
-		if generation != _npc_menu_preload_generation:
-			break
-		var entity_id: int = int(entry.get("entity_id", 0))
-		if entity_id <= 0 or not _begin_npc_menu_request(entity_id, false):
-			continue
-		var request_deadline_msec: int = Time.get_ticks_msec() + NPC_MENU_PRELOAD_TIMEOUT_MSEC
-		while _pending_npc_menu_seq > 0:
-			if Time.get_ticks_msec() >= request_deadline_msec:
-				_cancel_pending_npc_menu_request()
-				break
-			if generation != _npc_menu_preload_generation or not await _wait_for_next_process_frame():
-				break
-
-	if generation != _npc_menu_preload_generation:
-		return
-	_npc_menu_preload_active = false
-	_hide_npc_request_loading()
-	if not _scene_map_transition_active and not _has_blocking_ui_open():
-		_set_runtime_menu_locked(false)
-	_schedule_missing_scene_npc_menu_preload()
+	_pending_npc_menu_batch_seq = request_seq
+	_pending_npc_menu_batch_scene_id = scene_id
+	call_deferred("_wait_npc_menu_batch_request", request_seq, scene_id)
 
 ## 在同地图世界快照新增 NPC 后排队补载菜单，例如剧情确认后刚解锁的 NPC。
 func _schedule_missing_scene_npc_menu_preload() -> void:
@@ -1911,7 +1908,26 @@ func _preload_missing_scene_npc_menus(scene_id: int) -> void:
 		return
 	if int(GameState.scene_snapshot.get("scene_id", 0)) != scene_id:
 		return
-	await _preload_scene_npc_menus(scene_id, false)
+	_preload_scene_npc_menus(scene_id, false)
+
+## 只处理批量菜单请求的失败完成事件；成功响应由业务路由先写入缓存。
+func _wait_npc_menu_batch_request(expected_seq: int, expected_scene_id: int) -> void:
+	while expected_seq > 0:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		var succeeded: bool = bool(result[2])
+		if request_cmd != CommandIds.NPC_MENU_BATCH_REQ or seq != expected_seq:
+			continue
+		if _pending_npc_menu_batch_seq != expected_seq or _pending_npc_menu_batch_scene_id != expected_scene_id:
+			return
+		if not succeeded:
+			_pending_npc_menu_batch_seq = 0
+			_pending_npc_menu_batch_scene_id = 0
+			_npc_menu_preload_active = false
+		return
 
 ## 取消超时的菜单预加载等待；迟到回包会因请求序号不匹配而被忽略。
 func _cancel_pending_npc_menu_request() -> void:

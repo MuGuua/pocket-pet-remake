@@ -409,6 +409,19 @@ type NPCMenuResp struct {
 	MenuEntries []NpcMenuEntry `json:"menu_entries"`
 }
 
+// NPCMenuBatchReq 请求服务端一次计算指定场景中当前玩家可见的全部 NPC 菜单。
+type NPCMenuBatchReq struct {
+	SceneID uint32 `json:"scene_id"`
+}
+
+// NPCMenuBatchResp 返回当前场景全部 NPC 的动态菜单；单个 NPC 无可用菜单时仍保留对应结果。
+type NPCMenuBatchResp struct {
+	Accepted bool          `json:"accepted"`
+	Reason   string        `json:"reason"`
+	SceneID  uint32        `json:"scene_id"`
+	Menus    []NPCMenuResp `json:"menus"`
+}
+
 type NPCActionReq struct {
 	EntityID uint64 `json:"entity_id"`
 	EntryID  string `json:"entry_id"`

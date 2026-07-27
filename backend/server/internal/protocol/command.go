@@ -31,6 +31,8 @@ const (
 	CmdSceneTriggerPush           uint16 = 2044
 	CmdSceneTriggerAckReq         uint16 = 2045
 	CmdSceneTriggerAckResp        uint16 = 2046
+	CmdNPCMenuBatchReq            uint16 = 2047
+	CmdNPCMenuBatchResp           uint16 = 2048
 	CmdEncounterPush              uint16 = 2041
 	CmdPlayerAllocateAttrReq      uint16 = 2061
 	CmdPlayerAllocateAttrResp     uint16 = 2062

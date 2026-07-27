@@ -1424,6 +1424,44 @@ func TestRouterHandleNPCMenu(t *testing.T) {
 	}
 }
 
+// TestRouterHandleNPCMenuBatch 验证客户端只需一次请求即可取得当前地图全部 NPC 菜单。
+func TestRouterHandleNPCMenuBatch(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+
+	if err := playerService.UpdatePosition(context.Background(), 10001, 3, 12, 10); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdNPCMenuBatchReq, 161, protocol.NPCMenuBatchReq{SceneID: 3})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
+	}
+	if conn.packets[0].Cmd != protocol.CmdNPCMenuBatchResp {
+		t.Fatalf("response cmd = %d, want %d", conn.packets[0].Cmd, protocol.CmdNPCMenuBatchResp)
+	}
+
+	var resp protocol.NPCMenuBatchResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
+		t.Fatalf("UnmarshalBody(resp) error = %v", err)
+	}
+	if !resp.Accepted || resp.SceneID != 3 {
+		t.Fatalf("resp = %#v, want accepted scene 3", resp)
+	}
+	if len(resp.Menus) != 2 {
+		t.Fatalf("len(resp.Menus) = %d, want 2", len(resp.Menus))
+	}
+	menuByEntityID := make(map[uint64]protocol.NPCMenuResp, len(resp.Menus))
+	for _, menu := range resp.Menus {
+		menuByEntityID[menu.EntityID] = menu
+	}
+	for _, entityID := range []uint64{93001, 93002} {
+		menu, exists := menuByEntityID[entityID]
+		if !exists || !menu.Accepted || len(menu.MenuEntries) == 0 {
+			t.Fatalf("menuByEntityID[%d] = %#v, want populated menu", entityID, menu)
+		}
+	}
+}
+
 func TestRouterHandleInteractRejectsNPCMenu(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 

@@ -4,6 +4,7 @@ import "context"
 
 type Repository interface {
 	ListMenuEntriesByEntityID(ctx context.Context, entityID uint64) ([]MenuEntry, error)
+	ListMenuEntriesByEntityIDs(ctx context.Context, entityIDs []uint64) (map[uint64][]MenuEntry, error)
 	FindActionResult(ctx context.Context, entityID uint64, entryID string) (*ActionResult, error)
 	ListShopGoodsByEntityID(ctx context.Context, entityID uint64) ([]ShopGood, error)
 	ShopGoodExists(ctx context.Context, entityID uint64, itemID uint64) (bool, error)

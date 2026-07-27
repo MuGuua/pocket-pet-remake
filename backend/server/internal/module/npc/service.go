@@ -17,6 +17,14 @@ func (s *Service) ListMenuEntriesByEntityID(ctx context.Context, entityID uint64
 	return s.repo.ListMenuEntriesByEntityID(ctx, entityID)
 }
 
+// ListMenuEntriesByEntityIDs 批量读取多个 NPC 的菜单配置，避免进图预加载按 NPC 重复访问数据库。
+func (s *Service) ListMenuEntriesByEntityIDs(ctx context.Context, entityIDs []uint64) (map[uint64][]MenuEntry, error) {
+	if s == nil || s.repo == nil || len(entityIDs) == 0 {
+		return map[uint64][]MenuEntry{}, nil
+	}
+	return s.repo.ListMenuEntriesByEntityIDs(ctx, entityIDs)
+}
+
 func (s *Service) FindActionResult(ctx context.Context, entityID uint64, entryID string) (*ActionResult, error) {
 	if s == nil || s.repo == nil {
 		return nil, nil

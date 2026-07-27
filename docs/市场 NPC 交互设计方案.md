@@ -399,18 +399,19 @@ signal interaction_requested(entity_id: int)
 
 推荐把 NPC 交互拆成两段：
 
-### 第一步：请求 NPC 菜单
+### 第一步：进入地图后批量准备 NPC 菜单
 
 客户端：
 
-- 玩家进入交互范围后按键，或者自动触发交互。
-- 客户端发送 `NPC_MENU_REQ(entity_id)`。
+- 基础世界快照完成后立即进入地图并恢复移动，不等待 NPC 菜单。
+- 客户端在后台发送一次 `NPC_MENU_BATCH_REQ(scene_id)`，响应按 `scene_id + entity_id` 写入当前地图缓存。
+- 玩家进入交互范围后直接读取缓存；菜单尚未返回时不临时补发单 NPC 请求，也不阻塞地图操作。
 
 服务端：
 
-- 校验玩家是否真的可以和该 NPC 交互。
-- 根据玩家状态、任务进度、NPC 类型生成菜单。
-- 返回 `NPC_MENU_RESP`。
+- 校验请求场景是否等于玩家权威场景。
+- 一次读取场景 NPC、玩家任务摘要和全部 NPC 静态菜单，根据玩家状态批量生成菜单。
+- 返回 `NPC_MENU_BATCH_RESP`；旧 `NPC_MENU_REQ/RESP` 仅保留给任务操作后的单 NPC 主动刷新兼容链路。
 
 ### 第二步：执行某个菜单项
 
