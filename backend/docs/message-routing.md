@@ -8,7 +8,7 @@
 | 1003 | HEARTBEAT_REQ | ws/router | session | 更新心跳时间并回包 |
 | 1021 | RECONNECT_REQ | ws/router | session + world + battle | 校验重连令牌并返回重同步结果 |
 | 2001 | ENTER_WORLD_REQ | ws/world_handler | player + pet + world | 加载玩家快照并进入场景 |
-| 2021 | MOVE_INTENT_REQ | ws/world_handler | world | 校验移动并广播 |
+| 2021 | MOVE_INTENT_REQ | ws/world_handler | player + world | 校验地图拓扑、数据库地图状态与最低进入等级，通过后持久化切图 |
 | 2031 | INTERACT_REQ | ws/world_handler | world / bag / battle | NPC、传送点、遭遇触发 |
 | 3001 | PET_LIST_REQ | ws/pet_handler | pet | 返回宠物列表摘要 |
 | 3021 | PET_LINEUP_SET_REQ | ws/pet_handler | pet + player | 设置编队 |

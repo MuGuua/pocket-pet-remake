@@ -150,7 +150,7 @@ func (r *MonsterRepository) FindRuntimeDefinition(_ context.Context, monsterID u
 		Level: current.BaseStats.Level, Quality: current.BaseStats.Quality,
 		HP: current.BaseStats.HP, HPMax: current.BaseStats.HPMax,
 		ATK: current.BaseStats.ATK, DEF: current.BaseStats.DEF, SPD: current.BaseStats.SPD, MANA: current.BaseStats.MANA,
-		SkillIDs: append([]uint32{}, current.SkillIDs...),
+		SkillIDs: append([]uint32{}, current.SkillIDs...), SkinID: current.SkinID,
 	}, nil
 }
 

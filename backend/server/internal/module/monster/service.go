@@ -73,6 +73,29 @@ func (s *Service) BuildWildEncounterConfig(ctx context.Context, sceneID uint32) 
 	if config == nil {
 		return &RuntimeWildEncounterConfig{SceneID: sceneID}, nil
 	}
+	config.Targets = make([]RuntimeWildEncounterTarget, 0, len(config.SpawnMonsterIDs))
+	seenMonsterIDs := make(map[uint32]struct{}, len(config.SpawnMonsterIDs))
+	for _, monsterID := range config.SpawnMonsterIDs {
+		if monsterID == 0 {
+			continue
+		}
+		if _, exists := seenMonsterIDs[monsterID]; exists {
+			continue
+		}
+		definition, findErr := s.repo.FindRuntimeDefinition(ctx, monsterID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if definition == nil {
+			continue
+		}
+		seenMonsterIDs[monsterID] = struct{}{}
+		config.Targets = append(config.Targets, RuntimeWildEncounterTarget{
+			MonsterID:   definition.MonsterID,
+			MonsterName: definition.MonsterName,
+			SkinID:      definition.SkinID,
+		})
+	}
 	return config, nil
 }
 

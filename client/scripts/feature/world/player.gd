@@ -22,7 +22,7 @@ const REMOTE_INTERPOLATION_SPEED_PX_PER_SEC: float = 140.0
 const REMOTE_PREDICTION_MAX_SECONDS: float = 0.18
 
 # 本地角色移动速度。
-@export var move_speed: float = 100.0
+@export var move_speed: float = 90.0
 # 世界相机统一缩放；大于 1 会放大画面，小于 1 会缩小画面。
 @export var camera_zoom_scale: float = 2.0
 # 世界相机相对玩家的垂直偏移；负值表示画面整体上移。
@@ -52,6 +52,8 @@ var _auto_move_generation: int = 0
 var _cinematic_input_locked: bool = false
 ## 进入剧情控制前的场景锁状态，演出结束时原样恢复。
 var _cinematic_previous_scene_lock: bool = false
+## 保留像素取整时未展示的小数位移，避免低速移动每帧丢失距离。
+var _movement_subpixel_remainder: Vector2 = Vector2.ZERO
 
 # 负责播放角色动画的动画播放器节点。
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
@@ -146,9 +148,13 @@ func _process(_delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	if is_remote_avatar:
 		return
+	# 恢复上一物理帧的小数余量，保证 move_speed 在不同帧率下线性生效。
+	position += _movement_subpixel_remainder
 	move_and_slide()
 	# 像素风世界要求角色始终落在整数像素上，避免相机跟随时把整张地图带成半像素采样。
-	position = position.round()
+	var precise_position: Vector2 = position
+	position = precise_position.round()
+	_movement_subpixel_remainder = precise_position - position
 
 ## 返回当前四方向朝向，供宠物跟随等世界表现层读取。
 func get_cardinal_direction() -> Vector2:
@@ -166,6 +172,7 @@ func get_move_speed() -> float:
 func apply_authoritative_position(local_position: Vector2) -> void:
 	# 服务端坐标换算成像素后，统一吸附到整数像素，避免世界初次进入时立刻出现发糊。
 	position = local_position.round()
+	_movement_subpixel_remainder = Vector2.ZERO
 	_clear_auto_move_path()
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO

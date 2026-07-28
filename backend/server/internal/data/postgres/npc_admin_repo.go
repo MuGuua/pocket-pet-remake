@@ -76,10 +76,18 @@ WHERE entity_id = $1
 `
 
 const listAdminWorldScenesQuery = `
-SELECT scene_id, scene_code, scene_name, status
+SELECT scene_id, scene_code, scene_name, required_level, status
 FROM world_scene_definition
 WHERE status = 1
 ORDER BY scene_id ASC
+`
+
+const updateAdminWorldSceneRequiredLevelQuery = `
+UPDATE world_scene_definition
+SET required_level = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE scene_id = $1
+RETURNING scene_id, scene_code, scene_name, required_level, status
 `
 
 const deleteAdminNPCEntityQuery = `
@@ -418,7 +426,7 @@ func (r *NPCRepository) ListWorldScenesForAdmin(ctx context.Context) ([]npc.Admi
 			sceneID int64
 			status  int64
 		)
-		if err := rows.Scan(&sceneID, &item.SceneCode, &item.SceneName, &status); err != nil {
+		if err := rows.Scan(&sceneID, &item.SceneCode, &item.SceneName, &item.RequiredLevel, &status); err != nil {
 			return nil, err
 		}
 		item.SceneID = uint32(sceneID)
@@ -429,6 +437,29 @@ func (r *NPCRepository) ListWorldScenesForAdmin(ctx context.Context) ([]npc.Admi
 		return nil, err
 	}
 	return items, nil
+}
+
+// UpdateWorldSceneRequiredLevelForAdmin 持久化地图最低进入等级并返回最新配置。
+func (r *NPCRepository) UpdateWorldSceneRequiredLevelForAdmin(ctx context.Context, sceneID uint32, requiredLevel uint32) (*npc.AdminWorldSceneSummary, error) {
+	var item npc.AdminWorldSceneSummary
+	var storedSceneID int64
+	var status int64
+	err := r.db.QueryRowContext(ctx, updateAdminWorldSceneRequiredLevelQuery, sceneID, requiredLevel).Scan(
+		&storedSceneID,
+		&item.SceneCode,
+		&item.SceneName,
+		&item.RequiredLevel,
+		&status,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	item.SceneID = uint32(storedSceneID)
+	item.Status = uint32(status)
+	return &item, nil
 }
 
 func scanAdminNPCEntitySummary(rows *sql.Rows) (npc.AdminEntitySummary, error) {

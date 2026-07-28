@@ -1,11 +1,16 @@
 [gd_scene format=3 uid="uid://1tfwmmj6fo00"]
 
 [ext_resource type="Script" uid="uid://c5qjullp1cqr6" path="res://scripts/ui/world/map_teleport_panel.gd" id="1_e04bd"]
+[ext_resource type="Texture2D" uid="uid://ve0gd827diox" path="res://asset/kdjl-map-points/精灵迷宫.png" id="2_maze"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_ot0fe"]
+[ext_resource type="Texture2D" uid="uid://cslsvcfsf7les" path="res://asset/kdjl-map-points/闪光平原.png" id="2_plain"]
 [ext_resource type="Texture2D" uid="uid://bq58q1t83flc2" path="res://asset/kdjl-map-points/闪光镇.png" id="2_rfn2d"]
+[ext_resource type="Texture2D" uid="uid://i1kk7an8b2tv" path="res://asset/分类/ui/选中状态.png" id="2_selection"]
 [ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="2_sg106"]
+[ext_resource type="Texture2D" uid="uid://bxec542rwlasd" path="res://asset/kdjl-map-points/世界地图.png" id="2_world"]
 [ext_resource type="Script" uid="uid://ceyrpfqwhwddw" path="res://scripts/ui/world/map_teleport_point_button.gd" id="3_rfn2d"]
 [ext_resource type="Texture2D" uid="uid://c7f5tuttlwwyv" path="res://asset/分类/新补充图标/mp.png" id="5_e3hnr"]
+[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="6_close_button"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e3hnr"]
 bg_color = Color(0.02745098, 0.07450981, 0.12156863, 0)
@@ -17,84 +22,10 @@ corner_radius_top_right = 26
 corner_radius_bottom_right = 26
 corner_radius_bottom_left = 26
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ot0fe"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1u3ya"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dxg17"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_selection"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ijkgu"]
 bg_color = Color(0, 0, 0, 0)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bgd3b"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_n0sjv"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ng88"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
 corner_radius_top_left = 26
 corner_radius_top_right = 26
 corner_radius_bottom_right = 26
@@ -107,84 +38,8 @@ corner_radius_top_right = 26
 corner_radius_bottom_right = 26
 corner_radius_bottom_left = 26
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6aaqv"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_coc8i"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6w6xp"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tkdqa"]
 bg_color = Color(0, 0, 0, 0)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_885g4"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ktfe6"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8w7f7"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
 corner_radius_top_left = 26
 corner_radius_top_right = 26
 corner_radius_bottom_right = 26
@@ -197,84 +52,8 @@ corner_radius_top_right = 26
 corner_radius_bottom_right = 26
 corner_radius_bottom_left = 26
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lfpl6"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_83v0m"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_j7sfd"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0b6dd"]
 bg_color = Color(0, 0, 0, 0)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_65nib"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7vbef"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mv04v"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
 corner_radius_top_left = 26
 corner_radius_top_right = 26
 corner_radius_bottom_right = 26
@@ -287,47 +66,45 @@ corner_radius_top_right = 26
 corner_radius_bottom_right = 26
 corner_radius_bottom_left = 26
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8thlc"]
-bg_color = Color(0.29803923, 0.49803922, 0.6039216, 0.4)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(1, 0.81960785, 0.36078432, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-shadow_color = Color(1, 0.81960785, 0.36078432, 0.4)
-shadow_size = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bujju"]
-bg_color = Color(0.43529412, 0.65882355, 0.7529412, 0.29803923)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.9098039, 0.84313726, 0.6117647, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0brfp"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.9411765, 0.627451, 1)
-corner_radius_top_left = 26
-corner_radius_top_right = 26
-corner_radius_bottom_right = 26
-corner_radius_bottom_left = 26
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_tx6cj"]
 atlas = ExtResource("5_e3hnr")
 region = Rect2(0, 0, 16, 16)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_selection_0"]
+atlas = ExtResource("2_selection")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_selection_1"]
+atlas = ExtResource("2_selection")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_selection_2"]
+atlas = ExtResource("2_selection")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_selection_3"]
+atlas = ExtResource("2_selection")
+region = Rect2(96, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_selection"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_selection_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_selection_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_selection_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_selection_3")
+}],
+"loop": 1,
+"name": &"selected",
+"speed": 8.0
+}]
 
 [node name="MapTeleportPanel" type="CanvasLayer" unique_id=2076813502]
 layer = 8
@@ -363,11 +140,11 @@ mouse_filter = 2
 
 [node name="ColorRect" parent="Overlay/PanelStack" unique_id=1617070159 instance=ExtResource("2_sg106")]
 layout_mode = 0
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+anchors_preset = 0
+anchor_right = 0.0
+anchor_bottom = 0.0
+grow_horizontal = 1
+grow_vertical = 1
 mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="Overlay/PanelStack" unique_id=2116402111]
@@ -396,6 +173,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1572543154]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.95686275, 0.9019608, 0.7411765, 1)
@@ -403,16 +181,15 @@ theme_override_font_sizes/font_size = 34
 text = "闪光镇"
 vertical_alignment = 1
 
-[node name="CloseButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1545545634]
+[node name="CloseButton" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1545545634 instance=ExtResource("6_close_button")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(64, 64)
+custom_minimum_size = Vector2(60, 60)
+custom_maximum_size = Vector2(60, 60)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 32
-text = "×"
 
 [node name="MapFrame" type="PanelContainer" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=301140501]
-custom_minimum_size = Vector2(272, 272)
+custom_minimum_size = Vector2(592, 640)
 layout_mode = 2
 size_flags_vertical = 6
 theme_override_styles/panel = SubResource("StyleBoxFlat_e3hnr")
@@ -421,146 +198,210 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_e3hnr")
 layout_mode = 2
 
 [node name="MapTexture" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=119786525]
+unique_name_in_owner = true
 texture_filter = 1
-custom_minimum_size = Vector2(256, 256)
+custom_minimum_size = Vector2(384, 384)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -128.0
-offset_top = -128.0
-offset_right = 128.0
-offset_bottom = 128.0
+offset_left = -192.0
+offset_top = -192.0
+offset_right = 192.0
+offset_bottom = 192.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("2_rfn2d")
 expand_mode = 1
 
+[node name="WorldMapTexture" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=997012870]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(528, 528)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -264.0
+offset_top = -264.0
+offset_right = 264.0
+offset_bottom = 264.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_world")
+expand_mode = 1
+
+[node name="FlashPlainMapTexture" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=1321448194]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(432, 480)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -216.0
+offset_top = -240.0
+offset_right = 216.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_plain")
+expand_mode = 1
+
+[node name="SpiritMazeMapTexture" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=1133919446]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(576, 624)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -288.0
+offset_top = -312.0
+offset_right = 288.0
+offset_bottom = 312.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_maze")
+expand_mode = 1
+
 [node name="PointButtons" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=26094184]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(272, 272)
+custom_minimum_size = Vector2(592, 640)
 anchors_preset = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -136.0
-offset_top = -136.0
-offset_right = 136.0
-offset_bottom = 136.0
+offset_left = -296.0
+offset_top = -320.0
+offset_right = 296.0
+offset_bottom = 320.0
 mouse_filter = 1
 
 [node name="NorthRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1274150882]
 layout_mode = 0
-offset_left = 75.0
-offset_top = 11.0
-offset_right = 101.0
-offset_bottom = 37.0
+offset_left = 198.0
+offset_top = 126.0
+offset_right = 250.0
+offset_bottom = 178.0
 tooltip_text = "闪光镇北"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_ot0fe")
-theme_override_styles/hover = SubResource("StyleBoxFlat_1u3ya")
-theme_override_styles/focus = SubResource("StyleBoxFlat_dxg17")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 4
 
 [node name="RoxusHousePoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=313610481]
 layout_mode = 0
-offset_left = 171.0
-offset_top = 59.0
-offset_right = 197.0
-offset_bottom = 85.0
+offset_left = 342.0
+offset_top = 198.0
+offset_right = 394.0
+offset_bottom = 250.0
 tooltip_text = "罗克萨斯家"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_ijkgu")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_bgd3b")
-theme_override_styles/hover = SubResource("StyleBoxFlat_n0sjv")
-theme_override_styles/focus = SubResource("StyleBoxFlat_1ng88")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 1
 
 [node name="RadiantMarketPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1305490423]
 layout_mode = 0
-offset_left = 75.0
-offset_top = 107.0
-offset_right = 101.0
-offset_bottom = 133.0
+offset_left = 198.0
+offset_top = 270.0
+offset_right = 250.0
+offset_bottom = 322.0
 tooltip_text = "光芒市场"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_1l31h")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_6aaqv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_coc8i")
-theme_override_styles/focus = SubResource("StyleBoxFlat_6w6xp")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 3
 
 [node name="EastRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=128936115]
 layout_mode = 0
-offset_left = 171.0
-offset_top = 109.0
-offset_right = 197.0
-offset_bottom = 135.0
+offset_left = 342.0
+offset_top = 270.0
+offset_right = 394.0
+offset_bottom = 322.0
 tooltip_text = "闪光镇东路"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_tkdqa")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_885g4")
-theme_override_styles/hover = SubResource("StyleBoxFlat_ktfe6")
-theme_override_styles/focus = SubResource("StyleBoxFlat_8w7f7")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 2
 
 [node name="PlainPortalPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1183419399]
 layout_mode = 0
-offset_left = 219.0
-offset_top = 107.0
-offset_right = 245.0
-offset_bottom = 133.0
+offset_left = 414.0
+offset_top = 270.0
+offset_right = 466.0
+offset_bottom = 322.0
 tooltip_text = "通往闪光平原"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_h17o1")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_lfpl6")
-theme_override_styles/hover = SubResource("StyleBoxFlat_83v0m")
-theme_override_styles/focus = SubResource("StyleBoxFlat_j7sfd")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 teleport_enabled = false
 
 [node name="PetSchoolPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1789559224]
 layout_mode = 0
-offset_left = 27.0
-offset_top = 157.0
-offset_right = 53.0
-offset_bottom = 183.0
+offset_left = 126.0
+offset_top = 342.0
+offset_right = 178.0
+offset_bottom = 394.0
 tooltip_text = "宠物学校"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_0b6dd")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_65nib")
-theme_override_styles/hover = SubResource("StyleBoxFlat_7vbef")
-theme_override_styles/focus = SubResource("StyleBoxFlat_mv04v")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 5
 
 [node name="WildAreaPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=5666091]
 layout_mode = 0
-offset_left = 29.0
-offset_top = 203.0
-offset_right = 55.0
-offset_bottom = 229.0
+offset_left = 129.0
+offset_top = 414.0
+offset_right = 181.0
+offset_bottom = 466.0
 tooltip_text = "原野怪区"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_dl8mx")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_8thlc")
-theme_override_styles/hover = SubResource("StyleBoxFlat_bujju")
-theme_override_styles/focus = SubResource("StyleBoxFlat_0brfp")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 6
@@ -568,14 +409,80 @@ target_scene_id = 6
 [node name="人物图标" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1944215693]
 visible = false
 layout_mode = 0
-offset_left = 58.0
-offset_top = 111.0
-offset_right = 82.0
-offset_bottom = 136.0
+offset_left = 116.0
+offset_top = 222.0
+offset_right = 164.0
+offset_bottom = 272.0
 mouse_filter = 2
 texture = SubResource("AtlasTexture_tx6cj")
 expand_mode = 1
 stretch_mode = 4
+
+[node name="WorldRegionButtons" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=543798301]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(592, 640)
+anchors_preset = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -296.0
+offset_top = -320.0
+offset_right = 296.0
+offset_bottom = 320.0
+mouse_filter = 1
+
+[node name="FlashTownRegionButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/WorldRegionButtons" unique_id=1965786202]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 270.0
+offset_top = 390.0
+offset_right = 322.0
+offset_bottom = 442.0
+tooltip_text = "闪光镇"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+
+[node name="FlashPlainRegionButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/WorldRegionButtons" unique_id=347826950]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 274.0
+offset_top = 246.0
+offset_right = 326.0
+offset_bottom = 298.0
+tooltip_text = "闪光平原"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_ijkgu")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+
+[node name="SpiritMazeRegionButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/WorldRegionButtons" unique_id=680814525]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 414.0
+offset_top = 462.0
+offset_right = 466.0
+offset_bottom = 514.0
+tooltip_text = "精灵迷宫"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_1l31h")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+
+[node name="SelectionAnimation" type="AnimatedSprite2D" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=1123907957]
+unique_name_in_owner = true
+visible = false
+z_index = 10
+scale = Vector2(2, 2)
+sprite_frames = SubResource("SpriteFrames_selection")
+animation = &"selected"
+autoplay = "selected"
 
 [node name="SelectedNameLabel" type="Label" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=808648922]
 unique_name_in_owner = true
@@ -592,18 +499,10 @@ layout_mode = 2
 theme_override_constants/separation = 22
 alignment = 1
 
-[node name="PreviousButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
+[node name="WorldMapButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(210, 68)
+custom_minimum_size = Vector2(442, 68)
 layout_mode = 2
 mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 22
-text = "↑ 上一个"
-
-[node name="NextButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=245441841]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(210, 68)
-layout_mode = 2
-mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 22
-text = "↓ 下一个"
+text = "世界地图"

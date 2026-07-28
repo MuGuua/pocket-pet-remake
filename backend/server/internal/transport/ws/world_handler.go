@@ -264,9 +264,9 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 
 	var decision *world.MoveDecision
 	if request.MapTeleport {
-		decision, err = h.worldService.EvaluateMapTeleport(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID)
+		decision, err = h.worldService.EvaluateMapTeleport(ctx, sess.PlayerID, profile.Level, request.SceneID, currentPos, request.TargetSceneID)
 	} else {
-		decision, err = h.worldService.EvaluateTransfer(ctx, sess.PlayerID, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
+		decision, err = h.worldService.EvaluateTransfer(ctx, sess.PlayerID, profile.Level, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
 	}
 	if err != nil {
 		log.Printf("[SceneTransition][Server] evaluate failed player_id=%d err=%v", sess.PlayerID, err)
@@ -926,10 +926,19 @@ func toProtocolWildEncounterConfig(config *monster.RuntimeWildEncounterConfig) p
 		return protocol.WildEncounterConfig{}
 	}
 	spawnMonsterIDs := append([]uint32{}, config.SpawnMonsterIDs...)
+	targets := make([]protocol.WildEncounterTarget, 0, len(config.Targets))
+	for _, target := range config.Targets {
+		targets = append(targets, protocol.WildEncounterTarget{
+			MonsterID:   target.MonsterID,
+			MonsterName: target.MonsterName,
+			SkinID:      target.SkinID,
+		})
+	}
 	return protocol.WildEncounterConfig{
 		Enabled:         config.Enabled,
 		SceneID:         config.SceneID,
 		EncounterRate:   config.EncounterRate,
 		SpawnMonsterIDs: spawnMonsterIDs,
+		Targets:         targets,
 	}
 }

@@ -515,7 +515,8 @@
     "enabled": false,
     "scene_id": 1,
     "encounter_rate": 0,
-    "spawn_monster_ids": []
+    "spawn_monster_ids": [],
+    "targets": []
   }
 }
 ```
@@ -530,6 +531,7 @@
 - 地图内移动由客户端本地处理；客户端按 `encounter_rate`（万分比，800=8%）逐步判定是否触发
 - 触发后客户端发送 `2035 WILD_ENCOUNTER_REQ`，服务端校验通过后按后台配置的怪物编队权重随机选择一个编队，再推送 `4011 BATTLE_START_PUSH`
 - `spawn_monster_ids` 仅作为客户端展示/兼容字段；实际开战怪物以服务端随机选中的后台 `formations` 编队为准
+- `targets` 由服务端按 `spawn_monster_ids` 查询已启用的数据库怪物模板生成，每项包含 `monster_id`、`monster_name`、`skin_id`，仅用于挂机目标选择面板
 - 无暗雷配置的地图返回 `enabled=false`
 
 ### 2021 MOVE_INTENT_REQ
@@ -623,6 +625,8 @@
 - `corrected_pos`：服务端持久化坐标兜底值；客户端传送门切图时优先使用目标场景脚本中 `portal_id` 对应的场景坐标
 - 如果 `target_scene_id` 为空、为 `0`、或等于当前 `scene_id`，服务端只返回成功确认，表示“地图内移动由客户端处理”
 - 如果带了 `portal_id`，服务端用于校验门/目标地图是否匹配；客户端最终出生场景坐标由目标场景配置决定，未配置时才使用 `corrected_pos` 兜底
+- 服务端会读取 `world_scene_definition.required_level`，并使用玩家数据库档案中的权威 `level` 校验目标地图准入等级；客户端请求不携带、也不能覆盖玩家等级
+- 等级不足时返回 `accepted=false`、原 `scene_id` / 原坐标，以及 `reason="前面的路以后再来探索吧"`；服务端不会更新玩家持久化场景与坐标，客户端只展示该提示
 
 ### 2014 WORLD_RESYNC_PUSH
 
@@ -653,7 +657,8 @@
     "enabled": false,
     "scene_id": 2,
     "encounter_rate": 0,
-    "spawn_monster_ids": []
+    "spawn_monster_ids": [],
+    "targets": []
   }
 }
 ```

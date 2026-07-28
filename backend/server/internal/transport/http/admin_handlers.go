@@ -411,6 +411,17 @@ func (h *AdminNPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.handleWorldSceneList(w, r)
+	case strings.HasPrefix(path, "/scenes/") || strings.HasPrefix(path, "scenes/"):
+		sceneID, err := parseNestedUintPathID(path, "scenes")
+		if err != nil || sceneID > uint64(^uint32(0)) {
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene_id", nil)
+			return
+		}
+		if r.Method != http.MethodPut {
+			writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
+			return
+		}
+		h.handleWorldSceneUpdate(w, r, uint32(sceneID))
 	case path == "/entities" || path == "entities":
 		switch r.Method {
 		case http.MethodGet:
@@ -1026,6 +1037,29 @@ func (h *AdminNPCHandler) handleWorldSceneList(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": items})
+}
+
+// handleWorldSceneUpdate 更新地图最低进入等级；地图名称、编码与状态仍由既有数据库配置维护。
+func (h *AdminNPCHandler) handleWorldSceneUpdate(w http.ResponseWriter, r *http.Request, sceneID uint32) {
+	defer r.Body.Close()
+	var request npc.AdminUpdateWorldSceneInput
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	updated, err := h.npcService.UpdateAdminWorldSceneRequiredLevel(r.Context(), sceneID, request)
+	if err != nil {
+		switch {
+		case errors.Is(err, npc.ErrInvalidAdminNPCInput):
+			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "required_level must be between 1 and 100", nil)
+		case errors.Is(err, npc.ErrAdminWorldSceneNotFound):
+			writeJSON(w, http.StatusNotFound, http.StatusNotFound, "world scene not found", nil)
+		default:
+			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "update admin world scene failed", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, "success", updated)
 }
 
 func (h *AdminNPCHandler) handleEntityDetail(w http.ResponseWriter, r *http.Request, entityID uint64) {

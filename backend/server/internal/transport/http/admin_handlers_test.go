@@ -416,6 +416,58 @@ func TestAdminNPCEntityCRUDHandler(t *testing.T) {
 	}
 }
 
+// TestAdminWorldSceneRequiredLevelHandler 验证后台可读取并更新服务端地图最低进入等级。
+func TestAdminWorldSceneRequiredLevelHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/admin/npcs/scenes", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+token)
+	listResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list world scenes response.Code = %d, want %d, body=%s", listResponse.Code, http.StatusOK, listResponse.Body.String())
+	}
+	var listPayload struct {
+		Data struct {
+			Items []npc.AdminWorldSceneSummary `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
+		t.Fatalf("json.Unmarshal(list world scenes) error = %v", err)
+	}
+	if len(listPayload.Data.Items) == 0 || listPayload.Data.Items[0].RequiredLevel != 1 {
+		t.Fatalf("list world scenes items = %#v, want default required_level 1", listPayload.Data.Items)
+	}
+
+	updateBody := marshalJSON(t, npc.AdminUpdateWorldSceneInput{RequiredLevel: 10})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/npcs/scenes/1", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("update world scene response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+	var updatePayload struct {
+		Data npc.AdminWorldSceneSummary `json:"data"`
+	}
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("json.Unmarshal(update world scene) error = %v", err)
+	}
+	if updatePayload.Data.SceneID != 1 || updatePayload.Data.RequiredLevel != 10 {
+		t.Fatalf("updated world scene = %#v, want scene 1 required_level 10", updatePayload.Data)
+	}
+
+	invalidBody := marshalJSON(t, npc.AdminUpdateWorldSceneInput{RequiredLevel: 0})
+	invalidRequest := httptest.NewRequest(http.MethodPut, "/api/admin/npcs/scenes/1", bytes.NewReader(invalidBody))
+	invalidRequest.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handlers.NPCs.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid world scene response.Code = %d, want %d, body=%s", invalidResponse.Code, http.StatusBadRequest, invalidResponse.Body.String())
+	}
+}
+
 func TestAdminNPCMenuEntryCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"pocket-pet-remake/server/internal/module/world"
 )
@@ -114,7 +115,7 @@ ORDER BY entity_id ASC
 `
 
 const getMapTeleportTargetQuery = `
-SELECT teleport.center_x, teleport.center_y
+SELECT teleport.center_x, teleport.center_y, scene.required_level, scene.status
 FROM world_map_teleport_node AS teleport
 JOIN world_scene_definition AS scene ON scene.scene_id = teleport.scene_id
 WHERE teleport.scene_id = $1
@@ -219,7 +220,7 @@ SELECT EXISTS (
 	return true, nil
 }
 
-func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {
+func (r *WorldRepository) EvaluateTransfer(ctx context.Context, _ uint64, playerLevel uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {
 	decision := &world.MoveDecision{
 		SceneVersion: 1,
 		ToSceneID:    sceneID,
@@ -240,12 +241,15 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID 
 		return decision, nil
 	}
 
+	// 先验证地图拓扑和传送门是否合法，再读取目标地图准入配置。
+	// 这样非法客户端请求只能得到连通性错误，不能借等级提示探测不可达地图。
 	if _, ok := currentScene.exits[targetSceneID]; !ok {
 		decision.Accepted = false
 		decision.Reason = "target scene unreachable"
 		return decision, nil
 	}
 
+	targetPos := targetScene.spawnPos
 	if portalID != 0 {
 		portal, ok := currentScene.portals[portalID]
 		if !ok {
@@ -258,23 +262,44 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID 
 			decision.Reason = "portal target mismatch"
 			return decision, nil
 		}
-		decision.Accepted = true
-		decision.ToSceneID = portal.targetSceneID
-		decision.SpawnPos = portal.targetPos
-		return decision, nil
+		targetPos = portal.targetPos
+	} else if entryPos, ok := targetScene.entries[sceneID]; ok {
+		targetPos = entryPos
+	}
+
+	// 玩家等级来自服务端玩家档案，地图要求来自数据库，客户端请求不参与两者计算。
+	if r.db != nil {
+		var requiredLevel uint32
+		var status uint32
+		err := r.db.QueryRowContext(ctx, `
+SELECT required_level, status
+FROM world_scene_definition
+WHERE scene_id = $1
+LIMIT 1
+`, targetSceneID).Scan(&requiredLevel, &status)
+		if errors.Is(err, sql.ErrNoRows) {
+			decision.Accepted = false
+			decision.Reason = "target scene unavailable"
+			return decision, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if reason := sceneAccessRejectionReason(playerLevel, requiredLevel, status); reason != "" {
+			decision.Accepted = false
+			decision.Reason = reason
+			return decision, nil
+		}
 	}
 
 	decision.Accepted = true
 	decision.ToSceneID = targetSceneID
-	decision.SpawnPos = targetScene.spawnPos
-	if entryPos, ok := targetScene.entries[sceneID]; ok {
-		decision.SpawnPos = entryPos
-	}
+	decision.SpawnPos = targetPos
 	return decision, nil
 }
 
 // EvaluateMapTeleport 只接受数据库中已启用的地图节点，并使用服务端配置的中心格作为权威出生点。
-func (r *WorldRepository) EvaluateMapTeleport(ctx context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
+func (r *WorldRepository) EvaluateMapTeleport(ctx context.Context, _ uint64, playerLevel uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
 	decision := &world.MoveDecision{
 		SceneVersion: 1,
 		ToSceneID:    sceneID,
@@ -290,7 +315,9 @@ func (r *WorldRepository) EvaluateMapTeleport(ctx context.Context, _ uint64, sce
 	}
 
 	var center world.Vec2i
-	err := r.db.QueryRowContext(ctx, getMapTeleportTargetQuery, targetSceneID).Scan(&center.X, &center.Y)
+	var requiredLevel uint32
+	var status uint32
+	err := r.db.QueryRowContext(ctx, getMapTeleportTargetQuery, targetSceneID).Scan(&center.X, &center.Y, &requiredLevel, &status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			decision.Reason = "map teleport unavailable"
@@ -298,10 +325,26 @@ func (r *WorldRepository) EvaluateMapTeleport(ctx context.Context, _ uint64, sce
 		}
 		return nil, err
 	}
+	if reason := sceneAccessRejectionReason(playerLevel, requiredLevel, status); reason != "" {
+		decision.Reason = reason
+		return decision, nil
+	}
 
 	decision.Accepted = true
 	decision.ToSceneID = targetSceneID
 	decision.SpawnPos = center
 	decision.Reason = "map teleport accepted"
 	return decision, nil
+}
+
+// sceneAccessRejectionReason 根据数据库地图配置返回拒绝原因；空字符串表示允许进入。
+// 该纯逻辑函数便于在不连接正式数据库的情况下覆盖等级边界测试。
+func sceneAccessRejectionReason(playerLevel uint32, requiredLevel uint32, status uint32) string {
+	if status != 1 {
+		return "target scene unavailable"
+	}
+	if playerLevel < requiredLevel {
+		return world.SceneLevelRestrictedReason
+	}
+	return ""
 }

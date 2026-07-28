@@ -1,44 +1,21 @@
 [gd_scene format=3 uid="uid://bsg5ckqad6i2w"]
 
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_close_normal"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
+[ext_resource type="Texture2D" uid="uid://cxvlh0sshrpi5" path="res://asset/分类/ui/BtnExitNoOpacity.png" id="1_no_opacity"]
+[ext_resource type="Texture2D" uid="uid://dsjy883v8sxpi" path="res://asset/分类/ui/BtnExitOpacity.png" id="2_opacity"]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_close_normal"]
-atlas = SubResource("CompressedTexture2D_close_normal")
-region = Rect2(272, 208, 17, 16)
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_close_opacity"]
+texture = ExtResource("2_opacity")
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_close_normal"]
-texture = SubResource("AtlasTexture_close_normal")
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_close_pressed"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_close_pressed"]
-atlas = SubResource("CompressedTexture2D_close_pressed")
-region = Rect2(272, 208, 16, 16)
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_close_pressed"]
-texture = SubResource("AtlasTexture_close_pressed")
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_close_hover"]
-load_path = "res://.godot/imported/UI.png-e218d3433db82094ac4c40259f7cab41.ctex"
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_close_hover"]
-atlas = SubResource("CompressedTexture2D_close_hover")
-region = Rect2(272, 208, 16, 16)
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_close_hover"]
-texture = SubResource("AtlasTexture_close_hover")
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_close_disabled"]
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_close_no_opacity"]
+texture = ExtResource("1_no_opacity")
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_close_focus"]
 
-[node name="PanelCloseButton" type="Button"]
-custom_minimum_size = Vector2(40, 36)
+[node name="PanelCloseButton" type="Button" unique_id=1200169584]
+custom_minimum_size = Vector2(40, 40)
 custom_maximum_size = Vector2(40, 40)
-theme_override_styles/normal = SubResource("StyleBoxTexture_close_normal")
-theme_override_styles/pressed = SubResource("StyleBoxTexture_close_pressed")
-theme_override_styles/hover = SubResource("StyleBoxTexture_close_hover")
-theme_override_styles/disabled = SubResource("StyleBoxEmpty_close_disabled")
+theme_override_styles/normal = SubResource("StyleBoxTexture_close_opacity")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_close_no_opacity")
+theme_override_styles/hover = SubResource("StyleBoxTexture_close_no_opacity")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_close_opacity")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_close_focus")

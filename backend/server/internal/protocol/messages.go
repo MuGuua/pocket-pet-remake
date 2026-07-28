@@ -582,10 +582,18 @@ type WorldResyncPush struct {
 
 // WildEncounterConfig 描述当前地图暗雷遭遇参数，由服务端在进图/切图时下发，客户端本地按步判定。
 type WildEncounterConfig struct {
-	Enabled         bool     `json:"enabled"`
-	SceneID         uint32   `json:"scene_id"`
-	EncounterRate   uint32   `json:"encounter_rate"`
-	SpawnMonsterIDs []uint32 `json:"spawn_monster_ids"`
+	Enabled         bool                  `json:"enabled"`
+	SceneID         uint32                `json:"scene_id"`
+	EncounterRate   uint32                `json:"encounter_rate"`
+	SpawnMonsterIDs []uint32              `json:"spawn_monster_ids"`
+	Targets         []WildEncounterTarget `json:"targets"`
+}
+
+// WildEncounterTarget 为客户端挂机选择面板提供数据库怪物名称和形象标识。
+type WildEncounterTarget struct {
+	MonsterID   uint32 `json:"monster_id"`
+	MonsterName string `json:"monster_name"`
+	SkinID      string `json:"skin_id"`
 }
 
 type WildEncounterReq struct {

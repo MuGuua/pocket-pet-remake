@@ -10,6 +10,7 @@ type Repository interface {
 	ShopGoodExists(ctx context.Context, entityID uint64, itemID uint64) (bool, error)
 	ListEntitiesForAdmin(ctx context.Context, query AdminEntityListQuery) (*AdminEntityList, error)
 	ListWorldScenesForAdmin(ctx context.Context) ([]AdminWorldSceneSummary, error)
+	UpdateWorldSceneRequiredLevelForAdmin(ctx context.Context, sceneID uint32, requiredLevel uint32) (*AdminWorldSceneSummary, error)
 	FindAdminEntityDetailByEntityID(ctx context.Context, entityID uint64) (*AdminEntityDetail, error)
 	CreateEntityForAdmin(ctx context.Context, input AdminCreateEntityInput) (*AdminEntityDetail, error)
 	UpdateEntityForAdmin(ctx context.Context, entityID uint64, input AdminUpdateEntityInput) (*AdminEntityDetail, error)

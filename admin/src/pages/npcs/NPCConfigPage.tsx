@@ -8,6 +8,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Row,
   Select,
@@ -28,6 +29,7 @@ import {
   fetchAdminNPCEntityDetail,
   fetchAdminWorldScenes,
   updateAdminNPCEntity,
+  updateAdminWorldScene,
 } from '../../services/npc';
 import type {
   AdminCreateNPCEntityPayload,
@@ -40,6 +42,7 @@ import type {
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { NPCMenuEntryDrawer } from './NPCMenuEntryDrawer';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
+import { ADMIN_INTEGER_INPUT_PROPS } from '../../utils/adminNumberInput';
 
 interface EntityFormValues {
   entity_id?: number;
@@ -63,7 +66,122 @@ const editableStatusOptions = [
 
 // 地图 NPC 配置页：统一管理地图实体，并在每个 NPC 编辑入口中维护其交互菜单。
 export function NPCConfigPage() {
-  return <MapNPCPanel />;
+  return (
+    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <WorldSceneAccessPanel />
+      <MapNPCPanel />
+    </Space>
+  );
+}
+
+interface SceneAccessFormValues {
+  required_level: number;
+}
+
+// 地图准入配置直接维护服务端读取的 world_scene_definition，客户端不保存等级条件。
+function WorldSceneAccessPanel() {
+  const [editorForm] = Form.useForm<SceneAccessFormValues>();
+  const [rows, setRows] = useState<AdminWorldSceneSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingScene, setEditingScene] = useState<AdminWorldSceneSummary | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void loadScenes();
+  }, []);
+
+  async function loadScenes() {
+    setLoading(true);
+    try {
+      const result = await fetchAdminWorldScenes();
+      setRows(result.items);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载地图准入配置失败');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openEditor(scene: AdminWorldSceneSummary) {
+    setEditingScene(scene);
+    editorForm.setFieldsValue({ required_level: scene.required_level });
+    setEditorOpen(true);
+  }
+
+  async function saveScene() {
+    if (!editingScene) {
+      return;
+    }
+    const values = await editorForm.validateFields();
+    setSaving(true);
+    try {
+      await updateAdminWorldScene(editingScene.scene_id, { required_level: values.required_level });
+      message.success('地图最低进入等级已更新');
+      setEditorOpen(false);
+      setEditingScene(null);
+      await loadScenes();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '保存地图准入配置失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const columns: ColumnsType<AdminWorldSceneSummary> = [
+    { title: '场景ID', dataIndex: 'scene_id', key: 'scene_id', width: 100 },
+    { title: '场景编码', dataIndex: 'scene_code', key: 'scene_code', width: 220 },
+    { title: '场景名称', dataIndex: 'scene_name', key: 'scene_name', width: 180 },
+    { title: '最低进入等级', dataIndex: 'required_level', key: 'required_level', width: 150, render: (value: number) => `${value} 级` },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (value: number) => <Tag color={value === 1 ? 'green' : 'default'}>{value === 1 ? '启用' : '停用'}</Tag> },
+    {
+      title: '操作',
+      key: 'action',
+      width: 110,
+      render: (_value, record) => <Button type="link" onClick={() => openEditor(record)}>配置等级</Button>,
+    },
+  ];
+
+  return (
+    <>
+      <Card title="地图进入等级配置" extra={<Button onClick={() => void loadScenes()} loading={loading}>刷新</Button>}>
+        <Table
+          columns={columns}
+          dataSource={rows}
+          rowKey="scene_id"
+          loading={loading}
+          pagination={false}
+          locale={{ emptyText: <Empty description="暂无地图配置" /> }}
+          scroll={{ x: 860 }}
+        />
+      </Card>
+      <Modal
+        title={editingScene ? `配置地图等级 · ${editingScene.scene_name}` : '配置地图等级'}
+        open={editorOpen}
+        confirmLoading={saving}
+        onOk={() => void saveScene()}
+        onCancel={() => {
+          if (!saving) {
+            setEditorOpen(false);
+            setEditingScene(null);
+          }
+        }}
+        destroyOnClose
+      >
+        <Form form={editorForm} layout="vertical" preserve={false}>
+          <Form.Item
+            label="最低进入等级"
+            name="required_level"
+            extra="玩家等级低于该值时，服务端拒绝切图并保留玩家原位置。"
+            rules={[{ required: true, message: '请输入最低进入等级' }]}
+          >
+            <InputNumber min={1} max={100} style={{ width: '100%' }} {...ADMIN_INTEGER_INPUT_PROPS} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
 }
 
 function MapNPCPanel() {

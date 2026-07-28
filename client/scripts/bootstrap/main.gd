@@ -14,7 +14,6 @@ const RUNTIME_PROGRESS_OVERLAY_SCENE := preload(RuntimeProgressOverlay.SCENE_PAT
 const NPC_DIALOGUE_PANEL_SCENE := preload("res://scenes/ui/npc_dialogue_panel.tscn")
 const NPC_SHOP_PANEL_SCENE := preload("res://scenes/ui/npc_shop_panel.tscn")
 const RewardPopupScene := preload("res://scenes/ui/common/reward_popup.tscn")
-const InfoModalPopupScene := preload(InfoModalPopup.SCENE_PATH)
 const ConfirmPromptPopupScene := preload(ConfirmPromptPopup.SCENE_PATH)
 const GRID_SPREAD_SCENE := preload("res://scenes/ui/grid_spread.tscn")
 # 返回登录页时使用的场景路径。
@@ -61,8 +60,6 @@ const NPC_ENTITY_TYPE: int = 2
 
 # 奖励弹窗实例，战斗与任务结算后复用。
 var _reward_popup: RewardPopup = null
-# 通用信息模态弹窗；玩家升级与宠物升级共用同一实例。
-var _info_modal_popup: InfoModalPopup = null
 ## 流程确认弹窗；进入地图、任务前置、动画结束与任务完成提示共用同一实例。
 var _flow_confirm_popup: ConfirmPromptPopup = null
 # 退出游戏前使用的二次确认弹窗，避免误触设置菜单直接关闭客户端。
@@ -499,7 +496,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	_close_other_root_panels("npc_list")
 	_npc_list_menu.configure("周围 NPC", nearby_npcs, {
 		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
-		"panel_min_width": 288,
 	})
 	_npc_list_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -510,27 +506,12 @@ func _on_notice_received(message: String) -> void:
 	hud_root.show_notice(message)
 
 
-# 处理服务端 ERROR_PUSH，弹出信息模态供玩家确认。
+# 处理服务端 ERROR_PUSH，统一使用可点击关闭的流程确认弹窗。
 func _on_server_error_received(_error_code: int, message: String) -> void:
 	var display_message: String = message.strip_edges()
 	if display_message.is_empty():
 		return
-	await _show_server_error_info_popup(display_message)
-
-
-## 展示服务端错误信息模态；复用 InfoModalPopup，避免只写入 HUD 日志。
-func _show_server_error_info_popup(message: String) -> void:
-	_create_info_modal_popup()
-	if _info_modal_popup == null:
-		return
-	var lines: Array[String] = [message]
-	_info_modal_popup.show_info("提示", lines)
-	_set_runtime_menu_locked(true)
-	if not await _wait_for_next_process_frame():
-		return
-	if _info_modal_popup.visible:
-		await _info_modal_popup.popup_closed
-	_set_runtime_menu_locked(false)
+	await _show_flow_confirm_prompt_and_wait("提示", display_message, 24)
 
 # 把统一格式的服务端请求结果写入运行态 HUD，便于边操作边核对服务端回包。
 func _on_server_result_logged(message: String) -> void:
@@ -584,9 +565,13 @@ func _on_scene_transition_requested(from_scene_id: int, to_scene_id: int) -> voi
 	_run_scene_map_transition(generation)
 
 # 记录切图失败原因；若遮罩仍在过渡中，标记失败供中点后渐出恢复。
+## 处理服务端拒绝切图的结果；reason 为服务端权威提示文案。
 func _on_scene_transition_failed(reason: String) -> void:
 	_append_log("地图切换失败: %s" % reason)
 	_debug_scene_transition("transition failed reason=%s active=%s" % [reason, str(_scene_map_transition_active)])
+	# 复用全局移动端短提示，不在客户端重复判断地图等级或拼装准入文案。
+	if not reason.is_empty():
+		App.notice_received.emit(reason)
 	if _scene_map_transition_active:
 		_scene_map_transition_failed = true
 	_unlock_scene_visual_apply_for_transition()
@@ -1083,20 +1068,9 @@ func _create_runtime_ui() -> void:
 	_create_npc_shop_panel()
 	_create_pvp_invite_dialog()
 	_create_reward_popup()
-	_create_info_modal_popup()
 	_create_flow_confirm_popup()
 	_create_cinematic_player()
 	_create_npc_request_loading()
-
-
-func _create_info_modal_popup() -> void:
-	if _info_modal_popup != null:
-		return
-	_info_modal_popup = InfoModalPopupScene.instantiate() as InfoModalPopup
-	if _info_modal_popup == null:
-		return
-	_info_modal_popup.name = "InfoModalPopup"
-	add_child(_info_modal_popup)
 
 
 ## 懒创建流程确认弹窗，避免与已经绑定退出动作的确认弹窗共享实例。
@@ -1128,16 +1102,21 @@ func _show_flow_confirm_prompt_and_wait(title_text: String, content_bbcode: Stri
 		await _flow_confirm_popup.popup_closed
 
 
+## 展示玩家升级结果；等级缺失时读取权威人物快照，仍无法解析则不展示无效内容。
 func _show_level_up_popup_and_wait(level: int, bonus: Dictionary) -> void:
-	_create_info_modal_popup()
-	if _info_modal_popup == null:
+	var resolved_level: int = level
+	if resolved_level <= 0:
+		resolved_level = int(GameState.player_snapshot.get("level", 0))
+	if resolved_level <= 0:
 		return
-	if not _info_modal_popup.show_player_level_up(level, bonus):
-		return
-	if not await _wait_for_next_process_frame():
-		return
-	if _info_modal_popup.visible:
-		await _info_modal_popup.popup_closed
+	var content_lines: PackedStringArray = PackedStringArray([
+		"恭喜你升到了%d级" % resolved_level,
+		"最大生命值增加：%d" % int(bonus.get("hp_max", 0)),
+		"攻击力增加：%d" % int(bonus.get("atk", 0)),
+		"法力增加：%d" % int(bonus.get("mana", 0)),
+		"速度增加：%d" % int(bonus.get("spd", 0)),
+	])
+	await _show_flow_confirm_prompt_and_wait("升级", "\n".join(content_lines), 20)
 
 
 ## 逐只展示战斗结算里升级过的宠物摘要；玩家点按关闭后再进入下一项。
@@ -1154,16 +1133,15 @@ func _show_pet_level_up_popups_and_wait(pet_rewards: Array) -> void:
 		var level: int = int(pet_reward.get("level", 0))
 		var attr_points_gained: int = int(pet_reward.get("attr_points_gained", 0))
 		var free_attr_points: int = int(pet_reward.get("free_attr_points", 0))
+		if level <= 0:
+			continue
 		var pet_name: String = _resolve_pet_display_name(pet_uid, pet_id)
-		_create_info_modal_popup()
-		if _info_modal_popup == null:
-			continue
-		if not _info_modal_popup.show_pet_level_up(pet_name, level, attr_points_gained, free_attr_points):
-			continue
-		if not await _wait_for_next_process_frame():
-			return
-		if _info_modal_popup.visible:
-			await _info_modal_popup.popup_closed
+		var content_lines: PackedStringArray = PackedStringArray([
+			"升到了 %d 级" % level,
+			"获得自由属性点：%d" % attr_points_gained,
+			"当前可用自由点：%d" % free_attr_points,
+		])
+		await _show_flow_confirm_prompt_and_wait(pet_name, "\n".join(content_lines), 36)
 
 
 ## 根据本地宠物列表解析展示名；缺失时回退到 pet_id 或 pet_uid。
@@ -1709,53 +1687,30 @@ func _collect_nearby_player_entries() -> Array[Dictionary]:
 		entries.append(entry)
 	return entries
 
-## 收集当前地图附近可作为挂机参考目标的单位列表；基于附近实体快照做最小过滤。
+## 从服务端权威暗雷配置组装当前地图的挂机目标列表。
 func _collect_auto_encounter_target_entries() -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
-	var seen_names: Dictionary = {}
-	for entity_id_variant in GameState.nearby_entities.keys():
-		var entity_variant: Variant = GameState.nearby_entities.get(entity_id_variant, {})
-		if entity_variant is not Dictionary:
+	var targets_variant: Variant = GameState.wild_encounter_config.get("targets", [])
+	if targets_variant is not Array:
+		return entries
+	var targets: Array = targets_variant as Array
+	var seen_monster_ids: Dictionary = {}
+	for target_variant: Variant in targets:
+		if target_variant is not Dictionary:
 			continue
-		var entity: Dictionary = entity_variant
-		var entity_id: int = int(entity.get("entity_id", entity_id_variant))
-		var entity_type: int = int(entity.get("entity_type", 0))
-		var player_id: int = int(entity.get("player_id", 0))
-		var entity_name: String = str(entity.get("name", entity.get("npc_name", ""))).strip_edges()
-		if entity_id <= 0 or entity_name.is_empty():
+		var target: Dictionary = target_variant
+		var monster_id: int = int(target.get("monster_id", 0))
+		var monster_name: String = str(target.get("monster_name", "")).strip_edges()
+		if monster_id <= 0 or monster_name.is_empty() or seen_monster_ids.has(monster_id):
 			continue
-		if player_id > 0 or entity_type == PLAYER_ENTITY_TYPE or entity_type == NPC_ENTITY_TYPE:
-			continue
-		if _is_auto_encounter_name_excluded(entity_name):
-			continue
-		var dedupe_key: String = entity_name.to_lower()
-		if seen_names.has(dedupe_key):
-			continue
-		seen_names[dedupe_key] = true
+		seen_monster_ids[monster_id] = true
 		var entry: Dictionary = {
-			"entity_id": entity_id,
-			"npc_name": entity_name,
-			"portrait_path": "res://asset/口袋所有形象/imgs/51.png",
+			"entity_id": monster_id,
+			"npc_name": monster_name,
+			"skin_id": str(target.get("skin_id", "")).strip_edges(),
 		}
 		entries.append(entry)
 	return entries
-
-## 过滤明显不应进入挂机列表的单位名称：玩家、NPC、BOSS 与暗雷占位名。
-func _is_auto_encounter_name_excluded(entity_name: String) -> bool:
-	var normalized_name: String = entity_name.to_lower()
-	if normalized_name.contains("boss"):
-		return true
-	if normalized_name.contains("npc"):
-		return true
-	if normalized_name.contains("首领"):
-		return true
-	if normalized_name.contains("领主"):
-		return true
-	if normalized_name.contains("暗雷"):
-		return true
-	if normalized_name.contains("怪点"):
-		return true
-	return false
 
 ## 打开挂机目标选择面板；先让玩家选定附近单位，再开启自动暗雷。
 func _open_auto_encounter_target_menu() -> void:
@@ -1763,12 +1718,11 @@ func _open_auto_encounter_target_menu() -> void:
 		return
 	var target_entries: Array[Dictionary] = _collect_auto_encounter_target_entries()
 	if target_entries.is_empty():
-		_append_log("当前地图附近没有可挂机的战斗单位。")
+		App.notice_received.emit("当前地图未配置可挂机怪物。")
 		return
 	_close_other_root_panels("auto_encounter_target")
 	_auto_encounter_target_menu.configure("选择挂机目标", target_entries, {
 		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
-		"panel_min_width": 288,
 	})
 	_auto_encounter_target_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -1791,7 +1745,6 @@ func _open_pvp_target_menu() -> void:
 	_close_other_root_panels("pvp_list")
 	_pvp_target_menu.configure("选择挑战玩家", nearby_players, {
 		"render_mode": OptionListPanel.RENDER_PORTRAIT_TEXT,
-		"panel_min_width": 288,
 	})
 	_pvp_target_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -2034,7 +1987,6 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 	_close_other_root_panels("npc_menu")
 	_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
 		"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
-		"panel_min_width": 264,
 	})
 	_npc_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -2065,9 +2017,8 @@ func _handle_npc_action_payload(payload: Dictionary) -> void:
 		var menu_options: Array[Dictionary] = _build_npc_menu_options(payload)
 		_close_other_root_panels("npc_menu")
 		_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
-		"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
-		"panel_min_width": 264,
-	})
+			"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
+		})
 		_npc_menu.call("open_menu")
 		_set_runtime_menu_locked(true)
 
@@ -2414,12 +2365,11 @@ func _set_runtime_menu_locked(locked: bool) -> void:
 func _suppress_settlement_input_leak() -> void:
 	_suppress_settlement_input_until_frame = Engine.get_process_frames()
 
-## 判断升级、流程确认或奖励结算弹窗是否正在展示。
+## 判断流程确认或奖励结算弹窗是否正在展示。
 func _is_settlement_popup_active() -> bool:
-	var info_modal_visible: bool = _info_modal_popup != null and _info_modal_popup.visible
 	var flow_prompt_visible: bool = _flow_confirm_popup != null and _flow_confirm_popup.visible
 	var reward_visible: bool = _reward_popup != null and _reward_popup.visible
-	return info_modal_visible or flow_prompt_visible or reward_visible
+	return flow_prompt_visible or reward_visible
 
 ## 判断结算弹窗是否应继续阻断快捷键与底层交互。
 func _is_settlement_input_blocked() -> bool:

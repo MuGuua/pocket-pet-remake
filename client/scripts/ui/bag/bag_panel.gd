@@ -13,7 +13,7 @@ const REWARD_POPUP_SCENE: PackedScene = preload("res://scenes/ui/common/reward_p
 const EQUIPMENT_ENHANCE_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/equipment_enhance_popup.tscn")
 const DROP_ITEM_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/drop_item_popup.tscn")
 const REPAIR_EQUIPMENT_POPUP_SCENE: PackedScene = preload("res://scenes/ui/bag/repair_equipment_popup.tscn")
-const INFO_MODAL_POPUP_SCENE: PackedScene = preload(InfoModalPopup.SCENE_PATH)
+const CONFIRM_PROMPT_POPUP_SCENE: PackedScene = preload(ConfirmPromptPopup.SCENE_PATH)
 const USE_ITEM_TARGET_PICKER_SCENE: PackedScene = preload("res://scenes/ui/bag/use_item_target_picker.tscn")
 ## 礼包打开进度条播放时长（秒）。
 const BOX_OPEN_PROGRESS_DURATION_SEC: float = 3.0
@@ -93,8 +93,8 @@ var _enhance_target_item_uid: String = ""
 var _enhance_request_handler: Callable = Callable()
 ## 装备修复确认弹窗。
 var _repair_popup: RepairEquipmentPopup = null
-## 装备修复成功后的信息弹窗；复用通用 InfoModalPopup，避免只给短暂 notice。
-var _repair_success_popup: InfoModalPopup = null
+## 装备修复成功后的信息弹窗；复用通用确认提示，避免只给短暂 notice。
+var _repair_success_popup: ConfirmPromptPopup = null
 ## 是否正在执行装备修复请求。
 var _repair_in_flight: bool = false
 ## 当前修复请求 seq。
@@ -1561,7 +1561,7 @@ func _hide_repair_popup() -> void:
 func _ensure_repair_success_popup() -> void:
 	if _repair_success_popup != null:
 		return
-	_repair_success_popup = INFO_MODAL_POPUP_SCENE.instantiate() as InfoModalPopup
+	_repair_success_popup = CONFIRM_PROMPT_POPUP_SCENE.instantiate() as ConfirmPromptPopup
 	if _repair_success_popup == null:
 		return
 	add_child(_repair_success_popup)
@@ -1571,7 +1571,7 @@ func _ensure_repair_success_popup() -> void:
 ## 关闭修复成功信息弹窗；背包整体关闭时调用，避免独立 CanvasLayer 残留。
 func _hide_repair_success_popup() -> void:
 	if _repair_success_popup != null and _repair_success_popup.visible:
-		_repair_success_popup.close_popup()
+		_repair_success_popup.close_prompt()
 
 
 ## 损坏装备修复：专用确认弹窗 + 服务端 REPAIR 权威链路。
@@ -1696,12 +1696,11 @@ func _show_repair_success_popup(item_name: String) -> void:
 		App.notice_received.emit("已修复：%s" % resolved_item_name)
 		return
 	move_child(_repair_success_popup, get_child_count() - 1)
-	var lines: Array[String] = [
+	var content_lines: PackedStringArray = PackedStringArray([
 		"已修复：%s" % resolved_item_name,
 		"装备已恢复正常，可以继续佩戴或强化。",
-	]
-	_repair_success_popup.show_info("修复成功", lines, {
-		"title_font_size": 26,
+	])
+	_repair_success_popup.show_prompt("修复成功", "\n".join(content_lines), {
 		"content_font_size": 26,
 		"confirm_label": "知道了",
 	})

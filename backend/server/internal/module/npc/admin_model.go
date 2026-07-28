@@ -17,6 +17,8 @@ var (
 	ErrInvalidAdminNPCInput = errors.New("invalid admin npc input")
 	// ErrAdminNPCConflict 表示后台新增或编辑 NPC 配置时命中了唯一键。
 	ErrAdminNPCConflict = errors.New("admin npc conflict")
+	// ErrAdminWorldSceneNotFound 表示后台指定的地图场景不存在。
+	ErrAdminWorldSceneNotFound = errors.New("admin world scene not found")
 )
 
 // AdminEntityListQuery 描述后台 NPC 实体列表的筛选条件。
@@ -68,12 +70,19 @@ func (q AdminMenuEntryListQuery) Normalize() AdminMenuEntryListQuery {
 	return q
 }
 
-// AdminWorldSceneSummary 描述后台可选地图场景；坐标由客户端场景资源维护，这里只提供 scene_id 与展示名。
+// AdminWorldSceneSummary 描述后台地图场景及其服务端权威准入等级。
+// 坐标仍由客户端场景资源维护，后台只配置数据库中的地图元数据。
 type AdminWorldSceneSummary struct {
-	SceneID   uint32 `json:"scene_id"`
-	SceneCode string `json:"scene_code"`
-	SceneName string `json:"scene_name"`
-	Status    uint32 `json:"status"`
+	SceneID       uint32 `json:"scene_id"`
+	SceneCode     string `json:"scene_code"`
+	SceneName     string `json:"scene_name"`
+	RequiredLevel uint32 `json:"required_level"`
+	Status        uint32 `json:"status"`
+}
+
+// AdminUpdateWorldSceneInput 描述后台允许修改的地图准入配置。
+type AdminUpdateWorldSceneInput struct {
+	RequiredLevel uint32 `json:"required_level"`
 }
 
 // AdminCreateEntityInput 描述后台新增 NPC/世界实体时允许维护的字段。

@@ -5,6 +5,10 @@ import "errors"
 var ErrSnapshotUnavailable = errors.New("scene snapshot unavailable")
 
 const (
+	// SceneLevelRestrictedReason 是玩家等级不足时下发给客户端的统一提示。
+	// 客户端只负责展示该服务端权威判定结果，不能在本地自行判断或切换地图。
+	SceneLevelRestrictedReason = "前面的路以后再来探索吧"
+
 	// FallbackSceneID 表示玩家当前持久化 scene_id 无法解析时，服务端权威回退到的默认市场场景。
 	// 这里选择市场作为兜底出生点，避免玩家因为脏数据或旧档错误 scene_id 卡死在无法进入世界的状态。
 	FallbackSceneID uint32 = 3

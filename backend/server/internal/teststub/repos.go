@@ -3240,12 +3240,12 @@ func NewNPCRepository() *NPCRepository {
 			},
 		},
 		scenes: []npc.AdminWorldSceneSummary{
-			{SceneID: 1, SceneCode: "roxus_house", SceneName: "洛克斯小屋", Status: 1},
-			{SceneID: 2, SceneCode: "east_road_of_shanguang_town", SceneName: "闪光镇东路", Status: 1},
-			{SceneID: 3, SceneCode: "radiant_market", SceneName: "闪光市场", Status: 1},
-			{SceneID: 4, SceneCode: "bei_lu", SceneName: "北路", Status: 1},
-			{SceneID: 5, SceneCode: "xue_xiao", SceneName: "学校", Status: 1},
-			{SceneID: 6, SceneCode: "da_guai_qu", SceneName: "打怪区", Status: 1},
+			{SceneID: 1, SceneCode: "roxus_house", SceneName: "洛克斯小屋", RequiredLevel: 1, Status: 1},
+			{SceneID: 2, SceneCode: "east_road_of_shanguang_town", SceneName: "闪光镇东路", RequiredLevel: 1, Status: 1},
+			{SceneID: 3, SceneCode: "radiant_market", SceneName: "闪光市场", RequiredLevel: 1, Status: 1},
+			{SceneID: 4, SceneCode: "bei_lu", SceneName: "北路", RequiredLevel: 1, Status: 1},
+			{SceneID: 5, SceneCode: "xue_xiao", SceneName: "学校", RequiredLevel: 1, Status: 1},
+			{SceneID: 6, SceneCode: "da_guai_qu", SceneName: "打怪区", RequiredLevel: 1, Status: 1},
 		},
 	}
 }
@@ -3263,6 +3263,22 @@ func (r *NPCRepository) ListWorldScenesForAdmin(_ context.Context) ([]npc.AdminW
 	defer r.mu.RUnlock()
 
 	return append([]npc.AdminWorldSceneSummary(nil), r.scenes...), nil
+}
+
+// UpdateWorldSceneRequiredLevelForAdmin 更新测试仓储中的地图准入等级。
+func (r *NPCRepository) UpdateWorldSceneRequiredLevelForAdmin(_ context.Context, sceneID uint32, requiredLevel uint32) (*npc.AdminWorldSceneSummary, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for index := range r.scenes {
+		if r.scenes[index].SceneID != sceneID {
+			continue
+		}
+		r.scenes[index].RequiredLevel = requiredLevel
+		updated := r.scenes[index]
+		return &updated, nil
+	}
+	return nil, nil
 }
 
 func (r *NPCRepository) sceneNameByID(sceneID uint32) string {
@@ -3618,7 +3634,7 @@ func (r *WorldRepository) GetSceneSnapshot(_ context.Context, _ uint64, sceneID 
 	return &world.SceneSnapshot{SceneID: sceneID, SelfPos: selfPos, SceneVersion: 1, NearbyEntities: scene.nearby}, nil
 }
 
-func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {
+func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, _ uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {
 	decision := &world.MoveDecision{SceneVersion: 1, ToSceneID: sceneID, SpawnPos: currentPos}
 
 	currentScene, ok := scenes[sceneID]
@@ -3669,7 +3685,7 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, sceneID 
 }
 
 // EvaluateMapTeleport 为传输层测试提供与正式迁移一致的地图中心配置。
-func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
+func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
 	decision := &world.MoveDecision{SceneVersion: 1, ToSceneID: sceneID, SpawnPos: currentPos}
 	mapCenters := map[uint32]world.Vec2i{
 		1: {X: 5, Y: 7},

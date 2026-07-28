@@ -16,7 +16,9 @@ import type {
   AdminUpdateNPCEntityPayload,
   AdminUpdateNPCDialoguePayload,
   AdminUpdateNPCMenuEntryPayload,
+  AdminUpdateWorldScenePayload,
   AdminWorldSceneListResult,
+  AdminWorldSceneSummary,
 } from '../types/npc';
 
 export async function fetchAdminNPCEntities(params: { filters?: AdminNPCEntityFilters; page?: number; pageSize?: number }): Promise<AdminNPCEntityListResult> {
@@ -62,6 +64,17 @@ export async function deleteAdminNPCEntity(entityID: number): Promise<{ entity_i
 
 export async function fetchAdminWorldScenes(): Promise<AdminWorldSceneListResult> {
   return requestJSON<AdminWorldSceneListResult>({ url: '/api/admin/npcs/scenes', method: 'GET' });
+}
+
+export async function updateAdminWorldScene(
+  sceneID: number,
+  payload: AdminUpdateWorldScenePayload,
+): Promise<AdminWorldSceneSummary> {
+  return requestJSON<AdminWorldSceneSummary>({
+    url: `/api/admin/npcs/scenes/${sceneID}`,
+    method: 'PUT',
+    data: payload,
+  });
 }
 
 export async function fetchAdminNPCMenuEntries(params: { filters?: AdminNPCMenuEntryFilters; page?: number; pageSize?: number }): Promise<AdminNPCMenuEntryListResult> {

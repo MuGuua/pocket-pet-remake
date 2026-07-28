@@ -41,7 +41,12 @@ export interface AdminWorldSceneSummary {
   scene_id: number;
   scene_code: string;
   scene_name: string;
+  required_level: number;
   status: number;
+}
+
+export interface AdminUpdateWorldScenePayload {
+  required_level: number;
 }
 
 export interface AdminWorldSceneListResult {

@@ -27,8 +27,6 @@ const STATE_LABELS: Dictionary = {
 }
 ## 不可点击的 NPC 菜单项状态。
 const DISABLED_STATES: Array[String] = ["locked", "completed"]
-## 默认面板最小宽度（像素）。
-const DEFAULT_PANEL_MIN_WIDTH: int = 264
 ## 选项滚动区最大高度占视口高度的比例；超出后启用竖向滚动。
 const MAX_OPTIONS_SCROLL_VIEWPORT_RATIO: float = 0.42
 ## 选项滚动区最小高度（像素）；避免只有 1 项时区域过扁。
@@ -41,8 +39,6 @@ signal option_selected(option: Dictionary)
 ## 兼容旧 NPC 列表监听方使用的信号别名。
 signal npc_selected(option: Dictionary)
 
-## 面板容器，用于按场景调整最小宽度。
-@onready var _panel: PanelContainer = $PanelContainer
 ## 标题标签。
 @onready var _title_label: Label = %TitleLabel
 ## 标题行右上角关闭按钮。
@@ -108,15 +104,12 @@ func _connect_button_pressed(button: BaseButton, handler: Callable) -> void:
 
 
 ## 刷新标题与选项列表。
-## config 可选键：render_mode、panel_min_width、show_close_button。
+## config 可选键：render_mode、show_close_button；面板尺寸统一由场景节点维护。
 func configure(title: String, options: Array, config: Dictionary = {}) -> void:
 	var render_mode: String = str(config.get("render_mode", RENDER_NPC_ENTRY))
-	var panel_min_width: int = int(config.get("panel_min_width", DEFAULT_PANEL_MIN_WIDTH))
 	var show_close_button: bool = bool(config.get("show_close_button", true))
 	if _title_label != null:
 		_title_label.text = title
-	if _panel != null and panel_min_width > 0:
-		_panel.custom_minimum_size = Vector2(float(panel_min_width), 0.0)
 	_set_close_button_visible(show_close_button)
 	_option_lookup.clear()
 	_reset_option_rows()
@@ -298,8 +291,15 @@ func _resolve_display_name(option: Dictionary) -> String:
 	return str(option.get("npc_name", option.get("name", "未知")))
 
 
-## 按 portrait_path 加载头像纹理。
+## 优先按服务端 skin_id 解析形象首帧，再兼容旧 portrait_path 纹理。
 func _resolve_portrait_texture(option: Dictionary) -> Texture2D:
+	var skin_id: String = str(option.get("skin_id", "")).strip_edges()
+	if not skin_id.is_empty():
+		var skin: UnitSkin = CharacterSkinRegistry.get_unit_skin(skin_id)
+		if skin != null:
+			var preview_texture: Texture2D = skin.resolve_avatar_preview_texture()
+			if preview_texture != null:
+				return preview_texture
 	var portrait_path: String = str(option.get("portrait_path", ""))
 	if portrait_path.is_empty():
 		return null

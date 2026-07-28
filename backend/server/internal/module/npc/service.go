@@ -70,6 +70,22 @@ func (s *Service) ListAdminWorldScenes(ctx context.Context) ([]AdminWorldSceneSu
 	return s.repo.ListWorldScenesForAdmin(ctx)
 }
 
+// UpdateAdminWorldSceneRequiredLevel 更新地图最低进入等级。
+// required_level 必须与当前玩家等级体系保持一致，只允许 1~100。
+func (s *Service) UpdateAdminWorldSceneRequiredLevel(ctx context.Context, sceneID uint32, input AdminUpdateWorldSceneInput) (*AdminWorldSceneSummary, error) {
+	if sceneID == 0 || input.RequiredLevel < 1 || input.RequiredLevel > 100 {
+		return nil, ErrInvalidAdminNPCInput
+	}
+	result, err := s.repo.UpdateWorldSceneRequiredLevelForAdmin(ctx, sceneID, input.RequiredLevel)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ErrAdminWorldSceneNotFound
+	}
+	return result, nil
+}
+
 func (s *Service) GetAdminEntityDetail(ctx context.Context, entityID uint64) (*AdminEntityDetail, error) {
 	result, err := s.repo.FindAdminEntityDetailByEntityID(ctx, entityID)
 	if err != nil {

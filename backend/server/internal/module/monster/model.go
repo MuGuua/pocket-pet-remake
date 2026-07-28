@@ -450,12 +450,20 @@ type RuntimeEncounter struct {
 	Slots         []RuntimeEncounterSlot
 }
 
+// RuntimeWildEncounterTarget 是挂机目标选择所需的最小怪物摘要，不暴露战斗数值。
+type RuntimeWildEncounterTarget struct {
+	MonsterID   uint32
+	MonsterName string
+	SkinID      string
+}
+
 // RuntimeWildEncounterConfig 是下发给客户端的暗雷配置，不含完整怪物数值。
 type RuntimeWildEncounterConfig struct {
 	Enabled         bool
 	SceneID         uint32
 	EncounterRate   uint32
 	SpawnMonsterIDs []uint32
+	Targets         []RuntimeWildEncounterTarget
 }
 
 // RuntimeWildEncounter 是服务端开战时解析后的暗雷遭遇。

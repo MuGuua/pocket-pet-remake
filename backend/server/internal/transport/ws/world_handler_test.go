@@ -2371,6 +2371,12 @@ func TestEnterWorldIncludesWildEncounterConfig(t *testing.T) {
 	if len(response.WildEncounter.SpawnMonsterIDs) != 1 || response.WildEncounter.SpawnMonsterIDs[0] != 9001 {
 		t.Fatalf("WildEncounter.SpawnMonsterIDs = %v, want [9001]", response.WildEncounter.SpawnMonsterIDs)
 	}
+	if len(response.WildEncounter.Targets) != 1 {
+		t.Fatalf("len(WildEncounter.Targets) = %d, want 1", len(response.WildEncounter.Targets))
+	}
+	if target := response.WildEncounter.Targets[0]; target.MonsterID != 9001 || target.MonsterName != "野生怪物" || target.SkinID != "史莱姆_001" {
+		t.Fatalf("WildEncounter.Targets[0] = %+v, want database monster summary", target)
+	}
 }
 
 func TestHandleWildEncounterStartsBattle(t *testing.T) {

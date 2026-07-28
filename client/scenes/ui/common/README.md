@@ -17,11 +17,10 @@
 | 场景 | 脚本 | 说明 |
 | --- | --- | --- |
 | `confirm_prompt_popup.tscn` | `confirm_prompt_popup.gd` | 通用确认提示：标题 + BBCode 正文 + 底部继续按钮，右上角关闭取消 |
-| `info_modal_popup.tscn` | `info_modal_popup.gd` | 通用信息模态：可选标题 + 多行纯文本 + 确定（玩家/宠物升级等） |
 | `reward_popup.tscn` | `reward_popup.gd` | 通用奖励结算弹窗 |
 | `item_slot_picker.tscn` | `item_slot_picker.gd` | 锚点旁弹出的物品格子选择浮层 |
 | `action_menu_popup.tscn` | `action_menu_popup.gd` | 锚点旁竖向动作菜单（背包「更多」等） |
-| `option_list_panel.tscn` | `option_list_panel.gd` | 居中选项列表面板（NPC 菜单 / 附近 NPC / PVP 目标） |
+| `option_list_panel.tscn` | `option_list_panel.gd` | `640×760` 移动端居中选项列表面板（NPC 菜单 / 附近 NPC / 挂机目标 / PVP 目标） |
 | `runtime_progress_overlay.tscn` | `runtime_progress_overlay.gd` | 兼容壳：内部委托 `GenericLoadingScene`，保留 `show_waiting` / `play_progress` 旧接口 |
 | `runtime_progress_bar_overlay.tscn` | `runtime_progress_bar_overlay.gd` | 固定时长线性进度条；**开礼包**等需要 3 秒进度条演出的流程专用 |
 | `generic_loading_scene.tscn` | `generic_loading_scene.gd` | **标准**全屏 Loading：仅滚动动画 +「读取中」图字，不展示说明文案 |
@@ -33,6 +32,7 @@
 | --- | --- | --- |
 | `menu_frame.tscn` | `menu_frame.gd` | 九宫格菜单边框装饰容器 |
 | `runtime_action_button.tscn` | `runtime_action_button.gd` | 带悬停/按下缩放反馈的通用按钮 |
+| `panel_close_button.tscn` | - | 通用 `55×55` 面板关闭按钮：普通/禁用使用半透明图，悬停/按下使用不透明图 |
 | `bag_item_hover_name.tscn` | `bag_item_hover_name.gd` | 悬停物品名称浮层 |
 
 ## 纯脚本组件
