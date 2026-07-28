@@ -42,6 +42,8 @@ const NETWORK_MOVEMENT_REPORT_INTERVAL_MS: int = 100
 @onready var background_fill: Sprite2D = %BackgroundFill
 @onready var game_root: Node2D = %GameRoot
 @onready var player_node: CharacterBody2D = %Player
+## 人物场景预置的传送特效；位置和缩放直接在 player.tscn 中调整。
+@onready var map_teleport_effect: SpaceTimeTeleportEffect = player_node.get_node_or_null("MapTeleportEffect") as SpaceTimeTeleportEffect
 @onready var map_loading_overlay: ColorRect = %MapLoadingOverlay
 
 var _next_op_id: int = 1
@@ -54,6 +56,10 @@ var _pending_position_move_seq: int = 0
 var _pending_transition_move_seq: int = 0
 ## 当前切图是否来自世界地图快速传送，用于区分同地图传送与普通坐标同步。
 var _pending_map_teleport: bool = false
+## 地图传送特效是否已经到达人物消失点并启动主场景黑屏，避免信号重复进入转场。
+var _map_teleport_transition_started: bool = false
+## 人物是否由地图传送演出主动隐藏；只恢复本流程隐藏的节点，避免覆盖其他系统可见性。
+var _map_teleport_player_hidden: bool = false
 var _pending_player_spawn_position: Vector2 = Vector2.ZERO
 var _pending_player_spawn_requested: bool = false
 var _pending_player_facing_direction: Vector2 = Vector2.ZERO
@@ -132,6 +138,8 @@ func _ready() -> void:
 		game_viewport_container.resized.connect(_refresh_game_layout)
 	if game_viewport_container != null and not game_viewport_container.gui_input.is_connected(_on_game_viewport_gui_input):
 		game_viewport_container.gui_input.connect(_on_game_viewport_gui_input)
+	if map_teleport_effect != null and not map_teleport_effect.vanish_started.is_connected(_on_map_teleport_vanish_started):
+		map_teleport_effect.vanish_started.connect(_on_map_teleport_vanish_started)
 	GameState.battle_changed.connect(_sync_local_player_battle_state)
 	GameState.battle_changed.connect(_on_battle_state_changed)
 	GameState.pets_changed.connect(_sync_pet_follower_lineup)
@@ -229,6 +237,8 @@ func handle_move_intent_response(payload: Dictionary) -> void:
 	_pending_map_teleport = false
 	_pending_player_facing_requested = false
 	_set_transition_loading(false)
+	_finish_map_teleport_visual()
+	cancel_scene_visual_apply_lock()
 	_unlock_local_player()
 	scene_transition_failed.emit(str(payload.get("reason", "scene transfer rejected")))
 
@@ -301,7 +311,12 @@ func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_d
 			str(_current_player_scene_position()),
 		]
 	)
-	scene_transition_requested.emit(current_scene_id, target_scene_id)
+	if map_teleport:
+		# 在发出请求前锁住视觉应用；服务端较快返回时，权威快照会等到人物消失后的黑屏中点再应用。
+		set_scene_visual_apply_locked(true)
+		_play_map_teleport_visual()
+	else:
+		scene_transition_requested.emit(current_scene_id, target_scene_id)
 	var request_seq: int = NetClient.send_command(
 		CommandIds.MOVE_INTENT_REQ,
 		{
@@ -314,6 +329,44 @@ func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_d
 		}
 	)
 	_debug_scene_transition("MOVE_INTENT_REQ sent seq=%d move_seq=%d" % [request_seq, transition_move_seq])
+
+
+## 播放人物场景内预置的传送特效；节点缺失时直接回退到原有黑屏转场。
+func _play_map_teleport_visual() -> void:
+	_map_teleport_transition_started = false
+	_map_teleport_player_hidden = false
+	if not is_instance_valid(map_teleport_effect) or not is_instance_valid(player_node):
+		_start_pending_map_teleport_transition()
+		return
+	map_teleport_effect.play_effect()
+
+
+## 聚能到人物消失点后隐藏本地人物，并通知主场景开始原有黑屏换图。
+func _on_map_teleport_vanish_started() -> void:
+	if not _pending_map_teleport or _pending_target_scene_id <= 0:
+		return
+	if player_node != null and player_node.visible:
+		player_node.visible = false
+		_map_teleport_player_hidden = true
+	_start_pending_map_teleport_transition()
+
+
+## 只启动一次地图传送黑屏；目标场景仍使用点击时记录的服务端权威请求参数。
+func _start_pending_map_teleport_transition() -> void:
+	if _map_teleport_transition_started or not _pending_map_teleport:
+		return
+	_map_teleport_transition_started = true
+	scene_transition_requested.emit(_current_scene_id(), _pending_target_scene_id)
+
+
+## 停止地图传送特效并恢复由本流程隐藏的人物，供成功、拒绝和超时路径统一调用。
+func _finish_map_teleport_visual() -> void:
+	if is_instance_valid(map_teleport_effect):
+		map_teleport_effect.stop_effect()
+	if _map_teleport_player_hidden and is_instance_valid(player_node):
+		player_node.visible = true
+	_map_teleport_player_hidden = false
+	_map_teleport_transition_started = false
 
 ## 主场景在地图过渡开始时加锁，避免新地图在渐入前半段就渲染到视口。
 func set_scene_visual_apply_locked(locked: bool) -> void:
@@ -352,6 +405,7 @@ func abort_scene_transition(reason: String) -> void:
 	_pending_player_facing_requested = false
 	_pending_player_spawn_requested = false
 	_set_transition_loading(false)
+	_finish_map_teleport_visual()
 	cancel_scene_visual_apply_lock()
 	_unlock_local_player()
 
@@ -666,6 +720,7 @@ func _apply_authoritative_snapshot() -> void:
 		_pending_map_teleport = false
 		_pending_player_facing_requested = false
 		_set_transition_loading(false)
+		_finish_map_teleport_visual()
 		_unlock_local_player()
 		scene_transition_failed.emit("failed to load scene map: %d" % scene_id)
 		return
@@ -690,6 +745,7 @@ func _apply_authoritative_snapshot() -> void:
 	_pending_player_facing_requested = false
 	_portal_cooldown_until_ms = Time.get_ticks_msec() + PORTAL_ACTIVATION_COOLDOWN_MS
 	_set_transition_loading(false)
+	_finish_map_teleport_visual()
 	_unlock_local_player()
 	player_position_changed.emit(_current_player_scene_position(), _current_player_global_position())
 	_reset_wild_encounter_step_tracking()

@@ -1,0 +1,57 @@
+[gd_scene load_steps=6 format=3 uid="uid://b1oru7pavklbi"]
+
+[ext_resource type="Script" path="res://scripts/effects/space_time_teleport_demo.gd" id="1_hb03j"]
+[ext_resource type="PackedScene" uid="uid://bf3ktm4jsxdhu" path="res://scenes/world/player.tscn" id="2_44cli"]
+[ext_resource type="PackedScene" path="res://scenes/effects/teleport/space_time_teleport_effect.tscn" id="3_0hbv8"]
+[ext_resource type="Shader" path="res://scenes/effects/teleport/space_time_teleport.gdshader" id="4_background"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_background"]
+shader = ExtResource("4_background")
+shader_parameter/effect_mode = 3
+shader_parameter/progress = 0.0
+shader_parameter/beam_color = Color(0.04, 0.42, 0.92, 1)
+
+[node name="SpaceTimeTeleportDemo" type="Node2D" unique_id=508159601]
+script = ExtResource("1_hb03j")
+
+[node name="Background" type="ColorRect" parent="." unique_id=495578797]
+material = SubResource("ShaderMaterial_background")
+z_index = -10
+offset_right = 780.0
+offset_bottom = 1440.0
+mouse_filter = 2
+
+[node name="Stage" type="Node2D" parent="." unique_id=1540876192]
+
+[node name="SpaceTimeTeleportEffect" parent="Stage" unique_id=226026198 instance=ExtResource("3_0hbv8")]
+position = Vector2(390, 829)
+
+[node name="Player" parent="Stage" unique_id=1322619257 instance=ExtResource("2_44cli")]
+position = Vector2(351, 850)
+scale = Vector2(3, 3)
+collision_layer = 0
+collision_mask = 0
+is_remote_avatar = true
+
+[node name="Title" type="Label" parent="." unique_id=88677743]
+offset_left = 54.0
+offset_top = 72.0
+offset_right = 726.0
+offset_bottom = 136.0
+theme_override_colors/font_color = Color(0.72156864, 0.9137255, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "超时空传送 · 光柱实验"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="." unique_id=1590252062]
+offset_left = 54.0
+offset_top = 1300.0
+offset_right = 726.0
+offset_bottom = 1352.0
+theme_override_colors/font_color = Color(0.4392157, 0.7411765, 0.8784314, 1)
+theme_override_font_sizes/font_size = 24
+text = "点击画面 / 按空格键重新聚能"
+horizontal_alignment = 1
+
+[node name="ReplayTimer" type="Timer" parent="." unique_id=1103121644]
+one_shot = true

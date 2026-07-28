@@ -52,9 +52,6 @@ var _auto_move_generation: int = 0
 var _cinematic_input_locked: bool = false
 ## 进入剧情控制前的场景锁状态，演出结束时原样恢复。
 var _cinematic_previous_scene_lock: bool = false
-## 保留像素取整时未展示的小数位移，避免低速移动每帧丢失距离。
-var _movement_subpixel_remainder: Vector2 = Vector2.ZERO
-
 # 负责播放角色动画的动画播放器节点。
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 @onready var legacy_sprite: Sprite2D = $Sprite2D
@@ -80,8 +77,12 @@ var _remote_authoritative_moving: bool = false
 var _remote_target_received_msec: int = 0
 ## 是否收到支持明确起停状态的新协议；旧协议仍只追赶整数目标点，不执行外推。
 var _remote_prediction_enabled: bool = false
+## 相机在人物本地坐标中的固定跟随锚点；像素吸附时使用原始值，避免逐帧累计舍入误差。
+var _camera_follow_local_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
+	if camera_node != null:
+		_camera_follow_local_position = camera_node.position
 	if camera_node != null and not is_remote_avatar:
 		camera_node.make_current()
 	if is_remote_avatar:
@@ -95,6 +96,7 @@ func _ready() -> void:
 			camera_node.enabled = false
 	_apply_camera_zoom()
 	_apply_camera_offset()
+	_sync_pixel_camera_position()
 	_setup_character_visual()
 	if is_remote_avatar:
 		return
@@ -148,13 +150,10 @@ func _process(_delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	if is_remote_avatar:
 		return
-	# 恢复上一物理帧的小数余量，保证 move_speed 在不同帧率下线性生效。
-	position += _movement_subpixel_remainder
+	# CharacterBody2D 保留连续浮点坐标，避免 90px/s 在 60Hz 下被拆成 1px、2px 的交替跳动；
+	# 像素素材的最终采样继续由项目级像素吸附和 nearest 过滤负责，不修改碰撞与服务端坐标口径。
 	move_and_slide()
-	# 像素风世界要求角色始终落在整数像素上，避免相机跟随时把整张地图带成半像素采样。
-	var precise_position: Vector2 = position
-	position = precise_position.round()
-	_movement_subpixel_remainder = precise_position - position
+	_sync_pixel_camera_position()
 
 ## 返回当前四方向朝向，供宠物跟随等世界表现层读取。
 func get_cardinal_direction() -> Vector2:
@@ -172,11 +171,11 @@ func get_move_speed() -> float:
 func apply_authoritative_position(local_position: Vector2) -> void:
 	# 服务端坐标换算成像素后，统一吸附到整数像素，避免世界初次进入时立刻出现发糊。
 	position = local_position.round()
-	_movement_subpixel_remainder = Vector2.ZERO
 	_clear_auto_move_path()
 	velocity = Vector2.ZERO
 	direction = Vector2.ZERO
 	_scene_transition_locked = false
+	_sync_pixel_camera_position()
 	if _update_state():
 		_update_animation()
 
@@ -281,6 +280,19 @@ func _apply_camera_offset() -> void:
 	if camera_node == null:
 		return
 	camera_node.offset = Vector2(0.0, camera_vertical_offset)
+
+## 将相机中心吸附到缩放后的屏幕整数像素，同时保留人物自身的连续浮点移动。
+func _sync_pixel_camera_position() -> void:
+	if camera_node == null or is_remote_avatar:
+		return
+	var zoom_x: float = maxf(absf(camera_node.zoom.x), 0.1)
+	var zoom_y: float = maxf(absf(camera_node.zoom.y), 0.1)
+	var desired_global_position: Vector2 = to_global(_camera_follow_local_position)
+	camera_node.global_position = Vector2(
+		roundf(desired_global_position.x * zoom_x) / zoom_x,
+		roundf(desired_global_position.y * zoom_y) / zoom_y
+	)
+	camera_node.force_update_scroll()
 
 # 设置切图期间的移动锁定状态。
 func set_scene_transition_locked(locked: bool) -> void:

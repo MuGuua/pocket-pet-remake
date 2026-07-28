@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://1gwvwu5232nl" path="res://scripts/feature/world/player.gd" id="1_g2els"]
 [ext_resource type="Texture2D" uid="uid://ces3tym5sslw" path="res://asset/口袋所有形象/imgs/53.png" id="2_l3o4k"]
+[ext_resource type="PackedScene" uid="uid://bna1x6ev1ds4f" path="res://scenes/effects/teleport/space_time_teleport_effect.tscn" id="3_teleport_effect"]
 
 [sub_resource type="Animation" id="Animation_n3lu5"]
 length = 0.001
@@ -217,6 +218,11 @@ script = ExtResource("1_g2els")
 camera_zoom_scale = 3.0
 camera_vertical_offset = 30.0
 
+[node name="MapTeleportEffect" parent="." unique_id=1167027672 instance=ExtResource("3_teleport_effect")]
+visible = true
+scale = Vector2(0.333333, 0.333333)
+duration_seconds = 2.7
+
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1583039981]
 position = Vector2(13, -20)
 texture = ExtResource("2_l3o4k")
@@ -237,7 +243,7 @@ position = Vector2(13, -7)
 shape = SubResource("CircleShape2D_g2els")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1956812325]
-physics_interpolation_mode = 1
+physics_interpolation_mode = 2
 position = Vector2(-8, 42)
 process_callback = 0
 limit_left = 0
