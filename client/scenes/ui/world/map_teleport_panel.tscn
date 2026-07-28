@@ -1,9 +1,11 @@
 [gd_scene format=3 uid="uid://1tfwmmj6fo00"]
 
 [ext_resource type="Script" uid="uid://c5qjullp1cqr6" path="res://scripts/ui/world/map_teleport_panel.gd" id="1_e04bd"]
-[ext_resource type="StyleBox" uid="uid://bxyny0hpevcon" path="res://dialogue/原版样式-透明.tres" id="2_c3nwd"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_ot0fe"]
 [ext_resource type="Texture2D" uid="uid://bq58q1t83flc2" path="res://asset/kdjl-map-points/闪光镇.png" id="2_rfn2d"]
+[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="2_sg106"]
 [ext_resource type="Script" uid="uid://ceyrpfqwhwddw" path="res://scripts/ui/world/map_teleport_point_button.gd" id="3_rfn2d"]
+[ext_resource type="Texture2D" uid="uid://c7f5tuttlwwyv" path="res://asset/分类/新补充图标/mp.png" id="5_e3hnr"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e3hnr"]
 bg_color = Color(0.02745098, 0.07450981, 0.12156863, 0)
@@ -323,6 +325,10 @@ corner_radius_top_right = 26
 corner_radius_bottom_right = 26
 corner_radius_bottom_left = 26
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_tx6cj"]
+atlas = ExtResource("5_e3hnr")
+region = Rect2(0, 0, 16, 16)
+
 [node name="MapTeleportPanel" type="CanvasLayer" unique_id=2076813502]
 layer = 8
 script = ExtResource("1_e04bd")
@@ -342,38 +348,54 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.0627451, 0.1254902, 0.1882353, 0.6039216)
 
-[node name="Panel" type="PanelContainer" parent="Overlay" unique_id=2116402111]
-custom_minimum_size = Vector2(680, 900)
-layout_mode = 0
+[node name="PanelStack" type="Control" parent="Overlay" unique_id=1956921488]
+custom_minimum_size = Vector2(680, 1000)
+anchors_preset = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -340.0
-offset_top = -450.0
+offset_top = -500.0
 offset_right = 340.0
-offset_bottom = 450.0
+offset_bottom = 500.0
+mouse_filter = 2
+
+[node name="ColorRect" parent="Overlay/PanelStack" unique_id=1617070159 instance=ExtResource("2_sg106")]
+layout_mode = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = ExtResource("2_c3nwd")
+mouse_filter = 2
 
-[node name="PanelMargin" type="MarginContainer" parent="Overlay/Panel" unique_id=1872875853]
+[node name="Panel" type="PanelContainer" parent="Overlay/PanelStack" unique_id=2116402111]
+custom_minimum_size = Vector2(680, 1000)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = ExtResource("2_ot0fe")
+
+[node name="PanelMargin" type="MarginContainer" parent="Overlay/PanelStack/Panel" unique_id=1872875853]
 layout_mode = 2
 theme_override_constants/margin_left = 34
 theme_override_constants/margin_top = 26
 theme_override_constants/margin_right = 34
 theme_override_constants/margin_bottom = 28
 
-[node name="Content" type="VBoxContainer" parent="Overlay/Panel/PanelMargin" unique_id=1002392804]
+[node name="Content" type="VBoxContainer" parent="Overlay/PanelStack/Panel/PanelMargin" unique_id=1002392804]
 layout_mode = 2
-theme_override_constants/separation = 18
-alignment = 1
+theme_override_constants/separation = 20
 
-[node name="Header" type="HBoxContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=875621506]
+[node name="Header" type="HBoxContainer" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=875621506]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="Overlay/Panel/PanelMargin/Content/Header" unique_id=1572543154]
+[node name="Title" type="Label" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1572543154]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.95686275, 0.9019608, 0.7411765, 1)
@@ -381,7 +403,7 @@ theme_override_font_sizes/font_size = 34
 text = "闪光镇"
 vertical_alignment = 1
 
-[node name="CloseButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Header" unique_id=1545545634]
+[node name="CloseButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1545545634]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
@@ -389,34 +411,49 @@ focus_mode = 0
 theme_override_font_sizes/font_size = 32
 text = "×"
 
-[node name="MapFrame" type="PanelContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=301140501]
+[node name="MapFrame" type="PanelContainer" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=301140501]
 custom_minimum_size = Vector2(272, 272)
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_vertical = 6
 theme_override_styles/panel = SubResource("StyleBoxFlat_e3hnr")
 
-[node name="MapCanvas" type="Control" parent="Overlay/Panel/PanelMargin/Content/MapFrame" unique_id=1961835259]
+[node name="MapCanvas" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame" unique_id=1961835259]
 layout_mode = 2
 
-[node name="MapTexture" type="TextureRect" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=119786525]
+[node name="MapTexture" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=119786525]
 texture_filter = 1
-layout_mode = 0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = 264.0
-offset_bottom = 264.0
+custom_minimum_size = Vector2(256, 256)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -128.0
+offset_top = -128.0
+offset_right = 128.0
+offset_bottom = 128.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("2_rfn2d")
 expand_mode = 1
 
-[node name="PointButtons" type="Control" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=26094184]
+[node name="PointButtons" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=26094184]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(272, 272)
 anchors_preset = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -136.0
+offset_top = -136.0
+offset_right = 136.0
+offset_bottom = 136.0
 mouse_filter = 1
 
-[node name="NorthRoadPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1274150882]
+[node name="NorthRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1274150882]
 layout_mode = 0
 offset_left = 75.0
 offset_top = 11.0
@@ -432,7 +469,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 4
 
-[node name="RoxusHousePoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=313610481]
+[node name="RoxusHousePoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=313610481]
 layout_mode = 0
 offset_left = 171.0
 offset_top = 59.0
@@ -448,7 +485,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 1
 
-[node name="RadiantMarketPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1305490423]
+[node name="RadiantMarketPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1305490423]
 layout_mode = 0
 offset_left = 75.0
 offset_top = 107.0
@@ -464,7 +501,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 3
 
-[node name="EastRoadPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=128936115]
+[node name="EastRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=128936115]
 layout_mode = 0
 offset_left = 171.0
 offset_top = 109.0
@@ -480,7 +517,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 2
 
-[node name="PlainPortalPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1183419399]
+[node name="PlainPortalPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1183419399]
 layout_mode = 0
 offset_left = 219.0
 offset_top = 107.0
@@ -496,7 +533,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 teleport_enabled = false
 
-[node name="PetSchoolPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1789559224]
+[node name="PetSchoolPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1789559224]
 layout_mode = 0
 offset_left = 27.0
 offset_top = 157.0
@@ -512,7 +549,7 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 5
 
-[node name="WildAreaPoint" type="Button" parent="Overlay/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=5666091]
+[node name="WildAreaPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=5666091]
 layout_mode = 0
 offset_left = 29.0
 offset_top = 203.0
@@ -528,7 +565,19 @@ toggle_mode = true
 script = ExtResource("3_rfn2d")
 target_scene_id = 6
 
-[node name="SelectedNameLabel" type="Label" parent="Overlay/Panel/PanelMargin/Content" unique_id=808648922]
+[node name="人物图标" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/PointButtons" unique_id=1944215693]
+visible = false
+layout_mode = 0
+offset_left = 58.0
+offset_top = 111.0
+offset_right = 82.0
+offset_bottom = 136.0
+mouse_filter = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="SelectedNameLabel" type="Label" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=808648922]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
@@ -538,12 +587,12 @@ text = "当前位置"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Navigation" type="HBoxContainer" parent="Overlay/Panel/PanelMargin/Content" unique_id=1950016843]
+[node name="Navigation" type="HBoxContainer" parent="Overlay/PanelStack/Panel/PanelMargin/Content" unique_id=1950016843]
 layout_mode = 2
 theme_override_constants/separation = 22
 alignment = 1
 
-[node name="PreviousButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
+[node name="PreviousButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 68)
 layout_mode = 2
@@ -551,7 +600,7 @@ mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 22
 text = "↑ 上一个"
 
-[node name="NextButton" type="Button" parent="Overlay/Panel/PanelMargin/Content/Navigation" unique_id=245441841]
+[node name="NextButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=245441841]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 68)
 layout_mode = 2

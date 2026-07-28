@@ -23,6 +23,11 @@ signal notice_requested(message: String)
 @onready var next_button: Button = %NextButton
 ## 地图标点按钮的场景容器；按钮顺序就是上下切换顺序。
 @onready var point_button_container: Control = %PointButtons
+## 场景中预先放置的人物当前位置图标；运行时只调整位置和可见性，不修改节点尺寸。
+@onready var current_scene_icon: TextureRect = point_button_container.get_node_or_null("人物图标") as TextureRect
+
+## 人物图标相对地图标点左上角的偏移；该值对应场景中已调整好的左下角视觉位置。
+@export var current_scene_icon_offset: Vector2i = Vector2i(-17, 4)
 
 ## 当前参与选择的地图标点按钮列表。
 var _point_buttons: Array[Button] = []
@@ -40,11 +45,21 @@ func _ready() -> void:
         previous_button.pressed.connect(select_previous_point)
     if next_button != null and not next_button.pressed.is_connected(select_next_point):
         next_button.pressed.connect(select_next_point)
+    if not GameState.world_snapshot_changed.is_connected(_refresh_current_scene_icon):
+        GameState.world_snapshot_changed.connect(_refresh_current_scene_icon)
     _apply_selection(0, false)
+    _refresh_current_scene_icon()
+
+
+## 离开场景时断开全局世界快照信号，避免已释放面板继续接收切图更新。
+func _exit_tree() -> void:
+    if GameState.world_snapshot_changed.is_connected(_refresh_current_scene_icon):
+        GameState.world_snapshot_changed.disconnect(_refresh_current_scene_icon)
 
 
 ## 打开地图面板，并把输入焦点放到当前选中的地图标点。
 func open_menu() -> void:
+    _refresh_current_scene_icon()
     show()
     _apply_selection(_selected_index, false)
     if not _point_buttons.is_empty():
@@ -92,6 +107,31 @@ func _collect_point_buttons() -> void:
         _point_buttons.append(point_button)
         if not point_button.pressed.is_connected(_on_point_button_pressed.bind(point_button)):
             point_button.pressed.connect(_on_point_button_pressed.bind(point_button))
+
+
+## 根据服务端权威世界快照，把人物图标移动到当前场景对应地图标点的左下角。
+func _refresh_current_scene_icon() -> void:
+    if current_scene_icon == null:
+        return
+    var current_scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
+    var current_point_button: MapTeleportPointButton = _find_point_button_by_scene_id(current_scene_id)
+    if current_point_button == null:
+        current_scene_icon.hide()
+        return
+    current_scene_icon.position = current_point_button.position + Vector2(current_scene_icon_offset)
+    current_scene_icon.show()
+
+
+## 在场景配置的地图标点中查找目标场景，不额外维护重复的场景映射表。
+## scene_id 是服务端世界快照中的当前场景 ID。
+func _find_point_button_by_scene_id(scene_id: int) -> MapTeleportPointButton:
+    if scene_id <= 0:
+        return null
+    for point_button: Button in _point_buttons:
+        var teleport_button: MapTeleportPointButton = point_button as MapTeleportPointButton
+        if teleport_button != null and teleport_button.target_scene_id == scene_id:
+            return teleport_button
+    return null
 
 
 ## 选中当前标点的上一个标点；到达首项后循环到末项。
