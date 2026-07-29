@@ -671,6 +671,79 @@ func TestRouterBroadcastsFollowingPetAfterLineupChange(t *testing.T) {
 	}
 }
 
+// TestRouterSceneTransferBroadcastsEntryAtPortalSpawn 验证切图后旁观客户端收到的实体进入推送
+// 使用与切图响应完全相同的服务端权威出生坐标，并携带人物形象与跟随宠物摘要；
+// 这是“进入者不应在旁观视角从其他坐标走过来”的端到端契约。
+func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
+	_, router, _, demoConn := buildWorldRouterForTest(t)
+	rivalConn := &fakeConn{id: "conn-2"}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, rivalConn); err != nil {
+		t.Fatalf("Bind(rival) error = %v", err)
+	}
+
+	// 先让旁观者进入世界并通过传送门站到目标场景 2。
+	mustHandleJSONPacket(t, router, rivalConn, protocol.CmdEnterWorldReq, 141, protocol.EnterWorldReq{})
+	mustHandleJSONPacket(t, router, rivalConn, protocol.CmdMoveIntentReq, 142, protocol.MoveIntentReq{
+		OpID:          21,
+		MoveSeq:       41,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	mustHandleJSONPacket(t, router, demoConn, protocol.CmdEnterWorldReq, 143, protocol.EnterWorldReq{})
+	clearPackets(demoConn)
+	clearPackets(rivalConn)
+
+	// 进入者从场景 1 走传送门 1001 进入场景 2。
+	mustHandleJSONPacket(t, router, demoConn, protocol.CmdMoveIntentReq, 144, protocol.MoveIntentReq{
+		OpID:          22,
+		MoveSeq:       42,
+		SceneID:       1,
+		TargetSceneID: 2,
+		PortalID:      1001,
+	})
+	if len(demoConn.packets) == 0 || demoConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
+		t.Fatalf("mover packets = %+v, want move intent response first", demoConn.packets)
+	}
+	var moveResp protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(demoConn.packets[0].Body, &moveResp); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !moveResp.Accepted || moveResp.SceneID != 2 {
+		t.Fatalf("move response = %+v, want accepted scene 2", moveResp)
+	}
+
+	var entryPush *protocol.EntityEnterPush
+	for _, packet := range rivalConn.packets {
+		if packet.Cmd != protocol.CmdEntityEnterPush {
+			continue
+		}
+		var push protocol.EntityEnterPush
+		if err := protocol.UnmarshalBody(packet.Body, &push); err != nil {
+			t.Fatalf("UnmarshalBody(entity enter) error = %v", err)
+		}
+		if push.Entity.PlayerID == teststub.DemoPlayerID {
+			entryPush = &push
+			break
+		}
+	}
+	if entryPush == nil {
+		t.Fatalf("observer packets = %+v, want entity enter push for mover", rivalConn.packets)
+	}
+	if entryPush.SceneID != 2 {
+		t.Fatalf("entry push scene = %d, want 2", entryPush.SceneID)
+	}
+	if entryPush.Entity.Pos != moveResp.CorrectedPos {
+		t.Fatalf("entry push pos = %+v, want authoritative spawn %+v", entryPush.Entity.Pos, moveResp.CorrectedPos)
+	}
+	if entryPush.Entity.SkinID == "" {
+		t.Fatal("entry push missing player skin_id for remote avatar rendering")
+	}
+	if entryPush.Entity.FollowingPet == nil || entryPush.Entity.FollowingPet.SkinID == "" {
+		t.Fatalf("entry push following pet = %+v, want first lineup pet with skin", entryPush.Entity.FollowingPet)
+	}
+}
+
 func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
 

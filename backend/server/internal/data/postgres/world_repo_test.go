@@ -28,6 +28,46 @@ func TestTimeHousePortalIsOneWay(t *testing.T) {
 	}
 }
 
+// TestPortalSpawnPositionsMatchClientMaps 逐门校验服务端权威出生坐标与 Godot 地图当前
+// 调好的进门站位一致；服务端是多人同屏出生点唯一事实来源，客户端不再本地覆盖。
+func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
+	tests := []struct {
+		name         string
+		fromSceneID  uint32
+		toSceneID    uint32
+		portalID     uint32
+		wantSpawnPos world.Vec2i
+	}{
+		{name: "罗克斯小屋到东路", fromSceneID: 1, toSceneID: 2, portalID: 1001, wantSpawnPos: world.Vec2i{X: 4, Y: 4}},
+		{name: "东路到罗克斯小屋", fromSceneID: 2, toSceneID: 1, portalID: 2001, wantSpawnPos: world.Vec2i{X: 5, Y: 13}},
+		{name: "东路到市场", fromSceneID: 2, toSceneID: 3, portalID: 2002, wantSpawnPos: world.Vec2i{X: 12, Y: 11}},
+		{name: "市场到东路", fromSceneID: 3, toSceneID: 2, portalID: 3001, wantSpawnPos: world.Vec2i{X: 1, Y: 7}},
+		{name: "市场到北路", fromSceneID: 3, toSceneID: 4, portalID: 3002, wantSpawnPos: world.Vec2i{X: 4, Y: 10}},
+		{name: "市场到学校", fromSceneID: 3, toSceneID: 5, portalID: 3003, wantSpawnPos: world.Vec2i{X: 12, Y: 3}},
+		{name: "北路到市场", fromSceneID: 4, toSceneID: 3, portalID: 4001, wantSpawnPos: world.Vec2i{X: 5, Y: 1}},
+		{name: "学校到市场", fromSceneID: 5, toSceneID: 3, portalID: 5001, wantSpawnPos: world.Vec2i{X: 4, Y: 12}},
+		{name: "学校到打怪区", fromSceneID: 5, toSceneID: 6, portalID: 5002, wantSpawnPos: world.Vec2i{X: 6, Y: 2}},
+		{name: "打怪区到学校", fromSceneID: 6, toSceneID: 5, portalID: 6001, wantSpawnPos: world.Vec2i{X: 6, Y: 11}},
+		{name: "时光小屋到东路", fromSceneID: 7, toSceneID: 2, portalID: 7001, wantSpawnPos: world.Vec2i{X: 9, Y: 5}},
+	}
+
+	repository := NewWorldRepository(nil)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decision, err := repository.EvaluateTransfer(context.Background(), 1, 1, test.fromSceneID, world.Vec2i{}, test.toSceneID, test.portalID)
+			if err != nil {
+				t.Fatalf("EvaluateTransfer() error = %v", err)
+			}
+			if !decision.Accepted {
+				t.Fatalf("EvaluateTransfer() rejected: %s", decision.Reason)
+			}
+			if decision.ToSceneID != test.toSceneID || decision.SpawnPos != test.wantSpawnPos {
+				t.Fatalf("EvaluateTransfer() = scene %d spawn %+v, want scene %d spawn %+v", decision.ToSceneID, decision.SpawnPos, test.toSceneID, test.wantSpawnPos)
+			}
+		})
+	}
+}
+
 // TestSceneAccessRejectionReason 验证地图状态和最低等级均由服务端按数据库配置执行。
 func TestSceneAccessRejectionReason(t *testing.T) {
 	tests := []struct {

@@ -27,6 +27,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 const NETWORK_POSITION_FIXED_SCALE: int = 1000
 ## 移动中的高精度表现坐标最多每 100 毫秒发送一次，兼顾移动端流量与视觉同步精度。
 const NETWORK_MOVEMENT_REPORT_INTERVAL_MS: int = 100
+## 相邻两次“场景内全部玩家实时坐标”日志之间的最小间隔毫秒数，避免逐帧刷屏。
+const PLAYER_POSITION_LOG_INTERVAL_MS: int = 1000
 
 @export_group("点击移动反馈")
 ## 点击地面时播放的精灵帧动画；在检查器拖入 SpriteFrames 后优先于 Line2D 圆环。
@@ -35,6 +37,10 @@ const NETWORK_MOVEMENT_REPORT_INTERVAL_MS: int = 100
 @export var click_marker_animation: String = "default"
 ## 落点特效整体缩放。
 @export var click_marker_scale: Vector2 = Vector2(1.0, 1.0)
+
+@export_group("调试")
+## 是否按固定间隔打印场景内所有玩家（本地 + 远端）的实时场景坐标；排查完成后可在检查器关闭。
+@export var debug_player_positions_enabled: bool = true
 
 @onready var game_shell: Control = %GameShell
 @onready var game_viewport_container: SubViewportContainer = %GameViewportContainer
@@ -72,7 +78,6 @@ var _last_loaded_scene_id: int = 0
 var _loaded_scene_id: int = 0
 var _portal_cooldown_until_ms: int = 0
 var _render_frame_size: Vector2 = DEFAULT_RENDER_FRAME_SIZE
-var _use_scene_login_spawn_on_next_snapshot: bool = false
 var _last_reported_player_position: Vector2 = Vector2.INF
 var _current_level: Node2D
 ## 当前地图左上角在地图根节点本地坐标中的位置，用于把服务端场景坐标映射到地图实际像素。
@@ -121,6 +126,8 @@ var _last_network_facing: Vector2i = Vector2i.DOWN
 var _last_network_moving: bool = false
 ## 最近一次移动表现上报的本地单调时钟毫秒数。
 var _last_network_report_msec: int = 0
+## 上一次输出“场景内全部玩家实时坐标”日志的单调时钟毫秒数。
+var _last_player_position_log_msec: int = 0
 
 func _process(delta: float) -> void:
 	_update_pet_follow(delta)
@@ -129,6 +136,7 @@ func _process(delta: float) -> void:
 	_report_player_position_if_changed()
 	_process_npc_interaction_input()
 	_check_wild_encounter_step()
+	_debug_print_player_positions()
 
 func _ready() -> void:
 	_refresh_game_layout()
@@ -148,9 +156,8 @@ func _ready() -> void:
 	call_deferred("_refresh_game_layout")
 	_sync_local_player_battle_state()
 
-## 登录页已在主场景挂载前完成 ENTER_WORLD；主场景就绪后由此一次应用权威快照并加载地图。
+## 登录页已在主场景挂载前完成 ENTER_WORLD；主场景就绪后由此一次应用服务端权威快照并加载地图。
 func apply_prepared_world_entry() -> void:
-	_use_scene_login_spawn_on_next_snapshot = true
 	_pending_player_facing_requested = true
 	_pending_player_facing_direction = Vector2.DOWN
 	_apply_authoritative_snapshot()
@@ -162,7 +169,6 @@ func handle_enter_world(payload: Dictionary) -> void:
 	if already_in_world:
 		preserved_scene_position = _current_player_scene_position()
 	if not already_in_world:
-		_use_scene_login_spawn_on_next_snapshot = true
 		_pending_player_facing_requested = true
 		_pending_player_facing_direction = Vector2.DOWN
 	GameState.set_world_snapshot(payload)
@@ -725,8 +731,10 @@ func _apply_authoritative_snapshot() -> void:
 		scene_transition_failed.emit("failed to load scene map: %d" % scene_id)
 		return
 
-	var self_pos := _extract_self_position(GameState.player_snapshot)
-	var spawn_position: Vector2 = _resolve_snapshot_spawn_position(scene_id, self_pos)
+	var self_pos: Vector2 = _extract_self_position(GameState.player_snapshot)
+	# 本地玩家、旁观客户端和数据库统一使用 WORLD_RESYNC.self_pos；禁止再用客户端门点覆盖，
+	# 否则场景进入广播中的远端人物坐标会与进入者自身看到的出生坐标分叉。
+	var spawn_position: Vector2 = _server_to_local_position(scene_id, self_pos)
 	_stage_pending_player_transition({"spawn_position": spawn_position})
 	_apply_pending_player_transition()
 	_attach_pet_follower_to_current_level()
@@ -895,56 +903,10 @@ func _scene_config(scene_id: int) -> Dictionary:
 	return WorldSceneRegistry.get_scene_config(scene_id)
 
 ## 把服务端权威场景坐标转换成 Godot 渲染像素坐标。
-## 参数 scene_id 表示当前场景 ID；server_position 是以地图左上角为 (0,0) 的格子坐标；返回值是玩家父节点内的像素坐标。
+## 参数 scene_id 表示当前场景 ID；server_position 是以地图左上角为 (0,0) 的场景坐标；返回值是玩家父节点内的像素坐标。
 func _server_to_local_position(scene_id: int, server_position: Vector2) -> Vector2:
 	return _scene_coordinate_to_local_pixels(scene_id, server_position)
 
-## 根据当前快照解析出生点；首次进场使用登录出生中心，传送门切图使用目标场景 portal 场景坐标。
-## 参数 scene_id 表示当前场景 ID；server_position 是服务端持久化坐标，仅在目标场景没有客户端 portal 配置时兜底使用；返回值是实际摆放角色的像素坐标。
-func _resolve_snapshot_spawn_position(scene_id: int, server_position: Vector2) -> Vector2:
-	if _use_scene_login_spawn_on_next_snapshot:
-		_use_scene_login_spawn_on_next_snapshot = false
-		var login_spawn_scene_position: Vector2 = _resolve_client_login_spawn_scene_position()
-		if login_spawn_scene_position != Vector2.INF:
-			return _scene_coordinate_to_local_pixels(scene_id, login_spawn_scene_position)
-
-	_use_scene_login_spawn_on_next_snapshot = false
-	var portal_spawn_scene_position: Vector2 = _resolve_client_portal_spawn_scene_position()
-	if portal_spawn_scene_position != Vector2.INF:
-		return _scene_coordinate_to_local_pixels(scene_id, portal_spawn_scene_position)
-	return _server_to_local_position(scene_id, server_position)
-
-## 读取当前场景导出的默认出生中心场景坐标；首次进入世界时优先使用该坐标摆放玩家。
-## 返回值为场景坐标；若当前场景没有提供登录出生点，则返回 Vector2.INF 交给服务端坐标兜底。
-func _resolve_client_login_spawn_scene_position() -> Vector2:
-	if _current_level == null:
-		return Vector2.INF
-	if not _current_level.has_method("get_login_spawn_position"):
-		return Vector2.INF
-
-	var spawn_position_value: Variant = _current_level.call("get_login_spawn_position")
-	if spawn_position_value is Vector2:
-		return spawn_position_value as Vector2
-	if spawn_position_value is Vector2i:
-		var grid_position: Vector2i = spawn_position_value as Vector2i
-		return Vector2(float(grid_position.x), float(grid_position.y))
-	return Vector2.INF
-
-## 读取当前已加载目标场景的 portal_id 场景坐标配置；这样每张场景只维护“别人传进来后站第几格”。
-## 返回值为场景坐标；若没有 pending portal 或目标场景未配置，则返回 Vector2.INF 交给服务端坐标兜底。
-func _resolve_client_portal_spawn_scene_position() -> Vector2:
-	if _pending_portal_id <= 0 or _current_level == null:
-		return Vector2.INF
-	if not _current_level.has_method("get_portal_spawn_scene_position"):
-		return Vector2.INF
-
-	var spawn_position_value: Variant = _current_level.call("get_portal_spawn_scene_position", _pending_portal_id)
-	if spawn_position_value is Vector2:
-		return spawn_position_value as Vector2
-	if spawn_position_value is Vector2i:
-		var grid_position: Vector2i = spawn_position_value as Vector2i
-		return Vector2(float(grid_position.x), float(grid_position.y))
-	return Vector2.INF
 
 ## 读取当前场景的单格像素大小，统一服务端格子坐标与客户端渲染坐标的换算倍率。
 ## 参数 scene_id 表示当前场景 ID；返回值是每 1 个服务端坐标单位对应的像素长度。
@@ -1824,12 +1786,16 @@ func _sync_remote_players() -> void:
 			remote_node.name = "RemotePlayer_%d" % entity_id
 			remote_node.is_remote_avatar = true
 			_get_player_host(_current_level).add_child(remote_node)
+			# 远端实例不能读取本机 GameState.player_snapshot；必须显式消费该实体自己的服务端 skin_id。
+			remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
 			remote_node.apply_remote_initial_position(local_position)
 			if has_motion_state:
 				remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving)
 			_configure_actor_y_sort(remote_node)
 			_remote_player_nodes[entity_id] = remote_node
 		else:
+			# ENTITY_ENTER_PUSH 也用于形象或编队刷新，已有节点同样要重新应用权威人物形象。
+			remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
 			if has_motion_state:
 				remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving)
 			else:
@@ -1965,6 +1931,62 @@ func _remote_move_direction(from_position: Vector2, to_position: Vector2) -> Vec
 func _remote_pet_reset_offset(move_direction: Vector2) -> Vector2:
 	var resolved_direction: Vector2 = move_direction if move_direction != Vector2.ZERO else Vector2.DOWN
 	return -resolved_direction * PathFollowController.PATH_STEP_SIZE * 0.5
+
+
+## 按固定间隔打印当前场景内本地玩家与全部远端玩家的实时坐标。
+## 坐标使用与服务端 self_pos 相同的场景格口径，并附带渲染像素位置，便于比对权威数据与表现层。
+func _debug_print_player_positions() -> void:
+	if not debug_player_positions_enabled:
+		return
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _last_player_position_log_msec < PLAYER_POSITION_LOG_INTERVAL_MS:
+		return
+	var scene_id: int = _current_scene_id()
+	if scene_id <= 0 or _current_level == null or not is_instance_valid(_current_level):
+		return
+	_last_player_position_log_msec = now_msec
+
+	var log_parts: PackedStringArray = PackedStringArray()
+	var self_scene_position: Vector2 = _current_player_scene_position()
+	var self_pixel_position: Vector2 = _current_player_global_position()
+	log_parts.append(
+		"self player_id=%d scene_pos=(%.2f, %.2f) pixel=(%.1f, %.1f)" % [
+			GameState.player_id,
+			self_scene_position.x,
+			self_scene_position.y,
+			self_pixel_position.x,
+			self_pixel_position.y,
+		]
+	)
+	for entity_id_variant: Variant in _remote_player_nodes.keys():
+		var entity_id: int = int(entity_id_variant)
+		var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
+		if remote_node == null or not is_instance_valid(remote_node):
+			continue
+		var remote_scene_position: Vector2 = _remote_player_scene_position(remote_node)
+		var entity_variant: Variant = GameState.nearby_entities.get(entity_id, {})
+		var entity_name: String = str((entity_variant as Dictionary).get("name", "")) if entity_variant is Dictionary else ""
+		log_parts.append(
+			"remote entity_id=%d name=%s scene_pos=(%.2f, %.2f) pixel=(%.1f, %.1f)" % [
+				entity_id,
+				entity_name,
+				remote_scene_position.x,
+				remote_scene_position.y,
+				remote_node.global_position.x,
+				remote_node.global_position.y,
+			]
+		)
+	print("[PlayerPos][Client] scene=%d players=%d %s" % [scene_id, log_parts.size(), " | ".join(log_parts)])
+
+
+## 把远端玩家节点当前渲染位置换算回服务端场景坐标。
+## remote_node 是当前地图中的远端玩家实例；返回值与服务端 self_pos 使用同一坐标系。
+func _remote_player_scene_position(remote_node: player) -> Vector2:
+	var scene_id: int = _current_scene_id()
+	var local_pixels: Vector2 = remote_node.position
+	if _current_level != null and is_instance_valid(_current_level):
+		local_pixels = _current_level.to_local(remote_node.global_position)
+	return _local_pixels_to_scene_coordinate(scene_id, local_pixels)
 
 
 ## 删除指定远端玩家及其宠物跟随表现和路径缓存。

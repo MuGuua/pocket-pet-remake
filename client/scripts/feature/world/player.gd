@@ -77,6 +77,8 @@ var _remote_authoritative_moving: bool = false
 var _remote_target_received_msec: int = 0
 ## 是否收到支持明确起停状态的新协议；旧协议仍只追赶整数目标点，不执行外推。
 var _remote_prediction_enabled: bool = false
+## 远端角色最近一次成功应用的服务端人物形象 ID，用于跳过重复的形象刷新。
+var _remote_applied_skin_id: String = ""
 ## 相机在人物本地坐标中的固定跟随锚点；像素吸附时使用原始值，避免逐帧累计舍入误差。
 var _camera_follow_local_position: Vector2 = Vector2.ZERO
 
@@ -180,8 +182,10 @@ func apply_authoritative_position(local_position: Vector2) -> void:
 		_update_animation()
 
 ## 立即放置远端角色，首次创建或切图重建时不播放从原点飞入的插值。
+## local_position 是服务端权威场景坐标换算后的本地像素坐标。
 func apply_remote_initial_position(local_position: Vector2) -> void:
-	_remote_target_position = local_position.round()
+	# 远端表现保留浮点坐标；项目级像素吸附只影响最终绘制，不应反向破坏插值轨迹。
+	_remote_target_position = local_position
 	_remote_target_initialized = true
 	_remote_authoritative_direction = Vector2.DOWN
 	_remote_authoritative_moving = false
@@ -193,10 +197,25 @@ func apply_remote_initial_position(local_position: Vector2) -> void:
 	_update_state()
 	_update_animation()
 
+
+## 应用远端玩家实体摘要携带的服务端权威人物形象。
+## skin_id 对应 CharacterSkinRegistry 中注册的 UnitSkin；为空或资源无效时回退到旧人物精灵。
+func apply_remote_skin_id(skin_id: String) -> void:
+	if not is_remote_avatar:
+		return
+	var normalized_skin_id: String = skin_id.strip_edges()
+	# 移动推送每 100ms 会触发一次实体同步；形象未变化时跳过重复应用，避免每包都刷新可见性与动画。
+	if normalized_skin_id == _remote_applied_skin_id:
+		return
+	_remote_applied_skin_id = normalized_skin_id
+	_apply_normal_skin_id(normalized_skin_id)
+
+
 ## 写入远端角色最新权威目标点，后续帧只做平滑追赶，不参与本地碰撞判定。
+## local_position 是服务端整数坐标换算后的本地像素坐标。
 func set_remote_target_position(local_position: Vector2) -> void:
 	var inferred_direction: Vector2 = _resolve_cardinal_direction(local_position - _remote_target_position)
-	_remote_target_position = local_position.round()
+	_remote_target_position = local_position
 	if inferred_direction != Vector2.ZERO:
 		_remote_authoritative_direction = inferred_direction
 	_remote_authoritative_moving = not local_position.is_equal_approx(position)
@@ -205,12 +224,13 @@ func set_remote_target_position(local_position: Vector2) -> void:
 	if not _remote_target_initialized:
 		apply_remote_initial_position(_remote_target_position)
 
+
 ## 写入服务端校验后的远端表现位置、朝向和移动状态。
 ## local_position 是换算后的地图像素目标点。
 ## facing_direction 是服务端归一化后的四方向单位向量。
 ## moving 表示远端玩家是否仍在移动。
 func set_remote_motion_target(local_position: Vector2, facing_direction: Vector2, moving: bool) -> void:
-	_remote_target_position = local_position.round()
+	_remote_target_position = local_position
 	var resolved_direction: Vector2 = _resolve_cardinal_direction(facing_direction)
 	var received_msec: int = Time.get_ticks_msec()
 	if resolved_direction != Vector2.ZERO:
@@ -225,7 +245,9 @@ func set_remote_motion_target(local_position: Vector2, facing_direction: Vector2
 		_remote_target_received_msec = received_msec
 		_remote_prediction_enabled = true
 
+
 ## 根据服务端目标点更新远端角色位置、朝向和行走动画。
+## delta 是当前渲染帧耗时秒数，用于生成与帧率无关的连续插值步长。
 func _update_remote_avatar(delta: float) -> void:
 	if not _remote_target_initialized:
 		return
@@ -238,12 +260,13 @@ func _update_remote_avatar(delta: float) -> void:
 		predicting_motion = raw_elapsed_seconds < REMOTE_PREDICTION_MAX_SECONDS
 		presentation_target += _remote_authoritative_direction * move_speed * elapsed_seconds
 	var offset: Vector2 = presentation_target - position
-	if offset.length() <= 0.5:
-		position = presentation_target.round()
+	if offset.length() <= 0.05:
+		position = presentation_target
 	else:
-		position = position.move_toward(presentation_target, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta).round()
+		# 不在逻辑层 round()：逐帧取整会把连续速度重新变成走一像素、停一帧的阶梯运动。
+		position = position.move_toward(presentation_target, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta)
 	# 停止包到达时如果仍有少量插值距离，先走到最终位置再切待机，避免人物静止滑动。
-	var should_walk: bool = offset.length() > 0.5 or predicting_motion
+	var should_walk: bool = offset.length() > 0.05 or predicting_motion
 	direction = _remote_authoritative_direction if should_walk else Vector2.ZERO
 	_set_direction()
 	_update_state()
@@ -501,13 +524,20 @@ func _restore_normal_skin() -> void:
 	_sync_skin_from_snapshot()
 
 func _sync_skin_from_snapshot() -> void:
+	var skin_id: String = str(GameState.player_snapshot.get("skin_id", ""))
+	_apply_normal_skin_id(skin_id)
+
+
+## 应用普通世界人物形象；本地玩家和远端玩家都通过该入口消费服务端 skin_id。
+## skin_id 为空或客户端资源尚未注册时，保留 player.tscn 的旧精灵作为兼容展示。
+func _apply_normal_skin_id(skin_id: String) -> void:
 	_setup_character_visual()
 	if _character_visual == null:
 		if legacy_sprite != null:
 			legacy_sprite.visible = true
 		return
-	var skin_id: String = str(GameState.player_snapshot.get("skin_id", ""))
-	if skin_id.is_empty():
+	var normalized_skin_id: String = skin_id.strip_edges()
+	if normalized_skin_id.is_empty():
 		_uses_character_visual = false
 		_character_visual.visible = false
 		if legacy_sprite != null:
@@ -515,7 +545,7 @@ func _sync_skin_from_snapshot() -> void:
 		_sync_collision_anchor()
 		_update_animation()
 		return
-	if _character_visual.apply_skin_id(skin_id):
+	if _character_visual.apply_skin_id(normalized_skin_id):
 		_uses_character_visual = true
 		_character_visual.visible = true
 		if legacy_sprite != null:

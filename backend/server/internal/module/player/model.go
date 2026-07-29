@@ -249,8 +249,10 @@ func (input AdminCreatePlayerInput) Normalize() AdminCreatePlayerInput {
 		input.SceneID = 7
 	}
 	if input.PosX == 0 && input.PosY == 0 && input.SceneID == 7 {
-		input.PosX = 4
-		input.PosY = 4
+		// 时光小屋默认出生格与客户端地图调好的站位一致；
+		// 登录不再由客户端本地改站位，落库坐标就是所有客户端看到的权威坐标。
+		input.PosX = 6
+		input.PosY = 6
 	}
 	if input.HPMax == 0 {
 		input.HPMax = starter.HPMax
@@ -397,8 +399,10 @@ func (input AdminUpdatePlayerInput) Normalize() AdminUpdatePlayerInput {
 		input.SceneID = 7
 	}
 	if input.PosX == 0 && input.PosY == 0 && input.SceneID == 7 {
-		input.PosX = 4
-		input.PosY = 4
+		// 时光小屋默认出生格与客户端地图调好的站位一致；
+		// 登录不再由客户端本地改站位，落库坐标就是所有客户端看到的权威坐标。
+		input.PosX = 6
+		input.PosY = 6
 	}
 	if input.HPMax == 0 {
 		input.HPMax = input.HP

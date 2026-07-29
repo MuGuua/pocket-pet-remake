@@ -28,77 +28,79 @@ type sceneData struct {
 var worldScenes = map[uint32]sceneData{
 	// 坐标统一采用“场景内坐标 = 服务端世界坐标”的口径：每张地图左上角为 (0,0)，
 	// 客户端只负责把该格子坐标按地图像素倍率渲染，不能再维护一套独立本地落点。
+	// portals/entries 中的落点是多人同屏的唯一事实来源：进入者本人、同场景旁观者
+	// 和数据库持久化坐标都使用这里的值，客户端场景脚本不再覆盖出生点。
 	1: {
-		spawnPos: world.Vec2i{X: 8, Y: 6},
+		spawnPos: world.Vec2i{X: 5, Y: 10},
 		entries: map[uint32]world.Vec2i{
-			2: {X: 8, Y: 12},
+			2: {X: 5, Y: 13},
 		},
 		exits: map[uint32]struct{}{2: {}},
 		portals: map[uint32]portalData{
-			1001: {targetSceneID: 2, targetPos: world.Vec2i{X: 4, Y: 1}},
+			1001: {targetSceneID: 2, targetPos: world.Vec2i{X: 4, Y: 4}},
 		},
 	},
 	2: {
-		spawnPos: world.Vec2i{X: 4, Y: 1},
+		spawnPos: world.Vec2i{X: 4, Y: 5},
 		entries: map[uint32]world.Vec2i{
-			1: {X: 4, Y: 1},
-			3: {X: 0, Y: 4},
+			1: {X: 4, Y: 4},
+			3: {X: 1, Y: 7},
 			7: {X: 9, Y: 5},
 		},
 		exits: map[uint32]struct{}{1: {}, 3: {}},
 		portals: map[uint32]portalData{
-			2001: {targetSceneID: 1, targetPos: world.Vec2i{X: 8, Y: 12}},
-			2002: {targetSceneID: 3, targetPos: world.Vec2i{X: 12, Y: 10}},
+			2001: {targetSceneID: 1, targetPos: world.Vec2i{X: 5, Y: 13}},
+			2002: {targetSceneID: 3, targetPos: world.Vec2i{X: 12, Y: 11}},
 		},
 	},
 	3: {
 		spawnPos: world.Vec2i{X: 12, Y: 10},
 		entries: map[uint32]world.Vec2i{
-			2: {X: 12, Y: 10},
-			4: {X: 5, Y: 2},
-			5: {X: 4, Y: 13},
+			2: {X: 12, Y: 11},
+			4: {X: 5, Y: 1},
+			5: {X: 4, Y: 12},
 		},
 		exits: map[uint32]struct{}{2: {}, 4: {}, 5: {}},
 		portals: map[uint32]portalData{
-			3001: {targetSceneID: 2, targetPos: world.Vec2i{X: 0, Y: 4}},
-			3002: {targetSceneID: 4, targetPos: world.Vec2i{X: 2, Y: 8}},
-			3003: {targetSceneID: 5, targetPos: world.Vec2i{X: 11, Y: 2}},
+			3001: {targetSceneID: 2, targetPos: world.Vec2i{X: 1, Y: 7}},
+			3002: {targetSceneID: 4, targetPos: world.Vec2i{X: 4, Y: 10}},
+			3003: {targetSceneID: 5, targetPos: world.Vec2i{X: 12, Y: 3}},
 		},
 	},
 	4: {
-		spawnPos: world.Vec2i{X: 2, Y: 8},
+		spawnPos: world.Vec2i{X: 4, Y: 7},
 		entries: map[uint32]world.Vec2i{
-			3: {X: 2, Y: 8},
+			3: {X: 4, Y: 10},
 		},
 		exits: map[uint32]struct{}{3: {}},
 		portals: map[uint32]portalData{
-			4001: {targetSceneID: 3, targetPos: world.Vec2i{X: 5, Y: 2}},
+			4001: {targetSceneID: 3, targetPos: world.Vec2i{X: 5, Y: 1}},
 		},
 	},
 	5: {
-		spawnPos: world.Vec2i{X: 11, Y: 2},
+		spawnPos: world.Vec2i{X: 11, Y: 5},
 		entries: map[uint32]world.Vec2i{
-			3: {X: 11, Y: 2},
-			6: {X: 6, Y: 10},
+			3: {X: 12, Y: 3},
+			6: {X: 6, Y: 11},
 		},
 		exits: map[uint32]struct{}{3: {}, 6: {}},
 		portals: map[uint32]portalData{
-			5001: {targetSceneID: 3, targetPos: world.Vec2i{X: 4, Y: 13}},
-			5002: {targetSceneID: 6, targetPos: world.Vec2i{X: 6, Y: 10}},
+			5001: {targetSceneID: 3, targetPos: world.Vec2i{X: 4, Y: 12}},
+			5002: {targetSceneID: 6, targetPos: world.Vec2i{X: 6, Y: 2}},
 		},
 	},
 	6: {
-		spawnPos: world.Vec2i{X: 6, Y: 10},
+		spawnPos: world.Vec2i{X: 6, Y: 2},
 		entries: map[uint32]world.Vec2i{
-			5: {X: 6, Y: 10},
+			5: {X: 6, Y: 2},
 		},
 		exits: map[uint32]struct{}{5: {}},
 		portals: map[uint32]portalData{
-			6001: {targetSceneID: 5, targetPos: world.Vec2i{X: 6, Y: 10}},
+			6001: {targetSceneID: 5, targetPos: world.Vec2i{X: 6, Y: 11}},
 		},
 	},
 	7: {
-		spawnPos: world.Vec2i{X: 4, Y: 4},
+		spawnPos: world.Vec2i{X: 6, Y: 6},
 		entries:  map[uint32]world.Vec2i{},
 		exits:    map[uint32]struct{}{2: {}},
 		portals: map[uint32]portalData{
