@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dm2m6b4mev435"
+path="res://.godot/imported/30. Cave.mp3-6194eef1415ceed867ca92e96db053c0.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/30. Cave.mp3"
+dest_files=["res://.godot/imported/30. Cave.mp3-6194eef1415ceed867ca92e96db053c0.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://75o0526h7chx"
+path="res://.godot/imported/09. Vaati Attacks.mp3-7bbae5577402c816b74e695b9804c44a.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/09. Vaati Attacks.mp3"
+dest_files=["res://.godot/imported/09. Vaati Attacks.mp3-7bbae5577402c816b74e695b9804c44a.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

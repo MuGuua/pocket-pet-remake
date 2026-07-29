@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://214d340d1611"
+path="res://.godot/imported/40. Syrup the Witch.mp3-be92a2d2f1dd1e84066fbeafee5df614.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/40. Syrup the Witch.mp3"
+dest_files=["res://.godot/imported/40. Syrup the Witch.mp3-be92a2d2f1dd1e84066fbeafee5df614.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

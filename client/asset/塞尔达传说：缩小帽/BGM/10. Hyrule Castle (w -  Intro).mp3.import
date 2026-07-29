@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://d2i2i2a2660ag"
+path="res://.godot/imported/10. Hyrule Castle (w -  Intro).mp3-e88828b974d876638a9f3085f6c7aed9.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/10. Hyrule Castle (w -  Intro).mp3"
+dest_files=["res://.godot/imported/10. Hyrule Castle (w -  Intro).mp3-e88828b974d876638a9f3085f6c7aed9.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

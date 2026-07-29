@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cta7ccykmjeq8"
+path="res://.godot/imported/05. Festival Outskirts.mp3-d8b8b48b91ca6866badb8ef7af2d92b8.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/05. Festival Outskirts.mp3"
+dest_files=["res://.godot/imported/05. Festival Outskirts.mp3-d8b8b48b91ca6866badb8ef7af2d92b8.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

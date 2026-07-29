@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cmkhqliy4wgoq"
+path="res://.godot/imported/07. King Daltus.mp3-f5ae3538afb42aa02dc790d85a4f1495.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/07. King Daltus.mp3"
+dest_files=["res://.godot/imported/07. King Daltus.mp3-f5ae3538afb42aa02dc790d85a4f1495.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

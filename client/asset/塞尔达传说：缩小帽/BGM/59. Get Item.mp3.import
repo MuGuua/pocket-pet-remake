@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c41u7x815f4mj"
+path="res://.godot/imported/59. Get Item.mp3-1707b5560b0227e24ec1a96ff3721917.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/59. Get Item.mp3"
+dest_files=["res://.godot/imported/59. Get Item.mp3-1707b5560b0227e24ec1a96ff3721917.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

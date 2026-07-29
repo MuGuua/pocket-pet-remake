@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://d0q0mvdgkecj3"
+path="res://.godot/imported/17. Minish Village.mp3-af7ab8025dc2ea8d6a0272f5c9d05b32.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/17. Minish Village.mp3"
+dest_files=["res://.godot/imported/17. Minish Village.mp3-af7ab8025dc2ea8d6a0272f5c9d05b32.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bvvcgu6oej3fy"
+path="res://.godot/imported/13. Minish Woods.mp3-a10fc64a32f0e4464feb4ab89b7825fc.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/13. Minish Woods.mp3"
+dest_files=["res://.godot/imported/13. Minish Woods.mp3-a10fc64a32f0e4464feb4ab89b7825fc.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cq0lc28ka15ia"
+path="res://.godot/imported/24. Fairy Fountain.mp3-282229a73fb8006820d7f8d7f6096468.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/24. Fairy Fountain.mp3"
+dest_files=["res://.godot/imported/24. Fairy Fountain.mp3-282229a73fb8006820d7f8d7f6096468.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

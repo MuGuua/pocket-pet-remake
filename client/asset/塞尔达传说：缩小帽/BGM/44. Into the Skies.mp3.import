@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bnanua8wl8bcm"
+path="res://.godot/imported/44. Into the Skies.mp3-28e4f0082d729e18cee53676c77a2446.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/44. Into the Skies.mp3"
+dest_files=["res://.godot/imported/44. Into the Skies.mp3-28e4f0082d729e18cee53676c77a2446.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

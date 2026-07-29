@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dvt3eroxjffi6"
+path="res://.godot/imported/63. Voice (Misc).mp3-784b4582e0d8536541c5d6b2311e0e8e.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/63. Voice (Misc).mp3"
+dest_files=["res://.godot/imported/63. Voice (Misc).mp3-784b4582e0d8536541c5d6b2311e0e8e.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

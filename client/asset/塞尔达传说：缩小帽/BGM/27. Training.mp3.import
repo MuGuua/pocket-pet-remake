@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://drroc4ioaiq4y"
+path="res://.godot/imported/27. Training.mp3-509faf535b7e56fba42e92c7d198d1d2.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/27. Training.mp3"
+dest_files=["res://.godot/imported/27. Training.mp3-509faf535b7e56fba42e92c7d198d1d2.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

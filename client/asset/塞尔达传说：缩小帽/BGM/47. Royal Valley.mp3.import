@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c3etym06xq4lf"
+path="res://.godot/imported/47. Royal Valley.mp3-a77ff429b45839fe9d80787af75902b2.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/47. Royal Valley.mp3"
+dest_files=["res://.godot/imported/47. Royal Valley.mp3-a77ff429b45839fe9d80787af75902b2.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

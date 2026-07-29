@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://pts3kyg65lb1"
+path="res://.godot/imported/38. Castor Wilds.mp3-5073dc7d0c12231ef1b69f323bee3197.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/38. Castor Wilds.mp3"
+dest_files=["res://.godot/imported/38. Castor Wilds.mp3-5073dc7d0c12231ef1b69f323bee3197.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dgcirx330adqd"
+path="res://.godot/imported/96. Discovery (Unused).mp3-a4f331ac75b7e169c0e7c97a5b007075.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/96. Discovery (Unused).mp3"
+dest_files=["res://.godot/imported/96. Discovery (Unused).mp3-a4f331ac75b7e169c0e7c97a5b007075.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

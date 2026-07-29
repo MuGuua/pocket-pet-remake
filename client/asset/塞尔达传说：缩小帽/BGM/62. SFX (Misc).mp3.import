@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bc8kdfmk4jdbu"
+path="res://.godot/imported/62. SFX (Misc).mp3-cd53b41e29eab440eed4b5ca9ee01113.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/62. SFX (Misc).mp3"
+dest_files=["res://.godot/imported/62. SFX (Misc).mp3-cd53b41e29eab440eed4b5ca9ee01113.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

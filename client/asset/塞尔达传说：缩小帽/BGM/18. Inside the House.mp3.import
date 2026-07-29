@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cgwjb81v3t1fo"
+path="res://.godot/imported/18. Inside the House.mp3-bf319ea11c9b52cd823fdd5431bb9118.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/18. Inside the House.mp3"
+dest_files=["res://.godot/imported/18. Inside the House.mp3-bf319ea11c9b52cd823fdd5431bb9118.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

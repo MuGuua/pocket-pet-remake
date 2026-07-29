@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c46stmpfc7kyd"
+path="res://.godot/imported/43. Ocarina of Wind.mp3-f300cbae1af4838bd237b037f371a451.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/43. Ocarina of Wind.mp3"
+dest_files=["res://.godot/imported/43. Ocarina of Wind.mp3-f300cbae1af4838bd237b037f371a451.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

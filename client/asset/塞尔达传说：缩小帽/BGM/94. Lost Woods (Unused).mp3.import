@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bp4xwc6rhm85j"
+path="res://.godot/imported/94. Lost Woods (Unused).mp3-3e4eed9a10ee1e7c76ff485867b122af.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/94. Lost Woods (Unused).mp3"
+dest_files=["res://.godot/imported/94. Lost Woods (Unused).mp3-3e4eed9a10ee1e7c76ff485867b122af.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

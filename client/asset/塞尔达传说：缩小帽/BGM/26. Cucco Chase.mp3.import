@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bihn7c35vnlif"
+path="res://.godot/imported/26. Cucco Chase.mp3-dd983473cc2aba3be68d7b56f5797e8b.mp3str"
+
+[deps]
+
+source_file="res://asset/塞尔达传说：缩小帽/BGM/26. Cucco Chase.mp3"
+dest_files=["res://.godot/imported/26. Cucco Chase.mp3-dd983473cc2aba3be68d7b56f5797e8b.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
