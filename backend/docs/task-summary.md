@@ -4,7 +4,7 @@
 
 本次修复多人同屏的三类问题，核心是把出生坐标的事实来源收敛到服务端：
 
-- 问题一（旁观视角进入者从别的坐标走过来）：根因是客户端在切图/登录后用 `get_portal_spawn_scene_position` / `get_login_spawn_position` 本地覆盖站位，而服务端向旁观者广播的是 `worldScenes` 权威落点，两套坐标不一致，进入者上报真实位置后远端节点被迫“走”过去。`world_controller.gd` 删除两处本地覆盖，`_apply_authoritative_snapshot` 一律使用 `WORLD_RESYNC.self_pos`；服务端 `world_repo.go` 的 portals/entries 逐门对齐地图当前调好的进门站位（如打怪区 `(6,10)→(6,2)`、市场进东路 `(0,4)→(1,7)`）。
+- 问题一（旁观视角进入者从别的坐标走过来）：直接根因是 `_sync_remote_players` 读取 `precise_pos` 时把缺省空字典也当成有效坐标，`ENTITY_ENTER_PUSH` 和世界快照实体没有该字段，远端人物于是统一创建在 (0,0) 地图左上角，再被后续移动包慢慢拉到真实位置；现改为字段真实存在且非空才使用。深层根因是客户端在切图/登录后用 `get_portal_spawn_scene_position` / `get_login_spawn_position` 本地覆盖站位，而服务端向旁观者广播的是 `worldScenes` 权威落点，两套坐标不一致。`world_controller.gd` 删除两处本地覆盖，`_apply_authoritative_snapshot` 一律使用 `WORLD_RESYNC.self_pos`；服务端 `world_repo.go` 的 portals/entries 逐门对齐地图当前调好的进门站位（如打怪区 `(6,10)→(6,2)`、市场进东路 `(0,4)→(1,7)`）。
 - 注册默认出生：`AdminCreatePlayerInput/AdminUpdatePlayerInput.Normalize()` 的时光小屋默认格从 `(4,4)` 改为客户端调好的 `(6,6)`；新增迁移 `backend/server/migrations/110_align_time_house_default_spawn.sql` 把仍停在旧默认格的存量角色对齐（需用户自行执行）。
 - 问题二（远端玩家移动卡顿）：`player.gd` 远端插值不再对目标点和逐帧位置 `round()`，保留连续浮点轨迹；到达阈值从 `0.5px` 收紧为 `0.05px`，行走/待机判定同步调整。像素清晰度仍由项目级 `snap_2d_transforms_to_pixel` 与 nearest 过滤保证，与本地玩家 7-28 的连续浮点移动修复口径一致。
 - 问题三（互相看不到对方形象）：远端 `player` 实例此前在 `_ready()` 提前返回、从不消费实体摘要的 `skin_id`，只显示场景默认精灵。`player.gd` 新增 `apply_remote_skin_id()`，与本地共用 `_apply_normal_skin_id()`；`world_controller.gd` 在远端节点创建和每次 `ENTITY_ENTER_PUSH` 刷新时应用该形象。宠物侧继续复用 `following_pet` → `WorldPetFollower` 链路。

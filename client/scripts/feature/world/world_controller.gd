@@ -1768,8 +1768,10 @@ func _sync_remote_players() -> void:
 			float(position_variant.get("y", entity.get("y", 0.0))) if position_variant is Dictionary else float(entity.get("y", 0.0))
 		)
 		var presentation_scene_position: Vector2 = server_position
-		var precise_position_variant: Variant = entity.get("precise_pos", {})
-		if precise_position_variant is Dictionary:
+		# ENTITY_ENTER_PUSH 与世界快照中的玩家实体没有 precise_pos 字段；
+		# 这里必须排除空字典，否则缺省值 {} 会把远端出生点算成 (0,0) 地图左上角。
+		var precise_position_variant: Variant = entity.get("precise_pos", null)
+		if precise_position_variant is Dictionary and not (precise_position_variant as Dictionary).is_empty():
 			var precise_position: Dictionary = precise_position_variant as Dictionary
 			presentation_scene_position = Vector2(
 				float(precise_position.get("x", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
