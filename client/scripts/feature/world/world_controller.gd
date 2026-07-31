@@ -1144,7 +1144,7 @@ func _resolve_level_camera_limits(level: Node2D) -> Dictionary:
 	}
 
 func _get_camera_limit_layer(level: Node2D) -> TileMapLayer:
-	for layer_name in ["Collision", "Bottom", "Map", "TileMapLayer"]:
+	for layer_name in ["Collision", "Bottom", "Map", "TileMapLayer", "地图"]:
 		var layer := level.get_node_or_null(layer_name) as TileMapLayer
 		if layer != null:
 			return layer

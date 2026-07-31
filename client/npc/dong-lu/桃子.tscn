@@ -226,7 +226,7 @@ npc_name = "桃子"
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1260575992]
 position = Vector2(0, -18)
 sprite_frames = SubResource("SpriteFrames_xpfc1")
-animation = &"待机上"
+animation = &"待机下"
 autoplay = "待机下"
 
 [node name="Area2D" type="Area2D" parent="." unique_id=945731027]

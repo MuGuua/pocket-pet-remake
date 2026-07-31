@@ -215,7 +215,7 @@ position = Vector2(173, 199)
 collision_layer = 2
 collision_mask = 7
 script = ExtResource("1_g2els")
-camera_zoom_scale = 0.5
+camera_zoom_scale = 3.0
 camera_vertical_offset = 30.0
 
 [node name="MapTeleportEffect" parent="." unique_id=1167027672 instance=ExtResource("3_teleport_effect")]

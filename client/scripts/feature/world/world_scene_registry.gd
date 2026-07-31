@@ -38,6 +38,16 @@ const SCENE_CONFIGS: Dictionary = {
         "scene_path": "res://scenes/maps/fashtown/时光小屋.tscn",
         "grid_to_pixels": 24.0,
     },
+    8: {
+        "display_name": "闪光镇传送区",
+        "scene_path": "res://scenes/maps/fashtown/闪光镇传送区.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    9: {
+        "display_name": "闪耀广场",
+        "scene_path": "res://scenes/maps/闪光平原/闪耀广场.tscn",
+        "grid_to_pixels": 16.0,
+    },
 }
 
 

@@ -46,11 +46,13 @@ var worldScenes = map[uint32]sceneData{
 			1: {X: 4, Y: 4},
 			3: {X: 1, Y: 7},
 			7: {X: 9, Y: 5},
+			8: {X: 9, Y: 5},
 		},
-		exits: map[uint32]struct{}{1: {}, 3: {}},
+		exits: map[uint32]struct{}{1: {}, 3: {}, 8: {}},
 		portals: map[uint32]portalData{
 			2001: {targetSceneID: 1, targetPos: world.Vec2i{X: 5, Y: 13}},
 			2002: {targetSceneID: 3, targetPos: world.Vec2i{X: 12, Y: 11}},
+			2003: {targetSceneID: 8, targetPos: world.Vec2i{X: 2, Y: 12}},
 		},
 	},
 	3: {
@@ -105,6 +107,28 @@ var worldScenes = map[uint32]sceneData{
 		exits:    map[uint32]struct{}{2: {}},
 		portals: map[uint32]portalData{
 			7001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}},
+		},
+	},
+	8: {
+		spawnPos: world.Vec2i{X: 4, Y: 6},
+		entries: map[uint32]world.Vec2i{
+			2: {X: 2, Y: 12},
+			9: {X: 6, Y: 9},
+		},
+		exits: map[uint32]struct{}{2: {}, 9: {}},
+		portals: map[uint32]portalData{
+			8001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}},
+			8002: {targetSceneID: 9, targetPos: world.Vec2i{X: 20, Y: 12}},
+		},
+	},
+	9: {
+		spawnPos: world.Vec2i{X: 14, Y: 8},
+		entries: map[uint32]world.Vec2i{
+			8: {X: 20, Y: 12},
+		},
+		exits: map[uint32]struct{}{8: {}},
+		portals: map[uint32]portalData{
+			9001: {targetSceneID: 8, targetPos: world.Vec2i{X: 6, Y: 9}},
 		},
 	},
 }

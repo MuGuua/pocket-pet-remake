@@ -27,6 +27,11 @@ func _get_door_configs() -> Dictionary:
 			"portal_id": 2002,
 			"target_scene_id": 3,
 		},
+		"RightPortal": {
+			"portal_id": 2003,
+			"target_scene_id": 8,
+			"facing_direction": Vector2.RIGHT,
+		},
 	}
 
 func _get_default_facing_direction() -> Vector2:

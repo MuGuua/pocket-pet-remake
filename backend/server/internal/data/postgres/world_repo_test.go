@@ -49,6 +49,10 @@ func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
 		{name: "学校到打怪区", fromSceneID: 5, toSceneID: 6, portalID: 5002, wantSpawnPos: world.Vec2i{X: 6, Y: 2}},
 		{name: "打怪区到学校", fromSceneID: 6, toSceneID: 5, portalID: 6001, wantSpawnPos: world.Vec2i{X: 6, Y: 11}},
 		{name: "时光小屋到东路", fromSceneID: 7, toSceneID: 2, portalID: 7001, wantSpawnPos: world.Vec2i{X: 9, Y: 5}},
+		{name: "东路到闪光镇传送区", fromSceneID: 2, toSceneID: 8, portalID: 2003, wantSpawnPos: world.Vec2i{X: 2, Y: 12}},
+		{name: "闪光镇传送区到东路", fromSceneID: 8, toSceneID: 2, portalID: 8001, wantSpawnPos: world.Vec2i{X: 9, Y: 5}},
+		{name: "闪光镇传送区到闪耀广场", fromSceneID: 8, toSceneID: 9, portalID: 8002, wantSpawnPos: world.Vec2i{X: 20, Y: 12}},
+		{name: "闪耀广场到闪光镇传送区", fromSceneID: 9, toSceneID: 8, portalID: 9001, wantSpawnPos: world.Vec2i{X: 6, Y: 9}},
 	}
 
 	repository := NewWorldRepository(nil)
