@@ -1689,6 +1689,8 @@ position = Vector2(12, 92)
 script = ExtResource("1_xbsme")
 inbound_from_roxus_scene_position = Vector2(4, 4)
 inbound_from_market_scene_position = Vector2(1, 7)
+inbound_from_time_house_scene_position = Vector2(9, 5)
+inbound_from_transfer_area_scene_position = Vector2(9, 5)
 login_spawn_position = Vector2(4, 5)
 
 [node name="Collision" type="TileMapLayer" parent="." unique_id=1483225490]

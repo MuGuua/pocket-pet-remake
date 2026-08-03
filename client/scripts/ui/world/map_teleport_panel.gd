@@ -29,8 +29,10 @@ signal notice_requested(message: String)
 @onready var flash_plain_map_texture_rect: TextureRect = %FlashPlainMapTexture
 ## 精灵迷宫地图纹理节点，保持原始宽高比和统一三倍倍率。
 @onready var spirit_maze_map_texture_rect: TextureRect = %SpiritMazeMapTexture
-## 地图标点按钮的场景容器；按钮顺序就是上下切换顺序。
+## 闪光镇地图标点的场景容器；按钮顺序就是上下切换顺序。
 @onready var point_button_container: Control = %PointButtons
+## 闪光平原地图标点的独立场景容器，避免切换地区时混入闪光镇节点。
+@onready var flash_plain_point_button_container: Control = %FlashPlainPointButtons
 ## 世界地图的地区入口按钮容器，按钮均预先配置在场景节点树中。
 @onready var world_region_button_container: Control = %WorldRegionButtons
 ## 世界地图中的闪光镇地区入口。
@@ -41,8 +43,6 @@ signal notice_requested(message: String)
 @onready var spirit_maze_region_button: Button = %SpiritMazeRegionButton
 ## 当前选中节点使用的四帧循环动画；场景中只保留一个实例并跟随节点中心移动。
 @onready var selection_animation: AnimatedSprite2D = %SelectionAnimation
-## 场景中预先放置的人物当前位置图标；运行时只调整位置和可见性，不修改节点尺寸。
-@onready var current_scene_icon: TextureRect = point_button_container.get_node_or_null("人物图标") as TextureRect
 
 ## 人物图标相对地图标点左上角的偏移；该值对应场景中已调整好的左下角视觉位置。
 @export var current_scene_icon_offset: Vector2i = Vector2i(-34, 8)
@@ -56,12 +56,15 @@ var _is_world_map_visible: bool = false
 var _selected_world_region_button: Button = null
 ## 当前正在查看的地区按钮；返回世界地图时自动恢复到该地区节点。
 var _current_region_button: Button = null
+## 当前地区正在使用的地图标点容器；无可选节点的地区保持为空。
+var _active_point_button_container: Control = null
+## 当前地区的人物位置图标；位置只根据服务端权威场景快照更新。
+var _current_scene_icon: TextureRect = null
 
 
 ## 绑定场景中预先放置的按钮，并保持运行时面板默认隐藏。
 func _ready() -> void:
 	hide()
-	_collect_point_buttons()
 	if close_button != null and not close_button.pressed.is_connected(close_menu):
 		close_button.pressed.connect(close_menu)
 	if world_map_button != null and not world_map_button.pressed.is_connected(show_world_map):
@@ -71,9 +74,7 @@ func _ready() -> void:
 	_bind_world_region_button(spirit_maze_region_button)
 	if not GameState.world_snapshot_changed.is_connected(_refresh_current_scene_icon):
 		GameState.world_snapshot_changed.connect(_refresh_current_scene_icon)
-	_apply_selection(0, false)
 	_show_flash_town_map()
-	_refresh_current_scene_icon()
 
 
 ## 离开场景时断开全局世界快照信号，避免已释放面板继续接收切图更新。
@@ -86,9 +87,10 @@ func _exit_tree() -> void:
 func open_menu() -> void:
 	_refresh_current_scene_icon()
 	show()
-	if point_button_container != null and point_button_container.visible:
-		_apply_selection(_selected_index, false)
-	if point_button_container != null and point_button_container.visible and not _point_buttons.is_empty():
+	if _active_point_button_container == null or not _active_point_button_container.visible:
+		return
+	_apply_selection(_selected_index, false)
+	if not _point_buttons.is_empty():
 		_point_buttons[_selected_index].grab_focus()
 
 
@@ -105,11 +107,11 @@ func close_menu() -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if point_button_container != null and point_button_container.visible and event.is_action_pressed("ui_up"):
+	if _active_point_button_container != null and _active_point_button_container.visible and event.is_action_pressed("ui_up"):
 		select_previous_point()
 		get_viewport().set_input_as_handled()
 		return
-	if point_button_container != null and point_button_container.visible and event.is_action_pressed("ui_down"):
+	if _active_point_button_container != null and _active_point_button_container.visible and event.is_action_pressed("ui_down"):
 		select_next_point()
 		get_viewport().set_input_as_handled()
 		return
@@ -130,8 +132,7 @@ func show_world_map() -> void:
 	if selected_name_label != null:
 		selected_name_label.text = "请选择地区" if _current_region_button == null else _current_region_button.tooltip_text.strip_edges()
 	_show_map_texture(world_map_texture_rect)
-	if point_button_container != null:
-		point_button_container.hide()
+	_hide_all_point_button_containers()
 	if world_region_button_container != null:
 		world_region_button_container.show()
 	if world_map_button != null:
@@ -146,44 +147,41 @@ func show_world_map() -> void:
 ## 点击世界地图中的闪光镇节点后，在当前地图场景内显示闪光镇地区地图。
 func _show_flash_town_map() -> void:
 	_current_region_button = flash_town_region_button
-	_show_region_map("闪光镇", map_texture_rect, true)
+	_show_region_map("闪光镇", map_texture_rect, point_button_container)
 
 
 ## 点击世界地图中的闪光平原节点后，在当前地图场景内显示对应地区地图。
 func _show_flash_plain_map() -> void:
 	_current_region_button = flash_plain_region_button
-	_show_region_map("闪光平原", flash_plain_map_texture_rect, false)
+	_show_region_map("闪光平原", flash_plain_map_texture_rect, flash_plain_point_button_container)
 
 
 ## 点击世界地图中的精灵迷宫节点后，在当前地图场景内显示对应地区地图。
 func _show_spirit_maze_map() -> void:
 	_current_region_button = spirit_maze_region_button
-	_show_region_map("精灵迷宫", spirit_maze_map_texture_rect, false)
+	_show_region_map("精灵迷宫", spirit_maze_map_texture_rect, null)
 
 
-## 应用地区地图视图；只有已接入服务端场景 ID 的闪光镇显示可传送节点。
-## region_name 是地区展示名称；texture_rect 是预设尺寸的地区地图节点；show_scene_points 表示是否显示已落地传送节点。
-func _show_region_map(region_name: String, texture_rect: TextureRect, show_scene_points: bool) -> void:
+## 应用地区地图视图，并仅激活该地区预先配置的地图标点。
+## region_name 是地区展示名称；texture_rect 是预设尺寸的地区地图节点；scene_point_container 是该地区可选择的标点容器。
+func _show_region_map(region_name: String, texture_rect: TextureRect, scene_point_container: Control) -> void:
 	_is_world_map_visible = false
 	if title_label != null:
 		title_label.text = region_name
 	_show_map_texture(texture_rect)
 	if world_region_button_container != null:
 		world_region_button_container.hide()
-	if point_button_container != null:
-		point_button_container.visible = show_scene_points
+	_activate_point_button_container(scene_point_container)
 	if world_map_button != null:
 		world_map_button.disabled = false
-	if show_scene_points:
-		_apply_selection(_selected_index, false)
+	if scene_point_container != null:
+		_select_current_scene_or_first_point()
 		_refresh_current_scene_icon()
 		return
 	if selection_animation != null:
 		selection_animation.hide()
 	if selected_name_label != null:
 		selected_name_label.text = "%s地区地图" % region_name
-	if current_scene_icon != null:
-		current_scene_icon.hide()
 
 
 ## 只显示目标地图纹理节点；每张纹理的尺寸都预先保存在场景中，运行时不拉伸或改写 UI 尺寸。
@@ -200,18 +198,57 @@ func _show_map_texture(target_texture_rect: TextureRect) -> void:
 			texture_rect.visible = texture_rect == target_texture_rect
 
 
-## 按场景树顺序收集地图标点按钮并绑定点击事件。
-func _collect_point_buttons() -> void:
+## 隐藏所有地区地图标点，保证世界地图或其他地区不会残留上一个地区的热点。
+func _hide_all_point_button_containers() -> void:
+	if point_button_container != null:
+		point_button_container.hide()
+	if flash_plain_point_button_container != null:
+		flash_plain_point_button_container.hide()
+	_hide_all_current_scene_icons()
+
+
+## 激活目标地区的标点容器，并重新建立该地区独立的选择列表。
+## scene_point_container 是本次地区地图使用的场景节点容器，空值表示该地区暂时没有可选节点。
+func _activate_point_button_container(scene_point_container: Control) -> void:
+	_hide_all_point_button_containers()
+	_active_point_button_container = scene_point_container
+	_current_scene_icon = null
 	_point_buttons.clear()
-	if point_button_container == null:
+	_selected_index = 0
+	if scene_point_container == null:
 		return
-	for child: Node in point_button_container.get_children():
+	scene_point_container.show()
+	_current_scene_icon = scene_point_container.get_node_or_null("人物图标") as TextureRect
+	_collect_point_buttons(scene_point_container)
+
+
+## 按场景树顺序收集指定地区的地图标点按钮并绑定点击事件。
+## scene_point_container 是当前地区地图中预先放置所有按钮的容器。
+func _collect_point_buttons(scene_point_container: Control) -> void:
+	if scene_point_container == null:
+		return
+	for child: Node in scene_point_container.get_children():
 		var point_button: Button = child as Button
 		if point_button == null:
 			continue
 		_point_buttons.append(point_button)
-		if not point_button.pressed.is_connected(_on_point_button_pressed.bind(point_button)):
-			point_button.pressed.connect(_on_point_button_pressed.bind(point_button))
+		var pressed_callback: Callable = _on_point_button_pressed.bind(point_button)
+		if not point_button.pressed.is_connected(pressed_callback):
+			point_button.pressed.connect(pressed_callback)
+
+
+## 优先选中服务端当前场景对应节点；当前场景不属于该地区时选中第一个节点。
+func _select_current_scene_or_first_point() -> void:
+	if _point_buttons.is_empty():
+		if selection_animation != null:
+			selection_animation.hide()
+		return
+	var current_scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
+	var current_point_button: MapTeleportPointButton = _find_point_button_by_scene_id(current_scene_id)
+	var target_index: int = 0
+	if current_point_button != null:
+		target_index = _point_buttons.find(current_point_button)
+	_apply_selection(target_index, false)
 
 
 ## 绑定世界地图地区按钮的点击事件；第一次点击选中，第二次点击同一节点才进入地区地图。
@@ -219,8 +256,9 @@ func _collect_point_buttons() -> void:
 func _bind_world_region_button(region_button: Button) -> void:
 	if region_button == null:
 		return
-	if not region_button.pressed.is_connected(_on_world_region_button_pressed.bind(region_button)):
-		region_button.pressed.connect(_on_world_region_button_pressed.bind(region_button))
+	var pressed_callback: Callable = _on_world_region_button_pressed.bind(region_button)
+	if not region_button.pressed.is_connected(pressed_callback):
+		region_button.pressed.connect(pressed_callback)
 
 
 ## 处理世界地图地区节点的二次点击：首次只选中，再次点击当前节点才进入地区地图。
@@ -254,23 +292,36 @@ func _show_selection_for_button(point_button: Button) -> void:
 	selection_animation.play(&"selected")
 
 
+## 隐藏所有地区的人物位置图标，避免地区切换后残留旧场景标记。
+func _hide_all_current_scene_icons() -> void:
+	var town_scene_icon: TextureRect = null
+	var flash_plain_scene_icon: TextureRect = null
+	if point_button_container != null:
+		town_scene_icon = point_button_container.get_node_or_null("人物图标") as TextureRect
+	if flash_plain_point_button_container != null:
+		flash_plain_scene_icon = flash_plain_point_button_container.get_node_or_null("人物图标") as TextureRect
+	if town_scene_icon != null:
+		town_scene_icon.hide()
+	if flash_plain_scene_icon != null:
+		flash_plain_scene_icon.hide()
+
+
 ## 根据服务端权威世界快照，把人物图标移动到当前场景对应地图标点的左下角。
 func _refresh_current_scene_icon() -> void:
-	if current_scene_icon == null:
+	_hide_all_current_scene_icons()
+	if _current_scene_icon == null:
 		return
-	if _is_world_map_visible or point_button_container == null or not point_button_container.visible:
-		current_scene_icon.hide()
+	if _is_world_map_visible or _active_point_button_container == null or not _active_point_button_container.visible:
 		return
 	var current_scene_id: int = int(GameState.scene_snapshot.get("scene_id", 0))
 	var current_point_button: MapTeleportPointButton = _find_point_button_by_scene_id(current_scene_id)
 	if current_point_button == null:
-		current_scene_icon.hide()
 		return
-	current_scene_icon.position = current_point_button.position + Vector2(current_scene_icon_offset)
-	current_scene_icon.show()
+	_current_scene_icon.position = current_point_button.position + Vector2(current_scene_icon_offset)
+	_current_scene_icon.show()
 
 
-## 在场景配置的地图标点中查找目标场景，不额外维护重复的场景映射表。
+## 在当前地区的地图标点中查找目标场景，不额外维护重复的场景映射表。
 ## scene_id 是服务端世界快照中的当前场景 ID。
 func _find_point_button_by_scene_id(scene_id: int) -> MapTeleportPointButton:
 	if scene_id <= 0:

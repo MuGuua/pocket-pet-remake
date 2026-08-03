@@ -3706,12 +3706,29 @@ func (r *WorldRepository) EvaluateTransfer(_ context.Context, _ uint64, _ uint32
 func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32) (*world.MoveDecision, error) {
 	decision := &world.MoveDecision{SceneVersion: 1, ToSceneID: sceneID, SpawnPos: currentPos}
 	mapCenters := map[uint32]world.Vec2i{
-		1: {X: 5, Y: 7},
-		2: {X: 5, Y: 5},
-		3: {X: 7, Y: 7},
-		4: {X: 4, Y: 5},
-		5: {X: 6, Y: 6},
-		6: {X: 5, Y: 5},
+		1:  {X: 5, Y: 7},
+		2:  {X: 5, Y: 5},
+		3:  {X: 7, Y: 7},
+		4:  {X: 4, Y: 5},
+		5:  {X: 6, Y: 6},
+		6:  {X: 5, Y: 5},
+		9:  {X: 14, Y: 8},
+		10: {X: 5, Y: 8},
+		11: {X: 5, Y: 7},
+		12: {X: 5, Y: 7},
+		13: {X: 6, Y: 7},
+		14: {X: 5, Y: 8},
+		15: {X: 5, Y: 9},
+		16: {X: 7, Y: 7},
+		17: {X: 5, Y: 7},
+		18: {X: 5, Y: 7},
+		19: {X: 7, Y: 10},
+		20: {X: 6, Y: 7},
+		21: {X: 9, Y: 7},
+		22: {X: 5, Y: 7},
+		23: {X: 6, Y: 7},
+		24: {X: 5, Y: 7},
+		25: {X: 7, Y: 7},
 	}
 	center, ok := mapCenters[targetSceneID]
 	if !ok {

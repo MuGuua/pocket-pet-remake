@@ -6,8 +6,13 @@ extends NetworkDoorLevelBase
 @export var scene_display_name: String = "闪耀广场"
 ## level_scale_factor 是当前地图在移动端视口中的展示缩放倍数。
 @export var level_scale_factor: float = 1.0
+@export_group("普通门切图落点（场景格）")
+## 从闪光镇传送区 portal_id=8002 进入后，出生在闪耀广场西侧入口附近，可在地图根节点检查器中调整。
+@export var inbound_from_transfer_area_scene_position: Vector2 = Vector2(20.0, 12.0)
+@export_group("默认出生点（场景格）")
 ## login_spawn_position 是没有服务端权威位置时的默认场景坐标。
 @export var login_spawn_position: Vector2 = Vector2(14.0, 8.0)
+@export_group("")
 
 ## SHANGUANG_TOWN_TRANSFER_AREA_SCENE_ID 是闪光镇传送区的服务端场景 ID。
 const SHANGUANG_TOWN_TRANSFER_AREA_SCENE_ID: int = 8
@@ -40,7 +45,7 @@ func _get_door_configs() -> Dictionary:
     }
 
 
-## 创建客户端切图意图；出生格不在客户端配置，由服务端 portal 拓扑返回。
+## 创建客户端切图意图；目标场景脚本会根据 portal_id 选择入口，服务端继续验证拓扑。
 func _create_door_config(portal_id: int, target_scene_id: int) -> Dictionary:
     return {
         "portal_id": portal_id,
@@ -53,9 +58,14 @@ func _get_default_facing_direction() -> Vector2:
     return Vector2.DOWN
 
 
-## 出生位置统一使用服务端世界快照，闪耀广场不提供客户端覆盖值。
-func get_portal_spawn_scene_position(_portal_id: int) -> Vector2:
-    return INVALID_PORTAL_SPAWN_SCENE_POSITION
+## 根据来源场景触发的 portal_id 返回闪耀广场入口落点，供切图请求提交给服务端校验和持久化。
+## portal_id 是来源场景的传送门编号；未配置时返回无效值并回退服务端兼容落点。
+func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
+    match portal_id:
+        8002:
+            return inbound_from_transfer_area_scene_position
+        _:
+            return INVALID_PORTAL_SPAWN_SCENE_POSITION
 
 
 ## 返回地图已使用区域的中心点，供移动端视口居中展示。

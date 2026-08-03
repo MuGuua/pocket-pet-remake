@@ -272,6 +272,9 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		log.Printf("[SceneTransition][Server] evaluate failed player_id=%d err=%v", sess.PlayerID, err)
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "evaluate move failed")
 	}
+	if !request.MapTeleport && request.TargetPos != nil {
+		decision = h.worldService.ApplyClientPortalSpawn(decision, request.PortalID, &world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y})
+	}
 	log.Printf(
 		"[SceneTransition][Server] decision player_id=%d accepted=%t from_scene=%d to_scene=%d spawn=(%d,%d) reason=%s",
 		sess.PlayerID, decision.Accepted, profile.SceneID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y, decision.Reason,

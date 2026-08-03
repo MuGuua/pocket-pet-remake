@@ -520,16 +520,50 @@ func TestRouterHandleMapTeleportToAnotherScene(t *testing.T) {
 	}
 }
 
+// TestRouterHandleMapTeleportToShiningPlainScene 验证闪光平原区域节点沿用同一服务端权威快速传送链路。
+func TestRouterHandleMapTeleportToShiningPlainScene(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 1323, protocol.MoveIntentReq{
+		OpID:          123,
+		MoveSeq:       323,
+		SceneID:       1,
+		TargetSceneID: 25,
+		MapTeleport:   true,
+	})
+	if len(conn.packets) < 2 {
+		t.Fatalf("len(conn.packets) = %d, want at least move response and world resync", len(conn.packets))
+	}
+
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !response.Accepted || response.SceneID != 25 || response.CorrectedPos != (protocol.Vec2i{X: 7, Y: 7}) {
+		t.Fatalf("shining plain map teleport response = %+v, want accepted scene 25 center (7,7)", response)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 25 || profile.PosX != 7 || profile.PosY != 7 {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want 25/(7,7)", profile.SceneID, profile.PosX, profile.PosY)
+	}
+}
+
 // TestRouterHandleMapTeleportWithinCurrentScene 验证再次点击当前地图也会移动到中心，但不会误走普通坐标上报分支。
 func TestRouterHandleMapTeleportWithinCurrentScene(t *testing.T) {
 	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
 
+	clientPortalPos := protocol.Vec2i{X: 99, Y: 99}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 1322, protocol.MoveIntentReq{
 		OpID:          122,
 		MoveSeq:       322,
 		SceneID:       1,
 		TargetSceneID: 1,
 		MapTeleport:   true,
+		TargetPos:     &clientPortalPos,
 	})
 	if len(conn.packets) != 2 {
 		t.Fatalf("len(conn.packets) = %d, want move response and world resync only", len(conn.packets))
@@ -694,13 +728,15 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	clearPackets(demoConn)
 	clearPackets(rivalConn)
 
-	// 进入者从场景 1 走传送门 1001 进入场景 2。
+	// 进入者从场景 1 走传送门 1001 进入场景 2；目标场景脚本选择 (3,2) 作为入口落点。
+	clientPortalPos := protocol.Vec2i{X: 3, Y: 2}
 	mustHandleJSONPacket(t, router, demoConn, protocol.CmdMoveIntentReq, 144, protocol.MoveIntentReq{
 		OpID:          22,
 		MoveSeq:       42,
 		SceneID:       1,
 		TargetSceneID: 2,
 		PortalID:      1001,
+		TargetPos:     &clientPortalPos,
 	})
 	if len(demoConn.packets) == 0 || demoConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
 		t.Fatalf("mover packets = %+v, want move intent response first", demoConn.packets)
@@ -709,8 +745,8 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	if err := protocol.UnmarshalBody(demoConn.packets[0].Body, &moveResp); err != nil {
 		t.Fatalf("UnmarshalBody(move response) error = %v", err)
 	}
-	if !moveResp.Accepted || moveResp.SceneID != 2 {
-		t.Fatalf("move response = %+v, want accepted scene 2", moveResp)
+	if !moveResp.Accepted || moveResp.SceneID != 2 || moveResp.CorrectedPos != clientPortalPos {
+		t.Fatalf("move response = %+v, want accepted scene 2 at client portal spawn %+v", moveResp, clientPortalPos)
 	}
 
 	var entryPush *protocol.EntityEnterPush
@@ -746,6 +782,7 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 
 func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
+	clientPortalPos := protocol.Vec2i{X: 3, Y: 2}
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 14, 0, protocol.MoveIntentReq{
 		OpID:          2,
@@ -753,6 +790,7 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 		SceneID:       1,
 		TargetSceneID: 2,
 		PortalID:      1001,
+		TargetPos:     &clientPortalPos,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)
@@ -785,6 +823,9 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if resp.SceneID != 2 {
 		t.Fatalf("resp.SceneID = %d, want 2", resp.SceneID)
 	}
+	if resp.CorrectedPos != clientPortalPos {
+		t.Fatalf("resp.CorrectedPos = %+v, want client portal spawn %+v", resp.CorrectedPos, clientPortalPos)
+	}
 
 	resyncPacket := conn.packets[1]
 	if resyncPacket.Cmd != protocol.CmdWorldResyncPush {
@@ -798,8 +839,8 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if resync.SceneID != 2 {
 		t.Fatalf("resync.SceneID = %d, want 2", resync.SceneID)
 	}
-	if resync.SelfPos.X != 4 || resync.SelfPos.Y != 1 {
-		t.Fatalf("resync.SelfPos = (%d,%d), want (4,1)", resync.SelfPos.X, resync.SelfPos.Y)
+	if resync.SelfPos != clientPortalPos {
+		t.Fatalf("resync.SelfPos = %+v, want client portal spawn %+v", resync.SelfPos, clientPortalPos)
 	}
 
 	questUpdates := collectQuestUpdatesByID(t, conn.packets[2:])
@@ -817,8 +858,8 @@ func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
 	if profile.SceneID != 2 {
 		t.Fatalf("profile.SceneID = %d, want 2", profile.SceneID)
 	}
-	if profile.PosX != 4 || profile.PosY != 1 {
-		t.Fatalf("profile position = (%d,%d), want (4,1)", profile.PosX, profile.PosY)
+	if profile.PosX != clientPortalPos.X || profile.PosY != clientPortalPos.Y {
+		t.Fatalf("profile position = (%d,%d), want client portal spawn %+v", profile.PosX, profile.PosY, clientPortalPos)
 	}
 }
 
@@ -1343,6 +1384,7 @@ func TestRouterHandleMoveIntentSceneTransferToBeiLu(t *testing.T) {
 
 func TestRouterHandleMoveIntentRejectUnknownPortal(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
+	clientPortalPos := protocol.Vec2i{X: 99, Y: 99}
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 141, 0, protocol.MoveIntentReq{
 		OpID:          21,
@@ -1350,6 +1392,7 @@ func TestRouterHandleMoveIntentRejectUnknownPortal(t *testing.T) {
 		SceneID:       1,
 		TargetSceneID: 2,
 		PortalID:      9999,
+		TargetPos:     &clientPortalPos,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)

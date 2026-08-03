@@ -510,6 +510,7 @@ size = Vector2(15, 11)
 
 [node name="闪耀广场" type="Node2D" unique_id=1204789299]
 script = ExtResource("4_level")
+inbound_from_transfer_area_scene_position = Vector2(20, 12)
 login_spawn_position = Vector2(14, 8)
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=892349945]

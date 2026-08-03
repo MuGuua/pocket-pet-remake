@@ -332,7 +332,7 @@ type MoveIntentReq struct {
 	PortalID      uint32 `json:"portal_id"`
 	// MapTeleport 表示玩家从世界地图发起快速传送；服务端会忽略客户端落点并读取数据库中的地图中心坐标。
 	MapTeleport bool `json:"map_teleport,omitempty"`
-	// TargetPos 仅用于同场景移动上报；保留为可选字段以兼容只负责切图的旧客户端。
+	// TargetPos 用于同场景移动上报；普通门切图时也可携带目标场景脚本选定的入口落点。地图快速传送会忽略该字段。
 	TargetPos *Vec2i `json:"target_pos,omitempty"`
 	// PrecisePos 使用千分之一场景格的定点整数，仅用于同场景实时表现；持久化仍使用 TargetPos。
 	PrecisePos *Vec2i `json:"precise_pos,omitempty"`

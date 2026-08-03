@@ -536,7 +536,7 @@
 
 ### 2021 MOVE_INTENT_REQ
 
-`MOVE_INTENT_REQ` 同时承载门区切图、世界地图快速传送和同场景移动同步。门区切图使用 `target_scene_id`、`portal_id`；地图快速传送额外传 `map_teleport=true`；同场景移动使用整数 `target_pos` 持久化落点，并以限频后的表现字段同步其他玩家。
+`MOVE_INTENT_REQ` 同时承载门区切图、世界地图快速传送和同场景移动同步。普通门切图使用 `target_scene_id`、`portal_id`，并可携带目标场景脚本按来源门选定的 `target_pos`；地图快速传送额外传 `map_teleport=true` 且服务端忽略请求中的 `target_pos`；同场景移动使用整数 `target_pos` 持久化位置，并以限频后的表现字段同步其他玩家。
 
 ```json
 {
@@ -544,7 +544,8 @@
   "move_seq": 1,
   "scene_id": 1,
   "target_scene_id": 2,
-  "portal_id": 1001
+  "portal_id": 1001,
+  "target_pos": {"x": 4, "y": 1}
 }
 ```
 
@@ -580,7 +581,7 @@
 - `target_scene_id`：目标地图
 - `portal_id`：可选，表示通过哪个门/入口触发切图；当前门区切图优先带上该字段
 - `map_teleport`：可选，缺省为 `false`；为 `true` 时服务端从 `world_map_teleport_node` 校验开放状态并读取中心出生格，客户端不得提交或覆盖出生坐标
-- `target_pos`：同场景移动的整数格坐标，服务端持久化并作为权威落点
+- `target_pos`：同场景移动时表示当前整数格；普通门切图时表示目标场景脚本按来源 `portal_id` 选定的入口格。服务端只会在门拓扑和准入验证通过后采用普通门落点；快速传送忽略该字段
 - `precise_pos`：千分之一场景格的定点表现坐标；服务端会限制在 `target_pos` 周围半格内，不直接写入数据库
 - `facing`：四方向单位向量，只接受上下左右，服务端拒绝斜向表现数据并回退为位移方向
 - `moving`：明确人物正在行走或已经停止；旧客户端缺少该字段时由服务端按整数格变化兼容推导
@@ -612,8 +613,8 @@
   "move_seq": 1,
   "scene_id": 2,
   "corrected_pos": {
-    "x": -6,
-    "y": 4
+    "x": 4,
+    "y": 1
   },
   "reason": ""
 }
@@ -622,9 +623,9 @@
 说明：
 
 - `scene_id`：服务端确认后的目标地图
-- `corrected_pos`：服务端持久化坐标兜底值；客户端传送门切图时优先使用目标场景脚本中 `portal_id` 对应的场景坐标
-- 如果 `target_scene_id` 为空、为 `0`、或等于当前 `scene_id`，服务端只返回成功确认，表示“地图内移动由客户端处理”
-- 如果带了 `portal_id`，服务端用于校验门/目标地图是否匹配；客户端最终出生场景坐标由目标场景配置决定，未配置时才使用 `corrected_pos` 兜底
+- `corrected_pos`：服务端最终采用并持久化的整数场景坐标；普通门使用验证通过后的客户端目标场景入口，快速传送使用数据库中心点
+- 如果 `target_scene_id` 为空、为 `0`、或等于当前 `scene_id` 且不是快速传送，服务端按同场景移动同步处理
+- 如果带了 `portal_id`，服务端用于校验来源场景、门和目标地图是否匹配；校验通过后才采用请求中的 `target_pos`。旧客户端未提交时继续使用服务端门点兼容回退
 - 服务端会读取 `world_scene_definition.required_level`，并使用玩家数据库档案中的权威 `level` 校验目标地图准入等级；客户端请求不携带、也不能覆盖玩家等级
 - 等级不足时返回 `accepted=false`、原 `scene_id` / 原坐标，以及 `reason="前面的路以后再来探索吧"`；服务端不会更新玩家持久化场景与坐标，客户端只展示该提示
 
@@ -636,8 +637,8 @@
 {
   "scene_id": 2,
   "self_pos": {
-    "x": -6,
-    "y": 4
+    "x": 4,
+    "y": 1
   },
   "scene_version": 1,
   "nearby_entities": [

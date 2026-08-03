@@ -107,6 +107,7 @@ animations = [{
 }]
 
 [node name="MapTeleportPanel" type="CanvasLayer" unique_id=2076813502]
+visible = false
 layer = 8
 script = ExtResource("1_e04bd")
 
@@ -418,6 +419,336 @@ texture = SubResource("AtlasTexture_tx6cj")
 expand_mode = 1
 stretch_mode = 4
 
+[node name="FlashPlainPointButtons" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(592, 640)
+anchors_preset = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -296.0
+offset_top = -320.0
+offset_right = 296.0
+offset_bottom = 320.0
+mouse_filter = 1
+
+[node name="IceDreamPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 123.0
+offset_top = 123.0
+offset_right = 175.0
+offset_bottom = 175.0
+tooltip_text = "冰雪梦境"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 11
+
+[node name="AshDreamPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 201.0
+offset_top = 123.0
+offset_right = 253.0
+offset_bottom = 175.0
+tooltip_text = "灰烬梦境"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 12
+
+[node name="EmeraldDreamPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 123.0
+offset_right = 322.0
+offset_bottom = 175.0
+tooltip_text = "翡翠梦境"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 13
+
+[node name="AerRoomPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 345.0
+offset_top = 123.0
+offset_right = 397.0
+offset_bottom = 175.0
+tooltip_text = "阿尔的房间"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 14
+
+[node name="OfficePoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 198.0
+offset_top = 201.0
+offset_right = 250.0
+offset_bottom = 253.0
+tooltip_text = "办公区"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 15
+
+[node name="FlashPlainPetSchoolPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 342.0
+offset_top = 198.0
+offset_right = 394.0
+offset_bottom = 250.0
+tooltip_text = "宠物学校"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 10
+
+[node name="FlashPlainPortalPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 126.0
+offset_top = 270.0
+offset_right = 178.0
+offset_bottom = 322.0
+tooltip_text = "传送门"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+teleport_enabled = false
+
+[node name="CommercialAreaPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 201.0
+offset_top = 270.0
+offset_right = 253.0
+offset_bottom = 322.0
+tooltip_text = "商业区"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 16
+
+[node name="ShiningSquarePoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 273.0
+offset_right = 322.0
+offset_bottom = 325.0
+tooltip_text = "闪耀广场"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 9
+
+[node name="RegistrationAreaPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 345.0
+offset_top = 273.0
+offset_right = 397.0
+offset_bottom = 325.0
+tooltip_text = "报名区"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 17
+
+[node name="PreparationAreaPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 420.0
+offset_top = 270.0
+offset_right = 472.0
+offset_bottom = 322.0
+tooltip_text = "准备区"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 18
+
+[node name="FamilyHallPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 195.0
+offset_top = 339.0
+offset_right = 247.0
+offset_bottom = 391.0
+tooltip_text = "家族会馆"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 19
+
+[node name="ShiningSouthRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 339.0
+offset_right = 322.0
+offset_bottom = 391.0
+tooltip_text = "闪光南路"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 20
+
+[node name="ColorfulLakePoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 342.0
+offset_top = 342.0
+offset_right = 394.0
+offset_bottom = 394.0
+tooltip_text = "五彩湖"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 21
+
+[node name="SwampPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 195.0
+offset_top = 411.0
+offset_right = 247.0
+offset_bottom = 463.0
+tooltip_text = "沼泽地"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 22
+
+[node name="ShiningCoastPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 411.0
+offset_right = 322.0
+offset_bottom = 463.0
+tooltip_text = "闪光海岸"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 23
+
+[node name="MudLandPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 195.0
+offset_top = 489.0
+offset_right = 247.0
+offset_bottom = 541.0
+tooltip_text = "尘泥之地"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 24
+
+[node name="SeaRoadPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 486.0
+offset_right = 322.0
+offset_bottom = 538.0
+tooltip_text = "海道"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+teleport_enabled = false
+
+[node name="SpiritHallPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+layout_mode = 0
+offset_left = 345.0
+offset_top = 486.0
+offset_right = 397.0
+offset_bottom = 538.0
+tooltip_text = "精灵大厅"
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_sg106")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
+toggle_mode = true
+script = ExtResource("3_rfn2d")
+target_scene_id = 25
+
+[node name="人物图标" type="TextureRect" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
+visible = false
+layout_mode = 0
+offset_left = 116.0
+offset_top = 222.0
+offset_right = 164.0
+offset_bottom = 272.0
+mouse_filter = 2
+texture = SubResource("AtlasTexture_tx6cj")
+expand_mode = 1
+stretch_mode = 4
 [node name="WorldRegionButtons" type="Control" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas" unique_id=543798301]
 unique_name_in_owner = true
 visible = false
@@ -450,10 +781,10 @@ theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 [node name="FlashPlainRegionButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/WorldRegionButtons" unique_id=347826950]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 274.0
-offset_top = 246.0
-offset_right = 326.0
-offset_bottom = 298.0
+offset_left = 342.0
+offset_top = 462.0
+offset_right = 394.0
+offset_bottom = 514.0
 tooltip_text = "闪光平原"
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_ijkgu")

@@ -1,5 +1,47 @@
 # 任务总结
 
+## 2026-08-03：普通门切图落点开放为场景导出配置
+
+- 在东路、闪光镇传送区和闪耀广场地图脚本中，将普通门入口坐标统一归入 `普通门切图落点（场景格）` 导出分组。
+- 在对应 `.tscn` 地图根节点显式保存当前入口值；以后可直接选中地图根节点，在 Godot 检查器中修改各来源地图的落点，不需要改匹配代码。
+- 落点仍按地图场景格填写，普通门请求继续提交给服务端验证、持久化和广播；世界地图快速传送逻辑保持不变。
+- 验证通过：7 个导出属性值与 `portal_id` 解析结果专项烟测、Godot 4.7 Headless 项目加载和 `git diff --check`。
+
+## 2026-08-03：普通门切图改为客户端目标场景脚本选择落点
+
+- `client/scripts/feature/world/world_controller.gd` 在普通门请求前加载目标地图场景，调用 `get_portal_spawn_scene_position(portal_id)`，并把有效入口格写入 `MOVE_INTENT_REQ.target_pos`；服务端快照返回后仍只消费 `self_pos`，不在本地二次覆盖。
+- `backend/server/internal/module/world/service.go` 在仓储完成门关系和等级验证后采用合法的非负客户端入口格；`world_handler.go` 继续统一持久化、回包、重同步和多人进入广播。快速传送分支不调用该入口规则。
+- 补齐东路、传送区和闪耀广场的来源门映射，重点修复从闪光镇东路右门进入传送区时落在左侧门附近。
+- 更新协议、架构、地图加载和坐标约定文档，并补充普通门落点、旁观者同步、旧客户端回退、快速传送忽略客户端坐标的测试。
+- 验证通过：四条客户端入口映射专项烟测（`2003 -> (2,12)`、`8001 -> (9,5)`、`8002 -> (20,12)`、`9001 -> (6,9)`）、`go test ./server/...`、Godot 4.7 Headless 项目加载和 `git diff --check`。
+
+## 2026-08-03：同步时光小屋显隐与地图碰撞
+
+- 保留 `east_road_of_shanguang_town.tscn` 当前的“时光小屋”默认显隐设置，不覆盖已有场景调整。
+- 在 `east_road_of_shanguang_town_level.gd` 中监听“时光小屋”的可见性变化：隐藏时禁用碰撞，重新显示时恢复碰撞。
+- 继续调用 `NetworkDoorLevelBase._ready()`，不改变闪光镇东路现有联网传送门绑定和服务端权威切图流程。
+
+## 2026-08-03：移除客户端玩家位置调试日志
+
+- 删除 `client/scripts/feature/world/world_controller.gd` 中 `[PlayerPos][Client]` 周期调试输出，以及只服务于该日志的开关、计时和坐标文本组装逻辑。
+- 玩家移动上报、服务端权威位置、数据库持久化、远端玩家插值与多人同屏表现均保持不变。
+
+## 2026-08-03：补齐闪光平原区域地图选择与快速传送
+
+- 在 `client/scenes/ui/world/map_teleport_panel.tscn` 新增独立的 `FlashPlainPointButtons`，按闪光平原原图坐标配置 19 个 `52×52` 热点；17 个已落地场景映射 `scene_id=9..25`，“传送门”和“海道”保持不可传送。
+- 修改 `client/scripts/ui/world/map_teleport_panel.gd`，按当前地区切换独立节点容器，复用闪光镇的四帧选中光标、上下循环选择、二次点击传送、未开放提示和人物当前位置图标逻辑；脚本已统一转换为 4 空格缩进。
+- 新增 `backend/server/migrations/113_shining_plain_map_teleport_nodes.sql`，为 17 张闪光平原地图写入服务端权威快速传送中心格；迁移仅生成，未直接执行。
+- 同步 `backend/server/internal/teststub/repos.go` 的测试中心格，并在 `backend/server/internal/transport/ws/world_handler_test.go` 增加传送到 `scene_id=25` 的权威坐标与持久化断言。
+- 更新 `backend/docs/map-scene-loading.md`，明确闪光镇与闪光平原节点范围、未开放节点和服务端权威传送配置。
+- 验证通过：Godot 4.7 Headless 实例化测试确认 19 个节点、17 个场景 ID、光标、人物图标、开放/未开放节点二次点击信号均正确；`go test ./server/...` 全量通过，并通过 `git diff --check`。
+
+## 2026-08-03：修正世界地图闪光平原地区图标
+
+- 将 `client/scenes/ui/world/map_teleport_panel.tscn` 中“闪光平原”地区按钮从中央 Boss 图标移到红箭头所指的中间绿色节点。
+- 位置按 `世界地图.png` 原始坐标 `(112, 144)`、3 倍显示倍率及地图居中边距换算，热点中心调整为场景坐标 `(368, 488)`，保留原有 `52×52` 点击范围。
+- 本次只调整客户端世界地图热点位置，不改变服务端权威传送、场景 ID、协议、闪光镇和精灵迷宫节点。
+- 使用 Godot 4.7 headless 加载并实例化地图面板，确认场景可正常解析，运行时“闪光平原”热点中心为 `(368, 488)`；同时通过资源引用检查与 `git diff --check`。
+
 ## 2026-08-02：补齐闪光平原新增地图脚本
 
 - 新增 `client/scripts/feature/world/scene_levels/shining_plain_level.gd`，复用 `NetworkDoorLevelBase`，为闪光平原新增地图提供统一地图名称、缩放、中心点和默认出生点接口。

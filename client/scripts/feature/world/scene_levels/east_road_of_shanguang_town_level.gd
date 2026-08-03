@@ -4,76 +4,102 @@ extends NetworkDoorLevelBase
 @export var scene_display_name: String = "闪光镇东路"
 ## level_scale_factor 是当前地图在移动端视口中的展示缩放倍数。
 @export var level_scale_factor: float = 2.25
-## 从洛克斯小屋 portal_id=1001 进入东路后的玩家场景坐标。
+@export_group("普通门切图落点（场景格）")
+## 从洛克斯小屋 portal_id=1001 进入东路后的玩家场景坐标，可在地图根节点检查器中调整。
 @export var inbound_from_roxus_scene_position: Vector2 = Vector2(4.0, 1.0)
 ## 从闪光市场 portal_id=3001 进入东路后的玩家场景坐标。
 @export var inbound_from_market_scene_position: Vector2 = Vector2(0.0, 4.0)
 ## 从一次性时光小屋 portal_id=7001 进入东路东侧门后的玩家场景坐标。
 @export var inbound_from_time_house_scene_position: Vector2 = Vector2(9.0, 5.0)
+## 从闪光镇传送区 portal_id=8001 返回东路后的玩家场景坐标。
+@export var inbound_from_transfer_area_scene_position: Vector2 = Vector2(9.0, 5.0)
+@export_group("默认出生点（场景格）")
 ## login_spawn_position 是首次登录或无传送门上下文时的默认出生中心场景坐标。
 @export var login_spawn_position: Vector2 = Vector2(4.0, 1.0)
+@export_group("")
+
+## time_house_layer 是东路地图中可按剧情显隐的时光小屋图层。
+@onready var time_house_layer: TileMapLayer = get_node_or_null("时光小屋") as TileMapLayer
+
+## 初始化联网传送门，并让时光小屋的碰撞状态与当前可见状态保持一致。
+func _ready() -> void:
+    super._ready()
+    if time_house_layer == null:
+        push_warning("Time house tile map layer not found")
+        return
+    if not time_house_layer.visibility_changed.is_connected(_sync_time_house_collision):
+        time_house_layer.visibility_changed.connect(_sync_time_house_collision)
+    _sync_time_house_collision()
+
+## 根据时光小屋的实际可见状态启用或停用 TileMap 物理碰撞。
+func _sync_time_house_collision() -> void:
+    if time_house_layer == null:
+        return
+    time_house_layer.collision_enabled = time_house_layer.is_visible_in_tree()
 
 ## 返回当前场景用于 HUD 展示的名称。
 func get_scene_display_name() -> String:
-	return scene_display_name
+    return scene_display_name
 
 func _get_door_configs() -> Dictionary:
-	return {
-		"UpPortal": {
-			"portal_id": 2001,
-			"target_scene_id": 1,
-		},
-		"LeftPortal": {
-			"portal_id": 2002,
-			"target_scene_id": 3,
-		},
-		"RightPortal": {
-			"portal_id": 2003,
-			"target_scene_id": 8,
-			"facing_direction": Vector2.RIGHT,
-		},
-	}
+    return {
+        "UpPortal": {
+            "portal_id": 2001,
+            "target_scene_id": 1,
+        },
+        "LeftPortal": {
+            "portal_id": 2002,
+            "target_scene_id": 3,
+        },
+        "RightPortal": {
+            "portal_id": 2003,
+            "target_scene_id": 8,
+            "facing_direction": Vector2.RIGHT,
+        },
+    }
 
 func _get_default_facing_direction() -> Vector2:
-	return Vector2.UP
+    return Vector2.UP
 
 ## 根据传入东路的 portal_id 返回客户端场景坐标；每个来源门在目标场景中维护自己的落点。
 func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
-	match portal_id:
-		1001:
-			return inbound_from_roxus_scene_position
-		3001:
-			return inbound_from_market_scene_position
-		7001:
-			return inbound_from_time_house_scene_position
-		_:
-			return INVALID_PORTAL_SPAWN_SCENE_POSITION
+    match portal_id:
+        1001:
+            return inbound_from_roxus_scene_position
+        3001:
+            return inbound_from_market_scene_position
+        7001:
+            return inbound_from_time_house_scene_position
+        8001:
+            return inbound_from_transfer_area_scene_position
+        _:
+            return INVALID_PORTAL_SPAWN_SCENE_POSITION
 
 
 ## get_level_center_position 返回缩放居中用的 Godot 像素中心点；该值始终根据 TileMap 自动计算，不使用导出变量覆盖。
 func get_level_center_position() -> Vector2:
-	var map_layer: TileMapLayer = _resolve_map_layer()
-	if map_layer == null:
-		return Vector2.ZERO
+    var map_layer: TileMapLayer = _resolve_map_layer()
+    if map_layer == null:
+        return Vector2.ZERO
 
-	var used_rect: Rect2i = map_layer.get_used_rect()
-	if not used_rect.has_area():
-		return Vector2.ZERO
+    var used_rect: Rect2i = map_layer.get_used_rect()
+    if not used_rect.has_area():
+        return Vector2.ZERO
 
-	var top_left: Vector2 = map_layer.map_to_local(used_rect.position)
-	var bottom_right: Vector2 = map_layer.map_to_local(used_rect.position + used_rect.size)
-	return (top_left + bottom_right) * 0.5
+    var top_left: Vector2 = map_layer.map_to_local(used_rect.position)
+    var bottom_right: Vector2 = map_layer.map_to_local(used_rect.position + used_rect.size)
+    return (top_left + bottom_right) * 0.5
 
 func get_level_scale_factor() -> float:
-	return level_scale_factor
+    return level_scale_factor
 
 func get_login_spawn_position() -> Vector2:
-	return login_spawn_position
+    return login_spawn_position
 
 ## 查找用于计算缩放居中中心点的 TileMap 图层；不同地图可能使用不同节点名。
 func _resolve_map_layer() -> TileMapLayer:
-	for layer_name in ["Map", "TileMapLayer"]:
-		var layer: TileMapLayer = get_node_or_null(layer_name) as TileMapLayer
-		if layer != null:
-			return layer
-	return null
+    for layer_name in ["Map", "TileMapLayer"]:
+        var layer: TileMapLayer = get_node_or_null(layer_name) as TileMapLayer
+        if layer != null:
+            return layer
+    return null
