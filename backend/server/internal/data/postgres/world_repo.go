@@ -124,12 +124,199 @@ var worldScenes = map[uint32]sceneData{
 	9: {
 		spawnPos: world.Vec2i{X: 14, Y: 8},
 		entries: map[uint32]world.Vec2i{
-			8: {X: 20, Y: 12},
+			8:  {X: 20, Y: 12},
+			10: {X: 16, Y: 6},
+			15: {X: 5, Y: 7},
+			16: {X: 2, Y: 8},
+			17: {X: 23, Y: 8},
+			20: {X: 12, Y: 12},
 		},
-		exits: map[uint32]struct{}{8: {}},
+		exits: map[uint32]struct{}{8: {}, 10: {}, 15: {}, 16: {}, 17: {}, 20: {}},
 		portals: map[uint32]portalData{
 			9001: {targetSceneID: 8, targetPos: world.Vec2i{X: 6, Y: 9}},
+			9002: {targetSceneID: 20, targetPos: world.Vec2i{X: 9, Y: 2}},
+			9003: {targetSceneID: 16, targetPos: world.Vec2i{X: 13, Y: 9}},
+			9004: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 16}},
+			9005: {targetSceneID: 10, targetPos: world.Vec2i{X: 3, Y: 10}},
+			9006: {targetSceneID: 17, targetPos: world.Vec2i{X: 1, Y: 7}},
 		},
+	},
+	10: {
+		spawnPos: world.Vec2i{X: 5, Y: 8},
+		entries: map[uint32]world.Vec2i{
+			9:  {X: 3, Y: 10},
+			14: {X: 6, Y: 10},
+		},
+		exits: map[uint32]struct{}{9: {}, 14: {}},
+		portals: map[uint32]portalData{
+			10001: {targetSceneID: 9, targetPos: world.Vec2i{X: 16, Y: 6}},
+			10002: {targetSceneID: 14, targetPos: world.Vec2i{X: 5, Y: 10}},
+		},
+	},
+	11: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			15: {X: 9, Y: 10},
+		},
+		exits: map[uint32]struct{}{15: {}},
+		portals: map[uint32]portalData{
+			11001: {targetSceneID: 15, targetPos: world.Vec2i{X: 1, Y: 7}},
+		},
+	},
+	12: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			15: {X: 4, Y: 10},
+		},
+		exits: map[uint32]struct{}{15: {}},
+		portals: map[uint32]portalData{
+			12001: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 2}},
+		},
+	},
+	13: {
+		spawnPos: world.Vec2i{X: 6, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			15: {X: 1, Y: 9},
+		},
+		exits: map[uint32]struct{}{15: {}},
+		portals: map[uint32]portalData{
+			13001: {targetSceneID: 15, targetPos: world.Vec2i{X: 9, Y: 7}},
+		},
+	},
+	14: {
+		spawnPos: world.Vec2i{X: 5, Y: 8},
+		entries: map[uint32]world.Vec2i{
+			10: {X: 5, Y: 10},
+		},
+		exits: map[uint32]struct{}{10: {}},
+		portals: map[uint32]portalData{
+			14001: {targetSceneID: 10, targetPos: world.Vec2i{X: 6, Y: 10}},
+		},
+	},
+	15: {
+		spawnPos: world.Vec2i{X: 5, Y: 9},
+		entries: map[uint32]world.Vec2i{
+			9:  {X: 5, Y: 16},
+			11: {X: 1, Y: 7},
+			12: {X: 5, Y: 2},
+			13: {X: 9, Y: 7},
+		},
+		exits: map[uint32]struct{}{9: {}, 11: {}, 12: {}, 13: {}},
+		portals: map[uint32]portalData{
+			15001: {targetSceneID: 11, targetPos: world.Vec2i{X: 9, Y: 10}},
+			15002: {targetSceneID: 12, targetPos: world.Vec2i{X: 4, Y: 10}},
+			15003: {targetSceneID: 13, targetPos: world.Vec2i{X: 1, Y: 9}},
+			15004: {targetSceneID: 9, targetPos: world.Vec2i{X: 5, Y: 7}},
+		},
+	},
+	16: {
+		spawnPos: world.Vec2i{X: 7, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			9: {X: 13, Y: 9},
+		},
+		exits: map[uint32]struct{}{9: {}},
+		portals: map[uint32]portalData{
+			16001: {targetSceneID: 9, targetPos: world.Vec2i{X: 2, Y: 8}},
+		},
+	},
+	17: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			9:  {X: 1, Y: 7},
+			18: {X: 9, Y: 6},
+		},
+		exits: map[uint32]struct{}{9: {}, 18: {}},
+		portals: map[uint32]portalData{
+			17001: {targetSceneID: 9, targetPos: world.Vec2i{X: 23, Y: 8}},
+			17002: {targetSceneID: 18, targetPos: world.Vec2i{X: 2, Y: 7}},
+			17003: {targetSceneID: 18, targetPos: world.Vec2i{X: 7, Y: 5}},
+		},
+	},
+	18: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			17: {X: 2, Y: 7},
+		},
+		exits: map[uint32]struct{}{17: {}},
+		portals: map[uint32]portalData{
+			18001: {targetSceneID: 17, targetPos: world.Vec2i{X: 9, Y: 6}},
+		},
+	},
+	19: {
+		spawnPos: world.Vec2i{X: 7, Y: 10},
+		entries: map[uint32]world.Vec2i{
+			20: {X: 12, Y: 10},
+		},
+		exits: map[uint32]struct{}{20: {}},
+		portals: map[uint32]portalData{
+			19001: {targetSceneID: 20, targetPos: world.Vec2i{X: 4, Y: 8}},
+		},
+	},
+	20: {
+		spawnPos: world.Vec2i{X: 6, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			9:  {X: 9, Y: 2},
+			19: {X: 4, Y: 8},
+			21: {X: 11, Y: 8},
+			23: {X: 8, Y: 11},
+		},
+		exits: map[uint32]struct{}{9: {}, 19: {}, 21: {}, 23: {}},
+		portals: map[uint32]portalData{
+			20001: {targetSceneID: 9, targetPos: world.Vec2i{X: 12, Y: 12}},
+			20002: {targetSceneID: 19, targetPos: world.Vec2i{X: 12, Y: 10}},
+			20003: {targetSceneID: 21, targetPos: world.Vec2i{X: 1, Y: 5}},
+			20004: {targetSceneID: 23, targetPos: world.Vec2i{X: 7, Y: 2}},
+		},
+	},
+	21: {
+		spawnPos: world.Vec2i{X: 9, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			20: {X: 1, Y: 5},
+		},
+		exits: map[uint32]struct{}{20: {}},
+		portals: map[uint32]portalData{
+			21001: {targetSceneID: 20, targetPos: world.Vec2i{X: 11, Y: 8}},
+		},
+	},
+	22: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			23: {X: 9, Y: 9},
+			24: {X: 4, Y: 10},
+		},
+		exits: map[uint32]struct{}{23: {}, 24: {}},
+		portals: map[uint32]portalData{
+			22001: {targetSceneID: 23, targetPos: world.Vec2i{X: 2, Y: 6}},
+			22002: {targetSceneID: 24, targetPos: world.Vec2i{X: 5, Y: 2}},
+		},
+	},
+	23: {
+		spawnPos: world.Vec2i{X: 6, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			20: {X: 7, Y: 2},
+			22: {X: 2, Y: 6},
+		},
+		exits: map[uint32]struct{}{20: {}, 22: {}},
+		portals: map[uint32]portalData{
+			23001: {targetSceneID: 20, targetPos: world.Vec2i{X: 8, Y: 11}},
+			23002: {targetSceneID: 22, targetPos: world.Vec2i{X: 9, Y: 9}},
+		},
+	},
+	24: {
+		spawnPos: world.Vec2i{X: 5, Y: 7},
+		entries: map[uint32]world.Vec2i{
+			22: {X: 5, Y: 2},
+		},
+		exits: map[uint32]struct{}{22: {}},
+		portals: map[uint32]portalData{
+			24001: {targetSceneID: 22, targetPos: world.Vec2i{X: 4, Y: 10}},
+		},
+	},
+	25: {
+		spawnPos: world.Vec2i{X: 7, Y: 7},
+		entries:  map[uint32]world.Vec2i{},
+		exits:    map[uint32]struct{}{},
+		portals:  map[uint32]portalData{},
 	},
 }
 

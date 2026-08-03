@@ -1,5 +1,12 @@
 # 任务总结
 
+## 2026-08-02：补齐闪光平原新增地图脚本
+
+- 新增 `client/scripts/feature/world/scene_levels/shining_plain_level.gd`，复用 `NetworkDoorLevelBase`，为闪光平原新增地图提供统一地图名称、缩放、中心点和默认出生点接口。
+- 将共享脚本绑定到 `client/scenes/maps/闪光平原/` 下 16 张原本没有地图级脚本的场景；“闪耀广场”继续保留已有专用脚本。
+- 出于服务端权威原则，本次没有硬编码新增地图的场景 ID、传送门 ID 和目标场景；现有 Area2D 传送区域不会在服务端契约落地前发起客户端切图。
+- 使用 Godot 4.7 headless 逐一加载并实例化闪光平原目录内 17 张场景，确认全部具备地图名称、中心点和切图信号接口。
+
 ## 2026-07-29 多人同屏出生坐标、远端移动与形象修复
 
 本次修复多人同屏的三类问题，核心是把出生坐标的事实来源收敛到服务端：
@@ -1333,3 +1340,12 @@
 - 服务端权威快速传送已接入：当前标点再次点击发送 `MOVE_INTENT_REQ(map_teleport=true)`；服务端从迁移 `108_world_map_teleport_nodes.sql` 读取开放状态和目标地图中心格，持久化后沿用 `MOVE_INTENT_RESP -> WORLD_RESYNC_PUSH`。
 - 1–6 号场景开放快速传送；未落地地图场景的闪光平原只展示“尚未开放”，一次性时光小屋不进入快速传送表。同地图传送会回到中心格，但不会重复触发场景进入任务事件。
 - 已通过 Godot MCP 校验地图中心边界、7 个节点导出配置、二次点击信号和未开放提示；服务端新增跨地图与同地图快速传送测试。
+
+## 2026-08-02 闪光平原人物切换与传送
+
+- 按服务端权威原则为闪光平原 17 张已落地地图分配并注册 `scene_id=9..25`，数据库变更输出为 `backend/server/migrations/112_shining_plain_scenes.sql`，未直接执行数据库迁移。
+- 在 `backend/server/internal/data/postgres/world_repo.go` 配置普通门拓扑和安全出生格，并同步 `backend/server/internal/teststub/repos.go` 与逐门单元测试。
+- 在 `client/scripts/feature/world/world_scene_registry.gd` 注册客户端地图资源；`shining_plain_level.gd` 统一读取场景资源中的门配置，`shining_square_level.gd` 接通广场六个现有入口。
+- 为 `闪光平原宠物学校.tscn`、`办公区.tscn`、`家族会馆.tscn` 增加必要的返回门碰撞节点，其余地图复用已有 `Area2D` 门节点。
+- 未接通不存在目标资源的门：商业区到闪光平原传送区、准备区到战斗区、闪光海岸/精灵大厅到海道；这些门不会向服务端发送无效切图请求。
+- 已通过闪光平原 17 张地图 Godot headless 加载、32 个启用传送门契约检查和全部目标出生格物理检查；并通过 `go test ./server/internal/data/postgres`、`go test ./server/...`。

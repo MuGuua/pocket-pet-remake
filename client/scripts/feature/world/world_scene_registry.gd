@@ -48,6 +48,86 @@ const SCENE_CONFIGS: Dictionary = {
         "scene_path": "res://scenes/maps/闪光平原/闪耀广场.tscn",
         "grid_to_pixels": 16.0,
     },
+    10: {
+        "display_name": "闪光平原宠物学校",
+        "scene_path": "res://scenes/maps/闪光平原/闪光平原宠物学校.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    11: {
+        "display_name": "冰雪梦境",
+        "scene_path": "res://scenes/maps/闪光平原/冰雪梦境.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    12: {
+        "display_name": "灰烬梦境",
+        "scene_path": "res://scenes/maps/闪光平原/灰烬梦境.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    13: {
+        "display_name": "翡翠梦境",
+        "scene_path": "res://scenes/maps/闪光平原/翡翠梦境.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    14: {
+        "display_name": "阿尔的房间",
+        "scene_path": "res://scenes/maps/闪光平原/阿尔的房间.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    15: {
+        "display_name": "办公区",
+        "scene_path": "res://scenes/maps/闪光平原/办公区.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    16: {
+        "display_name": "商业区",
+        "scene_path": "res://scenes/maps/闪光平原/商业区.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    17: {
+        "display_name": "报名区",
+        "scene_path": "res://scenes/maps/闪光平原/报名区.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    18: {
+        "display_name": "准备区",
+        "scene_path": "res://scenes/maps/闪光平原/准备区.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    19: {
+        "display_name": "家族会馆",
+        "scene_path": "res://scenes/maps/闪光平原/家族会馆.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    20: {
+        "display_name": "闪光南路",
+        "scene_path": "res://scenes/maps/闪光平原/闪光南路.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    21: {
+        "display_name": "五彩湖",
+        "scene_path": "res://scenes/maps/闪光平原/五彩胡.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    22: {
+        "display_name": "沼泽地",
+        "scene_path": "res://scenes/maps/闪光平原/沼泽地.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    23: {
+        "display_name": "闪光海岸",
+        "scene_path": "res://scenes/maps/闪光平原/闪光海岸.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    24: {
+        "display_name": "尘泥之地",
+        "scene_path": "res://scenes/maps/闪光平原/尘泥之地.tscn",
+        "grid_to_pixels": 16.0,
+    },
+    25: {
+        "display_name": "精灵大厅",
+        "scene_path": "res://scenes/maps/闪光平原/精灵大厅.tscn",
+        "grid_to_pixels": 16.0,
+    },
 }
 
 
