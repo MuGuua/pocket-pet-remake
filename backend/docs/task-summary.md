@@ -1416,3 +1416,11 @@
 - 地区切换后继续复用现有 `_select_current_scene_or_first_point()` 和 `_refresh_current_scene_icon()`，保证选择动画、地点名称、焦点和人物当前位置图标都定位到当前地图热点。
 - 闪光平原 `scene_id=9..26` 的热点继续支持二次点击传送，客户端只提交 `target_scene_id`，目标中心格仍由 `world_map_teleport_node` 数据库配置和服务端权威校验。
 - 验证结果：Godot 4.7 Headless 逐场景检查 `scene_id=9..26`，全部自动显示闪光平原地图、选中当前热点、正确定位两类光标，并发出对应传送信号。
+
+
+## 2026-08-05 闪光平原点击传送保持原场景任务总结
+
+- 根因是当前数据库 `world_map_teleport_node` 只查询到 `scene_id=26`，闪光平原地图热点提交的 `scene_id=9..25` 没有对应的快速传送中心配置；服务端返回 `map teleport unavailable` 后，客户端按既有失败流程保持原场景。
+- 新增 `backend/server/migrations/115_repair_shining_plain_map_teleport_nodes.sql`，使用 `INSERT ... ON CONFLICT DO UPDATE` 幂等补齐 `scene_id=9..26` 的中心出生格与开放状态。
+- 未修改客户端脚本、场景节点、WebSocket 协议或服务端权威传送逻辑，避免影响普通传送门和现有地图交互。
+- 本次未直接执行数据库迁移；用户执行迁移后，闪光平原热点的二次点击会重新走现有 `MOVE_INTENT_REQ(map_teleport=true)` -> `MOVE_INTENT_RESP` -> `WORLD_RESYNC_PUSH` 权威传送链路。
