@@ -720,7 +720,7 @@ theme_override_styles/hover = SubResource("StyleBoxEmpty_selection")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_selection")
 toggle_mode = true
 script = ExtResource("3_rfn2d")
-teleport_enabled = false
+target_scene_id = 26
 
 [node name="SpiritHallPoint" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/MapFrame/MapCanvas/FlashPlainPointButtons"]
 layout_mode = 0

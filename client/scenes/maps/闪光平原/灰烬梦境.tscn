@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://coc4uctf7c0ik" path="res://asset/generated_maps/maps/sgpy/hjmj/full_frames/sheet.png" id="1_5witb"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_drs8r"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_8o3am"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_drs8r"]
 texture = ExtResource("1_5witb")
@@ -250,11 +249,14 @@ size = Vector2(17.984375, 7.0625)
 [node name="冰雪梦境" type="Node2D" unique_id=1590580930]
 script = ExtResource("level_shining_plain")
 scene_display_name = "灰烬梦境"
+portal_spawn_scene_positions = {
+"15002": Vector2(5, 12)
+}
 door_configs = {
 "通往办公区": {
 "portal_id": 12001,
 "target_scene_id": 15
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=1731520240]

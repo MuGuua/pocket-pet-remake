@@ -324,6 +324,9 @@ size = Vector2(9.984375, 15.53125)
 [node name="冰雪梦境" type="Node2D" unique_id=1590580930]
 script = ExtResource("level_shining_plain")
 scene_display_name = "翡翠梦境"
+portal_spawn_scene_positions = {
+"15003": Vector2(1, 9),
+}
 door_configs = {
 "通往办公区": {
 "portal_id": 13001,

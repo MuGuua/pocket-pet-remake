@@ -128,6 +128,11 @@ const SCENE_CONFIGS: Dictionary = {
         "scene_path": "res://scenes/maps/闪光平原/精灵大厅.tscn",
         "grid_to_pixels": 16.0,
     },
+    26: {
+        "display_name": "海道",
+        "scene_path": "res://scenes/maps/闪光平原/海道.tscn",
+        "grid_to_pixels": 16.0,
+    },
 }
 
 

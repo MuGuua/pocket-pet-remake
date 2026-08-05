@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://b1ri8nbdq402s" path="res://asset/generated_maps/maps/sgpy/eczz/full_frames/sheet.png" id="1_e00x5"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_8kqyr"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_3a68d"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_e00x5"]
 texture = ExtResource("1_e00x5")
@@ -277,11 +276,14 @@ size = Vector2(21.96875, 10.125)
 [node name="尘泥之地" type="Node2D" unique_id=168300270]
 script = ExtResource("level_shining_plain")
 scene_display_name = "尘泥之地"
+portal_spawn_scene_positions = {
+"22002": Vector2(6, 1)
+}
 door_configs = {
 "通往沼泽地": {
 "portal_id": 24001,
 "target_scene_id": 22
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=1773692727]

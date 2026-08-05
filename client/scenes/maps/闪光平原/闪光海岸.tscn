@@ -4,8 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dk2gjxn208lss" path="res://asset/分类/小部件/树.png" id="2_nkjsu"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_waf40"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_nkjsu"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_7wy30"]
 texture = ExtResource("1_k45ab")
@@ -268,17 +267,27 @@ size = Vector2(17, 9)
 size = Vector2(9, 32)
 
 [node name="闪光海岸" type="Node2D" unique_id=1480842151]
+visible = false
 script = ExtResource("level_shining_plain")
 scene_display_name = "闪光海岸"
+portal_spawn_scene_positions = {
+"20004": Vector2(7, 1),
+"22001": Vector2(1, 6),
+"26001": Vector2(9, 12)
+}
 door_configs = {
-"通往闪光南路": {
-"portal_id": 23001,
-"target_scene_id": 20
-},
 "通往沼泽地": {
 "portal_id": 23002,
 "target_scene_id": 22
 },
+"通往海道": {
+"portal_id": 23003,
+"target_scene_id": 26
+},
+"通往闪光南路": {
+"portal_id": 23001,
+"target_scene_id": 20
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=2127800490]
@@ -347,7 +356,7 @@ shape = SubResource("RectangleShape2D_k45ab")
 [node name="通往海道" type="Area2D" parent="传送门" unique_id=1532309254]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往海道" unique_id=533105295]
-position = Vector2(136.5, 204.5)
+position = Vector2(136, 206)
 shape = SubResource("RectangleShape2D_nkjsu")
 
 [node name="通往沼泽地" type="Area2D" parent="传送门" unique_id=386338029]

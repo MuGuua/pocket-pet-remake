@@ -9,6 +9,16 @@ extends NetworkDoorLevelBase
 @export_group("普通门切图落点（场景格）")
 ## 从闪光镇传送区 portal_id=8002 进入后，出生在闪耀广场西侧入口附近，可在地图根节点检查器中调整。
 @export var inbound_from_transfer_area_scene_position: Vector2 = Vector2(20.0, 12.0)
+## 从闪光平原宠物学校 portal_id=10001 返回后，出生在宠物学校入口附近。
+@export var inbound_from_pet_school_scene_position: Vector2 = Vector2(16.0, 6.0)
+## 从办公区 portal_id=15004 返回后，出生在冒险任务小屋入口附近。
+@export var inbound_from_office_area_scene_position: Vector2 = Vector2(5.0, 7.0)
+## 从商业区 portal_id=16001 返回后，出生在商业区入口附近。
+@export var inbound_from_commercial_area_scene_position: Vector2 = Vector2(2.0, 8.0)
+## 从报名区 portal_id=17001 返回后，出生在报名区入口附近。
+@export var inbound_from_registration_area_scene_position: Vector2 = Vector2(23.0, 8.0)
+## 从闪光南路 portal_id=20001 返回后，出生在闪光南路入口附近。
+@export var inbound_from_south_road_scene_position: Vector2 = Vector2(12.0, 12.0)
 @export_group("默认出生点（场景格）")
 ## login_spawn_position 是没有服务端权威位置时的默认场景坐标。
 @export var login_spawn_position: Vector2 = Vector2(14.0, 8.0)
@@ -64,6 +74,16 @@ func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
     match portal_id:
         8002:
             return inbound_from_transfer_area_scene_position
+        10001:
+            return inbound_from_pet_school_scene_position
+        15004:
+            return inbound_from_office_area_scene_position
+        16001:
+            return inbound_from_commercial_area_scene_position
+        17001:
+            return inbound_from_registration_area_scene_position
+        20001:
+            return inbound_from_south_road_scene_position
         _:
             return INVALID_PORTAL_SPAWN_SCENE_POSITION
 

@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://dymb0f3u0ai78" path="res://asset/generated_maps/maps/sgpy/mjxw/full_frames/sheet.png" id="1_8vbw8"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_tb3cl"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_8h8ld"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_62m13"]
 texture = ExtResource("1_8vbw8")
@@ -311,11 +310,18 @@ size = Vector2(4, 295)
 size = Vector2(14.9921875, 24.382813)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_office_square"]
-size = Vector2(16, 12)
+size = Vector2(47, 8)
 
 [node name="办公区" type="Node2D" unique_id=1299042133]
+visible = false
 script = ExtResource("level_shining_plain")
 scene_display_name = "办公区"
+portal_spawn_scene_positions = {
+"11001": Vector2(1, 8),
+"12001": Vector2(5, 2),
+"13001": Vector2(10, 7),
+"9004": Vector2(5, 17)
+}
 door_configs = {
 "通往冰雪梦境": {
 "portal_id": 15001,
@@ -332,7 +338,7 @@ door_configs = {
 "通往闪耀广场": {
 "portal_id": 15004,
 "target_scene_id": 9
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=2135287734]
@@ -400,8 +406,8 @@ shape = SubResource("RectangleShape2D_nm8ck")
 position = Vector2(175, 119)
 shape = SubResource("RectangleShape2D_nm8ck")
 
-[node name="通往闪耀广场" type="Area2D" parent="传送门"]
+[node name="通往闪耀广场" type="Area2D" parent="传送门" unique_id=537571619]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往闪耀广场"]
-position = Vector2(88, 285)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往闪耀广场" unique_id=985015965]
+position = Vector2(86.5, 287)
 shape = SubResource("RectangleShape2D_office_square")

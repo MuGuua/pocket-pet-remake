@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://baggc7blhevog" path="res://asset/generated_maps/maps/sgpy/gml/full_frames/sheet.png" id="1_kelse"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_l8yvy"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_qtatx"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_kelse"]
 texture = ExtResource("1_kelse")
@@ -484,23 +483,29 @@ size = Vector2(4, 230)
 [node name="闪光南路" type="Node2D" unique_id=1198935004]
 script = ExtResource("level_shining_plain")
 scene_display_name = "闪光南路"
+portal_spawn_scene_positions = {
+"19001": Vector2(4, 8),
+"21001": Vector2(12, 8),
+"23001": Vector2(8, 13),
+"9002": Vector2(10, 2)
+}
 door_configs = {
-"通往闪耀广场": {
-"portal_id": 20001,
-"target_scene_id": 9
+"通往五彩湖": {
+"portal_id": 20003,
+"target_scene_id": 21
 },
 "通往家族会馆": {
 "portal_id": 20002,
 "target_scene_id": 19
 },
-"通往五彩湖": {
-"portal_id": 20003,
-"target_scene_id": 21
-},
 "通往闪光海岸": {
 "portal_id": 20004,
 "target_scene_id": 23
 },
+"通往闪耀广场": {
+"portal_id": 20001,
+"target_scene_id": 9
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=207739691]

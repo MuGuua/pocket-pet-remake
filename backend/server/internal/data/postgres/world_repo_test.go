@@ -81,6 +81,10 @@ func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
 		{name: "闪光南路到闪光海岸", fromSceneID: 20, toSceneID: 23, portalID: 20004, wantSpawnPos: world.Vec2i{X: 7, Y: 2}},
 		{name: "闪光海岸到闪光南路", fromSceneID: 23, toSceneID: 20, portalID: 23001, wantSpawnPos: world.Vec2i{X: 8, Y: 11}},
 		{name: "闪光海岸到沼泽地", fromSceneID: 23, toSceneID: 22, portalID: 23002, wantSpawnPos: world.Vec2i{X: 9, Y: 9}},
+		{name: "闪光海岸到海道", fromSceneID: 23, toSceneID: 26, portalID: 23003, wantSpawnPos: world.Vec2i{X: 6, Y: 2}},
+		{name: "海道到闪光海岸", fromSceneID: 26, toSceneID: 23, portalID: 26001, wantSpawnPos: world.Vec2i{X: 8, Y: 11}},
+		{name: "海道到精灵大厅", fromSceneID: 26, toSceneID: 25, portalID: 26002, wantSpawnPos: world.Vec2i{X: 2, Y: 8}},
+		{name: "精灵大厅到海道", fromSceneID: 25, toSceneID: 26, portalID: 25001, wantSpawnPos: world.Vec2i{X: 10, Y: 8}},
 		{name: "沼泽地到闪光海岸", fromSceneID: 22, toSceneID: 23, portalID: 22001, wantSpawnPos: world.Vec2i{X: 2, Y: 6}},
 		{name: "沼泽地到尘泥之地", fromSceneID: 22, toSceneID: 24, portalID: 22002, wantSpawnPos: world.Vec2i{X: 5, Y: 2}},
 		{name: "尘泥之地到沼泽地", fromSceneID: 24, toSceneID: 22, portalID: 24001, wantSpawnPos: world.Vec2i{X: 4, Y: 10}},
@@ -105,7 +109,7 @@ func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
 
 // TestShiningPlainScenesRegistered 验证闪光平原所有已落地地图均进入服务端权威场景表。
 func TestShiningPlainScenesRegistered(t *testing.T) {
-	for sceneID := uint32(9); sceneID <= 25; sceneID++ {
+	for sceneID := uint32(9); sceneID <= 26; sceneID++ {
 		if _, ok := worldScenes[sceneID]; !ok {
 			t.Fatalf("worldScenes missing shining plain scene_id=%d", sceneID)
 		}

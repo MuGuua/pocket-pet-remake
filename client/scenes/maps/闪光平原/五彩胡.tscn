@@ -391,6 +391,9 @@ size = Vector2(14, 31.5)
 [node name="五彩胡" type="Node2D" unique_id=653989380]
 script = ExtResource("level_shining_plain")
 scene_display_name = "五彩湖"
+portal_spawn_scene_positions = {
+"20003": Vector2(1, 5),
+}
 door_configs = {
 "通往闪光南路": {
 "portal_id": 21001,

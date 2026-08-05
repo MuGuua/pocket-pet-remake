@@ -3639,9 +3639,10 @@ var scenes = map[uint32]sceneData{
 	20: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 9, Y: 2}, 19: {X: 4, Y: 8}, 21: {X: 11, Y: 8}, 23: {X: 8, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 19: {}, 21: {}, 23: {}}, portals: map[uint32]portalData{20001: {targetSceneID: 9, targetPos: world.Vec2i{X: 12, Y: 12}}, 20002: {targetSceneID: 19, targetPos: world.Vec2i{X: 12, Y: 10}}, 20003: {targetSceneID: 21, targetPos: world.Vec2i{X: 1, Y: 5}}, 20004: {targetSceneID: 23, targetPos: world.Vec2i{X: 7, Y: 2}}}},
 	21: {spawnPos: world.Vec2i{X: 9, Y: 7}, entries: map[uint32]world.Vec2i{20: {X: 1, Y: 5}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}}, portals: map[uint32]portalData{21001: {targetSceneID: 20, targetPos: world.Vec2i{X: 11, Y: 8}}}},
 	22: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{23: {X: 9, Y: 9}, 24: {X: 4, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{23: {}, 24: {}}, portals: map[uint32]portalData{22001: {targetSceneID: 23, targetPos: world.Vec2i{X: 2, Y: 6}}, 22002: {targetSceneID: 24, targetPos: world.Vec2i{X: 5, Y: 2}}}},
-	23: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{20: {X: 7, Y: 2}, 22: {X: 2, Y: 6}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}, 22: {}}, portals: map[uint32]portalData{23001: {targetSceneID: 20, targetPos: world.Vec2i{X: 8, Y: 11}}, 23002: {targetSceneID: 22, targetPos: world.Vec2i{X: 9, Y: 9}}}},
+	23: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{20: {X: 7, Y: 2}, 22: {X: 2, Y: 6}, 26: {X: 8, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}, 22: {}, 26: {}}, portals: map[uint32]portalData{23001: {targetSceneID: 20, targetPos: world.Vec2i{X: 8, Y: 11}}, 23002: {targetSceneID: 22, targetPos: world.Vec2i{X: 9, Y: 9}}, 23003: {targetSceneID: 26, targetPos: world.Vec2i{X: 6, Y: 2}}}},
 	24: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{22: {X: 5, Y: 2}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{22: {}}, portals: map[uint32]portalData{24001: {targetSceneID: 22, targetPos: world.Vec2i{X: 4, Y: 10}}}},
-	25: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{}, nearby: []world.Entity{}, exits: map[uint32]struct{}{}, portals: map[uint32]portalData{}},
+	25: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{26: {X: 2, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{26: {}}, portals: map[uint32]portalData{25001: {targetSceneID: 26, targetPos: world.Vec2i{X: 10, Y: 8}}}},
+	26: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{23: {X: 6, Y: 2}, 25: {X: 10, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{23: {}, 25: {}}, portals: map[uint32]portalData{26001: {targetSceneID: 23, targetPos: world.Vec2i{X: 8, Y: 11}}, 26002: {targetSceneID: 25, targetPos: world.Vec2i{X: 2, Y: 8}}}},
 }
 
 func (r *WorldRepository) GetSceneSnapshot(_ context.Context, _ uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
@@ -3729,6 +3730,7 @@ func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uin
 		23: {X: 6, Y: 7},
 		24: {X: 5, Y: 7},
 		25: {X: 7, Y: 7},
+		26: {X: 6, Y: 7},
 	}
 	center, ok := mapCenters[targetSceneID]
 	if !ok {

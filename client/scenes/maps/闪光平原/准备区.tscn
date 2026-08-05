@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://blpqbkembs831" path="res://asset/generated_maps/maps/sgpy/bwq2/full_frames/sheet.png" id="1_wttlv"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_gbkyj"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_igsf5"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_wttlv"]
 texture = ExtResource("1_wttlv")
@@ -249,11 +248,16 @@ size = Vector2(16, 9.75)
 [node name="报名区" type="Node2D" unique_id=1776857544]
 script = ExtResource("level_shining_plain")
 scene_display_name = "准备区"
+portal_spawn_scene_positions = {
+"17002": Vector2(-4, 1),
+"17003": Vector2(0, -3)
+}
+login_spawn_position = Vector2(0, 1)
 door_configs = {
 "通往报名区": {
 "portal_id": 18001,
 "target_scene_id": 17
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=228164271]

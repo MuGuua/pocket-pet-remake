@@ -3,8 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://d2gieq4ak2tpe" path="res://asset/generated_maps/maps/sgpy/cwxx/full_frames/sheet.png" id="1_2u35u"]
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_3j1oa"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_qedtt"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_24xa1"]
 texture = ExtResource("1_2u35u")
@@ -265,7 +264,7 @@ size = Vector2(4, 215)
 size = Vector2(4, 215)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_school_square"]
-size = Vector2(14, 12)
+size = Vector2(33, 7)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_school_aer"]
 size = Vector2(14, 12)
@@ -273,6 +272,10 @@ size = Vector2(14, 12)
 [node name="闪光平原宠物学校" type="Node2D" unique_id=1086697505]
 script = ExtResource("level_shining_plain")
 scene_display_name = "闪光平原宠物学校"
+portal_spawn_scene_positions = {
+"14001": Vector2(8, 4),
+"9005": Vector2(5, 12)
+}
 door_configs = {
 "通往闪耀广场": {
 "portal_id": 10001,
@@ -281,7 +284,7 @@ door_configs = {
 "通往阿尔的房间": {
 "portal_id": 10002,
 "target_scene_id": 14
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=1501705775]
@@ -334,16 +337,16 @@ shape = SubResource("RectangleShape2D_puwj4")
 position = Vector2(181, 107.5)
 shape = SubResource("RectangleShape2D_746q5")
 
-[node name="传送门" type="Node2D" parent="."]
+[node name="传送门" type="Node2D" parent="." unique_id=321803909]
 
-[node name="通往闪耀广场" type="Area2D" parent="传送门"]
+[node name="通往闪耀广场" type="Area2D" parent="传送门" unique_id=906197053]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往闪耀广场"]
-position = Vector2(56, 204)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往闪耀广场" unique_id=64006574]
+position = Vector2(80.5, 203.5)
 shape = SubResource("RectangleShape2D_school_square")
 
-[node name="通往阿尔的房间" type="Area2D" parent="传送门"]
+[node name="通往阿尔的房间" type="Area2D" parent="传送门" unique_id=2078303928]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往阿尔的房间"]
-position = Vector2(104, 204)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往阿尔的房间" unique_id=216060923]
+position = Vector2(120, 49)
 shape = SubResource("RectangleShape2D_school_aer")
