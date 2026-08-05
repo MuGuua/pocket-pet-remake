@@ -1431,3 +1431,10 @@
 - 新增 `backend/server/migrations/115_repair_shining_plain_map_teleport_nodes.sql`，使用 `INSERT ... ON CONFLICT DO UPDATE` 幂等补齐 `scene_id=9..26` 的中心出生格与开放状态。
 - 未修改客户端脚本、场景节点、WebSocket 协议或服务端权威传送逻辑，避免影响普通传送门和现有地图交互。
 - 本次未直接执行数据库迁移；用户执行迁移后，闪光平原热点的二次点击会重新走现有 `MOVE_INTENT_REQ(map_teleport=true)` -> `MOVE_INTENT_RESP` -> `WORLD_RESYNC_PUSH` 权威传送链路。
+
+## 2026-08-05 闪光海岸树木遮挡任务总结
+
+- 根因是闪光海岸的树木使用地图根节点下的独立 `TileMapLayer`，人物和跟随宠物则由世界控制器挂入另一个启用 Y-Sort 的 `ActorRoot`；两者不在同一排序分支，因此无法按树根与角色脚底动态排序。
+- 保留原 `树`、`树2` 图块层及其碰撞数据，仅关闭固定树木绘制；将左侧边缘、左侧、右侧和中央四棵完整棕榈树作为 `Sprite2D` 放入预置 `ActorRoot`，排序节点位置分别对齐实际树根。
+- 没有修改树木碰撞、地图瓦片、人物/宠物脚本、网络协议或服务端逻辑，避免影响现有移动和联机同步。
+- Godot 4.7 Headless 专项验证已确认场景可加载、`ActorRoot` 开启 Y-Sort、四棵树使用完整区域且排序原点位于树根，原图块碰撞仍保留。

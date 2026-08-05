@@ -295,14 +295,55 @@ tile_map_data = PackedByteArray("AAAAAAAAAAAAAAAAAAAAAAEAAAAAAAEAAAAAAAIAAAAAAAI
 tile_set = SubResource("TileSet_tx6cj")
 
 [node name="树" type="TileMapLayer" parent="." unique_id=648950798]
+visible = false
 position = Vector2(48, -16)
 tile_map_data = PackedByteArray("AAAGAAUAAAAJAAQAAAAGAAYAAAAJAAUAAAAHAAQAAAAKAAMAAAAHAAUAAAAKAAQAAAAHAAYAAAAKAAUAAAAHAAcAAAAKAAYAAAAHAAgAAAAKAAcAAAAIAAUAAAALAAQAAAAIAAYAAAALAAUAAAA=")
 tile_set = SubResource("TileSet_i7iau")
 
 [node name="树2" type="TileMapLayer" parent="." unique_id=1195304513]
+visible = false
 position = Vector2(48, -16)
 tile_map_data = PackedByteArray("AAAGAAUAAAAJAAQAAAAGAAYAAAAJAAUAAAAHAAQAAAAKAAMAAAAHAAUAAAAKAAQAAAAHAAYAAAAKAAUAAAAHAAcAAAAKAAYAAAAHAAgAAAAKAAcAAAAIAAUAAAALAAQAAAAIAAYAAAALAAUAAAD//wIAAAAJAAQAAAD//wMAAAAJAAUAAAAAAAEAAAAKAAMAAAAAAAIAAAAKAAQAAAAAAAMAAAAKAAUAAAAAAAQAAAAKAAYAAAAAAAUAAAAKAAcAAAABAAIAAAALAAQAAAABAAMAAAALAAUAAAD9/wAAAAAKAAMAAAD9/wEAAAAKAAQAAAD9/wIAAAAKAAUAAAD9/wMAAAAKAAYAAAD9/wQAAAAKAAcAAAD+/wEAAAALAAQAAAD+/wIAAAALAAUAAAAIAAMAAAAJAAQAAAAIAAQAAAAJAAUAAAAJAAIAAAAKAAMAAAAJAAMAAAAKAAQAAAAJAAQAAAAKAAUAAAAJAAUAAAAKAAYAAAAJAAYAAAAKAAcAAAA=")
 tile_set = SubResource("TileSet_i7iau")
+
+[node name="ActorRoot" type="Node2D" parent="." unique_id=1398597577]
+y_sort_enabled = true
+
+[node name="LeftEdgePalmTree" type="Sprite2D" parent="ActorRoot" unique_id=471707171]
+position = Vector2(8, 64)
+texture = ExtResource("2_nkjsu")
+centered = false
+offset = Vector2(-24, -80)
+region_enabled = true
+region_rect = Rect2(144, 48, 48, 80)
+region_filter_clip_enabled = true
+
+[node name="LeftPalmTree" type="Sprite2D" parent="ActorRoot" unique_id=1132578367]
+position = Vector2(56, 80)
+texture = ExtResource("2_nkjsu")
+centered = false
+offset = Vector2(-24, -80)
+region_enabled = true
+region_rect = Rect2(144, 48, 48, 80)
+region_filter_clip_enabled = true
+
+[node name="RightPalmTree" type="Sprite2D" parent="ActorRoot" unique_id=1242931194]
+position = Vector2(200, 96)
+texture = ExtResource("2_nkjsu")
+centered = false
+offset = Vector2(-24, -80)
+region_enabled = true
+region_rect = Rect2(144, 48, 48, 80)
+region_filter_clip_enabled = true
+
+[node name="CenterPalmTree" type="Sprite2D" parent="ActorRoot" unique_id=1069041326]
+position = Vector2(168, 128)
+texture = ExtResource("2_nkjsu")
+centered = false
+offset = Vector2(-24, -80)
+region_enabled = true
+region_rect = Rect2(144, 48, 48, 80)
+region_filter_clip_enabled = true
 
 [node name="边框" type="Node2D" parent="." unique_id=735917855]
 position = Vector2(-3, -3)
