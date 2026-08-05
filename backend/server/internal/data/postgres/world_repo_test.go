@@ -65,7 +65,7 @@ func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
 		{name: "阿尔房间到宠物学校", fromSceneID: 14, toSceneID: 10, portalID: 14001, wantSpawnPos: world.Vec2i{X: 6, Y: 10}},
 		{name: "闪耀广场到报名区", fromSceneID: 9, toSceneID: 17, portalID: 9006, wantSpawnPos: world.Vec2i{X: 1, Y: 7}},
 		{name: "报名区到闪耀广场", fromSceneID: 17, toSceneID: 9, portalID: 17001, wantSpawnPos: world.Vec2i{X: 23, Y: 8}},
-		{name: "报名区到准备区", fromSceneID: 17, toSceneID: 18, portalID: 17002, wantSpawnPos: world.Vec2i{X: 2, Y: 7}},
+		{name: "报名区到准备区", fromSceneID: 17, toSceneID: 18, portalID: 17002, wantSpawnPos: world.Vec2i{X: 2, Y: 5}},
 		{name: "报名区到比武区入口", fromSceneID: 17, toSceneID: 18, portalID: 17003, wantSpawnPos: world.Vec2i{X: 7, Y: 5}},
 		{name: "准备区到报名区", fromSceneID: 18, toSceneID: 17, portalID: 18001, wantSpawnPos: world.Vec2i{X: 9, Y: 6}},
 		{name: "办公区到冰雪梦境", fromSceneID: 15, toSceneID: 11, portalID: 15001, wantSpawnPos: world.Vec2i{X: 9, Y: 10}},

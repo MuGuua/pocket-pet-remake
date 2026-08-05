@@ -245,11 +245,11 @@ size = Vector2(18, 33)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_igsf5"]
 size = Vector2(16, 9.75)
 
-[node name="报名区" type="Node2D" unique_id=1776857544]
+[node name="准备区" type="Node2D" unique_id=1776857544]
 script = ExtResource("level_shining_plain")
 scene_display_name = "准备区"
 portal_spawn_scene_positions = {
-"17002": Vector2(2, 7),
+"17002": Vector2(2, 5),
 "17003": Vector2(0, -3)
 }
 login_spawn_position = Vector2(0, 1)

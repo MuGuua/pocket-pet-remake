@@ -267,7 +267,6 @@ size = Vector2(17, 9)
 size = Vector2(9, 32)
 
 [node name="闪光海岸" type="Node2D" unique_id=1480842151]
-visible = false
 script = ExtResource("level_shining_plain")
 scene_display_name = "闪光海岸"
 portal_spawn_scene_positions = {
