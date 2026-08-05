@@ -780,9 +780,10 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	}
 }
 
-func TestRouterHandleMoveIntentSceneTransfer(t *testing.T) {
+func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
-	clientPortalPos := protocol.Vec2i{X: 3, Y: 2}
+	// 场景格是有符号坐标；负数入口必须完整通过请求解析、权威回包、重同步和持久化链路。
+	clientPortalPos := protocol.Vec2i{X: -4, Y: 1}
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 14, 0, protocol.MoveIntentReq{
 		OpID:          2,

@@ -17,7 +17,7 @@
 ## 2026-08-03：普通门切图改为客户端目标场景脚本选择落点
 
 - `client/scripts/feature/world/world_controller.gd` 在普通门请求前加载目标地图场景，调用 `get_portal_spawn_scene_position(portal_id)`，并把有效入口格写入 `MOVE_INTENT_REQ.target_pos`；服务端快照返回后仍只消费 `self_pos`，不在本地二次覆盖。
-- `backend/server/internal/module/world/service.go` 在仓储完成门关系和等级验证后采用合法的非负客户端入口格；`world_handler.go` 继续统一持久化、回包、重同步和多人进入广播。快速传送分支不调用该入口规则。
+- `backend/server/internal/module/world/service.go` 在仓储完成门关系和等级验证后采用客户端入口格；入口格使用有符号整数，允许负坐标。`world_handler.go` 继续统一持久化、回包、重同步和多人进入广播，快速传送分支不调用该入口规则。
 - 补齐东路、传送区和闪耀广场的来源门映射，重点修复从闪光镇东路右门进入传送区时落在左侧门附近。
 - 更新协议、架构、地图加载和坐标约定文档，并补充普通门落点、旁观者同步、旧客户端回退、快速传送忽略客户端坐标的测试。
 - 验证通过：四条客户端入口映射专项烟测（`2003 -> (2,12)`、`8001 -> (9,5)`、`8002 -> (20,12)`、`9001 -> (6,9)`）、`go test ./server/...`、Godot 4.7 Headless 项目加载和 `git diff --check`。
@@ -1452,3 +1452,10 @@
 - 根据准备区左侧“通往报名区”门的场景位置和 16px 场景格，修正为门内侧的 `(2,7)`；该坐标与服务端正式仓储、测试桩及既有普通门坐标契约一致。
 - 没有修改 `portal_id=17003` 的比武区入口、门拓扑、WebSocket 协议、服务端权威校验或数据库结构。
 - Godot 4.7 Headless 已确认场景解析正常、`17002` 返回 `(2,7)`、目标格有地图瓦片且无物理阻挡；相关 Go 仓储测试通过。
+
+## 2026-08-05 普通门负坐标落点支持任务总结
+
+- 根因是 `backend/server/internal/module/world/service.go` 在普通门拓扑和等级验证通过后，仍把 `x < 0` 或 `y < 0` 的客户端入口格判为无效，导致 `target_pos=(-4,1)` 被丢弃并回退服务端兼容门点。
+- 删除该正负号限制；普通门仍必须先通过当前场景、`portal_id`、目标场景和等级校验，只有通过后才采用客户端目标场景脚本提交的有符号入口格。
+- 协议 `Vec2i`、Go 世界坐标和 PostgreSQL `pos_x/pos_y INTEGER` 原本均支持负数，因此不修改协议结构、数据库结构或客户端请求格式；世界地图快速传送仍忽略客户端 `target_pos`。
+- 将 WebSocket 端到端切图测试改为 `(-4,1)`，确认 `MOVE_INTENT_RESP.corrected_pos`、`WORLD_RESYNC_PUSH.self_pos` 和玩家持久化坐标一致；现有正坐标门切图测试继续保留。

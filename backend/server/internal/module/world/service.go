@@ -38,12 +38,9 @@ func (s *Service) EvaluateTransfer(ctx context.Context, playerID uint64, playerL
 }
 
 // ApplyClientPortalSpawn 在普通门拓扑、目标场景与等级均验证通过后，采用客户端目标场景脚本选定的入口落点。
-// portalID 必须是本次已验证的普通门编号；clientSpawn 为空或包含负坐标时保留仓储返回的兼容落点。
+// portalID 必须是本次已验证的普通门编号；场景格使用有符号整数，因此负坐标也是合法配置。
 func (s *Service) ApplyClientPortalSpawn(decision *MoveDecision, portalID uint32, clientSpawn *Vec2i) *MoveDecision {
 	if decision == nil || !decision.Accepted || portalID == 0 || clientSpawn == nil {
-		return decision
-	}
-	if clientSpawn.X < 0 || clientSpawn.Y < 0 {
 		return decision
 	}
 	decision.SpawnPos = *clientSpawn
