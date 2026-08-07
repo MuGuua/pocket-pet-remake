@@ -256,6 +256,7 @@ size = Vector2(4, 216)
 
 [node name="报名区" type="Node2D" unique_id=1776857544]
 script = ExtResource("level_shining_plain")
+login_and_map_teleport_spawn_position = Vector2(5, 7)
 scene_display_name = "报名区"
 portal_spawn_scene_positions = {
 "18001": Vector2(10, 7),

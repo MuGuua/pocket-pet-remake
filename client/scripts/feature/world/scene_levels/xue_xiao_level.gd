@@ -8,8 +8,8 @@ extends NetworkDoorLevelBase
 @export var inbound_from_market_scene_position: Vector2 = Vector2(11.0, 2.0)
 ## 从打怪区 portal_id=6001 回到学校后的玩家场景坐标。
 @export var inbound_from_da_guai_qu_scene_position: Vector2 = Vector2(6.0, 10.0)
-## login_spawn_position 是首次登录或无传送门上下文时的默认出生中心场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(11.0, 2.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(11.0, 2.0)
 
 ## 返回当前场景用于 HUD 展示的名称。
 func get_scene_display_name() -> String:
@@ -58,8 +58,9 @@ func get_level_center_position() -> Vector2:
 func get_level_scale_factor() -> float:
     return level_scale_factor
 
-func get_login_spawn_position() -> Vector2:
-    return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+    return login_and_map_teleport_spawn_position
 
 ## 查找用于计算缩放居中中心点的 TileMap 图层；不同地图可能使用不同节点名。
 func _resolve_map_layer() -> TileMapLayer:

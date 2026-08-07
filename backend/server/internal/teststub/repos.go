@@ -3713,6 +3713,7 @@ func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uin
 		4:  {X: 4, Y: 5},
 		5:  {X: 6, Y: 6},
 		6:  {X: 5, Y: 5},
+		8:  {X: 5, Y: 10},
 		9:  {X: 14, Y: 8},
 		10: {X: 5, Y: 8},
 		11: {X: 5, Y: 7},

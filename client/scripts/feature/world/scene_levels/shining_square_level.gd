@@ -20,8 +20,8 @@ extends NetworkDoorLevelBase
 ## 从闪光南路 portal_id=20001 返回后，出生在闪光南路入口附近。
 @export var inbound_from_south_road_scene_position: Vector2 = Vector2(12.0, 12.0)
 @export_group("默认出生点（场景格）")
-## login_spawn_position 是没有服务端权威位置时的默认场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(14.0, 8.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(14.0, 8.0)
 @export_group("")
 
 ## SHANGUANG_TOWN_TRANSFER_AREA_SCENE_ID 是闪光镇传送区的服务端场景 ID。
@@ -68,8 +68,8 @@ func _get_default_facing_direction() -> Vector2:
     return Vector2.DOWN
 
 
-## 根据来源场景触发的 portal_id 返回闪耀广场入口落点，供切图请求提交给服务端校验和持久化。
-## portal_id 是来源场景的传送门编号；未配置时返回无效值并回退服务端兼容落点。
+## 根据来源场景触发的 portal_id 返回闪耀广场本地入口落点；服务端只校验门关系，不接收该坐标。
+## portal_id 是来源场景的传送门编号；未配置时返回无效值并回退当前场景脚本的统一出生点。
 func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
     match portal_id:
         8002:
@@ -106,6 +106,6 @@ func get_level_scale_factor() -> float:
     return level_scale_factor
 
 
-## 返回没有服务端权威位置时的默认场景坐标。
-func get_login_spawn_position() -> Vector2:
-    return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+    return login_and_map_teleport_spawn_position

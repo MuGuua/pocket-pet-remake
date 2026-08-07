@@ -21,7 +21,7 @@ postgres:
 
 # Redis 运行配置。
 redis:
-  addr: "38.76.179.44:6379"
+  addr: "117.72.124.51:6379"
   password: ""
   db: 0
   key_prefix: "pocket_pet"

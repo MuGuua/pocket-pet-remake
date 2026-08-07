@@ -4,8 +4,7 @@
 [ext_resource type="Script" uid="uid://dajpd18bfdlcm" path="res://scripts/feature/world/map_border_frame.gd" id="2_5u6qm"]
 [ext_resource type="Texture2D" uid="uid://b8lb8wabye27b" path="res://asset/分类/新补充图标/frame2.png" id="3_m6pqm"]
 [ext_resource type="Texture2D" uid="uid://dk2gjxn208lss" path="res://asset/分类/小部件/树.png" id="4_m6pqm"]
-
-[ext_resource type="Script" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
+[ext_resource type="Script" uid="uid://cpu8ydicckyr" path="res://scripts/feature/world/scene_levels/shining_plain_level.gd" id="level_shining_plain"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_h5i0y"]
 texture = ExtResource("1_5u6qm")
@@ -325,13 +324,14 @@ size = Vector2(9.984375, 15.53125)
 script = ExtResource("level_shining_plain")
 scene_display_name = "翡翠梦境"
 portal_spawn_scene_positions = {
-"15003": Vector2(1, 9),
+"15003": Vector2(1, 9)
 }
+login_and_map_teleport_spawn_position = Vector2(3, 6)
 door_configs = {
 "通往办公区": {
 "portal_id": 13001,
 "target_scene_id": 15
-},
+}
 }
 
 [node name="地图" type="TileMapLayer" parent="." unique_id=1731520240]

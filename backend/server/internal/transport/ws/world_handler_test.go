@@ -520,6 +520,38 @@ func TestRouterHandleMapTeleportToAnotherScene(t *testing.T) {
 	}
 }
 
+// TestRouterHandleMapTeleportToShanguangTransferArea 验证闪光镇“通往闪光平原”标点可以快速传送到闪光镇传送区。
+func TestRouterHandleMapTeleportToShanguangTransferArea(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 1324, protocol.MoveIntentReq{
+		OpID:          124,
+		MoveSeq:       324,
+		SceneID:       1,
+		TargetSceneID: 8,
+		MapTeleport:   true,
+	})
+	if len(conn.packets) < 2 {
+		t.Fatalf("len(conn.packets) = %d, want at least move response and world resync", len(conn.packets))
+	}
+
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !response.Accepted || response.SceneID != 8 || response.CorrectedPos != (protocol.Vec2i{X: 5, Y: 10}) {
+		t.Fatalf("transfer area map teleport response = %+v, want accepted scene 8 center (5,10)", response)
+	}
+
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 8 || profile.PosX != 5 || profile.PosY != 10 {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want 8/(5,10)", profile.SceneID, profile.PosX, profile.PosY)
+	}
+}
+
 // TestRouterHandleMapTeleportToShiningPlainScene 验证闪光平原区域节点沿用同一服务端权威快速传送链路。
 func TestRouterHandleMapTeleportToShiningPlainScene(t *testing.T) {
 	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
@@ -705,10 +737,10 @@ func TestRouterBroadcastsFollowingPetAfterLineupChange(t *testing.T) {
 	}
 }
 
-// TestRouterSceneTransferBroadcastsEntryAtPortalSpawn 验证切图后旁观客户端收到的实体进入推送
-// 使用与切图响应完全相同的服务端权威出生坐标，并携带人物形象与跟随宠物摘要；
-// 这是“进入者不应在旁观视角从其他坐标走过来”的端到端契约。
-func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
+// TestRouterSceneTransferBroadcastsEntryAtServerFallbackSpawn 验证服务端切图快照与旁观者进入推送
+// 继续使用同一份服务端内部兼容坐标；客户端本人的普通门显示落点由目标场景导出变量覆盖。
+// 旧客户端即使提交跨场景 target_pos，服务端也必须忽略，避免重新取得地图落点控制权。
+func TestRouterSceneTransferBroadcastsEntryAtServerFallbackSpawn(t *testing.T) {
 	_, router, _, demoConn := buildWorldRouterForTest(t)
 	rivalConn := &fakeConn{id: "conn-2"}
 	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, rivalConn); err != nil {
@@ -728,15 +760,16 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	clearPackets(demoConn)
 	clearPackets(rivalConn)
 
-	// 进入者从场景 1 走传送门 1001 进入场景 2；目标场景脚本选择 (3,2) 作为入口落点。
-	clientPortalPos := protocol.Vec2i{X: 3, Y: 2}
+	// 模拟旧客户端提交自定义入口格；服务端仍使用门拓扑中的内部兼容坐标 (4,1)。
+	legacyClientPortalPos := protocol.Vec2i{X: 3, Y: 2}
+	serverFallbackPos := protocol.Vec2i{X: 4, Y: 1}
 	mustHandleJSONPacket(t, router, demoConn, protocol.CmdMoveIntentReq, 144, protocol.MoveIntentReq{
 		OpID:          22,
 		MoveSeq:       42,
 		SceneID:       1,
 		TargetSceneID: 2,
 		PortalID:      1001,
-		TargetPos:     &clientPortalPos,
+		TargetPos:     &legacyClientPortalPos,
 	})
 	if len(demoConn.packets) == 0 || demoConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
 		t.Fatalf("mover packets = %+v, want move intent response first", demoConn.packets)
@@ -745,8 +778,8 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	if err := protocol.UnmarshalBody(demoConn.packets[0].Body, &moveResp); err != nil {
 		t.Fatalf("UnmarshalBody(move response) error = %v", err)
 	}
-	if !moveResp.Accepted || moveResp.SceneID != 2 || moveResp.CorrectedPos != clientPortalPos {
-		t.Fatalf("move response = %+v, want accepted scene 2 at client portal spawn %+v", moveResp, clientPortalPos)
+	if !moveResp.Accepted || moveResp.SceneID != 2 || moveResp.CorrectedPos != serverFallbackPos {
+		t.Fatalf("move response = %+v, want accepted scene 2 at server fallback %+v", moveResp, serverFallbackPos)
 	}
 
 	var entryPush *protocol.EntityEnterPush
@@ -780,10 +813,11 @@ func TestRouterSceneTransferBroadcastsEntryAtPortalSpawn(t *testing.T) {
 	}
 }
 
-func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testing.T) {
+func TestRouterHandleMoveIntentSceneTransferIgnoresLegacyTargetPos(t *testing.T) {
 	_, router, playerService, conn := buildWorldRouterForTest(t)
-	// 场景格是有符号坐标；负数入口必须完整通过请求解析、权威回包、重同步和持久化链路。
-	clientPortalPos := protocol.Vec2i{X: -4, Y: 1}
+	// target_pos 只保留给旧客户端兼容解析；跨场景普通门必须忽略该值并使用服务端内部兼容坐标。
+	legacyClientPortalPos := protocol.Vec2i{X: -4, Y: 1}
+	serverFallbackPos := protocol.Vec2i{X: 4, Y: 1}
 
 	packet, err := protocol.NewJSONPacket(protocol.CmdMoveIntentReq, 14, 0, protocol.MoveIntentReq{
 		OpID:          2,
@@ -791,7 +825,7 @@ func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testi
 		SceneID:       1,
 		TargetSceneID: 2,
 		PortalID:      1001,
-		TargetPos:     &clientPortalPos,
+		TargetPos:     &legacyClientPortalPos,
 	})
 	if err != nil {
 		t.Fatalf("NewJSONPacket() error = %v", err)
@@ -824,8 +858,8 @@ func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testi
 	if resp.SceneID != 2 {
 		t.Fatalf("resp.SceneID = %d, want 2", resp.SceneID)
 	}
-	if resp.CorrectedPos != clientPortalPos {
-		t.Fatalf("resp.CorrectedPos = %+v, want client portal spawn %+v", resp.CorrectedPos, clientPortalPos)
+	if resp.CorrectedPos != serverFallbackPos {
+		t.Fatalf("resp.CorrectedPos = %+v, want server fallback %+v", resp.CorrectedPos, serverFallbackPos)
 	}
 
 	resyncPacket := conn.packets[1]
@@ -840,8 +874,8 @@ func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testi
 	if resync.SceneID != 2 {
 		t.Fatalf("resync.SceneID = %d, want 2", resync.SceneID)
 	}
-	if resync.SelfPos != clientPortalPos {
-		t.Fatalf("resync.SelfPos = %+v, want client portal spawn %+v", resync.SelfPos, clientPortalPos)
+	if resync.SelfPos != serverFallbackPos {
+		t.Fatalf("resync.SelfPos = %+v, want server fallback %+v", resync.SelfPos, serverFallbackPos)
 	}
 
 	questUpdates := collectQuestUpdatesByID(t, conn.packets[2:])
@@ -859,8 +893,8 @@ func TestRouterHandleMoveIntentSceneTransferSupportsNegativePortalSpawn(t *testi
 	if profile.SceneID != 2 {
 		t.Fatalf("profile.SceneID = %d, want 2", profile.SceneID)
 	}
-	if profile.PosX != clientPortalPos.X || profile.PosY != clientPortalPos.Y {
-		t.Fatalf("profile position = (%d,%d), want client portal spawn %+v", profile.PosX, profile.PosY, clientPortalPos)
+	if profile.PosX != serverFallbackPos.X || profile.PosY != serverFallbackPos.Y {
+		t.Fatalf("profile position = (%d,%d), want server fallback %+v", profile.PosX, profile.PosY, serverFallbackPos)
 	}
 }
 

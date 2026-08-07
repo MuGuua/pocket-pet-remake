@@ -1921,7 +1921,7 @@ position = Vector2(15, 76)
 script = ExtResource("1_2dwht")
 scene_display_name = "罗克萨斯家"
 inbound_from_east_road_scene_position = Vector2(5, 13)
-login_spawn_position = Vector2(5, 10)
+login_and_map_teleport_spawn_position = Vector2(5, 10)
 
 [node name="Collision" type="TileMapLayer" parent="." unique_id=998291894]
 position = Vector2(1, -4)

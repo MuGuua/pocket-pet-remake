@@ -2018,7 +2018,7 @@ script = ExtResource("1_sb05u")
 scene_display_name = "宠物学校"
 inbound_from_market_scene_position = Vector2(12, 3)
 inbound_from_da_guai_qu_scene_position = Vector2(6, 11)
-login_spawn_position = Vector2(11, 5)
+login_and_map_teleport_spawn_position = Vector2(11, 5)
 
 [node name="Collision" type="TileMapLayer" parent="." unique_id=1759931945]
 position = Vector2(4, 4)

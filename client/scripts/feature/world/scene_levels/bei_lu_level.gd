@@ -6,8 +6,8 @@ extends NetworkDoorLevelBase
 @export var level_scale_factor: float = 1.0
 ## 从市场 portal_id=3002 进入北路后的玩家场景坐标。
 @export var inbound_from_market_scene_position: Vector2 = Vector2(2.0, 8.0)
-## login_spawn_position 是首次登录或无传送门上下文时的默认出生中心场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(2.0, 8.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(2.0, 8.0)
 
 ## 返回当前场景用于 HUD 展示的名称。
 func get_scene_display_name() -> String:
@@ -50,8 +50,9 @@ func get_level_center_position() -> Vector2:
 func get_level_scale_factor() -> float:
     return level_scale_factor
 
-func get_login_spawn_position() -> Vector2:
-    return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+    return login_and_map_teleport_spawn_position
 
 func _resolve_map_layer() -> TileMapLayer:
     for layer_name in ["Map", "TileMapLayer"]:

@@ -2,735 +2,200 @@
 
 [ext_resource type="Script" uid="uid://c81lc3h7rri7q" path="res://scripts/ui/common/option_list_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
-[ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
+[ext_resource type="PackedScene" uid="uid://3u3dd0y1dgtg" path="res://scenes/ui/common/option_row.tscn" id="4_jd8yh"]
+
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_footer"]
+color = Color(0.52, 0.54, 0.6, 0.62)
+thickness = 2
 
 [node name="OptionListPanel" type="CanvasLayer" unique_id=981623259]
 visible = false
 script = ExtResource("1_script")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=115694773]
-custom_minimum_size = Vector2(640, 760)
-custom_maximum_size = Vector2(640, 760)
-anchors_preset = -1
+custom_minimum_size = Vector2(600, 860)
+custom_maximum_size = Vector2(600, 860)
+anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -380.0
-offset_right = 320.0
-offset_bottom = 380.0
+offset_left = -350.0
+offset_top = -430.0
+offset_right = 350.0
+offset_bottom = 430.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=317903980]
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=1492326388]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
 
-[node name="HeaderRow" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=418576458]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=317903980]
 layout_mode = 2
+theme_override_constants/separation = 18
 
-[node name="TitleLabel" type="Label" parent="PanelContainer/VBoxContainer/HeaderRow" unique_id=318576458]
+[node name="HeaderRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=418576458]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="HeaderPortrait" type="TextureRect" parent="PanelContainer/MarginContainer/VBoxContainer/HeaderRow" unique_id=318576459]
+unique_name_in_owner = true
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(72, 72)
+custom_maximum_size = Vector2(72, 72)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleLabel" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/HeaderRow" unique_id=318576458]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 28
-text = "选项:"
+theme_override_colors/font_color = Color(0.95, 0.95, 0.97, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.025, 0.04, 0.82)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 34
+text = "选项"
+vertical_alignment = 1
 
-[node name="TopCloseButton" parent="PanelContainer/VBoxContainer/HeaderRow" instance=ExtResource("4_close_btn")]
+[node name="TopCloseButton" parent="PanelContainer/MarginContainer/VBoxContainer/HeaderRow" unique_id=409940397 instance=ExtResource("4_close_btn")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(64, 64)
-custom_maximum_size = Vector2(64, 64)
+custom_minimum_size = Vector2(60, 60)
+custom_maximum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="OptionsScroll" type="ScrollContainer" parent="PanelContainer/VBoxContainer" unique_id=884422110]
+[node name="OptionsScroll" type="ScrollContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=884422110]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 0
 
-[node name="ButtonsContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll" unique_id=1131629079]
+[node name="ButtonsContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll" unique_id=1131629079]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
-[node name="OptionRow1" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000001]
+[node name="OptionRow1" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1324357103 instance=ExtResource("4_jd8yh")]
 unique_name_in_owner = true
-visible = false
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
+
+[node name="OptionRow2" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=2128786537 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow3" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1101145423 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow4" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=773043414 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow5" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=21167148 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow6" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1256075561 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow7" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1877528788 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow8" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1598278695 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow9" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=178926648 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow10" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1068386622 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow11" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=650885288 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow12" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1508944958 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow13" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=608243076 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow14" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=658879118 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow15" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1300653703 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow16" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=916316789 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow17" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1550930267 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow18" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1749817740 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow19" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=448615526 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow20" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1470237037 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow21" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1931529280 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow22" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1116897550 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow23" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1908541603 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow24" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1919197178 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow25" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=388501953 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow26" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1203747190 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow27" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=1938393578 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow28" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=2001956443 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow29" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=521084755 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="OptionRow30" parent="PanelContainer/MarginContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=2019254377 instance=ExtResource("4_jd8yh")]
+layout_mode = 2
+
+[node name="FooterDecoration" type="HBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=961607012]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+theme_override_constants/separation = 16
 alignment = 1
 
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow1" unique_id=220001001]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow1" unique_id=220002001]
+[node name="LeftLine" type="HSeparator" parent="PanelContainer/MarginContainer/VBoxContainer/FooterDecoration" unique_id=645672860]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项1"
-alignment = 0
+theme_override_styles/separator = SubResource("StyleBoxLine_footer")
 
-[node name="OptionRow2" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000002]
-unique_name_in_owner = true
-visible = false
+[node name="CenterDiamond" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/FooterDecoration" unique_id=1131944874]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.52, 0.54, 0.61, 0.82)
+theme_override_font_sizes/font_size = 28
+text = "◇"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RightLine" type="HSeparator" parent="PanelContainer/MarginContainer/VBoxContainer/FooterDecoration" unique_id=1873383483]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow2" unique_id=220001002]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow2" unique_id=220002002]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项2"
-alignment = 0
-
-[node name="OptionRow3" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000003]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow3" unique_id=220001003]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow3" unique_id=220002003]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项3"
-alignment = 0
-
-[node name="OptionRow4" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000004]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow4" unique_id=220001004]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow4" unique_id=220002004]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项4"
-alignment = 0
-
-[node name="OptionRow5" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000005]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow5" unique_id=220001005]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow5" unique_id=220002005]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项5"
-alignment = 0
-
-[node name="OptionRow6" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000006]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow6" unique_id=220001006]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow6" unique_id=220002006]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项6"
-alignment = 0
-
-[node name="OptionRow7" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000007]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow7" unique_id=220001007]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow7" unique_id=220002007]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项7"
-alignment = 0
-
-[node name="OptionRow8" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000008]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow8" unique_id=220001008]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow8" unique_id=220002008]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项8"
-alignment = 0
-
-[node name="OptionRow9" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000009]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow9" unique_id=220001009]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow9" unique_id=220002009]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项9"
-alignment = 0
-
-[node name="OptionRow10" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000010]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow10" unique_id=220001010]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow10" unique_id=220002010]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项10"
-alignment = 0
-
-[node name="OptionRow11" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000011]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow11" unique_id=220001011]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow11" unique_id=220002011]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项11"
-alignment = 0
-
-[node name="OptionRow12" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000012]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow12" unique_id=220001012]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow12" unique_id=220002012]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项12"
-alignment = 0
-
-[node name="OptionRow13" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000013]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow13" unique_id=220001013]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow13" unique_id=220002013]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项13"
-alignment = 0
-
-[node name="OptionRow14" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000014]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow14" unique_id=220001014]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow14" unique_id=220002014]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项14"
-alignment = 0
-
-[node name="OptionRow15" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000015]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow15" unique_id=220001015]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow15" unique_id=220002015]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项15"
-alignment = 0
-
-[node name="OptionRow16" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000016]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow16" unique_id=220001016]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow16" unique_id=220002016]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项16"
-alignment = 0
-
-[node name="OptionRow17" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000017]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow17" unique_id=220001017]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow17" unique_id=220002017]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项17"
-alignment = 0
-
-[node name="OptionRow18" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000018]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow18" unique_id=220001018]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow18" unique_id=220002018]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项18"
-alignment = 0
-
-[node name="OptionRow19" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000019]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow19" unique_id=220001019]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow19" unique_id=220002019]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项19"
-alignment = 0
-
-[node name="OptionRow20" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000020]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow20" unique_id=220001020]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow20" unique_id=220002020]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项20"
-alignment = 0
-
-[node name="OptionRow21" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000021]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow21" unique_id=220001021]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow21" unique_id=220002021]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项21"
-alignment = 0
-
-[node name="OptionRow22" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000022]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow22" unique_id=220001022]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow22" unique_id=220002022]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项22"
-alignment = 0
-
-[node name="OptionRow23" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000023]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow23" unique_id=220001023]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow23" unique_id=220002023]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项23"
-alignment = 0
-
-[node name="OptionRow24" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000024]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow24" unique_id=220001024]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow24" unique_id=220002024]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项24"
-alignment = 0
-
-[node name="OptionRow25" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000025]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow25" unique_id=220001025]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow25" unique_id=220002025]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项25"
-alignment = 0
-
-[node name="OptionRow26" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000026]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow26" unique_id=220001026]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow26" unique_id=220002026]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项26"
-alignment = 0
-
-[node name="OptionRow27" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000027]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow27" unique_id=220001027]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow27" unique_id=220002027]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项27"
-alignment = 0
-
-[node name="OptionRow28" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000028]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow28" unique_id=220001028]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow28" unique_id=220002028]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项28"
-alignment = 0
-
-[node name="OptionRow29" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000029]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow29" unique_id=220001029]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow29" unique_id=220002029]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项29"
-alignment = 0
-
-[node name="OptionRow30" type="HBoxContainer" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer" unique_id=220000030]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Portrait" type="TextureRect" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow30" unique_id=220001030]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="OptionButton" type="Button" parent="PanelContainer/VBoxContainer/OptionsScroll/ButtonsContainer/OptionRow30" unique_id=220002030]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 26
-text = "选项30"
-alignment = 0
-
-[node name="CloseRow" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=772211009]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="CloseSpacer" type="Control" parent="PanelContainer/VBoxContainer/CloseRow" unique_id=991122334]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="CloseButton" parent="PanelContainer/VBoxContainer/CloseRow" unique_id=164704164 instance=ExtResource("3_action_btn")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 58)
-custom_maximum_size = Vector2(140, 58)
-layout_mode = 2
-size_flags_horizontal = 8
-button_label = "关闭"
+theme_override_styles/separator = SubResource("StyleBoxLine_footer")

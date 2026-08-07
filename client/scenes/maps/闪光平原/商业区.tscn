@@ -342,6 +342,7 @@ scene_display_name = "商业区"
 portal_spawn_scene_positions = {
 "9003": Vector2(14, 9)
 }
+login_and_map_teleport_spawn_position = Vector2(8, 10)
 door_configs = {
 "通往闪耀广场": {
 "portal_id": 16001,

@@ -6,12 +6,12 @@ extends NetworkDoorLevelBase
 @export var level_scale_factor: float = 1.0
 @export_group("普通门切图落点（场景格）")
 ## 从闪光镇东路 portal_id=2003 进入后，出生在传送区左侧门附近，可在地图根节点检查器中调整。
-@export var inbound_from_east_road_scene_position: Vector2 = Vector2(1.0, 13.0)
+@export var inbound_from_east_road_scene_position: Vector2 = Vector2(1.0, 12.0)
 ## 从闪耀广场 portal_id=9001 返回后，出生在传送区通往平原的门附近。
 @export var inbound_from_shining_square_scene_position: Vector2 = Vector2(6.0, 9.0)
 @export_group("默认出生点（场景格）")
-## 首次进入或没有权威位置时的默认场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(4.0, 6.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(4.0, 6.0)
 @export_group("")
 
 const EAST_ROAD_SCENE_ID: int = 2
@@ -44,8 +44,8 @@ func _get_default_facing_direction() -> Vector2:
 	return Vector2.UP
 
 
-## 根据来源场景触发的 portal_id 返回传送区入口落点，供切图请求提交给服务端校验和持久化。
-## portal_id 是来源场景的传送门编号；未配置时返回无效值并回退服务端兼容落点。
+## 根据来源场景触发的 portal_id 返回传送区本地入口落点；服务端只校验门关系，不接收该坐标。
+## portal_id 是来源场景的传送门编号；未配置时返回无效值并回退当前场景脚本的统一出生点。
 func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
 	match portal_id:
 		2003:
@@ -72,5 +72,6 @@ func get_level_scale_factor() -> float:
 	return level_scale_factor
 
 
-func get_login_spawn_position() -> Vector2:
-	return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+	return login_and_map_teleport_spawn_position

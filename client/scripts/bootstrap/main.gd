@@ -576,6 +576,19 @@ func _on_scene_transition_failed(reason: String) -> void:
 		_scene_map_transition_failed = true
 	_unlock_scene_visual_apply_for_transition()
 
+## 解析当前地图中指定 NPC 的展示纹理；菜单仅使用本地场景当前帧，不改变服务端菜单数据权威。
+## entity_id 是服务端 NPC 实体 ID；无法解析时返回空纹理。
+func _resolve_npc_header_portrait(entity_id: int) -> Texture2D:
+	if entity_id <= 0 or _world_controller == null:
+		return null
+	if not _world_controller.has_method("get_npc_portrait_texture"):
+		return null
+	var portrait_variant: Variant = _world_controller.call("get_npc_portrait_texture", entity_id)
+	if portrait_variant is Texture2D:
+		return portrait_variant as Texture2D
+	return null
+
+
 func _on_npc_interaction_requested(entity_id: int, npc_name: String) -> void:
 	_append_log("尝试与 NPC 交互: %s (%d)" % [npc_name, entity_id])
 	_open_cached_scene_npc_menu(entity_id, npc_name)
@@ -1987,6 +2000,7 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 	_close_other_root_panels("npc_menu")
 	_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
 		"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
+		"header_portrait": _resolve_npc_header_portrait(int(payload.get("entity_id", 0))),
 	})
 	_npc_menu.call("open_menu")
 	_set_runtime_menu_locked(true)
@@ -2018,6 +2032,7 @@ func _handle_npc_action_payload(payload: Dictionary) -> void:
 		_close_other_root_panels("npc_menu")
 		_npc_menu.configure(str(payload.get("npc_name", "NPC")), menu_options, {
 			"render_mode": OptionListPanel.RENDER_NPC_ENTRY,
+			"header_portrait": _resolve_npc_header_portrait(int(payload.get("entity_id", 0))),
 		})
 		_npc_menu.call("open_menu")
 		_set_runtime_menu_locked(true)

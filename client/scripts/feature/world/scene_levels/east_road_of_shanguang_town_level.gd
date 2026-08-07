@@ -12,10 +12,10 @@ extends NetworkDoorLevelBase
 ## 从一次性时光小屋 portal_id=7001 进入东路东侧门后的玩家场景坐标。
 @export var inbound_from_time_house_scene_position: Vector2 = Vector2(9.0, 5.0)
 ## 从闪光镇传送区 portal_id=8001 返回东路后的玩家场景坐标。
-@export var inbound_from_transfer_area_scene_position: Vector2 = Vector2(9.0, 5.0)
+@export var inbound_from_transfer_area_scene_position: Vector2 = Vector2(8.0, 5.0)
 @export_group("默认出生点（场景格）")
-## login_spawn_position 是首次登录或无传送门上下文时的默认出生中心场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(4.0, 1.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(4.0, 1.0)
 @export_group("")
 
 ## time_house_layer 是东路地图中可按剧情显隐的时光小屋图层。
@@ -93,8 +93,9 @@ func get_level_center_position() -> Vector2:
 func get_level_scale_factor() -> float:
 	return level_scale_factor
 
-func get_login_spawn_position() -> Vector2:
-	return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+	return login_and_map_teleport_spawn_position
 
 ## 查找用于计算缩放居中中心点的 TileMap 图层；不同地图可能使用不同节点名。
 func _resolve_map_layer() -> TileMapLayer:

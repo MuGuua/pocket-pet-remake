@@ -220,7 +220,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 
 	// 新客户端会持续上报当前格子坐标；服务端先持久化，再把权威结果广播给同场景其他玩家。
-	// 旧客户端没有 target_pos 时仍维持原有响应，避免破坏已有切图协议兼容性。
+	// 未携带 target_pos 的旧客户端心跳仍维持原有响应，避免破坏同场景移动协议兼容性。
 	if !request.MapTeleport && (request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID) {
 		correctedPos := currentPos
 		reason := "local movement handled by client"
@@ -271,9 +271,6 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	if err != nil {
 		log.Printf("[SceneTransition][Server] evaluate failed player_id=%d err=%v", sess.PlayerID, err)
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "evaluate move failed")
-	}
-	if !request.MapTeleport && request.TargetPos != nil {
-		decision = h.worldService.ApplyClientPortalSpawn(decision, request.PortalID, &world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y})
 	}
 	log.Printf(
 		"[SceneTransition][Server] decision player_id=%d accepted=%t from_scene=%d to_scene=%d spawn=(%d,%d) reason=%s",

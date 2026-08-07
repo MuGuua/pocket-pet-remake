@@ -263,6 +263,7 @@ portal_spawn_scene_positions = {
 "23002": Vector2(10, 9),
 "24001": Vector2(4, 12)
 }
+login_and_map_teleport_spawn_position = Vector2(6, 5)
 door_configs = {
 "通往尘泥之地": {
 "portal_id": 22002,

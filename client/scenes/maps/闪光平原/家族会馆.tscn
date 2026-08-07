@@ -475,12 +475,12 @@ size = Vector2(4, 327)
 size = Vector2(12, 30)
 
 [node name="家族会馆" type="Node2D" unique_id=1804278945]
-visible = false
 script = ExtResource("level_shining_plain")
 scene_display_name = "家族会馆"
 portal_spawn_scene_positions = {
 "20002": Vector2(14, 11)
 }
+login_and_map_teleport_spawn_position = Vector2(7, 10)
 door_configs = {
 "通往闪光南路": {
 "portal_id": 19001,
@@ -538,5 +538,6 @@ shape = SubResource("RectangleShape2D_h8xt4")
 [node name="通往闪光南路" type="Area2D" parent="传送门" unique_id=1558952435]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="传送门/通往闪光南路" unique_id=397693725]
-position = Vector2(237, 160)
+visible = false
+position = Vector2(237, 176)
 shape = SubResource("RectangleShape2D_family_south_road")

@@ -401,7 +401,7 @@ size = Vector2(11, 32)
 
 [node name="时光小屋" type="Node2D" unique_id=742940914]
 script = ExtResource("1_time_house")
-login_spawn_position = Vector2(6, 6)
+login_and_map_teleport_spawn_position = Vector2(6, 6)
 
 [node name="Collision" type="TileMapLayer" parent="." unique_id=2075817229]
 position = Vector2(16, 24)

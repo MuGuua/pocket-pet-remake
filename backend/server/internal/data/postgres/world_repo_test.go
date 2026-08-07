@@ -28,9 +28,9 @@ func TestTimeHousePortalIsOneWay(t *testing.T) {
 	}
 }
 
-// TestPortalSpawnPositionsMatchClientMaps 逐门校验服务端权威出生坐标与 Godot 地图当前
-// 调好的进门站位一致；服务端是多人同屏出生点唯一事实来源，客户端不再本地覆盖。
-func TestPortalSpawnPositionsMatchClientMaps(t *testing.T) {
+// TestPortalFallbackPositionsKeepServerTopologyValid 逐门校验服务端内部兼容坐标和场景拓扑可用。
+// 客户端普通门显示落点由目标场景导出变量独立控制，不要求这里的坐标与 Godot 地图配置同步。
+func TestPortalFallbackPositionsKeepServerTopologyValid(t *testing.T) {
 	tests := []struct {
 		name         string
 		fromSceneID  uint32

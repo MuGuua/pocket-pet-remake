@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://3u3dd0y1dgtg"]
+
+[ext_resource type="StyleBox" uid="uid://bfc7evacubu1" path="res://resources/ui/runtime_action_button_normal.tres" id="1_31gjl"]
+[ext_resource type="StyleBox" uid="uid://bav32cifxok6h" path="res://resources/ui/runtime_action_button_disabled.tres" id="1_kv18v"]
+[ext_resource type="StyleBox" uid="uid://sj3qfqdvnlyg" path="res://resources/ui/runtime_action_button_pressed.tres" id="2_v64rg"]
+[ext_resource type="StyleBox" uid="uid://dphinv4vw770o" path="res://resources/ui/runtime_action_button_hover.tres" id="3_sinhg"]
+
+[node name="OptionRow1" type="Button" unique_id=2061039568]
+custom_minimum_size = Vector2(0, 60)
+offset_right = 114.0
+offset_bottom = 59.0
+theme_override_font_sizes/font_size = 31
+theme_override_styles/normal = ExtResource("1_31gjl")
+theme_override_styles/pressed = ExtResource("2_v64rg")
+theme_override_styles/hover = ExtResource("3_sinhg")
+theme_override_styles/disabled = ExtResource("1_kv18v")
+text = "选项1"
+alignment = 0

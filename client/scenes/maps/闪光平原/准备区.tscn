@@ -249,10 +249,10 @@ size = Vector2(16, 9.75)
 script = ExtResource("level_shining_plain")
 scene_display_name = "准备区"
 portal_spawn_scene_positions = {
-"17002": Vector2(2, 5),
+"17002": Vector2(-4, 1),
 "17003": Vector2(0, -3)
 }
-login_spawn_position = Vector2(0, 1)
+login_and_map_teleport_spawn_position = Vector2(1, 1)
 door_configs = {
 "通往报名区": {
 "portal_id": 18001,

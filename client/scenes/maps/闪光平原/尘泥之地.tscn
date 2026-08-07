@@ -275,6 +275,7 @@ size = Vector2(21.96875, 10.125)
 
 [node name="尘泥之地" type="Node2D" unique_id=168300270]
 script = ExtResource("level_shining_plain")
+login_and_map_teleport_spawn_position = Vector2(5, 7)
 scene_display_name = "尘泥之地"
 portal_spawn_scene_positions = {
 "22002": Vector2(6, 1)

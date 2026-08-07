@@ -1,5 +1,57 @@
 # 任务总结
 
+## 2026-08-07：NPC 菜单仅显示任务名任务总结
+
+- NPC 菜单展示文案由“序号 + 标题 + 简单描述 + 状态”收敛为“序号 + 服务端标题”，例如 `1. 打开仓库`。
+- 本次只修改 `client/scripts/ui/common/option_list_panel.gd` 的文案格式化逻辑，没有改动服务端菜单协议、菜单数据构建、NPC 头像、节点树或按钮点击处理。
+- 副标题和状态仍保存在服务端原始选项快照中；锁定和已完成选项继续不可点击，只是不再把状态文字拼到按钮名称后。
+- 验证通过：脚本 `--check-only`、Godot Headless 全项目解析、4 条含副标题菜单的标题专项测试和 `git diff --check`；目标脚本不含 Tab。
+
+## 2026-08-07：NPC 菜单新节点树适配任务总结
+
+- 用户将通用选项面板增加 `MarginContainer`，移除 `HeaderIcon`，并把原来的“选项容器 + 头像 + 按钮”结构替换为独立 `option_row.tscn` Button 场景实例。
+- `client/scripts/ui/common/option_list_panel.gd` 已改为直接遍历 `ButtonsContainer` 的 Button 子节点，按场景节点顺序建立服务端选项索引和点击信号，不再依赖旧节点类型、旧子节点名称或连续编号。
+- NPC 菜单模式写入 `1.、2.、3.` 文本并清空按钮图标；头像列表模式将服务端形象解析结果写入 Button 的 `icon`，继续兼容附近 NPC、PVP 目标和挂机目标。
+- `client/scenes/ui/common/option_list_panel.tscn` 复用 `client/scenes/ui/common/option_row.tscn` 预置 30 个按钮实例，未在脚本中动态创建 UI；根节点恢复 `visible = false`，符合运行时面板默认隐藏约束。
+- NPC 名称旁的上半身头像、服务端动态菜单顺序、禁用状态和点击后完整选项数据回传均保持不变。
+- 验证通过：目标脚本 `--check-only`、场景启动、Godot Headless 全项目解析和新节点树运行态专项测试；修改后的 `option_list_panel.gd` 不含 Tab，目标文件 `git diff --check` 通过。
+
+## 2026-08-07：NPC 菜单列表参考图样式优化任务总结
+
+- 按参考图优化通用 `OptionListPanel`，面板采用深色半透明圆角卡片、细描边与阴影；标题区保留场景化功能标识、右上角关闭按钮和移动端触摸反馈。
+- NPC 菜单标题通过服务端返回的 `entity_id` 定位当前地图中的 `InteractiveNPCBase`，读取该 NPC 的 `AnimatedSprite2D` 当前帧并裁剪为上半身形象，显示在 NPC 名称旁边；找不到实体或纹理时安全隐藏头像。
+- NPC 菜单选项由 `_build_npc_menu_options` 按服务端 `menu_entries` 原始顺序构建，面板使用场景内预置选项行动态显示对应数量，隐藏多余行，不在脚本中创建 UI 或硬编码正式菜单项。
+- 移除选项左侧的类型图标和类型标签，改为从 `1.` 开始的数字序号；副标题、状态文案、锁定/完成禁用状态、原始服务端选项回传和点击信号保持兼容。
+- 同一场景继续兼容周围 NPC、PVP 目标和挂机目标头像列表模式；仅 NPC 菜单模式显示标题头像。
+- 本次涉及 `client/scenes/ui/common/option_list_panel.tscn`、`client/scripts/ui/common/option_list_panel.gd`、`client/scripts/bootstrap/main.gd`、`client/scripts/feature/world/world_controller.gd` 及本任务文档；未新增后端接口、协议字段、数据库迁移、依赖或正式资源。
+- 验证通过：Godot 4.7 Headless 项目解析、目标脚本 `--check-only`、通用场景启动、动态选项运行态检查、NPC 上半身头像裁剪测试和 `git diff --check`。
+
+
+## 2026-08-06：普通传送门落点纯客户端场景配置任务总结
+
+- 修改 `client/scripts/feature/world/world_controller.gd`：普通门请求不再实例化目标地图或提交 `target_pos`，仅保存 `portal_id` 等待服务端确认；目标地图加载后从当前地图实例读取对应导出入口坐标。
+- 普通门专属入口缺失时只回退当前场景脚本的 `login_and_map_teleport_spawn_position`，不使用服务端 `corrected_pos` / `self_pos` 决定本地门落点；断线重连仍按原流程恢复服务端持久化位置。
+- 本地应用场景导出落点后初始化移动同步基线，避免落地坐标在下一帧作为普通移动发给服务端；玩家后续主动移动仍正常持久化并广播。
+- 删除服务端 `ApplyClientPortalSpawn` 及调用；服务端只校验普通门关系和准入，旧客户端携带的跨场景 `target_pos` 被忽略，协议字段继续服务同场景移动并保持兼容。
+- 调整 WebSocket 测试验证跨场景 `target_pos` 不生效，并将仓储坐标测试明确为服务端内部拓扑兼容检查；本次没有数据库结构变更或迁移。
+- 验证通过：`go test ./server/...` 全量通过；Godot 4.7 Headless 项目解析通过；专项实例化确认 `portal_id=2003 -> (1,12)`、`portal_id=8001 -> (8,5)` 均从目标场景脚本读取；全工作区 `git diff --check` 通过。
+
+## 2026-08-06：闪光镇东路与传送区双向普通门落点修复
+
+- 复核普通门链路后确认 `portal_id=2003` 和 `portal_id=8001` 的门关系、请求及权威回包均正常，问题来自旧入口坐标没有对齐地图归一化后的门区和人物碰撞锚点。
+- 使用 Godot Headless 实例化两张目标地图并执行物理查询：传送区入口 `(1,12)` 无静态碰撞且不与反向门重叠；东路入口 `(8,5)` 位于右门左侧地图内部，无静态碰撞且不与 `RightPortal` 重叠。
+- 客户端将 `inbound_from_east_road_scene_position` 调整为 `(1,12)`、`inbound_from_transfer_area_scene_position` 调整为 `(8,5)`，并在两张 `.tscn` 根节点显式保存，便于后续直接在 Inspector 调整。
+- 两个入口值只保存在客户端场景脚本与 `.tscn` 中；在本次后续完成普通门落点纯客户端化后，服务端正式仓储、测试桩和内部兼容坐标不再要求与 Inspector 值同步。
+- 验证范围合并到“普通传送门落点纯客户端场景配置”任务统一执行。
+
+## 2026-08-06：开放闪光镇传送区快速旅行
+
+- 将闪光镇地图“通往闪光平原”热点的 `target_scene_id` 配置为 `8`，移除客户端禁用配置，保留既有“首次选择、再次点击传送”交互。
+- 新增迁移 `backend/server/migrations/116_enable_shanguang_transfer_area_map_teleport.sql`，为 `scene_id=8` 写入开放状态和服务端中心格 `(5,10)`；迁移仅生成，不直接执行数据库。
+- 测试仓储同步加入场景 8 的快速传送中心格，并补充 WebSocket 端到端测试，验证服务端接受请求、返回场景 8 以及持久化中心格。
+- 客户端最终显示落点仍在每次加载目标地图后读取场景脚本导出的 `login_and_map_teleport_spawn_position`；未修改协议、登录请求、普通门 `portal_id` 流程或服务端现有权威边界。
+- 验证通过：快速传送定向测试、`go test ./server/...`、Godot 4.7 Headless 项目加载和 `git diff --check` 均通过。
+
 ## 2026-08-05：东路进入闪光镇传送区出生格修正
 
 - 将闪光镇传送区根场景的 `inbound_from_east_road_scene_position` 显式配置为 `(1,13)`，确保 `portal_id=2003` 的普通门请求提交正确目标入口格。
@@ -1459,3 +1511,43 @@
 - 删除该正负号限制；普通门仍必须先通过当前场景、`portal_id`、目标场景和等级校验，只有通过后才采用客户端目标场景脚本提交的有符号入口格。
 - 协议 `Vec2i`、Go 世界坐标和 PostgreSQL `pos_x/pos_y INTEGER` 原本均支持负数，因此不修改协议结构、数据库结构或客户端请求格式；世界地图快速传送仍忽略客户端 `target_pos`。
 - 将 WebSocket 端到端切图测试改为 `(-4,1)`，确认 `MOVE_INTENT_RESP.corrected_pos`、`WORLD_RESYNC_PUSH.self_pos` 和玩家持久化坐标一致；现有正坐标门切图测试继续保留。
+
+## 2026-08-06 战斗双方受击闪白与后退归位任务总结
+
+- 双方战斗角色均由 `client/scenes/battle/battle_unit.tscn` 动态实例化，因此在该公共单位场景挂载 `BattleHitFlash`，无需分别维护玩家与敌人的重复逻辑。
+- `BattleHitFlash` 只比较 `BattleUnit.current_hp` 的服务端权威值，生命值下降时同时处理 `CharacterSprite` 普通图集渲染与运行时 `ChjSprite2D` 渲染，不依赖某一种受击动画资源。
+- 受击 Shader 在触发瞬间把可见像素混合为全白，并用独立 Tween 在 `0.2` 秒内恢复；透明度、单位色调、死亡淡出和原有受击动画保持兼容。
+- 同一次受击会让左侧己方单位向左、右侧敌方单位向右后退 `12` 个世界像素，再返回 `BattleUnit.base_position`；位移由独立 Tween 控制，连续受击时重新从权威站位计算目标，避免位置累计漂移。
+- 本次没有修改后端、数据库、协议或伤害数值，仅增加客户端战斗表现资源和公共单位场景节点。
+
+## 2026-08-06 登录与世界地图快速传送统一出生点任务总结
+
+- 将各地图脚本原有登录出生点统一命名为 `login_and_map_teleport_spawn_position`，并在 `scene_id=1..26` 的地图根节点场景资源中显式保存当前值，用户可在 Inspector 中逐场景调整。
+- 正式登录首次应用世界快照以及世界地图快速传送应用目标地图快照时，`world_controller.gd` 都直接从当前已加载地图实例调用统一出生点 getter；每次加载时读取场景脚本，不通过注册表缓存坐标。
+- 统一出生点没有加入 HTTP 登录响应、WebSocket 请求或服务端模型，客户端快速传送请求仍只提交目标场景，服务端原有开放状态、目标地图、等级校验、中心格决策和持久化逻辑均未修改。
+- 普通传送门继续使用按 `portal_id` 配置的专属入口；断线重连没有登录出生点标记，继续恢复服务端持久化位置。人物落地后的正常移动同步仍沿用既有多人同屏链路。
+- 本次无后端代码改动、无协议变更、无数据库迁移、无新增依赖；Godot 4.7 Headless 项目解析通过，26 张注册地图均可实例化并返回有限的统一出生坐标，`go test ./server/...` 全部通过。
+
+## 2026-08-06 后端启动超时修复任务总结
+
+- 启动日志在加载 YAML 后约 5 秒返回 `context deadline exceeded`，排查确认超时发生在应用依赖初始化阶段。
+- 使用当前配置分别验证 PostgreSQL 与 Redis：PostgreSQL `117.72.124.51:5432` 可正常连接，旧 Redis `38.76.179.44:6379` 在连接探针中持续超时；`117.72.124.51:6379` 可正常返回 `PONG`。
+- 将 `backend/server/configs/config.yaml` 的 Redis 地址更新为 `117.72.124.51:6379`，未修改 Redis 数据库编号、键前缀或密码配置。
+- 在 `backend/server/internal/data/provider/open.go` 为 PostgreSQL、Redis 初始化错误增加依赖名称包装，并保留 Redis 失败时关闭已建立 PostgreSQL 连接的原有清理逻辑。
+- 数据层相关 Go 测试通过；使用正式配置启动后端成功，`GET /healthz` 返回 `HTTP 200`，验证进程随后已停止且 `8080` 端口已释放。
+- 本次无数据库迁移、无 API/协议变化、无客户端改动、无新增依赖。
+
+## 2026-08-06 右上角地图名称字号调整任务总结
+
+- 修改 `client/scenes/bootstrap/main.tscn` 的 `SceneNameLabel`，将字体大小由 `12` 提升至 `18`。
+- 沿用现有右上角锚点、右对齐方式和节点尺寸，没有修改运行时地图名称读取逻辑或其他 HUD 节点。
+- Godot 4.7 Headless 项目解析通过；本次无后端、协议、数据库和依赖变更。
+
+## 2026-08-06 底部菜单抽屉与按钮样式任务总结
+
+- 在 `client/scenes/bootstrap/main.tscn` 中为地图、挂机、任务、设置和背包按钮统一配置圆角深色样式、蓝色边框、文字描边以及悬停/按下状态，并新增固定在右下角的十字开关按钮。
+- 新增 `client/scripts/bootstrap/bottom_menu_drawer.gd`，只负责底部菜单表现：收起时按钮从右向左依次滑入十字按钮，展开时从左向右依次滑回场景配置位置，十字按钮同步旋转或复位。
+- 动画期间禁用业务按钮触摸，收起完成后隐藏业务按钮，避免透明节点拦截移动输入；收起设置按钮时同时关闭其锚点动作菜单。
+- `runtime_hud.gd` 继续维护挂机业务状态，并将可用性传给抽屉控制器；非暗雷地图隐藏挂机时，其他四个入口自动紧凑排列，暗雷地图恢复五按钮完整布局。
+- 背包、任务、设置、地图和挂机原有节点名、信号、面板控制器及网络请求链路保持不变；本次无后端、协议、数据库或依赖变更。
+- 验证通过：Godot 4.7 Headless 项目解析、受影响脚本 `--check-only`、抽屉 90° 旋转、触摸拦截、坐标复位和动态挂机可见性的专项交互测试。

@@ -2192,7 +2192,7 @@ scene_display_name = "光芒市场"
 inbound_from_east_road_scene_position = Vector2(12, 11)
 inbound_from_bei_lu_scene_position = Vector2(5, 1)
 inbound_from_xue_xiao_scene_position = Vector2(4, 12)
-login_spawn_position = Vector2(6, 7)
+login_and_map_teleport_spawn_position = Vector2(6, 7)
 
 [node name="Collision" type="TileMapLayer" parent="." unique_id=186558251]
 position = Vector2(7, 8)

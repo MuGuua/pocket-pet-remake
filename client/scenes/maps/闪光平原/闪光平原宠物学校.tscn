@@ -271,6 +271,7 @@ size = Vector2(14, 12)
 
 [node name="闪光平原宠物学校" type="Node2D" unique_id=1086697505]
 script = ExtResource("level_shining_plain")
+login_and_map_teleport_spawn_position = Vector2(5, 8)
 scene_display_name = "闪光平原宠物学校"
 portal_spawn_scene_positions = {
 "14001": Vector2(8, 4),

@@ -6,8 +6,8 @@ extends NetworkDoorLevelBase
 @export var level_scale_factor: float = 1.0
 ## 从东路 portal_id=2001 回到小屋后的玩家场景坐标。
 @export var inbound_from_east_road_scene_position: Vector2 = Vector2(8.0, 12.0)
-## login_spawn_position 是首次登录或无传送门上下文时的默认出生中心场景坐标。
-@export var login_spawn_position: Vector2 = Vector2(8.0, 6.0)
+## login_and_map_teleport_spawn_position 是登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+@export var login_and_map_teleport_spawn_position: Vector2 = Vector2(8.0, 6.0)
 
 ## 返回当前场景用于 HUD 展示的名称。
 func get_scene_display_name() -> String:
@@ -24,7 +24,7 @@ func _get_door_configs() -> Dictionary:
 func _get_default_facing_direction() -> Vector2:
     return Vector2.DOWN
 
-## 根据传入当前小屋的 portal_id 返回客户端场景坐标；未配置的门交给 world_controller 使用服务端坐标兜底。
+## 根据传入当前小屋的 portal_id 返回客户端场景坐标；未配置时由世界控制器回退当前场景脚本的统一出生点。
 func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
     match portal_id:
         2001:
@@ -50,8 +50,9 @@ func get_level_center_position() -> Vector2:
 func get_level_scale_factor() -> float:
     return level_scale_factor
 
-func get_login_spawn_position() -> Vector2:
-    return login_spawn_position
+## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
+func get_login_and_map_teleport_spawn_position() -> Vector2:
+    return login_and_map_teleport_spawn_position
 
 ## 查找用于计算缩放居中中心点的 TileMap 图层；不同地图可能使用不同节点名。
 func _resolve_map_layer() -> TileMapLayer:

@@ -252,6 +252,7 @@ scene_display_name = "灰烬梦境"
 portal_spawn_scene_positions = {
 "15002": Vector2(5, 12)
 }
+login_and_map_teleport_spawn_position = Vector2(7, 6)
 door_configs = {
 "通往办公区": {
 "portal_id": 12001,

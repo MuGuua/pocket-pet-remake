@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://c6c2a8hua6yxb"]
+[gd_scene load_steps=18 format=3 uid="uid://c6c2a8hua6yxb"]
 
 [ext_resource type="Script" uid="uid://b827c7tquq4ll" path="res://scripts/bootstrap/main.gd" id="1"]
 [ext_resource type="Script" uid="uid://xtwadhg7hiuc" path="res://scripts/feature/pet/pet_controller.gd" id="2"]
@@ -10,6 +10,109 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/combined_status_hud.tscn" id="7_status_hud"]
 [ext_resource type="PackedScene" uid="uid://1tfwmmj6fo00" path="res://scenes/ui/world/map_teleport_panel.tscn" id="9_psdj5"]
 [ext_resource type="Script" uid="uid://bhgtqv6w416wu" path="res://scripts/ui/world/map_panel_controller.gd" id="10_s4kh0"]
+[ext_resource type="Script" path="res://scripts/bootstrap/bottom_menu_drawer.gd" id="11_bottom_drawer"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_menu_normal"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+bg_color = Color(0.0470588, 0.0862745, 0.160784, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.286275, 0.690196, 0.890196, 0.9)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.42)
+shadow_size = 4
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_menu_hover"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+bg_color = Color(0.0823529, 0.196078, 0.317647, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.454902, 0.843137, 1, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.46)
+shadow_size = 5
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_menu_pressed"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.027451, 0.0588235, 0.117647, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.192157, 0.580392, 0.784314, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.28)
+shadow_size = 2
+shadow_offset = Vector2(0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_toggle_normal"]
+bg_color = Color(0.0784314, 0.329412, 0.482353, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.556863, 0.909804, 1, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 5
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_toggle_hover"]
+bg_color = Color(0.117647, 0.458824, 0.639216, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.764706, 0.968627, 1, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.52)
+shadow_size = 6
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom_toggle_pressed"]
+bg_color = Color(0.0392157, 0.227451, 0.356863, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.431373, 0.8, 0.933333, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 2
+shadow_offset = Vector2(0, 1)
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -95,7 +198,7 @@ offset_top = 8.0
 offset_right = -8.0
 offset_bottom = 34.0
 grow_horizontal = 0
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 18
 text = "场景"
 horizontal_alignment = 2
 vertical_alignment = 1
@@ -107,15 +210,24 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -74.0
-offset_top = -58.0
-offset_right = -12.0
-offset_bottom = -18.0
+offset_left = -148.0
+offset_top = -68.0
+offset_right = -78.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.882353, 0.960784, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.67451, 0.85098, 0.945098, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0352941, 0.0705882, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_menu_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_menu_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_menu_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_menu_hover")
 text = "背包"
 
 [node name="SettingsButton" type="Button" parent="UiLayer/HudRoot"]
@@ -125,15 +237,24 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -142.0
-offset_top = -58.0
-offset_right = -80.0
-offset_bottom = -18.0
+offset_left = -224.0
+offset_top = -68.0
+offset_right = -154.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.882353, 0.960784, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.67451, 0.85098, 0.945098, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0352941, 0.0705882, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_menu_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_menu_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_menu_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_menu_hover")
 text = "设置"
 
 [node name="TaskButton" type="Button" parent="UiLayer/HudRoot"]
@@ -143,15 +264,24 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -210.0
-offset_top = -58.0
-offset_right = -148.0
-offset_bottom = -18.0
+offset_left = -300.0
+offset_top = -68.0
+offset_right = -230.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.882353, 0.960784, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.67451, 0.85098, 0.945098, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0352941, 0.0705882, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_menu_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_menu_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_menu_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_menu_hover")
 text = "任务"
 
 [node name="AutoEncounterButton" type="Button" parent="UiLayer/HudRoot"]
@@ -162,15 +292,24 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -278.0
-offset_top = -58.0
-offset_right = -216.0
-offset_bottom = -18.0
+offset_left = -376.0
+offset_top = -68.0
+offset_right = -306.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.882353, 0.960784, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.67451, 0.85098, 0.945098, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0352941, 0.0705882, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_menu_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_menu_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_menu_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_menu_hover")
 text = "挂机"
 
 [node name="BottomPanel" type="PanelContainer" parent="UiLayer/HudRoot"]
@@ -181,7 +320,7 @@ anchor_top = 1.0
 anchor_right = 0.95
 anchor_bottom = 1.0
 offset_top = -158.0
-offset_bottom = -70.0
+offset_bottom = -76.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -202,16 +341,56 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -346.0
-offset_top = -58.0
-offset_right = -284.0
-offset_bottom = -18.0
+offset_left = -452.0
+offset_top = -68.0
+offset_right = -382.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.882353, 0.960784, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.67451, 0.85098, 0.945098, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0352941, 0.0705882, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_menu_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_menu_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_menu_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_menu_hover")
 text = "地图"
+
+[node name="BottomMenuToggleButton" type="Button" parent="UiLayer/HudRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -72.0
+offset_top = -72.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(0.941176, 0.992157, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.733333, 0.909804, 0.980392, 1)
+theme_override_colors/font_outline_color = Color(0.0117647, 0.0705882, 0.101961, 0.95)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 36
+theme_override_styles/normal = SubResource("StyleBoxFlat_bottom_toggle_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_bottom_toggle_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_bottom_toggle_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bottom_toggle_hover")
+text = "+"
+
+[node name="BottomMenuDrawer" type="Node" parent="UiLayer/HudRoot"]
+unique_name_in_owner = true
+script = ExtResource("11_bottom_drawer")
 
 [node name="TransitionOverlay" type="ColorRect" parent="UiLayer"]
 unique_name_in_owner = true

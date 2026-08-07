@@ -489,6 +489,7 @@ portal_spawn_scene_positions = {
 "23001": Vector2(8, 13),
 "9002": Vector2(10, 2)
 }
+login_and_map_teleport_spawn_position = Vector2(8, 7)
 door_configs = {
 "通往五彩湖": {
 "portal_id": 20003,
