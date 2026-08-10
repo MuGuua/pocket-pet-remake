@@ -13,12 +13,14 @@ class_name EllipseCarouselDemo
 @export_range(120.0, 360.0, 1.0) var ellipse_radius_x: float = 292.0
 ## 椭圆纵向半径；较扁的纵深让轮播更接近正视角，并允许前后图标自然遮挡。
 @export_range(30.0, 120.0, 1.0) var ellipse_radius_y: float = 50.0
-## 抽奖时每次移动一个点位的基础补间时长。
-@export_range(0.03, 0.3, 0.01) var draw_step_duration_seconds: float = 0.07
-## 抽奖最后一个点位的补间时长；比基础时长更长，用于做出减速停轮效果。
-@export_range(0.05, 0.5, 0.01) var draw_deceleration_seconds: float = 0.18
-## 抽奖至少完整转动的圈数，避免结果刚好在当前位置时看不出轮盘转动。
-@export_range(2, 8, 1) var draw_full_rounds: int = 3
+## 抽奖开始阶段每次移动一个点位的补间时长。
+@export_range(0.03, 0.3, 0.01) var draw_step_duration_seconds: float = 0.045
+## 抽奖结束阶段每次移动一个点位的最长补间时长。
+@export_range(0.12, 0.8, 0.01) var draw_deceleration_seconds: float = 0.32
+## 进入减速阶段前至少完整转动的圈数，避免结果刚好在当前位置时看不出轮盘转动。
+@export_range(2, 8, 1) var draw_full_rounds: int = 4
+## 减速阶段占总步数的比例；比例越大，停轮过程越从容。
+@export_range(0.15, 0.5, 0.01) var draw_deceleration_ratio: float = 0.32
 ## 每个稀有形象的中奖概率；两个稀有形象各为 5%。
 @export_range(0.01, 0.2, 0.01) var rare_draw_probability: float = 0.05
 
@@ -263,15 +265,23 @@ func _animate_next_draw_step() -> void:
     _remaining_draw_steps -= 1
 
     var completed_steps: int = _total_draw_steps - _remaining_draw_steps
-    var deceleration_ratio: float = clampf(
-        float(completed_steps) / float(maxi(_total_draw_steps, 1)),
+    var deceleration_start_step: int = maxi(
+        1,
+        int(float(_total_draw_steps) * (1.0 - draw_deceleration_ratio))
+    )
+    var deceleration_progress: float = clampf(
+        float(completed_steps - deceleration_start_step) / float(
+            maxi(_total_draw_steps - deceleration_start_step, 1)
+        ),
         0.0,
         1.0
     )
+    # 使用 smoothstep 速度曲线，让前段保持高速，后段连续减速而不是突然变慢。
+    var eased_deceleration: float = deceleration_progress * deceleration_progress * (3.0 - 2.0 * deceleration_progress)
     var step_duration: float = lerpf(
         draw_step_duration_seconds,
         draw_deceleration_seconds,
-        deceleration_ratio * deceleration_ratio
+        eased_deceleration
     )
 
     _rotation_tween = create_tween()
