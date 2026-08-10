@@ -15,20 +15,6 @@
 [ext_resource type="Texture2D" uid="uid://cfyjevns1vt71" path="res://asset/分类/小部件/宠物头像/444.png" id="14_pet_11"]
 [ext_resource type="Texture2D" uid="uid://bdnodkhkym88" path="res://asset/分类/小部件/宠物头像/445.png" id="15_pet_12"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_portrait_frame"]
-bg_color = Color(0.027451, 0.058824, 0.109804, 0.94)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.34902, 0.760784, 1, 0.82)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-shadow_color = Color(0, 0, 0, 0.42)
-shadow_size = 5
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rare_portrait_frame"]
 bg_color = Color(0.12, 0.075, 0.015, 0.96)
 border_width_left = 3
@@ -42,6 +28,20 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 shadow_color = Color(1, 0.58, 0.04, 0.9)
 shadow_size = 14
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_portrait_frame"]
+bg_color = Color(0.027451, 0.058824, 0.109804, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.34902, 0.760784, 1, 0.82)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.42)
+shadow_size = 5
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_normal"]
 bg_color = Color(0.0509804, 0.105882, 0.184314, 0.92)
