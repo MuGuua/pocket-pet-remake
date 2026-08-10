@@ -13,51 +13,58 @@ class_name EllipseCarouselDemo
 @export_range(120.0, 360.0, 1.0) var ellipse_radius_x: float = 292.0
 ## 椭圆纵向半径；较扁的纵深让轮播更接近正视角，并允许前后图标自然遮挡。
 @export_range(30.0, 120.0, 1.0) var ellipse_radius_y: float = 50.0
-## 单次向左或向右轮转的补间时长。
-@export_range(0.1, 1.5, 0.05) var rotate_duration_seconds: float = 0.42
-## 上半圆最远位置的最小缩放值。
-@export_range(0.2, 1.0, 0.05) var minimum_icon_scale: float = 0.52
-## 下半圆最近位置的最大缩放值。
-@export_range(0.5, 1.6, 0.05) var maximum_icon_scale: float = 1.22
-## 上半圆最远位置的最小透明度。
-@export_range(0.1, 1.0, 0.05) var minimum_icon_alpha: float = 0.34
-## 下半圆最近位置的最大透明度。
-@export_range(0.5, 1.0, 0.05) var maximum_icon_alpha: float = 1.0
+## 抽奖时每次移动一个点位的基础补间时长。
+@export_range(0.03, 0.3, 0.01) var draw_step_duration_seconds: float = 0.07
+## 抽奖最后一个点位的补间时长；比基础时长更长，用于做出减速停轮效果。
+@export_range(0.05, 0.5, 0.01) var draw_deceleration_seconds: float = 0.18
+## 抽奖至少完整转动的圈数，避免结果刚好在当前位置时看不出轮盘转动。
+@export_range(2, 8, 1) var draw_full_rounds: int = 3
+## 每个稀有形象的中奖概率；两个稀有形象各为 5%。
+@export_range(0.01, 0.2, 0.01) var rare_draw_probability: float = 0.05
 
 ## 承载全部图标节点的 Y 排序父节点。
 @onready var _icon_sort_root: Node2D = $CarouselViewport/IconSortRoot
-## 显示当前位于最前方的图标名称。
+## 显示当前位于最前方或本次抽奖结果的图标名称。
 @onready var _selection_label: Label = $SelectionLabel
-## 向左轮转的移动端触摸按钮。
-@onready var _left_button: Button = $LeftButton
-## 向右轮转的移动端触摸按钮。
-@onready var _right_button: Button = $RightButton
+## 开始轮盘抽奖的移动端触摸按钮。
+@onready var _draw_button: Button = $DrawButton
 
 ## 按椭圆前后顺序保存的抽样点位；第一个点固定为下半圆正中央。
 var _sampled_positions: Array[Vector2] = []
-## 按当前点位顺序保存的图标节点；轮转后该数组会同步循环移动。
+## 按当前点位顺序保存的图标节点；轮转动画中会循环移动数组顺序。
 var _ordered_icons: Array[Node2D] = []
-## 当前正在播放的轮转补间；用于阻止连续输入造成动画互相覆盖。
+## 当前正在播放的单步轮转补间。
 var _rotation_tween: Tween = null
-## 当前是否正在轮转，动画完成前暂时锁定按钮和方向键输入。
-var _is_rotating: bool = false
+## 用于产生每次抽奖结果的独立随机数生成器。
+var _random_generator: RandomNumberGenerator = RandomNumberGenerator.new()
+## 当前是否正在抽奖，动画完成前会锁定抽奖按钮和键盘输入。
+var _is_drawing: bool = false
+## 本次抽奖还需要移动的点位步数。
+var _remaining_draw_steps: int = 0
+## 本次抽奖的总步数，用于计算逐步减速比例。
+var _total_draw_steps: int = 0
+## 本次抽奖的轮转方向，-1 表示向左，1 表示向右。
+var _draw_direction: int = -1
+## 本次抽奖随机选出的目标图标。
+var _draw_target_icon: Node2D = null
 
 
-## 初始化抽样点、收集场景中预置的图标，并绑定桌面端与移动端按钮。
+## 初始化抽样点、收集场景中预置的图标，并绑定抽奖按钮。
 func _ready() -> void:
+    _random_generator.randomize()
     _sampled_positions = _build_sampled_positions()
     _ordered_icons = _collect_icon_nodes()
     _validate_icon_count()
+    _validate_draw_configuration()
     _apply_layout_immediately()
-    _left_button.pressed.connect(_on_left_button_pressed)
-    _right_button.pressed.connect(_on_right_button_pressed)
+    _draw_button.pressed.connect(_on_draw_button_pressed)
     _update_selection_label()
 
 
-## 支持键盘左右方向键快速检查轮转，也保留场景按钮供移动端触摸操作。
+## 支持键盘空格或确认键开始抽奖，移动端仍使用场景中的抽奖按钮。
 ## event 是 Godot 分发且尚未被其他控件消费的输入事件。
 func _unhandled_input(event: InputEvent) -> void:
-    if _is_rotating:
+    if _is_drawing:
         return
     if not event is InputEventKey:
         return
@@ -65,16 +72,13 @@ func _unhandled_input(event: InputEvent) -> void:
     var key_event: InputEventKey = event as InputEventKey
     if not key_event.pressed or key_event.echo:
         return
-    if key_event.is_action_pressed("ui_left"):
-        _rotate_icons(-1)
-        get_viewport().set_input_as_handled()
-    elif key_event.is_action_pressed("ui_right"):
-        _rotate_icons(1)
+    if key_event.is_action_pressed("ui_accept"):
+        _start_draw()
         get_viewport().set_input_as_handled()
 
 
 ## 从均分椭圆的基础点中抽样：下半圆稀疏、上半圆密集，并从最前方开始排序。
-## 返回值是最终用于图标轮转的局部坐标数组。
+## 返回值是最终用于轮盘转动的局部坐标数组。
 func _build_sampled_positions() -> Array[Vector2]:
     var positions: Array[Vector2] = []
     var half_point_count: int = ellipse_point_count / 2
@@ -133,11 +137,19 @@ func _validate_icon_count() -> void:
     if _ordered_icons.size() == _sampled_positions.size():
         return
     push_error(
-        "椭圆轮播图标数与抽样点数不一致：图标 %d 个，点位 %d 个。" % [
+        "椭圆轮盘图标数与点位数不一致：图标 %d 个，点位 %d 个。" % [
             _ordered_icons.size(),
             _sampled_positions.size(),
         ]
     )
+
+
+## 检查场景中是否配置了两个稀有形象；稀有概率和普通概率由运行时统一计算。
+func _validate_draw_configuration() -> void:
+    var rare_count: int = _get_rare_icons().size()
+    if rare_count == 2:
+        return
+    push_error("轮盘抽奖需要配置两个稀有形象，当前配置为 %d 个。" % rare_count)
 
 
 ## 首次进入场景时直接把图标放到对应点位，并同步缩放、透明度与 Y 排序。
@@ -152,39 +164,118 @@ func _apply_layout_immediately() -> void:
         icon.y_sort_enabled = true
 
 
-## 点击左按钮时让每个图标补间到左侧相邻对象的旧点位。
-func _on_left_button_pressed() -> void:
-    _rotate_icons(-1)
+## 点击抽奖按钮后开始一次带随机结果、完整转动和减速停轮的轮盘抽奖。
+func _on_draw_button_pressed() -> void:
+    _start_draw()
 
 
-## 点击右按钮时让每个图标补间到右侧相邻对象的旧点位。
-func _on_right_button_pressed() -> void:
-    _rotate_icons(1)
-
-
-## 循环移动图标顺序，并把每个图标补间到相邻对象旋转前占用的旧点位。
-## direction 必须为 -1 或 1，分别表示向左和向右轮转一个点位。
-func _rotate_icons(direction: int) -> void:
-    if _is_rotating or _ordered_icons.is_empty():
+## 生成本次抽奖结果，并计算让目标图标停到最前方所需的轮转步数。
+func _start_draw() -> void:
+    if _is_drawing or _ordered_icons.is_empty():
         return
 
-    var normalized_direction: int = clampi(direction, -1, 1)
-    if normalized_direction == 0:
+    _draw_target_icon = _pick_random_draw_result()
+    if _draw_target_icon == null:
         return
 
-    _is_rotating = true
-    _set_navigation_enabled(false)
-    if _rotation_tween != null and _rotation_tween.is_valid():
-        _rotation_tween.kill()
+    var target_index: int = _ordered_icons.find(_draw_target_icon)
+    if target_index < 0:
+        push_error("抽奖目标不在当前轮盘图标列表中。")
+        return
+
+    _draw_direction = -1 if _random_generator.randi_range(0, 1) == 0 else 1
+    var offset_steps: int = target_index if _draw_direction < 0 else _ordered_icons.size() - target_index
+    _total_draw_steps = draw_full_rounds * _ordered_icons.size() + offset_steps
+    _remaining_draw_steps = _total_draw_steps
+    _is_drawing = true
+    _set_draw_enabled(false)
+    _selection_label.text = "抽奖中……"
+    _animate_next_draw_step()
+
+
+## 按每个稀有形象 5%、普通形象平分剩余 90% 的规则抽取目标图标。
+## 返回值是本次抽奖最终要停在最前方的图标节点。
+func _pick_random_draw_result() -> Node2D:
+    var rare_icons: Array[Node2D] = _get_rare_icons()
+    var normal_icons: Array[Node2D] = _get_normal_icons()
+    if rare_icons.is_empty() and normal_icons.is_empty():
+        return null
+
+    var total_rare_probability: float = rare_draw_probability * float(rare_icons.size())
+    var normal_probability: float = 1.0 - total_rare_probability
+    var roll: float = _random_generator.randf()
+    if not rare_icons.is_empty() and roll < total_rare_probability:
+        var rare_index: int = mini(
+            int(roll / rare_draw_probability),
+            rare_icons.size() - 1
+        )
+        return rare_icons[rare_index]
+
+    if not normal_icons.is_empty():
+        var normal_roll: float = clampf(
+            (roll - total_rare_probability) / maxf(normal_probability, 0.0001),
+            0.0,
+            0.999999
+        )
+        var normal_index: int = mini(
+            int(normal_roll * float(normal_icons.size())),
+            normal_icons.size() - 1
+        )
+        return normal_icons[normal_index]
+
+    var fallback_index: int = _random_generator.randi_range(0, rare_icons.size() - 1)
+    return rare_icons[fallback_index]
+
+
+## 从当前轮盘节点中筛选稀有形象；稀有标记配置在场景节点 metadata 中。
+## 返回值是所有设置了 is_rare=true 的图标节点。
+func _get_rare_icons() -> Array[Node2D]:
+    var rare_icons: Array[Node2D] = []
+    for icon: Node2D in _ordered_icons:
+        var is_rare_value: Variant = icon.get_meta("is_rare", false)
+        if bool(is_rare_value):
+            rare_icons.append(icon)
+    return rare_icons
+
+
+## 从当前轮盘节点中筛选普通形象。
+## 返回值是不带稀有标记的图标节点。
+func _get_normal_icons() -> Array[Node2D]:
+    var normal_icons: Array[Node2D] = []
+    for icon: Node2D in _ordered_icons:
+        var is_rare_value: Variant = icon.get_meta("is_rare", false)
+        if not bool(is_rare_value):
+            normal_icons.append(icon)
+    return normal_icons
+
+
+## 逐步执行轮盘转动；每一步仍复用图标移动到相邻对象旧点位的补间方式。
+func _animate_next_draw_step() -> void:
+    if _remaining_draw_steps <= 0:
+        _finish_draw()
+        return
 
     var old_positions: Array[Vector2] = []
     for icon: Node2D in _ordered_icons:
         old_positions.append(icon.position)
 
-    _rotate_ordered_icons(normalized_direction)
+    _rotate_ordered_icons(_draw_direction)
+    _remaining_draw_steps -= 1
+
+    var completed_steps: int = _total_draw_steps - _remaining_draw_steps
+    var deceleration_ratio: float = clampf(
+        float(completed_steps) / float(maxi(_total_draw_steps, 1)),
+        0.0,
+        1.0
+    )
+    var step_duration: float = lerpf(
+        draw_step_duration_seconds,
+        draw_deceleration_seconds,
+        deceleration_ratio * deceleration_ratio
+    )
+
     _rotation_tween = create_tween()
     _rotation_tween.set_parallel(true)
-
     for icon_index: int in range(_ordered_icons.size()):
         var current_icon: Node2D = _ordered_icons[icon_index]
         var target_position: Vector2 = old_positions[icon_index]
@@ -194,25 +285,25 @@ func _rotate_icons(direction: int) -> void:
             current_icon,
             "position",
             target_position,
-            rotate_duration_seconds
+            step_duration
         ).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
         _rotation_tween.tween_property(
             current_icon,
             "scale",
             target_scale,
-            rotate_duration_seconds
+            step_duration
         ).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
         _rotation_tween.tween_property(
             current_icon,
             "modulate:a",
             target_alpha,
-            rotate_duration_seconds
+            step_duration
         ).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 
-    _rotation_tween.finished.connect(_on_rotation_finished)
+    _rotation_tween.finished.connect(_animate_next_draw_step)
 
 
-## 根据方向循环移动图标数组，使数组索引继续与目标点位索引保持一致。
+## 循环移动图标数组，使数组索引继续与目标点位索引保持一致。
 ## direction 为负数时首个图标移到末尾，为正数时末尾图标移到开头。
 func _rotate_ordered_icons(direction: int) -> void:
     if direction < 0:
@@ -229,16 +320,16 @@ func _rotate_ordered_icons(direction: int) -> void:
 ## 返回值是可直接写入 Node2D.scale 的等比二维缩放。
 func _calculate_icon_scale(target_position: Vector2) -> Vector2:
     var depth_ratio: float = _calculate_depth_ratio(target_position)
-    var scale_value: float = lerpf(minimum_icon_scale, maximum_icon_scale, depth_ratio)
+    var scale_value: float = lerpf(0.92, 1.22, depth_ratio)
     return Vector2(scale_value, scale_value)
 
 
 ## 按点位纵向深度计算透明度；越靠近上半圆后方，图标越透明。
 ## target_position 是图标即将到达的椭圆点位。
-## 返回值范围由 minimum_icon_alpha 与 maximum_icon_alpha 控制。
+## 返回值范围由最小和最大透明度固定控制。
 func _calculate_icon_alpha(target_position: Vector2) -> float:
     var depth_ratio: float = _calculate_depth_ratio(target_position)
-    return lerpf(minimum_icon_alpha, maximum_icon_alpha, depth_ratio)
+    return lerpf(0.65, 1.0, depth_ratio)
 
 
 ## 把点位 Y 坐标转换为 0 到 1 的椭圆纵向深度比例。
@@ -252,27 +343,40 @@ func _calculate_depth_ratio(target_position: Vector2) -> float:
     return clampf((target_position.y - top_y) / diameter_y, 0.0, 1.0)
 
 
-## 轮转结束后解锁输入，并刷新当前位于下半圆正中央的图标名称。
-func _on_rotation_finished() -> void:
-    _is_rotating = false
-    _set_navigation_enabled(true)
-    _update_selection_label()
+## 轮盘动画完成后确认目标图标在最前方，并显示普通或稀有结果。
+func _finish_draw() -> void:
+    _is_drawing = false
+    _set_draw_enabled(true)
+    if _ordered_icons.is_empty():
+        _selection_label.text = "抽奖结果：无"
+        return
+
+    var selected_icon: Node2D = _ordered_icons[0]
+    var display_name: String = _get_icon_display_name(selected_icon)
+    var is_rare: bool = bool(selected_icon.get_meta("is_rare", false))
+    var rarity_text: String = " · 稀有" if is_rare else " · 普通"
+    _selection_label.text = "抽奖结果：%s%s" % [display_name, rarity_text]
 
 
-## 同步左右按钮可用状态，防止动画过程中重复触发补间。
+## 同步抽奖按钮可用状态，防止动画过程中重复触发抽奖。
 ## is_enabled 表示按钮当前是否允许交互。
-func _set_navigation_enabled(is_enabled: bool) -> void:
-    _left_button.disabled = not is_enabled
-    _right_button.disabled = not is_enabled
+func _set_draw_enabled(is_enabled: bool) -> void:
+    _draw_button.disabled = not is_enabled
 
 
-## 读取第一个点位上的图标标题，更新 Demo 当前选择提示。
+## 读取第一个点位上的图标标题，更新初始选择提示。
 func _update_selection_label() -> void:
     if _ordered_icons.is_empty():
         _selection_label.text = "当前选择：无"
         return
 
     var selected_icon: Node2D = _ordered_icons[0]
-    var display_name_value: Variant = selected_icon.get_meta("display_name", selected_icon.name)
-    var display_name: String = str(display_name_value)
-    _selection_label.text = "当前选择：%s" % display_name
+    _selection_label.text = "当前选择：%s" % _get_icon_display_name(selected_icon)
+
+
+## 获取图标在场景 metadata 中配置的展示名称。
+## icon 是需要读取名称的轮盘图标节点。
+## 返回值是用于 UI 展示的中文名称。
+func _get_icon_display_name(icon: Node2D) -> String:
+    var display_name_value: Variant = icon.get_meta("display_name", icon.name)
+    return str(display_name_value)

@@ -29,6 +29,20 @@ corner_radius_bottom_left = 6
 shadow_color = Color(0, 0, 0, 0.42)
 shadow_size = 5
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rare_portrait_frame"]
+bg_color = Color(0.12, 0.075, 0.015, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.78, 0.18, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(1, 0.58, 0.04, 0.9)
+shadow_size = 14
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_normal"]
 bg_color = Color(0.0509804, 0.105882, 0.184314, 0.92)
 border_width_left = 2
@@ -97,7 +111,7 @@ theme_override_colors/font_shadow_color = Color(0, 0.0627451, 0.145098, 0.9)
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 4
 theme_override_font_sizes/font_size = 44
-text = "椭圆宠物轮播 Demo"
+text = "宠物轮盘抽奖 Demo"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="." unique_id=1271878340]
@@ -108,7 +122,7 @@ offset_right = 710.0
 offset_bottom = 204.0
 theme_override_colors/font_color = Color(0.439216, 0.780392, 0.960784, 1)
 theme_override_font_sizes/font_size = 24
-text = "上半圆密集 · 下半圆稀疏 · 按 Y 深度缩放与透明"
+text = "随机概率抽奖 · 稀有形象 5% · 普通形象平分 90%"
 horizontal_alignment = 1
 
 [node name="CarouselViewport" type="Control" parent="." unique_id=1620630001]
@@ -131,6 +145,7 @@ y_sort_enabled = true
 [node name="Pet01" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=648726920]
 y_sort_enabled = true
 metadata/display_name = "芽芽"
+metadata/is_rare = true
 
 [node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet01" unique_id=818011063]
 offset_left = -48.0
@@ -138,7 +153,7 @@ offset_top = -48.0
 offset_right = 48.0
 offset_bottom = 48.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+theme_override_styles/panel = SubResource("StyleBoxFlat_rare_portrait_frame")
 
 [node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet01" unique_id=1435750121]
 scale = Vector2(2.15, 2.15)
@@ -307,6 +322,7 @@ texture = ExtResource("14_pet_11")
 [node name="Pet12" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=917798987]
 y_sort_enabled = true
 metadata/display_name = "可可"
+metadata/is_rare = true
 
 [node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet12" unique_id=416911793]
 offset_left = -48.0
@@ -314,7 +330,7 @@ offset_top = -48.0
 offset_right = 48.0
 offset_bottom = 48.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+theme_override_styles/panel = SubResource("StyleBoxFlat_rare_portrait_frame")
 
 [node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet12" unique_id=248632166]
 scale = Vector2(2.05, 2.05)
@@ -334,37 +350,21 @@ theme_override_font_sizes/font_size = 32
 text = "当前选择：芽芽"
 horizontal_alignment = 1
 
-[node name="LeftButton" type="Button" parent="." unique_id=988134132]
+[node name="DrawButton" type="Button" parent="." unique_id=988134132]
 layout_mode = 0
-offset_left = 72.0
+offset_left = 150.0
 offset_top = 1096.0
-offset_right = 332.0
+offset_right = 630.0
 offset_bottom = 1216.0
 focus_mode = 0
-theme_override_colors/font_color = Color(0.835294, 0.952941, 1, 1)
+theme_override_colors/font_color = Color(1, 0.92549, 0.65098, 1)
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
-theme_override_colors/font_hover_color = Color(0.956863, 0.996078, 1, 1)
-theme_override_font_sizes/font_size = 32
+theme_override_colors/font_hover_color = Color(1, 0.976471, 0.796078, 1)
+theme_override_font_sizes/font_size = 36
 theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_normal")
-text = "←  向左"
-
-[node name="RightButton" type="Button" parent="." unique_id=386741894]
-layout_mode = 0
-offset_left = 448.0
-offset_top = 1096.0
-offset_right = 708.0
-offset_bottom = 1216.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.835294, 0.952941, 1, 1)
-theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
-theme_override_colors/font_hover_color = Color(0.956863, 0.996078, 1, 1)
-theme_override_font_sizes/font_size = 32
-theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_normal")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_pressed")
-theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_normal")
-text = "向右  →"
+text = "开始抽奖"
 
 [node name="Hint" type="Label" parent="." unique_id=614403917]
 layout_mode = 0
@@ -374,5 +374,5 @@ offset_right = 710.0
 offset_bottom = 1308.0
 theme_override_colors/font_color = Color(0.439216, 0.780392, 0.960784, 0.92)
 theme_override_font_sizes/font_size = 23
-text = "点击按钮或按键盘 ← / →，图标会移动到相邻对象的旧点位"
+text = "点击开始抽奖，轮盘将随机转动并减速停在中奖形象"
 horizontal_alignment = 1
