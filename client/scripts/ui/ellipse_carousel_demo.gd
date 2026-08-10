@@ -14,13 +14,13 @@ class_name EllipseCarouselDemo
 ## 椭圆纵向半径；较扁的纵深让轮播更接近正视角，并允许前后图标自然遮挡。
 @export_range(30.0, 120.0, 1.0) var ellipse_radius_y: float = 50.0
 ## 抽奖开始阶段每次移动一个点位的补间时长。
-@export_range(0.03, 0.3, 0.01) var draw_step_duration_seconds: float = 0.045
+@export_range(0.03, 0.4, 0.01) var draw_step_duration_seconds: float = 0.06
 ## 抽奖结束阶段每次移动一个点位的最长补间时长。
-@export_range(0.12, 0.8, 0.01) var draw_deceleration_seconds: float = 0.32
+@export_range(0.2, 1.2, 0.01) var draw_deceleration_seconds: float = 0.58
 ## 进入减速阶段前至少完整转动的圈数，避免结果刚好在当前位置时看不出轮盘转动。
-@export_range(2, 8, 1) var draw_full_rounds: int = 4
+@export_range(2, 10, 1) var draw_full_rounds: int = 5
 ## 减速阶段占总步数的比例；比例越大，停轮过程越从容。
-@export_range(0.15, 0.5, 0.01) var draw_deceleration_ratio: float = 0.32
+@export_range(0.2, 0.65, 0.01) var draw_deceleration_ratio: float = 0.48
 ## 每个稀有形象的中奖概率；两个稀有形象各为 5%。
 @export_range(0.01, 0.2, 0.01) var rare_draw_probability: float = 0.05
 
@@ -276,8 +276,8 @@ func _animate_next_draw_step() -> void:
         0.0,
         1.0
     )
-    # 使用 smoothstep 速度曲线，让前段保持高速，后段连续减速而不是突然变慢。
-    var eased_deceleration: float = deceleration_progress * deceleration_progress * (3.0 - 2.0 * deceleration_progress)
+    # 使用 ease-out 曲线，让最后几格的速度变化更连续，避免最后一步突然停住。
+    var eased_deceleration: float = 1.0 - pow(1.0 - deceleration_progress, 3.0)
     var step_duration: float = lerpf(
         draw_step_duration_seconds,
         draw_deceleration_seconds,
