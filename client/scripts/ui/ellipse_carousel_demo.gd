@@ -16,11 +16,11 @@ class_name EllipseCarouselDemo
 ## 抽奖开始阶段每次移动一个点位的补间时长。
 @export_range(0.03, 0.4, 0.01) var draw_step_duration_seconds: float = 0.06
 ## 抽奖结束阶段每次移动一个点位的最长补间时长。
-@export_range(0.2, 1.2, 0.01) var draw_deceleration_seconds: float = 0.58
+@export_range(0.2, 1.2, 0.01) var draw_deceleration_seconds: float = 0.42
 ## 进入减速阶段前至少完整转动的圈数，避免结果刚好在当前位置时看不出轮盘转动。
 @export_range(2, 10, 1) var draw_full_rounds: int = 5
 ## 减速阶段占总步数的比例；比例越大，停轮过程越从容。
-@export_range(0.2, 0.65, 0.01) var draw_deceleration_ratio: float = 0.48
+@export_range(0.2, 0.65, 0.01) var draw_deceleration_ratio: float = 0.36
 ## 每个稀有形象的中奖概率；两个稀有形象各为 5%。
 @export_range(0.01, 0.2, 0.01) var rare_draw_probability: float = 0.05
 
