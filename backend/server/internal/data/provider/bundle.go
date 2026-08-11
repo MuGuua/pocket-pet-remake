@@ -49,6 +49,7 @@ type Bundle struct {
 	NPCDialogues   npcdialogue.Repository
 	Wallets        wallet.Repository
 	World          world.Repository
+	MovementStates world.MovementStateRepository
 	WSTokens       auth.WSTokenRepository
 }
 
@@ -86,6 +87,7 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 		NPCDialogues:   pgrepo.NewNPCDialogueRepository(deps.Postgres),
 		Wallets:        pgrepo.NewWalletRepository(deps.Postgres),
 		World:          pgrepo.NewWorldRepository(deps.Postgres),
+		MovementStates: redisrepo.NewMovementStateRepository(deps.Redis, cfg.Redis.KeyPrefix),
 		WSTokens:       redisrepo.NewWSTokenRepository(deps.Redis, cfg.Redis.KeyPrefix),
 	}, nil
 }

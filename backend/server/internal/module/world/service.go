@@ -3,11 +3,52 @@ package world
 import "context"
 
 type Service struct {
-	repo Repository
+	repo         Repository
+	movementRepo MovementStateRepository
 }
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetMovementStateRepository 注入在线玩家权威移动状态仓储。
+func (s *Service) SetMovementStateRepository(repo MovementStateRepository) {
+	if s == nil {
+		return
+	}
+	s.movementRepo = repo
+}
+
+// InitializeMovementState 使用进入世界或切图后的权威位置初始化当前会话状态。
+func (s *Service) InitializeMovementState(ctx context.Context, state MovementState) error {
+	if s == nil || s.movementRepo == nil {
+		return ErrMovementStateNotFound
+	}
+	return s.movementRepo.Initialize(ctx, state)
+}
+
+// AdvanceMovementState 校验会话、场景代次和移动序号后，通过仓储 CAS 原子推进权威状态。
+func (s *Service) AdvanceMovementState(ctx context.Context, next MovementState) error {
+	if s == nil || s.movementRepo == nil {
+		return ErrMovementStateNotFound
+	}
+	current, err := s.movementRepo.Load(ctx, next.PlayerID)
+	if err != nil {
+		return err
+	}
+	if current.SessionID != next.SessionID {
+		return ErrMovementSessionMismatch
+	}
+	if current.SceneID != next.SceneID || current.SceneVersion != next.SceneVersion {
+		return ErrMovementSceneMismatch
+	}
+	if next.LastMoveSeq <= current.LastMoveSeq {
+		return ErrMovementSequenceStale
+	}
+	if next.PositionVersion <= current.PositionVersion {
+		next.PositionVersion = current.PositionVersion + 1
+	}
+	return s.movementRepo.CompareAndSet(ctx, current.LastMoveSeq, next)
 }
 
 func (s *Service) GetSceneSnapshot(ctx context.Context, playerID uint64, sceneID uint32, selfPos Vec2i) (*SceneSnapshot, error) {

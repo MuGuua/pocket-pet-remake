@@ -7,6 +7,10 @@
 - Godot 世界控制器在同场景移动请求中增加四方向 `input`；停止移动时发送零向量，并携带客户端单调时钟。现有 `target_pos`、单请求在途和服务端坐标处理暂不改变，避免协议预留与权威规则改造混合。
 - 更新 `backend/docs/protocol.md`，明确新增字段当前的兼容状态和零值语义；本次没有数据库结构变更、依赖新增或正式玩法数据硬编码。
 - 验证通过：`go test ./server/internal/protocol ./server/internal/transport/ws`、Godot 4.7 Headless 全项目解析、目标 GDScript 无 Tab、`git diff --check`。
+- 完成清单 `P0-02` 与 `P1-01`：新增世界领域移动状态模型、仓储接口、Redis适配器和应用装配，不让传输层直接操作 Redis。
+- `P1-02` 已完成仓储部分：Lua CAS 会同时校验会话 ID、场景 ID、场景版本、期望序号和新序号，更新成功后续期并写入 dirty 玩家集合；进入世界和正式移动链路接入仍保持进行中。
+- 新增 Redis移动状态初始化、读取、缺失状态和 CAS结果映射测试；执行 `go test ./server/internal/data/redis ./server/internal/data/provider ./server/internal/module/world ./server/internal/app ./server/internal/transport/ws` 通过。
+- 启动清单 `P0-03`：`world.Service.AdvanceMovementState` 已实现会话、场景 ID、场景版本和严格递增 `move_seq` 预检，并通过仓储 CAS 推进位置版本；新增重复序号、倒退序号、旧会话和旧场景专项测试。
 
 ## 2026-08-07：NPC 菜单仅显示任务名任务总结
 

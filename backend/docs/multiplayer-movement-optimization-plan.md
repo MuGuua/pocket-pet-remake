@@ -200,8 +200,8 @@ world_scene_navigation
 ### P0：权威移动安全
 
 - [x] P0-01 扩展移动协议结构，保留旧字段兼容性。已新增 `input`、`client_tick`、`corrected_precise_pos` 和 `server_tick` 字段；客户端开始发送输入意图，服务端权威判定仍待后续清单项接入。
-- [ ] P0-02 在 `world` 模块定义移动状态仓储和权威移动结果模型。
-- [ ] P0-03 实现服务端 `move_seq`、会话代次和场景代次校验。
+- [x] P0-02 在 `world` 模块定义移动状态仓储和权威移动结果模型。已定义 Redis运行态所需的玩家、会话、场景代次、定点坐标、序号和位置版本字段，并由 `world.Service` 持有仓储边界。
+- [~] P0-03 实现服务端 `move_seq`、会话代次和场景代次校验。`world.Service.AdvanceMovementState` 已完成领域预检和 Redis CAS 双层保护；进入世界初始化、切图重置和 WebSocket移动入口接入尚未完成。
 - [ ] P0-04 实现服务端四方向输入归一化、速度和最大时间跨度校验。
 - [ ] P0-05 增加场景边界数据迁移、仓储、后台维护和运行时缓存。
 - [ ] P0-06 增加场景静态通行数据迁移、Godot 导出工具、后台发布与回滚。
@@ -212,8 +212,8 @@ world_scene_navigation
 
 ### P1：Redis实时状态与持久化
 
-- [ ] P1-01 扩展 Redis 适配能力并新增移动状态专用仓储。
-- [ ] P1-02 使用 Lua/CAS 原子初始化和更新玩家移动状态。
+- [x] P1-01 扩展 Redis 适配能力并新增移动状态专用仓储。仓储已经通过 provider 注入 `world.Service`，没有把 Redis细节泄漏到 handler 或领域模型。
+- [~] P1-02 使用 Lua/CAS 原子初始化和更新玩家移动状态。Lua CAS、TTL、会话/场景/序号比较和 dirty 标记已经实现并完成错误映射测试；进入世界初始化与移动处理链路尚待接入。
 - [ ] P1-03 进入世界时实现 Redis优先、PostgreSQL回退的恢复流程。
 - [ ] P1-04 移除普通移动请求中的 PostgreSQL同步档案查询和位置写入。
 - [ ] P1-05 实现 Redis dirty 玩家集合。

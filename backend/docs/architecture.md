@@ -107,6 +107,14 @@
 - 远端人物直接使用服务端归一化朝向和起停状态，不再根据延迟坐标猜方向；两个 100ms 移动包之间按人物速度短时连续预测，并在新包到达后平滑纠偏，预测最多持续 180ms，断包后不会无限前进。远端插值保留连续浮点坐标，像素吸附只发生在渲染层，避免逐帧取整造成的阶梯抖动。
 - 远端宠物按高精度人物轨迹重新累计 24px 路径步，转向时重置路径轴并使用与本地宠物一致的移动速度。
 
+### 权威移动运行态（实施中）
+
+- 多人同屏移动优化清单统一维护在 `backend/docs/multiplayer-movement-optimization-plan.md`。
+- `world.MovementStateRepository` 是领域层的短时权威移动状态边界；Redis适配器通过应用装配注入，WebSocket handler 不直接依赖 Redis客户端。
+- Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
+- 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`，供后续 PostgreSQL批量写回 worker 消费。
+- 当前只完成状态模型、Redis仓储和装配，尚未替换现有移动处理与 PostgreSQL同步写入；在清单 P0-03、P0-07、P1-03 至 P1-08 完成前，旧移动链路仍是实际运行路径。
+
 ### feature/battle
 - 战斗 UI
 - 技能、目标、切宠输入

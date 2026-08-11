@@ -6,6 +6,10 @@
 - `MOVE_INTENT_REQ` 向后兼容新增四方向 `input` 和仅用于诊断的 `client_tick`；客户端同场景移动开始提交这两个字段，旧坐标字段和现有处理流程保持不变。
 - `MOVE_INTENT_RESP` 预留 `corrected_precise_pos`、`server_tick`、`speed`，`ENTITY_MOVE_PUSH` 预留 `server_tick`；权威移动服务接入前这些响应字段保持零值，不提前改变现有移动判定。
 - 同步更新移动协议文档；验证通过 Go 协议与 WebSocket 测试、Godot 4.7 Headless 全项目解析、GDScript Tab 检查和 `git diff --check`。
+- `world` 模块新增权威 `MovementState` 与 `MovementStateRepository` 边界，覆盖会话、场景代次、定点坐标、移动序号和位置版本；`world.Service` 通过注入使用该边界，不直接引用 Redis实现。
+- Redis客户端补充移动仓储需要的读取、Lua执行和删除能力；新增移动状态适配器，以 24 小时 TTL 保存状态，并用 Lua CAS 原子校验会话、场景代次和序号，成功后写入 dirty 玩家集合。
+- provider 已创建 Redis移动状态仓储并注入世界领域服务；当前尚未切换移动 handler 或移除 PostgreSQL同步写入，避免在仓储验证完成前改变线上行为。
+- `world.Service` 新增移动状态初始化与推进入口；推进时先在领域层拒绝旧会话、旧场景代次和非递增序号，再由 Redis Lua CAS 防止并发覆盖，并自动推进位置版本。
 
 ## 2026-08-07 NPC 菜单仅显示任务名
 
