@@ -462,6 +462,10 @@
     "x": 0,
     "y": 0
   },
+  "self_precise_pos": {
+    "x": 250,
+    "y": 0
+  },
   "scene_version": 1,
   "nearby_entities": [
     {
@@ -522,6 +526,7 @@
 ```
 
 - 玩家实体的 `following_pet` 来自服务端持久化编队首位；无出战宠物或形象资源时省略该字段。
+- `self_precise_pos` 仅在断线重连存在 Redis权威移动状态时返回，使用千分之一场景格定点整数；客户端应优先于 `self_pos` 恢复人物位置。首次进入世界或 Redis状态缺失时省略，并使用 PostgreSQL来源的 `self_pos`。
 - 玩家实体与跟随宠物只携带世界同屏展示所需的名字、等级、经验、血量、精力和形象等轻量字段；这些字段来自服务端持久化数据，不包含背包内容。
 - `ENTER_WORLD_RESP.nearby_entities` 与 `ENTITY_ENTER_PUSH.entity` 使用同一结构；玩家更换编队后服务端复用 `ENTITY_ENTER_PUSH` 刷新同场景远端表现。
 

@@ -253,7 +253,16 @@ func handle_world_resync(payload: Dictionary) -> void:
             str(_scene_visual_apply_locked),
         ]
     )
-    GameState.set_world_snapshot(payload)
+    var normalized_payload: Dictionary = payload.duplicate(true)
+    var self_precise_position_variant: Variant = payload.get("self_precise_pos", null)
+    if self_precise_position_variant is Dictionary and not (self_precise_position_variant as Dictionary).is_empty():
+        # 重连优先把 Redis千分之一格位置转换为场景坐标，再交给统一世界快照入口。
+        var self_precise_position: Dictionary = self_precise_position_variant as Dictionary
+        normalized_payload["self_pos"] = {
+            "x": float(self_precise_position.get("x", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
+            "y": float(self_precise_position.get("y", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
+        }
+    GameState.set_world_snapshot(normalized_payload)
     if _scene_visual_apply_locked:
         _deferred_scene_apply_pending = true
         _debug_scene_transition("WORLD_RESYNC_PUSH deferred until transition midpoint")

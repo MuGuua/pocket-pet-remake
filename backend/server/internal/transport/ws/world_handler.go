@@ -76,6 +76,40 @@ func (h *WorldHandler) SetStoryProgressService(service *storyprogress.Service) {
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
 // reconnect can recover the current world view without duplicating scene logic.
 func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID uint64) (*protocol.EnterWorldResp, error) {
+	return h.buildWorldSnapshotForPlayer(ctx, playerID, nil)
+}
+
+// BuildReconnectWorldSnapshot 优先使用同一会话在 Redis中的最新权威场景和坐标构建重连快照。
+func (h *WorldHandler) BuildReconnectWorldSnapshot(ctx context.Context, sess *session.Session) (*protocol.EnterWorldResp, error) {
+	if sess == nil {
+		return nil, session.ErrSessionNotFound
+	}
+	var movementState *world.MovementState
+	if h.worldService != nil && h.worldService.MovementStateEnabled() {
+		state, err := h.worldService.LoadMovementState(ctx, sess.PlayerID)
+		if err == nil {
+			if state.SessionID != sess.ID {
+				return nil, world.ErrMovementSessionMismatch
+			}
+			movementState = state
+		} else if !errors.Is(err, world.ErrMovementStateNotFound) {
+			return nil, err
+		}
+	}
+	snapshot, err := h.buildWorldSnapshotForPlayer(ctx, sess.PlayerID, movementState)
+	if err != nil {
+		return nil, err
+	}
+	if movementState == nil || movementState.SceneID != snapshot.SceneID {
+		if err := h.initializeMovementState(ctx, sess, snapshot); err != nil {
+			return nil, err
+		}
+	}
+	return snapshot, nil
+}
+
+// buildWorldSnapshotForPlayer 允许重连使用 Redis运行态位置；其他入口继续使用 PostgreSQL永久位置。
+func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID uint64, movementState *world.MovementState) (*protocol.EnterWorldResp, error) {
 	if h.runtimeSnapshots != nil {
 		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(ctx, playerID); err != nil {
 			return nil, err
@@ -85,11 +119,17 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 	if err != nil {
 		return nil, err
 	}
+	authoritativeSceneID := profile.SceneID
+	authoritativePos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
+	if movementState != nil {
+		authoritativeSceneID = movementState.SceneID
+		authoritativePos = movementState.PersistedPos
+	}
 	lineup, err := h.petService.ListLineup(ctx, playerID)
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	snapshot, err := h.worldService.GetSceneSnapshot(ctx, playerID, authoritativeSceneID, authoritativePos)
 	if err != nil {
 		// 当玩家档案中的 scene_id 已失效时，服务端直接把人物修正到默认市场，
 		// 避免客户端因为拿不到世界快照而一直停留在 ERROR_PUSH。
@@ -101,6 +141,8 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 			profile.SceneID = world.FallbackSceneID
 			profile.PosX = fallbackPos.X
 			profile.PosY = fallbackPos.Y
+			authoritativeSceneID = world.FallbackSceneID
+			authoritativePos = fallbackPos
 			snapshot, err = h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, fallbackPos)
 		}
 		if err != nil {
@@ -130,7 +172,7 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 	}
 	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
 	nearbyEntities = h.appendOnlinePlayerEntities(ctx, playerID, snapshot.SceneID, nearbyEntities)
-	return &protocol.EnterWorldResp{
+	response := &protocol.EnterWorldResp{
 		Self: protocol.PlayerBrief{
 			PlayerID: profile.PlayerID,
 			Name:     profile.Name,
@@ -144,7 +186,12 @@ func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID
 		Lineup:         toProtocolLineup(lineup, h.petService.ResolveSkinID),
 		Gold:           legacyGold,
 		WildEncounter:  wildEncounter,
-	}, nil
+	}
+	if movementState != nil && authoritativeSceneID == movementState.SceneID {
+		precisePos := protocol.Vec2i{X: movementState.PrecisePos.X, Y: movementState.PrecisePos.Y}
+		response.SelfPrecisePos = &precisePos
+	}
+	return response, nil
 }
 
 func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Packet) error {
@@ -208,23 +255,36 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 
 	currentPos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
-	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != profile.SceneID
+	authoritativeSceneID := profile.SceneID
+	var currentMovementState *world.MovementState
+	if h.worldService != nil && h.worldService.MovementStateEnabled() {
+		currentMovementState, err = h.worldService.LoadMovementState(ctx, sess.PlayerID)
+		if err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "load movement state failed", err)
+		}
+		if currentMovementState.SessionID != sess.ID {
+			return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, world.ErrMovementSessionMismatch)
+		}
+		authoritativeSceneID = currentMovementState.SceneID
+		currentPos = currentMovementState.PersistedPos
+	}
+	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != authoritativeSceneID
 	if isSceneTransfer {
 		log.Printf(
 			"[SceneTransition][Server] request player_id=%d seq=%d move_seq=%d from_scene=%d profile_scene=%d target_scene=%d portal=%d current_pos=(%d,%d)",
-			sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, profile.SceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
+			sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, authoritativeSceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
 		)
 	}
-	if request.SceneID != profile.SceneID {
+	if request.SceneID != authoritativeSceneID {
 		if isSceneTransfer {
-			log.Printf("[SceneTransition][Server] reject player_id=%d reason=scene_mismatch request_scene=%d profile_scene=%d", sess.PlayerID, request.SceneID, profile.SceneID)
+			log.Printf("[SceneTransition][Server] reject player_id=%d reason=scene_mismatch request_scene=%d profile_scene=%d", sess.PlayerID, request.SceneID, authoritativeSceneID)
 		}
-		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, profile.SceneID, currentPos, "scene mismatch")
+		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, authoritativeSceneID, currentPos, "scene mismatch")
 	}
 
 	// 新客户端会持续上报当前格子坐标；服务端先持久化，再把权威结果广播给同场景其他玩家。
 	// 未携带 target_pos 的旧客户端心跳仍维持原有响应，避免破坏同场景移动协议兼容性。
-	if !request.MapTeleport && (request.TargetSceneID == 0 || request.TargetSceneID == profile.SceneID) {
+	if !request.MapTeleport && (request.TargetSceneID == 0 || request.TargetSceneID == authoritativeSceneID) {
 		correctedPos := currentPos
 		reason := "local movement handled by client"
 		var correctedPrecisePos protocol.Vec2i
@@ -233,14 +293,10 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
 			correctedPrecisePos = normalizePreciseMovementPosition(correctedPos, request.PrecisePos)
 			serverTick = time.Now().UnixMilli()
-			if h.worldService != nil && h.worldService.MovementStateEnabled() {
-				currentState, stateErr := h.worldService.LoadMovementState(ctx, sess.PlayerID)
-				if stateErr != nil {
-					return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "load movement state failed", stateErr)
-				}
-				nextState := *currentState
+			if currentMovementState != nil {
+				nextState := *currentMovementState
 				nextState.SessionID = sess.ID
-				nextState.SceneID = profile.SceneID
+				nextState.SceneID = authoritativeSceneID
 				nextState.PrecisePos = world.Vec2i{X: correctedPrecisePos.X, Y: correctedPrecisePos.Y}
 				nextState.PersistedPos = correctedPos
 				nextState.Facing = toWorldMovementFacing(normalizeMovementFacing(currentPos, correctedPos, request.Facing))
@@ -248,11 +304,11 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 				nextState.LastMoveSeq = request.MoveSeq
 				nextState.LastServerTickMS = serverTick
 				if stateErr := h.worldService.AdvanceMovementState(ctx, nextState); stateErr != nil {
-					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentState, stateErr)
+					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
 				}
 			}
 			if correctedPos != currentPos {
-				if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, profile.SceneID, correctedPos.X, correctedPos.Y); err != nil {
+				if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, authoritativeSceneID, correctedPos.X, correctedPos.Y); err != nil {
 					return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 				}
 			}
@@ -261,7 +317,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 			Accepted:            true,
 			MoveSeq:             request.MoveSeq,
-			SceneID:             profile.SceneID,
+			SceneID:             authoritativeSceneID,
 			CorrectedPos:        protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
 			CorrectedPrecisePos: correctedPrecisePos,
 			ServerTick:          serverTick,
@@ -274,9 +330,9 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			return err
 		}
 		if request.TargetPos != nil {
-			h.enterPlayerScene(ctx, sess.PlayerID, profile.SceneID)
+			h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
 			h.broadcastEntityMove(
-				profile.SceneID,
+				authoritativeSceneID,
 				sess.PlayerID,
 				request.MoveSeq,
 				currentPos,
@@ -289,11 +345,20 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return nil
 	}
 
+	if currentMovementState != nil {
+		nextState := *currentMovementState
+		nextState.LastMoveSeq = request.MoveSeq
+		nextState.LastServerTickMS = time.Now().UnixMilli()
+		if stateErr := h.worldService.AdvanceMovementState(ctx, nextState); stateErr != nil {
+			return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
+		}
+	}
+
 	var decision *world.MoveDecision
 	if request.MapTeleport {
-		decision, err = h.worldService.EvaluateMapTeleport(ctx, sess.PlayerID, profile.Level, request.SceneID, currentPos, request.TargetSceneID)
+		decision, err = h.worldService.EvaluateMapTeleport(ctx, sess.PlayerID, profile.Level, authoritativeSceneID, currentPos, request.TargetSceneID)
 	} else {
-		decision, err = h.worldService.EvaluateTransfer(ctx, sess.PlayerID, profile.Level, request.SceneID, currentPos, request.TargetSceneID, request.PortalID)
+		decision, err = h.worldService.EvaluateTransfer(ctx, sess.PlayerID, profile.Level, authoritativeSceneID, currentPos, request.TargetSceneID, request.PortalID)
 	}
 	if err != nil {
 		log.Printf("[SceneTransition][Server] evaluate failed player_id=%d err=%v", sess.PlayerID, err)
@@ -301,7 +366,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 	log.Printf(
 		"[SceneTransition][Server] decision player_id=%d accepted=%t from_scene=%d to_scene=%d spawn=(%d,%d) reason=%s",
-		sess.PlayerID, decision.Accepted, profile.SceneID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y, decision.Reason,
+		sess.PlayerID, decision.Accepted, authoritativeSceneID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y, decision.Reason,
 	)
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
@@ -321,8 +386,8 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	log.Printf("[SceneTransition][Server] MOVE_INTENT_RESP sent player_id=%d accepted=%t scene=%d", sess.PlayerID, decision.Accepted, decision.ToSceneID)
 
 	if !decision.Accepted {
-		log.Printf("[SceneTransition][Server] rejected transfer resync player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, profile.SceneID, currentPos.X, currentPos.Y)
-		return h.sendWorldResync(conn, profile.SceneID, currentPos)
+		log.Printf("[SceneTransition][Server] rejected transfer resync player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, authoritativeSceneID, currentPos.X, currentPos.Y)
+		return h.sendWorldResync(conn, authoritativeSceneID, currentPos)
 	}
 
 	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
@@ -334,10 +399,10 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 	log.Printf("[SceneTransition][Server] position persisted player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y)
 	// 同地图快速传送只更新权威坐标并同步 AOI，不重复触发离开/进入场景和 ENTER_SCENE 任务事件。
-	if request.MapTeleport && decision.ToSceneID == profile.SceneID {
-		h.enterPlayerScene(ctx, sess.PlayerID, profile.SceneID)
+	if request.MapTeleport && decision.ToSceneID == authoritativeSceneID {
+		h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
 		h.broadcastEntityMove(
-			profile.SceneID,
+			authoritativeSceneID,
 			sess.PlayerID,
 			request.MoveSeq,
 			currentPos,
@@ -346,10 +411,10 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			normalizeMovementFacing(currentPos, decision.SpawnPos, nil),
 			false,
 		)
-		return h.sendWorldResync(conn, profile.SceneID, decision.SpawnPos)
+		return h.sendWorldResync(conn, authoritativeSceneID, decision.SpawnPos)
 	}
 	// 先更新进程内场景索引并推送基础权威快照，客户端无需等待多人资料、宠物或任务查询即可完成换图。
-	h.movePlayerScenePresence(sess.PlayerID, profile.SceneID, decision.ToSceneID)
+	h.movePlayerScenePresence(sess.PlayerID, authoritativeSceneID, decision.ToSceneID)
 	if err := h.sendWorldResyncWithOnlinePlayers(conn, decision.ToSceneID, decision.SpawnPos, false); err != nil {
 		return err
 	}
@@ -400,11 +465,6 @@ func (h *WorldHandler) prepareMovementState(ctx context.Context, sess *session.S
 		return err
 	}
 	return h.initializeMovementState(ctx, sess, snapshot)
-}
-
-// ensureReconnectMovementState 保留同一会话的 Redis状态；缓存缺失时才用数据库快照恢复。
-func (h *WorldHandler) ensureReconnectMovementState(ctx context.Context, sess *session.Session, snapshot *protocol.EnterWorldResp) error {
-	return h.prepareMovementState(ctx, sess, snapshot, false)
 }
 
 // resetMovementStateAfterTransfer 以服务端判定的目标场景和出生点建立新的场景移动代次。

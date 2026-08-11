@@ -313,10 +313,12 @@ type PetSkillDetailResp struct {
 type EnterWorldReq struct{}
 
 type EnterWorldResp struct {
-	Self           PlayerBrief         `json:"self"`
-	Player         PlayerSnapshot      `json:"player"`
-	SceneID        uint32              `json:"scene_id"`
-	SelfPos        Vec2i               `json:"self_pos"`
+	Self    PlayerBrief    `json:"self"`
+	Player  PlayerSnapshot `json:"player"`
+	SceneID uint32         `json:"scene_id"`
+	SelfPos Vec2i          `json:"self_pos"`
+	// SelfPrecisePos 是重连时可选的千分之一场景格权威位置；首次进入世界可以省略。
+	SelfPrecisePos *Vec2i              `json:"self_precise_pos,omitempty"`
 	SceneVersion   uint32              `json:"scene_version"`
 	NearbyEntities []EntityBrief       `json:"nearby_entities"`
 	Lineup         []PetBrief          `json:"lineup"`
