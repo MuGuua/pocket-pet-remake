@@ -358,6 +358,21 @@ func NewWorldRepository(db DBTX) *WorldRepository {
 	return &WorldRepository{db: db}
 }
 
+// GetMovementConfig 读取唯一启用的服务端权威世界移动配置。
+func (r *WorldRepository) GetMovementConfig(ctx context.Context) (world.MovementConfig, error) {
+	var config world.MovementConfig
+	err := r.db.QueryRowContext(ctx, `
+SELECT speed_milli_cells_per_second, max_elapsed_ms, axis_tolerance_milli
+FROM world_movement_config
+WHERE config_id = 1 AND status = 1
+LIMIT 1
+`).Scan(&config.SpeedMilliCellsPerSecond, &config.MaxElapsedMS, &config.AxisToleranceMilli)
+	if errors.Is(err, sql.ErrNoRows) {
+		return world.MovementConfig{}, world.ErrMovementConfigUnavailable
+	}
+	return config, err
+}
+
 func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
 	if _, ok := worldScenes[sceneID]; !ok {
 		return nil, world.ErrSnapshotUnavailable

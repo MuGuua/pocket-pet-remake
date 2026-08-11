@@ -3603,6 +3603,11 @@ func NewWorldRepository() *WorldRepository {
 
 type WorldRepository struct{}
 
+// GetMovementConfig 返回与正式迁移一致的测试移动配置。
+func (r *WorldRepository) GetMovementConfig(_ context.Context) (world.MovementConfig, error) {
+	return world.MovementConfig{SpeedMilliCellsPerSecond: 3750, MaxElapsedMS: 300, AxisToleranceMilli: 125}, nil
+}
+
 type portalData struct {
 	targetSceneID uint32
 	targetPos     world.Vec2i

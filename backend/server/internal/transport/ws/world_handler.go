@@ -289,23 +289,38 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		reason := "local movement handled by client"
 		var correctedPrecisePos protocol.Vec2i
 		var serverTick int64
+		var authoritativeSpeed uint32
+		var authoritativeFacing protocol.Vec2i
+		var authoritativeMoving bool
 		if request.TargetPos != nil {
-			correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
-			correctedPrecisePos = normalizePreciseMovementPosition(correctedPos, request.PrecisePos)
 			serverTick = time.Now().UnixMilli()
 			if currentMovementState != nil {
-				nextState := *currentMovementState
-				nextState.SessionID = sess.ID
-				nextState.SceneID = authoritativeSceneID
-				nextState.PrecisePos = world.Vec2i{X: correctedPrecisePos.X, Y: correctedPrecisePos.Y}
-				nextState.PersistedPos = correctedPos
-				nextState.Facing = toWorldMovementFacing(normalizeMovementFacing(currentPos, correctedPos, request.Facing))
-				nextState.Moving = normalizeMovementState(currentPos, correctedPos, request.Moving)
-				nextState.LastMoveSeq = request.MoveSeq
-				nextState.LastServerTickMS = serverTick
-				if stateErr := h.worldService.AdvanceMovementState(ctx, nextState); stateErr != nil {
+				candidatePos := protocol.Vec2i{X: request.TargetPos.X * movementPositionFixedScale, Y: request.TargetPos.Y * movementPositionFixedScale}
+				if request.PrecisePos != nil {
+					candidatePos = *request.PrecisePos
+				}
+				facing := normalizeMovementFacing(currentPos, world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}, request.Facing)
+				movementResult, stateErr := h.worldService.EvaluateMovement(*currentMovementState, world.MovementIntent{
+					Input: toWorldMovementInput(request.Input), CandidatePos: toWorldMovementFacing(candidatePos), HasCandidate: true,
+					Facing: toWorldMovementFacing(facing), Moving: normalizeMovementState(currentPos, world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}, request.Moving),
+					MoveSeq: request.MoveSeq, ServerTickMS: serverTick,
+				})
+				if stateErr != nil {
 					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
 				}
+				if stateErr := h.worldService.AdvanceMovementState(ctx, movementResult.State); stateErr != nil {
+					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
+				}
+				correctedPos = movementResult.State.PersistedPos
+				correctedPrecisePos = protocol.Vec2i{X: movementResult.State.PrecisePos.X, Y: movementResult.State.PrecisePos.Y}
+				authoritativeSpeed = movementResult.State.Speed
+				authoritativeFacing = protocol.Vec2i{X: movementResult.State.Facing.X, Y: movementResult.State.Facing.Y}
+				authoritativeMoving = movementResult.State.Moving
+			} else {
+				correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
+				correctedPrecisePos = normalizePreciseMovementPosition(correctedPos, request.PrecisePos)
+				authoritativeFacing = normalizeMovementFacing(currentPos, correctedPos, request.Facing)
+				authoritativeMoving = normalizeMovementState(currentPos, correctedPos, request.Moving)
 			}
 			if correctedPos != currentPos {
 				if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, authoritativeSceneID, correctedPos.X, correctedPos.Y); err != nil {
@@ -321,6 +336,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			CorrectedPos:        protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
 			CorrectedPrecisePos: correctedPrecisePos,
 			ServerTick:          serverTick,
+			Speed:               authoritativeSpeed,
 			Reason:              reason,
 		})
 		if err != nil {
@@ -337,9 +353,11 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 				request.MoveSeq,
 				currentPos,
 				correctedPos,
-				normalizePreciseMovementPosition(correctedPos, request.PrecisePos),
-				normalizeMovementFacing(currentPos, correctedPos, request.Facing),
-				normalizeMovementState(currentPos, correctedPos, request.Moving),
+				correctedPrecisePos,
+				authoritativeFacing,
+				authoritativeMoving,
+				authoritativeSpeed,
+				serverTick,
 			)
 		}
 		return nil
@@ -400,6 +418,8 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	log.Printf("[SceneTransition][Server] position persisted player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y)
 	// 同地图快速传送只更新权威坐标并同步 AOI，不重复触发离开/进入场景和 ENTER_SCENE 任务事件。
 	if request.MapTeleport && decision.ToSceneID == authoritativeSceneID {
+		movementConfig, _ := h.worldService.MovementConfigSnapshot()
+		movementServerTick := time.Now().UnixMilli()
 		h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
 		h.broadcastEntityMove(
 			authoritativeSceneID,
@@ -410,6 +430,8 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			normalizePreciseMovementPosition(decision.SpawnPos, nil),
 			normalizeMovementFacing(currentPos, decision.SpawnPos, nil),
 			false,
+			movementConfig.SpeedMilliCellsPerSecond,
+			movementServerTick,
 		)
 		return h.sendWorldResync(conn, authoritativeSceneID, decision.SpawnPos)
 	}
@@ -439,10 +461,15 @@ func (h *WorldHandler) initializeMovementState(ctx context.Context, sess *sessio
 	if h.worldService == nil || !h.worldService.MovementStateEnabled() || sess == nil || snapshot == nil {
 		return nil
 	}
+	config, err := h.worldService.MovementConfigSnapshot()
+	if err != nil {
+		return err
+	}
 	return h.worldService.InitializeMovementState(ctx, world.MovementState{
 		PlayerID: sess.PlayerID, SessionID: sess.ID, SceneID: snapshot.SceneID, SceneVersion: snapshot.SceneVersion,
 		PrecisePos:   world.Vec2i{X: snapshot.SelfPos.X * movementPositionFixedScale, Y: snapshot.SelfPos.Y * movementPositionFixedScale},
 		PersistedPos: world.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
+		Speed:        config.SpeedMilliCellsPerSecond, LastServerTickMS: time.Now().UnixMilli(),
 	})
 }
 
@@ -472,10 +499,15 @@ func (h *WorldHandler) resetMovementStateAfterTransfer(ctx context.Context, sess
 	if h.worldService == nil || !h.worldService.MovementStateEnabled() || sess == nil || decision == nil {
 		return nil
 	}
+	config, err := h.worldService.MovementConfigSnapshot()
+	if err != nil {
+		return err
+	}
 	return h.worldService.InitializeMovementState(ctx, world.MovementState{
 		PlayerID: sess.PlayerID, SessionID: sess.ID, SceneID: decision.ToSceneID, SceneVersion: decision.SceneVersion,
 		PrecisePos:   world.Vec2i{X: decision.SpawnPos.X * movementPositionFixedScale, Y: decision.SpawnPos.Y * movementPositionFixedScale},
-		PersistedPos: decision.SpawnPos, LastMoveSeq: moveSeq, PositionVersion: uint64(time.Now().UnixMilli()),
+		PersistedPos: decision.SpawnPos, Speed: config.SpeedMilliCellsPerSecond, LastMoveSeq: moveSeq,
+		LastServerTickMS: time.Now().UnixMilli(), PositionVersion: uint64(time.Now().UnixMilli()),
 	})
 }
 
@@ -495,6 +527,14 @@ func (h *WorldHandler) sendMovementStateRejected(conn packetSender, packetSeq ui
 
 func toWorldMovementFacing(facing protocol.Vec2i) world.Vec2i {
 	return world.Vec2i{X: facing.X, Y: facing.Y}
+}
+
+func toWorldMovementInput(input *protocol.Vec2i) *world.Vec2i {
+	if input == nil {
+		return nil
+	}
+	value := toWorldMovementFacing(*input)
+	return &value
 }
 
 // HandleSessionDisconnect 从在线场景索引移除玩家，并通知原场景剩余客户端删除远端角色。
@@ -648,7 +688,7 @@ func (h *WorldHandler) movePlayerScenePresence(playerID uint64, fromSceneID uint
 }
 
 // broadcastEntityMove 把持久化后的坐标发给同场景其他玩家，发送失败不反向中断移动者连接。
-func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool) {
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64) {
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
 		SceneID:      sceneID,
 		SceneVersion: 1,
@@ -659,13 +699,15 @@ func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, move
 		PrecisePos:   precisePos,
 		Facing:       facing,
 		Moving:       moving,
+		Speed:        speed,
+		ServerTick:   serverTick,
 	})
 	if err == nil {
 		h.sendPacketToScene(sceneID, playerID, packet)
 	}
 }
 
-const movementPositionFixedScale int32 = 1000
+const movementPositionFixedScale int32 = world.MovementPositionFixedScale
 const movementPositionHalfCell int32 = movementPositionFixedScale / 2
 
 // normalizePreciseMovementPosition 把客户端表现坐标限制在权威整数格周围半格，阻止表现位置脱离持久化落点。

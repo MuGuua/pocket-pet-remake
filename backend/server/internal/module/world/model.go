@@ -7,8 +7,14 @@ var ErrMovementStateNotFound = errors.New("movement state not found")
 var ErrMovementSequenceStale = errors.New("movement sequence is stale")
 var ErrMovementSessionMismatch = errors.New("movement session mismatch")
 var ErrMovementSceneMismatch = errors.New("movement scene mismatch")
+var ErrMovementConfigUnavailable = errors.New("movement config unavailable")
+var ErrMovementInputInvalid = errors.New("movement input invalid")
+var ErrMovementAxisInvalid = errors.New("movement axis invalid")
 
 const (
+	// MovementPositionFixedScale 表示世界移动定点坐标每个场景格包含的单位数。
+	MovementPositionFixedScale int32 = 1000
+
 	// SceneLevelRestrictedReason 是玩家等级不足时下发给客户端的统一提示。
 	// 客户端只负责展示该服务端权威判定结果，不能在本地自行判断或切换地图。
 	SceneLevelRestrictedReason = "前面的路以后再来探索吧"
@@ -70,4 +76,28 @@ type MovementState struct {
 	LastMoveSeq      uint32
 	LastServerTickMS int64
 	PositionVersion  uint64
+}
+
+// MovementConfig 定义服务端权威世界移动速度和单包弱网容差，所有值均来自数据库配置。
+type MovementConfig struct {
+	SpeedMilliCellsPerSecond uint32
+	MaxElapsedMS             uint32
+	AxisToleranceMilli       uint32
+}
+
+// MovementIntent 是传输层转换后的移动输入意图和客户端候选表现坐标。
+type MovementIntent struct {
+	Input        *Vec2i
+	CandidatePos Vec2i
+	HasCandidate bool
+	Facing       Vec2i
+	Moving       bool
+	MoveSeq      uint32
+	ServerTickMS int64
+}
+
+// MovementResult 返回服务端按时间、速度和四方向输入裁剪后的权威状态。
+type MovementResult struct {
+	State     MovementState
+	Corrected bool
 }

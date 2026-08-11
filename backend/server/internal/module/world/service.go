@@ -1,14 +1,152 @@
 package world
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 type Service struct {
-	repo         Repository
-	movementRepo MovementStateRepository
+	repo               Repository
+	movementRepo       MovementStateRepository
+	movementConfigRepo MovementConfigRepository
+	movementConfigMu   sync.RWMutex
+	movementConfig     MovementConfig
 }
 
 func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+	service := &Service{repo: repo}
+	if configRepo, ok := repo.(MovementConfigRepository); ok {
+		service.movementConfigRepo = configRepo
+	}
+	return service
+}
+
+// RefreshMovementConfig 从 PostgreSQL刷新服务端权威移动配置。
+func (s *Service) RefreshMovementConfig(ctx context.Context) error {
+	if s == nil || s.movementConfigRepo == nil {
+		return ErrMovementConfigUnavailable
+	}
+	config, err := s.movementConfigRepo.GetMovementConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if config.SpeedMilliCellsPerSecond == 0 || config.MaxElapsedMS == 0 {
+		return ErrMovementConfigUnavailable
+	}
+	s.movementConfigMu.Lock()
+	s.movementConfig = config
+	s.movementConfigMu.Unlock()
+	return nil
+}
+
+// MovementConfigSnapshot 返回当前已加载的只读移动配置副本。
+func (s *Service) MovementConfigSnapshot() (MovementConfig, error) {
+	if s == nil {
+		return MovementConfig{}, ErrMovementConfigUnavailable
+	}
+	s.movementConfigMu.RLock()
+	config := s.movementConfig
+	s.movementConfigMu.RUnlock()
+	if config.SpeedMilliCellsPerSecond == 0 || config.MaxElapsedMS == 0 {
+		return MovementConfig{}, ErrMovementConfigUnavailable
+	}
+	return config, nil
+}
+
+// EvaluateMovement 按服务端时间、数据库速度和四方向输入裁剪客户端候选位置。
+func (s *Service) EvaluateMovement(current MovementState, intent MovementIntent) (MovementResult, error) {
+	config, err := s.MovementConfigSnapshot()
+	if err != nil {
+		return MovementResult{}, err
+	}
+	direction, err := resolveMovementDirection(current, intent)
+	if err != nil {
+		return MovementResult{}, err
+	}
+	next := current
+	next.LastMoveSeq = intent.MoveSeq
+	next.LastServerTickMS = intent.ServerTickMS
+	next.Speed = config.SpeedMilliCellsPerSecond
+	next.Moving = intent.Moving
+	if isCardinalMovementVector(intent.Facing) {
+		next.Facing = intent.Facing
+	} else if direction != (Vec2i{}) {
+		next.Facing = direction
+	}
+	if !intent.HasCandidate || direction == (Vec2i{}) {
+		return MovementResult{State: next, Corrected: intent.HasCandidate && intent.CandidatePos != current.PrecisePos}, nil
+	}
+
+	elapsedMS := intent.ServerTickMS - current.LastServerTickMS
+	if elapsedMS < 0 {
+		elapsedMS = 0
+	}
+	if elapsedMS > int64(config.MaxElapsedMS) {
+		elapsedMS = int64(config.MaxElapsedMS)
+	}
+	maxDistance := int32(int64(config.SpeedMilliCellsPerSecond) * elapsedMS / 1000)
+	delta := Vec2i{X: intent.CandidatePos.X - current.PrecisePos.X, Y: intent.CandidatePos.Y - current.PrecisePos.Y}
+	if direction.X != 0 && absInt32(delta.Y) > int32(config.AxisToleranceMilli) {
+		return MovementResult{}, ErrMovementAxisInvalid
+	}
+	if direction.Y != 0 && absInt32(delta.X) > int32(config.AxisToleranceMilli) {
+		return MovementResult{}, ErrMovementAxisInvalid
+	}
+	progress := delta.X*direction.X + delta.Y*direction.Y
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > maxDistance {
+		progress = maxDistance
+	}
+	next.PrecisePos = Vec2i{
+		X: current.PrecisePos.X + direction.X*progress,
+		Y: current.PrecisePos.Y + direction.Y*progress,
+	}
+	next.PersistedPos = Vec2i{X: roundFixedCoordinate(next.PrecisePos.X), Y: roundFixedCoordinate(next.PrecisePos.Y)}
+	return MovementResult{State: next, Corrected: next.PrecisePos != intent.CandidatePos}, nil
+}
+
+func resolveMovementDirection(current MovementState, intent MovementIntent) (Vec2i, error) {
+	if intent.Input != nil {
+		if intent.Moving {
+			if !isCardinalMovementVector(*intent.Input) {
+				return Vec2i{}, ErrMovementInputInvalid
+			}
+			return *intent.Input, nil
+		}
+		if *intent.Input != (Vec2i{}) {
+			return Vec2i{}, ErrMovementInputInvalid
+		}
+	}
+	if intent.Moving {
+		if isCardinalMovementVector(intent.Facing) {
+			return intent.Facing, nil
+		}
+		return Vec2i{}, ErrMovementInputInvalid
+	}
+	if current.Moving && isCardinalMovementVector(current.Facing) {
+		return current.Facing, nil
+	}
+	return Vec2i{}, nil
+}
+
+func isCardinalMovementVector(value Vec2i) bool {
+	return ((value.X == -1 || value.X == 1) && value.Y == 0) || ((value.Y == -1 || value.Y == 1) && value.X == 0)
+}
+
+func absInt32(value int32) int32 {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
+func roundFixedCoordinate(value int32) int32 {
+	if value >= 0 {
+		return (value + MovementPositionFixedScale/2) / MovementPositionFixedScale
+	}
+	return (value - MovementPositionFixedScale/2) / MovementPositionFixedScale
 }
 
 // SetMovementStateRepository 注入在线玩家权威移动状态仓储。
