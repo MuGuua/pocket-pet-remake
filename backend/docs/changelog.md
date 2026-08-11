@@ -1,5 +1,12 @@
 # 最新变更记录
 
+## 2026-08-11 多人同屏权威移动优化方案与协议预留
+
+- 新增 `backend/docs/multiplayer-movement-optimization-plan.md`，明确服务端权威移动、Redis实时状态、PostgreSQL批量持久化、客户端纠偏、快照插值和 AOI 的分阶段开发清单。
+- `MOVE_INTENT_REQ` 向后兼容新增四方向 `input` 和仅用于诊断的 `client_tick`；客户端同场景移动开始提交这两个字段，旧坐标字段和现有处理流程保持不变。
+- `MOVE_INTENT_RESP` 预留 `corrected_precise_pos`、`server_tick`、`speed`，`ENTITY_MOVE_PUSH` 预留 `server_tick`；权威移动服务接入前这些响应字段保持零值，不提前改变现有移动判定。
+- 同步更新移动协议文档；验证通过 Go 协议与 WebSocket 测试、Godot 4.7 Headless 全项目解析、GDScript Tab 检查和 `git diff --check`。
+
 ## 2026-08-07 NPC 菜单仅显示任务名
 
 - `client/scripts/ui/common/option_list_panel.gd` 的 NPC 菜单按钮只显示数字序号和服务端返回的 `title`，不再展示 `subtitle` 简单描述或状态文案。

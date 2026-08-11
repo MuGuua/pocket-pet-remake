@@ -1,5 +1,13 @@
 # 任务总结
 
+## 2026-08-11：多人同屏权威移动优化启动任务总结
+
+- 新增 `backend/docs/multiplayer-movement-optimization-plan.md`，作为多人同屏移动修复的设计基线和持续维护清单，覆盖 P0 权威安全、P1 Redis运行态、P2 弱网插值和 P3 AOI。
+- 完成清单 `P0-01`：Go 协议向后兼容新增移动输入、客户端时钟、权威高精度纠偏位置、服务端时间基线和权威速度字段。
+- Godot 世界控制器在同场景移动请求中增加四方向 `input`；停止移动时发送零向量，并携带客户端单调时钟。现有 `target_pos`、单请求在途和服务端坐标处理暂不改变，避免协议预留与权威规则改造混合。
+- 更新 `backend/docs/protocol.md`，明确新增字段当前的兼容状态和零值语义；本次没有数据库结构变更、依赖新增或正式玩法数据硬编码。
+- 验证通过：`go test ./server/internal/protocol ./server/internal/transport/ws`、Godot 4.7 Headless 全项目解析、目标 GDScript 无 Tab、`git diff --check`。
+
 ## 2026-08-07：NPC 菜单仅显示任务名任务总结
 
 - NPC 菜单展示文案由“序号 + 标题 + 简单描述 + 状态”收敛为“序号 + 服务端标题”，例如 `1. 打开仓库`。
