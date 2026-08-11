@@ -3601,11 +3601,29 @@ func NewWorldRepository() *WorldRepository {
 	return &WorldRepository{}
 }
 
-type WorldRepository struct{}
+type WorldRepository struct {
+	movementConfig world.MovementConfig
+}
 
 // GetMovementConfig 返回与正式迁移一致的测试移动配置。
 func (r *WorldRepository) GetMovementConfig(_ context.Context) (world.MovementConfig, error) {
+	if r.movementConfig.SpeedMilliCellsPerSecond != 0 {
+		return r.movementConfig, nil
+	}
 	return world.MovementConfig{SpeedMilliCellsPerSecond: 3750, MaxElapsedMS: 300, AxisToleranceMilli: 125}, nil
+}
+
+// UpdateMovementConfig 保存后台测试写入，并模拟 PostgreSQL 返回最新的持久化配置。
+func (r *WorldRepository) UpdateMovementConfig(_ context.Context, input world.AdminUpdateMovementConfigInput) (world.MovementConfig, error) {
+	r.movementConfig = world.MovementConfig{
+		SpeedMilliCellsPerSecond: input.SpeedMilliCellsPerSecond,
+		MaxElapsedMS:             input.MaxElapsedMS,
+		AxisToleranceMilli:       input.AxisToleranceMilli,
+		UpdatedAt:                time.Now(),
+		LastUpdateReason:         input.Reason,
+		UpdatedByAdminUserID:     input.AdminUserID,
+	}
+	return r.movementConfig, nil
 }
 
 type portalData struct {

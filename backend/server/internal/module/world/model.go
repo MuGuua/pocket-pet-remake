@@ -1,6 +1,9 @@
 package world
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var ErrSnapshotUnavailable = errors.New("scene snapshot unavailable")
 var ErrMovementStateNotFound = errors.New("movement state not found")
@@ -10,6 +13,7 @@ var ErrMovementSceneMismatch = errors.New("movement scene mismatch")
 var ErrMovementConfigUnavailable = errors.New("movement config unavailable")
 var ErrMovementInputInvalid = errors.New("movement input invalid")
 var ErrMovementAxisInvalid = errors.New("movement axis invalid")
+var ErrMovementConfigInvalid = errors.New("movement config invalid")
 
 const (
 	// MovementPositionFixedScale 表示世界移动定点坐标每个场景格包含的单位数。
@@ -80,9 +84,21 @@ type MovementState struct {
 
 // MovementConfig 定义服务端权威世界移动速度和单包弱网容差，所有值均来自数据库配置。
 type MovementConfig struct {
-	SpeedMilliCellsPerSecond uint32
-	MaxElapsedMS             uint32
-	AxisToleranceMilli       uint32
+	SpeedMilliCellsPerSecond uint32    `json:"speed_milli_cells_per_second"`
+	MaxElapsedMS             uint32    `json:"max_elapsed_ms"`
+	AxisToleranceMilli       uint32    `json:"axis_tolerance_milli"`
+	UpdatedAt                time.Time `json:"updated_at"`
+	LastUpdateReason         string    `json:"last_update_reason"`
+	UpdatedByAdminUserID     uint64    `json:"updated_by_admin_user_id"`
+}
+
+// AdminUpdateMovementConfigInput 是后台修改权威移动参数时使用的完整审计输入。
+type AdminUpdateMovementConfigInput struct {
+	SpeedMilliCellsPerSecond uint32 `json:"speed_milli_cells_per_second"`
+	MaxElapsedMS             uint32 `json:"max_elapsed_ms"`
+	AxisToleranceMilli       uint32 `json:"axis_tolerance_milli"`
+	Reason                   string `json:"reason"`
+	AdminUserID              uint64 `json:"-"`
 }
 
 // MovementIntent 是传输层转换后的移动输入意图和客户端候选表现坐标。

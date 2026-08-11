@@ -13,4 +13,5 @@ type MovementStateRepository interface {
 // MovementConfigRepository 从 PostgreSQL读取已启用的世界移动配置。
 type MovementConfigRepository interface {
 	GetMovementConfig(ctx context.Context) (MovementConfig, error)
+	UpdateMovementConfig(ctx context.Context, input AdminUpdateMovementConfigInput) (MovementConfig, error)
 }

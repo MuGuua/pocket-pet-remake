@@ -7,6 +7,12 @@
 - 消息体：`JSON` 编码，不是 protobuf
 - 校验：`crc32(cmd|seq|ts_ms|body)`
 
+## 后台世界移动配置
+
+- `GET /api/admin/world/movement-config`：需要 `world_movement:view`，返回数据库配置、更新时间、最近操作原因和管理员 ID。
+- `PUT /api/admin/world/movement-config`：需要 `world_movement:edit`；请求包含 `speed_milli_cells_per_second`、`max_elapsed_ms`、`axis_tolerance_milli` 和必填 `reason`。成功响应代表数据库配置与当前服务进程运行时快照均已更新。
+- `max_elapsed_ms` 允许 `50..2000`，`axis_tolerance_milli` 允许 `0..1000`，速度必须大于零；全部数值均使用整数，客户端与后台不得自行提供运行时覆盖值。
+
 ## 包结构
 
 实时消息使用固定二进制包头 + JSON 消息体：

@@ -16,6 +16,7 @@ import { MonsterDefinitionPage } from '../pages/monsters/MonsterDefinitionPage';
 import { EncounterConfigPage } from '../pages/monsters/EncounterConfigPage';
 import { EquipmentDefinitionPage } from '../pages/equipment/EquipmentDefinitionPage';
 import { PlayerManagementPage } from '../pages/players/PlayerManagementPage';
+import { WorldMovementConfigPage } from '../pages/world/WorldMovementConfigPage';
 
 function RequireAdminAuth() {
   const location = useLocation();
@@ -92,6 +93,7 @@ export function AppRouter() {
         <Route path="items" element={<ItemTemplatePage />} />
         <Route path="quests" element={<QuestAdminPage />} />
         <Route path="npcs" element={<NPCConfigPage />} />
+        <Route path="world-movement" element={<WorldMovementConfigPage />} />
         <Route path="npc-dialogues" element={<Navigate to="/npcs" replace />} />
       </Route>
     </Routes>

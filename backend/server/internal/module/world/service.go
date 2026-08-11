@@ -2,7 +2,14 @@ package world
 
 import (
 	"context"
+	"strings"
 	"sync"
+)
+
+const (
+	MinMovementElapsedMS     uint32 = 50
+	MaxMovementElapsedMS     uint32 = 2000
+	MaxMovementAxisTolerance uint32 = 1000
 )
 
 type Service struct {
@@ -51,6 +58,30 @@ func (s *Service) MovementConfigSnapshot() (MovementConfig, error) {
 		return MovementConfig{}, ErrMovementConfigUnavailable
 	}
 	return config, nil
+}
+
+// GetAdminMovementConfig 返回数据库中的配置，供后台明确展示持久化事实来源。
+func (s *Service) GetAdminMovementConfig(ctx context.Context) (MovementConfig, error) {
+	if s == nil || s.movementConfigRepo == nil {
+		return MovementConfig{}, ErrMovementConfigUnavailable
+	}
+	return s.movementConfigRepo.GetMovementConfig(ctx)
+}
+
+// UpdateAdminMovementConfig 校验后台输入，持久化成功后立即刷新当前进程的运行时快照。
+func (s *Service) UpdateAdminMovementConfig(ctx context.Context, input AdminUpdateMovementConfigInput) (MovementConfig, error) {
+	input.Reason = strings.TrimSpace(input.Reason)
+	if input.SpeedMilliCellsPerSecond == 0 || input.MaxElapsedMS < MinMovementElapsedMS || input.MaxElapsedMS > MaxMovementElapsedMS || input.AxisToleranceMilli > MaxMovementAxisTolerance || input.AdminUserID == 0 || input.Reason == "" || len([]rune(input.Reason)) > 500 {
+		return MovementConfig{}, ErrMovementConfigInvalid
+	}
+	updated, err := s.movementConfigRepo.UpdateMovementConfig(ctx, input)
+	if err != nil {
+		return MovementConfig{}, err
+	}
+	s.movementConfigMu.Lock()
+	s.movementConfig = updated
+	s.movementConfigMu.Unlock()
+	return updated, nil
 }
 
 // EvaluateMovement 按服务端时间、数据库速度和四方向输入裁剪客户端候选位置。

@@ -362,11 +362,36 @@ func NewWorldRepository(db DBTX) *WorldRepository {
 func (r *WorldRepository) GetMovementConfig(ctx context.Context) (world.MovementConfig, error) {
 	var config world.MovementConfig
 	err := r.db.QueryRowContext(ctx, `
-SELECT speed_milli_cells_per_second, max_elapsed_ms, axis_tolerance_milli
+SELECT speed_milli_cells_per_second, max_elapsed_ms, axis_tolerance_milli,
+       updated_at, COALESCE(last_update_reason, ''), COALESCE(updated_by_admin_user_id, 0)
 FROM world_movement_config
 WHERE config_id = 1 AND status = 1
 LIMIT 1
-`).Scan(&config.SpeedMilliCellsPerSecond, &config.MaxElapsedMS, &config.AxisToleranceMilli)
+`).Scan(&config.SpeedMilliCellsPerSecond, &config.MaxElapsedMS, &config.AxisToleranceMilli, &config.UpdatedAt, &config.LastUpdateReason, &config.UpdatedByAdminUserID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return world.MovementConfig{}, world.ErrMovementConfigUnavailable
+	}
+	return config, err
+}
+
+// UpdateMovementConfig 更新单例移动配置，并保存管理员和操作原因用于审计追踪。
+func (r *WorldRepository) UpdateMovementConfig(ctx context.Context, input world.AdminUpdateMovementConfigInput) (world.MovementConfig, error) {
+	var config world.MovementConfig
+	err := r.db.QueryRowContext(ctx, `
+UPDATE world_movement_config
+SET speed_milli_cells_per_second = $1,
+    max_elapsed_ms = $2,
+    axis_tolerance_milli = $3,
+    last_update_reason = $4,
+    updated_by_admin_user_id = $5,
+    updated_at = NOW()
+WHERE config_id = 1 AND status = 1
+RETURNING speed_milli_cells_per_second, max_elapsed_ms, axis_tolerance_milli,
+          updated_at, last_update_reason, updated_by_admin_user_id
+`, input.SpeedMilliCellsPerSecond, input.MaxElapsedMS, input.AxisToleranceMilli, input.Reason, input.AdminUserID).Scan(
+		&config.SpeedMilliCellsPerSecond, &config.MaxElapsedMS, &config.AxisToleranceMilli,
+		&config.UpdatedAt, &config.LastUpdateReason, &config.UpdatedByAdminUserID,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return world.MovementConfig{}, world.ErrMovementConfigUnavailable
 	}

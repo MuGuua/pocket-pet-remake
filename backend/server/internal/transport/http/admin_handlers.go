@@ -26,6 +26,7 @@ import (
 	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
+	"pocket-pet-remake/server/internal/module/world"
 )
 
 // AdminHandlers 聚合后台管理入口使用的基础 handler。
@@ -55,6 +56,7 @@ type AdminHandlers struct {
 	EquipmentEnhanceGoldCost http.Handler
 	EquipmentEnhanceSuccess  http.Handler
 	Dashboard                http.Handler
+	WorldMovement            http.Handler
 }
 
 type AdminLoginHandler struct {
@@ -94,7 +96,7 @@ type adminLoginRequest struct {
 	Password string `json:"password"`
 }
 
-func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, equipmentService *equipment.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service, petProgressionService *petprogression.Service) AdminHandlers {
+func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, sessionService *session.Service, playerService *player.Service, petService *pet.Service, bagService *bag.Service, itemService *item.Service, equipmentService *equipment.Service, skillService *skill.Service, monsterService *monster.Service, questService *quest.Service, npcService *npc.Service, npcDialogueService *npcdialogue.Service, walletService *wallet.Service, unlockService *unlock.Service, progressionService *progression.Service, petProgressionService *petprogression.Service, worldService *world.Service) AdminHandlers {
 	rewardService := reward.NewService(bagService, petService, playerService, unlockService, walletService)
 	return AdminHandlers{
 		Login:                    &AdminLoginHandler{service: adminService},
@@ -121,6 +123,7 @@ func NewAdminHandlers(adminService *admin.Service, authService *auth.Service, se
 		EquipmentDefinitions:     &AdminEquipmentDefinitionHandler{adminService: adminService, equipmentService: equipmentService},
 		EquipmentEnhanceGoldCost: &AdminEquipmentEnhanceGoldCostHandler{adminService: adminService, equipmentService: equipmentService},
 		EquipmentEnhanceSuccess:  &AdminEquipmentEnhanceSuccessHandler{adminService: adminService, equipmentService: equipmentService},
+		WorldMovement:            &AdminWorldMovementHandler{adminService: adminService, worldService: worldService},
 	}
 }
 

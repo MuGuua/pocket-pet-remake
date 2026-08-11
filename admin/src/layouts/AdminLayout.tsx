@@ -15,6 +15,7 @@ const menuItems = [
   { key: '/items', label: '物品模板' },
   { key: '/quests', label: '任务管理' },
   { key: '/npcs', label: '地图NPC配置' },
+  { key: '/world-movement', label: '世界移动配置' },
 ];
 
 interface AdminLayoutProps {

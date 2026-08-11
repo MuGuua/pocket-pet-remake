@@ -1,5 +1,12 @@
 # 任务总结
 
+## 2026-08-11：P0-04 后台配置闭环
+
+- 世界移动速度、最大计算时间窗和非主轴容差已形成“PostgreSQL 持久化 -> 管理员权限校验 -> 领域服务校验 -> 运行时快照刷新”的完整链路。
+- 新增后台接口 `GET/PUT /api/admin/world/movement-config` 和 React 页面；更新必须填写操作原因并二次确认，服务端记录管理员 ID，成功后立即影响后续移动意图。
+- 新增处理器测试覆盖读取、合法更新和非法范围拒绝；后端最小包测试与管理后台生产构建通过。
+- 迁移 `117_world_movement_config.sql` 和 `118_admin_world_movement_permissions.sql` 仍需用户按顺序手动执行。
+
 ## 2026-08-11：多人同屏权威移动优化启动任务总结
 
 - 新增 `backend/docs/multiplayer-movement-optimization-plan.md`，作为多人同屏移动修复的设计基线和持续维护清单，覆盖 P0 权威安全、P1 Redis运行态、P2 弱网插值和 P3 AOI。
