@@ -11,6 +11,9 @@
 - `P1-02` 已完成仓储部分：Lua CAS 会同时校验会话 ID、场景 ID、场景版本、期望序号和新序号，更新成功后续期并写入 dirty 玩家集合；进入世界和正式移动链路接入仍保持进行中。
 - 新增 Redis移动状态初始化、读取、缺失状态和 CAS结果映射测试；执行 `go test ./server/internal/data/redis ./server/internal/data/provider ./server/internal/module/world ./server/internal/app ./server/internal/transport/ws` 通过。
 - 启动清单 `P0-03`：`world.Service.AdvanceMovementState` 已实现会话、场景 ID、场景版本和严格递增 `move_seq` 预检，并通过仓储 CAS 推进位置版本；新增重复序号、倒退序号、旧会话和旧场景专项测试。
+- 完成 `P1-02` 的运行链路接入：进入世界初始化、新登录替换、同会话保留、普通移动 CAS推进和切图状态重置均已连接 Redis仓储。
+- 普通移动重复序号现在返回服务端当前权威整数/高精度坐标，不再重复落库或广播；成功移动响应开始携带非零 `server_tick` 和服务端确认的 `corrected_precise_pos`。
+- 新增 WebSocket重复移动序号测试，并再次执行 `go test ./server/...` 全量通过；PostgreSQL同步写入仍作为当前兼容路径保留。
 
 ## 2026-08-07：NPC 菜单仅显示任务名任务总结
 

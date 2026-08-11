@@ -362,6 +362,9 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 		if err != nil {
 			return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load reconnect world snapshot failed")
 		}
+		if err = r.worldHandler.ensureReconnectMovementState(context.Background(), sess, worldSnapshot); err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "restore reconnect movement state failed", err)
+		}
 	}
 	var battleStart *protocol.BattleStartPush
 	var battleState *protocol.BattleStatePush

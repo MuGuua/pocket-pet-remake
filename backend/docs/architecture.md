@@ -113,7 +113,9 @@
 - `world.MovementStateRepository` 是领域层的短时权威移动状态边界；Redis适配器通过应用装配注入，WebSocket handler 不直接依赖 Redis客户端。
 - Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
 - 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`，供后续 PostgreSQL批量写回 worker 消费。
-- 当前只完成状态模型、Redis仓储和装配，尚未替换现有移动处理与 PostgreSQL同步写入；在清单 P0-03、P0-07、P1-03 至 P1-08 完成前，旧移动链路仍是实际运行路径。
+- 首次进入世界会以 PostgreSQL快照初始化 Redis；同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态，切图成功后按目标场景和出生点重建场景移动代次。
+- 普通移动已经先通过 `world.Service` 领域预检和 Redis Lua CAS，再执行现有 PostgreSQL同步写入与同场景广播；数据库热路径将在 dirty 批量写回 worker 完成后单独移除。
+- 同会话重连当前会保留 Redis状态，缓存缺失时回退 PostgreSQL；重连快照直接采用 Redis最新场景和高精度坐标仍在实施中。
 
 ### feature/battle
 - 战斗 UI

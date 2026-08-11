@@ -2557,3 +2557,74 @@ func TestHandleWildEncounterStartsBattle(t *testing.T) {
 		t.Fatalf("second cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBattleStartPush)
 	}
 }
+
+type movementStateRepoForHandlerTest struct {
+	states map[uint64]world.MovementState
+}
+
+func (r *movementStateRepoForHandlerTest) Load(_ context.Context, playerID uint64) (*world.MovementState, error) {
+	state, ok := r.states[playerID]
+	if !ok {
+		return nil, world.ErrMovementStateNotFound
+	}
+	copy := state
+	return &copy, nil
+}
+
+func (r *movementStateRepoForHandlerTest) Initialize(_ context.Context, state world.MovementState) error {
+	if r.states == nil {
+		r.states = make(map[uint64]world.MovementState)
+	}
+	r.states[state.PlayerID] = state
+	return nil
+}
+
+func (r *movementStateRepoForHandlerTest) CompareAndSet(_ context.Context, expectedMoveSeq uint32, state world.MovementState) error {
+	current, ok := r.states[state.PlayerID]
+	if !ok {
+		return world.ErrMovementStateNotFound
+	}
+	if current.LastMoveSeq != expectedMoveSeq || state.LastMoveSeq <= current.LastMoveSeq {
+		return world.ErrMovementSequenceStale
+	}
+	r.states[state.PlayerID] = state
+	return nil
+}
+
+func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uint64) error {
+	delete(r.states, playerID)
+	return nil
+}
+
+func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 300, protocol.EnterWorldReq{})
+	conn.packets = nil
+
+	targetPos := protocol.Vec2i{X: 9, Y: 7}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 301, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
+	})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 302, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
+	})
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want two movement responses", len(conn.packets))
+	}
+	var first protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &first); err != nil {
+		t.Fatalf("UnmarshalBody(first) error = %v", err)
+	}
+	if !first.Accepted || first.ServerTick <= 0 {
+		t.Fatalf("first response = %+v, want accepted authoritative state", first)
+	}
+	var duplicate protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &duplicate); err != nil {
+		t.Fatalf("UnmarshalBody(duplicate) error = %v", err)
+	}
+	if duplicate.Accepted || duplicate.Reason != world.ErrMovementSequenceStale.Error() {
+		t.Fatalf("duplicate response = %+v, want stale sequence rejection", duplicate)
+	}
+}

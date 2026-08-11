@@ -19,6 +19,19 @@ func (s *Service) SetMovementStateRepository(repo MovementStateRepository) {
 	s.movementRepo = repo
 }
 
+// MovementStateEnabled 表示服务端已经装配在线权威移动状态仓储。
+func (s *Service) MovementStateEnabled() bool {
+	return s != nil && s.movementRepo != nil
+}
+
+// LoadMovementState 读取玩家当前在线权威移动状态。
+func (s *Service) LoadMovementState(ctx context.Context, playerID uint64) (*MovementState, error) {
+	if s == nil || s.movementRepo == nil {
+		return nil, ErrMovementStateNotFound
+	}
+	return s.movementRepo.Load(ctx, playerID)
+}
+
 // InitializeMovementState 使用进入世界或切图后的权威位置初始化当前会话状态。
 func (s *Service) InitializeMovementState(ctx context.Context, state MovementState) error {
 	if s == nil || s.movementRepo == nil {
