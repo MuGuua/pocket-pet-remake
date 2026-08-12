@@ -107,6 +107,20 @@
 - 远端人物直接使用服务端归一化朝向和起停状态，不再根据延迟坐标猜方向；两个 100ms 移动包之间按人物速度短时连续预测，并在新包到达后平滑纠偏，预测最多持续 180ms，断包后不会无限前进。远端插值保留连续浮点坐标，像素吸附只发生在渲染层，避免逐帧取整造成的阶梯抖动。
 - 远端宠物按高精度人物轨迹重新累计 24px 路径步，转向时重置路径轴并使用与本地宠物一致的移动速度。
 
+### 权威移动运行态（实施中）
+
+- 多人同屏移动优化清单统一维护在 `backend/docs/multiplayer-movement-optimization-plan.md`。
+- `world.MovementStateRepository` 是领域层的短时权威移动状态边界；Redis适配器通过应用装配注入，WebSocket handler 不直接依赖 Redis客户端。
+- Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
+- 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`，供后续 PostgreSQL批量写回 worker 消费。
+- 首次进入世界会以 PostgreSQL快照初始化 Redis；同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态，切图成功后按目标场景和出生点重建场景移动代次。
+- 普通移动已经先通过 `world.Service` 领域预检和 Redis Lua CAS，再执行现有 PostgreSQL同步写入与同场景广播；数据库热路径将在 dirty 批量写回 worker 完成后单独移除。
+- 同会话重连优先用 Redis最新场景、整数位置和千分之一格位置重新查询场景快照；缓存缺失时回退 PostgreSQL并重建 Redis状态，客户端通过可选 `self_precise_pos` 恢复高精度位置。
+- 普通移动、普通门和地图快速传送共享严格递增的 Redis移动序号；跨场景成功后以目标场景版本重建状态，旧场景或重复请求不能再次执行传送。
+- 世界移动速度、单包最大服务端时间跨度和非主轴容差来自 PostgreSQL `world_movement_config`，服务启动时加载到 `world.Service` 只读缓存；缺少有效配置时服务拒绝启动，不回退代码常量。
+- 运营后台通过 `GET/PUT /api/admin/world/movement-config` 维护移动参数；写入要求 `world_movement:edit` 权限和操作原因，数据库更新成功后由 `world.Service` 原子替换运行时快照，新收到的移动意图立即使用新值。
+- 同场景移动以 Redis最新高精度位置为起点，根据服务端经过时间计算最大合法距离；四方向输入非法或非主轴漂移超过配置容差时拒绝，候选位置超速时裁剪到合法位置并回传纠偏坐标。
+
 ### feature/battle
 - 战斗 UI
 - 技能、目标、切宠输入

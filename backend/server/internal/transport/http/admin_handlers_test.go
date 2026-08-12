@@ -28,6 +28,7 @@ import (
 	"pocket-pet-remake/server/internal/module/skill"
 	"pocket-pet-remake/server/internal/module/unlock"
 	"pocket-pet-remake/server/internal/module/wallet"
+	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/teststub"
 )
 
@@ -60,7 +61,7 @@ func (r *adminRepoStub) TouchLastLoginAt(_ context.Context, adminUserID uint64) 
 }
 
 func TestAdminHealthHandler(t *testing.T) {
-	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handlers := NewAdminHandlers(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -81,6 +82,47 @@ func TestAdminPlayersListHandler(t *testing.T) {
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("response.Code = %d, want %d, body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+}
+
+// TestAdminWorldMovementHandler 覆盖管理员读取、更新、输入校验和运行时快照刷新闭环。
+func TestAdminWorldMovementHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	getRequest := httptest.NewRequest(http.MethodGet, "/api/admin/world/movement-config", nil)
+	getRequest.Header.Set("Authorization", "Bearer "+token)
+	getResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(getResponse, getRequest)
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("GET response.Code = %d, want %d, body=%s", getResponse.Code, http.StatusOK, getResponse.Body.String())
+	}
+
+	updateBody := marshalJSON(t, world.AdminUpdateMovementConfigInput{SpeedMilliCellsPerSecond: 4200, MaxElapsedMS: 350, AxisToleranceMilli: 150, Reason: "验证后台移动配置刷新"})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/world/movement-config", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("PUT response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+	var envelope struct {
+		Data world.MovementConfig `json:"data"`
+	}
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if envelope.Data.SpeedMilliCellsPerSecond != 4200 || envelope.Data.UpdatedByAdminUserID != 1 {
+		t.Fatalf("updated config = %+v", envelope.Data)
+	}
+
+	invalidBody := marshalJSON(t, world.AdminUpdateMovementConfigInput{SpeedMilliCellsPerSecond: 4200, MaxElapsedMS: 49, AxisToleranceMilli: 150, Reason: "非法时间窗"})
+	invalidRequest := httptest.NewRequest(http.MethodPut, "/api/admin/world/movement-config", bytes.NewReader(invalidBody))
+	invalidRequest.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid response.Code = %d, want %d", invalidResponse.Code, http.StatusBadRequest)
 	}
 }
 
@@ -914,7 +956,7 @@ func TestAdminDashboardOverviewHandler(t *testing.T) {
 
 func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	t.Helper()
-	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "player_progression:view", "player_progression:edit", "pet_progression:view", "pet_progression:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit"}}}
+	adminRepo := &adminRepoStub{user: &admin.User{AdminUserID: 1, AccountName: "admin", PasswordHash: admin.HashPassword("admin123"), DisplayName: "默认超级管理员", Status: 1, RoleKeys: []string{"super_admin"}, Permissions: []string{"dashboard:view", "players:view", "players:edit", "player_progression:view", "player_progression:edit", "pet_progression:view", "pet_progression:edit", "pets:view", "pets:edit", "pet_definitions:view", "pet_definitions:edit", "skill_definitions:view", "skill_definitions:edit", "monster_definitions:view", "monster_definitions:edit", "monster_encounters:view", "monster_encounters:edit", "scene_wild_encounters:view", "scene_wild_encounters:edit", "bag:view", "bag:grant", "items:view", "items:edit", "wallet:view", "wallet:edit", "quest:view", "quest:edit", "npcs:view", "npcs:edit", "world_movement:view", "world_movement:edit"}}}
 	adminService := admin.NewService(adminRepo, admin.NewHMACSigner("test-secret", time.Hour))
 	authService := auth.NewService(teststub.NewAccountRepository(), teststub.NewWSTokenRepository(), auth.NewHMACSigner("test-secret", time.Hour), time.Minute)
 	sessionService := session.NewService(nil, time.Second, time.Minute)
@@ -942,7 +984,11 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	npcDialogueService := npcdialogue.NewService(teststub.NewNPCDialogueRepository(), nil)
 	walletService := wallet.NewService(teststub.NewWalletRepository())
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
-	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petprogression.NewService(teststub.NewPetProgressionRepository()))
+	worldService := world.NewService(teststub.NewWorldRepository())
+	if err := worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petprogression.NewService(teststub.NewPetProgressionRepository()), worldService)
 }
 
 func issueAdminTokenForTest(t *testing.T) string {

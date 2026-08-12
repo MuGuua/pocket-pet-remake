@@ -313,10 +313,12 @@ type PetSkillDetailResp struct {
 type EnterWorldReq struct{}
 
 type EnterWorldResp struct {
-	Self           PlayerBrief         `json:"self"`
-	Player         PlayerSnapshot      `json:"player"`
-	SceneID        uint32              `json:"scene_id"`
-	SelfPos        Vec2i               `json:"self_pos"`
+	Self    PlayerBrief    `json:"self"`
+	Player  PlayerSnapshot `json:"player"`
+	SceneID uint32         `json:"scene_id"`
+	SelfPos Vec2i          `json:"self_pos"`
+	// SelfPrecisePos 是重连时可选的千分之一场景格权威位置；首次进入世界可以省略。
+	SelfPrecisePos *Vec2i              `json:"self_precise_pos,omitempty"`
 	SceneVersion   uint32              `json:"scene_version"`
 	NearbyEntities []EntityBrief       `json:"nearby_entities"`
 	Lineup         []PetBrief          `json:"lineup"`
@@ -340,6 +342,10 @@ type MoveIntentReq struct {
 	Facing *Vec2i `json:"facing,omitempty"`
 	// Moving 表示客户端当前是否仍在移动；指针用于区分旧客户端未发送字段与明确停止。
 	Moving *bool `json:"moving,omitempty"`
+	// Input 表示客户端当前四方向移动输入；服务端权威移动只把它视为输入意图，不直接信任候选坐标。
+	Input *Vec2i `json:"input,omitempty"`
+	// ClientTick 是客户端单调时钟毫秒数，只用于网络延迟诊断，不参与服务端权威位移计算。
+	ClientTick int64 `json:"client_tick,omitempty"`
 }
 
 type MoveIntentResp struct {
@@ -347,7 +353,13 @@ type MoveIntentResp struct {
 	MoveSeq      uint32 `json:"move_seq"`
 	SceneID      uint32 `json:"scene_id"`
 	CorrectedPos Vec2i  `json:"corrected_pos"`
-	Reason       string `json:"reason"`
+	// CorrectedPrecisePos 是服务端确认的千分之一场景格权威表现坐标。
+	CorrectedPrecisePos Vec2i `json:"corrected_precise_pos"`
+	// ServerTick 是服务端生成移动结果时的单调时间基线，供客户端后续快照插值使用。
+	ServerTick int64 `json:"server_tick"`
+	// Speed 是服务端确认的移动速度；零值表示旧链路尚未提供该字段。
+	Speed  uint32 `json:"speed"`
+	Reason string `json:"reason"`
 }
 
 // SceneTriggerPush 通知客户端播放服务端判定的一次性场景剧情。
@@ -558,6 +570,8 @@ type EntityMovePush struct {
 	// Moving 决定观察端播放行走还是待机动画。
 	Moving bool   `json:"moving"`
 	Speed  uint32 `json:"speed"`
+	// ServerTick 是该权威移动状态在服务端生成时的单调时间基线。
+	ServerTick int64 `json:"server_tick"`
 }
 
 // EntityEnterPush 通知同场景客户端创建一个新进入视野的实体。

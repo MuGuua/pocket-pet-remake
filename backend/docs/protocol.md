@@ -7,6 +7,12 @@
 - 消息体：`JSON` 编码，不是 protobuf
 - 校验：`crc32(cmd|seq|ts_ms|body)`
 
+## 后台世界移动配置
+
+- `GET /api/admin/world/movement-config`：需要 `world_movement:view`，返回数据库配置、更新时间、最近操作原因和管理员 ID。
+- `PUT /api/admin/world/movement-config`：需要 `world_movement:edit`；请求包含 `speed_milli_cells_per_second`、`max_elapsed_ms`、`axis_tolerance_milli` 和必填 `reason`。成功响应代表数据库配置与当前服务进程运行时快照均已更新。
+- `max_elapsed_ms` 允许 `50..2000`，`axis_tolerance_milli` 允许 `0..1000`，速度必须大于零；全部数值均使用整数，客户端与后台不得自行提供运行时覆盖值。
+
 ## 包结构
 
 实时消息使用固定二进制包头 + JSON 消息体：
@@ -462,6 +468,10 @@
     "x": 0,
     "y": 0
   },
+  "self_precise_pos": {
+    "x": 250,
+    "y": 0
+  },
   "scene_version": 1,
   "nearby_entities": [
     {
@@ -522,6 +532,7 @@
 ```
 
 - 玩家实体的 `following_pet` 来自服务端持久化编队首位；无出战宠物或形象资源时省略该字段。
+- `self_precise_pos` 仅在断线重连存在 Redis权威移动状态时返回，使用千分之一场景格定点整数；客户端应优先于 `self_pos` 恢复人物位置。首次进入世界或 Redis状态缺失时省略，并使用 PostgreSQL来源的 `self_pos`。
 - 玩家实体与跟随宠物只携带世界同屏展示所需的名字、等级、经验、血量、精力和形象等轻量字段；这些字段来自服务端持久化数据，不包含背包内容。
 - `ENTER_WORLD_RESP.nearby_entities` 与 `ENTITY_ENTER_PUSH.entity` 使用同一结构；玩家更换编队后服务端复用 `ENTITY_ENTER_PUSH` 刷新同场景远端表现。
 
@@ -571,7 +582,9 @@
   "target_pos": {"x": 10, "y": 7},
   "precise_pos": {"x": 10250, "y": 7000},
   "facing": {"x": 1, "y": 0},
-  "moving": true
+  "moving": true,
+  "input": {"x": 1, "y": 0},
+  "client_tick": 18200
 }
 ```
 
@@ -585,6 +598,8 @@
 - `precise_pos`：千分之一场景格的定点表现坐标；服务端会限制在 `target_pos` 周围半格内，不直接写入数据库
 - `facing`：四方向单位向量，只接受上下左右，服务端拒绝斜向表现数据并回退为位移方向
 - `moving`：明确人物正在行走或已经停止；旧客户端缺少该字段时由服务端按整数格变化兼容推导
+- `input`：可选的四方向移动输入意图；停止时为零向量。字段用于后续服务端权威位移计算，当前服务端仍保留旧坐标同步行为以兼容旧客户端
+- `client_tick`：可选的客户端单调时钟毫秒数，只用于延迟诊断，不参与服务端权威计时或速度计算
 
 ### 2013 ENTITY_MOVE_PUSH
 
@@ -601,7 +616,8 @@
   "precise_pos": {"x": 10250, "y": 7000},
   "facing": {"x": 1, "y": 0},
   "moving": true,
-  "speed": 0
+  "speed": 0,
+  "server_tick": 0
 }
 ```
 
@@ -616,6 +632,12 @@
     "x": 4,
     "y": 1
   },
+  "corrected_precise_pos": {
+    "x": 4000,
+    "y": 1000
+  },
+  "server_tick": 0,
+  "speed": 0,
   "reason": ""
 }
 ```
@@ -624,6 +646,9 @@
 
 - `scene_id`：服务端确认后的目标地图
 - `corrected_pos`：服务端内部最终采用并持久化的整数场景坐标；普通门使用服务端拓扑中的兼容位置，快速传送使用数据库中心点。客户端普通门本地显示落点不读取该字段
+- `corrected_precise_pos`：服务端确认的千分之一场景格权威表现坐标；协议字段已预留，权威移动服务接入前零值表示尚未提供
+- `server_tick`：服务端移动时间基线；协议字段已预留，快照插值接入前零值表示尚未提供
+- `speed`：服务端确认的权威移动速度，单位为“千分之一场景格/秒”；例如 `3750` 表示每秒 `3.75` 个场景格。未装配权威移动状态的兼容测试链路可能返回零值
 - 如果 `target_scene_id` 为空、为 `0`、或等于当前 `scene_id` 且不是快速传送，服务端按同场景移动同步处理
 - 如果带了 `portal_id`，服务端只用于校验来源场景、门和目标地图是否匹配；跨场景请求即使由旧客户端携带 `target_pos` 也会忽略
 - 服务端会读取 `world_scene_definition.required_level`，并使用玩家数据库档案中的权威 `level` 校验目标地图准入等级；客户端请求不携带、也不能覆盖玩家等级

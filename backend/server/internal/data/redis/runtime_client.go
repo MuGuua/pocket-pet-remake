@@ -47,6 +47,22 @@ func (c *RuntimeClient) GetDel(ctx context.Context, key string) ([]byte, error) 
 	return value, nil
 }
 
+func (c *RuntimeClient) Get(ctx context.Context, key string) ([]byte, error) {
+	value, err := c.inner.Get(ctx, key).Bytes()
+	if errors.Is(err, goredis.Nil) {
+		return nil, ErrCacheMiss
+	}
+	return value, err
+}
+
+func (c *RuntimeClient) Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+	return c.inner.Eval(ctx, script, keys, args...).Result()
+}
+
+func (c *RuntimeClient) Del(ctx context.Context, key string) error {
+	return c.inner.Del(ctx, key).Err()
+}
+
 func (c *RuntimeClient) Close() error {
 	return c.inner.Close()
 }

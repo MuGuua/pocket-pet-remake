@@ -117,6 +117,10 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	npcDialogueService := npcdialogue.NewService(repos.NPCDialogues, &npcdialogue.QuestServiceAdapter{Service: questService})
 	walletService := wallet.NewService(repos.Wallets)
 	worldService := world.NewService(repos.World)
+	worldService.SetMovementStateRepository(repos.MovementStates)
+	if err := worldService.RefreshMovementConfig(context.Background()); err != nil {
+		return nil, fmt.Errorf("load world movement config: %w", err)
+	}
 	monsterService := monster.NewService(repos.Monsters, skillService, petService)
 	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load monster battle reward cache: %w", err)
@@ -148,7 +152,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
 	loginHandler := httptransport.NewLoginHandler(authService)
 	registerHandler := httptransport.NewRegisterHandler(playerService)
-	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petProgressionService)
+	adminHandlers := httptransport.NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petProgressionService, worldService)
 	httpHandler := buildHTTPHandler(loginHandler, registerHandler, adminHandlers, wsHub)
 
 	server := &http.Server{

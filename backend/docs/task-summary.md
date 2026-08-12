@@ -1,5 +1,33 @@
 # 任务总结
 
+## 2026-08-11：P0-04 后台配置闭环
+
+- 世界移动速度、最大计算时间窗和非主轴容差已形成“PostgreSQL 持久化 -> 管理员权限校验 -> 领域服务校验 -> 运行时快照刷新”的完整链路。
+- 新增后台接口 `GET/PUT /api/admin/world/movement-config` 和 React 页面；更新必须填写操作原因并二次确认，服务端记录管理员 ID，成功后立即影响后续移动意图。
+- 新增处理器测试覆盖读取、合法更新和非法范围拒绝；后端最小包测试与管理后台生产构建通过。
+- 迁移 `117_world_movement_config.sql` 和 `118_admin_world_movement_permissions.sql` 仍需用户按顺序手动执行。
+
+## 2026-08-11：多人同屏权威移动优化启动任务总结
+
+- 新增 `backend/docs/multiplayer-movement-optimization-plan.md`，作为多人同屏移动修复的设计基线和持续维护清单，覆盖 P0 权威安全、P1 Redis运行态、P2 弱网插值和 P3 AOI。
+- 完成清单 `P0-01`：Go 协议向后兼容新增移动输入、客户端时钟、权威高精度纠偏位置、服务端时间基线和权威速度字段。
+- Godot 世界控制器在同场景移动请求中增加四方向 `input`；停止移动时发送零向量，并携带客户端单调时钟。现有 `target_pos`、单请求在途和服务端坐标处理暂不改变，避免协议预留与权威规则改造混合。
+- 更新 `backend/docs/protocol.md`，明确新增字段当前的兼容状态和零值语义；本次没有数据库结构变更、依赖新增或正式玩法数据硬编码。
+- 验证通过：`go test ./server/internal/protocol ./server/internal/transport/ws`、Godot 4.7 Headless 全项目解析、目标 GDScript 无 Tab、`git diff --check`。
+- 完成清单 `P0-02` 与 `P1-01`：新增世界领域移动状态模型、仓储接口、Redis适配器和应用装配，不让传输层直接操作 Redis。
+- `P1-02` 已完成仓储部分：Lua CAS 会同时校验会话 ID、场景 ID、场景版本、期望序号和新序号，更新成功后续期并写入 dirty 玩家集合；进入世界和正式移动链路接入仍保持进行中。
+- 新增 Redis移动状态初始化、读取、缺失状态和 CAS结果映射测试；执行 `go test ./server/internal/data/redis ./server/internal/data/provider ./server/internal/module/world ./server/internal/app ./server/internal/transport/ws` 通过。
+- 启动清单 `P0-03`：`world.Service.AdvanceMovementState` 已实现会话、场景 ID、场景版本和严格递增 `move_seq` 预检，并通过仓储 CAS 推进位置版本；新增重复序号、倒退序号、旧会话和旧场景专项测试。
+- 完成 `P1-02` 的运行链路接入：进入世界初始化、新登录替换、同会话保留、普通移动 CAS推进和切图状态重置均已连接 Redis仓储。
+- 普通移动重复序号现在返回服务端当前权威整数/高精度坐标，不再重复落库或广播；成功移动响应开始携带非零 `server_tick` 和服务端确认的 `corrected_precise_pos`。
+- 新增 WebSocket重复移动序号测试，并再次执行 `go test ./server/...` 全量通过；PostgreSQL同步写入仍作为当前兼容路径保留。
+- 完成 `P0-03`：普通移动、普通门和地图快速传送均在业务处理前推进 Redis序号，重复/倒退请求、旧会话和旧场景请求不能重复执行。
+- 完成 `P1-03`：重连按 Redis最新场景和位置构建世界快照，新增 `self_precise_pos` 供客户端恢复千分之一格权威位置；Redis缺失时仍从 PostgreSQL安全回退并初始化。
+- 新增 Redis重连位置和重复地图传送专项测试；Go 全量测试与 Godot 4.7 Headless 全项目解析通过。
+- 启动 `P0-04`：新增 `117_world_movement_config.sql`，正式速度、最大计算时间窗和轴容差改由数据库配置；迁移文件仅生成，需用户手动执行后再启动新服务端。
+- 服务启动会刷新世界移动配置缓存；同场景移动按 Redis起点、服务端经过时间和数据库速度计算权威位置，超速候选坐标被裁剪，斜向输入和超轴误差被拒绝。
+- 新增服务端时间裁剪、长时间断流上限、斜向输入、轴漂移和 WebSocket非法输入测试；权威 `speed` 与 `server_tick` 已进入移动响应和广播。
+
 ## 2026-08-07：背包物品详情新节点树适配任务总结
 
 - 保留 `client/scenes/ui/bag/bag_item_detail.tscn` 新增的内容 `PanelContainer`、模糊背景和原版样式，未修改用户调整后的节点层级、尺寸或字号。

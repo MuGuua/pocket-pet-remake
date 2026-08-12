@@ -1,10 +1,24 @@
 package world
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var ErrSnapshotUnavailable = errors.New("scene snapshot unavailable")
+var ErrMovementStateNotFound = errors.New("movement state not found")
+var ErrMovementSequenceStale = errors.New("movement sequence is stale")
+var ErrMovementSessionMismatch = errors.New("movement session mismatch")
+var ErrMovementSceneMismatch = errors.New("movement scene mismatch")
+var ErrMovementConfigUnavailable = errors.New("movement config unavailable")
+var ErrMovementInputInvalid = errors.New("movement input invalid")
+var ErrMovementAxisInvalid = errors.New("movement axis invalid")
+var ErrMovementConfigInvalid = errors.New("movement config invalid")
 
 const (
+	// MovementPositionFixedScale 表示世界移动定点坐标每个场景格包含的单位数。
+	MovementPositionFixedScale int32 = 1000
+
 	// SceneLevelRestrictedReason 是玩家等级不足时下发给客户端的统一提示。
 	// 客户端只负责展示该服务端权威判定结果，不能在本地自行判断或切换地图。
 	SceneLevelRestrictedReason = "前面的路以后再来探索吧"
@@ -26,7 +40,7 @@ func FallbackSpawnPos() Vec2i {
 }
 
 type Entity struct {
-	EntityID   uint64
+	EntityID uint64
 	// PlayerID keeps the authoritative player identifier when this scene entity
 	// represents an online player avatar. Non-player entities keep this as 0.
 	PlayerID   uint64
@@ -50,4 +64,56 @@ type MoveDecision struct {
 	ToSceneID    uint32
 	SpawnPos     Vec2i
 	Reason       string
+}
+
+// MovementState 保存在线玩家的服务端权威移动状态；高精度坐标使用千分之一场景格定点整数。
+type MovementState struct {
+	PlayerID         uint64
+	SessionID        string
+	SceneID          uint32
+	SceneVersion     uint32
+	PrecisePos       Vec2i
+	PersistedPos     Vec2i
+	Facing           Vec2i
+	Moving           bool
+	Speed            uint32
+	LastMoveSeq      uint32
+	LastServerTickMS int64
+	PositionVersion  uint64
+}
+
+// MovementConfig 定义服务端权威世界移动速度和单包弱网容差，所有值均来自数据库配置。
+type MovementConfig struct {
+	SpeedMilliCellsPerSecond uint32    `json:"speed_milli_cells_per_second"`
+	MaxElapsedMS             uint32    `json:"max_elapsed_ms"`
+	AxisToleranceMilli       uint32    `json:"axis_tolerance_milli"`
+	UpdatedAt                time.Time `json:"updated_at"`
+	LastUpdateReason         string    `json:"last_update_reason"`
+	UpdatedByAdminUserID     uint64    `json:"updated_by_admin_user_id"`
+}
+
+// AdminUpdateMovementConfigInput 是后台修改权威移动参数时使用的完整审计输入。
+type AdminUpdateMovementConfigInput struct {
+	SpeedMilliCellsPerSecond uint32 `json:"speed_milli_cells_per_second"`
+	MaxElapsedMS             uint32 `json:"max_elapsed_ms"`
+	AxisToleranceMilli       uint32 `json:"axis_tolerance_milli"`
+	Reason                   string `json:"reason"`
+	AdminUserID              uint64 `json:"-"`
+}
+
+// MovementIntent 是传输层转换后的移动输入意图和客户端候选表现坐标。
+type MovementIntent struct {
+	Input        *Vec2i
+	CandidatePos Vec2i
+	HasCandidate bool
+	Facing       Vec2i
+	Moving       bool
+	MoveSeq      uint32
+	ServerTickMS int64
+}
+
+// MovementResult 返回服务端按时间、速度和四方向输入裁剪后的权威状态。
+type MovementResult struct {
+	State     MovementState
+	Corrected bool
 }

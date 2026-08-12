@@ -253,7 +253,16 @@ func handle_world_resync(payload: Dictionary) -> void:
             str(_scene_visual_apply_locked),
         ]
     )
-    GameState.set_world_snapshot(payload)
+    var normalized_payload: Dictionary = payload.duplicate(true)
+    var self_precise_position_variant: Variant = payload.get("self_precise_pos", null)
+    if self_precise_position_variant is Dictionary and not (self_precise_position_variant as Dictionary).is_empty():
+        # 重连优先把 Redis千分之一格位置转换为场景坐标，再交给统一世界快照入口。
+        var self_precise_position: Dictionary = self_precise_position_variant as Dictionary
+        normalized_payload["self_pos"] = {
+            "x": float(self_precise_position.get("x", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
+            "y": float(self_precise_position.get("y", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
+        }
+    GameState.set_world_snapshot(normalized_payload)
     if _scene_visual_apply_locked:
         _deferred_scene_apply_pending = true
         _debug_scene_transition("WORLD_RESYNC_PUSH deferred until transition midpoint")
@@ -1788,6 +1797,8 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
     var facing: Vector2 = player_node.get_cardinal_direction() if player_node.has_method("get_cardinal_direction") else Vector2.DOWN
     var network_facing: Vector2i = Vector2i(roundi(facing.x), roundi(facing.y))
     var moving: bool = bool(player_node.call("is_walking")) if player_node.has_method("is_walking") else false
+    # 当前移动输入只表达玩家意图；停止时必须发送零向量，服务端不会把候选坐标直接视为权威结果。
+    var movement_input: Vector2i = network_facing if moving else Vector2i.ZERO
     var movement_state_changed: bool = (
         not _has_last_network_position
         or network_position != _last_network_position
@@ -1811,6 +1822,8 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
             "precise_pos": {"x": precise_position.x, "y": precise_position.y},
             "facing": {"x": network_facing.x, "y": network_facing.y},
             "moving": moving,
+            "input": {"x": movement_input.x, "y": movement_input.y},
+            "client_tick": now_msec,
         }
     )
     if request_seq <= 0:

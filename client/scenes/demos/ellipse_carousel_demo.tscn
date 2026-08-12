@@ -1,0 +1,378 @@
+[gd_scene format=3 uid="uid://d4agataxpkai"]
+
+[ext_resource type="Script" uid="uid://wyldmiwl1y7b" path="res://scripts/ui/ellipse_carousel_demo.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://b7y6ruvkrqfdo" path="res://asset/分类/ui/宠物背景.png" id="2_background"]
+[ext_resource type="Texture2D" uid="uid://dfxoir504llxo" path="res://asset/分类/小部件/宠物头像/293.png" id="4_pet_01"]
+[ext_resource type="Texture2D" uid="uid://clpuqjrf3pdsy" path="res://asset/分类/小部件/宠物头像/294.png" id="5_pet_02"]
+[ext_resource type="Texture2D" uid="uid://b1e1vvc2in23e" path="res://asset/分类/小部件/宠物头像/309.png" id="6_pet_03"]
+[ext_resource type="Texture2D" uid="uid://cuh7bl7v8k755" path="res://asset/分类/小部件/宠物头像/312.png" id="7_pet_04"]
+[ext_resource type="Texture2D" uid="uid://dhwl28phux30y" path="res://asset/分类/小部件/宠物头像/359.png" id="8_pet_05"]
+[ext_resource type="Texture2D" uid="uid://bjr57x20140xs" path="res://asset/分类/小部件/宠物头像/360.png" id="9_pet_06"]
+[ext_resource type="Texture2D" uid="uid://6r62as5cwl8d" path="res://asset/分类/小部件/宠物头像/394.png" id="10_pet_07"]
+[ext_resource type="Texture2D" uid="uid://c8nqjxvvthmh6" path="res://asset/分类/小部件/宠物头像/431.png" id="11_pet_08"]
+[ext_resource type="Texture2D" uid="uid://ck1jaowdahn3n" path="res://asset/分类/小部件/宠物头像/432.png" id="12_pet_09"]
+[ext_resource type="Texture2D" uid="uid://djjmio4vpvi5y" path="res://asset/分类/小部件/宠物头像/433.png" id="13_pet_10"]
+[ext_resource type="Texture2D" uid="uid://cfyjevns1vt71" path="res://asset/分类/小部件/宠物头像/444.png" id="14_pet_11"]
+[ext_resource type="Texture2D" uid="uid://bdnodkhkym88" path="res://asset/分类/小部件/宠物头像/445.png" id="15_pet_12"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rare_portrait_frame"]
+bg_color = Color(0.12, 0.075, 0.015, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.78, 0.18, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(1, 0.58, 0.04, 0.9)
+shadow_size = 14
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_portrait_frame"]
+bg_color = Color(0.027451, 0.058824, 0.109804, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.34902, 0.760784, 1, 0.82)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.42)
+shadow_size = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_normal"]
+bg_color = Color(0.0509804, 0.105882, 0.184314, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.301961, 0.721569, 1, 0.8)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_pressed"]
+bg_color = Color(0.117647, 0.341176, 0.552941, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.584314, 0.890196, 1, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[node name="EllipseCarouselDemo" type="Control" unique_id=1323095415]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="." unique_id=486850052]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="DimOverlay" type="ColorRect" parent="." unique_id=1961118630]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0117647, 0.027451, 0.0666667, 0.26)
+
+[node name="Title" type="Label" parent="." unique_id=220881986]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 88.0
+offset_right = 710.0
+offset_bottom = 150.0
+theme_override_colors/font_color = Color(0.847059, 0.94902, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0.0627451, 0.145098, 0.9)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 4
+theme_override_font_sizes/font_size = 44
+text = "宠物轮盘抽奖 Demo"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="." unique_id=1271878340]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 154.0
+offset_right = 710.0
+offset_bottom = 204.0
+theme_override_colors/font_color = Color(0.439216, 0.780392, 0.960784, 1)
+theme_override_font_sizes/font_size = 24
+text = "随机概率抽奖 · 稀有形象 5% · 普通形象平分 90%"
+horizontal_alignment = 1
+
+[node name="CarouselViewport" type="Control" parent="." unique_id=1620630001]
+clip_contents = true
+anchors_preset = 0
+offset_top = 210.0
+offset_right = 780.0
+offset_bottom = 980.0
+mouse_filter = 2
+
+[node name="EllipseGuide" type="Line2D" parent="CarouselViewport" unique_id=2092982335]
+visible = false
+points = PackedVector2Array(682, 600, 680.594, 604.901, 676.389, 609.755, 669.427, 614.514, 659.773, 619.134, 647.521, 623.57, 632.789, 627.779, 615.719, 631.72, 596.475, 635.355, 575.243, 638.651, 552.227, 641.573, 527.648, 644.096, 501.744, 646.194, 474.763, 647.847, 446.966, 649.039, 418.621, 649.759, 390, 650, 361.379, 649.759, 333.034, 649.039, 305.237, 647.847, 278.256, 646.194, 252.352, 644.096, 227.773, 641.573, 204.757, 638.651, 183.525, 635.355, 164.281, 631.72, 147.211, 627.779, 132.479, 623.57, 120.227, 619.134, 110.573, 614.514, 103.611, 609.755, 99.406, 604.901, 98, 600, 99.406, 595.099, 103.611, 590.245, 110.573, 585.486, 120.227, 580.866, 132.479, 576.43, 147.211, 572.221, 164.281, 568.28, 183.525, 564.645, 204.757, 561.349, 227.773, 558.427, 252.352, 555.904, 278.256, 553.806, 305.237, 552.153, 333.034, 550.961, 361.379, 550.241, 390, 550, 418.621, 550.241, 446.966, 550.961, 474.763, 552.153, 501.744, 553.806, 527.648, 555.904, 552.227, 558.427, 575.243, 561.349, 596.475, 564.645, 615.719, 568.28, 632.789, 572.221, 647.521, 576.43, 659.773, 580.866, 669.427, 585.486, 676.389, 590.245, 680.594, 595.099, 682, 600)
+width = 3.0
+default_color = Color(0.27451, 0.760784, 1, 0.24)
+
+[node name="IconSortRoot" type="Node2D" parent="CarouselViewport" unique_id=746062371]
+y_sort_enabled = true
+
+[node name="Pet01" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=648726920]
+y_sort_enabled = true
+metadata/display_name = "芽芽"
+metadata/is_rare = true
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet01" unique_id=818011063]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_rare_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet01" unique_id=1435750121]
+scale = Vector2(2.15, 2.15)
+texture = ExtResource("4_pet_01")
+
+[node name="Pet02" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=719561967]
+y_sort_enabled = true
+metadata/display_name = "团团"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet02" unique_id=2118505670]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet02" unique_id=2052844841]
+scale = Vector2(2.1, 2.1)
+texture = ExtResource("5_pet_02")
+
+[node name="Pet03" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=1135232014]
+y_sort_enabled = true
+metadata/display_name = "叮叮"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet03" unique_id=1829916424]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet03" unique_id=515702982]
+scale = Vector2(1.8, 1.8)
+texture = ExtResource("6_pet_03")
+
+[node name="Pet04" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=2011691487]
+y_sort_enabled = true
+metadata/display_name = "蓝豆"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet04" unique_id=990390369]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet04" unique_id=495962535]
+scale = Vector2(1.9, 1.9)
+texture = ExtResource("7_pet_04")
+
+[node name="Pet05" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=473118172]
+y_sort_enabled = true
+metadata/display_name = "绒绒"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet05" unique_id=1799218845]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet05" unique_id=452745593]
+scale = Vector2(2.15, 2.15)
+texture = ExtResource("8_pet_05")
+
+[node name="Pet06" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=2228320]
+y_sort_enabled = true
+metadata/display_name = "泡泡"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet06" unique_id=1588563647]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet06" unique_id=1400925812]
+scale = Vector2(2.15, 2.15)
+texture = ExtResource("9_pet_06")
+
+[node name="Pet07" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=1699159626]
+y_sort_enabled = true
+metadata/display_name = "小葵"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet07" unique_id=958737692]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet07" unique_id=1692117464]
+scale = Vector2(2.15, 2.15)
+texture = ExtResource("10_pet_07")
+
+[node name="Pet08" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=1539555482]
+y_sort_enabled = true
+metadata/display_name = "阿灰"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet08" unique_id=1941497651]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet08" unique_id=203325587]
+scale = Vector2(2.05, 2.05)
+texture = ExtResource("11_pet_08")
+
+[node name="Pet09" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=186461812]
+y_sort_enabled = true
+metadata/display_name = "火苗"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet09" unique_id=1651266932]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet09" unique_id=1855242949]
+scale = Vector2(2.05, 2.05)
+texture = ExtResource("12_pet_09")
+
+[node name="Pet10" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=2037555293]
+y_sort_enabled = true
+metadata/display_name = "洛洛"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet10" unique_id=533747022]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet10" unique_id=839908868]
+scale = Vector2(2.05, 2.05)
+texture = ExtResource("13_pet_10")
+
+[node name="Pet11" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=57904475]
+y_sort_enabled = true
+metadata/display_name = "米粒"
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet11" unique_id=1588516889]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet11" unique_id=2133410141]
+scale = Vector2(2.05, 2.05)
+texture = ExtResource("14_pet_11")
+
+[node name="Pet12" type="Node2D" parent="CarouselViewport/IconSortRoot" unique_id=917798987]
+y_sort_enabled = true
+metadata/display_name = "可可"
+metadata/is_rare = true
+
+[node name="Frame" type="Panel" parent="CarouselViewport/IconSortRoot/Pet12" unique_id=416911793]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_rare_portrait_frame")
+
+[node name="Portrait" type="Sprite2D" parent="CarouselViewport/IconSortRoot/Pet12" unique_id=248632166]
+scale = Vector2(2.05, 2.05)
+texture = ExtResource("15_pet_12")
+
+[node name="SelectionLabel" type="Label" parent="." unique_id=1833561926]
+layout_mode = 0
+offset_left = 90.0
+offset_top = 1000.0
+offset_right = 690.0
+offset_bottom = 1058.0
+theme_override_colors/font_color = Color(0.905882, 0.972549, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 32
+text = "当前选择：芽芽"
+horizontal_alignment = 1
+
+[node name="DrawButton" type="Button" parent="." unique_id=988134132]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 1096.0
+offset_right = 630.0
+offset_bottom = 1216.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.92549, 0.65098, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 0.976471, 0.796078, 1)
+theme_override_font_sizes/font_size = 36
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_normal")
+text = "开始抽奖"
+
+[node name="Hint" type="Label" parent="." unique_id=614403917]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 1250.0
+offset_right = 710.0
+offset_bottom = 1308.0
+theme_override_colors/font_color = Color(0.439216, 0.780392, 0.960784, 0.92)
+theme_override_font_sizes/font_size = 23
+text = "点击开始抽奖，轮盘将随机转动并减速停在中奖形象"
+horizontal_alignment = 1

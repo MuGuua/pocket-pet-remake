@@ -2557,3 +2557,165 @@ func TestHandleWildEncounterStartsBattle(t *testing.T) {
 		t.Fatalf("second cmd = %d, want %d", conn.packets[1].Cmd, protocol.CmdBattleStartPush)
 	}
 }
+
+type movementStateRepoForHandlerTest struct {
+	states map[uint64]world.MovementState
+}
+
+func (r *movementStateRepoForHandlerTest) Load(_ context.Context, playerID uint64) (*world.MovementState, error) {
+	state, ok := r.states[playerID]
+	if !ok {
+		return nil, world.ErrMovementStateNotFound
+	}
+	copy := state
+	return &copy, nil
+}
+
+func (r *movementStateRepoForHandlerTest) Initialize(_ context.Context, state world.MovementState) error {
+	if r.states == nil {
+		r.states = make(map[uint64]world.MovementState)
+	}
+	r.states[state.PlayerID] = state
+	return nil
+}
+
+func (r *movementStateRepoForHandlerTest) CompareAndSet(_ context.Context, expectedMoveSeq uint32, state world.MovementState) error {
+	current, ok := r.states[state.PlayerID]
+	if !ok {
+		return world.ErrMovementStateNotFound
+	}
+	if current.LastMoveSeq != expectedMoveSeq || state.LastMoveSeq <= current.LastMoveSeq {
+		return world.ErrMovementSequenceStale
+	}
+	r.states[state.PlayerID] = state
+	return nil
+}
+
+func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uint64) error {
+	delete(r.states, playerID)
+	return nil
+}
+
+func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 300, protocol.EnterWorldReq{})
+	conn.packets = nil
+
+	targetPos := protocol.Vec2i{X: 9, Y: 6}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 301, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
+	})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 302, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
+	})
+	if len(conn.packets) != 2 {
+		t.Fatalf("len(conn.packets) = %d, want two movement responses", len(conn.packets))
+	}
+	var first protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &first); err != nil {
+		t.Fatalf("UnmarshalBody(first) error = %v", err)
+	}
+	if !first.Accepted || first.ServerTick <= 0 {
+		t.Fatalf("first response = %+v, want accepted authoritative state", first)
+	}
+	var duplicate protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[1].Body, &duplicate); err != nil {
+		t.Fatalf("UnmarshalBody(duplicate) error = %v", err)
+	}
+	if duplicate.Accepted || duplicate.Reason != world.ErrMovementSequenceStale.Error() {
+		t.Fatalf("duplicate response = %+v, want stale sequence rejection", duplicate)
+	}
+}
+
+func TestBuildReconnectWorldSnapshotUsesRedisMovementPosition(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 310, protocol.EnterWorldReq{})
+	sess, err := router.sessionService.GetByConnID(conn.ID())
+	if err != nil {
+		t.Fatalf("GetByConnID() error = %v", err)
+	}
+	state := movementRepo.states[sess.PlayerID]
+	state.SceneID = 4
+	state.PersistedPos = world.Vec2i{X: 4, Y: 7}
+	state.PrecisePos = world.Vec2i{X: 4250, Y: 7000}
+	state.LastMoveSeq = 12
+	movementRepo.states[sess.PlayerID] = state
+
+	snapshot, err := router.worldHandler.BuildReconnectWorldSnapshot(context.Background(), sess)
+	if err != nil {
+		t.Fatalf("BuildReconnectWorldSnapshot() error = %v", err)
+	}
+	if snapshot.SceneID != 4 || snapshot.SelfPos != (protocol.Vec2i{X: 4, Y: 7}) {
+		t.Fatalf("reconnect scene/position = %d/%+v, want 4/(4,7)", snapshot.SceneID, snapshot.SelfPos)
+	}
+	if snapshot.SelfPrecisePos == nil || *snapshot.SelfPrecisePos != (protocol.Vec2i{X: 4250, Y: 7000}) {
+		t.Fatalf("reconnect precise position = %+v, want (4250,7000)", snapshot.SelfPrecisePos)
+	}
+}
+
+func TestHandleMapTeleportRejectsDuplicateRedisMovementSequence(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 320, protocol.EnterWorldReq{})
+	conn.packets = nil
+	request := protocol.MoveIntentReq{MoveSeq: 20, SceneID: 1, TargetSceneID: 1, MapTeleport: true}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 321, request)
+	if len(conn.packets) != 2 {
+		t.Fatalf("first map teleport packets = %d, want response and resync", len(conn.packets))
+	}
+	conn.packets = nil
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 322, request)
+	if len(conn.packets) != 1 {
+		t.Fatalf("duplicate map teleport packets = %d, want one rejection", len(conn.packets))
+	}
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody() error = %v", err)
+	}
+	if response.Accepted || response.Reason != world.ErrMovementSequenceStale.Error() {
+		t.Fatalf("duplicate map teleport response = %+v, want stale sequence rejection", response)
+	}
+}
+
+func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
+	_, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 330, protocol.EnterWorldReq{})
+	conn.packets = nil
+	targetPos := protocol.Vec2i{X: 9, Y: 7}
+	precisePos := protocol.Vec2i{X: 8100, Y: 6100}
+	diagonalInput := protocol.Vec2i{X: 1, Y: 1}
+	moving := true
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 331, protocol.MoveIntentReq{
+		MoveSeq: 1, SceneID: 1, TargetPos: &targetPos, PrecisePos: &precisePos,
+		Input: &diagonalInput, Facing: &diagonalInput, Moving: &moving,
+	})
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want one movement rejection", len(conn.packets))
+	}
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody() error = %v", err)
+	}
+	if response.Accepted || response.Reason != world.ErrMovementInputInvalid.Error() {
+		t.Fatalf("response = %+v, want invalid movement input rejection", response)
+	}
+}

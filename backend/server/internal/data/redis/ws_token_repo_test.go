@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,7 +10,9 @@ import (
 )
 
 type fakeClient struct {
-	store map[string][]byte
+	store      map[string][]byte
+	evalResult any
+	evalErr    error
 }
 
 func (f *fakeClient) SetEX(_ context.Context, key string, value []byte, _ time.Duration) error {
@@ -31,6 +34,29 @@ func (f *fakeClient) GetDel(_ context.Context, key string) ([]byte, error) {
 	copied := make([]byte, len(value))
 	copy(copied, value)
 	return copied, nil
+}
+
+func (f *fakeClient) Get(_ context.Context, key string) ([]byte, error) {
+	value, ok := f.store[key]
+	if !ok {
+		return nil, ErrCacheMiss
+	}
+	return append([]byte(nil), value...), nil
+}
+
+func (f *fakeClient) Eval(_ context.Context, _ string, _ []string, _ ...any) (any, error) {
+	if f.evalErr != nil {
+		return nil, f.evalErr
+	}
+	if f.evalResult == nil {
+		return nil, errors.New("Eval is not configured by fake client")
+	}
+	return f.evalResult, nil
+}
+
+func (f *fakeClient) Del(_ context.Context, key string) error {
+	delete(f.store, key)
+	return nil
 }
 
 func TestWSTokenRepositoryStoreAndConsume(t *testing.T) {
