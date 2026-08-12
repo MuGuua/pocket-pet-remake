@@ -10,7 +10,6 @@ color = Color(0.52, 0.54, 0.6, 0.62)
 thickness = 2
 
 [node name="OptionListPanel" type="CanvasLayer" unique_id=981623259]
-visible = false
 script = ExtResource("1_script")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=115694773]

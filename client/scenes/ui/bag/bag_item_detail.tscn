@@ -1,68 +1,64 @@
 [gd_scene format=3 uid="uid://ddcvakp2gvdxr"]
 
 [ext_resource type="Script" uid="uid://b2wjw7r065n80" path="res://scripts/ui/bag/bag_item_detail.gd" id="1_detail"]
-[ext_resource type="Texture2D" uid="uid://b14uth18afl4i" path="res://asset/分类/ui/menu-fan6.png" id="1_gemxe"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
+[ext_resource type="PackedScene" uid="uid://0e8cp83ufu4f" path="res://scenes/ui/common/模糊背景.tscn" id="3_jqauc"]
+[ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="4_6eg6q"]
 [ext_resource type="Script" uid="uid://bmopqquagswcc" path="res://scripts/ui/common/item_description_view.gd" id="4_desc_view"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="5_close_btn"]
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_on3p7"]
-texture = ExtResource("1_gemxe")
-texture_margin_left = 5.0
-texture_margin_top = 5.0
-texture_margin_right = 5.0
-texture_margin_bottom = 5.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y1mnv"]
 bg_color = Color(0.019607844, 0.019607844, 0.019607844, 0.37254903)
 
 [node name="BagItemDetail" type="PanelContainer" unique_id=390760406]
-visible = false
 custom_minimum_size = Vector2(200, 500)
 offset_right = 540.0
 offset_bottom = 344.0
-theme_override_styles/panel = SubResource("StyleBoxTexture_on3p7")
 script = ExtResource("1_detail")
 
-[node name="ColorRect" type="ColorRect" parent="." unique_id=1617070159]
+[node name="ColorRect" parent="." unique_id=1617070159 instance=ExtResource("3_jqauc")]
 layout_mode = 2
-color = Color(0.050980393, 0.078431375, 0.18039216, 1)
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=948122808]
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=216470832]
+layout_mode = 2
+theme_override_styles/panel = ExtResource("4_6eg6q")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=948122808]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 
-[node name="ContentVBox" type="VBoxContainer" parent="MarginContainer" unique_id=2138945161]
+[node name="ContentVBox" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=2138945161]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="HeaderRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1881246272]
+[node name="HeaderRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=1881246272]
 layout_mode = 2
 
-[node name="NameLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=1881246273]
+[node name="NameLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/HeaderRow" unique_id=1881246273]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 2
+theme_override_font_sizes/normal_font_size = 35
 bbcode_enabled = true
 text = "圣品·夜游神之枪"
 fit_content = true
 
-[node name="TopCloseButton" parent="MarginContainer/ContentVBox/HeaderRow" unique_id=188570467 instance=ExtResource("5_close_btn")]
+[node name="TopCloseButton" parent="PanelContainer/MarginContainer/ContentVBox/HeaderRow" unique_id=188570467 instance=ExtResource("5_close_btn")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(44, 44)
 custom_maximum_size = Vector2(-1, -1)
 layout_mode = 2
 
-[node name="MetaRow2" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1601228589]
+[node name="MetaRow2" type="HBoxContainer" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=1601228589]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 80
 
-[node name="LevelLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1122569237]
+[node name="LevelLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/MetaRow2" unique_id=1122569237]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(140, 0)
 custom_maximum_size = Vector2(200, -1)
@@ -73,7 +69,7 @@ text = "等级：30"
 fit_content = true
 scroll_active = false
 
-[node name="ReinforcementLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow2" unique_id=1151527130]
+[node name="ReinforcementLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/MetaRow2" unique_id=1151527130]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(200, -1)
 layout_mode = 2
@@ -83,11 +79,11 @@ text = "强化：+15"
 fit_content = true
 scroll_active = false
 
-[node name="MetaRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=1556069148]
+[node name="MetaRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=1556069148]
 layout_mode = 2
 theme_override_constants/separation = 80
 
-[node name="TypeLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow" unique_id=598546605]
+[node name="TypeLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/MetaRow" unique_id=598546605]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(140, 0)
 custom_maximum_size = Vector2(200, -1)
@@ -98,7 +94,7 @@ text = "类型：-"
 fit_content = true
 scroll_active = false
 
-[node name="EquipSlotLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/MetaRow" unique_id=1481687263]
+[node name="EquipSlotLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/MetaRow" unique_id=1481687263]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(200, -1)
 layout_mode = 2
@@ -108,7 +104,7 @@ text = "部位：-"
 fit_content = true
 scroll_active = false
 
-[node name="DamagedLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox" unique_id=1881246274]
+[node name="DamagedLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=1881246274]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/normal_font_size = 24
@@ -117,48 +113,48 @@ text = "状态：已损坏"
 fit_content = true
 scroll_active = false
 
-[node name="DescriptionPanel" type="PanelContainer" parent="MarginContainer/ContentVBox" unique_id=798183545]
+[node name="DescriptionPanel" type="PanelContainer" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=798183545]
 custom_minimum_size = Vector2(0, 264)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_y1mnv")
 
-[node name="DescriptionMargin" type="MarginContainer" parent="MarginContainer/ContentVBox/DescriptionPanel" unique_id=951877787]
+[node name="DescriptionMargin" type="MarginContainer" parent="PanelContainer/MarginContainer/ContentVBox/DescriptionPanel" unique_id=951877787]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 6
 
-[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/ContentVBox/DescriptionPanel/DescriptionMargin" unique_id=2113319446]
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/MarginContainer/ContentVBox/DescriptionPanel/DescriptionMargin" unique_id=2113319446]
 layout_mode = 2
 
-[node name="DescriptionLabel" type="RichTextLabel" parent="MarginContainer/ContentVBox/DescriptionPanel/DescriptionMargin/ScrollContainer" unique_id=1196820403]
+[node name="DescriptionLabel" type="RichTextLabel" parent="PanelContainer/MarginContainer/ContentVBox/DescriptionPanel/DescriptionMargin/ScrollContainer" unique_id=1196820403]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(496, 258)
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 23
+theme_override_font_sizes/normal_font_size = 21
 text = "点击物品或已装备槽位查看详情。"
 fit_content = true
 scroll_active = false
 script = ExtResource("4_desc_view")
 
-[node name="ActionRow" type="HBoxContainer" parent="MarginContainer/ContentVBox" unique_id=503985020]
+[node name="ActionRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/ContentVBox" unique_id=503985020]
 layout_mode = 2
 theme_override_constants/separation = 110
 alignment = 1
 
-[node name="PrimaryButton" parent="MarginContainer/ContentVBox/ActionRow" unique_id=2055624888 instance=ExtResource("3_action_btn")]
+[node name="PrimaryButton" parent="PanelContainer/MarginContainer/ContentVBox/ActionRow" unique_id=2055624888 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2
 button_label = "操作"
 
-[node name="EnhanceSlot" type="Control" parent="MarginContainer/ContentVBox/ActionRow" unique_id=884215601]
+[node name="EnhanceSlot" type="Control" parent="PanelContainer/MarginContainer/ContentVBox/ActionRow" unique_id=884215601]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="EnhanceButton" parent="MarginContainer/ContentVBox/ActionRow/EnhanceSlot" unique_id=772548332 instance=ExtResource("3_action_btn")]
+[node name="EnhanceButton" parent="PanelContainer/MarginContainer/ContentVBox/ActionRow/EnhanceSlot" unique_id=772548332 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -170,7 +166,7 @@ grow_horizontal = 2
 grow_vertical = 2
 button_label = "强化"
 
-[node name="SecondaryButton" parent="MarginContainer/ContentVBox/ActionRow" unique_id=727556275 instance=ExtResource("3_action_btn")]
+[node name="SecondaryButton" parent="PanelContainer/MarginContainer/ContentVBox/ActionRow" unique_id=727556275 instance=ExtResource("3_action_btn")]
 unique_name_in_owner = true
 custom_maximum_size = Vector2(100, -1)
 layout_mode = 2

@@ -13,8 +13,8 @@ func toProtocolPetDetail(item pet.Pet) protocol.PetDetail {
 	return toProtocolPetDetailWithOptions(item, true)
 }
 
-// toProtocolPetDetailForList 只转换宠物列表展示需要的轻量字段。
-// 完整属性、资质、技能和法宝槽由 PET_SKILL_DETAIL_REQ 按单只宠物拉取。
+// toProtocolPetDetailForList 转换宠物列表与主界面宠物 HUD 共用的轻量字段。
+// 经验、生命和法力直接来自服务端权威宠物快照；完整属性、资质、技能和法宝槽仍按单只宠物拉取。
 func toProtocolPetDetailForList(item pet.Pet) protocol.PetDetail {
 	return protocol.PetDetail{
 		PetUID:     item.PetUID,
@@ -24,12 +24,15 @@ func toProtocolPetDetailForList(item pet.Pet) protocol.PetDetail {
 		Name:       resolveProtocolPetDisplayName(item),
 		SkinID:     strings.TrimSpace(item.SkinID),
 		Level:      item.Level,
+		Exp:        item.Exp,
 		Quality:    item.Quality,
 		HP:         item.HP,
 		HPMax:      item.HPMax,
+		MANA:       item.MANA,
 		SkillIDs:   []uint32{},
 		InLineup:   item.InLineup,
 		IsUsable:   item.IsUsable,
+		ExpToNext:  item.ExpToNext,
 	}
 }
 

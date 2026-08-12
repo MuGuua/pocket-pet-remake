@@ -32,6 +32,28 @@ func TestToProtocolSkillSlotEntryIncludesSkillVisualID(t *testing.T) {
 	}
 }
 
+// TestToProtocolPetDetailForListIncludesHudStatusFields 验证宠物列表摘要携带主界面 HUD 直接展示所需的权威状态。
+func TestToProtocolPetDetailForListIncludesHudStatusFields(t *testing.T) {
+	item := pet.Pet{
+		PetUID:    20001,
+		PetID:     101,
+		Level:     5,
+		Exp:       120,
+		ExpToNext: 380,
+		HP:        32,
+		HPMax:     40,
+		MANA:      16,
+	}
+
+	actual := toProtocolPetDetailForList(item)
+	if actual.Exp != 120 || actual.ExpToNext != 380 {
+		t.Fatalf("experience summary = %d/%d, want exp=120 exp_to_next=380", actual.Exp, actual.ExpToNext)
+	}
+	if actual.HP != 32 || actual.HPMax != 40 || actual.MANA != 16 {
+		t.Fatalf("status summary = hp %d/%d mana %d, want hp 32/40 mana 16", actual.HP, actual.HPMax, actual.MANA)
+	}
+}
+
 func TestRouterHandlePetList(t *testing.T) {
 	_, router, _, conn := buildWorldRouterForTest(t)
 

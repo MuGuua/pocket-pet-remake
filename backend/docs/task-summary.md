@@ -1,5 +1,21 @@
 # 任务总结
 
+## 2026-08-07：背包物品详情新节点树适配任务总结
+
+- 保留 `client/scenes/ui/bag/bag_item_detail.tscn` 新增的内容 `PanelContainer`、模糊背景和原版样式，未修改用户调整后的节点层级、尺寸或字号。
+- 关联脚本继续使用 `NameLabel`、`DescriptionLabel`、`PrimaryButton`、`SecondaryButton` 等唯一节点名，不依赖旧父路径；专项实例化确认名称、描述、操作按钮和“更多”菜单均可正常刷新与打开，因此没有增加多余的兼容分支。
+- 恢复根节点 `visible = false`，符合运行时详情弹窗默认隐藏约束；`bag_panel.gd` 打开详情时仍会显式调用 `show()`，原有交互流程不变。
+- 本次无后端代码、协议、数据库迁移、依赖或正式数据变化。
+- 验证通过：新内容路径与唯一节点绑定专项检查、背包详情数据刷新、“更多”菜单 top-level 定位、背包面板场景启动、Godot 4.7 Headless 全项目编辑器解析和 `git diff --check`。
+
+## 2026-08-07：主界面宠物 HUD 状态信息补全任务总结
+
+- 主界面左上角宠物 HUD 继续展示编队首只宠物，没有编队时回退第一只拥有的宠物；在原有三条状态条内补充“生命 当前/上限”“法力 当前/上限”“经验 当前/本级总需求”文本。
+- UI 修改集中在 `client/scenes/ui/pet_status_hud.tscn` 和 `client/scripts/ui/pet_status_hud.gd`：状态标签均为场景预置节点，脚本只消费服务端快照并写入整数文本，没有动态创建 UI 或自行计算宠物成长结果。
+- 后端 `backend/server/internal/transport/ws/pet_protocol.go` 的 `PET_LIST_RESP` 轻量转换补回 `exp`、`exp_to_next`、`mana`；经验条总值按服务端当前经验与剩余经验相加，满级且剩余经验为零时显示“经验 满级”。
+- 新增 `backend/server/internal/transport/ws/pet_handler_test.go` 定向测试，并同步更新 `backend/docs/protocol.md`、`backend/docs/main-runtime-ui-layout.md`；未新增数据库结构、迁移、命令号、请求链路或依赖。
+- 验证通过：HUD 实例化后得到 `生命 32/40`、`法力 16/16`、`经验 120/500`；Godot 4.7 Headless 主场景无脚本/解析错误；`go test ./server/...` 全量通过；目标 GDScript 不含 Tab，`git diff --check` 通过。
+
 ## 2026-08-07：NPC 菜单仅显示任务名任务总结
 
 - NPC 菜单展示文案由“序号 + 标题 + 简单描述 + 状态”收敛为“序号 + 服务端标题”，例如 `1. 打开仓库`。

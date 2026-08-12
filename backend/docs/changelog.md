@@ -1,5 +1,21 @@
 # 最新变更记录
 
+## 2026-08-07 背包物品详情新节点树适配
+
+- 适配用户重组后的 `client/scenes/ui/bag/bag_item_detail.tscn`：保留新增的 `PanelContainer` 内容包裹层、模糊背景实例和原版面板样式，不回退现有节点布局与视觉参数。
+- `client/scripts/ui/bag/bag_item_detail.gd` 已通过 `%唯一节点名` 绑定名称、等级、强化、类型、部位、描述和操作按钮；父路径变化不需要新增并行取节点逻辑，详情刷新与“更多”菜单保持兼容。
+- 恢复详情场景根节点 `visible = false`，避免运行时弹窗资源在编辑器或其他场景预览中默认常驻；正式打开仍由 `bag_panel.gd` 的详情层入口调用 `show()`。
+- 本次仅涉及客户端场景适配与文档记录，无服务端、协议、数据库、依赖或正式玩法数据变化。
+- 验证通过：详情场景运行态专项检查、背包面板集成启动、Godot 4.7 Headless 全项目编辑器解析和 `git diff --check`。
+
+## 2026-08-07 主界面宠物 HUD 补充状态数值
+
+- `client/scenes/ui/pet_status_hud.tscn` 在现有生命、法力、经验进度条内增加整数数值文本，并扩大状态条高度以适配移动端阅读；UI 节点全部预置在场景中，没有使用脚本动态创建。
+- `client/scripts/ui/pet_status_hud.gd` 按服务端权威宠物快照同步刷新三项文本；经验总值使用 `exp + exp_to_next`，满级显示“经验 满级”。
+- `PET_LIST_RESP` 的轻量宠物摘要补充 `exp`、`exp_to_next`、`mana`，继续复用主场景已有 `PET_LIST_REQ`，未新增请求、数据库字段、迁移、依赖或客户端正式玩法硬编码。
+- 更新宠物列表协议与主运行态 UI 文档，并新增轻量协议转换测试，防止 HUD 所需字段再次丢失。
+- 验证通过：宠物 HUD 场景实例化专项检查、Godot 4.7 Headless 主场景解析、`go test ./server/...` 和 `git diff --check`。
+
 ## 2026-08-07 NPC 菜单仅显示任务名
 
 - `client/scripts/ui/common/option_list_panel.gd` 的 NPC 菜单按钮只显示数字序号和服务端返回的 `title`，不再展示 `subtitle` 简单描述或状态文案。

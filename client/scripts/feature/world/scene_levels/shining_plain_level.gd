@@ -20,59 +20,59 @@ extends NetworkDoorLevelBase
 
 ## 返回当前场景用于 HUD 展示的名称。
 func get_scene_display_name() -> String:
-    return scene_display_name
+	return scene_display_name
 
 
 ## 返回当前场景门节点与服务端传送门编号的映射。
 func _get_door_configs() -> Dictionary:
-    return door_configs
+	return door_configs
 
 
 ## 根据来源门编号返回当前目标地图的本地出生场景格；服务端只校验门关系，不接收该坐标。
 ## portal_id 是玩家在来源地图触发的服务端传送门编号。
 ## 返回值是当前目标地图的场景格坐标；未配置时返回无效值并回退当前场景脚本的统一出生点。
 func get_portal_spawn_scene_position(portal_id: int) -> Vector2:
-    var spawn_position_value: Variant = portal_spawn_scene_positions.get(
-        portal_id,
-        portal_spawn_scene_positions.get(str(portal_id), INVALID_PORTAL_SPAWN_SCENE_POSITION)
-    )
-    if spawn_position_value is Vector2:
-        return spawn_position_value as Vector2
-    if spawn_position_value is Vector2i:
-        var grid_position: Vector2i = spawn_position_value as Vector2i
-        return Vector2(float(grid_position.x), float(grid_position.y))
-    return INVALID_PORTAL_SPAWN_SCENE_POSITION
+	var spawn_position_value: Variant = portal_spawn_scene_positions.get(
+		portal_id,
+		portal_spawn_scene_positions.get(str(portal_id), INVALID_PORTAL_SPAWN_SCENE_POSITION)
+	)
+	if spawn_position_value is Vector2:
+		return spawn_position_value as Vector2
+	if spawn_position_value is Vector2i:
+		var grid_position: Vector2i = spawn_position_value as Vector2i
+		return Vector2(float(grid_position.x), float(grid_position.y))
+	return INVALID_PORTAL_SPAWN_SCENE_POSITION
 
 
 ## 返回当前地图已使用区域的中心点，供移动端视口居中展示。
 func get_level_center_position() -> Vector2:
-    var map_layer: TileMapLayer = _resolve_map_layer()
-    if map_layer == null:
-        return Vector2.ZERO
+	var map_layer: TileMapLayer = _resolve_map_layer()
+	if map_layer == null:
+		return Vector2.ZERO
 
-    var used_rect: Rect2i = map_layer.get_used_rect()
-    if not used_rect.has_area():
-        return Vector2.ZERO
+	var used_rect: Rect2i = map_layer.get_used_rect()
+	if not used_rect.has_area():
+		return Vector2.ZERO
 
-    var top_left: Vector2 = map_layer.map_to_local(used_rect.position)
-    var bottom_right: Vector2 = map_layer.map_to_local(used_rect.position + used_rect.size)
-    return (top_left + bottom_right) * 0.5
+	var top_left: Vector2 = map_layer.map_to_local(used_rect.position)
+	var bottom_right: Vector2 = map_layer.map_to_local(used_rect.position + used_rect.size)
+	return (top_left + bottom_right) * 0.5
 
 
 ## 返回当前地图在移动端视口中的展示缩放倍数。
 func get_level_scale_factor() -> float:
-    return level_scale_factor
+	return level_scale_factor
 
 
 ## 返回登录进入当前地图和世界地图快速传送共用的出生场景坐标。
 func get_login_and_map_teleport_spawn_position() -> Vector2:
-    return login_and_map_teleport_spawn_position
+	return login_and_map_teleport_spawn_position
 
 
 ## 查找闪光平原地图用于中心点和边界计算的主 TileMapLayer。
 func _resolve_map_layer() -> TileMapLayer:
-    for layer_name: String in ["地图", "Map", "TileMapLayer"]:
-        var layer: TileMapLayer = get_node_or_null(layer_name) as TileMapLayer
-        if layer != null:
-            return layer
-    return null
+	for layer_name: String in ["地图", "Map", "TileMapLayer"]:
+		var layer: TileMapLayer = get_node_or_null(layer_name) as TileMapLayer
+		if layer != null:
+			return layer
+	return null
