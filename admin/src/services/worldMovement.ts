@@ -1,5 +1,10 @@
 import { requestJSON } from './http';
-import type { UpdateWorldMovementConfigPayload, WorldMovementConfig } from '../types/worldMovement';
+import type {
+  SceneBoundary,
+  UpdateSceneBoundaryPayload,
+  UpdateWorldMovementConfigPayload,
+  WorldMovementConfig,
+} from '../types/worldMovement';
 
 // 读取数据库中的权威移动配置，页面不自行缓存或拼装正式参数。
 export async function fetchWorldMovementConfig(): Promise<WorldMovementConfig> {
@@ -13,6 +18,23 @@ export async function fetchWorldMovementConfig(): Promise<WorldMovementConfig> {
 export async function updateWorldMovementConfig(payload: UpdateWorldMovementConfigPayload): Promise<WorldMovementConfig> {
   return requestJSON<WorldMovementConfig>({
     url: '/api/admin/world/movement-config',
+    method: 'PUT',
+    data: payload,
+  });
+}
+
+// 读取全部启用场景的数据库边界，列表顺序由服务端按 scene_id 固定。
+export async function fetchSceneBoundaries(): Promise<SceneBoundary[]> {
+  return requestJSON<SceneBoundary[]>({
+    url: '/api/admin/world/scene-boundaries',
+    method: 'GET',
+  });
+}
+
+// 更新单场景边界；服务端持久化成功后会立即原子替换对应运行时缓存。
+export async function updateSceneBoundary(sceneID: number, payload: UpdateSceneBoundaryPayload): Promise<SceneBoundary> {
+  return requestJSON<SceneBoundary>({
+    url: `/api/admin/world/scene-boundaries/${sceneID}`,
     method: 'PUT',
     data: payload,
   });

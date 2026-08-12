@@ -126,6 +126,65 @@ func TestAdminWorldMovementHandler(t *testing.T) {
 	}
 }
 
+// TestAdminWorldSceneBoundaryHandler 覆盖边界列表、更新、输入校验和不存在场景错误映射。
+func TestAdminWorldSceneBoundaryHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/admin/world/scene-boundaries", nil)
+	listRequest.Header.Set("Authorization", "Bearer "+token)
+	listResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("GET boundaries response.Code = %d, want %d, body=%s", listResponse.Code, http.StatusOK, listResponse.Body.String())
+	}
+	var listEnvelope struct {
+		Data []world.SceneBoundary `json:"data"`
+	}
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &listEnvelope); err != nil {
+		t.Fatalf("json.Unmarshal(boundary list) error = %v", err)
+	}
+	if len(listEnvelope.Data) != 26 {
+		t.Fatalf("len(boundaries) = %d, want 26", len(listEnvelope.Data))
+	}
+
+	updateBody := marshalJSON(t, world.AdminUpdateSceneBoundaryInput{MinX: 1000, MinY: 1000, MaxX: 23000, MaxY: 13000, Reason: "验证闪耀广场边界刷新"})
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/world/scene-boundaries/9", bytes.NewReader(updateBody))
+	updateRequest.Header.Set("Authorization", "Bearer "+token)
+	updateResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("PUT boundary response.Code = %d, want %d, body=%s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+	var updateEnvelope struct {
+		Data world.SceneBoundary `json:"data"`
+	}
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updateEnvelope); err != nil {
+		t.Fatalf("json.Unmarshal(boundary update) error = %v", err)
+	}
+	if updateEnvelope.Data.SceneID != 9 || updateEnvelope.Data.MaxX != 23000 || updateEnvelope.Data.UpdatedByAdminUserID != 1 {
+		t.Fatalf("updated boundary = %+v", updateEnvelope.Data)
+	}
+
+	invalidBody := marshalJSON(t, world.AdminUpdateSceneBoundaryInput{MinX: 5000, MinY: 0, MaxX: 5000, MaxY: 10000, Reason: "非法矩形"})
+	invalidRequest := httptest.NewRequest(http.MethodPut, "/api/admin/world/scene-boundaries/9", bytes.NewReader(invalidBody))
+	invalidRequest.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid boundary response.Code = %d, want %d", invalidResponse.Code, http.StatusBadRequest)
+	}
+
+	notFoundBody := marshalJSON(t, world.AdminUpdateSceneBoundaryInput{MinX: 0, MinY: 0, MaxX: 1000, MaxY: 1000, Reason: "验证不存在场景"})
+	notFoundRequest := httptest.NewRequest(http.MethodPut, "/api/admin/world/scene-boundaries/999", bytes.NewReader(notFoundBody))
+	notFoundRequest.Header.Set("Authorization", "Bearer "+token)
+	notFoundResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(notFoundResponse, notFoundRequest)
+	if notFoundResponse.Code != http.StatusNotFound {
+		t.Fatalf("missing boundary response.Code = %d, want %d", notFoundResponse.Code, http.StatusNotFound)
+	}
+}
+
 func TestAdminPlayerCRUDHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)
 	token := issueAdminTokenForTest(t)
@@ -987,6 +1046,9 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	worldService := world.NewService(teststub.NewWorldRepository())
 	if err := worldService.RefreshMovementConfig(context.Background()); err != nil {
 		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
 	}
 	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petprogression.NewService(teststub.NewPetProgressionRepository()), worldService)
 }

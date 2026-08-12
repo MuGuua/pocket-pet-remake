@@ -169,5 +169,102 @@ func movementServiceForEvaluationTest() *Service {
 		MaxElapsedMS:             300,
 		AxisToleranceMilli:       125,
 	}
+	service.sceneBoundaries = map[uint32]SceneBoundary{
+		3: {SceneID: 3, MinX: 0, MinY: 0, MaxX: 14000, MaxY: 14000},
+	}
 	return service
+}
+
+// TestEvaluateMovementClampsPositionToSceneBoundary 验证速度裁剪后仍会应用数据库场景矩形边界。
+func TestEvaluateMovementClampsPositionToSceneBoundary(t *testing.T) {
+	service := movementServiceForEvaluationTest()
+	service.sceneBoundaries[3] = SceneBoundary{SceneID: 3, MinX: 0, MinY: 0, MaxX: 1000, MaxY: 1000}
+	current := movementStateForTest()
+	current.PrecisePos = Vec2i{X: 900, Y: 500}
+	current.PersistedPos = Vec2i{X: 1, Y: 1}
+	current.Facing = Vec2i{X: 1}
+	current.Moving = true
+	current.LastServerTickMS = 1000
+	right := Vec2i{X: 1}
+
+	result, err := service.EvaluateMovement(current, MovementIntent{
+		Input: &right, CandidatePos: Vec2i{X: 1400, Y: 500}, HasCandidate: true,
+		Facing: right, Moving: true, MoveSeq: 8, ServerTickMS: 1200,
+	})
+	if err != nil {
+		t.Fatalf("EvaluateMovement() error = %v", err)
+	}
+	if result.State.PrecisePos != (Vec2i{X: 1000, Y: 500}) || result.State.PersistedPos != (Vec2i{X: 1, Y: 1}) || !result.Corrected {
+		t.Fatalf("result = %+v, want scene boundary correction at (1000,500)", result)
+	}
+}
+
+// TestEvaluateMovementRejectsMissingSceneBoundary 验证运行时缓存缺少当前场景时不能绕过边界校验。
+func TestEvaluateMovementRejectsMissingSceneBoundary(t *testing.T) {
+	service := movementServiceForEvaluationTest()
+	delete(service.sceneBoundaries, 3)
+	current := movementStateForTest()
+	current.LastServerTickMS = 1000
+	right := Vec2i{X: 1}
+
+	_, err := service.EvaluateMovement(current, MovementIntent{
+		Input: &right, CandidatePos: Vec2i{X: 12100, Y: 8000}, HasCandidate: true,
+		Facing: right, Moving: true, MoveSeq: 8, ServerTickMS: 1100,
+	})
+	if !errors.Is(err, ErrSceneBoundaryUnavailable) {
+		t.Fatalf("EvaluateMovement() error = %v, want %v", err, ErrSceneBoundaryUnavailable)
+	}
+}
+
+type sceneBoundaryRepositoryStub struct {
+	boundaries map[uint32]SceneBoundary
+}
+
+func (r *sceneBoundaryRepositoryStub) ListSceneBoundaries(_ context.Context) ([]SceneBoundary, error) {
+	items := make([]SceneBoundary, 0, len(r.boundaries))
+	for _, boundary := range r.boundaries {
+		items = append(items, boundary)
+	}
+	return items, nil
+}
+
+func (r *sceneBoundaryRepositoryStub) UpdateSceneBoundary(_ context.Context, sceneID uint32, input AdminUpdateSceneBoundaryInput) (SceneBoundary, error) {
+	boundary, ok := r.boundaries[sceneID]
+	if !ok {
+		return SceneBoundary{}, ErrSceneBoundaryUnavailable
+	}
+	boundary.MinX = input.MinX
+	boundary.MinY = input.MinY
+	boundary.MaxX = input.MaxX
+	boundary.MaxY = input.MaxY
+	boundary.LastUpdateReason = input.Reason
+	boundary.UpdatedByAdminUserID = input.AdminUserID
+	r.boundaries[sceneID] = boundary
+	return boundary, nil
+}
+
+// TestUpdateAdminSceneBoundaryRefreshesSnapshot 验证后台写库成功后当前进程立即切换到新边界。
+func TestUpdateAdminSceneBoundaryRefreshesSnapshot(t *testing.T) {
+	repo := &sceneBoundaryRepositoryStub{boundaries: map[uint32]SceneBoundary{
+		3: {SceneID: 3, MinX: 0, MinY: 0, MaxX: 13000, MaxY: 13000},
+	}}
+	service := &Service{sceneBoundaryRepo: repo}
+	if err := service.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+
+	updated, err := service.UpdateAdminSceneBoundary(context.Background(), 3, AdminUpdateSceneBoundaryInput{
+		MinX: 1000, MinY: 2000, MaxX: 12000, MaxY: 11000,
+		Reason: " 缩小市场测试边界 ", AdminUserID: 7,
+	})
+	if err != nil {
+		t.Fatalf("UpdateAdminSceneBoundary() error = %v", err)
+	}
+	cached, err := service.SceneBoundarySnapshot(3)
+	if err != nil {
+		t.Fatalf("SceneBoundarySnapshot() error = %v", err)
+	}
+	if updated.MinX != 1000 || cached != updated || updated.LastUpdateReason != "缩小市场测试边界" || updated.UpdatedByAdminUserID != 7 {
+		t.Fatalf("updated=%+v cached=%+v", updated, cached)
+	}
 }

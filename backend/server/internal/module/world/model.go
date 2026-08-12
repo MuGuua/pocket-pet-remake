@@ -14,6 +14,8 @@ var ErrMovementConfigUnavailable = errors.New("movement config unavailable")
 var ErrMovementInputInvalid = errors.New("movement input invalid")
 var ErrMovementAxisInvalid = errors.New("movement axis invalid")
 var ErrMovementConfigInvalid = errors.New("movement config invalid")
+var ErrSceneBoundaryUnavailable = errors.New("scene boundary unavailable")
+var ErrSceneBoundaryInvalid = errors.New("scene boundary invalid")
 
 const (
 	// MovementPositionFixedScale 表示世界移动定点坐标每个场景格包含的单位数。
@@ -99,6 +101,30 @@ type AdminUpdateMovementConfigInput struct {
 	AxisToleranceMilli       uint32 `json:"axis_tolerance_milli"`
 	Reason                   string `json:"reason"`
 	AdminUserID              uint64 `json:"-"`
+}
+
+// SceneBoundary 定义启用场景可移动中心点的闭区间边界，坐标统一使用千分之一场景格。
+type SceneBoundary struct {
+	SceneID              uint32    `json:"scene_id"`
+	SceneCode            string    `json:"scene_code"`
+	SceneName            string    `json:"scene_name"`
+	MinX                 int32     `json:"min_x_milli"`
+	MinY                 int32     `json:"min_y_milli"`
+	MaxX                 int32     `json:"max_x_milli"`
+	MaxY                 int32     `json:"max_y_milli"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	LastUpdateReason     string    `json:"last_update_reason"`
+	UpdatedByAdminUserID uint64    `json:"updated_by_admin_user_id"`
+}
+
+// AdminUpdateSceneBoundaryInput 是后台修改场景矩形边界时使用的完整审计输入。
+type AdminUpdateSceneBoundaryInput struct {
+	MinX        int32  `json:"min_x_milli"`
+	MinY        int32  `json:"min_y_milli"`
+	MaxX        int32  `json:"max_x_milli"`
+	MaxY        int32  `json:"max_y_milli"`
+	Reason      string `json:"reason"`
+	AdminUserID uint64 `json:"-"`
 }
 
 // MovementIntent 是传输层转换后的移动输入意图和客户端候选表现坐标。

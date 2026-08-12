@@ -398,6 +398,69 @@ RETURNING speed_milli_cells_per_second, max_elapsed_ms, axis_tolerance_milli,
 	return config, err
 }
 
+// ListSceneBoundaries 按场景编号读取全部启用场景的数据库权威矩形边界。
+func (r *WorldRepository) ListSceneBoundaries(ctx context.Context) ([]world.SceneBoundary, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT scene_id, scene_code, scene_name,
+       boundary_min_x_milli, boundary_min_y_milli, boundary_max_x_milli, boundary_max_y_milli,
+       updated_at, COALESCE(boundary_last_update_reason, ''), COALESCE(boundary_updated_by_admin_user_id, 0)
+FROM world_scene_definition
+WHERE status = 1
+ORDER BY scene_id ASC
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	boundaries := make([]world.SceneBoundary, 0)
+	for rows.Next() {
+		var boundary world.SceneBoundary
+		if err := rows.Scan(
+			&boundary.SceneID, &boundary.SceneCode, &boundary.SceneName,
+			&boundary.MinX, &boundary.MinY, &boundary.MaxX, &boundary.MaxY,
+			&boundary.UpdatedAt, &boundary.LastUpdateReason, &boundary.UpdatedByAdminUserID,
+		); err != nil {
+			return nil, err
+		}
+		boundaries = append(boundaries, boundary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(boundaries) == 0 {
+		return nil, world.ErrSceneBoundaryUnavailable
+	}
+	return boundaries, nil
+}
+
+// UpdateSceneBoundary 更新指定启用场景的矩形边界和审计字段。
+func (r *WorldRepository) UpdateSceneBoundary(ctx context.Context, sceneID uint32, input world.AdminUpdateSceneBoundaryInput) (world.SceneBoundary, error) {
+	var boundary world.SceneBoundary
+	err := r.db.QueryRowContext(ctx, `
+UPDATE world_scene_definition
+SET boundary_min_x_milli = $2,
+    boundary_min_y_milli = $3,
+    boundary_max_x_milli = $4,
+    boundary_max_y_milli = $5,
+    boundary_last_update_reason = $6,
+    boundary_updated_by_admin_user_id = $7,
+    updated_at = NOW()
+WHERE scene_id = $1 AND status = 1
+RETURNING scene_id, scene_code, scene_name,
+          boundary_min_x_milli, boundary_min_y_milli, boundary_max_x_milli, boundary_max_y_milli,
+          updated_at, boundary_last_update_reason, boundary_updated_by_admin_user_id
+`, sceneID, input.MinX, input.MinY, input.MaxX, input.MaxY, input.Reason, input.AdminUserID).Scan(
+		&boundary.SceneID, &boundary.SceneCode, &boundary.SceneName,
+		&boundary.MinX, &boundary.MinY, &boundary.MaxX, &boundary.MaxY,
+		&boundary.UpdatedAt, &boundary.LastUpdateReason, &boundary.UpdatedByAdminUserID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return world.SceneBoundary{}, world.ErrSceneBoundaryUnavailable
+	}
+	return boundary, err
+}
+
 func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
 	if _, ok := worldScenes[sceneID]; !ok {
 		return nil, world.ErrSnapshotUnavailable

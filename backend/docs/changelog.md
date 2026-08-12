@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-08-12 P0-05 场景权威矩形边界闭环
+
+- 新增迁移 `backend/server/migrations/119_world_scene_boundaries.sql`，扩展 `world_scene_definition` 的千分之一场景格边界和审计字段，并根据当前正式 Godot 地图资源及服务端传送落点初始化 1~26 号场景。迁移脚本仅生成，未连接或修改数据库。
+- `backend/server/internal/module/world/` 新增场景边界模型、仓储接口、启动缓存、后台更新校验和移动结果矩形裁剪；边界缺失或非法时拒绝启动/移动，不回退代码常量。
+- `backend/server/internal/data/postgres/world_repo.go` 增加启用场景边界列表与单场景更新仓储，`backend/server/internal/app/bootstrap.go` 在服务启动阶段强制加载缓存。
+- 后台新增 `GET /api/admin/world/scene-boundaries` 与 `PUT /api/admin/world/scene-boundaries/{scene_id}`，复用 `world_movement:view/edit` 权限、操作原因审计和统一响应格式；`admin/src/pages/world/WorldMovementConfigPage.tsx` 增加边界列表、单位换算、固定尺寸编辑弹窗和二次确认。
+- 补充领域层边界裁剪、缓存刷新、缺失边界以及后台列表/更新/非法输入/不存在场景测试。已通过 `GOCACHE=/tmp/pocket-pet-go-build go test ./server/...` 全量后端测试与后台 `npm run build`；P0-06 墙体和精细静态通行判定仍未实现。
+
 ## 2026-08-11 P0-04 后台配置闭环
 
 - 完成多人同屏优化 `P0-04`：新增世界移动配置后台 GET/PUT、查看与编辑权限、操作原因审计和保存后二次确认；数据库写入成功后立即原子刷新服务端运行时配置快照。

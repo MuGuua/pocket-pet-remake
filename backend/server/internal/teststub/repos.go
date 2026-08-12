@@ -3598,11 +3598,12 @@ func (r *NPCRepository) DeleteMenuEntryForAdmin(_ context.Context, entityID uint
 // NewWorldRepository provides deterministic scene snapshots and portal routing
 // so world transport tests can still cover transfer logic without a live DB.
 func NewWorldRepository() *WorldRepository {
-	return &WorldRepository{}
+	return &WorldRepository{sceneBoundaries: newTestSceneBoundaries()}
 }
 
 type WorldRepository struct {
-	movementConfig world.MovementConfig
+	movementConfig  world.MovementConfig
+	sceneBoundaries map[uint32]world.SceneBoundary
 }
 
 // GetMovementConfig 返回与正式迁移一致的测试移动配置。
@@ -3624,6 +3625,57 @@ func (r *WorldRepository) UpdateMovementConfig(_ context.Context, input world.Ad
 		UpdatedByAdminUserID:     input.AdminUserID,
 	}
 	return r.movementConfig, nil
+}
+
+// ListSceneBoundaries 返回覆盖测试场景的确定性边界，避免单元测试依赖正式数据库。
+func (r *WorldRepository) ListSceneBoundaries(_ context.Context) ([]world.SceneBoundary, error) {
+	boundaries := make([]world.SceneBoundary, 0, len(r.sceneBoundaries))
+	for _, boundary := range r.sceneBoundaries {
+		boundaries = append(boundaries, boundary)
+	}
+	sort.Slice(boundaries, func(left int, right int) bool {
+		return boundaries[left].SceneID < boundaries[right].SceneID
+	})
+	return boundaries, nil
+}
+
+// UpdateSceneBoundary 保存后台测试写入，并模拟 PostgreSQL返回最新边界。
+func (r *WorldRepository) UpdateSceneBoundary(_ context.Context, sceneID uint32, input world.AdminUpdateSceneBoundaryInput) (world.SceneBoundary, error) {
+	boundary, ok := r.sceneBoundaries[sceneID]
+	if !ok {
+		return world.SceneBoundary{}, world.ErrSceneBoundaryUnavailable
+	}
+	boundary.MinX = input.MinX
+	boundary.MinY = input.MinY
+	boundary.MaxX = input.MaxX
+	boundary.MaxY = input.MaxY
+	boundary.UpdatedAt = time.Now()
+	boundary.LastUpdateReason = input.Reason
+	boundary.UpdatedByAdminUserID = input.AdminUserID
+	r.sceneBoundaries[sceneID] = boundary
+	return boundary, nil
+}
+
+// newTestSceneBoundaries 使用宽松矩形覆盖测试传送点；正式边界只来自数据库迁移和后台维护。
+func newTestSceneBoundaries() map[uint32]world.SceneBoundary {
+	gridBounds := map[uint32][4]int32{
+		1: {0, 0, 14, 14}, 2: {0, -4, 10, 8}, 3: {0, 0, 14, 14}, 4: {0, 0, 8, 10},
+		5: {0, 0, 12, 12}, 6: {0, 0, 9, 11}, 7: {0, 0, 9, 11}, 8: {1, 1, 11, 14},
+		9: {1, 1, 24, 14}, 10: {0, 0, 10, 12}, 11: {0, 0, 10, 12}, 12: {0, 0, 10, 12},
+		13: {0, 0, 12, 12}, 14: {0, 0, 10, 12}, 15: {0, 0, 10, 17}, 16: {0, 0, 14, 12},
+		17: {0, 0, 10, 12}, 18: {0, 0, 10, 12}, 19: {0, 0, 14, 19}, 20: {0, 0, 12, 13},
+		21: {0, 0, 17, 12}, 22: {0, 0, 10, 12}, 23: {0, 0, 12, 13}, 24: {0, 0, 10, 12},
+		25: {0, 0, 14, 12}, 26: {0, 0, 11, 13},
+	}
+	boundaries := make(map[uint32]world.SceneBoundary, len(gridBounds))
+	for sceneID, bounds := range gridBounds {
+		boundaries[sceneID] = world.SceneBoundary{
+			SceneID: sceneID, SceneCode: fmt.Sprintf("scene_%d", sceneID), SceneName: fmt.Sprintf("测试场景 %d", sceneID),
+			MinX: bounds[0] * world.MovementPositionFixedScale, MinY: bounds[1] * world.MovementPositionFixedScale,
+			MaxX: bounds[2] * world.MovementPositionFixedScale, MaxY: bounds[3] * world.MovementPositionFixedScale,
+		}
+	}
+	return boundaries
 }
 
 type portalData struct {

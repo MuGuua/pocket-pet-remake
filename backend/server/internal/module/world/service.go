@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	MinMovementElapsedMS     uint32 = 50
-	MaxMovementElapsedMS     uint32 = 2000
-	MaxMovementAxisTolerance uint32 = 1000
+	MinMovementElapsedMS          uint32 = 50
+	MaxMovementElapsedMS          uint32 = 2000
+	MaxMovementAxisTolerance      uint32 = 1000
+	MaxSceneBoundaryCoordinateAbs int32  = 10000000
 )
 
 type Service struct {
@@ -18,12 +19,18 @@ type Service struct {
 	movementConfigRepo MovementConfigRepository
 	movementConfigMu   sync.RWMutex
 	movementConfig     MovementConfig
+	sceneBoundaryRepo  SceneBoundaryRepository
+	sceneBoundaryMu    sync.RWMutex
+	sceneBoundaries    map[uint32]SceneBoundary
 }
 
 func NewService(repo Repository) *Service {
 	service := &Service{repo: repo}
 	if configRepo, ok := repo.(MovementConfigRepository); ok {
 		service.movementConfigRepo = configRepo
+	}
+	if boundaryRepo, ok := repo.(SceneBoundaryRepository); ok {
+		service.sceneBoundaryRepo = boundaryRepo
 	}
 	return service
 }
@@ -84,6 +91,88 @@ func (s *Service) UpdateAdminMovementConfig(ctx context.Context, input AdminUpda
 	return updated, nil
 }
 
+// RefreshSceneBoundaryCache 从 PostgreSQL加载全部启用场景边界，并一次性替换运行时只读快照。
+func (s *Service) RefreshSceneBoundaryCache(ctx context.Context) error {
+	if s == nil || s.sceneBoundaryRepo == nil {
+		return ErrSceneBoundaryUnavailable
+	}
+	boundaries, err := s.sceneBoundaryRepo.ListSceneBoundaries(ctx)
+	if err != nil {
+		return err
+	}
+	if len(boundaries) == 0 {
+		return ErrSceneBoundaryUnavailable
+	}
+	next := make(map[uint32]SceneBoundary, len(boundaries))
+	for _, boundary := range boundaries {
+		if !isValidSceneBoundary(boundary.SceneID, boundary.MinX, boundary.MinY, boundary.MaxX, boundary.MaxY) {
+			return ErrSceneBoundaryInvalid
+		}
+		if _, duplicated := next[boundary.SceneID]; duplicated {
+			return ErrSceneBoundaryInvalid
+		}
+		next[boundary.SceneID] = boundary
+	}
+	s.sceneBoundaryMu.Lock()
+	s.sceneBoundaries = next
+	s.sceneBoundaryMu.Unlock()
+	return nil
+}
+
+// SceneBoundarySnapshot 返回指定场景当前生效的边界副本，调用方不能修改内部缓存。
+func (s *Service) SceneBoundarySnapshot(sceneID uint32) (SceneBoundary, error) {
+	if s == nil || sceneID == 0 {
+		return SceneBoundary{}, ErrSceneBoundaryUnavailable
+	}
+	s.sceneBoundaryMu.RLock()
+	boundary, ok := s.sceneBoundaries[sceneID]
+	s.sceneBoundaryMu.RUnlock()
+	if !ok {
+		return SceneBoundary{}, ErrSceneBoundaryUnavailable
+	}
+	return boundary, nil
+}
+
+// GetAdminSceneBoundaries 返回数据库中的启用场景边界，供后台展示持久化事实来源。
+func (s *Service) GetAdminSceneBoundaries(ctx context.Context) ([]SceneBoundary, error) {
+	if s == nil || s.sceneBoundaryRepo == nil {
+		return nil, ErrSceneBoundaryUnavailable
+	}
+	return s.sceneBoundaryRepo.ListSceneBoundaries(ctx)
+}
+
+// UpdateAdminSceneBoundary 校验并持久化场景边界，成功后原子替换对应运行时快照。
+func (s *Service) UpdateAdminSceneBoundary(ctx context.Context, sceneID uint32, input AdminUpdateSceneBoundaryInput) (SceneBoundary, error) {
+	input.Reason = strings.TrimSpace(input.Reason)
+	if !isValidSceneBoundary(sceneID, input.MinX, input.MinY, input.MaxX, input.MaxY) || input.AdminUserID == 0 || input.Reason == "" || len([]rune(input.Reason)) > 500 {
+		return SceneBoundary{}, ErrSceneBoundaryInvalid
+	}
+	if s == nil || s.sceneBoundaryRepo == nil {
+		return SceneBoundary{}, ErrSceneBoundaryUnavailable
+	}
+	updated, err := s.sceneBoundaryRepo.UpdateSceneBoundary(ctx, sceneID, input)
+	if err != nil {
+		return SceneBoundary{}, err
+	}
+	s.sceneBoundaryMu.Lock()
+	next := make(map[uint32]SceneBoundary, len(s.sceneBoundaries)+1)
+	for cachedSceneID, cachedBoundary := range s.sceneBoundaries {
+		next[cachedSceneID] = cachedBoundary
+	}
+	next[sceneID] = updated
+	s.sceneBoundaries = next
+	s.sceneBoundaryMu.Unlock()
+	return updated, nil
+}
+
+// isValidSceneBoundary 统一校验后台输入和启动缓存，避免非法矩形进入移动热路径。
+func isValidSceneBoundary(sceneID uint32, minX int32, minY int32, maxX int32, maxY int32) bool {
+	if sceneID == 0 || maxX <= minX || maxY <= minY {
+		return false
+	}
+	return minX >= -MaxSceneBoundaryCoordinateAbs && minY >= -MaxSceneBoundaryCoordinateAbs && maxX <= MaxSceneBoundaryCoordinateAbs && maxY <= MaxSceneBoundaryCoordinateAbs
+}
+
 // EvaluateMovement 按服务端时间、数据库速度和四方向输入裁剪客户端候选位置。
 func (s *Service) EvaluateMovement(current MovementState, intent MovementIntent) (MovementResult, error) {
 	config, err := s.MovementConfigSnapshot()
@@ -134,6 +223,12 @@ func (s *Service) EvaluateMovement(current MovementState, intent MovementIntent)
 		X: current.PrecisePos.X + direction.X*progress,
 		Y: current.PrecisePos.Y + direction.Y*progress,
 	}
+	boundary, err := s.SceneBoundarySnapshot(current.SceneID)
+	if err != nil {
+		return MovementResult{}, err
+	}
+	next.PrecisePos.X = clampInt32(next.PrecisePos.X, boundary.MinX, boundary.MaxX)
+	next.PrecisePos.Y = clampInt32(next.PrecisePos.Y, boundary.MinY, boundary.MaxY)
 	next.PersistedPos = Vec2i{X: roundFixedCoordinate(next.PrecisePos.X), Y: roundFixedCoordinate(next.PrecisePos.Y)}
 	return MovementResult{State: next, Corrected: next.PrecisePos != intent.CandidatePos}, nil
 }
@@ -169,6 +264,17 @@ func isCardinalMovementVector(value Vec2i) bool {
 func absInt32(value int32) int32 {
 	if value < 0 {
 		return -value
+	}
+	return value
+}
+
+// clampInt32 把坐标限制在数据库定义的闭区间内。
+func clampInt32(value int32, minimum int32, maximum int32) int32 {
+	if value < minimum {
+		return minimum
+	}
+	if value > maximum {
+		return maximum
 	}
 	return value
 }

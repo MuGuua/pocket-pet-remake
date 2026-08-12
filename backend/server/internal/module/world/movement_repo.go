@@ -15,3 +15,9 @@ type MovementConfigRepository interface {
 	GetMovementConfig(ctx context.Context) (MovementConfig, error)
 	UpdateMovementConfig(ctx context.Context, input AdminUpdateMovementConfigInput) (MovementConfig, error)
 }
+
+// SceneBoundaryRepository 从 PostgreSQL读取和维护启用场景的服务端权威矩形边界。
+type SceneBoundaryRepository interface {
+	ListSceneBoundaries(ctx context.Context) ([]SceneBoundary, error)
+	UpdateSceneBoundary(ctx context.Context, sceneID uint32, input AdminUpdateSceneBoundaryInput) (SceneBoundary, error)
+}

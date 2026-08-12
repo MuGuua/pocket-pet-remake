@@ -119,7 +119,10 @@
 - 普通移动、普通门和地图快速传送共享严格递增的 Redis移动序号；跨场景成功后以目标场景版本重建状态，旧场景或重复请求不能再次执行传送。
 - 世界移动速度、单包最大服务端时间跨度和非主轴容差来自 PostgreSQL `world_movement_config`，服务启动时加载到 `world.Service` 只读缓存；缺少有效配置时服务拒绝启动，不回退代码常量。
 - 运营后台通过 `GET/PUT /api/admin/world/movement-config` 维护移动参数；写入要求 `world_movement:edit` 权限和操作原因，数据库更新成功后由 `world.Service` 原子替换运行时快照，新收到的移动意图立即使用新值。
-- 同场景移动以 Redis最新高精度位置为起点，根据服务端经过时间计算最大合法距离；四方向输入非法或非主轴漂移超过配置容差时拒绝，候选位置超速时裁剪到合法位置并回传纠偏坐标。
+- 场景矩形外边界存放在 PostgreSQL `world_scene_definition.boundary_*_milli` 字段中，使用千分之一场景格闭区间；迁移 `119_world_scene_boundaries.sql` 为现有 1~26 号场景初始化边界，并要求未来新增场景同时提供合法边界。
+- 服务启动时必须通过 `world.SceneBoundaryRepository` 加载全部启用场景边界到 `world.Service` 只读缓存；缺失、重复或非法矩形会阻止服务启动，普通移动也不会在当前场景缓存缺失时绕过边界校验。
+- 运营后台通过 `GET /api/admin/world/scene-boundaries` 和 `PUT /api/admin/world/scene-boundaries/{scene_id}` 维护完整矩形；接口复用 `world_movement:view/edit` 权限，更新要求操作原因，写库成功后原子替换对应场景运行时快照。
+- 同场景移动以 Redis最新高精度位置为起点，根据服务端经过时间计算最大合法距离；四方向输入非法或非主轴漂移超过配置容差时拒绝，候选位置先按速度裁剪、再按当前场景矩形边界裁剪，并回传最终纠偏坐标。矩形只负责场景外围，墙体和装饰阻挡仍由后续静态通行数据负责。
 
 ### feature/battle
 - 战斗 UI

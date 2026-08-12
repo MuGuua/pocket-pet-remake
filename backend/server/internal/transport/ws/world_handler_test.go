@@ -2603,6 +2603,9 @@ func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
 		t.Fatalf("RefreshMovementConfig() error = %v", err)
 	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 300, protocol.EnterWorldReq{})
 	conn.packets = nil
 
@@ -2639,6 +2642,9 @@ func TestBuildReconnectWorldSnapshotUsesRedisMovementPosition(t *testing.T) {
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
 		t.Fatalf("RefreshMovementConfig() error = %v", err)
 	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 310, protocol.EnterWorldReq{})
 	sess, err := router.sessionService.GetByConnID(conn.ID())
 	if err != nil {
@@ -2670,6 +2676,9 @@ func TestHandleMapTeleportRejectsDuplicateRedisMovementSequence(t *testing.T) {
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
 		t.Fatalf("RefreshMovementConfig() error = %v", err)
 	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 320, protocol.EnterWorldReq{})
 	conn.packets = nil
 	request := protocol.MoveIntentReq{MoveSeq: 20, SceneID: 1, TargetSceneID: 1, MapTeleport: true}
@@ -2697,6 +2706,9 @@ func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
 	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
 		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
 	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 330, protocol.EnterWorldReq{})
 	conn.packets = nil
