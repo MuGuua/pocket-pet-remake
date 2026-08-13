@@ -14,14 +14,17 @@ const (
 )
 
 type Service struct {
-	repo               Repository
-	movementRepo       MovementStateRepository
-	movementConfigRepo MovementConfigRepository
-	movementConfigMu   sync.RWMutex
-	movementConfig     MovementConfig
-	sceneBoundaryRepo  SceneBoundaryRepository
-	sceneBoundaryMu    sync.RWMutex
-	sceneBoundaries    map[uint32]SceneBoundary
+	repo                Repository
+	movementRepo        MovementStateRepository
+	movementConfigRepo  MovementConfigRepository
+	movementConfigMu    sync.RWMutex
+	movementConfig      MovementConfig
+	sceneBoundaryRepo   SceneBoundaryRepository
+	sceneBoundaryMu     sync.RWMutex
+	sceneBoundaries     map[uint32]SceneBoundary
+	sceneNavigationRepo SceneNavigationRepository
+	sceneNavigationMu   sync.RWMutex
+	sceneNavigations    map[uint32]SceneNavigation
 }
 
 func NewService(repo Repository) *Service {
@@ -31,6 +34,9 @@ func NewService(repo Repository) *Service {
 	}
 	if boundaryRepo, ok := repo.(SceneBoundaryRepository); ok {
 		service.sceneBoundaryRepo = boundaryRepo
+	}
+	if navigationRepo, ok := repo.(SceneNavigationRepository); ok {
+		service.sceneNavigationRepo = navigationRepo
 	}
 	return service
 }
@@ -229,6 +235,10 @@ func (s *Service) EvaluateMovement(current MovementState, intent MovementIntent)
 	}
 	next.PrecisePos.X = clampInt32(next.PrecisePos.X, boundary.MinX, boundary.MaxX)
 	next.PrecisePos.Y = clampInt32(next.PrecisePos.Y, boundary.MinY, boundary.MaxY)
+	next.PrecisePos, err = s.clampMovementToNavigation(current.SceneID, current.PrecisePos, next.PrecisePos, direction)
+	if err != nil {
+		return MovementResult{}, err
+	}
 	next.PersistedPos = Vec2i{X: roundFixedCoordinate(next.PrecisePos.X), Y: roundFixedCoordinate(next.PrecisePos.Y)}
 	return MovementResult{State: next, Corrected: next.PrecisePos != intent.CandidatePos}, nil
 }

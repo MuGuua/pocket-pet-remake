@@ -50,6 +50,8 @@ func NewRouter(loginHandler *LoginHandler, registerHandler *RegisterHandler, adm
 	mux.Handle("/api/admin/world/movement-config", adminHandlers.WorldMovement)
 	mux.Handle("/api/admin/world/scene-boundaries", adminHandlers.WorldMovement)
 	mux.Handle("/api/admin/world/scene-boundaries/", adminHandlers.WorldMovement)
+	mux.Handle("/api/admin/world/scene-navigations", adminHandlers.WorldMovement)
+	mux.Handle("/api/admin/world/scene-navigations/", adminHandlers.WorldMovement)
 	mux.Handle("/ws", wsHandler)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, 200, "success", map[string]string{"status": "ok"})

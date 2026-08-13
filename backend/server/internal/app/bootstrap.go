@@ -124,6 +124,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load world scene boundary cache: %w", err)
 	}
+	if err := worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		return nil, fmt.Errorf("load world scene navigation cache: %w", err)
+	}
 	monsterService := monster.NewService(repos.Monsters, skillService, petService)
 	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load monster battle reward cache: %w", err)

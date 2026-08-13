@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -171,6 +172,13 @@ func movementServiceForEvaluationTest() *Service {
 	}
 	service.sceneBoundaries = map[uint32]SceneBoundary{
 		3: {SceneID: 3, MinX: 0, MinY: 0, MaxX: 14000, MaxY: 14000},
+	}
+	service.sceneNavigations = map[uint32]SceneNavigation{
+		3: {
+			SceneID: 3, Version: 1, OriginX: 0, OriginY: 0,
+			GridWidth: 15, GridHeight: 15, CellSizeMilli: 1000,
+			NavigationData: bytes.Repeat([]byte{0xff}, 29), Status: SceneNavigationStatusPublished,
+		},
 	}
 	return service
 }

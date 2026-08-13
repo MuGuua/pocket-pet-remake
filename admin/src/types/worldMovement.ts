@@ -36,3 +36,24 @@ export interface UpdateSceneBoundaryPayload {
   max_y_milli: number;
   reason: string;
 }
+
+
+export type SceneNavigationStatus = 0 | 1 | 2;
+
+// SceneNavigation 是后台展示的静态通行位图版本摘要，原始位图不会回传到列表页。
+export interface SceneNavigation {
+  navigation_id: number; scene_id: number; scene_code: string; scene_name: string; version: number;
+  origin_x_milli: number; origin_y_milli: number; grid_width: number; grid_height: number; cell_size_milli: number;
+  data_hash: string; walkable_cell_count: number; source_scene_path: string; status: SceneNavigationStatus;
+  change_reason: string; publish_reason: string; created_by_admin_user_id: number; published_by_admin_user_id: number;
+  created_at: string; published_at: string; updated_at: string;
+}
+
+// SceneNavigationExportData 对应 Godot 导出工具生成的 JSON。
+export interface SceneNavigationExportData {
+  scene_id: number; origin_x_milli: number; origin_y_milli: number; grid_width: number; grid_height: number;
+  cell_size_milli: number; navigation_data: string; source_scene_path: string;
+}
+export interface CreateSceneNavigationDraftPayload extends SceneNavigationExportData { reason: string; }
+export interface PublishSceneNavigationPayload { reason: string; }
+export interface RollbackSceneNavigationPayload { source_version: number; reason: string; }

@@ -21,3 +21,12 @@ type SceneBoundaryRepository interface {
 	ListSceneBoundaries(ctx context.Context) ([]SceneBoundary, error)
 	UpdateSceneBoundary(ctx context.Context, sceneID uint32, input AdminUpdateSceneBoundaryInput) (SceneBoundary, error)
 }
+
+// SceneNavigationRepository 从 PostgreSQL读取已发布静态通行位图，并维护后台版本发布与回滚。
+type SceneNavigationRepository interface {
+	ListPublishedSceneNavigations(ctx context.Context) ([]SceneNavigation, error)
+	ListAdminSceneNavigations(ctx context.Context, sceneID uint32) ([]SceneNavigation, error)
+	CreateSceneNavigationDraft(ctx context.Context, input CreateSceneNavigationDraftInput) (SceneNavigation, error)
+	PublishSceneNavigation(ctx context.Context, navigationID uint64, input AdminPublishSceneNavigationInput) (SceneNavigation, error)
+	RollbackSceneNavigation(ctx context.Context, sceneID uint32, input AdminRollbackSceneNavigationInput) (SceneNavigation, error)
+}

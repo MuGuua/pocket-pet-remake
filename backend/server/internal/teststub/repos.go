@@ -1,6 +1,7 @@
 package teststub
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sort"
@@ -3598,12 +3599,18 @@ func (r *NPCRepository) DeleteMenuEntryForAdmin(_ context.Context, entityID uint
 // NewWorldRepository provides deterministic scene snapshots and portal routing
 // so world transport tests can still cover transfer logic without a live DB.
 func NewWorldRepository() *WorldRepository {
-	return &WorldRepository{sceneBoundaries: newTestSceneBoundaries()}
+	boundaries := newTestSceneBoundaries()
+	return &WorldRepository{
+		sceneBoundaries:  boundaries,
+		sceneNavigations: newTestSceneNavigations(boundaries),
+	}
 }
 
 type WorldRepository struct {
-	movementConfig  world.MovementConfig
-	sceneBoundaries map[uint32]world.SceneBoundary
+	movementConfig   world.MovementConfig
+	sceneBoundaries  map[uint32]world.SceneBoundary
+	sceneNavigations map[uint32][]world.SceneNavigation
+	nextNavigationID uint64
 }
 
 // GetMovementConfig 返回与正式迁移一致的测试移动配置。
@@ -3654,6 +3661,167 @@ func (r *WorldRepository) UpdateSceneBoundary(_ context.Context, sceneID uint32,
 	boundary.UpdatedByAdminUserID = input.AdminUserID
 	r.sceneBoundaries[sceneID] = boundary
 	return boundary, nil
+}
+
+// ListPublishedSceneNavigations 返回每个测试场景当前发布的全通行位图。正式环境只从 PostgreSQL 读取导出数据。
+func (r *WorldRepository) ListPublishedSceneNavigations(_ context.Context) ([]world.SceneNavigation, error) {
+	navigations := make([]world.SceneNavigation, 0, len(r.sceneNavigations))
+	for _, versions := range r.sceneNavigations {
+		for _, navigation := range versions {
+			if navigation.Status == world.SceneNavigationStatusPublished {
+				navigation.NavigationData = append([]byte(nil), navigation.NavigationData...)
+				navigations = append(navigations, navigation)
+			}
+		}
+	}
+	sort.Slice(navigations, func(left int, right int) bool {
+		return navigations[left].SceneID < navigations[right].SceneID
+	})
+	return navigations, nil
+}
+
+// ListAdminSceneNavigations 返回指定测试场景的全部位图版本。
+func (r *WorldRepository) ListAdminSceneNavigations(_ context.Context, sceneID uint32) ([]world.SceneNavigation, error) {
+	versions, ok := r.sceneNavigations[sceneID]
+	if !ok {
+		return nil, world.ErrSceneNavigationNotFound
+	}
+	result := make([]world.SceneNavigation, len(versions))
+	copy(result, versions)
+	for index := range result {
+		result[index].NavigationData = append([]byte(nil), result[index].NavigationData...)
+	}
+	sort.Slice(result, func(left int, right int) bool { return result[left].Version > result[right].Version })
+	return result, nil
+}
+
+// CreateSceneNavigationDraft 模拟数据库分配新版本并保存草稿。
+func (r *WorldRepository) CreateSceneNavigationDraft(_ context.Context, input world.CreateSceneNavigationDraftInput) (world.SceneNavigation, error) {
+	if _, ok := r.sceneBoundaries[input.SceneID]; !ok {
+		return world.SceneNavigation{}, world.ErrSceneNavigationNotFound
+	}
+	versions := r.sceneNavigations[input.SceneID]
+	var nextVersion uint32 = 1
+	for _, navigation := range versions {
+		if navigation.Version >= nextVersion {
+			nextVersion = navigation.Version + 1
+		}
+	}
+	r.nextNavigationID++
+	navigation := world.SceneNavigation{
+		NavigationID: r.nextNavigationID, SceneID: input.SceneID,
+		SceneCode: fmt.Sprintf("scene_%d", input.SceneID), SceneName: fmt.Sprintf("测试场景 %d", input.SceneID),
+		Version: nextVersion, OriginX: input.OriginX, OriginY: input.OriginY,
+		GridWidth: input.GridWidth, GridHeight: input.GridHeight, CellSizeMilli: input.CellSizeMilli,
+		NavigationData: append([]byte(nil), input.NavigationData...), DataHash: input.DataHash,
+		WalkableCellCount: input.WalkableCellCount, SourceScenePath: input.SourceScenePath,
+		Status: world.SceneNavigationStatusDraft, ChangeReason: input.Reason,
+		CreatedByAdminUserID: input.AdminUserID, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	r.sceneNavigations[input.SceneID] = append(versions, navigation)
+	return navigation, nil
+}
+
+// PublishSceneNavigation 模拟事务发布，并归档当前测试版本。
+func (r *WorldRepository) PublishSceneNavigation(_ context.Context, navigationID uint64, input world.AdminPublishSceneNavigationInput) (world.SceneNavigation, error) {
+	for sceneID, versions := range r.sceneNavigations {
+		targetIndex := -1
+		for index := range versions {
+			if versions[index].NavigationID == navigationID {
+				targetIndex = index
+				break
+			}
+		}
+		if targetIndex < 0 {
+			continue
+		}
+		if versions[targetIndex].Status != world.SceneNavigationStatusDraft {
+			return world.SceneNavigation{}, world.ErrSceneNavigationStateInvalid
+		}
+		for index := range versions {
+			if versions[index].Status == world.SceneNavigationStatusPublished {
+				versions[index].Status = world.SceneNavigationStatusArchived
+				versions[index].UpdatedAt = time.Now()
+			}
+		}
+		versions[targetIndex].Status = world.SceneNavigationStatusPublished
+		versions[targetIndex].PublishReason = input.Reason
+		versions[targetIndex].PublishedByAdminUserID = input.AdminUserID
+		versions[targetIndex].PublishedAt = time.Now()
+		versions[targetIndex].UpdatedAt = time.Now()
+		r.sceneNavigations[sceneID] = versions
+		result := versions[targetIndex]
+		result.NavigationData = append([]byte(nil), result.NavigationData...)
+		return result, nil
+	}
+	return world.SceneNavigation{}, world.ErrSceneNavigationNotFound
+}
+
+// RollbackSceneNavigation 复制指定历史测试版本为新的已发布版本。
+func (r *WorldRepository) RollbackSceneNavigation(_ context.Context, sceneID uint32, input world.AdminRollbackSceneNavigationInput) (world.SceneNavigation, error) {
+	versions, ok := r.sceneNavigations[sceneID]
+	if !ok {
+		return world.SceneNavigation{}, world.ErrSceneNavigationNotFound
+	}
+	sourceIndex := -1
+	var nextVersion uint32 = 1
+	for index := range versions {
+		if versions[index].Version == input.SourceVersion {
+			sourceIndex = index
+		}
+		if versions[index].Version >= nextVersion {
+			nextVersion = versions[index].Version + 1
+		}
+	}
+	if sourceIndex < 0 {
+		return world.SceneNavigation{}, world.ErrSceneNavigationNotFound
+	}
+	if versions[sourceIndex].Status == world.SceneNavigationStatusPublished {
+		return world.SceneNavigation{}, world.ErrSceneNavigationStateInvalid
+	}
+	for index := range versions {
+		if versions[index].Status == world.SceneNavigationStatusPublished {
+			versions[index].Status = world.SceneNavigationStatusArchived
+			versions[index].UpdatedAt = time.Now()
+		}
+	}
+	r.nextNavigationID++
+	source := versions[sourceIndex]
+	source.NavigationID = r.nextNavigationID
+	source.Version = nextVersion
+	source.NavigationData = append([]byte(nil), source.NavigationData...)
+	source.Status = world.SceneNavigationStatusPublished
+	source.ChangeReason = fmt.Sprintf("回滚自版本 %d：%s", input.SourceVersion, input.Reason)
+	source.PublishReason = input.Reason
+	source.CreatedByAdminUserID = input.AdminUserID
+	source.PublishedByAdminUserID = input.AdminUserID
+	source.CreatedAt = time.Now()
+	source.PublishedAt = source.CreatedAt
+	source.UpdatedAt = source.CreatedAt
+	r.sceneNavigations[sceneID] = append(versions, source)
+	return source, nil
+}
+
+// newTestSceneNavigations 为测试边界生成全通行位图；它只用于测试，不会进入正式迁移或运行时数据。
+func newTestSceneNavigations(boundaries map[uint32]world.SceneBoundary) map[uint32][]world.SceneNavigation {
+	result := make(map[uint32][]world.SceneNavigation, len(boundaries))
+	var navigationID uint64
+	for sceneID, boundary := range boundaries {
+		width := uint32((boundary.MaxX-boundary.MinX)/world.MovementPositionFixedScale) + 1
+		height := uint32((boundary.MaxY-boundary.MinY)/world.MovementPositionFixedScale) + 1
+		byteLength := (uint64(width)*uint64(height) + 7) / 8
+		navigationID++
+		result[sceneID] = []world.SceneNavigation{{
+			NavigationID: navigationID, SceneID: sceneID,
+			SceneCode: boundary.SceneCode, SceneName: boundary.SceneName, Version: 1,
+			OriginX: boundary.MinX, OriginY: boundary.MinY,
+			GridWidth: width, GridHeight: height, CellSizeMilli: uint32(world.MovementPositionFixedScale),
+			NavigationData:    bytes.Repeat([]byte{0xff}, int(byteLength)),
+			WalkableCellCount: width * height, Status: world.SceneNavigationStatusPublished,
+			ChangeReason: "测试初始化", PublishReason: "测试初始化",
+		}}
+	}
+	return result
 }
 
 // newTestSceneBoundaries 使用宽松矩形覆盖测试传送点；正式边界只来自数据库迁移和后台维护。

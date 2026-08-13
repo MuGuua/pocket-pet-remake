@@ -1050,6 +1050,9 @@ func newAdminHandlersForTest(t *testing.T) AdminHandlers {
 	if err := worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
 		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
 	}
+	if err := worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
 	return NewAdminHandlers(adminService, authService, sessionService, playerService, petService, bagService, itemService, equipmentService, skillService, monsterService, questService, npcService, npcDialogueService, walletService, unlockService, progressionService, petprogression.NewService(teststub.NewPetProgressionRepository()), worldService)
 }
 

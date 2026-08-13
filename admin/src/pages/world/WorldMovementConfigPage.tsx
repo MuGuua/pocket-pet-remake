@@ -7,6 +7,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Select,
   Space,
   Spin,
   Statistic,
@@ -17,13 +18,20 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
 import {
+  createSceneNavigationDraft,
   fetchSceneBoundaries,
+  fetchSceneNavigations,
   fetchWorldMovementConfig,
+  publishSceneNavigation,
+  rollbackSceneNavigation,
   updateSceneBoundary,
   updateWorldMovementConfig,
 } from '../../services/worldMovement';
 import type {
+  CreateSceneNavigationDraftPayload,
   SceneBoundary,
+  SceneNavigation,
+  SceneNavigationExportData,
   UpdateSceneBoundaryPayload,
   UpdateWorldMovementConfigPayload,
   WorldMovementConfig,
@@ -34,7 +42,7 @@ function fixedCoordinateText(value: number): string {
   return `${value}（${(value / 1000).toFixed(3)} 格）`;
 }
 
-// 世界移动配置页统一维护移动参数和场景外边界；两类数据保存后都会立即刷新服务端运行时快照。
+// 世界移动配置页统一维护移动参数、场景外边界和静态通行版本。
 export function WorldMovementConfigPage() {
   const [config, setConfig] = useState<WorldMovementConfig | null>(null);
   const [boundaries, setBoundaries] = useState<SceneBoundary[]>([]);
@@ -46,6 +54,12 @@ export function WorldMovementConfigPage() {
   const [editingBoundary, setEditingBoundary] = useState<SceneBoundary | null>(null);
   const [configForm] = Form.useForm<UpdateWorldMovementConfigPayload>();
   const [boundaryForm] = Form.useForm<UpdateSceneBoundaryPayload>();
+  const [selectedNavigationSceneID, setSelectedNavigationSceneID] = useState<number | null>(null);
+  const [navigations, setNavigations] = useState<SceneNavigation[]>([]);
+  const [loadingNavigations, setLoadingNavigations] = useState<boolean>(false);
+  const [navigationDraftOpen, setNavigationDraftOpen] = useState<boolean>(false);
+  const [savingNavigation, setSavingNavigation] = useState<boolean>(false);
+  const [navigationDraftForm] = Form.useForm<{ export_json: string; reason: string }>();
 
   // loadPageData 并行读取两个数据库事实来源，页面首次出现时不展示旧缓存值。
   async function loadPageData(): Promise<void> {
@@ -57,6 +71,9 @@ export function WorldMovementConfigPage() {
       ]);
       setConfig(nextConfig);
       setBoundaries(nextBoundaries);
+      if (selectedNavigationSceneID === null && nextBoundaries.length > 0) {
+        setSelectedNavigationSceneID(nextBoundaries[0].scene_id);
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '读取世界移动配置失败');
     } finally {
@@ -67,6 +84,103 @@ export function WorldMovementConfigPage() {
   useEffect(() => {
     void loadPageData();
   }, []);
+
+  // loadSceneNavigations 每次切换场景都重新读取数据库版本，避免展示过期发布状态。
+  async function loadSceneNavigations(sceneID: number): Promise<void> {
+    setLoadingNavigations(true);
+    try {
+      const result: SceneNavigation[] = await fetchSceneNavigations(sceneID);
+      setNavigations(result);
+    } catch (error) {
+      setNavigations([]);
+      message.error(error instanceof Error ? error.message : '读取场景通行版本失败');
+    } finally {
+      setLoadingNavigations(false);
+    }
+  }
+
+  useEffect(() => {
+    if (selectedNavigationSceneID !== null) {
+      void loadSceneNavigations(selectedNavigationSceneID);
+    }
+  }, [selectedNavigationSceneID]);
+
+  // submitNavigationDraft 解析 Godot JSON 后只创建草稿，不直接改变在线移动判定。
+  async function submitNavigationDraft(): Promise<void> {
+    const values: { export_json: string; reason: string } = await navigationDraftForm.validateFields();
+    let exportData: SceneNavigationExportData;
+    try {
+      exportData = JSON.parse(values.export_json) as SceneNavigationExportData;
+    } catch {
+      message.error('导出内容不是有效 JSON');
+      return;
+    }
+    if (selectedNavigationSceneID === null || exportData.scene_id !== selectedNavigationSceneID) {
+      message.error('导出 JSON 的 scene_id 必须与当前选择场景一致');
+      return;
+    }
+    const payload: CreateSceneNavigationDraftPayload = { ...exportData, reason: values.reason };
+    setSavingNavigation(true);
+    try {
+      await createSceneNavigationDraft(payload);
+      setNavigationDraftOpen(false);
+      navigationDraftForm.resetFields();
+      await loadSceneNavigations(selectedNavigationSceneID);
+      message.success('导航草稿已上传，尚未影响在线玩家');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '上传导航草稿失败');
+    } finally {
+      setSavingNavigation(false);
+    }
+  }
+
+  // confirmPublishNavigation 要求填写发布原因，并明确提示运行时缓存会立即切换。
+  function confirmPublishNavigation(navigation: SceneNavigation): void {
+    let reason: string = '';
+    Modal.confirm({
+      title: `发布 ${navigation.scene_name} v${navigation.version}？`,
+      content: <Input.TextArea rows={4} maxLength={500} placeholder="请输入发布原因、影响范围和回滚依据" onChange={(event) => { reason = event.target.value; }} />,
+      okText: '确认发布', cancelText: '取消',
+      onOk: async () => {
+        if (reason.trim() === '') {
+          message.error('请输入发布原因');
+          return Promise.reject(new Error('发布原因不能为空'));
+        }
+        setSavingNavigation(true);
+        try {
+          await publishSceneNavigation(navigation.navigation_id, { reason });
+          await loadSceneNavigations(navigation.scene_id);
+          message.success('导航版本已发布并立即生效');
+        } finally {
+          setSavingNavigation(false);
+        }
+      },
+    });
+  }
+
+  // confirmRollbackNavigation 回滚会复制历史数据为新版本，既有版本审计不会被覆盖。
+  function confirmRollbackNavigation(navigation: SceneNavigation): void {
+    let reason: string = '';
+    Modal.confirm({
+      title: `回滚到 ${navigation.scene_name} v${navigation.version}？`,
+      content: <Input.TextArea rows={4} maxLength={500} placeholder="请输入回滚原因和问题说明" onChange={(event) => { reason = event.target.value; }} />,
+      okText: '复制并发布', cancelText: '取消', okButtonProps: { danger: true },
+      onOk: async () => {
+        if (reason.trim() === '') {
+          message.error('请输入回滚原因');
+          return Promise.reject(new Error('回滚原因不能为空'));
+        }
+        setSavingNavigation(true);
+        try {
+          await rollbackSceneNavigation(navigation.scene_id, { source_version: navigation.version, reason });
+          await loadSceneNavigations(navigation.scene_id);
+          message.success('历史位图已复制为新版本并发布');
+        } finally {
+          setSavingNavigation(false);
+        }
+      },
+    });
+  }
 
   // openConfigEditor 使用当前数据库返回值填表，操作原因始终要求重新填写。
   function openConfigEditor(): void {
@@ -164,6 +278,29 @@ export function WorldMovementConfigPage() {
     });
   }
 
+  const navigationColumns: ColumnsType<SceneNavigation> = [
+    { title: '版本', dataIndex: 'version', width: 80, render: (value: number) => `v${value}` },
+    { title: '状态', dataIndex: 'status', width: 100, render: (value: number) => value === 1 ? '已发布' : value === 2 ? '草稿' : '历史' },
+    { title: '网格', width: 150, render: (_: unknown, row: SceneNavigation) => `${row.grid_width} × ${row.grid_height}` },
+    { title: '原点', width: 190, render: (_: unknown, row: SceneNavigation) => `${row.origin_x_milli}, ${row.origin_y_milli}` },
+    { title: '单元尺寸', dataIndex: 'cell_size_milli', width: 110 },
+    { title: '可通行格', dataIndex: 'walkable_cell_count', width: 110 },
+    { title: '数据摘要', dataIndex: 'data_hash', width: 190, ellipsis: true },
+    { title: '来源场景', dataIndex: 'source_scene_path', width: 260, ellipsis: true },
+    { title: '上传原因', dataIndex: 'change_reason', width: 220, ellipsis: true },
+    { title: '发布时间', dataIndex: 'published_at', width: 190, render: (value: string) => value ? new Date(value).toLocaleString() : '未发布' },
+    {
+      title: '操作', key: 'actions', fixed: 'right', width: 170,
+      render: (_: unknown, row: SceneNavigation) => (
+        <Space>
+          {row.status === 2 ? <Button type="link" disabled={savingNavigation} onClick={() => confirmPublishNavigation(row)}>发布</Button> : null}
+          {row.status === 0 ? <Button type="link" danger disabled={savingNavigation} onClick={() => confirmRollbackNavigation(row)}>回滚</Button> : null}
+          {row.status === 1 ? <Typography.Text type="success">运行中</Typography.Text> : null}
+        </Space>
+      ),
+    },
+  ];
+
   const boundaryColumns: ColumnsType<SceneBoundary> = [
     { title: '场景 ID', dataIndex: 'scene_id', width: 86, fixed: 'left' },
     {
@@ -255,6 +392,35 @@ export function WorldMovementConfigPage() {
             scroll={{ x: 1510 }}
           />
         </Card>
+        <Card title="场景静态通行版本">
+          <Alert
+            showIcon
+            type="warning"
+            message="发布后立即影响在线移动"
+            description="位图由 Godot 工具按人物碰撞体导出。上传只创建草稿；发布或回滚会在数据库事务成功后立即切换服务端只读缓存。"
+            style={{ marginBottom: 20 }}
+          />
+          <Space wrap style={{ marginBottom: 16 }}>
+            <Select<number>
+              style={{ width: 260 }}
+              value={selectedNavigationSceneID ?? undefined}
+              placeholder="选择场景"
+              options={boundaries.map((boundary: SceneBoundary) => ({ value: boundary.scene_id, label: `${boundary.scene_id} - ${boundary.scene_name}` }))}
+              onChange={(value: number) => setSelectedNavigationSceneID(value)}
+            />
+            <Button type="primary" disabled={selectedNavigationSceneID === null} onClick={() => { navigationDraftForm.resetFields(); setNavigationDraftOpen(true); }}>上传 Godot 导出草稿</Button>
+            <Button disabled={selectedNavigationSceneID === null} onClick={() => selectedNavigationSceneID !== null && void loadSceneNavigations(selectedNavigationSceneID)}>刷新版本</Button>
+          </Space>
+          <Table<SceneNavigation>
+            rowKey="navigation_id"
+            loading={loadingNavigations}
+            columns={navigationColumns}
+            dataSource={navigations}
+            pagination={false}
+            scroll={{ x: 1770 }}
+            locale={{ emptyText: '当前场景尚无导航版本，请先使用 Godot 工具导出并上传草稿' }}
+          />
+        </Card>
       </Space>
 
       <Modal
@@ -280,6 +446,28 @@ export function WorldMovementConfigPage() {
           </Form.Item>
           <Form.Item label="操作原因" name="reason" rules={[{ required: true, whitespace: true, message: '请输入本次调整原因' }, { max: 500 }]}>
             <Input.TextArea rows={4} placeholder="请说明调整背景、预期影响和回滚依据" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="上传场景静态通行草稿"
+        open={navigationDraftOpen}
+        width={760}
+        okText="校验并上传草稿"
+        cancelText="取消"
+        confirmLoading={savingNavigation}
+        onCancel={() => !savingNavigation && setNavigationDraftOpen(false)}
+        onOk={() => void submitNavigationDraft()}
+        styles={{ body: { maxHeight: 560, overflowY: 'auto' } }}
+      >
+        <Alert showIcon type="info" message="草稿不会立即生效" description="请粘贴 Godot 导出工具生成的完整 JSON。服务端会重新计算 SHA-256，不信任客户端摘要。" style={{ marginBottom: 16 }} />
+        <Form form={navigationDraftForm} layout="vertical" disabled={savingNavigation}>
+          <Form.Item label="Godot 导出 JSON" name="export_json" rules={[{ required: true, whitespace: true, message: '请粘贴导出 JSON' }]}>
+            <Input.TextArea rows={12} spellCheck={false} placeholder={'{"scene_id": 9, "origin_x_milli": 1000, ...}'} />
+          </Form.Item>
+          <Form.Item label="上传原因" name="reason" rules={[{ required: true, whitespace: true, message: '请输入上传原因' }, { max: 500 }]}>
+            <Input.TextArea rows={4} placeholder="请说明地图资源版本、碰撞调整内容和验证结果" />
           </Form.Item>
         </Form>
       </Modal>

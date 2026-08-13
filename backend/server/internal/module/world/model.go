@@ -16,6 +16,11 @@ var ErrMovementAxisInvalid = errors.New("movement axis invalid")
 var ErrMovementConfigInvalid = errors.New("movement config invalid")
 var ErrSceneBoundaryUnavailable = errors.New("scene boundary unavailable")
 var ErrSceneBoundaryInvalid = errors.New("scene boundary invalid")
+var ErrSceneNavigationUnavailable = errors.New("scene navigation unavailable")
+var ErrSceneNavigationInvalid = errors.New("scene navigation invalid")
+var ErrSceneNavigationNotFound = errors.New("scene navigation not found")
+var ErrSceneNavigationStateInvalid = errors.New("scene navigation state invalid")
+var ErrSceneNavigationBlocked = errors.New("scene navigation blocks current position")
 
 const (
 	// MovementPositionFixedScale 表示世界移动定点坐标每个场景格包含的单位数。
