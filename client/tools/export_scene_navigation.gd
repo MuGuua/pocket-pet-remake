@@ -275,17 +275,6 @@ func _export_scene_navigation(scene_id: int, bounds: Dictionary) -> Dictionary:
             navigation_data[byte_index] = navigation_data[byte_index] | (1 << bit_offset)
             walkable_cell_count += 1
 
-    if not _validate_configured_spawn_positions(
-        scene_id,
-        level_instance,
-        origin_x_milli,
-        origin_y_milli,
-        grid_width,
-        grid_height,
-        navigation_data
-    ):
-        _free_export_nodes(level_instance, player_instance)
-        return {}
 
     var data_hash: String = _sha256_hex(navigation_data)
     var exported_entry: Dictionary = {
@@ -312,112 +301,6 @@ func _export_scene_navigation(scene_id: int, bounds: Dictionary) -> Dictionary:
     )
     _free_export_nodes(level_instance, player_instance)
     return exported_entry
-
-
-## 校验地图根节点导出的登录、快速传送和传送门落点，确保首批发布后不会把玩家放进阻挡格。
-func _validate_configured_spawn_positions(
-    scene_id: int,
-    level_instance: Node2D,
-    origin_x_milli: int,
-    origin_y_milli: int,
-    grid_width: int,
-    grid_height: int,
-    navigation_data: PackedByteArray
-) -> bool:
-    var spawn_positions: Dictionary = {}
-    for property_info_variant: Variant in level_instance.get_property_list():
-        if not property_info_variant is Dictionary:
-            continue
-        var property_info: Dictionary = property_info_variant as Dictionary
-        var property_name: String = str(property_info.get("name", ""))
-        if not property_name.to_lower().contains("spawn"):
-            continue
-        var property_value: Variant = level_instance.get(property_name)
-        _collect_spawn_positions(property_name, property_value, spawn_positions)
-
-    if level_instance.has_method("get_login_and_map_teleport_spawn_position"):
-        var login_spawn_variant: Variant = level_instance.call("get_login_and_map_teleport_spawn_position")
-        _collect_spawn_positions("get_login_and_map_teleport_spawn_position", login_spawn_variant, spawn_positions)
-
-    for spawn_name_variant: Variant in spawn_positions.keys():
-        var spawn_name: String = str(spawn_name_variant)
-        var spawn_position_variant: Variant = spawn_positions.get(spawn_name, Vector2.INF)
-        if not spawn_position_variant is Vector2:
-            continue
-        var spawn_position: Vector2 = spawn_position_variant as Vector2
-        if not spawn_position.is_finite():
-            var invalid_coordinate_message: String = "场景 %d 的出生点 %s 不是有限坐标。" % [scene_id, spawn_name]
-            printerr(invalid_coordinate_message)
-            push_error(invalid_coordinate_message)
-            return false
-        var position_x_milli: int = roundi(spawn_position.x * float(CELL_SIZE_MILLI))
-        var position_y_milli: int = roundi(spawn_position.y * float(CELL_SIZE_MILLI))
-        if not _is_navigation_position_walkable(
-            position_x_milli,
-            position_y_milli,
-            origin_x_milli,
-            origin_y_milli,
-            grid_width,
-            grid_height,
-            navigation_data
-        ):
-            var blocked_spawn_message: String = (
-                "场景 %d 的出生点 %s=(%s,%s) 落在静态阻挡或位图范围外。" % [
-                    scene_id,
-                    spawn_name,
-                    str(spawn_position.x),
-                    str(spawn_position.y),
-                ]
-            )
-            printerr(blocked_spawn_message)
-            push_error(blocked_spawn_message)
-            return false
-    return true
-
-
-## 递归收集导出属性中的 Vector2 出生点；字典键会保留在名称中，便于定位具体 portal_id。
-func _collect_spawn_positions(prefix: String, value: Variant, result: Dictionary) -> void:
-    if value is Vector2:
-        result[prefix] = value
-        return
-    if value is Vector2i:
-        var grid_position: Vector2i = value as Vector2i
-        result[prefix] = Vector2(float(grid_position.x), float(grid_position.y))
-        return
-    if not value is Dictionary:
-        return
-    var dictionary_value: Dictionary = value as Dictionary
-    for child_key_variant: Variant in dictionary_value.keys():
-        var child_key: String = str(child_key_variant)
-        _collect_spawn_positions(
-            "%s[%s]" % [prefix, child_key],
-            dictionary_value.get(child_key_variant),
-            result
-        )
-
-
-## 按服务端相同的行优先、高位优先规则判断指定定点坐标是否属于可通行格。
-func _is_navigation_position_walkable(
-    position_x_milli: int,
-    position_y_milli: int,
-    origin_x_milli: int,
-    origin_y_milli: int,
-    grid_width: int,
-    grid_height: int,
-    navigation_data: PackedByteArray
-) -> bool:
-    var delta_x: int = position_x_milli - origin_x_milli
-    var delta_y: int = position_y_milli - origin_y_milli
-    if delta_x < 0 or delta_y < 0:
-        return false
-    var cell_x: int = delta_x / CELL_SIZE_MILLI
-    var cell_y: int = delta_y / CELL_SIZE_MILLI
-    if cell_x < 0 or cell_y < 0 or cell_x >= grid_width or cell_y >= grid_height:
-        return false
-    var bit_index: int = cell_y * grid_width + cell_x
-    var byte_index: int = bit_index / 8
-    var bit_offset: int = 7 - bit_index % 8
-    return navigation_data[byte_index] & (1 << bit_offset) != 0
 
 
 ## 关闭地图中动态物理体的碰撞层，确保 NPC、玩家和临时运行时物体不会进入静态位图。
@@ -556,6 +439,8 @@ func _write_text_file(path: String, content: String) -> bool:
 ## 生成迁移可直接包含的初始发布数据 SQL；服务端运行时只读取 status=1 的版本。
 func _build_seed_sql(exported_entries: Array[Dictionary]) -> String:
     var sql_lines: PackedStringArray = PackedStringArray()
+    sql_lines.append("BEGIN;")
+    sql_lines.append("")
     sql_lines.append("-- 以下位图由 client/tools/export_scene_navigation.gd 基于正式地图和玩家碰撞体生成。")
     sql_lines.append("INSERT INTO world_scene_navigation (")
     sql_lines.append("    scene_id, version, origin_x_milli, origin_y_milli, grid_width, grid_height,")
@@ -602,6 +487,8 @@ func _build_seed_sql(exported_entries: Array[Dictionary]) -> String:
     sql_lines.append("    END IF;")
     sql_lines.append("END")
     sql_lines.append("$$;")
+    sql_lines.append("")
+    sql_lines.append("COMMIT;")
     return "\n".join(sql_lines) + "\n"
 
 

@@ -331,7 +331,7 @@ func TestRouterHandleEnterWorldFallsBackToMarketWhenSceneMissing(t *testing.T) {
 	if payload.SceneID != world.FallbackSceneID {
 		t.Fatalf("payload.SceneID = %d, want %d", payload.SceneID, world.FallbackSceneID)
 	}
-	if payload.SelfPos != (protocol.Vec2i{X: 12, Y: 10}) {
+	if payload.SelfPos != (protocol.Vec2i{X: 11, Y: 10}) {
 		t.Fatalf("payload.SelfPos = %#v, want market fallback spawn", payload.SelfPos)
 	}
 
@@ -339,8 +339,8 @@ func TestRouterHandleEnterWorldFallsBackToMarketWhenSceneMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	if profile.SceneID != world.FallbackSceneID || profile.PosX != 12 || profile.PosY != 10 {
-		t.Fatalf("profile fallback = (%d,%d,%d), want (%d,12,10)", profile.SceneID, profile.PosX, profile.PosY, world.FallbackSceneID)
+	if profile.SceneID != world.FallbackSceneID || profile.PosX != 11 || profile.PosY != 10 {
+		t.Fatalf("profile fallback = (%d,%d,%d), want (%d,11,10)", profile.SceneID, profile.PosX, profile.PosY, world.FallbackSceneID)
 	}
 }
 

@@ -41,9 +41,9 @@ type Vec2i struct {
 }
 
 // FallbackSpawnPos 返回默认回退场景中的权威出生点。
-// 当前市场场景的安全出生点固定为 (12, 10)，与现有世界配置和测试桩保持一致。
+// 当前市场场景的安全出生点固定为 (11, 10)，并与已发布静态通行位图保持一致。
 func FallbackSpawnPos() Vec2i {
-	return Vec2i{X: 12, Y: 10}
+	return Vec2i{X: 11, Y: 10}
 }
 
 type Entity struct {

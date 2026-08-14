@@ -733,26 +733,11 @@ func _apply_authoritative_snapshot() -> void:
         scene_transition_failed.emit("failed to load scene map: %d" % scene_id)
         return
 
+    # 登录、普通传送门与世界地图快速传送都使用服务端快照中的权威落点。
+    # 客户端地图资源只负责渲染，不能再次覆盖已持久化并广播给其他玩家的位置。
     var self_pos: Vector2 = _extract_self_position(GameState.player_snapshot)
-    var applied_scene_position: Vector2 = self_pos
-    var local_spawn_position: Vector2 = Vector2.INF
-    if _pending_login_spawn_requested or _pending_map_teleport:
-        local_spawn_position = _resolve_current_level_login_and_map_teleport_spawn_scene_position()
-    elif _pending_portal_id > 0:
-        # 服务端确认门关系并加载目标地图后，才从当前场景实例读取该来源门的导出落点。
-        local_spawn_position = _resolve_level_portal_spawn_scene_position(_current_level, _pending_portal_id)
-        if not local_spawn_position.is_finite():
-            # 地图漏配专属入口时仍只回退同一场景脚本的统一出生点，不读取服务端普通门坐标。
-            local_spawn_position = _resolve_current_level_login_and_map_teleport_spawn_scene_position()
-    if local_spawn_position.is_finite():
-        # 登录、快速传送和普通门本地落点都只属于客户端地图资源，不放入协议，也不从服务端读取。
-        applied_scene_position = local_spawn_position
-        GameState.sync_player_scene_position(applied_scene_position)
-    _stage_pending_player_transition({"spawn_position": _server_to_local_position(scene_id, applied_scene_position)})
+    _stage_pending_player_transition({"spawn_position": _server_to_local_position(scene_id, self_pos)})
     _apply_pending_player_transition()
-    if local_spawn_position.is_finite():
-        # 把场景导出落点记录为本地移动基线，避免落地本身在下一帧被当成普通移动同步给服务端。
-        _prime_local_movement_report_state(applied_scene_position)
     _attach_pet_follower_to_current_level()
     _reset_pet_follow_near_player()
     _sync_pet_follower_lineup()
@@ -923,36 +908,6 @@ func _scene_config(scene_id: int) -> Dictionary:
 ## 参数 scene_id 表示当前场景 ID；server_position 是以地图左上角为 (0,0) 的场景坐标；返回值是玩家父节点内的像素坐标。
 func _server_to_local_position(scene_id: int, server_position: Vector2) -> Vector2:
     return _scene_coordinate_to_local_pixels(scene_id, server_position)
-
-
-## 从当前已加载地图根脚本读取正式登录与世界地图快速传送共用的本地出生场景坐标。
-## 返回值只来自当前场景实例的导出变量；地图未提供有效配置时返回 Vector2.INF，由调用方回退服务端位置。
-func _resolve_current_level_login_and_map_teleport_spawn_scene_position() -> Vector2:
-    if _current_level == null or not is_instance_valid(_current_level):
-        return Vector2.INF
-    if not _current_level.has_method("get_login_and_map_teleport_spawn_position"):
-        return Vector2.INF
-    var spawn_position_value: Variant = _current_level.call("get_login_and_map_teleport_spawn_position")
-    if spawn_position_value is Vector2:
-        return spawn_position_value as Vector2
-    if spawn_position_value is Vector2i:
-        var grid_position: Vector2i = spawn_position_value as Vector2i
-        return Vector2(float(grid_position.x), float(grid_position.y))
-    return Vector2.INF
-
-
-## 从一个已加载地图根节点读取 portal_id 对应的本地出生场景坐标。
-## level 是当前目标地图实例；portal_id 是来源门编号；返回无效值时由调用方回退到同一场景脚本的统一出生点。
-func _resolve_level_portal_spawn_scene_position(level: Node, portal_id: int) -> Vector2:
-    if level == null or portal_id <= 0 or not level.has_method("get_portal_spawn_scene_position"):
-        return Vector2.INF
-    var spawn_position_value: Variant = level.call("get_portal_spawn_scene_position", portal_id)
-    if spawn_position_value is Vector2:
-        return spawn_position_value as Vector2
-    if spawn_position_value is Vector2i:
-        var grid_position: Vector2i = spawn_position_value as Vector2i
-        return Vector2(float(grid_position.x), float(grid_position.y))
-    return Vector2.INF
 
 
 ## 读取当前场景的单格像素大小，统一服务端格子坐标与客户端渲染坐标的换算倍率。

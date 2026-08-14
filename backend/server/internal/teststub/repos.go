@@ -3600,9 +3600,11 @@ func (r *NPCRepository) DeleteMenuEntryForAdmin(_ context.Context, entityID uint
 // so world transport tests can still cover transfer logic without a live DB.
 func NewWorldRepository() *WorldRepository {
 	boundaries := newTestSceneBoundaries()
+	sceneNavigations, nextNavigationID := newTestSceneNavigations(boundaries)
 	return &WorldRepository{
 		sceneBoundaries:  boundaries,
-		sceneNavigations: newTestSceneNavigations(boundaries),
+		sceneNavigations: sceneNavigations,
+		nextNavigationID: nextNavigationID,
 	}
 }
 
@@ -3802,8 +3804,9 @@ func (r *WorldRepository) RollbackSceneNavigation(_ context.Context, sceneID uin
 	return source, nil
 }
 
-// newTestSceneNavigations 为测试边界生成全通行位图；它只用于测试，不会进入正式迁移或运行时数据。
-func newTestSceneNavigations(boundaries map[uint32]world.SceneBoundary) map[uint32][]world.SceneNavigation {
+// newTestSceneNavigations 为测试边界生成全通行位图，并返回已占用的最大导航主键。
+// 返回主键游标可确保后续创建草稿或回滚版本时不会复用初始化数据的 navigation_id。
+func newTestSceneNavigations(boundaries map[uint32]world.SceneBoundary) (map[uint32][]world.SceneNavigation, uint64) {
 	result := make(map[uint32][]world.SceneNavigation, len(boundaries))
 	var navigationID uint64
 	for sceneID, boundary := range boundaries {
@@ -3821,7 +3824,7 @@ func newTestSceneNavigations(boundaries map[uint32]world.SceneBoundary) map[uint
 			ChangeReason: "测试初始化", PublishReason: "测试初始化",
 		}}
 	}
-	return result
+	return result, navigationID
 }
 
 // newTestSceneBoundaries 使用宽松矩形覆盖测试传送点；正式边界只来自数据库迁移和后台维护。
@@ -3861,31 +3864,31 @@ type sceneData struct {
 
 var scenes = map[uint32]sceneData{
 	1:  {spawnPos: world.Vec2i{X: 8, Y: 6}, entries: map[uint32]world.Vec2i{2: {X: 8, Y: 12}}, nearby: []world.Entity{{EntityID: 90001, EntityType: 2, Pos: world.Vec2i{X: 10, Y: 6}, Dir: 2, Speed: 0, Name: "GuideNPC"}, {EntityID: 91001, EntityType: 2, Pos: world.Vec2i{X: 6, Y: 6}, Dir: 2, Speed: 0, Name: "罗思"}, {EntityID: RivalPlayerID, PlayerID: RivalPlayerID, EntityType: 1, Pos: world.Vec2i{X: 7, Y: 7}, Dir: 2, Speed: 0, Name: "RivalTrainer"}}, exits: map[uint32]struct{}{2: {}}, portals: map[uint32]portalData{1001: {targetSceneID: 2, targetPos: world.Vec2i{X: 4, Y: 1}}}},
-	2:  {spawnPos: world.Vec2i{X: 4, Y: 1}, entries: map[uint32]world.Vec2i{1: {X: 4, Y: 1}, 3: {X: 0, Y: 4}, 7: {X: 9, Y: 5}, 8: {X: 9, Y: 5}}, nearby: []world.Entity{{EntityID: 90002, EntityType: 2, Pos: world.Vec2i{X: 2, Y: 3}, Dir: 1, Speed: 0, Name: "StationKeeper"}}, exits: map[uint32]struct{}{1: {}, 3: {}, 8: {}}, portals: map[uint32]portalData{2001: {targetSceneID: 1, targetPos: world.Vec2i{X: 8, Y: 12}}, 2002: {targetSceneID: 3, targetPos: world.Vec2i{X: 12, Y: 10}}, 2003: {targetSceneID: 8, targetPos: world.Vec2i{X: 1, Y: 13}}}},
-	3:  {spawnPos: world.Vec2i{X: 12, Y: 10}, entries: map[uint32]world.Vec2i{2: {X: 12, Y: 10}, 4: {X: 5, Y: 2}, 5: {X: 4, Y: 13}}, nearby: []world.Entity{{EntityID: 93001, EntityType: 2, Pos: world.Vec2i{X: 13, Y: 8}, Dir: 2, Speed: 0, Name: "市场理萌"}, {EntityID: 93002, EntityType: 2, Pos: world.Vec2i{X: 14, Y: 6}, Dir: 2, Speed: 0, Name: "市场罗格"}}, exits: map[uint32]struct{}{2: {}, 4: {}, 5: {}}, portals: map[uint32]portalData{3001: {targetSceneID: 2, targetPos: world.Vec2i{X: 0, Y: 4}}, 3002: {targetSceneID: 4, targetPos: world.Vec2i{X: 2, Y: 8}}, 3003: {targetSceneID: 5, targetPos: world.Vec2i{X: 11, Y: 2}}}},
+	2:  {spawnPos: world.Vec2i{X: 4, Y: 1}, entries: map[uint32]world.Vec2i{1: {X: 4, Y: 1}, 3: {X: 0, Y: 4}, 7: {X: 9, Y: 5}, 8: {X: 9, Y: 5}}, nearby: []world.Entity{{EntityID: 90002, EntityType: 2, Pos: world.Vec2i{X: 2, Y: 3}, Dir: 1, Speed: 0, Name: "StationKeeper"}}, exits: map[uint32]struct{}{1: {}, 3: {}, 8: {}}, portals: map[uint32]portalData{2001: {targetSceneID: 1, targetPos: world.Vec2i{X: 8, Y: 12}}, 2002: {targetSceneID: 3, targetPos: world.Vec2i{X: 11, Y: 11}}, 2003: {targetSceneID: 8, targetPos: world.Vec2i{X: 1, Y: 13}}}},
+	3:  {spawnPos: world.Vec2i{X: 11, Y: 10}, entries: map[uint32]world.Vec2i{2: {X: 11, Y: 11}, 4: {X: 5, Y: 2}, 5: {X: 4, Y: 13}}, nearby: []world.Entity{{EntityID: 93001, EntityType: 2, Pos: world.Vec2i{X: 13, Y: 8}, Dir: 2, Speed: 0, Name: "市场理萌"}, {EntityID: 93002, EntityType: 2, Pos: world.Vec2i{X: 14, Y: 6}, Dir: 2, Speed: 0, Name: "市场罗格"}}, exits: map[uint32]struct{}{2: {}, 4: {}, 5: {}}, portals: map[uint32]portalData{3001: {targetSceneID: 2, targetPos: world.Vec2i{X: 0, Y: 4}}, 3002: {targetSceneID: 4, targetPos: world.Vec2i{X: 2, Y: 8}}, 3003: {targetSceneID: 5, targetPos: world.Vec2i{X: 11, Y: 2}}}},
 	4:  {spawnPos: world.Vec2i{X: 2, Y: 8}, entries: map[uint32]world.Vec2i{3: {X: 2, Y: 8}}, nearby: []world.Entity{{EntityID: 90004, EntityType: 2, Pos: world.Vec2i{X: 4, Y: 7}, Dir: 2, Speed: 0, Name: "NorthFieldScout"}}, exits: map[uint32]struct{}{3: {}}, portals: map[uint32]portalData{4001: {targetSceneID: 3, targetPos: world.Vec2i{X: 5, Y: 2}}}},
 	5:  {spawnPos: world.Vec2i{X: 11, Y: 2}, entries: map[uint32]world.Vec2i{3: {X: 11, Y: 2}, 6: {X: 6, Y: 10}}, nearby: []world.Entity{{EntityID: 90005, EntityType: 2, Pos: world.Vec2i{X: 9, Y: 4}, Dir: 1, Speed: 0, Name: "SchoolCaretaker"}}, exits: map[uint32]struct{}{3: {}, 6: {}}, portals: map[uint32]portalData{5001: {targetSceneID: 3, targetPos: world.Vec2i{X: 4, Y: 13}}, 5002: {targetSceneID: 6, targetPos: world.Vec2i{X: 6, Y: 10}}}},
 	6:  {spawnPos: world.Vec2i{X: 6, Y: 10}, entries: map[uint32]world.Vec2i{5: {X: 6, Y: 10}}, nearby: []world.Entity{{EntityID: 90006, EntityType: 2, Pos: world.Vec2i{X: 7, Y: 8}, Dir: 0, Speed: 0, Name: "BattleGuide"}}, exits: map[uint32]struct{}{5: {}}, portals: map[uint32]portalData{6001: {targetSceneID: 5, targetPos: world.Vec2i{X: 6, Y: 10}}}},
-	7:  {spawnPos: world.Vec2i{X: 4, Y: 4}, entries: map[uint32]world.Vec2i{}, nearby: []world.Entity{}, exits: map[uint32]struct{}{2: {}}, portals: map[uint32]portalData{7001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}}}},
+	7:  {spawnPos: world.Vec2i{X: 5, Y: 5}, entries: map[uint32]world.Vec2i{}, nearby: []world.Entity{}, exits: map[uint32]struct{}{2: {}}, portals: map[uint32]portalData{7001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}}}},
 	8:  {spawnPos: world.Vec2i{X: 4, Y: 6}, entries: map[uint32]world.Vec2i{2: {X: 1, Y: 13}, 9: {X: 6, Y: 9}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{2: {}, 9: {}}, portals: map[uint32]portalData{8001: {targetSceneID: 2, targetPos: world.Vec2i{X: 9, Y: 5}}, 8002: {targetSceneID: 9, targetPos: world.Vec2i{X: 20, Y: 12}}}},
-	9:  {spawnPos: world.Vec2i{X: 14, Y: 8}, entries: map[uint32]world.Vec2i{8: {X: 20, Y: 12}, 10: {X: 16, Y: 6}, 15: {X: 5, Y: 7}, 16: {X: 2, Y: 8}, 17: {X: 23, Y: 8}, 20: {X: 12, Y: 12}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{8: {}, 10: {}, 15: {}, 16: {}, 17: {}, 20: {}}, portals: map[uint32]portalData{9001: {targetSceneID: 8, targetPos: world.Vec2i{X: 6, Y: 9}}, 9002: {targetSceneID: 20, targetPos: world.Vec2i{X: 9, Y: 2}}, 9003: {targetSceneID: 16, targetPos: world.Vec2i{X: 13, Y: 9}}, 9004: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 16}}, 9005: {targetSceneID: 10, targetPos: world.Vec2i{X: 3, Y: 10}}, 9006: {targetSceneID: 17, targetPos: world.Vec2i{X: 1, Y: 7}}}},
-	10: {spawnPos: world.Vec2i{X: 5, Y: 8}, entries: map[uint32]world.Vec2i{9: {X: 3, Y: 10}, 14: {X: 6, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 14: {}}, portals: map[uint32]portalData{10001: {targetSceneID: 9, targetPos: world.Vec2i{X: 16, Y: 6}}, 10002: {targetSceneID: 14, targetPos: world.Vec2i{X: 5, Y: 10}}}},
+	9:  {spawnPos: world.Vec2i{X: 14, Y: 8}, entries: map[uint32]world.Vec2i{8: {X: 20, Y: 12}, 10: {X: 16, Y: 6}, 15: {X: 5, Y: 7}, 16: {X: 2, Y: 8}, 17: {X: 22, Y: 8}, 20: {X: 12, Y: 12}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{8: {}, 10: {}, 15: {}, 16: {}, 17: {}, 20: {}}, portals: map[uint32]portalData{9001: {targetSceneID: 8, targetPos: world.Vec2i{X: 6, Y: 9}}, 9002: {targetSceneID: 20, targetPos: world.Vec2i{X: 9, Y: 2}}, 9003: {targetSceneID: 16, targetPos: world.Vec2i{X: 13, Y: 10}}, 9004: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 16}}, 9005: {targetSceneID: 10, targetPos: world.Vec2i{X: 3, Y: 10}}, 9006: {targetSceneID: 17, targetPos: world.Vec2i{X: 1, Y: 7}}}},
+	10: {spawnPos: world.Vec2i{X: 5, Y: 8}, entries: map[uint32]world.Vec2i{9: {X: 3, Y: 10}, 14: {X: 5, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 14: {}}, portals: map[uint32]portalData{10001: {targetSceneID: 9, targetPos: world.Vec2i{X: 16, Y: 6}}, 10002: {targetSceneID: 14, targetPos: world.Vec2i{X: 5, Y: 10}}}},
 	11: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{15: {X: 9, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{15: {}}, portals: map[uint32]portalData{11001: {targetSceneID: 15, targetPos: world.Vec2i{X: 1, Y: 7}}}},
-	12: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{15: {X: 4, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{15: {}}, portals: map[uint32]portalData{12001: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 2}}}},
-	13: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{15: {X: 1, Y: 9}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{15: {}}, portals: map[uint32]portalData{13001: {targetSceneID: 15, targetPos: world.Vec2i{X: 9, Y: 7}}}},
-	14: {spawnPos: world.Vec2i{X: 5, Y: 8}, entries: map[uint32]world.Vec2i{10: {X: 5, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{10: {}}, portals: map[uint32]portalData{14001: {targetSceneID: 10, targetPos: world.Vec2i{X: 6, Y: 10}}}},
-	15: {spawnPos: world.Vec2i{X: 5, Y: 9}, entries: map[uint32]world.Vec2i{9: {X: 5, Y: 16}, 11: {X: 1, Y: 7}, 12: {X: 5, Y: 2}, 13: {X: 9, Y: 7}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 11: {}, 12: {}, 13: {}}, portals: map[uint32]portalData{15001: {targetSceneID: 11, targetPos: world.Vec2i{X: 9, Y: 10}}, 15002: {targetSceneID: 12, targetPos: world.Vec2i{X: 4, Y: 10}}, 15003: {targetSceneID: 13, targetPos: world.Vec2i{X: 1, Y: 9}}, 15004: {targetSceneID: 9, targetPos: world.Vec2i{X: 5, Y: 7}}}},
-	16: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 13, Y: 9}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}}, portals: map[uint32]portalData{16001: {targetSceneID: 9, targetPos: world.Vec2i{X: 2, Y: 8}}}},
-	17: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 1, Y: 7}, 18: {X: 9, Y: 6}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 18: {}}, portals: map[uint32]portalData{17001: {targetSceneID: 9, targetPos: world.Vec2i{X: 23, Y: 8}}, 17002: {targetSceneID: 18, targetPos: world.Vec2i{X: 2, Y: 5}}, 17003: {targetSceneID: 18, targetPos: world.Vec2i{X: 7, Y: 5}}}},
-	18: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{17: {X: 2, Y: 5}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{17: {}}, portals: map[uint32]portalData{18001: {targetSceneID: 17, targetPos: world.Vec2i{X: 9, Y: 6}}}},
-	19: {spawnPos: world.Vec2i{X: 7, Y: 10}, entries: map[uint32]world.Vec2i{20: {X: 12, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}}, portals: map[uint32]portalData{19001: {targetSceneID: 20, targetPos: world.Vec2i{X: 4, Y: 8}}}},
-	20: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 9, Y: 2}, 19: {X: 4, Y: 8}, 21: {X: 11, Y: 8}, 23: {X: 8, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 19: {}, 21: {}, 23: {}}, portals: map[uint32]portalData{20001: {targetSceneID: 9, targetPos: world.Vec2i{X: 12, Y: 12}}, 20002: {targetSceneID: 19, targetPos: world.Vec2i{X: 12, Y: 10}}, 20003: {targetSceneID: 21, targetPos: world.Vec2i{X: 1, Y: 5}}, 20004: {targetSceneID: 23, targetPos: world.Vec2i{X: 7, Y: 2}}}},
+	12: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{15: {X: 4, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{15: {}}, portals: map[uint32]portalData{12001: {targetSceneID: 15, targetPos: world.Vec2i{X: 5, Y: 4}}}},
+	13: {spawnPos: world.Vec2i{X: 6, Y: 8}, entries: map[uint32]world.Vec2i{15: {X: 1, Y: 9}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{15: {}}, portals: map[uint32]portalData{13001: {targetSceneID: 15, targetPos: world.Vec2i{X: 9, Y: 8}}}},
+	14: {spawnPos: world.Vec2i{X: 5, Y: 8}, entries: map[uint32]world.Vec2i{10: {X: 5, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{10: {}}, portals: map[uint32]portalData{14001: {targetSceneID: 10, targetPos: world.Vec2i{X: 5, Y: 10}}}},
+	15: {spawnPos: world.Vec2i{X: 5, Y: 9}, entries: map[uint32]world.Vec2i{9: {X: 5, Y: 16}, 11: {X: 1, Y: 7}, 12: {X: 5, Y: 4}, 13: {X: 9, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 11: {}, 12: {}, 13: {}}, portals: map[uint32]portalData{15001: {targetSceneID: 11, targetPos: world.Vec2i{X: 9, Y: 10}}, 15002: {targetSceneID: 12, targetPos: world.Vec2i{X: 4, Y: 10}}, 15003: {targetSceneID: 13, targetPos: world.Vec2i{X: 1, Y: 9}}, 15004: {targetSceneID: 9, targetPos: world.Vec2i{X: 5, Y: 7}}}},
+	16: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 13, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}}, portals: map[uint32]portalData{16001: {targetSceneID: 9, targetPos: world.Vec2i{X: 2, Y: 8}}}},
+	17: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 1, Y: 7}, 18: {X: 9, Y: 7}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 18: {}}, portals: map[uint32]portalData{17001: {targetSceneID: 9, targetPos: world.Vec2i{X: 22, Y: 8}}, 17002: {targetSceneID: 18, targetPos: world.Vec2i{X: 2, Y: 5}}, 17003: {targetSceneID: 18, targetPos: world.Vec2i{X: 7, Y: 5}}}},
+	18: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{17: {X: 2, Y: 5}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{17: {}}, portals: map[uint32]portalData{18001: {targetSceneID: 17, targetPos: world.Vec2i{X: 9, Y: 7}}}},
+	19: {spawnPos: world.Vec2i{X: 7, Y: 10}, entries: map[uint32]world.Vec2i{20: {X: 13, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}}, portals: map[uint32]portalData{19001: {targetSceneID: 20, targetPos: world.Vec2i{X: 4, Y: 8}}}},
+	20: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{9: {X: 9, Y: 2}, 19: {X: 4, Y: 8}, 21: {X: 11, Y: 8}, 23: {X: 8, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{9: {}, 19: {}, 21: {}, 23: {}}, portals: map[uint32]portalData{20001: {targetSceneID: 9, targetPos: world.Vec2i{X: 12, Y: 12}}, 20002: {targetSceneID: 19, targetPos: world.Vec2i{X: 13, Y: 11}}, 20003: {targetSceneID: 21, targetPos: world.Vec2i{X: 1, Y: 5}}, 20004: {targetSceneID: 23, targetPos: world.Vec2i{X: 7, Y: 2}}}},
 	21: {spawnPos: world.Vec2i{X: 9, Y: 7}, entries: map[uint32]world.Vec2i{20: {X: 1, Y: 5}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}}, portals: map[uint32]portalData{21001: {targetSceneID: 20, targetPos: world.Vec2i{X: 11, Y: 8}}}},
 	22: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{23: {X: 9, Y: 9}, 24: {X: 4, Y: 10}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{23: {}, 24: {}}, portals: map[uint32]portalData{22001: {targetSceneID: 23, targetPos: world.Vec2i{X: 2, Y: 6}}, 22002: {targetSceneID: 24, targetPos: world.Vec2i{X: 5, Y: 2}}}},
 	23: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{20: {X: 7, Y: 2}, 22: {X: 2, Y: 6}, 26: {X: 8, Y: 11}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{20: {}, 22: {}, 26: {}}, portals: map[uint32]portalData{23001: {targetSceneID: 20, targetPos: world.Vec2i{X: 8, Y: 11}}, 23002: {targetSceneID: 22, targetPos: world.Vec2i{X: 9, Y: 9}}, 23003: {targetSceneID: 26, targetPos: world.Vec2i{X: 6, Y: 2}}}},
 	24: {spawnPos: world.Vec2i{X: 5, Y: 7}, entries: map[uint32]world.Vec2i{22: {X: 5, Y: 2}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{22: {}}, portals: map[uint32]portalData{24001: {targetSceneID: 22, targetPos: world.Vec2i{X: 4, Y: 10}}}},
-	25: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{26: {X: 2, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{26: {}}, portals: map[uint32]portalData{25001: {targetSceneID: 26, targetPos: world.Vec2i{X: 10, Y: 8}}}},
-	26: {spawnPos: world.Vec2i{X: 6, Y: 7}, entries: map[uint32]world.Vec2i{23: {X: 6, Y: 2}, 25: {X: 10, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{23: {}, 25: {}}, portals: map[uint32]portalData{26001: {targetSceneID: 23, targetPos: world.Vec2i{X: 8, Y: 11}}, 26002: {targetSceneID: 25, targetPos: world.Vec2i{X: 2, Y: 8}}}},
+	25: {spawnPos: world.Vec2i{X: 7, Y: 7}, entries: map[uint32]world.Vec2i{26: {X: 2, Y: 8}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{26: {}}, portals: map[uint32]portalData{25001: {targetSceneID: 26, targetPos: world.Vec2i{X: 10, Y: 9}}}},
+	26: {spawnPos: world.Vec2i{X: 6, Y: 6}, entries: map[uint32]world.Vec2i{23: {X: 6, Y: 2}, 25: {X: 10, Y: 9}}, nearby: []world.Entity{}, exits: map[uint32]struct{}{23: {}, 25: {}}, portals: map[uint32]portalData{26001: {targetSceneID: 23, targetPos: world.Vec2i{X: 8, Y: 11}}, 26002: {targetSceneID: 25, targetPos: world.Vec2i{X: 2, Y: 8}}}},
 }
 
 func (r *WorldRepository) GetSceneSnapshot(_ context.Context, _ uint64, sceneID uint32, selfPos world.Vec2i) (*world.SceneSnapshot, error) {
@@ -3961,7 +3964,7 @@ func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uin
 		10: {X: 5, Y: 8},
 		11: {X: 5, Y: 7},
 		12: {X: 5, Y: 7},
-		13: {X: 6, Y: 7},
+		13: {X: 6, Y: 8},
 		14: {X: 5, Y: 8},
 		15: {X: 5, Y: 9},
 		16: {X: 7, Y: 7},
@@ -3974,7 +3977,7 @@ func (r *WorldRepository) EvaluateMapTeleport(_ context.Context, _ uint64, _ uin
 		23: {X: 6, Y: 7},
 		24: {X: 5, Y: 7},
 		25: {X: 7, Y: 7},
-		26: {X: 6, Y: 7},
+		26: {X: 6, Y: 6},
 	}
 	center, ok := mapCenters[targetSceneID]
 	if !ok {

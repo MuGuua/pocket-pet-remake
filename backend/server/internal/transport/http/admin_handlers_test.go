@@ -126,6 +126,90 @@ func TestAdminWorldMovementHandler(t *testing.T) {
 	}
 }
 
+// TestAdminWorldSceneNavigationHandler 覆盖导航草稿创建、发布、版本归档、历史回滚和测试仓储主键递增闭环。
+func TestAdminWorldSceneNavigationHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	token := issueAdminTokenForTest(t)
+
+	createBody := marshalJSON(t, world.AdminCreateSceneNavigationInput{
+		SceneID: 3, OriginX: 0, OriginY: 0, GridWidth: 2, GridHeight: 1, CellSizeMilli: 1000,
+		NavigationDataHex: "80", SourceScenePath: "res://test_scene.tscn", Reason: "后台导航闭环测试",
+	})
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/world/scene-navigations", bytes.NewReader(createBody))
+	createRequest.Header.Set("Authorization", "Bearer "+token)
+	createResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("POST draft response.Code = %d, want %d, body=%s", createResponse.Code, http.StatusOK, createResponse.Body.String())
+	}
+	var createEnvelope struct {
+		Data world.SceneNavigation `json:"data"`
+	}
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createEnvelope); err != nil {
+		t.Fatalf("json.Unmarshal(create navigation) error = %v", err)
+	}
+	if createEnvelope.Data.NavigationID <= 26 || createEnvelope.Data.Version != 2 || createEnvelope.Data.Status != world.SceneNavigationStatusDraft {
+		t.Fatalf("created navigation = %+v, want unique draft version 2 with id > 26", createEnvelope.Data)
+	}
+
+	publishBody := marshalJSON(t, world.AdminPublishSceneNavigationInput{Reason: "发布测试导航"})
+	publishPath := "/api/admin/world/scene-navigations/" + strconv.FormatUint(createEnvelope.Data.NavigationID, 10) + "/publish"
+	publishRequest := httptest.NewRequest(http.MethodPost, publishPath, bytes.NewReader(publishBody))
+	publishRequest.Header.Set("Authorization", "Bearer "+token)
+	publishResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(publishResponse, publishRequest)
+	if publishResponse.Code != http.StatusOK {
+		t.Fatalf("POST publish response.Code = %d, want %d, body=%s", publishResponse.Code, http.StatusOK, publishResponse.Body.String())
+	}
+
+	publishedVersions := listAdminSceneNavigationsForTest(t, handlers.WorldMovement, token, 3)
+	if len(publishedVersions) != 2 || publishedVersions[0].Version != 2 || publishedVersions[0].Status != world.SceneNavigationStatusPublished || publishedVersions[1].Version != 1 || publishedVersions[1].Status != world.SceneNavigationStatusArchived {
+		t.Fatalf("versions after publish = %+v", publishedVersions)
+	}
+
+	rollbackBody := marshalJSON(t, world.AdminRollbackSceneNavigationInput{SourceVersion: 1, Reason: "回滚验证"})
+	rollbackRequest := httptest.NewRequest(http.MethodPost, "/api/admin/world/scene-navigations/scenes/3/rollback", bytes.NewReader(rollbackBody))
+	rollbackRequest.Header.Set("Authorization", "Bearer "+token)
+	rollbackResponse := httptest.NewRecorder()
+	handlers.WorldMovement.ServeHTTP(rollbackResponse, rollbackRequest)
+	if rollbackResponse.Code != http.StatusOK {
+		t.Fatalf("POST rollback response.Code = %d, want %d, body=%s", rollbackResponse.Code, http.StatusOK, rollbackResponse.Body.String())
+	}
+	var rollbackEnvelope struct {
+		Data world.SceneNavigation `json:"data"`
+	}
+	if err := json.Unmarshal(rollbackResponse.Body.Bytes(), &rollbackEnvelope); err != nil {
+		t.Fatalf("json.Unmarshal(rollback navigation) error = %v", err)
+	}
+	if rollbackEnvelope.Data.NavigationID == createEnvelope.Data.NavigationID || rollbackEnvelope.Data.NavigationID <= 26 || rollbackEnvelope.Data.Version != 3 || rollbackEnvelope.Data.Status != world.SceneNavigationStatusPublished {
+		t.Fatalf("rollback navigation = %+v, want new published version 3 with unique id", rollbackEnvelope.Data)
+	}
+
+	rolledBackVersions := listAdminSceneNavigationsForTest(t, handlers.WorldMovement, token, 3)
+	if len(rolledBackVersions) != 3 || rolledBackVersions[0].Version != 3 || rolledBackVersions[0].Status != world.SceneNavigationStatusPublished || rolledBackVersions[1].Version != 2 || rolledBackVersions[1].Status != world.SceneNavigationStatusArchived || rolledBackVersions[2].Version != 1 || rolledBackVersions[2].Status != world.SceneNavigationStatusArchived {
+		t.Fatalf("versions after rollback = %+v", rolledBackVersions)
+	}
+}
+
+// listAdminSceneNavigationsForTest 通过真实后台处理器读取指定场景版本列表，避免测试直接绕过 HTTP 契约。
+func listAdminSceneNavigationsForTest(t *testing.T, handler http.Handler, token string, sceneID uint32) []world.SceneNavigation {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/world/scene-navigations?scene_id="+strconv.FormatUint(uint64(sceneID), 10), nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET navigation versions response.Code = %d, want %d, body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+	var envelope struct {
+		Data []world.SceneNavigation `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal(navigation versions) error = %v", err)
+	}
+	return envelope.Data
+}
+
 // TestAdminWorldSceneBoundaryHandler 覆盖边界列表、更新、输入校验和不存在场景错误映射。
 func TestAdminWorldSceneBoundaryHandler(t *testing.T) {
 	handlers := newAdminHandlersForTest(t)

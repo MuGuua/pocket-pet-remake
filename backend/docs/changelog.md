@@ -1,5 +1,17 @@
 # 最新变更记录
 
+## 2026-08-14 P0-06 场景静态通行闭环
+
+- 检查最近提交 `85cc41b7` 后确认 P0-06 的版本化导航表、后台发布/回滚和导出工具主体已存在，但正式 26 场景种子、服务端权威落点审计、专项闭环测试及文档同步尚未完成。
+- 修复 `client/scenes/maps/闪光平原/准备区.tscn` 主导航层命名，避免导出器误选单格动画占位层；严格导出 1~26 号正式场景成功，准备区导出为 `11×13`、74 个可通行格。
+- `client/scripts/feature/world/world_controller.gd` 恢复服务端唯一权威落点：登录、普通门和快速传送统一应用 `WORLD_RESYNC_PUSH.self_pos`，客户端不再用历史场景导出出生配置覆盖快照。
+- `backend/server/internal/data/postgres/world_repo.go`、默认异常回退点和测试仓储同步修复原本落在阻挡格的默认出生点与普通门目标点；数据库快速传送 `scene_id=13/26` 分别修复为 `(6,8)`、`(6,6)`。
+- 新增 `backend/server/migrations/121_repair_world_authoritative_spawn_positions.sql` 和 `122_world_scene_navigation_seed.sql`；后者在事务内写入 26 个 `version=1/status=1` 的正式导航位图并检查所有启用场景均有发布版本。迁移仅生成，未连接或修改数据库。
+- 修复 `backend/server/internal/teststub/repos.go` 导航主键游标，避免初始化 1~26 号导航后创建草稿复用 ID；同步测试拓扑的快速传送权威中心。
+- 新增导航领域专项测试，覆盖穿墙路径裁剪、阻挡起点、缺失导航失败关闭、快照深拷贝、发布和回滚即时替换运行时缓存；后台 HTTP 测试覆盖草稿创建、发布归档和历史回滚完整契约。
+- 同步更新权威移动计划、架构、协议、世界坐标和地图加载文档；P0-06 标记完成，P0-07 保持未开始。
+- 验证通过：后端受影响包与 `go test ./server/...` 全量测试、后台 `npm run build`、Godot Headless 全项目解析、26 场景严格重导出与正式种子逐字节比对、目标 GDScript Tab 检查和 `git diff --check`。后台仅有既存的大包体积提示，Godot 仅有退出时 `ObjectDB instance was leaked at exit` 警告。
+
 ## 2026-08-12 P0-05 场景权威矩形边界闭环
 
 - 新增迁移 `backend/server/migrations/119_world_scene_boundaries.sql`，扩展 `world_scene_definition` 的千分之一场景格边界和审计字段，并根据当前正式 Godot 地图资源及服务端传送落点初始化 1~26 号场景。迁移脚本仅生成，未连接或修改数据库。

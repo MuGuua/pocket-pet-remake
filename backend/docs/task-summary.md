@@ -1,5 +1,18 @@
 # 任务总结
 
+## 2026-08-14：P0-06 场景静态通行闭环任务总结
+
+- **任务目标**：复核最近提交并继续完成尚未闭环的 P0-06；本次只处理场景静态通行、权威落点、测试和文档，不启动 P0-07。
+- **问题定位**：提交 `85cc41b7` 已实现 `world_scene_navigation` 表、仓储、领域缓存、后台页面/API 和 Godot 导出工具，但缺少 26 场景正式发布种子；准备区导出器误选动画占位层；部分服务端出生点、普通门目标点和数据库快速传送中心位于阻挡格；客户端仍会用本地场景导出值覆盖服务端快照；导航测试仓储还存在主键复用风险。
+- **客户端修复**：`client/scenes/maps/闪光平原/准备区.tscn` 将完整碰撞地图恢复为导出器识别的主 `地图` 层；`client/scripts/feature/world/world_controller.gd` 删除登录、普通门和快速传送的本地出生覆盖，统一把 `WORLD_RESYNC_PUSH.self_pos` 转为 Godot 像素坐标；`client/tools/export_scene_navigation.gd` 只负责从正式地图碰撞和玩家碰撞体生成位图与事务化 SQL，不再校验历史客户端出生配置。
+- **服务端修复**：`backend/server/internal/data/postgres/world_repo.go` 同步调整被位图判定为阻挡的默认出生点和普通门目标点，`backend/server/internal/module/world/model.go` 将异常回退点改为市场可通行格 `(11,10)`；对应 PostgreSQL、WebSocket 和测试仓储预期一并更新。登录、重连、普通门和快速传送现在都以服务端持久化位置及快照为唯一权威。
+- **测试仓储修复**：`backend/server/internal/teststub/repos.go` 在初始化 1~26 号导航后返回并保存下一主键游标，防止后台创建草稿时复用已有 ID；同时把 `scene_id=13/26` 的快速传送中心同步为 `(6,8)`、`(6,6)`。
+- **数据库迁移**：新增 `backend/server/migrations/121_repair_world_authoritative_spawn_positions.sql`，只修复 `world_map_teleport_node` 的两个阻挡中心；新增 `backend/server/migrations/122_world_scene_navigation_seed.sql`，在 `BEGIN/COMMIT` 事务内写入 26 个 `version=1/status=1` 的正式位图并验证每个启用场景都有发布导航。`120`、`121`、`122` 均只生成，未执行。
+- **导出结果**：使用 Godot Headless 严格导出 26 个注册场景成功；准备区最终为 `11×13`、74 个可通行格，正式导航种子记录每张地图的尺寸、位图、SHA-256、可通行格数和资源路径。导出退出码为 0，结束时仅有既存的 `ObjectDB instance was leaked at exit` 警告。
+- **测试补充**：新增 `backend/server/internal/module/world/scene_navigation_test.go`，覆盖路径穿越阻挡裁剪、起点阻挡、缺失发布导航、缓存深拷贝以及后台发布/回滚即时刷新；`backend/server/internal/transport/http/admin_handlers_test.go` 增加草稿创建、发布归档、历史回滚和主键递增的真实 HTTP 闭环测试。
+- **文档同步**：更新 `backend/docs/multiplayer-movement-optimization-plan.md`、`backend/docs/architecture.md`、`backend/docs/protocol.md`、`backend/docs/map-scene-loading.md` 和 `docs/world-coordinate-convention.md`，统一服务端权威落点与静态通行事实来源，P0-06 标记完成，P0-07 保持未开始。
+- **验证结果**：后端受影响包和 `go test ./server/...` 全量通过；后台 `npm run build` 通过，仅有既存的大包体积提示；Godot Headless 全项目解析通过；26 场景严格重导出退出码为 0，生成 26 个 JSON，SQL 与 `122_world_scene_navigation_seed.sql` 逐字节一致；目标 GDScript 无 Tab，迁移包含 26 个发布版本及唯一 `BEGIN/COMMIT`，`git diff --check` 通过。
+
 ## 2026-08-12：P0-05 场景权威矩形边界任务总结
 
 - **任务目标**：继续多人同屏权威移动清单，为普通移动补齐数据库驱动的场景外边界、运行时缓存和运营维护闭环。
