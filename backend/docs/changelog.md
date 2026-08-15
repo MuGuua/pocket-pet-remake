@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-15 P1-04 普通移动热路径移除 PostgreSQL 同步访问
+
+- 完成多人同屏权威移动优化清单 P1-04。`backend/server/internal/transport/ws/world_handler.go` 在读取玩家永久档案前先识别普通移动与切图请求；Redis 移动状态已启用时，普通移动直接进入 `world.Service.MovePlayer`，由领域服务从 Redis 加载当前场景、位置和序号。
+- Redis 普通移动成功后不再调用 `player.Service.UpdatePosition`。权威位置仍通过 Lua CAS 更新 Redis 并进入 dirty 玩家集合，等待 P1-05～P1-09 的集合消费、批量写回、位置版本保护和关键节点最终写回。
+- 切图流程继续读取 PostgreSQL 玩家等级与永久档案，并在成功切图时立即持久化目标场景和出生点；未装配 Redis 移动仓储的旧服务兼容分支仍读取档案并同步写入普通移动位置，没有改变旧部署行为。
+- `backend/server/internal/transport/ws/world_handler_test.go` 增加玩家仓储热路径访问计数桩，确认进入世界初始化完成后，单个 Redis 普通移动的档案查询和位置写入次数均为零，同时 Redis 权威位置、响应和同场景广播继续推进，PostgreSQL 测试快照保持不变。
+- 同步更新 `backend/docs/multiplayer-movement-optimization-plan.md` 与 `backend/docs/architecture.md`；本批没有修改协议字段、客户端、数据库结构、迁移、后台页面或依赖。
+- 验证：`GOCACHE=/tmp/pocket-pet-p104-go-cache go test ./server/internal/transport/ws ./server/internal/module/world -count=1`、`go test ./server/... -count=1` 和 `go vet ./server/...` 均通过。
+
 ## 2026-08-15 P0-10 权威移动竞态测试矩阵
 
 - 完成多人同屏权威移动优化清单 P0-10；复核确认 `world` 领域层既有测试已经覆盖正常移动、服务端时间窗瞬移裁剪、场景矩形越界裁剪、静态导航穿墙裁剪、重复/倒退序号以及会话和场景权威不匹配。

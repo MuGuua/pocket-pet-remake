@@ -249,13 +249,18 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	}
 
 	ctx := context.Background()
+	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != request.SceneID
+
+	// Redis 已经承接普通移动权威状态时，world 领域用例会自行加载当前场景与位置。
+	// 因此热路径不再同步查询 PostgreSQL；切图和未装配 Redis 的旧服务仍读取永久档案。
+	if !isSceneTransfer && h.worldService != nil && h.worldService.MovementStateEnabled() {
+		return h.handleSameSceneMovement(ctx, conn, packet, sess, request, 0, world.Vec2i{})
+	}
+
 	profile, err := h.playerService.GetProfile(ctx, sess.PlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
 	}
-
-	// 普通同场景移动直接进入 world 领域用例；只有换图流程才继续读取等级和场景传送规则。
-	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != request.SceneID
 	if !isSceneTransfer {
 		return h.handleSameSceneMovement(ctx, conn, packet, sess, request, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
 	}
@@ -399,8 +404,9 @@ func (h *WorldHandler) handleSameSceneMovement(
 	var authoritativeSpeed uint32
 	var authoritativeFacing protocol.Vec2i
 	var authoritativeMoving bool
+	movementStateEnabled := h.worldService != nil && h.worldService.MovementStateEnabled()
 
-	if h.worldService != nil && h.worldService.MovementStateEnabled() {
+	if movementStateEnabled {
 		moveInput := world.MovePlayerInput{
 			PlayerID:  sess.PlayerID,
 			SessionID: sess.ID,
@@ -462,8 +468,9 @@ func (h *WorldHandler) handleSameSceneMovement(
 	}
 
 	if request.TargetPos != nil {
-		// PostgreSQL 整数位置兼容写入在 P1-04 持久化策略落地前继续保留，避免本批改变重连行为。
-		if correctedPos != currentPos {
+		// 未装配 Redis 的旧服务没有短时权威状态，只能继续同步写 PostgreSQL 保持兼容。
+		// Redis 正式链路由 Lua CAS 标记 dirty，后续批量持久化任务统一消费，不允许逐移动包写库。
+		if !movementStateEnabled && correctedPos != currentPos {
 			if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, authoritativeSceneID, correctedPos.X, correctedPos.Y); err != nil {
 				return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 			}

@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-15：P1-04 普通移动热路径移除 PostgreSQL 同步访问任务总结
+
+- 本次只完成多人同屏优化清单 P1-04，没有提前实现 dirty 集合消费、周期批量写回 worker、PostgreSQL 位置版本迁移或关键节点最终写回。
+- `backend/server/internal/transport/ws/world_handler.go` 将请求类型判断前移。Redis 权威移动状态已装配时，普通同场景移动不再调用 `player.Service.GetProfile`，而是由 `world.Service.MovePlayer` 从 Redis 读取当前权威场景和位置并完成校验、计算与 CAS 更新。
+- 同文件将普通移动的 PostgreSQL 位置写入限制到未装配 Redis 的兼容分支。正式 Redis 链路只更新短时权威状态和 dirty 标记；普通门、地图快速传送等切图请求仍读取等级与永久档案，并在成功后立即持久化目标落点。
+- `backend/server/internal/transport/ws/world_handler_test.go` 抽出可注入玩家服务的路由构建辅助方法，并新增仓储访问计数桩。专项测试确认 Redis 普通移动不会查询或更新 PostgreSQL，Redis 的 `last_move_seq` 与整数位置正常推进，移动响应和旁观者广播保持原契约，永久档案仍保留进入世界时的位置。
+- 旧服务兼容测试继续覆盖未启用 Redis 时普通移动同步写 PostgreSQL；倒退序号竞态测试同步改为校验 Redis 权威位置不回退、PostgreSQL 快照在批量写回前保持不变。
+- 更新 `backend/docs/multiplayer-movement-optimization-plan.md`：勾选 P1-04 与 DOC-02，并更新 `backend/docs/architecture.md` 中 Redis 实时位置和 PostgreSQL 持久化职责。没有协议、客户端、数据库或依赖变更。
+- 验证通过：`GOCACHE=/tmp/pocket-pet-p104-go-cache go test ./server/internal/transport/ws ./server/internal/module/world -count=1`、`go test ./server/... -count=1`、`go vet ./server/...`。
+- 建议提交信息：`perf(world): 完成 P1-04 移动热路径去 PostgreSQL`
+
 ## 2026-08-15：P0-10 权威移动竞态测试矩阵任务总结
 
 - 本次只完成多人同屏优化清单 P0-10，没有启动 P1-04 PostgreSQL 移动热路径移除、P2 远端时间轴插值或其他运行逻辑改造。
@@ -35,7 +46,7 @@
 
 - 本次只完成多人同屏优化清单 P0-07，没有混入 P0-08 客户端纠偏或 P1-04 PostgreSQL 热路径移除。
 - `backend/server/internal/module/world/model.go` 新增普通移动用例输入与前后状态结果；`backend/server/internal/module/world/service.go` 新增 `MovePlayer`，把 Redis 加载、玩家/会话/场景校验、旧客户端字段兼容、移动计算、序号验证和 CAS 推进收敛为单一领域入口。
-- `backend/server/internal/transport/ws/world_handler.go` 删除普通移动分支中直接编排 `LoadMovementState -> EvaluateMovement -> AdvanceMovementState` 的旧逻辑；handler 当前只做协议转换、领域错误映射、响应、广播，以及 P1-04 前必须保留的 PostgreSQL 整数位置兼容写入。
+- `backend/server/internal/transport/ws/world_handler.go` 删除普通移动分支中直接编排 `LoadMovementState -> EvaluateMovement -> AdvanceMovementState` 的旧逻辑；该批 handler 只做协议转换、领域错误映射、响应、广播，以及当时尚未执行 P1-04 的 PostgreSQL 整数位置兼容写入；该兼容写入现已由 P1-04 从 Redis 正式热路径移除。
 - 场景切换仍使用既有 `AdvanceMovementState` 和传送判定链路；为避免两套校验规则分叉，状态推进前置校验已抽为领域内部共享函数。
 - `backend/server/internal/module/world/movement_service_test.go` 新增领域用例覆盖；`backend/server/internal/transport/ws/world_handler_test.go` 新增端到端契约测试，确认响应字段、Redis CAS、PostgreSQL 兼容位置、同场景广播和 session mismatch 拒绝均保持兼容。
 - 本次没有新增依赖、配置、文件目录、协议字段或数据库迁移。

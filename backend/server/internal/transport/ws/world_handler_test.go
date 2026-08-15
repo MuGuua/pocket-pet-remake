@@ -2422,9 +2422,15 @@ func TestRouterHandlePVPChallengeAcceptStartsBattleForBothPlayers(t *testing.T) 
 func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *fakeConn) {
 	t.Helper()
 
+	return buildWorldRouterWithPlayerServiceForTest(t, teststub.NewTestPlayerService())
+}
+
+// buildWorldRouterWithPlayerServiceForTest 允许专项测试注入带访问计数的玩家服务，同时复用完整路由装配。
+func buildWorldRouterWithPlayerServiceForTest(t *testing.T, playerService *player.Service) (uint64, *Router, *player.Service, *fakeConn) {
+	t.Helper()
+
 	logger := log.New(io.Discard, "", 0)
 	sessionService := session.NewService(logger, 10*time.Second, 30*time.Second)
-	playerService := teststub.NewTestPlayerService()
 	petRepo := teststub.NewPetRepository()
 	bagRepo := teststub.NewBagRepository()
 	bagRepo.BindPetRepository(petRepo)
@@ -2558,6 +2564,26 @@ func TestHandleWildEncounterStartsBattle(t *testing.T) {
 	}
 }
 
+// playerRepositoryMovementHotPathSpy 统计普通移动期间的同步 PostgreSQL 档案访问。
+// 其余仓储方法由内嵌实现原样提供，避免测试桩复制玩家仓储的完整接口。
+type playerRepositoryMovementHotPathSpy struct {
+	player.Repository
+	findCount           int
+	updatePositionCount int
+}
+
+// FindByPlayerID 记录同步档案查询次数，再委托给真实测试仓储返回数据。
+func (r *playerRepositoryMovementHotPathSpy) FindByPlayerID(ctx context.Context, playerID uint64) (*player.Profile, error) {
+	r.findCount++
+	return r.Repository.FindByPlayerID(ctx, playerID)
+}
+
+// UpdatePosition 记录同步位置写入次数，再委托给真实测试仓储执行兼容写入。
+func (r *playerRepositoryMovementHotPathSpy) UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX int32, posY int32) error {
+	r.updatePositionCount++
+	return r.Repository.UpdatePosition(ctx, playerID, sceneID, posX, posY)
+}
+
 type movementStateRepoForHandlerTest struct {
 	states       map[uint64]world.MovementState
 	compareCount int
@@ -2598,9 +2624,12 @@ func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uin
 	return nil
 }
 
-// TestHandleMoveIntentUsesWorldMovementUseCase 验证普通移动经过 world 领域入口后仍保持响应、PostgreSQL兼容写入和同场景广播契约。
+// TestHandleMoveIntentUsesWorldMovementUseCase 验证 Redis 普通移动只推进短时权威状态，不同步访问 PostgreSQL 档案。
 func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
-	demoPlayerID, router, playerService, firstConn := buildWorldRouterForTest(t)
+	basePlayerRepo := teststub.NewPlayerRepository()
+	playerRepoSpy := &playerRepositoryMovementHotPathSpy{Repository: basePlayerRepo}
+	playerService := player.NewService(playerRepoSpy, nil, nil, nil)
+	demoPlayerID, router, _, firstConn := buildWorldRouterWithPlayerServiceForTest(t, playerService)
 	secondConn := &fakeConn{id: "conn-authoritative-movement-observer"}
 	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, secondConn); err != nil {
 		t.Fatalf("Bind(rival) error = %v", err)
@@ -2620,6 +2649,9 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	mustHandleJSONPacket(t, router, secondConn, protocol.CmdEnterWorldReq, 291, protocol.EnterWorldReq{})
 	clearPackets(firstConn)
 	clearPackets(secondConn)
+	// 进入世界需要从 PostgreSQL 建立初始快照；这里只统计随后单个普通移动请求的访问量。
+	playerRepoSpy.findCount = 0
+	playerRepoSpy.updatePositionCount = 0
 
 	state := movementRepo.states[demoPlayerID]
 	state.SceneVersion = 7
@@ -2644,15 +2676,19 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	if !response.Accepted || response.CorrectedPos != targetPos || response.CorrectedPrecisePos != precisePos || response.Speed == 0 || response.ServerTick <= 0 || response.CorrectionIgnoreDistance != 125 || response.CorrectionSnapDistance != 1125 {
 		t.Fatalf("move response = %+v, want authoritative position, timing and database-derived correction policy", response)
 	}
-	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID].LastMoveSeq != 10 {
-		t.Fatalf("movement state compare_count=%d state=%+v, want one CAS at sequence 10", movementRepo.compareCount, movementRepo.states[demoPlayerID])
+	authoritativeState := movementRepo.states[demoPlayerID]
+	if movementRepo.compareCount != 1 || authoritativeState.LastMoveSeq != 10 || authoritativeState.PersistedPos != (world.Vec2i{X: targetPos.X, Y: targetPos.Y}) {
+		t.Fatalf("movement state compare_count=%d state=%+v, want one CAS at sequence 10 and position %+v", movementRepo.compareCount, authoritativeState, targetPos)
 	}
-	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if playerRepoSpy.findCount != 0 || playerRepoSpy.updatePositionCount != 0 {
+		t.Fatalf("PostgreSQL hot-path access find=%d update_position=%d, want both zero", playerRepoSpy.findCount, playerRepoSpy.updatePositionCount)
+	}
+	profile, err := basePlayerRepo.FindByPlayerID(context.Background(), demoPlayerID)
 	if err != nil {
-		t.Fatalf("GetProfile() error = %v", err)
+		t.Fatalf("FindByPlayerID() error = %v", err)
 	}
-	if profile.PosX != targetPos.X || profile.PosY != targetPos.Y {
-		t.Fatalf("profile position = (%d,%d), want PostgreSQL compatibility position %+v", profile.PosX, profile.PosY, targetPos)
+	if profile == nil || profile.PosX != 8 || profile.PosY != 6 {
+		t.Fatalf("PostgreSQL profile = %+v, want unchanged initial position (8,6)", profile)
 	}
 	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityMovePush {
 		t.Fatalf("observer packets = %+v, want one entity move push", secondConn.packets)
@@ -2817,8 +2853,9 @@ func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *tes
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	if profile.SceneID != 1 || profile.PosX != acceptedPos.X || profile.PosY != acceptedPos.Y {
-		t.Fatalf("profile scene/position = %d/(%d,%d), want 1/(%d,%d)", profile.SceneID, profile.PosX, profile.PosY, acceptedPos.X, acceptedPos.Y)
+	// 普通移动只推进 Redis 权威状态；批量写回任务执行前，PostgreSQL 保持进入世界时的快照。
+	if profile.SceneID != 1 || profile.PosX != 8 || profile.PosY != 6 {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want unchanged PostgreSQL snapshot 1/(8,6)", profile.SceneID, profile.PosX, profile.PosY)
 	}
 	if len(observerConn.packets) != 0 {
 		t.Fatalf("observer packets after older sequence = %+v, want no stale movement broadcast", observerConn.packets)
