@@ -207,9 +207,8 @@ func handle_entity_leave(payload: Dictionary) -> void:
     _sync_remote_players()
 
 func handle_entity_move(payload: Dictionary) -> void:
-    if payload.has("scene_id") and int(payload.get("scene_id", 0)) != _current_scene_id():
+    if not GameState.apply_entity_move(payload):
         return
-    GameState.apply_entity_move(payload)
     _sync_remote_players()
 
 func handle_move_intent_response(payload: Dictionary) -> void:

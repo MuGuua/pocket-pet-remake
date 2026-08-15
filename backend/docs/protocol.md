@@ -621,6 +621,13 @@
 }
 ```
 
+说明：
+
+- `scene_version`：来自移动者当前 Redis 权威移动状态；同地图快速传送使用服务端传送决策中的目标场景代次，不再写死固定值。未装配移动状态仓储的旧服务兼容链路可返回 `0`，客户端会按当前全量世界快照的场景代次解释。
+- `move_seq`：在同一玩家、同一场景代次内必须严格递增；进入新的 `scene_version` 后允许从较小序号重新建立基线。
+- 客户端按 `entity_id` 保存最近接受的 `scene_id + scene_version + move_seq`。场景不一致、旧场景代次、同代次重复/倒退序号、实体已经离场或不在当前附近实体表中的包必须丢弃。
+- `WORLD_RESYNC_PUSH` / `ENTER_WORLD_RESP` 全量重建附近实体时清空旧实体版本基线，但仍拒绝低于全量快照 `scene_version` 的延迟包；`ENTITY_LEAVE_PUSH` 清理单个实体基线，已存在实体的 `ENTITY_ENTER_PUSH` 摘要刷新不重置序号。
+
 ### 2022 MOVE_INTENT_RESP
 
 ```json

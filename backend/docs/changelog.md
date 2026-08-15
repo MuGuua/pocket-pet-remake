@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-15 P0-09 远端移动旧包过滤
+
+- `client/autoload/game_state.gd` 按远端实体保存最近接受的 `scene_id`、`scene_version` 和 `move_seq`；只接受当前场景、非旧场景代次且同代次序号严格递增的移动推送，新场景代次允许序号重新开始。
+- 全量世界快照和运行态重置清空全部远端移动基线，实体离场清理单个基线；已存在实体的 `ENTITY_ENTER_PUSH` 摘要刷新保留基线，离场后的延迟移动包不会重新创建幽灵实体。旧服务广播的零场景代次按当前快照代次兼容，但仍要求正数且严格递增的 `move_seq`。
+- `client/scripts/feature/world/world_controller.gd` 只在 `GameState.apply_entity_move()` 接受推送后刷新远端节点目标位置，重复、倒退或跨场景包不再触发表现同步。
+- `backend/server/internal/transport/ws/world_handler.go` 删除 `ENTITY_MOVE_PUSH.scene_version=1` 的旧固定值：普通移动使用 Redis 权威移动结果的场景代次，同地图快速传送使用传送决策代次；兼容分支保留零值。对应 WebSocket 测试断言广播场景代次与权威状态一致。
+- 本批无数据库迁移、后台页面、命令号、新依赖或正式玩法数据变化，未启动 P0-10 或 P1-04。
+- 验证：Godot 4.7 Headless 最小项目专项矩阵覆盖正常包、重复/倒退序号、旧代次、跨场景、新代次序号重启、摘要刷新、离场延迟包、重新进入、全量快照和零值兼容；全项目编辑器解析通过。`go test ./server/internal/module/world ./server/internal/transport/ws`、`go test ./server/...`、`go vet ./server/...`、目标 GDScript Tab 检查和 `git diff --check` 均通过。
+
 ## 2026-08-15 P0-08 本机权威移动分级纠偏
 
 - `MOVE_INTENT_RESP` 新增向后兼容的 `correction_ignore_distance` 与 `correction_snap_distance`；服务端从现有数据库移动配置快照派生阈值，小误差复用轴容差，大误差使用权威速度乘最大计算时间窗，不新增客户端正式数值常量。

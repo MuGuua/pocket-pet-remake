@@ -343,6 +343,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
 		h.broadcastEntityMove(
 			authoritativeSceneID,
+			decision.SceneVersion,
 			sess.PlayerID,
 			request.MoveSeq,
 			currentPos,
@@ -389,6 +390,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 ) error {
 	currentPos := profilePos
 	authoritativeSceneID := profileSceneID
+	var authoritativeSceneVersion uint32
 	correctedPos := currentPos
 	reason := "local movement handled by client"
 	correctionPolicy := h.movementCorrectionPolicy()
@@ -438,6 +440,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 		}
 		currentPos = movementResult.PreviousState.PersistedPos
 		authoritativeSceneID = movementResult.State.SceneID
+		authoritativeSceneVersion = movementResult.State.SceneVersion
 		correctedPos = movementResult.State.PersistedPos
 		if request.TargetPos != nil {
 			correctedPrecisePos = protocol.Vec2i{X: movementResult.State.PrecisePos.X, Y: movementResult.State.PrecisePos.Y}
@@ -492,6 +495,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 	h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
 	h.broadcastEntityMove(
 		authoritativeSceneID,
+		authoritativeSceneVersion,
 		sess.PlayerID,
 		request.MoveSeq,
 		currentPos,
@@ -754,11 +758,12 @@ func (h *WorldHandler) movePlayerScenePresence(playerID uint64, fromSceneID uint
 	h.broadcastEntityLeave(fromSceneID, playerID)
 }
 
-// broadcastEntityMove 把持久化后的坐标发给同场景其他玩家，发送失败不反向中断移动者连接。
-func (h *WorldHandler) broadcastEntityMove(sceneID uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64) {
+// broadcastEntityMove 把服务端确认后的权威移动状态发给同场景其他玩家，发送失败不反向中断移动者连接。
+// sceneVersion 来自移动者当前 Redis 场景代次；未装配移动状态仓储的兼容链路保留零值，由客户端按当前快照代次兼容。
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64) {
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
 		SceneID:      sceneID,
-		SceneVersion: 1,
+		SceneVersion: sceneVersion,
 		EntityID:     playerID,
 		MoveSeq:      moveSeq,
 		FromPos:      protocol.Vec2i{X: fromPos.X, Y: fromPos.Y},

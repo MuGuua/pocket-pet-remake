@@ -2622,6 +2622,7 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	clearPackets(secondConn)
 
 	state := movementRepo.states[demoPlayerID]
+	state.SceneVersion = 7
 	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
 	movementRepo.states[demoPlayerID] = state
 	targetPos := protocol.Vec2i{X: 9, Y: 6}
@@ -2660,8 +2661,8 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
 		t.Fatalf("UnmarshalBody(entity move push) error = %v", err)
 	}
-	if push.ToPos != targetPos || push.PrecisePos != precisePos || push.Facing != right || !push.Moving || push.Speed != response.Speed || push.ServerTick != response.ServerTick {
-		t.Fatalf("entity move push = %+v, want response-compatible authoritative movement", push)
+	if push.SceneVersion != state.SceneVersion || push.ToPos != targetPos || push.PrecisePos != precisePos || push.Facing != right || !push.Moving || push.Speed != response.Speed || push.ServerTick != response.ServerTick {
+		t.Fatalf("entity move push = %+v, want scene_version=%d and response-compatible authoritative movement", push, state.SceneVersion)
 	}
 }
 

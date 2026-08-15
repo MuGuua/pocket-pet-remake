@@ -1,5 +1,15 @@
 # 任务总结
 
+## 2026-08-15：P0-09 远端移动旧包过滤任务总结
+
+- 本次只完成多人同屏优化清单 P0-09，没有混入 P0-10 完整竞态矩阵、远端时间轴插值或 P1-04 PostgreSQL 移动热路径移除。
+- `client/autoload/game_state.gd` 新增按实体 ID 索引的远端移动版本基线，统一校验当前场景、全量快照场景代次、实体最近场景代次和同代次严格递增序号；无效、重复、倒退与离场延迟包返回 `false`，不修改附近实体快照。
+- 生命周期处理保持单一职责：全量世界快照和运行态重置清空全部基线，实体离场清除单个基线，真正重新进入的实体建立新基线；编队/形象刷新复用 `ENTITY_ENTER_PUSH` 且实体已存在时保留原基线。
+- `client/scripts/feature/world/world_controller.gd` 只同步已接受的远端移动；`backend/server/internal/transport/ws/world_handler.go` 广播真实权威 `scene_version`，普通移动读取 `MovePlayer` 结果状态，同地图快速传送读取传送决策，旧服务兼容分支使用零值。
+- `backend/server/internal/transport/ws/world_handler_test.go` 增加非默认场景代次断言，防止广播重新退回固定 `1`。本次没有新增协议字段、数据库迁移、后台页面、依赖、场景或 UI。
+- 验证：Godot 4.7 Headless 最小项目专项测试与全项目编辑器解析通过；`GOCACHE=/tmp/pocket-pet-p009-go-cache go test ./server/internal/module/world ./server/internal/transport/ws`、`go test ./server/...`、`go vet ./server/...`、目标 GDScript 无 Tab，`git diff --check` 均通过。Godot 专项日志仅有沙箱环境读取系统 CA 证书失败提示，不影响脚本执行与退出码。
+- 建议提交信息：`feat(client): 完成 P0-09 远端移动旧包过滤`
+
 ## 2026-08-15：P0-08 本机权威移动分级纠偏任务总结
 
 - 本次只完成多人同屏优化清单 P0-08，没有混入 P0-09 远端旧包过滤、P0-10 完整竞态矩阵或 P1-04 PostgreSQL 移动热路径移除。
