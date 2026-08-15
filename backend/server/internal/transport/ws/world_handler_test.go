@@ -2747,6 +2747,181 @@ func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
 	}
 }
 
+// TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback 验证成功移动之后到达的倒退序号
+// 只返回当前权威状态，不会再次推进 Redis、回滚 PostgreSQL 位置或向同场景旁观者广播旧坐标。
+func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *testing.T) {
+	demoPlayerID, router, playerService, moverConn := buildWorldRouterForTest(t)
+	observerConn := &fakeConn{id: "conn-authoritative-movement-older-sequence-observer"}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, observerConn); err != nil {
+		t.Fatalf("Bind(rival) error = %v", err)
+	}
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdEnterWorldReq, 303, protocol.EnterWorldReq{})
+	mustHandleJSONPacket(t, router, observerConn, protocol.CmdEnterWorldReq, 304, protocol.EnterWorldReq{})
+	clearPackets(moverConn)
+	clearPackets(observerConn)
+
+	// 给首个合法移动留出完整服务端时间窗，确保权威位置明确推进到下一格。
+	state := movementRepo.states[demoPlayerID]
+	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
+	movementRepo.states[demoPlayerID] = state
+	acceptedPos := protocol.Vec2i{X: 9, Y: 6}
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 305, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &acceptedPos,
+	})
+	if len(moverConn.packets) != 1 {
+		t.Fatalf("accepted movement packets = %d, want one response", len(moverConn.packets))
+	}
+	var accepted protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &accepted); err != nil {
+		t.Fatalf("UnmarshalBody(accepted) error = %v", err)
+	}
+	if !accepted.Accepted || accepted.CorrectedPos != acceptedPos {
+		t.Fatalf("accepted response = %+v, want authoritative position %+v", accepted, acceptedPos)
+	}
+	acceptedState := movementRepo.states[demoPlayerID]
+	if acceptedState.LastMoveSeq != 10 || movementRepo.compareCount != 1 {
+		t.Fatalf("accepted movement state = %+v compare_count=%d, want sequence 10 after one CAS", acceptedState, movementRepo.compareCount)
+	}
+	clearPackets(moverConn)
+	clearPackets(observerConn)
+
+	olderCandidate := protocol.Vec2i{X: 10, Y: 6}
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 306, protocol.MoveIntentReq{
+		MoveSeq: 9, SceneID: 1, TargetPos: &olderCandidate,
+	})
+	if len(moverConn.packets) != 1 || moverConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
+		t.Fatalf("older movement packets = %+v, want one rejection response", moverConn.packets)
+	}
+	var rejected protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &rejected); err != nil {
+		t.Fatalf("UnmarshalBody(rejected) error = %v", err)
+	}
+	if rejected.Accepted || rejected.Reason != world.ErrMovementSequenceStale.Error() || rejected.CorrectedPos != acceptedPos {
+		t.Fatalf("older movement response = %+v, want stale rejection at %+v", rejected, acceptedPos)
+	}
+	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID] != acceptedState {
+		t.Fatalf("movement state changed after older sequence: compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], acceptedState)
+	}
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.SceneID != 1 || profile.PosX != acceptedPos.X || profile.PosY != acceptedPos.Y {
+		t.Fatalf("profile scene/position = %d/(%d,%d), want 1/(%d,%d)", profile.SceneID, profile.PosX, profile.PosY, acceptedPos.X, acceptedPos.Y)
+	}
+	if len(observerConn.packets) != 0 {
+		t.Fatalf("observer packets after older sequence = %+v, want no stale movement broadcast", observerConn.packets)
+	}
+}
+
+// TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer 验证切图完成后延迟到达的旧场景普通移动包
+// 会按新场景 Redis 权威状态拒绝并补发重同步，且不会覆盖新场景持久化位置或向任一场景广播旧移动。
+func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.T) {
+	demoPlayerID, router, playerService, moverConn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdEnterWorldReq, 307, protocol.EnterWorldReq{})
+
+	// 同时放置旧场景和新场景旁观者，用于确认竞态拒绝不会泄漏任何 ENTITY_MOVE_PUSH。
+	const oldSceneObserverID uint64 = 20001
+	oldSceneObserverConn := &fakeConn{id: "conn-delayed-old-scene-observer"}
+	newSceneObserverConn := &fakeConn{id: "conn-delayed-new-scene-observer"}
+	if _, err := router.sessionService.Bind(oldSceneObserverID, oldSceneObserverConn); err != nil {
+		t.Fatalf("Bind(old scene observer) error = %v", err)
+	}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, newSceneObserverConn); err != nil {
+		t.Fatalf("Bind(new scene observer) error = %v", err)
+	}
+	if err := playerService.UpdatePosition(context.Background(), teststub.RivalPlayerID, 2, 4, 1); err != nil {
+		t.Fatalf("UpdatePosition(rival) error = %v", err)
+	}
+	router.worldHandler.presenceMu.Lock()
+	router.worldHandler.playerScenes[oldSceneObserverID] = 1
+	router.worldHandler.playerScenes[teststub.RivalPlayerID] = 2
+	router.worldHandler.presenceMu.Unlock()
+	clearPackets(moverConn)
+
+	// 先完成权威切图，使 Redis 与 PostgreSQL 都落在场景 2 的服务端入口格。
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 308, protocol.MoveIntentReq{
+		MoveSeq: 20, SceneID: 1, TargetSceneID: 2, PortalID: 1001,
+	})
+	transferredState := movementRepo.states[demoPlayerID]
+	if transferredState.SceneID != 2 || transferredState.PersistedPos != (world.Vec2i{X: 4, Y: 1}) || transferredState.LastMoveSeq != 20 {
+		t.Fatalf("movement state after transfer = %+v, want scene 2 position (4,1) sequence 20", transferredState)
+	}
+	if movementRepo.compareCount != 1 {
+		t.Fatalf("CompareAndSet() calls after transfer = %d, want one sequence reservation", movementRepo.compareCount)
+	}
+	transferredProfile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile(after transfer) error = %v", err)
+	}
+	if transferredProfile.SceneID != 2 || transferredProfile.PosX != 4 || transferredProfile.PosY != 1 {
+		t.Fatalf("profile after transfer = scene %d position (%d,%d), want scene 2 position (4,1)", transferredProfile.SceneID, transferredProfile.PosX, transferredProfile.PosY)
+	}
+	clearPackets(moverConn)
+	clearPackets(oldSceneObserverConn)
+	clearPackets(newSceneObserverConn)
+
+	delayedOldScenePos := protocol.Vec2i{X: 9, Y: 6}
+	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 309, protocol.MoveIntentReq{
+		MoveSeq: 21, SceneID: 1, TargetPos: &delayedOldScenePos,
+	})
+	if len(moverConn.packets) != 2 {
+		t.Fatalf("delayed old-scene movement packets = %d, want rejection and world resync", len(moverConn.packets))
+	}
+	if moverConn.packets[0].Cmd != protocol.CmdMoveIntentResp || moverConn.packets[1].Cmd != protocol.CmdWorldResyncPush {
+		t.Fatalf("packet order = [%d,%d], want MOVE_INTENT_RESP then WORLD_RESYNC_PUSH", moverConn.packets[0].Cmd, moverConn.packets[1].Cmd)
+	}
+	var rejected protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &rejected); err != nil {
+		t.Fatalf("UnmarshalBody(rejected move) error = %v", err)
+	}
+	if rejected.Accepted || rejected.Reason != "scene mismatch" || rejected.SceneID != 2 || rejected.CorrectedPos != (protocol.Vec2i{X: 4, Y: 1}) {
+		t.Fatalf("delayed old-scene response = %+v, want scene mismatch at scene 2 position (4,1)", rejected)
+	}
+	var resync protocol.WorldResyncPush
+	if err := protocol.UnmarshalBody(moverConn.packets[1].Body, &resync); err != nil {
+		t.Fatalf("UnmarshalBody(world resync) error = %v", err)
+	}
+	if resync.SceneID != 2 || resync.SelfPos != (protocol.Vec2i{X: 4, Y: 1}) || resync.SceneVersion != transferredState.SceneVersion {
+		t.Fatalf("world resync = %+v, want transferred authoritative snapshot", resync)
+	}
+	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID] != transferredState {
+		t.Fatalf("movement state changed after delayed old-scene packet: compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], transferredState)
+	}
+	profileAfterReject, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile(after reject) error = %v", err)
+	}
+	if profileAfterReject.SceneID != transferredProfile.SceneID || profileAfterReject.PosX != transferredProfile.PosX || profileAfterReject.PosY != transferredProfile.PosY {
+		t.Fatalf("profile changed after delayed old-scene packet: got scene %d position (%d,%d), want scene %d position (%d,%d)", profileAfterReject.SceneID, profileAfterReject.PosX, profileAfterReject.PosY, transferredProfile.SceneID, transferredProfile.PosX, transferredProfile.PosY)
+	}
+	if len(oldSceneObserverConn.packets) != 0 || len(newSceneObserverConn.packets) != 0 {
+		t.Fatalf("observer packets after delayed old-scene movement: old=%+v new=%+v, want no movement broadcast", oldSceneObserverConn.packets, newSceneObserverConn.packets)
+	}
+}
+
 func TestBuildReconnectWorldSnapshotUsesRedisMovementPosition(t *testing.T) {
 	_, router, _, conn := buildWorldRouterForTest(t)
 	movementRepo := &movementStateRepoForHandlerTest{}

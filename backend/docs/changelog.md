@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-08-15 P0-10 权威移动竞态测试矩阵
+
+- 完成多人同屏权威移动优化清单 P0-10；复核确认 `world` 领域层既有测试已经覆盖正常移动、服务端时间窗瞬移裁剪、场景矩形越界裁剪、静态导航穿墙裁剪、重复/倒退序号以及会话和场景权威不匹配。
+- `backend/server/internal/transport/ws/world_handler_test.go` 新增成功移动后倒退序号专项测试：倒退请求只返回 Redis 当前权威位置，不再次执行 CAS，不回滚 PostgreSQL 兼容位置，也不向同场景旁观者广播旧坐标。
+- 同文件新增切图竞态专项测试：玩家从场景 1 权威切换到场景 2 后，延迟到达的场景 1 普通移动包会收到 `scene mismatch` 拒绝和场景 2 的 `WORLD_RESYNC_PUSH`；Redis 新场景状态、PostgreSQL 新场景位置以及新旧场景旁观者均不受旧包污染。
+- 本批只新增测试并更新计划、变更记录和任务总结；没有修改运行代码、协议字段、数据库迁移、后台页面、Godot 客户端或依赖。
+- 验证：新增测试定向运行通过；`GOCACHE=/tmp/pocket-pet-p010-go-cache go test ./server/internal/module/world ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1` 与 `go vet ./server/...` 均通过；`git diff --check` 通过。
+
 ## 2026-08-15 P0-09 远端移动旧包过滤
 
 - `client/autoload/game_state.gd` 按远端实体保存最近接受的 `scene_id`、`scene_version` 和 `move_seq`；只接受当前场景、非旧场景代次且同代次序号严格递增的移动推送，新场景代次允许序号重新开始。

@@ -1,5 +1,15 @@
 # 任务总结
 
+## 2026-08-15：P0-10 权威移动竞态测试矩阵任务总结
+
+- 本次只完成多人同屏优化清单 P0-10，没有启动 P1-04 PostgreSQL 移动热路径移除、P2 远端时间轴插值或其他运行逻辑改造。
+- 审计现有测试后确认无需重复实现：`movement_service_test.go` 已覆盖正常权威移动、服务端时间窗瞬移裁剪、长断流时间上限、场景边界裁剪、重复/倒退序号和权威状态不匹配；`scene_navigation_test.go` 已覆盖路径穿墙裁剪、阻挡起点和缺失导航拒绝；既有 WebSocket 用例已覆盖普通移动、重复序号、普通门与快速传送。
+- `backend/server/internal/transport/ws/world_handler_test.go` 新增倒退序号端到端测试。测试先完成 `move_seq=10` 的合法移动，再提交 `move_seq=9`，确认响应返回序号 10 对应的权威位置，Redis CAS 次数和状态不变，PostgreSQL 位置不回滚，同场景旁观者不收到旧移动广播。
+- 同文件新增切图后旧包竞态测试。测试先以 `move_seq=20` 从场景 1 切换到场景 2，再提交 `move_seq=21/scene_id=1` 的延迟普通移动包，确认服务端返回场景 2 权威位置和 `WORLD_RESYNC_PUSH`，Redis、PostgreSQL 及新旧场景旁观者均保持切图后的正确状态。
+- 本次没有新增生产代码、协议字段、数据库结构、迁移、配置、依赖、客户端场景或 UI；因此无需修改协议与架构文档。
+- 验证：新增用例定向运行通过；`GOCACHE=/tmp/pocket-pet-p010-go-cache go test ./server/internal/module/world ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check` 均通过。
+- 建议提交信息：`test(world): 完成 P0-10 权威移动竞态矩阵`
+
 ## 2026-08-15：P0-09 远端移动旧包过滤任务总结
 
 - 本次只完成多人同屏优化清单 P0-09，没有混入 P0-10 完整竞态矩阵、远端时间轴插值或 P1-04 PostgreSQL 移动热路径移除。
