@@ -114,7 +114,8 @@
 - Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
 - 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`，供后续 PostgreSQL批量写回 worker 消费。
 - 首次进入世界会以 PostgreSQL快照初始化 Redis；同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态，切图成功后按目标场景和出生点重建场景移动代次。
-- 普通移动已经先通过 `world.Service` 领域预检和 Redis Lua CAS，再执行现有 PostgreSQL同步写入与同场景广播；数据库热路径将在 dirty 批量写回 worker 完成后单独移除。
+- 普通同场景移动的正式调用链为：WebSocket 协议解析 -> `world.Service.MovePlayer` -> Redis 权威状态加载 -> 玩家/会话/场景校验 -> 旧客户端字段归一化 -> `EvaluateMovement` 速度、矩形边界与静态通行计算 -> 移动序号校验和 Redis Lua CAS -> handler 协议响应及同场景广播。handler 不再直接编排 `EvaluateMovement` 与 `AdvanceMovementState`。
+- `MovePlayer` 同时返回移动前后的权威状态：移动前状态用于拒绝响应和广播起点，移动后状态用于响应、广播及 PostgreSQL 整数位置兼容写入。数据库同步档案查询与位置写入将在 P1-04 和 dirty 批量写回 worker 完成后单独移除，本阶段不改变重连持久化语义。
 - 同会话重连优先用 Redis最新场景、整数位置和千分之一格位置重新查询场景快照；缓存缺失时回退 PostgreSQL并重建 Redis状态，客户端通过可选 `self_precise_pos` 恢复高精度位置。
 - 普通移动、普通门和地图快速传送共享严格递增的 Redis移动序号；跨场景成功后以目标场景版本重建状态，旧场景或重复请求不能再次执行传送。
 - 世界移动速度、单包最大服务端时间跨度和非主轴容差来自 PostgreSQL `world_movement_config`，服务启动时加载到 `world.Service` 只读缓存；缺少有效配置时服务拒绝启动，不回退代码常量。

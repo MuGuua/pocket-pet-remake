@@ -1,5 +1,15 @@
 # 任务总结
 
+## 2026-08-15：P0-07 普通移动领域用例下沉任务总结
+
+- 本次只完成多人同屏优化清单 P0-07，没有混入 P0-08 客户端纠偏或 P1-04 PostgreSQL 热路径移除。
+- `backend/server/internal/module/world/model.go` 新增普通移动用例输入与前后状态结果；`backend/server/internal/module/world/service.go` 新增 `MovePlayer`，把 Redis 加载、玩家/会话/场景校验、旧客户端字段兼容、移动计算、序号验证和 CAS 推进收敛为单一领域入口。
+- `backend/server/internal/transport/ws/world_handler.go` 删除普通移动分支中直接编排 `LoadMovementState -> EvaluateMovement -> AdvanceMovementState` 的旧逻辑；handler 当前只做协议转换、领域错误映射、响应、广播，以及 P1-04 前必须保留的 PostgreSQL 整数位置兼容写入。
+- 场景切换仍使用既有 `AdvanceMovementState` 和传送判定链路；为避免两套校验规则分叉，状态推进前置校验已抽为领域内部共享函数。
+- `backend/server/internal/module/world/movement_service_test.go` 新增领域用例覆盖；`backend/server/internal/transport/ws/world_handler_test.go` 新增端到端契约测试，确认响应字段、Redis CAS、PostgreSQL 兼容位置、同场景广播和 session mismatch 拒绝均保持兼容。
+- 本次没有新增依赖、配置、文件目录、协议字段或数据库迁移。
+- 验证：`GOCACHE=/tmp/pocket-pet-p007-go-cache go test ./server/internal/module/world ./server/internal/transport/ws` 与 `go test ./server/...` 全量后端测试均通过；`go vet ./server/...`、`git diff --check` 和工作区状态检查均通过。
+
 ## 2026-08-14：P0-06 场景静态通行闭环任务总结
 
 - **任务目标**：复核最近提交并继续完成尚未闭环的 P0-06；本次只处理场景静态通行、权威落点、测试和文档，不启动 P0-07。

@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-15 P0-07 普通移动领域用例下沉
+
+- 新增 `world.MovePlayerInput`、`world.MovePlayerResult` 和 `world.Service.MovePlayer`，普通同场景移动由领域层统一加载 Redis 权威状态，校验玩家、会话与场景，兼容归一化旧客户端朝向/起停字段，并执行既有速度、边界、静态通行和序号规则。
+- `MovePlayer` 使用加载到的旧序号直接执行一次仓储 CAS；抽取 `validateMovementStateAdvance` 供普通移动和切图序号推进复用，避免 handler 复制状态推进规则。
+- `WorldHandler.HandleMoveIntent` 不再直接调用 `EvaluateMovement` 和 `AdvanceMovementState` 处理普通移动；新增的同场景协议适配方法只负责 DTO 转换、领域错误映射、响应和广播。
+- 按 P1-04 边界保留普通移动前的 PostgreSQL 档案查询及整数位置兼容写入，未改动切图流程、协议字段、客户端纠偏逻辑、数据库结构或迁移。
+- 补充领域测试覆盖正常 CAS、状态读取失败、会话/场景不一致、重复序号、非法输入、旧客户端无坐标心跳和 CAS 冲突；WebSocket 测试覆盖权威响应、PostgreSQL 兼容写入、同场景广播及旧会话拒绝。
+- 验证：`GOCACHE=/tmp/pocket-pet-p007-go-cache go test ./server/internal/module/world ./server/internal/transport/ws` 与 `go test ./server/...` 全量后端测试均通过；`go vet ./server/...`、`git diff --check` 和工作区状态检查均通过。
+
 ## 2026-08-14 P0-06 场景静态通行闭环
 
 - 检查最近提交 `85cc41b7` 后确认 P0-06 的版本化导航表、后台发布/回滚和导出工具主体已存在，但正式 26 场景种子、服务端权威落点审计、专项闭环测试及文档同步尚未完成。

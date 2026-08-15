@@ -254,6 +254,12 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
 	}
 
+	// 普通同场景移动直接进入 world 领域用例；只有换图流程才继续读取等级和场景传送规则。
+	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != request.SceneID
+	if !isSceneTransfer {
+		return h.handleSameSceneMovement(ctx, conn, packet, sess, request, profile.SceneID, world.Vec2i{X: profile.PosX, Y: profile.PosY})
+	}
+
 	currentPos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
 	authoritativeSceneID := profile.SceneID
 	var currentMovementState *world.MovementState
@@ -268,99 +274,13 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		authoritativeSceneID = currentMovementState.SceneID
 		currentPos = currentMovementState.PersistedPos
 	}
-	isSceneTransfer := request.MapTeleport || request.TargetSceneID != 0 && request.TargetSceneID != authoritativeSceneID
-	if isSceneTransfer {
-		log.Printf(
-			"[SceneTransition][Server] request player_id=%d seq=%d move_seq=%d from_scene=%d profile_scene=%d target_scene=%d portal=%d current_pos=(%d,%d)",
-			sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, authoritativeSceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
-		)
-	}
+	log.Printf(
+		"[SceneTransition][Server] request player_id=%d seq=%d move_seq=%d from_scene=%d profile_scene=%d target_scene=%d portal=%d current_pos=(%d,%d)",
+		sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, authoritativeSceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
+	)
 	if request.SceneID != authoritativeSceneID {
-		if isSceneTransfer {
-			log.Printf("[SceneTransition][Server] reject player_id=%d reason=scene_mismatch request_scene=%d profile_scene=%d", sess.PlayerID, request.SceneID, authoritativeSceneID)
-		}
+		log.Printf("[SceneTransition][Server] reject player_id=%d reason=scene_mismatch request_scene=%d profile_scene=%d", sess.PlayerID, request.SceneID, authoritativeSceneID)
 		return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, authoritativeSceneID, currentPos, "scene mismatch")
-	}
-
-	// 新客户端会持续上报当前格子坐标；服务端先持久化，再把权威结果广播给同场景其他玩家。
-	// 未携带 target_pos 的旧客户端心跳仍维持原有响应，避免破坏同场景移动协议兼容性。
-	if !request.MapTeleport && (request.TargetSceneID == 0 || request.TargetSceneID == authoritativeSceneID) {
-		correctedPos := currentPos
-		reason := "local movement handled by client"
-		var correctedPrecisePos protocol.Vec2i
-		var serverTick int64
-		var authoritativeSpeed uint32
-		var authoritativeFacing protocol.Vec2i
-		var authoritativeMoving bool
-		if request.TargetPos != nil {
-			serverTick = time.Now().UnixMilli()
-			if currentMovementState != nil {
-				candidatePos := protocol.Vec2i{X: request.TargetPos.X * movementPositionFixedScale, Y: request.TargetPos.Y * movementPositionFixedScale}
-				if request.PrecisePos != nil {
-					candidatePos = *request.PrecisePos
-				}
-				facing := normalizeMovementFacing(currentPos, world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}, request.Facing)
-				movementResult, stateErr := h.worldService.EvaluateMovement(*currentMovementState, world.MovementIntent{
-					Input: toWorldMovementInput(request.Input), CandidatePos: toWorldMovementFacing(candidatePos), HasCandidate: true,
-					Facing: toWorldMovementFacing(facing), Moving: normalizeMovementState(currentPos, world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}, request.Moving),
-					MoveSeq: request.MoveSeq, ServerTickMS: serverTick,
-				})
-				if stateErr != nil {
-					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
-				}
-				if stateErr := h.worldService.AdvanceMovementState(ctx, movementResult.State); stateErr != nil {
-					return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
-				}
-				correctedPos = movementResult.State.PersistedPos
-				correctedPrecisePos = protocol.Vec2i{X: movementResult.State.PrecisePos.X, Y: movementResult.State.PrecisePos.Y}
-				authoritativeSpeed = movementResult.State.Speed
-				authoritativeFacing = protocol.Vec2i{X: movementResult.State.Facing.X, Y: movementResult.State.Facing.Y}
-				authoritativeMoving = movementResult.State.Moving
-			} else {
-				correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
-				correctedPrecisePos = normalizePreciseMovementPosition(correctedPos, request.PrecisePos)
-				authoritativeFacing = normalizeMovementFacing(currentPos, correctedPos, request.Facing)
-				authoritativeMoving = normalizeMovementState(currentPos, correctedPos, request.Moving)
-			}
-			if correctedPos != currentPos {
-				if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, authoritativeSceneID, correctedPos.X, correctedPos.Y); err != nil {
-					return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
-				}
-			}
-			reason = "position synchronized"
-		}
-		responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
-			Accepted:            true,
-			MoveSeq:             request.MoveSeq,
-			SceneID:             authoritativeSceneID,
-			CorrectedPos:        protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
-			CorrectedPrecisePos: correctedPrecisePos,
-			ServerTick:          serverTick,
-			Speed:               authoritativeSpeed,
-			Reason:              reason,
-		})
-		if err != nil {
-			return err
-		}
-		if err := conn.SendPacket(responsePacket); err != nil {
-			return err
-		}
-		if request.TargetPos != nil {
-			h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
-			h.broadcastEntityMove(
-				authoritativeSceneID,
-				sess.PlayerID,
-				request.MoveSeq,
-				currentPos,
-				correctedPos,
-				correctedPrecisePos,
-				authoritativeFacing,
-				authoritativeMoving,
-				authoritativeSpeed,
-				serverTick,
-			)
-		}
-		return nil
 	}
 
 	if currentMovementState != nil {
@@ -454,6 +374,132 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		}
 	}
 	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
+}
+
+// handleSameSceneMovement 负责普通移动的协议转换、兼容持久化、响应和同场景广播。
+// 移动合法性、会话与场景权威校验、旧客户端字段归一化以及 Redis CAS 推进统一委托给 world 服务。
+func (h *WorldHandler) handleSameSceneMovement(
+	ctx context.Context,
+	conn packetSender,
+	packet *protocol.Packet,
+	sess *session.Session,
+	request protocol.MoveIntentReq,
+	profileSceneID uint32,
+	profilePos world.Vec2i,
+) error {
+	currentPos := profilePos
+	authoritativeSceneID := profileSceneID
+	correctedPos := currentPos
+	reason := "local movement handled by client"
+	var correctedPrecisePos protocol.Vec2i
+	var serverTick int64
+	var authoritativeSpeed uint32
+	var authoritativeFacing protocol.Vec2i
+	var authoritativeMoving bool
+
+	if h.worldService != nil && h.worldService.MovementStateEnabled() {
+		moveInput := world.MovePlayerInput{
+			PlayerID:  sess.PlayerID,
+			SessionID: sess.ID,
+			SceneID:   request.SceneID,
+			MoveSeq:   request.MoveSeq,
+			Input:     toWorldMovementInput(request.Input),
+			Facing:    toWorldMovementInput(request.Facing),
+			Moving:    request.Moving,
+		}
+		if request.TargetPos != nil {
+			serverTick = time.Now().UnixMilli()
+			moveInput.HasCandidate = true
+			moveInput.CandidateCell = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
+			moveInput.CandidatePos = world.Vec2i{X: request.TargetPos.X * movementPositionFixedScale, Y: request.TargetPos.Y * movementPositionFixedScale}
+			moveInput.ServerTickMS = serverTick
+			if request.PrecisePos != nil {
+				moveInput.CandidatePos = world.Vec2i{X: request.PrecisePos.X, Y: request.PrecisePos.Y}
+			}
+		}
+
+		movementResult, stateErr := h.worldService.MovePlayer(ctx, moveInput)
+		if stateErr != nil {
+			if movementResult.PreviousState.PlayerID == 0 {
+				return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "load movement state failed", stateErr)
+			}
+			if errors.Is(stateErr, world.ErrMovementSceneMismatch) {
+				return h.sendMoveRejectedWithResync(
+					conn,
+					packet.Seq,
+					request.MoveSeq,
+					movementResult.PreviousState.SceneID,
+					movementResult.PreviousState.PersistedPos,
+					"scene mismatch",
+				)
+			}
+			return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, &movementResult.PreviousState, stateErr)
+		}
+		currentPos = movementResult.PreviousState.PersistedPos
+		authoritativeSceneID = movementResult.State.SceneID
+		correctedPos = movementResult.State.PersistedPos
+		if request.TargetPos != nil {
+			correctedPrecisePos = protocol.Vec2i{X: movementResult.State.PrecisePos.X, Y: movementResult.State.PrecisePos.Y}
+			authoritativeSpeed = movementResult.State.Speed
+			authoritativeFacing = protocol.Vec2i{X: movementResult.State.Facing.X, Y: movementResult.State.Facing.Y}
+			authoritativeMoving = movementResult.State.Moving
+		}
+	} else {
+		if request.SceneID != authoritativeSceneID {
+			return h.sendMoveRejectedWithResync(conn, packet.Seq, request.MoveSeq, authoritativeSceneID, currentPos, "scene mismatch")
+		}
+		if request.TargetPos != nil {
+			serverTick = time.Now().UnixMilli()
+			correctedPos = world.Vec2i{X: request.TargetPos.X, Y: request.TargetPos.Y}
+			correctedPrecisePos = normalizePreciseMovementPosition(correctedPos, request.PrecisePos)
+			authoritativeFacing = normalizeMovementFacing(currentPos, correctedPos, request.Facing)
+			authoritativeMoving = normalizeMovementState(currentPos, correctedPos, request.Moving)
+		}
+	}
+
+	if request.TargetPos != nil {
+		// PostgreSQL 整数位置兼容写入在 P1-04 持久化策略落地前继续保留，避免本批改变重连行为。
+		if correctedPos != currentPos {
+			if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, authoritativeSceneID, correctedPos.X, correctedPos.Y); err != nil {
+				return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
+			}
+		}
+		reason = "position synchronized"
+	}
+
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
+		Accepted:            true,
+		MoveSeq:             request.MoveSeq,
+		SceneID:             authoritativeSceneID,
+		CorrectedPos:        protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
+		CorrectedPrecisePos: correctedPrecisePos,
+		ServerTick:          serverTick,
+		Speed:               authoritativeSpeed,
+		Reason:              reason,
+	})
+	if err != nil {
+		return err
+	}
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	if request.TargetPos == nil {
+		return nil
+	}
+	h.enterPlayerScene(ctx, sess.PlayerID, authoritativeSceneID)
+	h.broadcastEntityMove(
+		authoritativeSceneID,
+		sess.PlayerID,
+		request.MoveSeq,
+		currentPos,
+		correctedPos,
+		correctedPrecisePos,
+		authoritativeFacing,
+		authoritativeMoving,
+		authoritativeSpeed,
+		serverTick,
+	)
+	return nil
 }
 
 // initializeMovementState 用进入世界快照初始化当前会话的 Redis权威移动状态。

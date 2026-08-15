@@ -148,3 +148,27 @@ type MovementResult struct {
 	State     MovementState
 	Corrected bool
 }
+
+// MovePlayerInput 是普通同场景移动用例的完整输入。
+// 传输层只负责把协议字段转换为领域值；会话、场景、序号、移动规则和状态推进均由 world 服务判定。
+type MovePlayerInput struct {
+	PlayerID      uint64
+	SessionID     string
+	SceneID       uint32
+	MoveSeq       uint32
+	CandidatePos  Vec2i
+	CandidateCell Vec2i
+	HasCandidate  bool
+	Facing        *Vec2i
+	Moving        *bool
+	Input         *Vec2i
+	ServerTickMS  int64
+}
+
+// MovePlayerResult 同时返回移动前后的权威状态。
+// PreviousState 用于传输层广播起点，并在领域拒绝请求时向当前客户端返回可纠偏的事实状态。
+type MovePlayerResult struct {
+	PreviousState MovementState
+	State         MovementState
+	Corrected     bool
+}

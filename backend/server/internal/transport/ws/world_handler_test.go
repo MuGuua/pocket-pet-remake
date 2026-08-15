@@ -2559,7 +2559,8 @@ func TestHandleWildEncounterStartsBattle(t *testing.T) {
 }
 
 type movementStateRepoForHandlerTest struct {
-	states map[uint64]world.MovementState
+	states       map[uint64]world.MovementState
+	compareCount int
 }
 
 func (r *movementStateRepoForHandlerTest) Load(_ context.Context, playerID uint64) (*world.MovementState, error) {
@@ -2580,6 +2581,7 @@ func (r *movementStateRepoForHandlerTest) Initialize(_ context.Context, state wo
 }
 
 func (r *movementStateRepoForHandlerTest) CompareAndSet(_ context.Context, expectedMoveSeq uint32, state world.MovementState) error {
+	r.compareCount++
 	current, ok := r.states[state.PlayerID]
 	if !ok {
 		return world.ErrMovementStateNotFound
@@ -2594,6 +2596,112 @@ func (r *movementStateRepoForHandlerTest) CompareAndSet(_ context.Context, expec
 func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uint64) error {
 	delete(r.states, playerID)
 	return nil
+}
+
+// TestHandleMoveIntentUsesWorldMovementUseCase 验证普通移动经过 world 领域入口后仍保持响应、PostgreSQL兼容写入和同场景广播契约。
+func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
+	demoPlayerID, router, playerService, firstConn := buildWorldRouterForTest(t)
+	secondConn := &fakeConn{id: "conn-authoritative-movement-observer"}
+	if _, err := router.sessionService.Bind(teststub.RivalPlayerID, secondConn); err != nil {
+		t.Fatalf("Bind(rival) error = %v", err)
+	}
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdEnterWorldReq, 290, protocol.EnterWorldReq{})
+	mustHandleJSONPacket(t, router, secondConn, protocol.CmdEnterWorldReq, 291, protocol.EnterWorldReq{})
+	clearPackets(firstConn)
+	clearPackets(secondConn)
+
+	state := movementRepo.states[demoPlayerID]
+	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
+	movementRepo.states[demoPlayerID] = state
+	targetPos := protocol.Vec2i{X: 9, Y: 6}
+	precisePos := protocol.Vec2i{X: 9000, Y: 6000}
+	right := protocol.Vec2i{X: 1}
+	moving := true
+	mustHandleJSONPacket(t, router, firstConn, protocol.CmdMoveIntentReq, 292, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos, PrecisePos: &precisePos,
+		Input: &right, Facing: &right, Moving: &moving,
+	})
+
+	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
+		t.Fatalf("moving player packets = %+v, want one move response", firstConn.packets)
+	}
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(firstConn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if !response.Accepted || response.CorrectedPos != targetPos || response.CorrectedPrecisePos != precisePos || response.Speed == 0 || response.ServerTick <= 0 {
+		t.Fatalf("move response = %+v, want authoritative target position, speed and server tick", response)
+	}
+	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID].LastMoveSeq != 10 {
+		t.Fatalf("movement state compare_count=%d state=%+v, want one CAS at sequence 10", movementRepo.compareCount, movementRepo.states[demoPlayerID])
+	}
+	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
+	if err != nil {
+		t.Fatalf("GetProfile() error = %v", err)
+	}
+	if profile.PosX != targetPos.X || profile.PosY != targetPos.Y {
+		t.Fatalf("profile position = (%d,%d), want PostgreSQL compatibility position %+v", profile.PosX, profile.PosY, targetPos)
+	}
+	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityMovePush {
+		t.Fatalf("observer packets = %+v, want one entity move push", secondConn.packets)
+	}
+	var push protocol.EntityMovePush
+	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
+		t.Fatalf("UnmarshalBody(entity move push) error = %v", err)
+	}
+	if push.ToPos != targetPos || push.PrecisePos != precisePos || push.Facing != right || !push.Moving || push.Speed != response.Speed || push.ServerTick != response.ServerTick {
+		t.Fatalf("entity move push = %+v, want response-compatible authoritative movement", push)
+	}
+}
+
+// TestHandleMoveIntentRejectsMismatchedRedisSession 验证普通移动的旧会话拒绝已由 world 领域入口负责，并继续返回当前权威位置。
+func TestHandleMoveIntentRejectsMismatchedRedisSession(t *testing.T) {
+	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 295, protocol.EnterWorldReq{})
+	clearPackets(conn)
+	state := movementRepo.states[demoPlayerID]
+	state.SessionID = "replaced-session"
+	movementRepo.states[demoPlayerID] = state
+	targetPos := protocol.Vec2i{X: 9, Y: 6}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 296, protocol.MoveIntentReq{
+		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
+	})
+
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want one movement rejection", len(conn.packets))
+	}
+	var response protocol.MoveIntentResp
+	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
+		t.Fatalf("UnmarshalBody(move response) error = %v", err)
+	}
+	if response.Accepted || response.Reason != world.ErrMovementSessionMismatch.Error() || response.CorrectedPos != (protocol.Vec2i{X: state.PersistedPos.X, Y: state.PersistedPos.Y}) {
+		t.Fatalf("move response = %+v, want session mismatch with current authoritative position", response)
+	}
+	if movementRepo.compareCount != 0 {
+		t.Fatalf("CompareAndSet() calls = %d, want zero for rejected session", movementRepo.compareCount)
+	}
 }
 
 func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
