@@ -391,6 +391,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 	authoritativeSceneID := profileSceneID
 	correctedPos := currentPos
 	reason := "local movement handled by client"
+	correctionPolicy := h.movementCorrectionPolicy()
 	var correctedPrecisePos protocol.Vec2i
 	var serverTick int64
 	var authoritativeSpeed uint32
@@ -468,14 +469,16 @@ func (h *WorldHandler) handleSameSceneMovement(
 	}
 
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packet.Seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
-		Accepted:            true,
-		MoveSeq:             request.MoveSeq,
-		SceneID:             authoritativeSceneID,
-		CorrectedPos:        protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
-		CorrectedPrecisePos: correctedPrecisePos,
-		ServerTick:          serverTick,
-		Speed:               authoritativeSpeed,
-		Reason:              reason,
+		Accepted:                 true,
+		MoveSeq:                  request.MoveSeq,
+		SceneID:                  authoritativeSceneID,
+		CorrectedPos:             protocol.Vec2i{X: correctedPos.X, Y: correctedPos.Y},
+		CorrectedPrecisePos:      correctedPrecisePos,
+		ServerTick:               serverTick,
+		Speed:                    authoritativeSpeed,
+		CorrectionIgnoreDistance: correctionPolicy.IgnoreDistanceMilli,
+		CorrectionSnapDistance:   correctionPolicy.SnapDistanceMilli,
+		Reason:                   reason,
 	})
 	if err != nil {
 		return err
@@ -500,6 +503,19 @@ func (h *WorldHandler) handleSameSceneMovement(
 		serverTick,
 	)
 	return nil
+}
+
+// movementCorrectionPolicy 返回当前数据库移动配置派生的客户端纠偏阈值。
+// 配置尚未装配时返回零值，旧服务兼容客户端会继续保留本地预测而不会使用代码常量兜底。
+func (h *WorldHandler) movementCorrectionPolicy() world.MovementCorrectionPolicy {
+	if h == nil || h.worldService == nil {
+		return world.MovementCorrectionPolicy{}
+	}
+	policy, err := h.worldService.MovementCorrectionPolicySnapshot()
+	if err != nil {
+		return world.MovementCorrectionPolicy{}
+	}
+	return policy
 }
 
 // initializeMovementState 用进入世界快照初始化当前会话的 Redis权威移动状态。
@@ -559,11 +575,16 @@ func (h *WorldHandler) resetMovementStateAfterTransfer(ctx context.Context, sess
 
 // sendMovementStateRejected 返回当前 Redis权威位置，使客户端解除 pending 并保留后续纠偏依据。
 func (h *WorldHandler) sendMovementStateRejected(conn packetSender, packetSeq uint32, moveSeq uint32, current *world.MovementState, cause error) error {
+	correctionPolicy := h.movementCorrectionPolicy()
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, packetSeq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
 		Accepted: false, MoveSeq: moveSeq, SceneID: current.SceneID,
-		CorrectedPos:        protocol.Vec2i{X: current.PersistedPos.X, Y: current.PersistedPos.Y},
-		CorrectedPrecisePos: protocol.Vec2i{X: current.PrecisePos.X, Y: current.PrecisePos.Y},
-		ServerTick:          current.LastServerTickMS, Speed: current.Speed, Reason: cause.Error(),
+		CorrectedPos:             protocol.Vec2i{X: current.PersistedPos.X, Y: current.PersistedPos.Y},
+		CorrectedPrecisePos:      protocol.Vec2i{X: current.PrecisePos.X, Y: current.PrecisePos.Y},
+		ServerTick:               current.LastServerTickMS,
+		Speed:                    current.Speed,
+		CorrectionIgnoreDistance: correctionPolicy.IgnoreDistanceMilli,
+		CorrectionSnapDistance:   correctionPolicy.SnapDistanceMilli,
+		Reason:                   cause.Error(),
 	})
 	if err != nil {
 		return err
@@ -1094,12 +1115,15 @@ func toProtocolWorldFollowingPet(value pet.WorldFollowingPet) protocol.PetBrief 
 }
 
 func (h *WorldHandler) sendMoveRejectedWithResync(conn packetSender, seq uint32, moveSeq uint32, sceneID uint32, currentPos world.Vec2i, reason string) error {
+	correctionPolicy := h.movementCorrectionPolicy()
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdMoveIntentResp, seq, errcode.WSCodeSuccess, protocol.MoveIntentResp{
-		Accepted:     false,
-		MoveSeq:      moveSeq,
-		SceneID:      sceneID,
-		CorrectedPos: protocol.Vec2i{X: currentPos.X, Y: currentPos.Y},
-		Reason:       reason,
+		Accepted:                 false,
+		MoveSeq:                  moveSeq,
+		SceneID:                  sceneID,
+		CorrectedPos:             protocol.Vec2i{X: currentPos.X, Y: currentPos.Y},
+		CorrectionIgnoreDistance: correctionPolicy.IgnoreDistanceMilli,
+		CorrectionSnapDistance:   correctionPolicy.SnapDistanceMilli,
+		Reason:                   reason,
 	})
 	if err != nil {
 		return err

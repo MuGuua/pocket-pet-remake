@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-15：P0-08 本机权威移动分级纠偏任务总结
+
+- 本次只完成多人同屏优化清单 P0-08，没有混入 P0-09 远端旧包过滤、P0-10 完整竞态矩阵或 P1-04 PostgreSQL 移动热路径移除。
+- `backend/server/internal/module/world/model.go` 与 `service.go` 新增数据库移动配置派生的纠偏策略快照；忽略阈值来自轴容差，吸附阈值来自权威速度乘最大时间窗，并保证阈值严格有序且不会发生 `uint32` 回绕。
+- `backend/server/internal/protocol/messages.go` 与 `backend/server/internal/transport/ws/world_handler.go` 为 `MOVE_INTENT_RESP` 增加两个纠偏距离字段，普通移动成功、领域拒绝和场景不一致拒绝均复用同一服务端策略。
+- `client/scripts/feature/world/world_controller.gd` 在普通移动响应序号匹配后更新权威网络基线并执行三级纠偏：小误差忽略，中误差按响应速度平滑消化固定偏移，大误差或拒绝立即吸附；平滑过程不取消玩家当前输入或自动寻路。
+- 精确位置兼容处理会区分旧服务序列化出的无效零值结构：有效时消费 `corrected_precise_pos`，否则回退 `corrected_pos * 1000`；场景不一致、切图和重同步会清空旧纠偏，避免跨地图污染。
+- 本次复用现有数据库 `world_movement_config`，没有新增迁移、后台字段、依赖、场景或 UI。
+- 验证：领域与 WebSocket 受影响包测试、`GOCACHE=/tmp/pocket-pet-p008-go-cache go test ./server/...`、`go vet ./server/...`、Godot 4.7 Headless 分级边界专项测试和全项目编辑器解析均通过；目标 GDScript 无 Tab，`git diff --check` 通过。Godot 专项退出时仅有既存的 `ObjectDB instance was leaked at exit` 警告。
+- 建议提交信息：`feat(client): 完成 P0-08 本机权威移动纠偏`
+
 ## 2026-08-15：P0-07 普通移动领域用例下沉任务总结
 
 - 本次只完成多人同屏优化清单 P0-07，没有混入 P0-08 客户端纠偏或 P1-04 PostgreSQL 热路径移除。

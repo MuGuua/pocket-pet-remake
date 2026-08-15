@@ -109,8 +109,10 @@
 新增：
 
 - `corrected_precise_pos`：服务端最终高精度权威位置。
-- `server_tick`：服务端单调时间。
+- `server_tick`：服务端生成权威结果的时间基线。
 - `speed`：服务端权威移动速度。
+- `correction_ignore_distance`：本机预测误差可直接忽略的最大距离，由数据库移动配置派生。
+- `correction_snap_distance`：本机预测必须立即吸附的最小距离，由数据库移动配置派生。
 
 ### 5.3 `ENTITY_MOVE_PUSH`
 
@@ -206,7 +208,7 @@ world_scene_navigation
 - [x] P0-05 增加场景边界数据迁移、仓储、后台维护和运行时缓存。已生成 `119_world_scene_boundaries.sql`，为 1~26 号启用场景初始化千分之一格矩形边界；服务启动时加载只读缓存，普通移动在速度裁剪后继续执行边界裁剪；后台复用 `world_movement:view/edit` 权限提供列表、完整矩形编辑、操作原因、二次确认和运行时即时刷新。迁移仅生成未执行，墙体与精细通行判定留在 P0-06。
 - [x] P0-06 增加场景静态通行数据迁移、Godot 导出工具、后台发布与回滚。已生成 `120_world_scene_navigation.sql` 建立版本化位图表，使用 `export_scene_navigation.gd` 从正式 Godot 地图和玩家碰撞体严格导出 1~26 号场景，并生成 `122_world_scene_navigation_seed.sql` 初始化 26 个已发布版本；服务启动时强制加载只读缓存，普通移动按路径逐格检查并在首个阻挡格前裁剪，缺少发布导航或起点阻挡时失败关闭。后台复用 `world_movement:view/edit` 权限提供草稿、发布和回滚，发布/回滚后当前进程立即刷新运行时缓存。`121_repair_world_authoritative_spawn_positions.sql` 同步修复快速传送权威中心，服务端默认出生点、普通门目标点和快速传送点均已通过发布位图审计；已补领域防穿墙、缓存替换及后台 HTTP 发布/回滚闭环测试。`120`、`121`、`122` 迁移均只生成未执行。
 - [x] P0-07 将移动判定从 WebSocket handler 下沉到 `world` 领域服务。普通同场景移动统一调用 `world.Service.MovePlayer`，由领域层完成 Redis 状态加载、玩家/会话/场景权威校验、旧客户端朝向与起停字段归一化、速度/边界/静态通行计算、序号校验和单次 CAS 推进；handler 只保留协议转换、错误映射、P1-04 前的 PostgreSQL 兼容写入、响应及同场景广播。换图流程继续复用既有状态推进，本批未启动 P0-08 或 P1-04。
-- [ ] P0-08 客户端消费 `corrected_precise_pos` 并实现分级权威纠偏。
+- [x] P0-08 客户端消费 `corrected_precise_pos` 并实现分级权威纠偏。普通移动响应按 `move_seq` 匹配后更新本机网络基线；小误差按数据库轴容差忽略，中误差按服务端权威速度逐帧消化固定偏移，大误差或拒绝响应立即吸附。吸附上限由数据库速度与最大计算时间窗派生，场景不一致继续等待 `WORLD_RESYNC_PUSH`，旧服务未提供有效阈值时不使用客户端常量兜底。
 - [ ] P0-09 客户端按远端实体保存最近 `scene_version + move_seq`，丢弃旧包。
 - [ ] P0-10 补充正常、瞬移、越界、穿墙、重复、倒退和切图竞态测试。
 

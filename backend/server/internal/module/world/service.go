@@ -2,6 +2,7 @@ package world
 
 import (
 	"context"
+	"math"
 	"strings"
 	"sync"
 )
@@ -71,6 +72,36 @@ func (s *Service) MovementConfigSnapshot() (MovementConfig, error) {
 		return MovementConfig{}, ErrMovementConfigUnavailable
 	}
 	return config, nil
+}
+
+// MovementCorrectionPolicySnapshot 从当前数据库移动配置快照派生客户端本机分级纠偏阈值。
+// 小误差阈值复用非主轴容差；大误差阈值使用单次服务端计算允许推进的最大距离。
+func (s *Service) MovementCorrectionPolicySnapshot() (MovementCorrectionPolicy, error) {
+	config, err := s.MovementConfigSnapshot()
+	if err != nil {
+		return MovementCorrectionPolicy{}, err
+	}
+	return movementCorrectionPolicy(config), nil
+}
+
+// movementCorrectionPolicy 把数据库配置转换为有序且不会溢出的客户端纠偏距离。
+func movementCorrectionPolicy(config MovementConfig) MovementCorrectionPolicy {
+	ignoreDistanceValue := uint64(config.AxisToleranceMilli)
+	if ignoreDistanceValue >= uint64(math.MaxUint32) {
+		// 即使数据库被异常数据污染，也要为吸附阈值保留一个可表示的更大整数。
+		ignoreDistanceValue = uint64(math.MaxUint32) - 1
+	}
+	snapDistanceValue := uint64(config.SpeedMilliCellsPerSecond) * uint64(config.MaxElapsedMS) / 1000
+	if snapDistanceValue <= ignoreDistanceValue {
+		snapDistanceValue = ignoreDistanceValue + 1
+	}
+	if snapDistanceValue > uint64(math.MaxUint32) {
+		snapDistanceValue = uint64(math.MaxUint32)
+	}
+	return MovementCorrectionPolicy{
+		IgnoreDistanceMilli: uint32(ignoreDistanceValue),
+		SnapDistanceMilli:   uint32(snapDistanceValue),
+	}
 }
 
 // GetAdminMovementConfig 返回数据库中的配置，供后台明确展示持久化事实来源。

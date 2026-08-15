@@ -2640,8 +2640,8 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	if err := protocol.UnmarshalBody(firstConn.packets[0].Body, &response); err != nil {
 		t.Fatalf("UnmarshalBody(move response) error = %v", err)
 	}
-	if !response.Accepted || response.CorrectedPos != targetPos || response.CorrectedPrecisePos != precisePos || response.Speed == 0 || response.ServerTick <= 0 {
-		t.Fatalf("move response = %+v, want authoritative target position, speed and server tick", response)
+	if !response.Accepted || response.CorrectedPos != targetPos || response.CorrectedPrecisePos != precisePos || response.Speed == 0 || response.ServerTick <= 0 || response.CorrectionIgnoreDistance != 125 || response.CorrectionSnapDistance != 1125 {
+		t.Fatalf("move response = %+v, want authoritative position, timing and database-derived correction policy", response)
 	}
 	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID].LastMoveSeq != 10 {
 		t.Fatalf("movement state compare_count=%d state=%+v, want one CAS at sequence 10", movementRepo.compareCount, movementRepo.states[demoPlayerID])
@@ -2696,8 +2696,8 @@ func TestHandleMoveIntentRejectsMismatchedRedisSession(t *testing.T) {
 	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
 		t.Fatalf("UnmarshalBody(move response) error = %v", err)
 	}
-	if response.Accepted || response.Reason != world.ErrMovementSessionMismatch.Error() || response.CorrectedPos != (protocol.Vec2i{X: state.PersistedPos.X, Y: state.PersistedPos.Y}) {
-		t.Fatalf("move response = %+v, want session mismatch with current authoritative position", response)
+	if response.Accepted || response.Reason != world.ErrMovementSessionMismatch.Error() || response.CorrectedPos != (protocol.Vec2i{X: state.PersistedPos.X, Y: state.PersistedPos.Y}) || response.CorrectionIgnoreDistance != 125 || response.CorrectionSnapDistance != 1125 {
+		t.Fatalf("move response = %+v, want session mismatch with authoritative position and correction policy", response)
 	}
 	if movementRepo.compareCount != 0 {
 		t.Fatalf("CompareAndSet() calls = %d, want zero for rejected session", movementRepo.compareCount)

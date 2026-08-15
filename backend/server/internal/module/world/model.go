@@ -99,6 +99,13 @@ type MovementConfig struct {
 	UpdatedByAdminUserID     uint64    `json:"updated_by_admin_user_id"`
 }
 
+// MovementCorrectionPolicy 定义客户端本机预测与服务端权威位置之间的分级纠偏距离。
+// 距离统一使用千分之一场景格；阈值由数据库移动配置派生，客户端不能自行覆盖。
+type MovementCorrectionPolicy struct {
+	IgnoreDistanceMilli uint32
+	SnapDistanceMilli   uint32
+}
+
 // AdminUpdateMovementConfigInput 是后台修改权威移动参数时使用的完整审计输入。
 type AdminUpdateMovementConfigInput struct {
 	SpeedMilliCellsPerSecond uint32 `json:"speed_milli_cells_per_second"`

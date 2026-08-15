@@ -345,6 +345,43 @@ func TestEvaluateMovementRejectsDiagonalInputAndAxisDrift(t *testing.T) {
 	}
 }
 
+// TestMovementCorrectionPolicyUsesDatabaseConfig 验证客户端纠偏阈值只从当前数据库移动配置派生。
+func TestMovementCorrectionPolicyUsesDatabaseConfig(t *testing.T) {
+	policy := movementCorrectionPolicy(MovementConfig{
+		SpeedMilliCellsPerSecond: 3750,
+		MaxElapsedMS:             300,
+		AxisToleranceMilli:       125,
+	})
+	if policy.IgnoreDistanceMilli != 125 || policy.SnapDistanceMilli != 1125 {
+		t.Fatalf("movementCorrectionPolicy() = %+v, want ignore=125 snap=1125", policy)
+	}
+}
+
+// TestMovementCorrectionPolicyKeepsThresholdsOrdered 验证低速配置仍会为平滑区间保留严格有序的上下界。
+func TestMovementCorrectionPolicyKeepsThresholdsOrdered(t *testing.T) {
+	policy := movementCorrectionPolicy(MovementConfig{
+		SpeedMilliCellsPerSecond: 1,
+		MaxElapsedMS:             1,
+		AxisToleranceMilli:       125,
+	})
+	if policy.IgnoreDistanceMilli != 125 || policy.SnapDistanceMilli != 126 {
+		t.Fatalf("movementCorrectionPolicy() = %+v, want ignore=125 snap=126", policy)
+	}
+}
+
+// TestMovementCorrectionPolicyClampsUint32Overflow 验证异常极大配置不会让阈值回绕或失去严格顺序。
+func TestMovementCorrectionPolicyClampsUint32Overflow(t *testing.T) {
+	const maximumUint32 uint32 = ^uint32(0)
+	policy := movementCorrectionPolicy(MovementConfig{
+		SpeedMilliCellsPerSecond: maximumUint32,
+		MaxElapsedMS:             maximumUint32,
+		AxisToleranceMilli:       maximumUint32,
+	})
+	if policy.IgnoreDistanceMilli != maximumUint32-1 || policy.SnapDistanceMilli != maximumUint32 {
+		t.Fatalf("movementCorrectionPolicy() = %+v, want ignore=%d snap=%d", policy, maximumUint32-1, maximumUint32)
+	}
+}
+
 func movementServiceForEvaluationTest() *Service {
 	service := NewService(nil)
 	service.movementConfig = MovementConfig{

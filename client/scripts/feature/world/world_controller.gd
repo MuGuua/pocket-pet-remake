@@ -27,6 +27,15 @@ const PLAYER_ENTITY_TYPE: int = 1
 const NETWORK_POSITION_FIXED_SCALE: int = 1000
 ## 移动中的高精度表现坐标最多每 100 毫秒发送一次，兼顾移动端流量与视觉同步精度。
 const NETWORK_MOVEMENT_REPORT_INTERVAL_MS: int = 100
+
+## 本机预测位置与服务端权威位置之间的分级纠偏结果。
+## 阈值由 MOVE_INTENT_RESP 下发，枚举只描述客户端表现方式，不保存任何玩法数值。
+enum LocalMovementCorrectionTier {
+    IGNORE,
+    SMOOTH,
+    SNAP,
+}
+
 @export_group("点击移动反馈")
 ## 点击地面时播放的精灵帧动画；在检查器拖入 SpriteFrames 后优先于 Line2D 圆环。
 @export var click_marker_sprite_frames: SpriteFrames = null
@@ -121,7 +130,17 @@ var _last_network_facing: Vector2i = Vector2i.DOWN
 var _last_network_moving: bool = false
 ## 最近一次移动表现上报的本地单调时钟毫秒数。
 var _last_network_report_msec: int = 0
+## 尚未平滑消化的本机权威纠偏像素偏移；本地输入移动期间仍会继续叠加该偏移。
+var _local_authoritative_correction_remaining_pixels: Vector2 = Vector2.ZERO
+## 平滑纠偏每秒最多消化的像素距离，由响应中的数据库权威移动速度换算得到。
+var _local_authoritative_correction_speed_pixels_per_second: float = 0.0
+## 当前平滑纠偏所属场景；切图后旧场景偏移必须立即丢弃。
+var _local_authoritative_correction_scene_id: int = 0
+## 最近一次普通移动权威响应的服务端时间，用于保留本机纠偏时间基线。
+var _last_local_authoritative_server_tick: int = 0
+
 func _process(delta: float) -> void:
+    _apply_local_authoritative_correction(delta)
     _update_pet_follow(delta)
     _update_remote_pet_followers(delta)
     _sync_local_actor_y_sort()
@@ -198,7 +217,8 @@ func handle_move_intent_response(payload: Dictionary) -> void:
     var scene_id: int = int(payload.get("scene_id", _current_scene_id()))
     var response_move_seq: int = int(payload.get("move_seq", 0))
     # 普通移动严格保持单请求在途；确认到达后，下一帧会把角色最新状态而不是中间历史位置补发给服务端。
-    if response_move_seq == _pending_position_move_seq:
+    if _pending_position_move_seq > 0 and response_move_seq == _pending_position_move_seq:
+        _reconcile_local_authoritative_movement(payload, accepted, scene_id)
         _pending_position_move_seq = 0
     # 普通移动回包不参与切图状态机；特别是延迟回包不能清除随后创建的切图 pending 状态。
     if _pending_target_scene_id == 0:
@@ -241,9 +261,164 @@ func handle_move_intent_response(payload: Dictionary) -> void:
     _unlock_local_player()
     scene_transition_failed.emit(str(payload.get("reason", "scene transfer rejected")))
 
+
+## 根据权威误差和服务端下发阈值选择本机纠偏表现。
+## error_distance_milli 是千分之一场景格误差；ignore_distance_milli 与 snap_distance_milli 来自数据库移动配置；accepted 表示服务端是否接受请求。
+## 返回 LocalMovementCorrectionTier 中的一个枚举值；无有效阈值的兼容响应继续保留本地预测。
+static func resolve_local_movement_correction_tier(
+    error_distance_milli: float,
+    ignore_distance_milli: int,
+    snap_distance_milli: int,
+    accepted: bool
+) -> int:
+    if not accepted:
+        return LocalMovementCorrectionTier.SNAP
+    if ignore_distance_milli < 0 or snap_distance_milli <= ignore_distance_milli:
+        return LocalMovementCorrectionTier.IGNORE
+    if error_distance_milli <= float(ignore_distance_milli):
+        return LocalMovementCorrectionTier.IGNORE
+    if error_distance_milli >= float(snap_distance_milli):
+        return LocalMovementCorrectionTier.SNAP
+    return LocalMovementCorrectionTier.SMOOTH
+
+
+## 消费普通移动响应中的千分之一格权威位置，并启动忽略、平滑或立即吸附纠偏。
+## payload 是 MOVE_INTENT_RESP 载荷；accepted 是服务端判定结果；scene_id 是响应所属权威场景。
+func _reconcile_local_authoritative_movement(payload: Dictionary, accepted: bool, scene_id: int) -> void:
+    _clear_local_authoritative_correction()
+    if scene_id <= 0 or scene_id != _current_scene_id():
+        # 场景不一致由紧随其后的 WORLD_RESYNC_PUSH 负责重建，禁止用另一张地图的坐标换算当前地图像素。
+        return
+    if player_node == null or not is_instance_valid(player_node):
+        return
+
+    var corrected_position_variant: Variant = payload.get("corrected_pos", {})
+    if not corrected_position_variant is Dictionary:
+        return
+    var corrected_position: Dictionary = corrected_position_variant as Dictionary
+    var corrected_cell: Vector2i = Vector2i(
+        int(corrected_position.get("x", 0)),
+        int(corrected_position.get("y", 0))
+    )
+
+    var server_tick: int = int(payload.get("server_tick", 0))
+    var corrected_precise_variant: Variant = payload.get("corrected_precise_pos", {})
+    var authoritative_precise_milli: Vector2i = corrected_cell * NETWORK_POSITION_FIXED_SCALE
+    if corrected_precise_variant is Dictionary:
+        var corrected_precise_position: Dictionary = corrected_precise_variant as Dictionary
+        var precise_candidate: Vector2i = Vector2i(
+            int(corrected_precise_position.get("x", 0)),
+            int(corrected_precise_position.get("y", 0))
+        )
+        var precise_available: bool = (
+            server_tick > 0
+            or precise_candidate != Vector2i.ZERO
+            or corrected_cell == Vector2i.ZERO
+        )
+        if precise_available:
+            authoritative_precise_milli = precise_candidate
+    var authoritative_scene_position: Vector2 = Vector2(
+        float(authoritative_precise_milli.x) / float(NETWORK_POSITION_FIXED_SCALE),
+        float(authoritative_precise_milli.y) / float(NETWORK_POSITION_FIXED_SCALE)
+    )
+
+    if server_tick > 0:
+        _last_local_authoritative_server_tick = server_tick
+
+    var current_scene_position: Vector2 = _current_player_scene_position()
+    var error_scene_offset: Vector2 = authoritative_scene_position - current_scene_position
+    var error_distance_milli: float = error_scene_offset.length() * float(NETWORK_POSITION_FIXED_SCALE)
+    var ignore_distance_milli: int = int(payload.get("correction_ignore_distance", 0))
+    var snap_distance_milli: int = int(payload.get("correction_snap_distance", 0))
+    var correction_tier: int = resolve_local_movement_correction_tier(
+        error_distance_milli,
+        ignore_distance_milli,
+        snap_distance_milli,
+        accepted
+    )
+    if correction_tier == LocalMovementCorrectionTier.IGNORE:
+        # 被阈值允许的微小显示差异不应在每个响应后反复补发，因此以上一帧保留的本地预测作为新发送基线。
+        _last_network_position = Vector2i(
+            roundi(current_scene_position.x),
+            roundi(current_scene_position.y)
+        )
+        _last_network_precise_position = Vector2i(
+            roundi(current_scene_position.x * float(NETWORK_POSITION_FIXED_SCALE)),
+            roundi(current_scene_position.y * float(NETWORK_POSITION_FIXED_SCALE))
+        )
+        _has_last_network_position = true
+        return
+
+    # 需要纠偏时以服务端最终采用值作为网络基线；后续上报只包含纠偏或玩家输入产生的新位置。
+    _last_network_position = corrected_cell
+    _last_network_precise_position = authoritative_precise_milli
+    _has_last_network_position = true
+    if correction_tier == LocalMovementCorrectionTier.SNAP:
+        _apply_local_authoritative_position(scene_id, authoritative_scene_position)
+        return
+
+    var authoritative_speed_milli: int = int(payload.get("speed", 0))
+    if authoritative_speed_milli <= 0:
+        # 中误差缺少数据库权威速度时无法确定平滑节奏，保守地直接使用权威位置。
+        _apply_local_authoritative_position(scene_id, authoritative_scene_position)
+        return
+    var grid_to_pixels: float = _grid_to_pixels_for_scene(scene_id)
+    _local_authoritative_correction_remaining_pixels = error_scene_offset * grid_to_pixels
+    _local_authoritative_correction_speed_pixels_per_second = (
+        float(authoritative_speed_milli) / float(NETWORK_POSITION_FIXED_SCALE) * grid_to_pixels
+    )
+    _local_authoritative_correction_scene_id = scene_id
+
+
+## 在保留当前输入预测的同时，逐帧消化服务端确认的固定像素偏移。
+## delta 是当前渲染帧耗时秒数；纠偏速度只来自 MOVE_INTENT_RESP.speed。
+func _apply_local_authoritative_correction(delta: float) -> void:
+    if _local_authoritative_correction_remaining_pixels.is_zero_approx():
+        return
+    if (
+        player_node == null
+        or not is_instance_valid(player_node)
+        or _local_authoritative_correction_scene_id != _current_scene_id()
+        or _pending_target_scene_id != 0
+    ):
+        _clear_local_authoritative_correction()
+        return
+    var maximum_step: float = _local_authoritative_correction_speed_pixels_per_second * maxf(delta, 0.0)
+    if maximum_step <= 0.0:
+        _clear_local_authoritative_correction()
+        return
+    var next_remaining: Vector2 = _local_authoritative_correction_remaining_pixels.move_toward(Vector2.ZERO, maximum_step)
+    var applied_offset: Vector2 = _local_authoritative_correction_remaining_pixels - next_remaining
+    player_node.position += applied_offset
+    _local_authoritative_correction_remaining_pixels = next_remaining
+    if _local_authoritative_correction_remaining_pixels.is_zero_approx():
+        _clear_local_authoritative_correction()
+
+
+## 立即把本机角色设置到同场景服务端权威位置，供拒绝响应和大误差纠偏复用。
+## scene_id 是当前权威场景；authoritative_scene_position 是以场景格为单位的千分之一格换算结果。
+func _apply_local_authoritative_position(scene_id: int, authoritative_scene_position: Vector2) -> void:
+    _clear_local_authoritative_correction()
+    var local_position: Vector2 = _server_to_local_position(scene_id, authoritative_scene_position)
+    if player_node.has_method("apply_authoritative_position"):
+        player_node.call("apply_authoritative_position", local_position)
+    else:
+        player_node.position = local_position
+    # 强制下一帧从实际权威显示位置刷新 HUD、GameState 和位置变化信号。
+    _last_reported_player_position = Vector2.INF
+
+
+## 清空尚未完成的本机平滑纠偏，避免旧场景或旧响应偏移污染后续权威快照。
+func _clear_local_authoritative_correction() -> void:
+    _local_authoritative_correction_remaining_pixels = Vector2.ZERO
+    _local_authoritative_correction_speed_pixels_per_second = 0.0
+    _local_authoritative_correction_scene_id = 0
+
+
 func handle_world_resync(payload: Dictionary) -> void:
     # 权威快照已经覆盖此前的普通移动请求；解除背压，以便新场景从最新位置重新开始同步。
     _pending_position_move_seq = 0
+    _clear_local_authoritative_correction()
     var force_scene_loaded: bool = _pending_map_teleport
     _debug_scene_transition(
         "WORLD_RESYNC_PUSH scene=%d current_scene=%d pending_target=%d visual_locked=%s" % [
@@ -305,6 +480,7 @@ func request_scene_transition(target_scene_id: int, portal_id: int = 0, facing_d
     var transition_move_seq: int = _take_next_move_seq()
     _pending_transition_move_seq = transition_move_seq
     _pending_map_teleport = map_teleport
+    _clear_local_authoritative_correction()
     _pending_player_facing_requested = facing_direction != Vector2.ZERO
     if _pending_player_facing_requested:
         _pending_player_facing_direction = facing_direction
@@ -411,6 +587,7 @@ func abort_scene_transition(reason: String) -> void:
     _pending_map_teleport = false
     _pending_player_facing_requested = false
     _pending_player_spawn_requested = false
+    _clear_local_authoritative_correction()
     _set_transition_loading(false)
     _finish_map_teleport_visual()
     cancel_scene_visual_apply_lock()
@@ -718,6 +895,7 @@ func _on_level_scene_change_requested(change_request: Variant) -> void:
     )
 
 func _apply_authoritative_snapshot() -> void:
+    _clear_local_authoritative_correction()
     var scene_id := _current_scene_id()
     if not _ensure_scene_loaded(scene_id):
         _pending_target_scene_id = 0

@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-15 P0-08 本机权威移动分级纠偏
+
+- `MOVE_INTENT_RESP` 新增向后兼容的 `correction_ignore_distance` 与 `correction_snap_distance`；服务端从现有数据库移动配置快照派生阈值，小误差复用轴容差，大误差使用权威速度乘最大计算时间窗，不新增客户端正式数值常量。
+- `client/scripts/feature/world/world_controller.gd` 开始在普通移动 `move_seq` 匹配后消费 `corrected_precise_pos`：小误差保留本地预测，中误差在不取消实时输入和自动寻路的前提下按响应 `speed` 逐帧消化固定偏移，大误差或拒绝响应立即应用权威位置。
+- 场景不一致响应不在当前地图换算坐标，继续等待 `WORLD_RESYNC_PUSH`；切图、重同步和权威快照应用时会清理未完成的旧场景纠偏。旧服务未提供有效精确坐标时回退整数权威格，未提供有效阈值时保留预测，不使用客户端硬编码兜底。
+- `world.Service.MovementCorrectionPolicySnapshot` 统一输出只读纠偏策略，并对极端异常配置进行有序和 `uint32` 溢出保护；成功和拒绝响应均携带同一策略。
+- 补充领域阈值派生、有序和溢出测试，以及 WebSocket 成功/旧会话拒绝响应契约测试。本批无数据库迁移、无后台字段、无新增依赖，未启动 P0-09、P0-10 或 P1-04。
+- 验证：后端受影响包与 `GOCACHE=/tmp/pocket-pet-p008-go-cache go test ./server/...` 全量测试通过；`go vet ./server/...`、Godot 4.7 Headless 分级边界专项测试、全项目编辑器解析、目标 GDScript Tab 检查和 `git diff --check` 均通过。Godot 专项退出时仅有既存的 `ObjectDB instance was leaked at exit` 警告。
+
 ## 2026-08-15 P0-07 普通移动领域用例下沉
 
 - 新增 `world.MovePlayerInput`、`world.MovePlayerResult` 和 `world.Service.MovePlayer`，普通同场景移动由领域层统一加载 Redis 权威状态，校验玩家、会话与场景，兼容归一化旧客户端朝向/起停字段，并执行既有速度、边界、静态通行和序号规则。

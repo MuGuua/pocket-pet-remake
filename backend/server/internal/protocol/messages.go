@@ -358,8 +358,12 @@ type MoveIntentResp struct {
 	// ServerTick 是服务端生成移动结果时的单调时间基线，供客户端后续快照插值使用。
 	ServerTick int64 `json:"server_tick"`
 	// Speed 是服务端确认的移动速度；零值表示旧链路尚未提供该字段。
-	Speed  uint32 `json:"speed"`
-	Reason string `json:"reason"`
+	Speed uint32 `json:"speed"`
+	// CorrectionIgnoreDistance 是本机预测误差可直接忽略的最大距离，单位为千分之一场景格。
+	CorrectionIgnoreDistance uint32 `json:"correction_ignore_distance"`
+	// CorrectionSnapDistance 是必须立即吸附到权威位置的最小距离，单位为千分之一场景格。
+	CorrectionSnapDistance uint32 `json:"correction_snap_distance"`
+	Reason                 string `json:"reason"`
 }
 
 // SceneTriggerPush 通知客户端播放服务端判定的一次性场景剧情。
