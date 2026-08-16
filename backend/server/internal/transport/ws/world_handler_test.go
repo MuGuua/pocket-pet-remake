@@ -2619,6 +2619,14 @@ func (r *movementStateRepoForHandlerTest) CompareAndSet(_ context.Context, expec
 	return nil
 }
 
+func (r *movementStateRepoForHandlerTest) ClaimDirtyPlayerIDs(_ context.Context, _ uint32) ([]uint64, error) {
+	return []uint64{}, nil
+}
+
+func (r *movementStateRepoForHandlerTest) RequeueDirtyPlayerIDs(_ context.Context, _ []uint64) error {
+	return nil
+}
+
 func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uint64) error {
 	delete(r.states, playerID)
 	return nil

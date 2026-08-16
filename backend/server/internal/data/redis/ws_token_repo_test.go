@@ -13,6 +13,10 @@ type fakeClient struct {
 	store      map[string][]byte
 	evalResult any
 	evalErr    error
+	evalScript string
+	evalKeys   []string
+	evalArgs   []any
+	evalCount  int
 }
 
 func (f *fakeClient) SetEX(_ context.Context, key string, value []byte, _ time.Duration) error {
@@ -44,7 +48,11 @@ func (f *fakeClient) Get(_ context.Context, key string) ([]byte, error) {
 	return append([]byte(nil), value...), nil
 }
 
-func (f *fakeClient) Eval(_ context.Context, _ string, _ []string, _ ...any) (any, error) {
+func (f *fakeClient) Eval(_ context.Context, script string, keys []string, args ...any) (any, error) {
+	f.evalScript = script
+	f.evalKeys = append([]string(nil), keys...)
+	f.evalArgs = append([]any(nil), args...)
+	f.evalCount++
 	if f.evalErr != nil {
 		return nil, f.evalErr
 	}

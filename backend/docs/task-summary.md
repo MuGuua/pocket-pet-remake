@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-16：P1-05 Redis dirty 玩家集合消费能力任务总结
+
+- 本次只完成多人同屏优化清单 P1-05，没有提前创建 P1-06 周期写回 worker、P1-07 PostgreSQL 位置版本迁移、P1-08 关键节点最终写回或 P1-09 故障恢复测试。
+- `backend/server/internal/module/world/movement_repo.go` 扩展短时权威移动仓储接口，`backend/server/internal/module/world/service.go` 提供批量领取与失败重入队领域入口；零领取上限和空重入队批次直接成功，非空操作缺少移动仓储时返回明确错误。
+- `backend/server/internal/data/redis/movement_state_repo.go` 使用 `SPOP key count` 原子领取 dirty 玩家编号。领取时移除的是当前 dirty 标记；领取后若玩家继续移动，已有移动 CAS 会重新执行 `SADD`，旧批次成功后不需要再删除集合成员，从而避免误删并发新状态。
+- 同一 Redis 适配器新增批量重入队 Lua。未来 PostgreSQL 写回失败时可把失败玩家重新放回集合；实现会先校验全部玩家编号，再执行单次 Redis 调用，避免出现部分重入队。
+- `backend/server/internal/data/redis/movement_state_repo_test.go` 覆盖 dirty 领取解析、空结果、非法结果、零上限、成功重入队、空批次与非法玩家编号；同时确认移动 CAS 仍使用正确的玩家状态键、dirty 键和玩家编号参数。领域服务测试和 WebSocket 测试桩同步适配扩展后的仓储契约。
+- 更新 `backend/docs/multiplayer-movement-optimization-plan.md` 勾选 P1-05，并同步更新 `backend/docs/architecture.md` 与变更记录。本次无协议、客户端、数据库、迁移、后台页面或依赖变化。
+- 验证通过：`GOCACHE=/tmp/pocket-pet-p105-go-cache go test ./server/internal/data/redis ./server/internal/module/world ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check`。
+- 建议提交信息：`feat(world): 完成 P1-05 dirty 集合消费`
+
 ## 2026-08-15：P1-04 普通移动热路径移除 PostgreSQL 同步访问任务总结
 
 - 本次只完成多人同屏优化清单 P1-04，没有提前实现 dirty 集合消费、周期批量写回 worker、PostgreSQL 位置版本迁移或关键节点最终写回。

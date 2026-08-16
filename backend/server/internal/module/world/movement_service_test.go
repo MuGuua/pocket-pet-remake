@@ -8,13 +8,18 @@ import (
 )
 
 type movementStateRepositoryStub struct {
-	state        MovementState
-	loadErr      error
-	compareErr   error
-	loadCount    int
-	compareCount int
-	compareFrom  uint32
-	compareNext  MovementState
+	state             MovementState
+	loadErr           error
+	compareErr        error
+	claimErr          error
+	requeueErr        error
+	loadCount         int
+	compareCount      int
+	compareFrom       uint32
+	compareNext       MovementState
+	claimLimit        uint32
+	claimedPlayerIDs  []uint64
+	requeuedPlayerIDs []uint64
 }
 
 func (r *movementStateRepositoryStub) Load(_ context.Context, _ uint64) (*MovementState, error) {
@@ -38,8 +43,76 @@ func (r *movementStateRepositoryStub) CompareAndSet(_ context.Context, expectedM
 	return r.compareErr
 }
 
+func (r *movementStateRepositoryStub) ClaimDirtyPlayerIDs(_ context.Context, limit uint32) ([]uint64, error) {
+	r.claimLimit = limit
+	if r.claimErr != nil {
+		return nil, r.claimErr
+	}
+	return append([]uint64(nil), r.claimedPlayerIDs...), nil
+}
+
+func (r *movementStateRepositoryStub) RequeueDirtyPlayerIDs(_ context.Context, playerIDs []uint64) error {
+	r.requeuedPlayerIDs = append([]uint64(nil), playerIDs...)
+	return r.requeueErr
+}
+
 func (r *movementStateRepositoryStub) Delete(_ context.Context, _ uint64) error {
 	return nil
+}
+
+// TestDirtyMovementPlayerBatchDelegatesToRepository 验证领域服务只编排领取与失败重入队，不泄漏 Redis 命令细节。
+func TestDirtyMovementPlayerBatchDelegatesToRepository(t *testing.T) {
+	repo := &movementStateRepositoryStub{claimedPlayerIDs: []uint64{10001, 10002}}
+	service := NewService(nil)
+	service.SetMovementStateRepository(repo)
+
+	claimed, err := service.ClaimDirtyMovementPlayerIDs(context.Background(), 20)
+	if err != nil {
+		t.Fatalf("ClaimDirtyMovementPlayerIDs() error = %v", err)
+	}
+	if repo.claimLimit != 20 || len(claimed) != 2 || claimed[0] != 10001 || claimed[1] != 10002 {
+		t.Fatalf("claimed players = %v limit=%d, want [10001 10002] with limit 20", claimed, repo.claimLimit)
+	}
+	if err := service.RequeueDirtyMovementPlayerIDs(context.Background(), claimed); err != nil {
+		t.Fatalf("RequeueDirtyMovementPlayerIDs() error = %v", err)
+	}
+	if len(repo.requeuedPlayerIDs) != 2 || repo.requeuedPlayerIDs[0] != 10001 || repo.requeuedPlayerIDs[1] != 10002 {
+		t.Fatalf("requeued players = %v, want [10001 10002]", repo.requeuedPlayerIDs)
+	}
+}
+
+// TestDirtyMovementPlayerBatchHandlesNoopAndMissingRepository 验证空批次不访问仓储，非空批次缺少 Redis 仓储时明确失败。
+func TestDirtyMovementPlayerBatchHandlesNoopAndMissingRepository(t *testing.T) {
+	service := NewService(nil)
+	claimed, err := service.ClaimDirtyMovementPlayerIDs(context.Background(), 0)
+	if err != nil || len(claimed) != 0 {
+		t.Fatalf("ClaimDirtyMovementPlayerIDs(0) = %v, %v, want empty success", claimed, err)
+	}
+	if err := service.RequeueDirtyMovementPlayerIDs(context.Background(), nil); err != nil {
+		t.Fatalf("RequeueDirtyMovementPlayerIDs(nil) error = %v", err)
+	}
+	if _, err := service.ClaimDirtyMovementPlayerIDs(context.Background(), 1); !errors.Is(err, ErrMovementStateNotFound) {
+		t.Fatalf("ClaimDirtyMovementPlayerIDs(1) error = %v, want %v", err, ErrMovementStateNotFound)
+	}
+	if err := service.RequeueDirtyMovementPlayerIDs(context.Background(), []uint64{10001}); !errors.Is(err, ErrMovementStateNotFound) {
+		t.Fatalf("RequeueDirtyMovementPlayerIDs() error = %v, want %v", err, ErrMovementStateNotFound)
+	}
+}
+
+// TestDirtyMovementPlayerBatchPropagatesRepositoryErrors 验证领域入口不会吞掉 Redis 领取或重入队失败。
+func TestDirtyMovementPlayerBatchPropagatesRepositoryErrors(t *testing.T) {
+	claimErr := errors.New("claim dirty players")
+	requeueErr := errors.New("requeue dirty players")
+	repo := &movementStateRepositoryStub{claimErr: claimErr, requeueErr: requeueErr}
+	service := NewService(nil)
+	service.SetMovementStateRepository(repo)
+
+	if _, err := service.ClaimDirtyMovementPlayerIDs(context.Background(), 20); !errors.Is(err, claimErr) {
+		t.Fatalf("ClaimDirtyMovementPlayerIDs() error = %v, want %v", err, claimErr)
+	}
+	if err := service.RequeueDirtyMovementPlayerIDs(context.Background(), []uint64{10001}); !errors.Is(err, requeueErr) {
+		t.Fatalf("RequeueDirtyMovementPlayerIDs() error = %v, want %v", err, requeueErr)
+	}
 }
 
 func TestAdvanceMovementStateRejectsMismatchedAuthority(t *testing.T) {

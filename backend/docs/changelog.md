@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-16 P1-05 Redis dirty 玩家集合消费能力
+
+- 完成多人同屏权威移动优化清单 P1-05。`world.MovementStateRepository` 与 `world.Service` 新增 dirty 玩家批量领取和失败重入队入口，保持领域层不依赖 Redis 命令细节。
+- `backend/server/internal/data/redis/movement_state_repo.go` 使用 `SPOP key count` 原子领取一批 dirty 玩家编号；领取完成后玩家若再次移动，现有 Lua CAS 会重新 `SADD`，因此旧批次成功处理时无需执行 `SREM`，也不会误删并发产生的新 dirty 标记。
+- PostgreSQL 写回失败的玩家可通过单次 Lua 调用重新加入 dirty 集合；空批次不访问 Redis，重入队前会完整校验玩家编号，避免非法编号导致部分入队。周期批量写回 worker、位置版本条件更新和关键节点最终写回仍由 P1-06～P1-09 后续实现。
+- 扩展 Redis 测试桩以记录 Lua 脚本、键和参数；新增 dirty 正常领取、空集合、损坏成员、零上限、成功重入队、空批次与非法编号测试，并确认移动 CAS 继续把玩家写入正确的 dirty 键。
+- 本批没有修改协议、客户端、数据库结构、迁移、后台页面或依赖。
+- 验证：`GOCACHE=/tmp/pocket-pet-p105-go-cache go test ./server/internal/data/redis ./server/internal/module/world ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check` 均通过。
+
 ## 2026-08-15 P1-04 普通移动热路径移除 PostgreSQL 同步访问
 
 - 完成多人同屏权威移动优化清单 P1-04。`backend/server/internal/transport/ws/world_handler.go` 在读取玩家永久档案前先识别普通移动与切图请求；Redis 移动状态已启用时，普通移动直接进入 `world.Service.MovePlayer`，由领域服务从 Redis 加载当前场景、位置和序号。

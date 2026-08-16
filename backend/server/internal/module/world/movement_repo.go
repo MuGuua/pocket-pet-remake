@@ -7,6 +7,8 @@ type MovementStateRepository interface {
 	Load(ctx context.Context, playerID uint64) (*MovementState, error)
 	Initialize(ctx context.Context, state MovementState) error
 	CompareAndSet(ctx context.Context, expectedMoveSeq uint32, state MovementState) error
+	ClaimDirtyPlayerIDs(ctx context.Context, limit uint32) ([]uint64, error)
+	RequeueDirtyPlayerIDs(ctx context.Context, playerIDs []uint64) error
 	Delete(ctx context.Context, playerID uint64) error
 }
 

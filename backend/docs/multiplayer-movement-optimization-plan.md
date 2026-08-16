@@ -218,7 +218,7 @@ world_scene_navigation
 - [x] P1-02 使用 Lua/CAS 原子初始化和更新玩家移动状态。首次进入、新登录替换、普通移动推进和切图重置均已接入；更新成功后续期并写入 dirty 集合。
 - [x] P1-03 进入世界时实现 Redis优先、PostgreSQL回退的恢复流程。重连快照优先使用 Redis最新场景、整数位置和千分之一格位置；缓存缺失时使用 PostgreSQL快照并重新初始化 Redis。
 - [x] P1-04 移除普通移动请求中的 PostgreSQL同步档案查询和位置写入。Redis 已启用时，handler 直接调用 `world.Service.MovePlayer` 加载当前场景与位置，成功移动只通过 Lua CAS 推进 Redis 并标记 dirty；切图和未装配 Redis 的旧服务兼容分支继续读取永久档案，旧服务普通移动继续同步写位置。
-- [ ] P1-05 实现 Redis dirty 玩家集合。
+- [x] P1-05 实现 Redis dirty 玩家集合。移动 CAS 成功后继续通过 `SADD` 生产 dirty 标记；`world.MovementStateRepository` 与领域服务新增批量领取、失败重入队接口，Redis 适配器使用 `SPOP key count` 原子领取玩家编号。领取后产生的新移动会再次 `SADD`，不会被旧批次成功处理误删；PostgreSQL 写回失败的编号可通过单次 Lua 调用重新加入集合，供 P1-06 worker 重试。
 - [ ] P1-06 实现周期批量写回 worker 和失败重试。
 - [ ] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。
 - [ ] P1-08 在停止、切图、战斗、断线、顶号和停服节点触发最终写回。

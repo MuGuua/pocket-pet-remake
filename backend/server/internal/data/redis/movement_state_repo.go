@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/world"
@@ -22,6 +23,19 @@ if tonumber(current.last_move_seq) ~= tonumber(ARGV[4]) or tonumber(ARGV[5]) <= 
 redis.call('SET', KEYS[1], ARGV[6], 'EX', ARGV[7])
 redis.call('SADD', KEYS[2], ARGV[8])
 return 'ok'
+`
+
+const claimDirtyMovementPlayersScript = `
+local limit = tonumber(ARGV[1])
+if not limit or limit <= 0 then return {} end
+return redis.call('SPOP', KEYS[1], limit)
+`
+
+const requeueDirtyMovementPlayersScript = `
+for index = 1, #ARGV do
+    redis.call('SADD', KEYS[1], ARGV[index])
+end
+return #ARGV
 `
 
 type movementStatePayload struct {
@@ -117,6 +131,35 @@ func (r *MovementStateRepository) CompareAndSet(ctx context.Context, expectedMov
 	}
 }
 
+// ClaimDirtyPlayerIDs 使用 Redis SPOP 原子领取一批待持久化玩家。
+// 成员在领取时即从当前集合移除；若领取后玩家再次移动，CAS 会重新 SADD，因此新脏状态不会被旧批次清理。
+func (r *MovementStateRepository) ClaimDirtyPlayerIDs(ctx context.Context, limit uint32) ([]uint64, error) {
+	if limit == 0 {
+		return []uint64{}, nil
+	}
+	result, err := r.client.Eval(ctx, claimDirtyMovementPlayersScript, []string{r.dirtyKey()}, limit)
+	if err != nil {
+		return nil, err
+	}
+	return decodeDirtyPlayerIDs(result)
+}
+
+// RequeueDirtyPlayerIDs 把 PostgreSQL 写回失败的玩家重新加入 dirty 集合，保证后续批次可以重试。
+func (r *MovementStateRepository) RequeueDirtyPlayerIDs(ctx context.Context, playerIDs []uint64) error {
+	if len(playerIDs) == 0 {
+		return nil
+	}
+	args := make([]any, len(playerIDs))
+	for index, playerID := range playerIDs {
+		if playerID == 0 {
+			return fmt.Errorf("requeue dirty movement player: player id must be greater than zero")
+		}
+		args[index] = playerID
+	}
+	_, err := r.client.Eval(ctx, requeueDirtyMovementPlayersScript, []string{r.dirtyKey()}, args...)
+	return err
+}
+
 // Delete 删除玩家退出世界后的短时状态；调用方必须先完成最终持久化。
 func (r *MovementStateRepository) Delete(ctx context.Context, playerID uint64) error {
 	return r.client.Del(ctx, r.playerKey(playerID))
@@ -128,6 +171,35 @@ func (r *MovementStateRepository) playerKey(playerID uint64) string {
 
 func (r *MovementStateRepository) dirtyKey() string {
 	return r.keyPrefix + ":world:movement:dirty"
+}
+
+// decodeDirtyPlayerIDs 将 Redis Lua 返回的字符串集合成员转换为领域层使用的玩家编号。
+func decodeDirtyPlayerIDs(result any) ([]uint64, error) {
+	if result == nil {
+		return []uint64{}, nil
+	}
+	values, ok := result.([]any)
+	if !ok {
+		return nil, fmt.Errorf("decode dirty movement players: unexpected result %T", result)
+	}
+	playerIDs := make([]uint64, 0, len(values))
+	for _, value := range values {
+		var rawPlayerID string
+		switch typedValue := value.(type) {
+		case string:
+			rawPlayerID = typedValue
+		case []byte:
+			rawPlayerID = string(typedValue)
+		default:
+			return nil, fmt.Errorf("decode dirty movement player: unexpected member %T", value)
+		}
+		playerID, err := strconv.ParseUint(rawPlayerID, 10, 64)
+		if err != nil || playerID == 0 {
+			return nil, fmt.Errorf("decode dirty movement player %q: invalid player id", rawPlayerID)
+		}
+		playerIDs = append(playerIDs, playerID)
+	}
+	return playerIDs, nil
 }
 
 func encodeMovementState(state world.MovementState) ([]byte, error) {

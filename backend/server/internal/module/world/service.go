@@ -348,6 +348,29 @@ func (s *Service) LoadMovementState(ctx context.Context, playerID uint64) (*Move
 	return s.movementRepo.Load(ctx, playerID)
 }
 
+// ClaimDirtyMovementPlayerIDs 原子领取一批待持久化玩家。
+// 领取会先把成员移出 dirty 集合；领取后发生的新移动会重新写入集合，不会被当前批次完成动作误删。
+func (s *Service) ClaimDirtyMovementPlayerIDs(ctx context.Context, limit uint32) ([]uint64, error) {
+	if limit == 0 {
+		return []uint64{}, nil
+	}
+	if s == nil || s.movementRepo == nil {
+		return nil, ErrMovementStateNotFound
+	}
+	return s.movementRepo.ClaimDirtyPlayerIDs(ctx, limit)
+}
+
+// RequeueDirtyMovementPlayerIDs 把写回失败的玩家重新放回 dirty 集合，供后续批次重试。
+func (s *Service) RequeueDirtyMovementPlayerIDs(ctx context.Context, playerIDs []uint64) error {
+	if len(playerIDs) == 0 {
+		return nil
+	}
+	if s == nil || s.movementRepo == nil {
+		return ErrMovementStateNotFound
+	}
+	return s.movementRepo.RequeueDirtyPlayerIDs(ctx, playerIDs)
+}
+
 // MovePlayer 执行普通同场景移动的服务端权威用例。
 // 该入口负责加载 Redis 状态、验证会话与场景、归一化旧客户端字段、计算合法位置，并通过 CAS 原子推进状态。
 func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (MovePlayerResult, error) {
