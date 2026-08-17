@@ -11,6 +11,11 @@ heartbeat:
   interval_seconds: 10
   timeout_seconds: 30
 
+# Redis 权威移动状态周期写回 PostgreSQL 的运行配置。
+movement_persistence:
+  interval_seconds: 5
+  batch_size: 100
+
 # PostgreSQL 运行配置。
 postgres:
   # dsn: "postgres://postgres:postgres_pocket_pet@38.76.179.44:5432/pocket_pet?sslmode=disable"

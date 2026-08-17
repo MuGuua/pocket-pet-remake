@@ -10,6 +10,10 @@ heartbeat:
   interval_seconds: 10
   timeout_seconds: 30
 
+movement_persistence:
+  interval_seconds: 5
+  batch_size: 100
+
 postgres:
   dsn: "postgres://postgres:postgres@127.0.0.1:5432/pocket_pet?sslmode=disable"
   max_open_conns: 20

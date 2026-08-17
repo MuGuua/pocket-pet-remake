@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-17：P1-06 周期批量写回与失败重试任务总结
+
+- 本次只完成多人同屏优化清单 P1-06，没有提前实现 P1-07 PostgreSQL 位置版本迁移与条件更新、P1-08 停止/切图/战斗/断线/顶号/停服最终写回或 P1-09 完整故障恢复测试。
+- `backend/server/internal/app/movement_persistence_worker.go` 新增应用层周期 worker。每个周期通过 `world.Service.ClaimDirtyMovementPlayerIDs` 有界领取玩家，逐个调用 `LoadMovementState` 获取 Redis 最新场景和整数权威位置，再通过 `player.Service.UpdatePosition` 写入 PostgreSQL。
+- `backend/server/internal/config/config.go`、`backend/server/configs/config.yaml` 与示例配置新增 `movement_persistence` 运行参数，默认周期为 5 秒、单批上限为 100 人；旧 YAML 缺少该节时自动使用默认值。worker 串行处理批次，避免同一进程内周期任务重叠。
+- 单玩家状态读取、状态完整性校验或数据库写入失败只影响该玩家，同批其他玩家继续处理；所有失败编号在批次末统一重入队。主上下文已取消时，重入队改用最长 3 秒的独立清理上下文，避免优雅停机直接丢失已领取的 dirty 标记。
+- `backend/server/internal/app/bootstrap.go` 把 worker 接入 `App.Run`；应用返回前先停止并等待 worker，之后才由既有资源清理关闭 Redis 和 PostgreSQL。`movement_persistence_worker_test.go` 覆盖成功、空批次、领取失败、局部失败隔离、非法状态、重入队失败、取消上下文清理和构造参数校验。
+- 当前 PostgreSQL 写入仍复用无版本 `UpdatePosition`，只有完成 P1-07 后才能通过 `position_version` 条件更新消除旧状态覆盖新位置的风险。本次无协议、客户端、数据库、迁移、后台页面或依赖变化。
+- 验证通过：`GOCACHE=/tmp/pocket-pet-p106-go-cache go test ./server/internal/config ./server/internal/app ./server/internal/module/world ./server/internal/data/redis -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check`。
+- 建议提交信息：`perf(world): 完成 P1-06 周期批量写回`
+
 ## 2026-08-16：P1-05 Redis dirty 玩家集合消费能力任务总结
 
 - 本次只完成多人同屏优化清单 P1-05，没有提前创建 P1-06 周期写回 worker、P1-07 PostgreSQL 位置版本迁移、P1-08 关键节点最终写回或 P1-09 故障恢复测试。

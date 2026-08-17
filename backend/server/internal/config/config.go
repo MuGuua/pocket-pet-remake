@@ -8,6 +8,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultMovementPersistenceIntervalSeconds = 5
+	defaultMovementPersistenceBatchSize       = 100
+)
+
 type PostgresConfig struct {
 	DSN             string
 	MaxOpenConns    int
@@ -23,14 +28,16 @@ type RedisConfig struct {
 }
 
 type Config struct {
-	HTTPAddr          string
-	JWTSecret         string
-	AccessTokenTTL    time.Duration
-	WSTokenTTL        time.Duration
-	HeartbeatInterval time.Duration
-	HeartbeatTimeout  time.Duration
-	Postgres          PostgresConfig
-	Redis             RedisConfig
+	HTTPAddr                     string
+	JWTSecret                    string
+	AccessTokenTTL               time.Duration
+	WSTokenTTL                   time.Duration
+	HeartbeatInterval            time.Duration
+	HeartbeatTimeout             time.Duration
+	MovementPersistenceInterval  time.Duration
+	MovementPersistenceBatchSize uint32
+	Postgres                     PostgresConfig
+	Redis                        RedisConfig
 }
 
 type yamlConfig struct {
@@ -46,6 +53,10 @@ type yamlConfig struct {
 		IntervalSeconds int `yaml:"interval_seconds"`
 		TimeoutSeconds  int `yaml:"timeout_seconds"`
 	} `yaml:"heartbeat"`
+	MovementPersistence struct {
+		IntervalSeconds int    `yaml:"interval_seconds"`
+		BatchSize       uint32 `yaml:"batch_size"`
+	} `yaml:"movement_persistence"`
 	Postgres struct {
 		DSN                    string `yaml:"dsn"`
 		MaxOpenConns           int    `yaml:"max_open_conns"`
@@ -74,12 +85,14 @@ func LoadFromYAMLFile(path string) (Config, error) {
 	}
 
 	cfg := Config{
-		HTTPAddr:          stringOrDefault(raw.HTTP.Addr, ":8080"),
-		JWTSecret:         stringOrDefault(raw.Auth.JWTSecret, "change-me"),
-		AccessTokenTTL:    secondsOrDefault(raw.Auth.AccessTokenTTLSeconds, 7200),
-		WSTokenTTL:        secondsOrDefault(raw.Auth.WSTokenTTLSeconds, 60),
-		HeartbeatInterval: secondsOrDefault(raw.Heartbeat.IntervalSeconds, 10),
-		HeartbeatTimeout:  secondsOrDefault(raw.Heartbeat.TimeoutSeconds, 30),
+		HTTPAddr:                     stringOrDefault(raw.HTTP.Addr, ":8080"),
+		JWTSecret:                    stringOrDefault(raw.Auth.JWTSecret, "change-me"),
+		AccessTokenTTL:               secondsOrDefault(raw.Auth.AccessTokenTTLSeconds, 7200),
+		WSTokenTTL:                   secondsOrDefault(raw.Auth.WSTokenTTLSeconds, 60),
+		HeartbeatInterval:            secondsOrDefault(raw.Heartbeat.IntervalSeconds, 10),
+		HeartbeatTimeout:             secondsOrDefault(raw.Heartbeat.TimeoutSeconds, 30),
+		MovementPersistenceInterval:  secondsOrDefault(raw.MovementPersistence.IntervalSeconds, defaultMovementPersistenceIntervalSeconds),
+		MovementPersistenceBatchSize: uint32OrDefault(raw.MovementPersistence.BatchSize, defaultMovementPersistenceBatchSize),
 		Postgres: PostgresConfig{
 			DSN:             raw.Postgres.DSN,
 			MaxOpenConns:    intOrDefault(raw.Postgres.MaxOpenConns, 20),
@@ -106,6 +119,12 @@ func (c Config) validate() error {
 	}
 	if c.HeartbeatTimeout <= c.HeartbeatInterval {
 		return fmt.Errorf("heartbeat.timeout_seconds must be greater than heartbeat.interval_seconds")
+	}
+	if c.MovementPersistenceInterval <= 0 {
+		return fmt.Errorf("movement_persistence.interval_seconds must be greater than zero")
+	}
+	if c.MovementPersistenceBatchSize == 0 {
+		return fmt.Errorf("movement_persistence.batch_size must be greater than zero")
 	}
 	if c.Postgres.MaxOpenConns <= 0 {
 		return fmt.Errorf("postgres.max_open_conns must be greater than zero")
@@ -140,6 +159,13 @@ func secondsOrDefault(value int, defaultSeconds int) time.Duration {
 }
 
 func intOrDefault(value int, defaultValue int) int {
+	if value == 0 {
+		return defaultValue
+	}
+	return value
+}
+
+func uint32OrDefault(value uint32, defaultValue uint32) uint32 {
 	if value == 0 {
 		return defaultValue
 	}

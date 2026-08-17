@@ -40,11 +40,12 @@ import (
 // App is the main application struct.
 // It holds the HTTP server, session service, logger, and cleanup closers.
 type App struct {
-	server         *http.Server
-	sessionService *session.Service
-	battleHandler  *wstransport.BattleHandler
-	logger         *log.Logger
-	cleanupClosers []io.Closer
+	server                    *http.Server
+	sessionService            *session.Service
+	battleHandler             *wstransport.BattleHandler
+	movementPersistenceWorker *movementPersistenceWorker
+	logger                    *log.Logger
+	cleanupClosers            []io.Closer
 }
 
 func New(cfg config.Config, logger *log.Logger) (*App, error) {
@@ -127,6 +128,16 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load world scene navigation cache: %w", err)
 	}
+	movementWorker, err := newMovementPersistenceWorker(
+		worldService,
+		playerService,
+		logger,
+		cfg.MovementPersistenceInterval,
+		cfg.MovementPersistenceBatchSize,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create movement persistence worker: %w", err)
+	}
 	monsterService := monster.NewService(repos.Monsters, skillService, petService)
 	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load monster battle reward cache: %w", err)
@@ -168,16 +179,32 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	}
 
 	return &App{
-		server:         server,
-		sessionService: sessionService,
-		battleHandler:  battleHandler,
-		logger:         logger,
-		cleanupClosers: closers,
+		server:                    server,
+		sessionService:            sessionService,
+		battleHandler:             battleHandler,
+		movementPersistenceWorker: movementWorker,
+		logger:                    logger,
+		cleanupClosers:            closers,
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
 	defer a.closeResources()
+	movementWorkerCtx, stopMovementWorker := context.WithCancel(ctx)
+	movementWorkerDone := make(chan struct{})
+	if a.movementPersistenceWorker == nil {
+		close(movementWorkerDone)
+	} else {
+		go func() {
+			defer close(movementWorkerDone)
+			a.movementPersistenceWorker.Run(movementWorkerCtx)
+		}()
+	}
+	// worker 必须先停止并完成失败编号重入队，再关闭 Redis 与 PostgreSQL 连接。
+	defer func() {
+		stopMovementWorker()
+		<-movementWorkerDone
+	}()
 	go a.sessionService.StartSweeper(ctx)
 	if a.battleHandler != nil {
 		go a.battleHandler.StartCustodySweeper(ctx)

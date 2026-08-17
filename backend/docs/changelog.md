@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-17 P1-06 周期批量写回与失败重试
+
+- 完成多人同屏权威移动优化清单 P1-06。新增 `backend/server/internal/app/movement_persistence_worker.go`，应用层通过 `world.Service` 有界领取 dirty 玩家、读取 Redis 最新权威移动状态，并复用 `player.Service.UpdatePosition` 写入 PostgreSQL 永久位置。
+- 新增 YAML `movement_persistence.interval_seconds` 与 `movement_persistence.batch_size` 配置，默认每 5 秒最多领取 100 名玩家；worker 串行执行批次，不会在上一批未完成时启动重叠写回。
+- 单玩家 Redis 状态读取失败、空状态、玩家编号错配或 PostgreSQL 写入失败时，不阻断同批其他玩家；失败编号在批次末统一重新加入 dirty 集合。应用取消上下文后，重入队使用最长 3 秒的独立清理上下文，降低已被 `SPOP` 领取的标记在优雅停机期间丢失的风险。
+- `backend/server/internal/app/bootstrap.go` 将 worker 接入 `App.Run` 生命周期；退出时先取消并等待 worker 停止，再关闭 Redis 与 PostgreSQL 连接。新增单元测试覆盖正常写回、空批次、领取失败、局部失败隔离、非法状态、重入队失败、取消上下文清理和构造参数校验。
+- P1-07 的 PostgreSQL `position_version` 条件更新尚未实现，当前 worker 仍调用无版本 `UpdatePosition`；P1-08 关键节点最终写回和 P1-09 完整故障恢复测试也未提前实现。本批没有修改协议、客户端、数据库结构、迁移、后台页面或依赖。
+- 验证：`GOCACHE=/tmp/pocket-pet-p106-go-cache go test ./server/internal/config ./server/internal/app ./server/internal/module/world ./server/internal/data/redis -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check` 均通过。
+
 ## 2026-08-16 P1-05 Redis dirty 玩家集合消费能力
 
 - 完成多人同屏权威移动优化清单 P1-05。`world.MovementStateRepository` 与 `world.Service` 新增 dirty 玩家批量领取和失败重入队入口，保持领域层不依赖 Redis 命令细节。

@@ -112,10 +112,11 @@
 - 多人同屏移动优化清单统一维护在 `backend/docs/multiplayer-movement-optimization-plan.md`。
 - `world.MovementStateRepository` 是领域层的短时权威移动状态边界；Redis适配器通过应用装配注入，WebSocket handler 不直接依赖 Redis客户端。
 - Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
-- 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`。批量持久化入口使用 Redis `SPOP key count` 原子领取一批玩家编号，领取后发生的新移动会再次 `SADD`，不会被旧批次成功处理误删；PostgreSQL 写回失败时必须调用重入队接口恢复 dirty 标记。
+- 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`。批量持久化入口使用 Redis `SPOP key count` 原子领取一批玩家编号，领取后发生的新移动会再次 `SADD`，不会被旧批次成功处理误删。
+- 应用层周期写回 worker 通过 `world.Service` 领取 dirty 玩家并读取 Redis 最新权威状态，再通过 `player.Service.UpdatePosition` 写入 PostgreSQL。默认每 5 秒最多处理 100 名玩家，周期与批次上限由 YAML `movement_persistence` 配置；批次串行执行，单玩家失败不阻断同批其他玩家，读取或写入失败的编号在批次末统一重入队。应用退出时先取消并等待 worker 完成清理，再关闭 Redis 与 PostgreSQL。
 - 首次进入世界会以 PostgreSQL快照初始化 Redis；同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态，切图成功后按目标场景和出生点重建场景移动代次。
 - 普通同场景移动的正式调用链为：WebSocket 协议解析 -> `world.Service.MovePlayer` -> Redis 权威状态加载 -> 玩家/会话/场景校验 -> 旧客户端字段归一化 -> `EvaluateMovement` 速度、矩形边界与静态通行计算 -> 移动序号校验和 Redis Lua CAS -> handler 协议响应及同场景广播。handler 不再直接编排 `EvaluateMovement` 与 `AdvanceMovementState`。
-- `MovePlayer` 同时返回移动前后的权威状态：移动前状态用于拒绝响应和广播起点，移动后状态用于响应与广播。Redis 已启用时，普通移动 handler 不再同步查询 PostgreSQL 档案或逐包写入位置；Lua CAS 更新成功后只标记 dirty，集合领取和失败重入队已经具备，等待 P1-06～P1-09 的周期写回、版本保护与关键节点最终写回。未装配 Redis 的旧服务兼容分支仍读取并同步写入 PostgreSQL，切图流程仍在关键节点立即持久化。
+- `MovePlayer` 同时返回移动前后的权威状态：移动前状态用于拒绝响应和广播起点，移动后状态用于响应与广播。Redis 已启用时，普通移动 handler 不再同步查询 PostgreSQL 档案或逐包写入位置；Lua CAS 更新成功后只标记 dirty，由周期 worker 异步写回永久位置。P1-07 版本条件更新、P1-08 关键节点最终写回和 P1-09 故障恢复测试尚未完成；当前周期 worker 仍复用无版本位置写入，不能视为已经消除旧批次覆盖风险。未装配 Redis 的旧服务兼容分支仍读取并同步写入 PostgreSQL，切图流程仍在关键节点立即持久化。
 - 同会话重连优先用 Redis最新场景、整数位置和千分之一格位置重新查询场景快照；缓存缺失时回退 PostgreSQL并重建 Redis状态，客户端通过可选 `self_precise_pos` 恢复高精度位置。
 - 普通移动、普通门和地图快速传送共享严格递增的 Redis移动序号；跨场景成功后以目标场景版本重建状态，旧场景或重复请求不能再次执行传送。
 - 同场景权威移动广播携带移动后 Redis 状态中的真实 `scene_version`，同地图快速传送广播携带传送决策中的场景代次；未装配移动状态仓储的旧服务兼容分支保留零值，不再使用固定场景代次。
