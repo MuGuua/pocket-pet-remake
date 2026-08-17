@@ -1,5 +1,15 @@
 # 任务总结
 
+## 2026-08-17：世界权威移动数据库迁移执行任务总结
+
+- **任务目标**：连接当前项目配置的 PostgreSQL，确认近期迁移真实状态，备份后执行尚未生效的世界权威移动迁移，并验证服务端可正常加载。
+- **迁移审计**：`116` 已执行；数据库中的 `world_movement_config` 来自旧版 117，已有正式参数但缺少后台审计字段；`118`～`123` 未执行。
+- **兼容处理**：`backend/server/migrations/117_world_movement_config.sql` 增加事务与 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`，保留旧配置并补齐新字段，避免 `CREATE TABLE IF NOT EXISTS` 跳过旧表后在字段注释处失败。
+- **安全执行**：先生成 `/tmp/pocket_pet_pre_migrations_117_123_20260817.dump` 全库备份，再向真实监听进程发送 SIGTERM 完成优雅停服；严格按 `117`～`123` 顺序逐文件执行，任一 SQL 错误都会停止后续迁移。
+- **验证结果**：移动配置及审计字段完整，两个后台权限已授权 `super_admin`；26 个启用场景边界完整且无非法矩形，26 个场景均有已发布导航；场景 13、26 传送中心修复成功；`player.position_version` 及非负约束存在，4 个现有玩家版本均为 0。
+- **运行验证**：游戏服务重新启动并监听 8080；`GOCACHE=/tmp/pocket-pet-db-migration-go-cache go test ./server/... -count=1`、`go vet ./server/...`、`git diff --check` 均通过。
+- **建议提交信息**：`chore(db): 执行近期世界移动迁移`
+
 ## 2026-08-17：P1-08 关键节点最终位置写回任务总结
 
 - **任务目标**：只完成多人同屏优化清单 P1-08，把停止、切图、战斗、断线、顶号和停服六类关键节点接入最终位置写回；P1-09 故障恢复矩阵保持未完成。

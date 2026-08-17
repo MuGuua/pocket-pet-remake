@@ -168,7 +168,7 @@ world_scene_navigation
 
 周期写回 worker 已按 YAML 配置串行运行：默认每 5 秒使用 `SPOP` 最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威状态，并携带 `position_version` 条件写入 PostgreSQL；单玩家失败不阻断同批其他玩家，失败编号在批次末统一重新入队。数据库已有相同或更高版本时，本批状态按 stale 安全跳过，不会覆盖新位置，也不会重新入队形成无效重试。应用退出时先停止 HTTP 接入并由 Hub 关闭、等待全部 WebSocket 处理和断线回调结束，再停止周期 worker，在 5 秒窗口内有限排空 dirty 集合，最后关闭 Redis 与 PostgreSQL。排空期间失败的玩家会暂存到本轮结束后统一重入队，避免持续故障时反复领取同一玩家形成无限循环。
 
-迁移 `123_player_position_version.sql` 定义了非负 `position_version BIGINT NOT NULL DEFAULT 0` 字段。普通档案与战斗快照读取都会恢复该版本；Redis 状态缺失时，首次进入世界以 PostgreSQL 版本作为后续移动的递增基线。周期 worker 与关键节点写回统一通过 `UpdatePositionIfNewer` 保证只有更高版本可以覆盖场景和坐标。停止移动会异步读取 Redis 最新状态写回；切图先以严格更高版本写入 PostgreSQL，再用同一版本重建 Redis；进入战斗前不再信任客户端 `SelfPos`，而是同步保存 Redis 权威返回位置；断线和顶号在后续生命周期处理前尽力同步写回；停服按 WebSocket 收口、worker 停止和 dirty 有限排空的顺序完成最终刷回。迁移仅生成、未执行；P1-09 的完整故障恢复测试仍未完成。
+迁移 `123_player_position_version.sql` 定义了非负 `position_version BIGINT NOT NULL DEFAULT 0` 字段。普通档案与战斗快照读取都会恢复该版本；Redis 状态缺失时，首次进入世界以 PostgreSQL 版本作为后续移动的递增基线。周期 worker 与关键节点写回统一通过 `UpdatePositionIfNewer` 保证只有更高版本可以覆盖场景和坐标。停止移动会异步读取 Redis 最新状态写回；切图先以严格更高版本写入 PostgreSQL，再用同一版本重建 Redis；进入战斗前不再信任客户端 `SelfPos`，而是同步保存 Redis 权威返回位置；断线和顶号在后续生命周期处理前尽力同步写回；停服按 WebSocket 收口、worker 停止和 dirty 有限排空的顺序完成最终刷回。迁移已于 2026-08-17 执行；P1-09 的完整故障恢复测试仍未完成。
 
 ## 8. 客户端表现策略
 
@@ -207,8 +207,8 @@ world_scene_navigation
 - [x] P0-02 在 `world` 模块定义移动状态仓储和权威移动结果模型。已定义 Redis运行态所需的玩家、会话、场景代次、定点坐标、序号和位置版本字段，并由 `world.Service` 持有仓储边界。
 - [x] P0-03 实现服务端 `move_seq`、会话代次和场景代次校验。普通移动、普通门和地图快速传送统一推进 Redis序号；旧会话、旧场景、重复和倒退请求均在业务执行前拒绝。
 - [x] P0-04 实现服务端四方向输入归一化、速度和最大时间跨度校验。数据库配置、启动缓存、四方向校验、轴容差、服务端时间窗和候选位置裁剪均已完成；后台已提供带权限、操作原因审计、二次确认和运行时即时刷新的配置维护闭环。
-- [x] P0-05 增加场景边界数据迁移、仓储、后台维护和运行时缓存。已生成 `119_world_scene_boundaries.sql`，为 1~26 号启用场景初始化千分之一格矩形边界；服务启动时加载只读缓存，普通移动在速度裁剪后继续执行边界裁剪；后台复用 `world_movement:view/edit` 权限提供列表、完整矩形编辑、操作原因、二次确认和运行时即时刷新。迁移仅生成未执行，墙体与精细通行判定留在 P0-06。
-- [x] P0-06 增加场景静态通行数据迁移、Godot 导出工具、后台发布与回滚。已生成 `120_world_scene_navigation.sql` 建立版本化位图表，使用 `export_scene_navigation.gd` 从正式 Godot 地图和玩家碰撞体严格导出 1~26 号场景，并生成 `122_world_scene_navigation_seed.sql` 初始化 26 个已发布版本；服务启动时强制加载只读缓存，普通移动按路径逐格检查并在首个阻挡格前裁剪，缺少发布导航或起点阻挡时失败关闭。后台复用 `world_movement:view/edit` 权限提供草稿、发布和回滚，发布/回滚后当前进程立即刷新运行时缓存。`121_repair_world_authoritative_spawn_positions.sql` 同步修复快速传送权威中心，服务端默认出生点、普通门目标点和快速传送点均已通过发布位图审计；已补领域防穿墙、缓存替换及后台 HTTP 发布/回滚闭环测试。`120`、`121`、`122` 迁移均只生成未执行。
+- [x] P0-05 增加场景边界数据迁移、仓储、后台维护和运行时缓存。已生成 `119_world_scene_boundaries.sql`，为 1~26 号启用场景初始化千分之一格矩形边界；服务启动时加载只读缓存，普通移动在速度裁剪后继续执行边界裁剪；后台复用 `world_movement:view/edit` 权限提供列表、完整矩形编辑、操作原因、二次确认和运行时即时刷新。迁移已于 2026-08-17 执行，墙体与精细通行判定由 P0-06 的已发布导航位图继续负责。
+- [x] P0-06 增加场景静态通行数据迁移、Godot 导出工具、后台发布与回滚。已生成 `120_world_scene_navigation.sql` 建立版本化位图表，使用 `export_scene_navigation.gd` 从正式 Godot 地图和玩家碰撞体严格导出 1~26 号场景，并生成 `122_world_scene_navigation_seed.sql` 初始化 26 个已发布版本；服务启动时强制加载只读缓存，普通移动按路径逐格检查并在首个阻挡格前裁剪，缺少发布导航或起点阻挡时失败关闭。后台复用 `world_movement:view/edit` 权限提供草稿、发布和回滚，发布/回滚后当前进程立即刷新运行时缓存。`121_repair_world_authoritative_spawn_positions.sql` 同步修复快速传送权威中心，服务端默认出生点、普通门目标点和快速传送点均已通过发布位图审计；已补领域防穿墙、缓存替换及后台 HTTP 发布/回滚闭环测试。`120`、`121`、`122` 迁移均已于 2026-08-17 执行。
 - [x] P0-07 将移动判定从 WebSocket handler 下沉到 `world` 领域服务。普通同场景移动统一调用 `world.Service.MovePlayer`，由领域层完成 Redis 状态加载、玩家/会话/场景权威校验、旧客户端朝向与起停字段归一化、速度/边界/静态通行计算、序号校验和单次 CAS 推进；handler 只保留协议转换、错误映射、响应及同场景广播。未装配 Redis 的旧服务兼容分支继续使用 PostgreSQL 档案位置，换图流程继续复用既有状态推进。
 - [x] P0-08 客户端消费 `corrected_precise_pos` 并实现分级权威纠偏。普通移动响应按 `move_seq` 匹配后更新本机网络基线；小误差按数据库轴容差忽略，中误差按服务端权威速度逐帧消化固定偏移，大误差或拒绝响应立即吸附。吸附上限由数据库速度与最大计算时间窗派生，场景不一致继续等待 `WORLD_RESYNC_PUSH`，旧服务未提供有效阈值时不使用客户端常量兜底。
 - [x] P0-09 客户端按远端实体保存最近 `scene_version + move_seq`，丢弃旧包。`GameState` 以实体 ID 保存最近接受的场景、场景代次和移动序号；跨场景、旧代次、同代次重复/倒退序号及离场延迟包均被拒绝，新场景代次允许序号重新开始。全量快照、运行态重置和实体离场会清理对应基线，实体摘要刷新不会误清基线；服务端广播改为携带 Redis 权威移动状态或传送决策中的真实 `scene_version`，未装配移动仓储的兼容链路保留零值。
@@ -222,7 +222,7 @@ world_scene_navigation
 - [x] P1-04 移除普通移动请求中的 PostgreSQL同步档案查询和位置写入。Redis 已启用时，handler 直接调用 `world.Service.MovePlayer` 加载当前场景与位置，成功移动只通过 Lua CAS 推进 Redis 并标记 dirty；切图和未装配 Redis 的旧服务兼容分支继续读取永久档案，旧服务普通移动继续同步写位置。
 - [x] P1-05 实现 Redis dirty 玩家集合。移动 CAS 成功后继续通过 `SADD` 生产 dirty 标记；`world.MovementStateRepository` 与领域服务新增批量领取、失败重入队接口，Redis 适配器使用 `SPOP key count` 原子领取玩家编号。领取后产生的新移动会再次 `SADD`，不会被旧批次成功处理误删；PostgreSQL 写回失败的编号可通过单次 Lua 调用重新加入集合，供 P1-06 worker 重试。
 - [x] P1-06 实现周期批量写回 worker 和失败重试。应用层 worker 默认每 5 秒最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威整数位置；单玩家读取或写入失败不会阻断同批其他玩家，失败编号统一重入队。运行参数来自 YAML，批次串行不重叠，应用退出时先等待 worker 停止再关闭数据连接。P1-07 已在该 worker 上补齐版本条件写回。
-- [x] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。新增未执行迁移 `123_player_position_version.sql`；玩家档案恢复 `position_version`，Redis 缺失时沿用数据库版本基线；周期 worker 仅写入更高版本，旧版本按 stale 安全跳过且不重入队。关键节点最终写回仍由 P1-08 处理。
+- [x] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。迁移 `123_player_position_version.sql` 已于 2026-08-17 执行；玩家档案恢复 `position_version`，Redis 缺失时沿用数据库版本基线；周期 worker 仅写入更高版本，旧版本按 stale 安全跳过且不重入队。关键节点最终写回已由 P1-08 完成。
 - [x] P1-08 在停止、切图、战斗、断线、顶号和停服节点触发最终写回。停止包响应后异步读取 Redis 最新状态；切图使用严格高于 Redis/PostgreSQL 已知版本的新状态先写 PostgreSQL、再以同版本重建 Redis；PVE、野外遭遇、NPC 战斗和 PVP 接受前同步保存服务端权威返回位置，不再采用客户端 `SelfPos`；断线与顶号先写回再执行后续生命周期处理；停服先关闭并等待 WebSocket，再停止 worker、有限排空 dirty 集合并关闭数据连接。
 - [ ] P1-09 补充 Redis断开、PostgreSQL短时失败、重启恢复和旧版本覆盖测试。
 

@@ -1,4 +1,7 @@
--- 配置服务端权威世界移动速度和弱网容差；迁移只创建并写入初始正式配置，由用户手动执行。
+BEGIN;
+
+-- 配置服务端权威世界移动速度和弱网容差。
+-- CREATE TABLE 负责全新数据库，后续 ALTER TABLE 负责把已经执行过旧版 117 的数据库补齐到当前结构。
 CREATE TABLE IF NOT EXISTS world_movement_config (
     config_id SMALLINT PRIMARY KEY,
     speed_milli_cells_per_second INTEGER NOT NULL,
@@ -16,6 +19,11 @@ CREATE TABLE IF NOT EXISTS world_movement_config (
     CONSTRAINT ck_world_movement_config_status CHECK (status IN (0, 1))
 );
 
+-- 旧版 117 不包含后台审计字段；使用幂等补列保证迁移可安全重放，同时保留已有移动参数。
+ALTER TABLE world_movement_config
+    ADD COLUMN IF NOT EXISTS last_update_reason VARCHAR(500) NOT NULL DEFAULT '初始化权威移动配置',
+    ADD COLUMN IF NOT EXISTS updated_by_admin_user_id BIGINT NULL REFERENCES admin_user(id);
+
 COMMENT ON TABLE world_movement_config IS '服务端权威世界移动配置，坐标和速度使用千分之一场景格定点整数';
 COMMENT ON COLUMN world_movement_config.speed_milli_cells_per_second IS '每秒允许移动的千分之一场景格，3750 对应每秒 3.75 格';
 COMMENT ON COLUMN world_movement_config.max_elapsed_ms IS '单次移动计算允许采用的最大服务端时间跨度，防止断流后一次性跳跃';
@@ -31,3 +39,5 @@ INSERT INTO world_movement_config (
     status
 ) VALUES (1, 3750, 300, 125, 1)
 ON CONFLICT (config_id) DO NOTHING;
+
+COMMIT;

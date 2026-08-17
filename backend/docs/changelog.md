@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-08-17 执行世界权威移动数据库迁移
+
+- 连接当前项目配置的 PostgreSQL `pocket_pet` 数据库，只读核对 `116`～`123` 的实际状态：`116_enable_shanguang_transfer_area_map_teleport.sql` 已生效，旧版 `117_world_movement_config.sql` 已建表但缺少后台审计字段，`118`～`123` 尚未生效。
+- `backend/server/migrations/117_world_movement_config.sql` 增加事务和幂等补列逻辑，使已执行旧版 117 的数据库可以保留现有移动参数并补齐 `last_update_reason`、`updated_by_admin_user_id`。
+- 执行前已完成全库自定义格式备份并优雅停止游戏服务；随后按编号执行 `117`～`123`，补齐移动配置审计、后台权限、26 个场景边界、静态导航表与 26 个已发布导航版本、权威传送落点以及玩家永久位置版本。
+- 数据库验证通过：26 个启用场景均有合法边界和已发布导航，`super_admin` 已获得世界移动查看/编辑权限，场景 13、26 的快速传送中心分别为 `(6,8)`、`(6,6)`，全部玩家 `position_version >= 0`。
+- 服务已重新启动并成功加载迁移后的权威移动数据；验证通过：`GOCACHE=/tmp/pocket-pet-db-migration-go-cache go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check`。
+
 ## 2026-08-17 P1-08 关键节点最终位置写回
 
 - 完成多人同屏权威移动优化清单 P1-08。`backend/server/internal/app/movement_persistence_worker.go` 提供单玩家最新状态写回、已确认权威状态写回和停服 dirty 有限排空能力，周期批次与关键节点统一复用 `UpdatePositionIfNewer`，不会把旧版本覆盖到 PostgreSQL。
