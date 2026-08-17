@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -41,6 +42,7 @@ SELECT
   scene_id,
   pos_x,
   pos_y,
+  position_version,
   hp,
   hp_max,
   vigor,
@@ -93,6 +95,16 @@ SET scene_id = $2,
     pos_x = $3,
     pos_y = $4
 WHERE id = $1
+`
+
+const updatePlayerPositionIfNewerQuery = `
+UPDATE player
+SET scene_id = $2,
+    pos_x = $3,
+    pos_y = $4,
+    position_version = $5
+WHERE id = $1
+  AND position_version < $5
 `
 
 const listWorldPlayerSummariesQueryPrefix = `
@@ -400,7 +412,7 @@ func scanRawPlayerByID(ctx context.Context, db DBTX, playerID uint64) (*player.P
 		strength, vitality, agility, mind                                        int64
 		gold                                                                     int64
 		sceneID                                                                  int64
-		posX, posY                                                               int64
+		posX, posY, positionVersion                                              int64
 		hp, hpMax                                                                int64
 		vigor, vigorMax                                                          int64
 		spirit, spiritMax                                                        int64
@@ -432,6 +444,7 @@ func scanRawPlayerByID(ctx context.Context, db DBTX, playerID uint64) (*player.P
 		&sceneID,
 		&posX,
 		&posY,
+		&positionVersion,
 		&hp,
 		&hpMax,
 		&vigor,
@@ -493,6 +506,7 @@ func scanRawPlayerByID(ctx context.Context, db DBTX, playerID uint64) (*player.P
 	profile.SceneID = uint32(sceneID)
 	profile.PosX = int32(posX)
 	profile.PosY = int32(posY)
+	profile.PositionVersion = uint64(positionVersion)
 	profile.HP = uint32(hp)
 	profile.HPMax = uint32(hpMax)
 	profile.Vigor = uint32(vigor)
@@ -1013,6 +1027,38 @@ func (r *PlayerRepository) UpdatePosition(ctx context.Context, playerID uint64, 
 		return player.ErrPlayerNotFound
 	}
 	return nil
+}
+
+// UpdatePositionIfNewer 通过 PostgreSQL 条件更新保证旧 Redis 批次不能覆盖已经落库的新位置。
+// 返回 false 且 error 为 nil 同时覆盖“版本不够新”和“玩家不存在”两种无需重试的情况。
+func (r *PlayerRepository) UpdatePositionIfNewer(
+	ctx context.Context,
+	playerID uint64,
+	sceneID uint32,
+	posX int32,
+	posY int32,
+	positionVersion uint64,
+) (bool, error) {
+	if positionVersion > math.MaxInt64 {
+		return false, fmt.Errorf("position version %d exceeds PostgreSQL BIGINT", positionVersion)
+	}
+	result, err := r.db.ExecContext(
+		ctx,
+		updatePlayerPositionIfNewerQuery,
+		playerID,
+		sceneID,
+		posX,
+		posY,
+		int64(positionVersion),
+	)
+	if err != nil {
+		return false, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rowsAffected > 0, nil
 }
 
 func (r *PlayerRepository) beginTx(ctx context.Context) (*sql.Tx, error) {

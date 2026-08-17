@@ -2632,6 +2632,38 @@ func (r *movementStateRepoForHandlerTest) Delete(_ context.Context, playerID uin
 	return nil
 }
 
+// TestHandleEnterWorldRestoresPostgresPositionVersion 验证 Redis 状态缺失时会从永久档案恢复位置版本基线。
+func TestHandleEnterWorldRestoresPostgresPositionVersion(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	applied, err := playerService.UpdatePositionIfNewer(context.Background(), demoPlayerID, 1, 8, 6, 41)
+	if err != nil {
+		t.Fatalf("UpdatePositionIfNewer() error = %v", err)
+	}
+	if !applied {
+		t.Fatal("UpdatePositionIfNewer() applied = false, want true")
+	}
+
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 309, protocol.EnterWorldReq{})
+	state, ok := movementRepo.states[demoPlayerID]
+	if !ok {
+		t.Fatalf("movement state for player %d was not initialized", demoPlayerID)
+	}
+	if state.PositionVersion != 41 {
+		t.Fatalf("movement position version = %d, want 41", state.PositionVersion)
+	}
+}
+
 // TestHandleMoveIntentUsesWorldMovementUseCase 验证 Redis 普通移动只推进短时权威状态，不同步访问 PostgreSQL 档案。
 func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	basePlayerRepo := teststub.NewPlayerRepository()

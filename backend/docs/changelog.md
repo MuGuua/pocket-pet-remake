@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-17 P1-07 PostgreSQL 位置版本条件写回
+
+- 完成多人同屏权威移动优化清单 P1-07。新增迁移 `backend/server/migrations/123_player_position_version.sql`，为玩家永久位置增加非负 `position_version BIGINT NOT NULL DEFAULT 0`；迁移仅生成，未执行。
+- 玩家档案模型、普通档案查询和战斗快照查询同步读取位置版本。进入世界时如果 Redis 权威状态不存在，会使用 PostgreSQL 档案中的版本初始化 Redis，避免缓存恢复后从零重新计数。
+- 玩家仓储与服务新增 `UpdatePositionIfNewer`，PostgreSQL 使用 `WHERE id = $1 AND position_version < $5` 只接受更高版本，并检查 `uint64` 到 PostgreSQL `BIGINT` 的范围。数据库已有相同或更高版本时返回 stale，不覆盖场景与坐标。
+- 周期批量写回 worker 改为传递 Redis `PositionVersion`。stale 状态计入批次统计但不视为错误、不重新加入 dirty 集合；只有 Redis 读取失败或真实数据库错误才继续沿用失败重入队机制。
+- 新增 PostgreSQL 条件更新、查询字段和版本范围测试，并补充 worker stale 行为及 Redis 缺失时恢复 PostgreSQL 版本基线的 WebSocket 测试。P1-08 关键节点最终写回与 P1-09 完整故障恢复测试仍未完成，当前不能视为所有位置竞态均已闭环。
+- 验证：`GOCACHE=/tmp/pocket-pet-p107-go-cache go test ./server/internal/app ./server/internal/module/player ./server/internal/data/postgres ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check` 均通过。
+
 ## 2026-08-17 P1-06 周期批量写回与失败重试
 
 - 完成多人同屏权威移动优化清单 P1-06。新增 `backend/server/internal/app/movement_persistence_worker.go`，应用层通过 `world.Service` 有界领取 dirty 玩家、读取 Redis 最新权威移动状态，并复用 `player.Service.UpdatePosition` 写入 PostgreSQL 永久位置。

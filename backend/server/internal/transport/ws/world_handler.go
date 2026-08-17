@@ -76,7 +76,8 @@ func (h *WorldHandler) SetStoryProgressService(service *storyprogress.Service) {
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
 // reconnect can recover the current world view without duplicating scene logic.
 func (h *WorldHandler) BuildWorldSnapshotForPlayer(ctx context.Context, playerID uint64) (*protocol.EnterWorldResp, error) {
-	return h.buildWorldSnapshotForPlayer(ctx, playerID, nil)
+	snapshot, _, err := h.buildWorldSnapshotForPlayer(ctx, playerID, nil)
+	return snapshot, err
 }
 
 // BuildReconnectWorldSnapshot 优先使用同一会话在 Redis中的最新权威场景和坐标构建重连快照。
@@ -96,38 +97,41 @@ func (h *WorldHandler) BuildReconnectWorldSnapshot(ctx context.Context, sess *se
 			return nil, err
 		}
 	}
-	snapshot, err := h.buildWorldSnapshotForPlayer(ctx, sess.PlayerID, movementState)
+	snapshot, positionVersion, err := h.buildWorldSnapshotForPlayer(ctx, sess.PlayerID, movementState)
 	if err != nil {
 		return nil, err
 	}
 	if movementState == nil || movementState.SceneID != snapshot.SceneID {
-		if err := h.initializeMovementState(ctx, sess, snapshot); err != nil {
+		if err := h.initializeMovementState(ctx, sess, snapshot, positionVersion); err != nil {
 			return nil, err
 		}
 	}
 	return snapshot, nil
 }
 
-// buildWorldSnapshotForPlayer 允许重连使用 Redis运行态位置；其他入口继续使用 PostgreSQL永久位置。
-func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID uint64, movementState *world.MovementState) (*protocol.EnterWorldResp, error) {
+// buildWorldSnapshotForPlayer 允许重连使用 Redis 运行态位置；其他入口继续使用 PostgreSQL 永久位置。
+// 第二个返回值是构建快照所依据的位置版本，Redis 状态缺失时必须用它恢复单调递增基线。
+func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID uint64, movementState *world.MovementState) (*protocol.EnterWorldResp, uint64, error) {
 	if h.runtimeSnapshots != nil {
 		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(ctx, playerID); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	profile, err := h.playerService.GetBattleReadyProfile(ctx, playerID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	authoritativeSceneID := profile.SceneID
 	authoritativePos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
+	positionVersion := profile.PositionVersion
 	if movementState != nil {
 		authoritativeSceneID = movementState.SceneID
 		authoritativePos = movementState.PersistedPos
+		positionVersion = movementState.PositionVersion
 	}
 	lineup, err := h.petService.ListLineup(ctx, playerID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	snapshot, err := h.worldService.GetSceneSnapshot(ctx, playerID, authoritativeSceneID, authoritativePos)
 	if err != nil {
@@ -136,7 +140,7 @@ func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID
 		if errors.Is(err, world.ErrSnapshotUnavailable) {
 			fallbackPos := world.FallbackSpawnPos()
 			if updateErr := h.playerService.UpdatePosition(ctx, playerID, world.FallbackSceneID, fallbackPos.X, fallbackPos.Y); updateErr != nil {
-				return nil, updateErr
+				return nil, 0, updateErr
 			}
 			profile.SceneID = world.FallbackSceneID
 			profile.PosX = fallbackPos.X
@@ -146,27 +150,27 @@ func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID
 			snapshot, err = h.worldService.GetSceneSnapshot(ctx, playerID, profile.SceneID, fallbackPos)
 		}
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	legacyGold := profile.Gold
 	if h.walletService != nil {
 		walletSnapshot, err := h.walletService.GetRuntimeWallet(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		legacyGold = legacyGoldFromWalletSnapshot(walletSnapshot)
 	}
 	wildEncounter, err := h.loadWildEncounterConfig(ctx, snapshot.SceneID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	playerSnapshot := toProtocolPlayerSnapshot(profile)
 	playerSnapshot.Gold = legacyGold
 	if h.equipmentService != nil {
 		equippedItems, err := h.equipmentService.ListEquipped(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		playerSnapshot.EquippedItems = toProtocolEquippedItems(equippedItems)
 	}
@@ -191,7 +195,7 @@ func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID
 		precisePos := protocol.Vec2i{X: movementState.PrecisePos.X, Y: movementState.PrecisePos.Y}
 		response.SelfPrecisePos = &precisePos
 	}
-	return response, nil
+	return response, positionVersion, nil
 }
 
 func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Packet) error {
@@ -206,11 +210,11 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	}
 
 	ctx := context.Background()
-	responseBody, err := h.BuildWorldSnapshotForPlayer(ctx, sess.PlayerID)
+	responseBody, positionVersion, err := h.buildWorldSnapshotForPlayer(ctx, sess.PlayerID, nil)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load scene snapshot failed", err)
 	}
-	if err := h.prepareMovementState(ctx, sess, responseBody, true); err != nil {
+	if err := h.prepareMovementState(ctx, sess, responseBody, positionVersion, true); err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "initialize movement state failed", err)
 	}
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdEnterWorldResp, packet.Seq, errcode.WSCodeSuccess, responseBody)
@@ -529,8 +533,9 @@ func (h *WorldHandler) movementCorrectionPolicy() world.MovementCorrectionPolicy
 	return policy
 }
 
-// initializeMovementState 用进入世界快照初始化当前会话的 Redis权威移动状态。
-func (h *WorldHandler) initializeMovementState(ctx context.Context, sess *session.Session, snapshot *protocol.EnterWorldResp) error {
+// initializeMovementState 用进入世界快照初始化当前会话的 Redis 权威移动状态。
+// positionVersion 来自 PostgreSQL 档案或已有 Redis 状态，确保缓存重建后不会重新从零产生旧版本。
+func (h *WorldHandler) initializeMovementState(ctx context.Context, sess *session.Session, snapshot *protocol.EnterWorldResp, positionVersion uint64) error {
 	if h.worldService == nil || !h.worldService.MovementStateEnabled() || sess == nil || snapshot == nil {
 		return nil
 	}
@@ -542,12 +547,12 @@ func (h *WorldHandler) initializeMovementState(ctx context.Context, sess *sessio
 		PlayerID: sess.PlayerID, SessionID: sess.ID, SceneID: snapshot.SceneID, SceneVersion: snapshot.SceneVersion,
 		PrecisePos:   world.Vec2i{X: snapshot.SelfPos.X * movementPositionFixedScale, Y: snapshot.SelfPos.Y * movementPositionFixedScale},
 		PersistedPos: world.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},
-		Speed:        config.SpeedMilliCellsPerSecond, LastServerTickMS: time.Now().UnixMilli(),
+		Speed:        config.SpeedMilliCellsPerSecond, LastServerTickMS: time.Now().UnixMilli(), PositionVersion: positionVersion,
 	})
 }
 
 // prepareMovementState 保留同一会话的现有状态；新登录会话可以覆盖旧会话，重连则必须严格匹配。
-func (h *WorldHandler) prepareMovementState(ctx context.Context, sess *session.Session, snapshot *protocol.EnterWorldResp, replaceMismatchedSession bool) error {
+func (h *WorldHandler) prepareMovementState(ctx context.Context, sess *session.Session, snapshot *protocol.EnterWorldResp, positionVersion uint64, replaceMismatchedSession bool) error {
 	if h.worldService == nil || !h.worldService.MovementStateEnabled() || sess == nil || snapshot == nil {
 		return nil
 	}
@@ -559,12 +564,12 @@ func (h *WorldHandler) prepareMovementState(ctx context.Context, sess *session.S
 		if !replaceMismatchedSession {
 			return world.ErrMovementSessionMismatch
 		}
-		return h.initializeMovementState(ctx, sess, snapshot)
+		return h.initializeMovementState(ctx, sess, snapshot, positionVersion)
 	}
 	if !errors.Is(err, world.ErrMovementStateNotFound) {
 		return err
 	}
-	return h.initializeMovementState(ctx, sess, snapshot)
+	return h.initializeMovementState(ctx, sess, snapshot, positionVersion)
 }
 
 // resetMovementStateAfterTransfer 以服务端判定的目标场景和出生点建立新的场景移动代次。

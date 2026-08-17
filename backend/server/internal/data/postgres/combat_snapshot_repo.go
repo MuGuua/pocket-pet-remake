@@ -111,6 +111,7 @@ SELECT
   p.scene_id,
   p.pos_x,
   p.pos_y,
+  p.position_version,
   s.hp,
   s.hp_max,
   s.vigor,
@@ -754,7 +755,7 @@ func scanPlayerCombatSnapshot(ctx context.Context, db DBTX, playerID uint64) (*p
 		strength, vitality, agility, mind                                        int64
 		gold                                                                     int64
 		sceneID                                                                  int64
-		posX, posY                                                               int64
+		posX, posY, positionVersion                                              int64
 		hp, hpMax                                                                int64
 		vigor, vigorMax                                                          int64
 		spirit, spiritMax                                                        int64
@@ -786,6 +787,7 @@ func scanPlayerCombatSnapshot(ctx context.Context, db DBTX, playerID uint64) (*p
 		&sceneID,
 		&posX,
 		&posY,
+		&positionVersion,
 		&hp,
 		&hpMax,
 		&vigor,
@@ -847,6 +849,7 @@ func scanPlayerCombatSnapshot(ctx context.Context, db DBTX, playerID uint64) (*p
 	profile.SceneID = uint32(sceneID)
 	profile.PosX = int32(posX)
 	profile.PosY = int32(posY)
+	profile.PositionVersion = uint64(positionVersion)
 	profile.HP = uint32(hp)
 	profile.HPMax = uint32(hpMax)
 	profile.Vigor = uint32(vigor)

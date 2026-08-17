@@ -656,6 +656,33 @@ func (r *PlayerRepository) UpdatePosition(_ context.Context, playerID uint64, sc
 	return nil
 }
 
+// UpdatePositionIfNewer 模拟 PostgreSQL 的版本条件更新，供应用层和传输层测试验证旧批次不会覆盖新位置。
+func (r *PlayerRepository) UpdatePositionIfNewer(
+	_ context.Context,
+	playerID uint64,
+	sceneID uint32,
+	posX int32,
+	posY int32,
+	positionVersion uint64,
+) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.players[playerID]
+	if !ok {
+		return false, nil
+	}
+	if positionVersion <= current.PositionVersion {
+		return false, nil
+	}
+	current.SceneID = sceneID
+	current.PosX = posX
+	current.PosY = posY
+	current.PositionVersion = positionVersion
+	r.players[playerID] = current
+	return true, nil
+}
+
 // NewPetRepository returns the fixed starter pets used by battle, pet list,
 // and lineup tests. Keeping this local avoids coupling transport tests to a DB.
 func NewPetRepository() *PetRepository {

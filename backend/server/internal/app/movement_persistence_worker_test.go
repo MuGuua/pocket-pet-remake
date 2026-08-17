@@ -52,33 +52,40 @@ func (s *movementPersistenceSourceStub) RequeueDirtyMovementPlayerIDs(ctx contex
 
 // movementPositionWrite 保存一次 PostgreSQL 玩家位置写入的完整参数。
 type movementPositionWrite struct {
-	playerID uint64
-	sceneID  uint32
-	posX     int32
-	posY     int32
+	playerID        uint64
+	sceneID         uint32
+	posX            int32
+	posY            int32
+	positionVersion uint64
 }
 
 // movementPositionWriterStub 记录永久位置写入，并允许按玩家模拟 PostgreSQL 失败。
 type movementPositionWriterStub struct {
-	writes      []movementPositionWrite
-	writeErrors map[uint64]error
+	writes         []movementPositionWrite
+	writeErrors    map[uint64]error
+	stalePlayerIDs map[uint64]bool
 }
 
-// UpdatePosition 记录写入参数，并返回指定玩家的预设写入错误。
-func (s *movementPositionWriterStub) UpdatePosition(
+// UpdatePositionIfNewer 记录版本条件写入参数，并返回指定玩家的预设写入结果。
+func (s *movementPositionWriterStub) UpdatePositionIfNewer(
 	_ context.Context,
 	playerID uint64,
 	sceneID uint32,
 	posX int32,
 	posY int32,
-) error {
+	positionVersion uint64,
+) (bool, error) {
 	s.writes = append(s.writes, movementPositionWrite{
-		playerID: playerID,
-		sceneID:  sceneID,
-		posX:     posX,
-		posY:     posY,
+		playerID:        playerID,
+		sceneID:         sceneID,
+		posX:            posX,
+		posY:            posY,
+		positionVersion: positionVersion,
 	})
-	return s.writeErrors[playerID]
+	if err := s.writeErrors[playerID]; err != nil {
+		return false, err
+	}
+	return !s.stalePlayerIDs[playerID], nil
 }
 
 // newMovementPersistenceWorkerForTest 创建使用静默日志的合法测试 worker。
@@ -107,14 +114,16 @@ func TestMovementPersistenceWorkerFlushOncePersistsClaimedPlayers(t *testing.T) 
 		claimedPlayerIDs: []uint64{10001, 10002},
 		states: map[uint64]*world.MovementState{
 			10001: {
-				PlayerID:     10001,
-				SceneID:      9,
-				PersistedPos: world.Vec2i{X: 12, Y: 18},
+				PlayerID:        10001,
+				SceneID:         9,
+				PersistedPos:    world.Vec2i{X: 12, Y: 18},
+				PositionVersion: 41,
 			},
 			10002: {
-				PlayerID:     10002,
-				SceneID:      10,
-				PersistedPos: world.Vec2i{X: 25, Y: 31},
+				PlayerID:        10002,
+				SceneID:         10,
+				PersistedPos:    world.Vec2i{X: 25, Y: 31},
+				PositionVersion: 52,
 			},
 		},
 	}
@@ -135,11 +144,44 @@ func TestMovementPersistenceWorkerFlushOncePersistsClaimedPlayers(t *testing.T) 
 		t.Fatalf("loaded player ids = %v, want [10001 10002]", source.loadedPlayerIDs)
 	}
 	wantWrites := []movementPositionWrite{
-		{playerID: 10001, sceneID: 9, posX: 12, posY: 18},
-		{playerID: 10002, sceneID: 10, posX: 25, posY: 31},
+		{playerID: 10001, sceneID: 9, posX: 12, posY: 18, positionVersion: 41},
+		{playerID: 10002, sceneID: 10, posX: 25, posY: 31, positionVersion: 52},
 	}
 	if !reflect.DeepEqual(writer.writes, wantWrites) {
 		t.Fatalf("writes = %+v, want %+v", writer.writes, wantWrites)
+	}
+	if source.requeuedPlayerIDs != nil {
+		t.Fatalf("requeued player ids = %v, want nil", source.requeuedPlayerIDs)
+	}
+}
+
+// TestMovementPersistenceWorkerFlushOnceSkipsStalePosition 验证数据库拒绝旧版本时不报错、不重入队，也不计为成功写入。
+func TestMovementPersistenceWorkerFlushOnceSkipsStalePosition(t *testing.T) {
+	source := &movementPersistenceSourceStub{
+		claimedPlayerIDs: []uint64{10001},
+		states: map[uint64]*world.MovementState{
+			10001: {
+				PlayerID:        10001,
+				SceneID:         9,
+				PersistedPos:    world.Vec2i{X: 12, Y: 18},
+				PositionVersion: 40,
+			},
+		},
+	}
+	writer := &movementPositionWriterStub{stalePlayerIDs: map[uint64]bool{10001: true}}
+	worker := newMovementPersistenceWorkerForTest(t, source, writer)
+
+	result, err := worker.flushOnce(context.Background())
+	if err != nil {
+		t.Fatalf("flushOnce() error = %v", err)
+	}
+	if result != (movementPersistenceBatchResult{Claimed: 1, Stale: 1}) {
+		t.Fatalf("flushOnce() result = %+v, want claimed=1 stale=1", result)
+	}
+	if !reflect.DeepEqual(writer.writes, []movementPositionWrite{{
+		playerID: 10001, sceneID: 9, posX: 12, posY: 18, positionVersion: 40,
+	}}) {
+		t.Fatalf("writes = %+v, want one versioned write", writer.writes)
 	}
 	if source.requeuedPlayerIDs != nil {
 		t.Fatalf("requeued player ids = %v, want nil", source.requeuedPlayerIDs)
@@ -201,14 +243,16 @@ func TestMovementPersistenceWorkerFlushOnceRequeuesIndividualFailures(t *testing
 		claimedPlayerIDs: []uint64{10001, 10002, 10003},
 		states: map[uint64]*world.MovementState{
 			10001: {
-				PlayerID:     10001,
-				SceneID:      9,
-				PersistedPos: world.Vec2i{X: 10, Y: 11},
+				PlayerID:        10001,
+				SceneID:         9,
+				PersistedPos:    world.Vec2i{X: 10, Y: 11},
+				PositionVersion: 61,
 			},
 			10003: {
-				PlayerID:     10003,
-				SceneID:      11,
-				PersistedPos: world.Vec2i{X: 30, Y: 31},
+				PlayerID:        10003,
+				SceneID:         11,
+				PersistedPos:    world.Vec2i{X: 30, Y: 31},
+				PositionVersion: 63,
 			},
 		},
 		loadErrors: map[uint64]error{10002: loadErr},
@@ -226,8 +270,8 @@ func TestMovementPersistenceWorkerFlushOnceRequeuesIndividualFailures(t *testing
 		t.Fatalf("flushOnce() result = %+v, want claimed=3 persisted=1 requeued=2", result)
 	}
 	wantWrites := []movementPositionWrite{
-		{playerID: 10001, sceneID: 9, posX: 10, posY: 11},
-		{playerID: 10003, sceneID: 11, posX: 30, posY: 31},
+		{playerID: 10001, sceneID: 9, posX: 10, posY: 11, positionVersion: 61},
+		{playerID: 10003, sceneID: 11, posX: 30, posY: 31, positionVersion: 63},
 	}
 	if !reflect.DeepEqual(writer.writes, wantWrites) {
 		t.Fatalf("writes = %+v, want %+v", writer.writes, wantWrites)

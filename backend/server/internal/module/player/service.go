@@ -220,6 +220,12 @@ func (s *Service) UpdatePosition(ctx context.Context, playerID uint64, sceneID u
 	return s.repo.UpdatePosition(ctx, playerID, sceneID, posX, posY)
 }
 
+// UpdatePositionIfNewer 仅把更高版本的 Redis 权威位置写入永久存储。
+// 返回 false 且 error 为 nil 表示数据库已有相同或更高版本，调用方应安全忽略而不是重试旧状态。
+func (s *Service) UpdatePositionIfNewer(ctx context.Context, playerID uint64, sceneID uint32, posX, posY int32, positionVersion uint64) (bool, error) {
+	return s.repo.UpdatePositionIfNewer(ctx, playerID, sceneID, posX, posY, positionVersion)
+}
+
 // AddExp 增加角色经验并在服务端处理升级、溢出结转与属性点发放。
 func (s *Service) AddExp(ctx context.Context, playerID uint64, exp uint64) (*ExpGrantResult, error) {
 	if s.progressionService == nil {

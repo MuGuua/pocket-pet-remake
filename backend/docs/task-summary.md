@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-17：P1-07 PostgreSQL 位置版本条件写回任务总结
+
+- 本次只完成多人同屏优化清单 P1-07，没有提前实现 P1-08 停止、切图、战斗、断线、顶号和停服节点最终写回，也没有把 P1-09 完整故障恢复测试标记为完成。
+- 新增未执行迁移 `backend/server/migrations/123_player_position_version.sql`，为 `player` 表增加 `position_version BIGINT NOT NULL DEFAULT 0` 和非负约束。数据库结构变更仅输出迁移 SQL，由用户后续执行。
+- `backend/server/internal/module/player/` 扩展档案模型、仓储契约与领域服务；`backend/server/internal/data/postgres/player_repo.go` 使用版本条件更新永久场景与坐标，只允许更高版本覆盖，并对超过 PostgreSQL `BIGINT` 上限的版本提前返回错误。
+- 普通玩家档案和战斗快照查询都恢复 `position_version`。`backend/server/internal/transport/ws/world_handler.go` 在 Redis 状态缺失时使用 PostgreSQL 版本初始化移动状态；Redis 状态存在时继续采用缓存中的权威版本，公开快照构建接口保持原签名。
+- `backend/server/internal/app/movement_persistence_worker.go` 改为传递 Redis 状态版本并调用 `UpdatePositionIfNewer`。更旧或相同版本按 stale 统计，不覆盖新位置、不报错也不重入队；真实读取或数据库错误仍按 P1-06 机制重入 dirty 集合。
+- 测试覆盖条件更新命中、stale、安全失败、`RowsAffected` 错误、版本溢出、查询字段、worker 版本传递与 stale 行为，以及 Redis 缺失时恢复 PostgreSQL 版本基线。P1-08 完成前，既有停止、切图、战斗、断线、顶号和停服链路尚未统一使用最终版本写回，不能声称全部位置竞态已解决。
+- 验证通过：`GOCACHE=/tmp/pocket-pet-p107-go-cache go test ./server/internal/app ./server/internal/module/player ./server/internal/data/postgres ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check`。
+- 建议提交信息：`perf(world): 完成 P1-07 位置版本条件写回`
+
 ## 2026-08-17：P1-06 周期批量写回与失败重试任务总结
 
 - 本次只完成多人同屏优化清单 P1-06，没有提前实现 P1-07 PostgreSQL 位置版本迁移与条件更新、P1-08 停止/切图/战斗/断线/顶号/停服最终写回或 P1-09 完整故障恢复测试。

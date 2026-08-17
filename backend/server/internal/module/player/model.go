@@ -79,16 +79,18 @@ type Profile struct {
 	Level    uint32
 	Exp      uint64
 	// ExpToNext 表示当前等级距离下一级还需要的经验，满级时为 0。
-	ExpToNext          uint64
-	FreeAttrPoints     uint32
-	Strength           uint32
-	Vitality           uint32
-	Agility            uint32
-	Mind               uint32
-	Gold               uint32
-	SceneID            uint32
-	PosX               int32
-	PosY               int32
+	ExpToNext      uint64
+	FreeAttrPoints uint32
+	Strength       uint32
+	Vitality       uint32
+	Agility        uint32
+	Mind           uint32
+	Gold           uint32
+	SceneID        uint32
+	PosX           int32
+	PosY           int32
+	// PositionVersion 是 PostgreSQL 永久位置的单调递增版本，用于阻止旧批次覆盖更新位置。
+	PositionVersion    uint64
 	HP                 uint32
 	HPMax              uint32
 	Vigor              uint32

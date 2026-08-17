@@ -21,15 +21,16 @@ type movementPersistenceSource interface {
 }
 
 // movementPositionWriter 暴露 PostgreSQL 永久位置写入所需的最小能力。
-// 当前由 player.Service 实现；P1-07 会在该边界后增加位置版本条件更新，worker 无需了解 SQL 细节。
+// 当前由 player.Service 实现；worker 只传递 Redis 权威版本，不在应用层复制 SQL 条件判断。
 type movementPositionWriter interface {
-	UpdatePosition(ctx context.Context, playerID uint64, sceneID uint32, posX int32, posY int32) error
+	UpdatePositionIfNewer(ctx context.Context, playerID uint64, sceneID uint32, posX int32, posY int32, positionVersion uint64) (bool, error)
 }
 
 // movementPersistenceBatchResult 记录单次周期批次的处理数量，供日志与测试确认失败玩家没有静默丢失。
 type movementPersistenceBatchResult struct {
 	Claimed   int
 	Persisted int
+	Stale     int
 	Requeued  int
 }
 
@@ -85,9 +86,10 @@ func (w *movementPersistenceWorker) Run(ctx context.Context) {
 			result, err := w.flushOnce(ctx)
 			if err != nil {
 				w.logger.Printf(
-					"movement persistence batch failed: claimed=%d persisted=%d requeued=%d: %v",
+					"movement persistence batch failed: claimed=%d persisted=%d stale=%d requeued=%d: %v",
 					result.Claimed,
 					result.Persisted,
+					result.Stale,
 					result.Requeued,
 					err,
 				)
@@ -96,8 +98,8 @@ func (w *movementPersistenceWorker) Run(ctx context.Context) {
 	}
 }
 
-// flushOnce 原子领取一个有界批次，并逐个读取 Redis 最新状态后写入 PostgreSQL。
-// P1-07 完成前写入仍使用现有无版本位置接口，因此本方法保留状态版本但不在应用层自行判断覆盖顺序。
+// flushOnce 原子领取一个有界批次，并逐个读取 Redis 最新状态后按版本写入 PostgreSQL。
+// 数据库拒绝相同或更旧版本属于已安全处理的 stale 状态，不应重新入队形成无效重试循环。
 func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPersistenceBatchResult, error) {
 	playerIDs, err := w.source.ClaimDirtyMovementPlayerIDs(ctx, w.batchSize)
 	if err != nil {
@@ -122,15 +124,21 @@ func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPers
 			batchErr = errors.Join(batchErr, fmt.Errorf("load movement state for player %d: invalid state", playerID))
 			continue
 		}
-		if persistErr := w.writer.UpdatePosition(
+		applied, persistErr := w.writer.UpdatePositionIfNewer(
 			ctx,
 			playerID,
 			state.SceneID,
 			state.PersistedPos.X,
 			state.PersistedPos.Y,
-		); persistErr != nil {
+			state.PositionVersion,
+		)
+		if persistErr != nil {
 			failedPlayerIDs = append(failedPlayerIDs, playerID)
 			batchErr = errors.Join(batchErr, fmt.Errorf("persist movement state for player %d: %w", playerID, persistErr))
+			continue
+		}
+		if !applied {
+			result.Stale++
 			continue
 		}
 		result.Persisted++

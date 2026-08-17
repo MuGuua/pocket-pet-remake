@@ -166,9 +166,9 @@ world_scene_navigation
 | 断开或顶号 | 尽力同步写回并使旧会话失效 |
 | 服务关闭 | 在优雅停机窗口批量刷回 |
 
-周期写回 worker 已按 YAML 配置串行运行：默认每 5 秒使用 `SPOP` 最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威状态并写入 PostgreSQL；单玩家失败不阻断同批其他玩家，失败编号在批次末统一重新入队。应用退出时先停止并等待 worker 完成清理，再关闭 Redis 与 PostgreSQL 连接。
+周期写回 worker 已按 YAML 配置串行运行：默认每 5 秒使用 `SPOP` 最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威状态，并携带 `position_version` 条件写入 PostgreSQL；单玩家失败不阻断同批其他玩家，失败编号在批次末统一重新入队。数据库已有相同或更高版本时，本批状态按 stale 安全跳过，不会覆盖新位置，也不会重新入队形成无效重试。应用退出时先停止并等待 worker 完成清理，再关闭 Redis 与 PostgreSQL 连接。
 
-持久化最终必须携带单调递增的 `position_version`，数据库更新只能由更高版本覆盖较低版本，避免旧批次回写覆盖新位置。P1-07 尚未完成前，周期 worker 仍复用现有无版本 `UpdatePosition`，因此旧批次覆盖新位置的风险尚未解除。
+玩家表已通过迁移 `123_player_position_version.sql` 增加非负 `position_version BIGINT NOT NULL DEFAULT 0`。普通档案与战斗快照读取都会恢复该版本；Redis 状态缺失时，首次进入世界以 PostgreSQL 版本作为后续移动的递增基线。周期 worker 通过 `UpdatePositionIfNewer` 保证只有更高版本可以覆盖场景和坐标。迁移仅生成、未执行；P1-08 完成前，停止、切图、战斗、断线、顶号和停服等关键节点仍未统一改为最终版本写回，不能视为所有位置竞态均已闭环。
 
 ## 8. 客户端表现策略
 
@@ -221,8 +221,8 @@ world_scene_navigation
 - [x] P1-03 进入世界时实现 Redis优先、PostgreSQL回退的恢复流程。重连快照优先使用 Redis最新场景、整数位置和千分之一格位置；缓存缺失时使用 PostgreSQL快照并重新初始化 Redis。
 - [x] P1-04 移除普通移动请求中的 PostgreSQL同步档案查询和位置写入。Redis 已启用时，handler 直接调用 `world.Service.MovePlayer` 加载当前场景与位置，成功移动只通过 Lua CAS 推进 Redis 并标记 dirty；切图和未装配 Redis 的旧服务兼容分支继续读取永久档案，旧服务普通移动继续同步写位置。
 - [x] P1-05 实现 Redis dirty 玩家集合。移动 CAS 成功后继续通过 `SADD` 生产 dirty 标记；`world.MovementStateRepository` 与领域服务新增批量领取、失败重入队接口，Redis 适配器使用 `SPOP key count` 原子领取玩家编号。领取后产生的新移动会再次 `SADD`，不会被旧批次成功处理误删；PostgreSQL 写回失败的编号可通过单次 Lua 调用重新加入集合，供 P1-06 worker 重试。
-- [x] P1-06 实现周期批量写回 worker 和失败重试。应用层 worker 默认每 5 秒最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威整数位置并通过 `player.Service.UpdatePosition` 写入 PostgreSQL；单玩家读取或写入失败不会阻断同批其他玩家，失败编号统一重入队。运行参数来自 YAML，批次串行不重叠，应用退出时先等待 worker 停止再关闭数据连接。P1-07 完成前仍是无版本写入。
-- [ ] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。
+- [x] P1-06 实现周期批量写回 worker 和失败重试。应用层 worker 默认每 5 秒最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威整数位置；单玩家读取或写入失败不会阻断同批其他玩家，失败编号统一重入队。运行参数来自 YAML，批次串行不重叠，应用退出时先等待 worker 停止再关闭数据连接。P1-07 已在该 worker 上补齐版本条件写回。
+- [x] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。新增未执行迁移 `123_player_position_version.sql`；玩家档案恢复 `position_version`，Redis 缺失时沿用数据库版本基线；周期 worker 仅写入更高版本，旧版本按 stale 安全跳过且不重入队。关键节点最终写回仍由 P1-08 处理。
 - [ ] P1-08 在停止、切图、战斗、断线、顶号和停服节点触发最终写回。
 - [ ] P1-09 补充 Redis断开、PostgreSQL短时失败、重启恢复和旧版本覆盖测试。
 
