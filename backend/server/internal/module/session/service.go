@@ -26,6 +26,7 @@ type Service struct {
 	now                          func() time.Time
 	logger                       *log.Logger
 	onDisconnect                 func(playerID uint64)
+	onReplace                    func(playerID uint64)
 	additionalDisconnectHandlers []func(playerID uint64)
 }
 
@@ -125,6 +126,14 @@ func (s *Service) SetDisconnectHandler(handler func(playerID uint64)) {
 	s.onDisconnect = handler
 }
 
+// SetReplacementHandler 设置新登录会话替换旧会话时的同步生命周期处理器。
+// 处理器在会话锁外执行，允许安全访问 Redis 或 PostgreSQL，且不会把普通断线与重连误判为顶号。
+func (s *Service) SetReplacementHandler(handler func(playerID uint64)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onReplace = handler
+}
+
 // AddDisconnectHandler 追加互不覆盖的断线清理逻辑，让战斗结算与世界离场广播可以同时执行。
 func (s *Service) AddDisconnectHandler(handler func(playerID uint64)) {
 	if handler == nil {
@@ -157,9 +166,12 @@ func (s *Service) Bind(playerID uint64, conn Conn) (*Session, error) {
 	}
 
 	var kicked Conn
+	var replaced bool
 	s.mu.Lock()
+	replacementHandler := s.onReplace
 	if oldSessionID, ok := s.sessionIDByPlayer[playerID]; ok {
 		kicked = s.removeSessionLocked(oldSessionID)
+		replaced = true
 	}
 	s.sessionIDByPlayer[playerID] = newSession.ID
 	s.sessionIDByConn[newSession.ConnID] = newSession.ID
@@ -167,6 +179,9 @@ func (s *Service) Bind(playerID uint64, conn Conn) (*Session, error) {
 	s.sessionsByID[newSession.ID] = newSession
 	s.mu.Unlock()
 
+	if replaced && replacementHandler != nil {
+		replacementHandler(playerID)
+	}
 	if kicked != nil {
 		packet, packetErr := protocol.NewJSONPacket(protocol.CmdForceOfflinePush, 0, errcode.WSCodeSuccess, protocol.ForceOfflinePush{
 			Reason: "account logged in elsewhere",

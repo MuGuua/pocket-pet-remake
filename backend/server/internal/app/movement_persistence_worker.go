@@ -98,6 +98,90 @@ func (w *movementPersistenceWorker) Run(ctx context.Context) {
 	}
 }
 
+// PersistPlayerMovement 读取指定玩家当前 Redis 权威移动状态，并按位置版本写入 PostgreSQL。
+// 关键生命周期节点不会领取 dirty 标记，因此写回失败时原标记仍保留给周期 worker 或停服排空重试。
+func (w *movementPersistenceWorker) PersistPlayerMovement(ctx context.Context, playerID uint64) error {
+	if playerID == 0 {
+		return fmt.Errorf("movement persistence player id is required")
+	}
+	state, err := w.source.LoadMovementState(ctx, playerID)
+	if errors.Is(err, world.ErrMovementStateNotFound) {
+		// 玩家尚未进入世界时不存在 Redis 移动状态，永久档案本身已经是最新可用位置。
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load movement state for player %d: %w", playerID, err)
+	}
+	if state == nil || state.PlayerID != playerID {
+		return fmt.Errorf("load movement state for player %d: invalid state", playerID)
+	}
+	_, err = w.PersistMovementState(ctx, *state)
+	return err
+}
+
+// PersistMovementState 把调用方已经确认的权威状态按版本写入 PostgreSQL。
+// 返回 false 表示数据库已经持有相同或更高版本，调用方可按自身流程决定将其视为安全 stale 或并发冲突。
+func (w *movementPersistenceWorker) PersistMovementState(ctx context.Context, state world.MovementState) (bool, error) {
+	if state.PlayerID == 0 {
+		return false, fmt.Errorf("movement persistence player id is required")
+	}
+	applied, err := w.writer.UpdatePositionIfNewer(
+		ctx,
+		state.PlayerID,
+		state.SceneID,
+		state.PersistedPos.X,
+		state.PersistedPos.Y,
+		state.PositionVersion,
+	)
+	if err != nil {
+		return false, fmt.Errorf("persist movement state for player %d: %w", state.PlayerID, err)
+	}
+	return applied, nil
+}
+
+// DrainDirtyMovement 在停服阶段有限排空当前 dirty 集合。
+// 失败玩家暂存到排空结束后再统一重入队，避免数据库持续故障时立即领取同一玩家形成无限循环。
+func (w *movementPersistenceWorker) DrainDirtyMovement(ctx context.Context) (movementPersistenceBatchResult, error) {
+	result := movementPersistenceBatchResult{}
+	failedPlayerIDs := make([]uint64, 0)
+	failedPlayerSet := make(map[uint64]struct{})
+	var drainErr error
+
+	for ctx.Err() == nil {
+		playerIDs, err := w.source.ClaimDirtyMovementPlayerIDs(ctx, w.batchSize)
+		if err != nil {
+			drainErr = errors.Join(drainErr, fmt.Errorf("claim dirty movement players: %w", err))
+			break
+		}
+		if len(playerIDs) == 0 {
+			break
+		}
+		result.Claimed += len(playerIDs)
+		batchResult, batchFailedPlayerIDs, batchErr := w.persistPlayerIDs(ctx, playerIDs)
+		result.Persisted += batchResult.Persisted
+		result.Stale += batchResult.Stale
+		drainErr = errors.Join(drainErr, batchErr)
+		for _, playerID := range batchFailedPlayerIDs {
+			if _, exists := failedPlayerSet[playerID]; exists {
+				continue
+			}
+			failedPlayerSet[playerID] = struct{}{}
+			failedPlayerIDs = append(failedPlayerIDs, playerID)
+		}
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		drainErr = errors.Join(drainErr, fmt.Errorf("drain dirty movement players: %w", ctxErr))
+	}
+	if len(failedPlayerIDs) == 0 {
+		return result, drainErr
+	}
+	if requeueErr := w.requeueFailedPlayerIDs(ctx, failedPlayerIDs); requeueErr != nil {
+		return result, errors.Join(drainErr, fmt.Errorf("requeue dirty movement players: %w", requeueErr))
+	}
+	result.Requeued = len(failedPlayerIDs)
+	return result, drainErr
+}
+
 // flushOnce 原子领取一个有界批次，并逐个读取 Redis 最新状态后按版本写入 PostgreSQL。
 // 数据库拒绝相同或更旧版本属于已安全处理的 stale 状态，不应重新入队形成无效重试循环。
 func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPersistenceBatchResult, error) {
@@ -110,6 +194,23 @@ func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPers
 		return result, nil
 	}
 
+	persistResult, failedPlayerIDs, batchErr := w.persistPlayerIDs(ctx, playerIDs)
+	result.Persisted = persistResult.Persisted
+	result.Stale = persistResult.Stale
+	if len(failedPlayerIDs) == 0 {
+		return result, batchErr
+	}
+	if requeueErr := w.requeueFailedPlayerIDs(ctx, failedPlayerIDs); requeueErr != nil {
+		return result, errors.Join(batchErr, fmt.Errorf("requeue dirty movement players: %w", requeueErr))
+	}
+	result.Requeued = len(failedPlayerIDs)
+	return result, batchErr
+}
+
+// persistPlayerIDs 处理已经领取的玩家编号，但不负责 dirty 重入队。
+// 周期批次可以立即重入失败编号；停服排空则延迟重入，二者共享完全相同的版本写回判定。
+func (w *movementPersistenceWorker) persistPlayerIDs(ctx context.Context, playerIDs []uint64) (movementPersistenceBatchResult, []uint64, error) {
+	result := movementPersistenceBatchResult{}
 	failedPlayerIDs := make([]uint64, 0)
 	var batchErr error
 	for _, playerID := range playerIDs {
@@ -124,17 +225,10 @@ func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPers
 			batchErr = errors.Join(batchErr, fmt.Errorf("load movement state for player %d: invalid state", playerID))
 			continue
 		}
-		applied, persistErr := w.writer.UpdatePositionIfNewer(
-			ctx,
-			playerID,
-			state.SceneID,
-			state.PersistedPos.X,
-			state.PersistedPos.Y,
-			state.PositionVersion,
-		)
+		applied, persistErr := w.PersistMovementState(ctx, *state)
 		if persistErr != nil {
 			failedPlayerIDs = append(failedPlayerIDs, playerID)
-			batchErr = errors.Join(batchErr, fmt.Errorf("persist movement state for player %d: %w", playerID, persistErr))
+			batchErr = errors.Join(batchErr, persistErr)
 			continue
 		}
 		if !applied {
@@ -143,15 +237,7 @@ func (w *movementPersistenceWorker) flushOnce(ctx context.Context) (movementPers
 		}
 		result.Persisted++
 	}
-
-	if len(failedPlayerIDs) == 0 {
-		return result, batchErr
-	}
-	if requeueErr := w.requeueFailedPlayerIDs(ctx, failedPlayerIDs); requeueErr != nil {
-		return result, errors.Join(batchErr, fmt.Errorf("requeue dirty movement players: %w", requeueErr))
-	}
-	result.Requeued = len(failedPlayerIDs)
-	return result, batchErr
+	return result, failedPlayerIDs, batchErr
 }
 
 // requeueFailedPlayerIDs 在正常运行时复用批次上下文；若应用正在取消，则给 Redis 重入队保留短暂清理窗口。

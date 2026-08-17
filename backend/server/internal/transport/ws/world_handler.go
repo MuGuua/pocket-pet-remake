@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -29,18 +30,19 @@ type packetSender interface {
 }
 
 type WorldHandler struct {
-	sessionService   *session.Service
-	playerService    *player.Service
-	petService       *pet.Service
-	questService     *quest.Service
-	walletService    *wallet.Service
-	worldService     *world.Service
-	monsterService   *monster.Service
-	equipmentService *equipment.Service
-	runtimeSnapshots *runtimeview.Service
-	storyService     *storyprogress.Service
-	presenceMu       sync.RWMutex
-	playerScenes     map[uint64]uint32
+	sessionService    *session.Service
+	playerService     *player.Service
+	petService        *pet.Service
+	questService      *quest.Service
+	walletService     *wallet.Service
+	worldService      *world.Service
+	monsterService    *monster.Service
+	equipmentService  *equipment.Service
+	runtimeSnapshots  *runtimeview.Service
+	storyService      *storyprogress.Service
+	movementPersister movementFinalPersister
+	presenceMu        sync.RWMutex
+	playerScenes      map[uint64]uint32
 }
 
 func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
@@ -71,6 +73,15 @@ func (h *WorldHandler) SetStoryProgressService(service *storyprogress.Service) {
 		return
 	}
 	h.storyService = service
+}
+
+// SetMovementFinalPersister 注入关键移动节点的最终位置写回入口。
+// handler 只依赖最小接口，避免传输层反向依赖应用包形成循环引用。
+func (h *WorldHandler) SetMovementFinalPersister(persister movementFinalPersister) {
+	if h == nil {
+		return
+	}
+	h.movementPersister = persister
 }
 
 // BuildWorldSnapshotForPlayer reuses the same authority path as enter-world so
@@ -299,6 +310,10 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		if stateErr := h.worldService.AdvanceMovementState(ctx, nextState); stateErr != nil {
 			return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, stateErr)
 		}
+		currentMovementState, err = h.worldService.LoadMovementState(ctx, sess.PlayerID)
+		if err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "reload movement state failed", err)
+		}
 	}
 
 	var decision *world.MoveDecision
@@ -326,24 +341,41 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	if err != nil {
 		return err
 	}
-	if err := conn.SendPacket(responsePacket); err != nil {
-		log.Printf("[SceneTransition][Server] response send failed player_id=%d err=%v", sess.PlayerID, err)
-		return err
-	}
-	log.Printf("[SceneTransition][Server] MOVE_INTENT_RESP sent player_id=%d accepted=%t scene=%d", sess.PlayerID, decision.Accepted, decision.ToSceneID)
-
 	if !decision.Accepted {
+		if err := conn.SendPacket(responsePacket); err != nil {
+			log.Printf("[SceneTransition][Server] response send failed player_id=%d err=%v", sess.PlayerID, err)
+			return err
+		}
 		log.Printf("[SceneTransition][Server] rejected transfer resync player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, authoritativeSceneID, currentPos.X, currentPos.Y)
 		return h.sendWorldResync(conn, authoritativeSceneID, currentPos)
 	}
 
-	if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
-		log.Printf("[SceneTransition][Server] persist position failed player_id=%d err=%v", sess.PlayerID, err)
+	if currentMovementState != nil {
+		targetState, stateErr := h.buildMovementStateAfterTransfer(sess, decision, request.MoveSeq, currentMovementState.PositionVersion, profile.PositionVersion)
+		if stateErr != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "build movement state after transfer failed", stateErr)
+		}
+		applied, persistErr := h.persistTransferMovementState(ctx, targetState)
+		if persistErr != nil {
+			log.Printf("[SceneTransition][Server] versioned position persist failed player_id=%d err=%v", sess.PlayerID, persistErr)
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed", persistErr)
+		}
+		if !applied {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "player position version conflict")
+		}
+		if err := h.resetMovementStateAfterTransfer(ctx, targetState); err != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "reset movement state after transfer failed", err)
+		}
+	} else if err := h.playerService.UpdatePosition(ctx, sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y); err != nil {
+		// 未装配 Redis 的旧服务没有位置版本，只保留原同步写入作为兼容分支。
+		log.Printf("[SceneTransition][Server] legacy position persist failed player_id=%d err=%v", sess.PlayerID, err)
 		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "update player position failed")
 	}
-	if err := h.resetMovementStateAfterTransfer(ctx, sess, decision, request.MoveSeq); err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "reset movement state after transfer failed", err)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		log.Printf("[SceneTransition][Server] response send failed player_id=%d err=%v", sess.PlayerID, err)
+		return err
 	}
+	log.Printf("[SceneTransition][Server] MOVE_INTENT_RESP sent player_id=%d accepted=true scene=%d", sess.PlayerID, decision.ToSceneID)
 	log.Printf("[SceneTransition][Server] position persisted player_id=%d scene=%d pos=(%d,%d)", sess.PlayerID, decision.ToSceneID, decision.SpawnPos.X, decision.SpawnPos.Y)
 	// 同地图快速传送只更新权威坐标并同步 AOI，不重复触发离开/进入场景和 ENTER_SCENE 任务事件。
 	if request.MapTeleport && decision.ToSceneID == authoritativeSceneID {
@@ -408,6 +440,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 	var authoritativeSpeed uint32
 	var authoritativeFacing protocol.Vec2i
 	var authoritativeMoving bool
+	var stoppedMoving bool
 	movementStateEnabled := h.worldService != nil && h.worldService.MovementStateEnabled()
 
 	if movementStateEnabled {
@@ -452,6 +485,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 		authoritativeSceneID = movementResult.State.SceneID
 		authoritativeSceneVersion = movementResult.State.SceneVersion
 		correctedPos = movementResult.State.PersistedPos
+		stoppedMoving = movementResult.PreviousState.Moving && !movementResult.State.Moving
 		if request.TargetPos != nil {
 			correctedPrecisePos = protocol.Vec2i{X: movementResult.State.PrecisePos.X, Y: movementResult.State.PrecisePos.Y}
 			authoritativeSpeed = movementResult.State.Speed
@@ -517,6 +551,9 @@ func (h *WorldHandler) handleSameSceneMovement(
 		authoritativeSpeed,
 		serverTick,
 	)
+	if stoppedMoving {
+		go h.persistStoppedMovement(sess.PlayerID)
+	}
 	return nil
 }
 
@@ -572,21 +609,54 @@ func (h *WorldHandler) prepareMovementState(ctx context.Context, sess *session.S
 	return h.initializeMovementState(ctx, sess, snapshot, positionVersion)
 }
 
-// resetMovementStateAfterTransfer 以服务端判定的目标场景和出生点建立新的场景移动代次。
-func (h *WorldHandler) resetMovementStateAfterTransfer(ctx context.Context, sess *session.Session, decision *world.MoveDecision, moveSeq uint32) error {
-	if h.worldService == nil || !h.worldService.MovementStateEnabled() || sess == nil || decision == nil {
-		return nil
+// buildMovementStateAfterTransfer 构造严格高于 Redis 与 PostgreSQL 已知版本的目标场景状态。
+// 切图落点来自服务端判定，客户端请求中的坐标不会参与永久位置写回。
+func (h *WorldHandler) buildMovementStateAfterTransfer(sess *session.Session, decision *world.MoveDecision, moveSeq uint32, redisVersion uint64, postgresVersion uint64) (world.MovementState, error) {
+	if h.worldService == nil || sess == nil || decision == nil {
+		return world.MovementState{}, fmt.Errorf("movement transfer dependencies are required")
 	}
 	config, err := h.worldService.MovementConfigSnapshot()
 	if err != nil {
-		return err
+		return world.MovementState{}, err
 	}
-	return h.worldService.InitializeMovementState(ctx, world.MovementState{
+	baseVersion := redisVersion
+	if postgresVersion > baseVersion {
+		baseVersion = postgresVersion
+	}
+	if baseVersion == ^uint64(0) {
+		return world.MovementState{}, fmt.Errorf("movement position version exhausted")
+	}
+	return world.MovementState{
 		PlayerID: sess.PlayerID, SessionID: sess.ID, SceneID: decision.ToSceneID, SceneVersion: decision.SceneVersion,
 		PrecisePos:   world.Vec2i{X: decision.SpawnPos.X * movementPositionFixedScale, Y: decision.SpawnPos.Y * movementPositionFixedScale},
 		PersistedPos: decision.SpawnPos, Speed: config.SpeedMilliCellsPerSecond, LastMoveSeq: moveSeq,
-		LastServerTickMS: time.Now().UnixMilli(), PositionVersion: uint64(time.Now().UnixMilli()),
-	})
+		LastServerTickMS: time.Now().UnixMilli(), PositionVersion: baseVersion + 1,
+	}, nil
+}
+
+// persistTransferMovementState 在重建 Redis 场景代次前先完成版本化永久位置写回。
+// 正式装配使用统一 persister；测试或旧装配缺失该接口时仍复用 player.Service 的条件更新能力。
+func (h *WorldHandler) persistTransferMovementState(ctx context.Context, state world.MovementState) (bool, error) {
+	if h.movementPersister != nil {
+		return h.movementPersister.PersistMovementState(ctx, state)
+	}
+	return h.playerService.UpdatePositionIfNewer(ctx, state.PlayerID, state.SceneID, state.PersistedPos.X, state.PersistedPos.Y, state.PositionVersion)
+}
+
+// resetMovementStateAfterTransfer 使用已经成功写入 PostgreSQL 的同一版本重建目标场景 Redis 状态。
+func (h *WorldHandler) resetMovementStateAfterTransfer(ctx context.Context, state world.MovementState) error {
+	if h.worldService == nil || !h.worldService.MovementStateEnabled() {
+		return nil
+	}
+	return h.worldService.InitializeMovementState(ctx, state)
+}
+
+// persistStoppedMovement 在停止包响应和广播完成后异步写回最新权威位置。
+// 若玩家在 goroutine 执行前再次移动，persister 会读取更新后的 Redis 状态，因此不会把旧停止位置覆盖到数据库。
+func (h *WorldHandler) persistStoppedMovement(playerID uint64) {
+	if err := persistPlayerMovementWithTimeout(h.movementPersister, playerID); err != nil {
+		log.Printf("persist stopped movement failed player_id=%d: %v", playerID, err)
+	}
 }
 
 // sendMovementStateRejected 返回当前 Redis权威位置，使客户端解除 pending 并保留后续纠偏依据。

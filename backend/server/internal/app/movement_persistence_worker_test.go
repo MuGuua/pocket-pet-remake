@@ -16,6 +16,8 @@ import (
 type movementPersistenceSourceStub struct {
 	claimLimit        uint32
 	claimedPlayerIDs  []uint64
+	claimedBatches    [][]uint64
+	claimCount        int
 	claimErr          error
 	loadedPlayerIDs   []uint64
 	states            map[uint64]*world.MovementState
@@ -28,8 +30,16 @@ type movementPersistenceSourceStub struct {
 // ClaimDirtyMovementPlayerIDs 返回测试预设的 dirty 玩家，并记录 worker 使用的批次上限。
 func (s *movementPersistenceSourceStub) ClaimDirtyMovementPlayerIDs(_ context.Context, limit uint32) ([]uint64, error) {
 	s.claimLimit = limit
+	s.claimCount++
 	if s.claimErr != nil {
 		return nil, s.claimErr
+	}
+	if s.claimedBatches != nil {
+		index := s.claimCount - 1
+		if index >= len(s.claimedBatches) {
+			return []uint64{}, nil
+		}
+		return append([]uint64(nil), s.claimedBatches[index]...), nil
 	}
 	return append([]uint64(nil), s.claimedPlayerIDs...), nil
 }
@@ -390,5 +400,51 @@ func TestNewMovementPersistenceWorkerRejectsInvalidArguments(t *testing.T) {
 				t.Fatalf("newMovementPersistenceWorker() = %+v, nil; want error", worker)
 			}
 		})
+	}
+}
+
+// TestMovementPersistenceWorkerPersistPlayerMovementUsesLatestState 验证关键节点写回始终重新读取 Redis 最新状态。
+func TestMovementPersistenceWorkerPersistPlayerMovementUsesLatestState(t *testing.T) {
+	source := &movementPersistenceSourceStub{states: map[uint64]*world.MovementState{
+		10001: {PlayerID: 10001, SceneID: 9, PersistedPos: world.Vec2i{X: 18, Y: 27}, PositionVersion: 71},
+	}}
+	writer := &movementPositionWriterStub{}
+	worker := newMovementPersistenceWorkerForTest(t, source, writer)
+
+	if err := worker.PersistPlayerMovement(context.Background(), 10001); err != nil {
+		t.Fatalf("PersistPlayerMovement() error = %v", err)
+	}
+	want := []movementPositionWrite{{playerID: 10001, sceneID: 9, posX: 18, posY: 27, positionVersion: 71}}
+	if !reflect.DeepEqual(writer.writes, want) {
+		t.Fatalf("writes = %+v, want %+v", writer.writes, want)
+	}
+}
+
+// TestMovementPersistenceWorkerDrainDirtyMovementRequeuesFailuresAfterDrain 验证停服排空跨多个批次处理，并在集合排空后才恢复失败 dirty 标记。
+func TestMovementPersistenceWorkerDrainDirtyMovementRequeuesFailuresAfterDrain(t *testing.T) {
+	writeErr := errors.New("postgres unavailable")
+	source := &movementPersistenceSourceStub{
+		claimedBatches: [][]uint64{{10001, 10002}, {10003}, {}},
+		states: map[uint64]*world.MovementState{
+			10001: {PlayerID: 10001, SceneID: 9, PersistedPos: world.Vec2i{X: 1, Y: 2}, PositionVersion: 81},
+			10002: {PlayerID: 10002, SceneID: 9, PersistedPos: world.Vec2i{X: 3, Y: 4}, PositionVersion: 82},
+			10003: {PlayerID: 10003, SceneID: 9, PersistedPos: world.Vec2i{X: 5, Y: 6}, PositionVersion: 83},
+		},
+	}
+	writer := &movementPositionWriterStub{
+		writeErrors:    map[uint64]error{10002: writeErr},
+		stalePlayerIDs: map[uint64]bool{10003: true},
+	}
+	worker := newMovementPersistenceWorkerForTest(t, source, writer)
+
+	result, err := worker.DrainDirtyMovement(context.Background())
+	if !errors.Is(err, writeErr) {
+		t.Fatalf("DrainDirtyMovement() error = %v, want %v", err, writeErr)
+	}
+	if result != (movementPersistenceBatchResult{Claimed: 3, Persisted: 1, Stale: 1, Requeued: 1}) {
+		t.Fatalf("DrainDirtyMovement() result = %+v", result)
+	}
+	if source.claimCount != 3 || !reflect.DeepEqual(source.requeuedPlayerIDs, []uint64{10002}) {
+		t.Fatalf("claim_count=%d requeued=%v, want 3 and [10002]", source.claimCount, source.requeuedPlayerIDs)
 	}
 }

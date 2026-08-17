@@ -113,12 +113,16 @@
 - `world.MovementStateRepository` 是领域层的短时权威移动状态边界；Redis适配器通过应用装配注入，WebSocket handler 不直接依赖 Redis客户端。
 - Redis玩家移动状态使用 `{key_prefix}:world:movement:player:{player_id}`，保存会话、场景代次、千分之一格定点坐标、移动序号和位置版本，TTL 为 24 小时并在更新时续期。
 - 状态更新使用 Lua CAS，同时比较会话、场景代次和旧移动序号；成功更新后把玩家加入 `{key_prefix}:world:movement:dirty`。批量持久化入口使用 Redis `SPOP key count` 原子领取一批玩家编号，领取后发生的新移动会再次 `SADD`，不会被旧批次成功处理误删。
-- 应用层周期写回 worker 通过 `world.Service` 领取 dirty 玩家并读取 Redis 最新权威状态，再通过 `player.Service.UpdatePositionIfNewer` 把场景、整数坐标和 `position_version` 条件写入 PostgreSQL。默认每 5 秒最多处理 100 名玩家，周期与批次上限由 YAML `movement_persistence` 配置；批次串行执行，单玩家失败不阻断同批其他玩家，读取或数据库错误的编号在批次末统一重入队。数据库已有相同或更高版本时按 stale 安全跳过，不覆盖新位置且不重试。应用退出时先取消并等待 worker 完成清理，再关闭 Redis 与 PostgreSQL。
-- 玩家表通过未执行迁移 `123_player_position_version.sql` 增加非负永久位置版本。普通档案与战斗快照查询都会读取该字段；首次进入世界或 Redis 状态缺失时，以 PostgreSQL 快照及其版本初始化 Redis，避免缓存重建后从零重新计数。同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态，切图成功后按目标场景和出生点重建场景移动代次。
+- 应用层周期写回 worker 通过 `world.Service` 领取 dirty 玩家并读取 Redis 最新权威状态，再通过 `player.Service.UpdatePositionIfNewer` 把场景、整数坐标和 `position_version` 条件写入 PostgreSQL。默认每 5 秒最多处理 100 名玩家，周期与批次上限由 YAML `movement_persistence` 配置；批次串行执行，单玩家失败不阻断同批其他玩家，读取或数据库错误的编号在批次末统一重入队。数据库已有相同或更高版本时按 stale 安全跳过，不覆盖新位置且不重试。
+- 未执行迁移 `123_player_position_version.sql` 定义了玩家表的非负永久位置版本字段。普通档案与战斗快照查询都会读取该字段；首次进入世界或 Redis 状态缺失时，以 PostgreSQL 快照及其版本初始化 Redis，避免缓存重建后从零重新计数。同一会话重复进入不会重置移动序号，新登录会话可以替换旧状态。切图成功时以 `max(Redis 版本, PostgreSQL 版本) + 1` 构造目标场景状态，先条件写入 PostgreSQL，再使用同一版本重建 Redis 场景代次，避免新旧存储出现版本倒退。
 - 普通同场景移动的正式调用链为：WebSocket 协议解析 -> `world.Service.MovePlayer` -> Redis 权威状态加载 -> 玩家/会话/场景校验 -> 旧客户端字段归一化 -> `EvaluateMovement` 速度、矩形边界与静态通行计算 -> 移动序号校验和 Redis Lua CAS -> handler 协议响应及同场景广播。handler 不再直接编排 `EvaluateMovement` 与 `AdvanceMovementState`。
-- `MovePlayer` 同时返回移动前后的权威状态：移动前状态用于拒绝响应和广播起点，移动后状态用于响应与广播。Redis 已启用时，普通移动 handler 不再同步查询 PostgreSQL 档案或逐包写入位置；Lua CAS 更新成功后只标记 dirty，由周期 worker 按版本异步写回永久位置，旧批次不能覆盖相同或更高版本。P1-08 关键节点最终写回和 P1-09 完整故障恢复测试尚未完成；未装配 Redis 的旧服务兼容分支仍读取并同步写入 PostgreSQL，切图流程仍使用既有无版本关键写入，不能视为所有位置竞态均已闭环。
+- `MovePlayer` 同时返回移动前后的权威状态：移动前状态用于拒绝响应和广播起点，移动后状态用于响应与广播。Redis 已启用时，普通移动 handler 不再同步查询 PostgreSQL 档案或逐包写入位置；Lua CAS 更新成功后只标记 dirty，由周期 worker 按版本异步写回永久位置，旧批次不能覆盖相同或更高版本。由移动切换到停止时，handler 在响应和广播后异步触发最终写回；写回入口会重新读取 Redis 最新状态，避免停止包之后的新移动被旧坐标覆盖。未装配 Redis 的旧服务兼容分支仍读取并同步写入 PostgreSQL。
 - 同会话重连优先用 Redis最新场景、整数位置和千分之一格位置重新查询场景快照；缓存缺失时回退 PostgreSQL并重建 Redis状态，客户端通过可选 `self_precise_pos` 恢复高精度位置。
 - 普通移动、普通门和地图快速传送共享严格递增的 Redis移动序号；跨场景成功后以目标场景版本重建状态，旧场景或重复请求不能再次执行传送。
+- PVE 交互、野外遭遇、NPC 配置战斗和 PVP 接受均在创建战斗前同步保存参与者的 Redis 最新权威位置；客户端 `SelfPos` 只保留协议兼容，不参与战斗返回位置、遭遇校验或永久位置计算。任一最终写回失败都会阻止战斗创建。
+- 普通断线先同步写回最终位置，再执行战斗托管处理与世界离场广播；新登录顶号在会话锁外先写回旧会话位置，再通知并关闭旧连接，普通重连不会误触发顶号写回。
+- 优雅停服先停止 HTTP 接入，并由 WebSocket Hub 拒绝新连接、关闭现有连接、等待读取循环、当前消息处理和断线回调结束；随后停止周期 worker，在 5 秒窗口内排空 dirty 集合，最后关闭 Redis 与 PostgreSQL。排空失败的玩家在本轮结束后统一重入队，避免数据库持续失败时无限重复领取。
+- P1-08 的关键节点最终写回已经闭环；P1-09 的 Redis 断开、PostgreSQL 短时失败、重启恢复和旧版本覆盖完整故障测试仍待完成。
 - 同场景权威移动广播携带移动后 Redis 状态中的真实 `scene_version`，同地图快速传送广播携带传送决策中的场景代次；未装配移动状态仓储的旧服务兼容分支保留零值，不再使用固定场景代次。
 - 客户端 `GameState` 按远端实体维护最近接受的 `scene_id + scene_version + move_seq`，只把严格更新的同场景包交给世界控制器刷新目标位置；旧代次、同代次重复/倒退序号、跨场景包和离场延迟包不会改写实体快照或重新创建幽灵实体。全量世界快照与实体离场负责清理基线，编队/形象摘要刷新复用实体进入推送时保留既有移动基线。
 - 世界移动速度、单包最大服务端时间跨度和非主轴容差来自 PostgreSQL `world_movement_config`，服务启动时加载到 `world.Service` 只读缓存；缺少有效配置时服务拒绝启动，不回退代码常量。

@@ -48,6 +48,7 @@ type BattleHandler struct {
 	battleRepo         battle.Repository
 	rewardService      *reward.Service
 	runtimeSnapshots   *runtimeview.Service
+	movementPersister  movementFinalPersister
 	reconnectMu        sync.Mutex
 	reconnectCache     map[uint64]protocol.BattleResultPush
 	wildEncounterMu    sync.Mutex
@@ -60,6 +61,15 @@ func (h *BattleHandler) SetRuntimeSnapshotService(service *runtimeview.Service) 
 		return
 	}
 	h.runtimeSnapshots = service
+}
+
+// SetMovementFinalPersister 注入进入战斗前的最终位置写回入口。
+// 战斗 handler 只负责在创建权威战斗前完成生命周期编排，不直接访问 PostgreSQL。
+func (h *BattleHandler) SetMovementFinalPersister(persister movementFinalPersister) {
+	if h == nil {
+		return
+	}
+	h.movementPersister = persister
 }
 
 var dialogueItemTokenPattern = regexp.MustCompile(`\{item:(\d+)\}`)
@@ -101,7 +111,7 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdInteractReq, packet.Seq, request)
 
-	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
+	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -118,6 +128,9 @@ func (h *BattleHandler) HandleInteract(conn packetSender, packet *protocol.Packe
 		})
 	}
 
+	if err := h.persistMovementBeforeBattle(sess.PlayerID); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "persist battle return position failed", err)
+	}
 	startSnapshot, err := h.battleService.StartPVE(context.Background(), profile, lineup, target, h.loadCharacterBattleSkillInput(context.Background(), sess.PlayerID))
 	if err != nil {
 		if errors.Is(err, battle.ErrBattleAlreadyActive) {
@@ -206,7 +219,7 @@ func (h *BattleHandler) HandleNPCMenu(conn packetSender, packet *protocol.Packet
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCMenuReq, packet.Seq, request)
 
-	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), nil)
+	sess, _, _, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -304,7 +317,7 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdWildEncounterReq, packet.Seq, request)
 
-	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
+	sess, profile, lineup, _, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -315,6 +328,9 @@ func (h *BattleHandler) HandleWildEncounter(conn packetSender, packet *protocol.
 		return h.sendWildEncounterResponse(conn, packet.Seq, protocol.WildEncounterResp{Accepted: false, Reason: "encounter cooldown"})
 	}
 
+	if err := h.persistMovementBeforeBattle(sess.PlayerID); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "persist battle return position failed", err)
+	}
 	startSnapshot, err := h.battleService.StartPVEWildEncounterByScene(context.Background(), profile, lineup, request.SceneID, h.loadCharacterBattleSkillInput(context.Background(), sess.PlayerID))
 	if err != nil {
 		if errors.Is(err, battle.ErrBattleAlreadyActive) {
@@ -523,6 +539,9 @@ func (h *BattleHandler) HandlePVPChallengeReply(conn packetSender, packet *proto
 		return h.pushNoticeToPlayer(challenge.ChallengerPlayerID, "对方拒绝了 PVP 邀请。")
 	}
 
+	if err := h.persistMovementBeforeBattle(challenge.ChallengerPlayerID, challenge.DefenderPlayerID); err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeBattleStartFailed, "persist pvp return position failed", err)
+	}
 	challengerProfile, err := h.playerService.GetBattleReadyProfile(context.Background(), challenge.ChallengerPlayerID)
 	if err != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "challenger not found")
@@ -1382,7 +1401,9 @@ func (h *BattleHandler) tryBeginBattleRewardGrant(ctx context.Context, playerID 
 	return inserted, err
 }
 
-func (h *BattleHandler) loadPlayerBattleContext(connID string, clientSelfPos *protocol.Vec2i) (*session.Session, *player.Profile, []pet.LineupPet, *world.SceneSnapshot, error) {
+// loadPlayerBattleContext 使用 Redis 当前权威场景和位置覆盖可能尚未周期写回的数据库档案。
+// 客户端 SelfPos 字段仅保留协议兼容，不再参与战斗返回位置或永久位置计算。
+func (h *BattleHandler) loadPlayerBattleContext(connID string) (*session.Session, *player.Profile, []pet.LineupPet, *world.SceneSnapshot, error) {
 	sess, err := h.sessionService.GetByConnID(connID)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -1393,7 +1414,9 @@ func (h *BattleHandler) loadPlayerBattleContext(connID string, clientSelfPos *pr
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	h.syncBattleReturnPosition(ctx, sess.PlayerID, profile, clientSelfPos)
+	if err := h.applyAuthoritativeMovementState(ctx, sess.PlayerID, profile); err != nil {
+		return nil, nil, nil, nil, err
+	}
 	lineup, err := h.petService.ListLineup(ctx, sess.PlayerID)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -1405,17 +1428,37 @@ func (h *BattleHandler) loadPlayerBattleContext(connID string, clientSelfPos *pr
 	return sess, profile, lineup, sceneSnapshot, nil
 }
 
-// syncBattleReturnPosition 在开战前把客户端上报的场景坐标写回玩家档案，确保 return_pos 与战斗结束回世界位置一致。
-func (h *BattleHandler) syncBattleReturnPosition(ctx context.Context, playerID uint64, profile *player.Profile, clientSelfPos *protocol.Vec2i) {
-	if h == nil || h.playerService == nil || profile == nil || clientSelfPos == nil {
-		return
+// applyAuthoritativeMovementState 把 Redis 最新状态映射到本次战斗上下文，确保遭遇校验和 return_pos 使用服务端权威位置。
+func (h *BattleHandler) applyAuthoritativeMovementState(ctx context.Context, playerID uint64, profile *player.Profile) error {
+	if h == nil || h.worldService == nil || !h.worldService.MovementStateEnabled() || profile == nil {
+		return nil
 	}
-	pos := world.Vec2i{X: clientSelfPos.X, Y: clientSelfPos.Y}
-	if err := h.playerService.UpdatePosition(ctx, playerID, profile.SceneID, pos.X, pos.Y); err != nil {
-		return
+	state, err := h.worldService.LoadMovementState(ctx, playerID)
+	if errors.Is(err, world.ErrMovementStateNotFound) {
+		return nil
 	}
-	profile.PosX = pos.X
-	profile.PosY = pos.Y
+	if err != nil {
+		return err
+	}
+	if state == nil || state.PlayerID != playerID {
+		return world.ErrMovementStateNotFound
+	}
+	profile.SceneID = state.SceneID
+	profile.PosX = state.PersistedPos.X
+	profile.PosY = state.PersistedPos.Y
+	profile.PositionVersion = state.PositionVersion
+	return nil
+}
+
+// persistMovementBeforeBattle 同步写回所有即将进入战斗的玩家位置。
+// 任一写回失败都会阻止创建战斗，避免战斗结束时返回到周期任务尚未落库的旧坐标。
+func (h *BattleHandler) persistMovementBeforeBattle(playerIDs ...uint64) error {
+	for _, playerID := range playerIDs {
+		if err := persistPlayerMovementWithTimeout(h.movementPersister, playerID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *BattleHandler) handleContextError(conn packetSender, seq uint32, err error) error {
@@ -1672,7 +1715,7 @@ func (h *BattleHandler) HandleNPCAction(conn packetSender, packet *protocol.Pack
 	}
 	logBattlePacket("req", conn.ID(), h.playerIDByConn(conn.ID()), protocol.CmdNPCActionReq, packet.Seq, request)
 
-	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID(), request.SelfPos)
+	sess, profile, lineup, sceneSnapshot, err := h.loadPlayerBattleContext(conn.ID())
 	if err != nil {
 		return h.handleContextError(conn, packet.Seq, err)
 	}
@@ -1783,6 +1826,11 @@ func (h *BattleHandler) handleNPCBattleAction(conn packetSender, seq uint32, pla
 		})
 	}
 
+	if err := h.persistMovementBeforeBattle(playerID); err != nil {
+		return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{
+			Accepted: false, Reason: "persist battle return position failed", EntityID: target.EntityID, EntryID: entryID,
+		})
+	}
 	startSnapshot, err := h.battleService.StartPVE(context.Background(), profile, lineup, enemy, h.loadCharacterBattleSkillInput(context.Background(), playerID))
 	if err != nil {
 		reason := "battle start failed"

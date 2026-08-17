@@ -1,5 +1,17 @@
 # 任务总结
 
+## 2026-08-17：P1-08 关键节点最终位置写回任务总结
+
+- **任务目标**：只完成多人同屏优化清单 P1-08，把停止、切图、战斗、断线、顶号和停服六类关键节点接入最终位置写回；P1-09 故障恢复矩阵保持未完成。
+- **统一写回**：`backend/server/internal/app/movement_persistence_worker.go` 新增按玩家重新读取 Redis 最新状态、按已确认状态写入 PostgreSQL和停服排空 dirty 集合的入口。周期任务与关键节点统一使用 `position_version` 条件更新；关键节点不领取 dirty，失败时原标记仍可由周期任务或停服排空重试。
+- **停止与切图**：`backend/server/internal/transport/ws/world_handler.go` 在权威状态从移动切换为停止后异步写回，执行时重新读取 Redis 避免覆盖后续移动。切图正式链路删除旧无版本更新，先推进序号并重新读取 Redis，再以 `max(Redis 版本, PostgreSQL 版本) + 1` 写入服务端判定的目标场景和落点，成功后使用同一版本重建 Redis。
+- **战斗**：`backend/server/internal/transport/ws/battle_handler.go` 不再使用客户端 `SelfPos` 计算返回位置；PVE、野外遭遇、NPC 配置战斗和 PVP 接受前同步保存 Redis 权威位置，失败时阻止创建战斗。PVE 上下文以 Redis 状态覆盖尚未周期落库的档案位置，PVP 在双方写回后重新读取战斗档案。
+- **断线与顶号**：`backend/server/internal/module/session/service.go` 增加独立顶号回调。应用装配保证普通断线先写回，再执行战斗托管和世界离场广播；顶号在会话锁外先写回旧会话位置，再通知并关闭旧连接；普通重连不会重复触发。
+- **停服**：`backend/server/internal/transport/ws/hub.go` 跟踪活动连接，停服时拒绝新登记、关闭连接并等待消息处理和断线回调结束。`backend/server/internal/app/bootstrap.go` 随后停止周期 worker，在 5 秒窗口内有限排空 dirty 集合，再关闭 Redis 与 PostgreSQL；持续失败玩家在排空结束后统一重入队。
+- **验证结果**：新增 worker、session、world/battle WebSocket 与 Hub 专项测试；`GOCACHE=/tmp/pocket-pet-p108-go-cache go test ./server/... -count=1`、`go vet ./server/...`、`go test -race ./server/internal/app ./server/internal/module/session ./server/internal/transport/ws -count=1` 和 `git diff --check` 均通过。
+- **范围说明**：本次无客户端、协议、数据库结构、迁移、后台页面或依赖变化。`backend/server/migrations/123_player_position_version.sql` 仍未执行；P1-09 仍未开始。
+- **建议提交信息**：`perf(world): 完成 P1-08 关键节点最终写回`
+
 ## 2026-08-17：P1-07 PostgreSQL 位置版本条件写回任务总结
 
 - 本次只完成多人同屏优化清单 P1-07，没有提前实现 P1-08 停止、切图、战斗、断线、顶号和停服节点最终写回，也没有把 P1-09 完整故障恢复测试标记为完成。

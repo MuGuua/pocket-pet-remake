@@ -37,12 +37,18 @@ import (
 	wstransport "pocket-pet-remake/server/internal/transport/ws"
 )
 
+const (
+	movementLifecyclePersistenceTimeout = 3 * time.Second
+	movementShutdownDrainTimeout        = 5 * time.Second
+)
+
 // App is the main application struct.
 // It holds the HTTP server, session service, logger, and cleanup closers.
 type App struct {
 	server                    *http.Server
 	sessionService            *session.Service
 	battleHandler             *wstransport.BattleHandler
+	wsHub                     *wstransport.Hub
 	movementPersistenceWorker *movementPersistenceWorker
 	logger                    *log.Logger
 	cleanupClosers            []io.Closer
@@ -159,10 +165,22 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	battleHandler := wstransport.NewBattleHandler(sessionService, playerService, petService, bagService, walletService, worldService, questService, npcService, npcDialogueService, battleService, repos.Battles, equipmentService, playerSkillService, itemService)
 	worldHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	worldHandler.SetStoryProgressService(storyProgressService)
+	worldHandler.SetMovementFinalPersister(movementWorker)
 	equipmentHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	battleHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
+	battleHandler.SetMovementFinalPersister(movementWorker)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)
-	sessionService.SetDisconnectHandler(battleHandler.HandleSessionDisconnect)
+	persistFinalMovement := func(playerID uint64) {
+		persistCtx, cancel := context.WithTimeout(context.Background(), movementLifecyclePersistenceTimeout)
+		defer cancel()
+		if err := movementWorker.PersistPlayerMovement(persistCtx, playerID); err != nil {
+			logger.Printf("persist lifecycle movement failed player_id=%d: %v", playerID, err)
+		}
+	}
+	// 最终位置必须先于战斗托管结算和世界离场广播写回，避免后续流程读取旧永久坐标。
+	sessionService.SetDisconnectHandler(persistFinalMovement)
+	sessionService.SetReplacementHandler(persistFinalMovement)
+	sessionService.AddDisconnectHandler(battleHandler.HandleSessionDisconnect)
 	sessionService.AddDisconnectHandler(worldHandler.HandleSessionDisconnect)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, playerHandler, equipmentHandler, battleHandler, bagHandler, questHandler, sessionService)
@@ -182,6 +200,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 		server:                    server,
 		sessionService:            sessionService,
 		battleHandler:             battleHandler,
+		wsHub:                     wsHub,
 		movementPersistenceWorker: movementWorker,
 		logger:                    logger,
 		cleanupClosers:            closers,
@@ -200,10 +219,27 @@ func (a *App) Run(ctx context.Context) error {
 			a.movementPersistenceWorker.Run(movementWorkerCtx)
 		}()
 	}
-	// worker 必须先停止并完成失败编号重入队，再关闭 Redis 与 PostgreSQL 连接。
+	// worker 必须先停止，随后在有限时间内排空 dirty 集合，最后才关闭 Redis 与 PostgreSQL 连接。
 	defer func() {
 		stopMovementWorker()
 		<-movementWorkerDone
+		if a.movementPersistenceWorker == nil {
+			return
+		}
+		drainCtx, cancel := context.WithTimeout(context.Background(), movementShutdownDrainTimeout)
+		defer cancel()
+		result, err := a.movementPersistenceWorker.DrainDirtyMovement(drainCtx)
+		if err != nil {
+			a.logger.Printf(
+				"movement persistence shutdown drain failed: claimed=%d persisted=%d stale=%d requeued=%d: %v",
+				result.Claimed, result.Persisted, result.Stale, result.Requeued, err,
+			)
+			return
+		}
+		a.logger.Printf(
+			"movement persistence shutdown drain completed: claimed=%d persisted=%d stale=%d requeued=%d",
+			result.Claimed, result.Persisted, result.Stale, result.Requeued,
+		)
 	}()
 	go a.sessionService.StartSweeper(ctx)
 	if a.battleHandler != nil {
@@ -220,7 +256,17 @@ func (a *App) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return a.server.Shutdown(shutdownCtx)
+		// HTTP Shutdown 先关闭监听入口；WebSocket 已升级为劫持连接，必须由 Hub 主动关闭并等待处理循环退出。
+		httpShutdownDone := make(chan error, 1)
+		go func() {
+			httpShutdownDone <- a.server.Shutdown(shutdownCtx)
+		}()
+		var websocketErr error
+		if a.wsHub != nil {
+			websocketErr = a.wsHub.Shutdown(shutdownCtx)
+		}
+		httpErr := <-httpShutdownDone
+		return errors.Join(httpErr, websocketErr)
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil

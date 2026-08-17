@@ -2589,6 +2589,37 @@ type movementStateRepoForHandlerTest struct {
 	compareCount int
 }
 
+// movementFinalPersisterStub 记录关键节点提交的玩家编号和切图状态，供传输层测试验证生命周期编排。
+// playerIDs 使用缓冲通道接收异步停止写回，states 则只用于同步切图调用，避免测试依赖固定休眠时间。
+type movementFinalPersisterStub struct {
+	playerIDs chan uint64
+	playerErr error
+	states    []world.MovementState
+	stateErr  error
+	applied   bool
+}
+
+// PersistPlayerMovement 模拟按玩家编号重新读取 Redis 最新状态后的最终写回。
+func (s *movementFinalPersisterStub) PersistPlayerMovement(ctx context.Context, playerID uint64) error {
+	if s.playerIDs != nil {
+		select {
+		case s.playerIDs <- playerID:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return s.playerErr
+}
+
+// PersistMovementState 记录切图阶段已经确定版本的目标场景状态，并返回预设的条件写入结果。
+func (s *movementFinalPersisterStub) PersistMovementState(_ context.Context, state world.MovementState) (bool, error) {
+	s.states = append(s.states, state)
+	if s.stateErr != nil {
+		return false, s.stateErr
+	}
+	return s.applied, nil
+}
+
 func (r *movementStateRepoForHandlerTest) Load(_ context.Context, playerID uint64) (*world.MovementState, error) {
 	state, ok := r.states[playerID]
 	if !ok {
@@ -3102,5 +3133,125 @@ func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
 	}
 	if response.Accepted || response.Reason != world.ErrMovementInputInvalid.Error() {
 		t.Fatalf("response = %+v, want invalid movement input rejection", response)
+	}
+}
+
+// TestHandleMoveIntentPersistsFinalPositionWhenMovementStops 验证移动状态从进行中切换为停止后会触发一次最终写回。
+func TestHandleMoveIntentPersistsFinalPositionWhenMovementStops(t *testing.T) {
+	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	persister := &movementFinalPersisterStub{playerIDs: make(chan uint64, 1)}
+	router.worldHandler.SetMovementFinalPersister(persister)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 340, protocol.EnterWorldReq{})
+	clearPackets(conn)
+
+	state := movementRepo.states[demoPlayerID]
+	state.Moving = true
+	state.Facing = world.Vec2i{X: 1}
+	state.LastMoveSeq = 40
+	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
+	movementRepo.states[demoPlayerID] = state
+	targetPos := protocol.Vec2i{X: state.PersistedPos.X, Y: state.PersistedPos.Y}
+	precisePos := protocol.Vec2i{X: state.PrecisePos.X, Y: state.PrecisePos.Y}
+	moving := false
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 341, protocol.MoveIntentReq{
+		MoveSeq: 41, SceneID: state.SceneID, TargetPos: &targetPos, PrecisePos: &precisePos, Moving: &moving,
+	})
+
+	select {
+	case playerID := <-persister.playerIDs:
+		if playerID != demoPlayerID {
+			t.Fatalf("persisted player_id = %d, want %d", playerID, demoPlayerID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for stopped movement persistence")
+	}
+	if movementRepo.states[demoPlayerID].Moving {
+		t.Fatal("authoritative movement state is still moving after stop packet")
+	}
+}
+
+// TestHandleMapTeleportPersistsStrictlyNewerTargetVersion 验证切图目标状态同时高于 Redis 和 PostgreSQL 已知版本。
+func TestHandleMapTeleportPersistsStrictlyNewerTargetVersion(t *testing.T) {
+	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
+	movementRepo := &movementStateRepoForHandlerTest{}
+	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
+	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
+		t.Fatalf("RefreshMovementConfig() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneBoundaryCache() error = %v", err)
+	}
+	if err := router.worldHandler.worldService.RefreshSceneNavigationCache(context.Background()); err != nil {
+		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
+	}
+	if applied, err := playerService.UpdatePositionIfNewer(context.Background(), demoPlayerID, 1, 8, 6, 100); err != nil || !applied {
+		t.Fatalf("UpdatePositionIfNewer() applied=%t error=%v, want true/nil", applied, err)
+	}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 350, protocol.EnterWorldReq{})
+	clearPackets(conn)
+
+	state := movementRepo.states[demoPlayerID]
+	state.PositionVersion = 120
+	state.LastMoveSeq = 50
+	movementRepo.states[demoPlayerID] = state
+	persister := &movementFinalPersisterStub{applied: true}
+	router.worldHandler.SetMovementFinalPersister(persister)
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 351, protocol.MoveIntentReq{
+		MoveSeq: 51, SceneID: state.SceneID, TargetSceneID: state.SceneID, MapTeleport: true,
+	})
+
+	if len(persister.states) != 1 {
+		t.Fatalf("persisted transfer states = %d, want 1", len(persister.states))
+	}
+	targetState := persister.states[0]
+	// 切图前推进移动序号会先把 Redis 版本从 120 提升到 121，目标场景状态必须再提升到 122。
+	if targetState.PositionVersion != 122 {
+		t.Fatalf("target position version = %d, want 122", targetState.PositionVersion)
+	}
+	if targetState.PositionVersion <= 120 || targetState.PositionVersion <= 100 {
+		t.Fatalf("target position version = %d, want newer than redis=120 and postgres=100", targetState.PositionVersion)
+	}
+	if movementRepo.states[demoPlayerID] != targetState {
+		t.Fatalf("redis movement state = %+v, want persisted target state %+v", movementRepo.states[demoPlayerID], targetState)
+	}
+}
+
+// TestHandleWildEncounterBlocksBattleWhenFinalPersistenceFails 验证最终位置写回失败时不会创建或推送战斗。
+func TestHandleWildEncounterBlocksBattleWhenFinalPersistenceFails(t *testing.T) {
+	_, router, playerService, conn := buildWorldRouterForTest(t)
+	if err := playerService.UpdatePosition(context.Background(), teststub.DemoPlayerID, 4, 4, 7); err != nil {
+		t.Fatalf("UpdatePosition() error = %v", err)
+	}
+	persistErr := errors.New("postgres unavailable")
+	router.battleHandler.SetMovementFinalPersister(&movementFinalPersisterStub{playerErr: persistErr})
+	mustHandleJSONPacket(t, router, conn, protocol.CmdWildEncounterReq, 360, protocol.WildEncounterReq{
+		SceneID: 4,
+		MoveSeq: 12,
+	})
+
+	if len(conn.packets) != 1 {
+		t.Fatalf("len(conn.packets) = %d, want one error packet", len(conn.packets))
+	}
+	packet := conn.packets[0]
+	if packet.Cmd != protocol.CmdErrorPush || packet.Code != errcode.WSCodeBattleStartFailed {
+		t.Fatalf("error packet cmd/code = %d/%d, want %d/%d", packet.Cmd, packet.Code, protocol.CmdErrorPush, errcode.WSCodeBattleStartFailed)
+	}
+	var payload protocol.ErrorPush
+	if err := protocol.UnmarshalBody(packet.Body, &payload); err != nil {
+		t.Fatalf("UnmarshalBody(error push) error = %v", err)
+	}
+	if payload.Msg != "persist battle return position failed" {
+		t.Fatalf("error message = %q, want persist battle return position failed", payload.Msg)
 	}
 }

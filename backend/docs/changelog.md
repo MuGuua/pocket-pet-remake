@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-17 P1-08 关键节点最终位置写回
+
+- 完成多人同屏权威移动优化清单 P1-08。`backend/server/internal/app/movement_persistence_worker.go` 提供单玩家最新状态写回、已确认权威状态写回和停服 dirty 有限排空能力，周期批次与关键节点统一复用 `UpdatePositionIfNewer`，不会把旧版本覆盖到 PostgreSQL。
+- 停止移动从 `moving=true` 切换为 `false` 后异步写回，并在执行时重新读取 Redis 最新状态；普通门和地图快速传送删除 Redis 正式链路中的旧无版本位置更新，改为先推进移动序号，再用严格高于 Redis/PostgreSQL 已知版本的目标状态写 PostgreSQL，最后以同一版本重建 Redis。
+- PVE 交互、野外遭遇、NPC 配置战斗与 PVP 接受均在创建战斗前同步保存服务端权威返回位置；客户端 `SelfPos` 仅保留协议兼容。断线先写回再处理战斗托管和世界离场，顶号在会话锁外先写回再通知、关闭旧连接，普通重连不触发顶号回调。
+- 新增 WebSocket Hub 停服收口：停止登记新连接、关闭并等待现有连接的消息处理和断线回调结束，然后停止周期 worker，在 5 秒窗口内排空 dirty 集合，最后关闭 Redis/PostgreSQL。排空期间失败玩家延迟到本轮结束后统一重入队，避免持续故障形成无限领取循环。
+- 新增 worker 最新状态与停服重入队测试、session 顶号回调测试、停止移动/切图/战斗失败 WebSocket 测试和 Hub 无监听排空测试。验证通过：`GOCACHE=/tmp/pocket-pet-p108-go-cache go test ./server/... -count=1`、`go vet ./server/...`、`go test -race ./server/internal/app ./server/internal/module/session ./server/internal/transport/ws -count=1` 与 `git diff --check`。
+- 本次没有新增迁移或依赖；`backend/server/migrations/123_player_position_version.sql` 仍仅生成、未执行。P1-09 完整故障恢复测试尚未开始。
+
 ## 2026-08-17 P1-07 PostgreSQL 位置版本条件写回
 
 - 完成多人同屏权威移动优化清单 P1-07。新增迁移 `backend/server/migrations/123_player_position_version.sql`，为玩家永久位置增加非负 `position_version BIGINT NOT NULL DEFAULT 0`；迁移仅生成，未执行。

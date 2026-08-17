@@ -166,9 +166,9 @@ world_scene_navigation
 | 断开或顶号 | 尽力同步写回并使旧会话失效 |
 | 服务关闭 | 在优雅停机窗口批量刷回 |
 
-周期写回 worker 已按 YAML 配置串行运行：默认每 5 秒使用 `SPOP` 最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威状态，并携带 `position_version` 条件写入 PostgreSQL；单玩家失败不阻断同批其他玩家，失败编号在批次末统一重新入队。数据库已有相同或更高版本时，本批状态按 stale 安全跳过，不会覆盖新位置，也不会重新入队形成无效重试。应用退出时先停止并等待 worker 完成清理，再关闭 Redis 与 PostgreSQL 连接。
+周期写回 worker 已按 YAML 配置串行运行：默认每 5 秒使用 `SPOP` 最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威状态，并携带 `position_version` 条件写入 PostgreSQL；单玩家失败不阻断同批其他玩家，失败编号在批次末统一重新入队。数据库已有相同或更高版本时，本批状态按 stale 安全跳过，不会覆盖新位置，也不会重新入队形成无效重试。应用退出时先停止 HTTP 接入并由 Hub 关闭、等待全部 WebSocket 处理和断线回调结束，再停止周期 worker，在 5 秒窗口内有限排空 dirty 集合，最后关闭 Redis 与 PostgreSQL。排空期间失败的玩家会暂存到本轮结束后统一重入队，避免持续故障时反复领取同一玩家形成无限循环。
 
-玩家表已通过迁移 `123_player_position_version.sql` 增加非负 `position_version BIGINT NOT NULL DEFAULT 0`。普通档案与战斗快照读取都会恢复该版本；Redis 状态缺失时，首次进入世界以 PostgreSQL 版本作为后续移动的递增基线。周期 worker 通过 `UpdatePositionIfNewer` 保证只有更高版本可以覆盖场景和坐标。迁移仅生成、未执行；P1-08 完成前，停止、切图、战斗、断线、顶号和停服等关键节点仍未统一改为最终版本写回，不能视为所有位置竞态均已闭环。
+迁移 `123_player_position_version.sql` 定义了非负 `position_version BIGINT NOT NULL DEFAULT 0` 字段。普通档案与战斗快照读取都会恢复该版本；Redis 状态缺失时，首次进入世界以 PostgreSQL 版本作为后续移动的递增基线。周期 worker 与关键节点写回统一通过 `UpdatePositionIfNewer` 保证只有更高版本可以覆盖场景和坐标。停止移动会异步读取 Redis 最新状态写回；切图先以严格更高版本写入 PostgreSQL，再用同一版本重建 Redis；进入战斗前不再信任客户端 `SelfPos`，而是同步保存 Redis 权威返回位置；断线和顶号在后续生命周期处理前尽力同步写回；停服按 WebSocket 收口、worker 停止和 dirty 有限排空的顺序完成最终刷回。迁移仅生成、未执行；P1-09 的完整故障恢复测试仍未完成。
 
 ## 8. 客户端表现策略
 
@@ -223,7 +223,7 @@ world_scene_navigation
 - [x] P1-05 实现 Redis dirty 玩家集合。移动 CAS 成功后继续通过 `SADD` 生产 dirty 标记；`world.MovementStateRepository` 与领域服务新增批量领取、失败重入队接口，Redis 适配器使用 `SPOP key count` 原子领取玩家编号。领取后产生的新移动会再次 `SADD`，不会被旧批次成功处理误删；PostgreSQL 写回失败的编号可通过单次 Lua 调用重新加入集合，供 P1-06 worker 重试。
 - [x] P1-06 实现周期批量写回 worker 和失败重试。应用层 worker 默认每 5 秒最多领取 100 名 dirty 玩家，逐个读取 Redis 最新权威整数位置；单玩家读取或写入失败不会阻断同批其他玩家，失败编号统一重入队。运行参数来自 YAML，批次串行不重叠，应用退出时先等待 worker 停止再关闭数据连接。P1-07 已在该 worker 上补齐版本条件写回。
 - [x] P1-07 为 PostgreSQL位置增加版本字段和条件更新迁移。新增未执行迁移 `123_player_position_version.sql`；玩家档案恢复 `position_version`，Redis 缺失时沿用数据库版本基线；周期 worker 仅写入更高版本，旧版本按 stale 安全跳过且不重入队。关键节点最终写回仍由 P1-08 处理。
-- [ ] P1-08 在停止、切图、战斗、断线、顶号和停服节点触发最终写回。
+- [x] P1-08 在停止、切图、战斗、断线、顶号和停服节点触发最终写回。停止包响应后异步读取 Redis 最新状态；切图使用严格高于 Redis/PostgreSQL 已知版本的新状态先写 PostgreSQL、再以同版本重建 Redis；PVE、野外遭遇、NPC 战斗和 PVP 接受前同步保存服务端权威返回位置，不再采用客户端 `SelfPos`；断线与顶号先写回再执行后续生命周期处理；停服先关闭并等待 WebSocket，再停止 worker、有限排空 dirty 集合并关闭数据连接。
 - [ ] P1-09 补充 Redis断开、PostgreSQL短时失败、重启恢复和旧版本覆盖测试。
 
 ### P2：弱网与插值表现
