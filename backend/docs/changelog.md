@@ -1,5 +1,14 @@
 # 最新变更记录
 
+## 2026-08-17 战斗奖励幂等与错误提示框统一
+
+- 修复 PVE 战斗奖励已持久化后，因玩家档案、钱包、背包、宠物或技能同步失败而误删 `battle_record` 的问题；统一发奖或捕宠成功后立即提交防重复标记，同一 `battle_id` 重试只读取权威快照，不再重复增加金币、经验或物品。
+- 战斗结算错误不再固定误报“请检查背包空间”。仅真实命中背包容量不足时提示清理背包；奖励已发放后的同步异常会明确提示重新登录刷新；奖励尚未提交的其他异常提示稍后重试。
+- 战斗结算错误由 `NOTICE_PUSH` 改为 `ERROR_PUSH`。客户端 `App.show_error` 统一广播到既有 `ConfirmPromptPopup`，并移除同一 `ERROR_PUSH` 再次触发 HUD 短提示的重复渲染。
+- 背包使用、丢弃、强化、修复、礼盒打开、地图切换、挂机目标和断线重连等运行态错误统一改为确认提示框；装备成功、物品使用成功、任务提示和强化概率结果等正常状态仍使用短提示。
+- 新增奖励提交后宠物同步失败不重复发奖、背包容量不足错误分类及奖励已提交同步异常分类测试。验证通过：`go test ./server/internal/transport/ws ./server/internal/module/reward -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 和 Godot 4.7 Headless 全项目解析。
+- 本次没有新增数据库结构、迁移、协议字段或依赖。
+
 ## 2026-08-17 执行世界权威移动数据库迁移
 
 - 连接当前项目配置的 PostgreSQL `pocket_pet` 数据库，只读核对 `116`～`123` 的实际状态：`116_enable_shanguang_transfer_area_map_teleport.sql` 已生效，旧版 `117_world_movement_config.sql` 已建表但缺少后台审计字段，`118`～`123` 尚未生效。

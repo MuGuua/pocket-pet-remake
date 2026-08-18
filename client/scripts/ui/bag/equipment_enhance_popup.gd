@@ -567,7 +567,7 @@ func _on_material_select_button_pressed() -> void:
 	var preview: Dictionary = _resolve_enhance_preview()
 	var materials: Array = _resolve_picker_materials(preview)
 	if materials.is_empty():
-		App.notice_received.emit("背包中没有可用的强化材料。")
+		App.show_error("背包中没有可用的强化材料。")
 		return
 	var selected_id: int = _selected_cost_item_id
 	if selected_id <= 0:

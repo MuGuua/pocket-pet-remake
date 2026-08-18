@@ -559,11 +559,11 @@ func _bind_equipment_slot_actions() -> void:
 ## 点击已装备槽位后打开详情弹层；空槽点击只给出提示。
 func _on_equipment_slot_pressed(slot: EquipmentSlot) -> void:
 	if slot == null or not slot.has_equipment():
-		App.notice_received.emit("该装备槽当前没有已装备物品。")
+		App.show_error("该装备槽当前没有已装备物品。")
 		return
 	var equip_slot_key: String = slot.get_equip_slot_key()
 	if equip_slot_key.is_empty():
-		App.notice_received.emit("装备槽标识缺失，暂时无法查看详情。")
+		App.show_error("装备槽标识缺失，暂时无法查看详情。")
 		return
 	_selected_item.clear()
 	_selected_slot_index = 0
@@ -828,15 +828,15 @@ func _on_item_action_requested(action_key: String, item: Dictionary) -> void:
 		"drop":
 			_execute_drop_action(item)
 		"give":
-			App.notice_received.emit("给人功能尚未接入新版背包。")
+			App.show_error("给人功能尚未接入新版背包。")
 		"share":
-			App.notice_received.emit("分享功能尚未接入新版背包。")
+			App.show_error("分享功能尚未接入新版背包。")
 		"enhance":
 			_open_enhance_popup(item)
 		"repair":
 			_execute_repair_action(item)
 		_:
-			App.notice_received.emit("该操作尚未接入新版背包服务端链路。")
+			App.show_error("该操作尚未接入新版背包服务端链路。")
 
 
 ## 按当前已选装备槽向服务端发起卸装请求。
@@ -845,7 +845,7 @@ func _execute_unequip_action(item: Dictionary) -> void:
 	if equip_slot_key.is_empty():
 		equip_slot_key = str(item.get("equip_slot", "")).strip_edges()
 	if equip_slot_key.is_empty():
-		App.notice_received.emit("装备槽标识缺失，暂时无法卸下。")
+		App.show_error("装备槽标识缺失，暂时无法卸下。")
 		return
 	App.request_player_unequip(equip_slot_key, "bag")
 	_hide_detail_popup()
@@ -855,11 +855,11 @@ func _execute_unequip_action(item: Dictionary) -> void:
 func _execute_primary_item_action(item: Dictionary) -> void:
 	var slot_index: int = BagUiMapper.slot_index(item)
 	if slot_index <= 0:
-		App.notice_received.emit("物品格子编号无效，暂时无法操作。")
+		App.show_error("物品格子编号无效，暂时无法操作。")
 		return
 	if BagUiMapper.is_equipment(item):
 		if BagUiMapper.is_damaged(item):
-			App.notice_received.emit("该装备已损坏，请先修复后再佩戴。")
+			App.show_error("该装备已损坏，请先修复后再佩戴。")
 			return
 		App.request_player_equip(slot_index, "bag")
 		_hide_detail_popup()
@@ -883,21 +883,21 @@ func _run_use_item_with_pet_target(item: Dictionary) -> void:
 	_hide_detail_popup()
 	await _ensure_use_target_picker()
 	if _use_target_picker == null:
-		App.notice_received.emit("目标选择弹窗初始化失败，请稍后再试。")
+		App.show_error("目标选择弹窗初始化失败，请稍后再试。")
 		return
 	var pets_loaded: bool = await _fetch_pets_for_use_target_picker()
 	if not pets_loaded:
-		App.notice_received.emit("加载宠物列表失败，请稍后再试。")
+		App.show_error("加载宠物列表失败，请稍后再试。")
 		return
 	if GameState.pets.is_empty():
-		App.notice_received.emit("当前没有可用宠物。")
+		App.show_error("当前没有可用宠物。")
 		return
 	var pick_result: Dictionary = await _prompt_use_target_picker(true, GameState.pets)
 	if not bool(pick_result.get("confirmed", false)):
 		return
 	var target_pet_uid: int = int(pick_result.get("pet_uid", 0))
 	if target_pet_uid <= 0:
-		App.notice_received.emit("请选择有效的目标宠物。")
+		App.show_error("请选择有效的目标宠物。")
 		return
 	await _submit_use_item_request(item, target_pet_uid, "")
 
@@ -909,18 +909,18 @@ func _run_use_item_with_equipment_target(item: Dictionary) -> void:
 	_hide_detail_popup()
 	await _ensure_use_target_picker()
 	if _use_target_picker == null:
-		App.notice_received.emit("目标选择弹窗初始化失败，请稍后再试。")
+		App.show_error("目标选择弹窗初始化失败，请稍后再试。")
 		return
 	var equipment_targets: Array = await _fetch_equipment_targets_for_use_picker()
 	if equipment_targets.is_empty():
-		App.notice_received.emit("当前没有可对目标生效的装备。")
+		App.show_error("当前没有可对目标生效的装备。")
 		return
 	var pick_result: Dictionary = await _prompt_use_target_picker(false, equipment_targets)
 	if not bool(pick_result.get("confirmed", false)):
 		return
 	var target_item_uid: String = str(pick_result.get("item_uid", "")).strip_edges()
 	if target_item_uid.is_empty():
-		App.notice_received.emit("请选择有效的目标装备。")
+		App.show_error("请选择有效的目标装备。")
 		return
 	await _submit_use_item_request(item, 0, target_item_uid)
 
@@ -937,10 +937,10 @@ func _run_generic_use_item_action(item: Dictionary) -> void:
 func _submit_use_item_request(item: Dictionary, target_pet_uid: int, target_item_uid: String) -> void:
 	var slot_index: int = BagUiMapper.slot_index(item)
 	if slot_index <= 0:
-		App.notice_received.emit("物品格子编号无效，暂时无法操作。")
+		App.show_error("物品格子编号无效，暂时无法操作。")
 		return
 	if not GameState.is_ws_authenticated:
-		App.notice_received.emit("当前未连接服务端，请重新登录后再使用。")
+		App.show_error("当前未连接服务端，请重新登录后再使用。")
 		return
 	await _ensure_runtime_popup_ui_ready()
 	_use_item_in_flight = true
@@ -978,7 +978,7 @@ func _finish_use_item_action(response_ok: bool, response_payload: Dictionary) ->
 		)
 		if error_message.is_empty():
 			error_message = "物品使用失败，请稍后再试。"
-		App.notice_received.emit(error_message)
+		App.show_error(error_message)
 		return
 	var result_variant: Variant = response_payload.get("result", {})
 	var result: Dictionary = result_variant if result_variant is Dictionary else {}
@@ -1170,23 +1170,23 @@ func _execute_drop_action(item: Dictionary) -> void:
 		return
 	var slot_index: int = BagUiMapper.slot_index(item)
 	if slot_index <= 0:
-		App.notice_received.emit("物品格子编号无效，暂时无法丢弃。")
+		App.show_error("物品格子编号无效，暂时无法丢弃。")
 		return
 	if not GameState.is_ws_authenticated:
-		App.notice_received.emit("当前未连接服务端，请重新登录后再丢弃。")
+		App.show_error("当前未连接服务端，请重新登录后再丢弃。")
 		return
 	_hide_detail_popup()
 	await get_tree().process_frame
 	_ensure_drop_popup()
 	if _drop_popup == null:
-		App.notice_received.emit("丢弃弹窗初始化失败，请稍后再试。")
+		App.show_error("丢弃弹窗初始化失败，请稍后再试。")
 		return
 	var prompt_result: Dictionary = await _drop_popup.prompt_drop(item)
 	if not bool(prompt_result.get("confirmed", false)):
 		return
 	var drop_quantity: int = int(prompt_result.get("quantity", 1))
 	if drop_quantity <= 0:
-		App.notice_received.emit("丢弃数量无效，请重试。")
+		App.show_error("丢弃数量无效，请重试。")
 		return
 	await _ensure_runtime_popup_ui_ready()
 	var item_name: String = BagUiMapper.item_name(item)
@@ -1334,7 +1334,7 @@ func _finish_drop_action(response_ok: bool, response_payload: Dictionary) -> voi
 		var error_message: String = _resolve_drop_error_message(response_payload)
 		_pending_drop_item_name = ""
 		_drop_response_payload = {}
-		App.notice_received.emit(error_message)
+		App.show_error(error_message)
 		return
 	var resolved_item_name: String = str(response_payload.get("item_name", _pending_drop_item_name)).strip_edges()
 	_pending_drop_item_name = ""
@@ -1367,7 +1367,7 @@ func _execute_box_open_action(item: Dictionary) -> void:
 		return
 	var slot_index: int = BagUiMapper.slot_index(item)
 	if slot_index <= 0:
-		App.notice_received.emit("物品格子编号无效，暂时无法操作。")
+		App.show_error("物品格子编号无效，暂时无法操作。")
 		return
 	_hide_detail_popup()
 	await _ensure_runtime_popup_ui_ready()
@@ -1397,7 +1397,7 @@ func _ensure_enhance_popup() -> void:
 ## 关闭详情后打开强化弹窗；优先使用背包快照里带 enhance_preview 的最新物品数据。
 func _open_enhance_popup(item: Dictionary) -> void:
 	if item.is_empty() or not BagUiMapper.is_equipment(item):
-		App.notice_received.emit("仅背包装备可强化。")
+		App.show_error("仅背包装备可强化。")
 		return
 	var item_uid: String = str(item.get("item_uid", "")).strip_edges()
 	if not item_uid.is_empty():
@@ -1424,7 +1424,7 @@ func _hide_enhance_popup() -> void:
 func _on_enhance_presentation_finished() -> void:
 	var refresh_seq: int = _send_current_bag_page_request()
 	if refresh_seq <= 0:
-		App.notice_received.emit("背包刷新请求发送失败，请稍后手动刷新。")
+		App.show_error("背包刷新请求发送失败，请稍后手动刷新。")
 
 
 ## 用户点击空白区域关闭强化弹窗时，同步清理本地追踪状态。
@@ -1464,7 +1464,7 @@ func _find_bag_item_by_uid(item_uid: String) -> Dictionary:
 func _on_enhance_popup_requested(item: Dictionary, _times: int, _continuous: bool, cost_item_id: int) -> void:
 	var item_uid: String = str(item.get("item_uid", "")).strip_edges()
 	if item_uid.is_empty():
-		App.notice_received.emit("装备实例数据异常，无法强化。请刷新背包或联系管理员处理。")
+		App.show_error("装备实例数据异常，无法强化。请刷新背包或联系管理员处理。")
 		if _enhance_popup != null:
 			_enhance_popup.notify_enhance_response(false, false)
 			_refresh_enhance_popup_if_open()
@@ -1477,7 +1477,7 @@ func _on_enhance_popup_requested(item: Dictionary, _times: int, _continuous: boo
 		if _enhance_popup != null:
 			_enhance_popup.notify_enhance_response(false, false)
 			_refresh_enhance_popup_if_open()
-		App.notice_received.emit("强化请求发送失败，请稍后再试。")
+		App.show_error("强化请求发送失败，请稍后再试。")
 		return
 
 
@@ -1517,13 +1517,13 @@ func _handle_enhance_request_finished(
 		if error_message.is_empty():
 			error_message = "强化请求失败。"
 		if not handled_by_presentation:
-			App.notice_received.emit(error_message)
+			App.show_error(error_message)
 		return
 	# 强化结果会改变装备等级、损坏状态和材料数量；演出结束后再按当前页/筛选补拉，避免背包格子提前跳变。
 	if not handled_by_presentation:
 		var refresh_seq: int = _send_current_bag_page_request()
 		if refresh_seq <= 0:
-			App.notice_received.emit("背包刷新请求发送失败，请稍后手动刷新。")
+			App.show_error("背包刷新请求发送失败，请稍后手动刷新。")
 		if bool(payload.get("success", false)):
 			var new_level: int = int(payload.get("new_level", 0))
 			App.notice_received.emit("强化成功，当前等级 +%s。" % UiFormat.value_to_text(new_level))
@@ -1582,22 +1582,22 @@ func _execute_repair_action(item: Dictionary) -> void:
 		return
 	var item_uid: String = BagUiMapper.item_uid(item)
 	if item_uid.is_empty():
-		App.notice_received.emit("装备实例标识缺失，暂时无法修复。")
+		App.show_error("装备实例标识缺失，暂时无法修复。")
 		return
 	if not GameState.is_ws_authenticated:
-		App.notice_received.emit("当前未连接服务端，请重新登录后再修复。")
+		App.show_error("当前未连接服务端，请重新登录后再修复。")
 		return
 	_hide_detail_popup()
 	await get_tree().process_frame
 	_ensure_repair_popup()
 	if _repair_popup == null:
-		App.notice_received.emit("修复弹窗初始化失败，请稍后再试。")
+		App.show_error("修复弹窗初始化失败，请稍后再试。")
 		return
 	var prompt_result: Dictionary = await _repair_popup.prompt_repair(item)
 	if not bool(prompt_result.get("confirmed", false)):
 		return
 	if not BagUiMapper.supports_repair_action(item):
-		App.notice_received.emit("修复宝石不足，无法修复。")
+		App.show_error("修复宝石不足，无法修复。")
 		return
 	await _ensure_runtime_popup_ui_ready()
 	_repair_in_flight = true
@@ -1672,7 +1672,7 @@ func _finish_repair_action(response_ok: bool, response_payload: Dictionary) -> v
 		).strip_edges()
 		if error_message.is_empty():
 			error_message = "修复失败，请稍后再试。"
-		App.notice_received.emit(error_message)
+		App.show_error(error_message)
 		return
 	var item_variant: Variant = response_payload.get("item", {})
 	var item_name: String = ""
@@ -1752,7 +1752,7 @@ func _run_box_open_presentation(slot_index: int, presentation_id: int) -> void:
 		_disconnect_box_open_request_handler()
 		_box_open_in_flight = false
 		_end_box_open_deferred_refresh(true)
-		App.notice_received.emit("打开请求发送失败，请稍后再试。")
+		App.show_error("打开请求发送失败，请稍后再试。")
 		return
 	if not _box_open_response_ready:
 		_box_open_request_seq = request_seq
@@ -1817,7 +1817,7 @@ func _finish_box_open_presentation(response_ok: bool, response_payload: Dictiona
 		)
 		if error_message.is_empty():
 			error_message = "打开失败，请稍后再试。"
-		App.notice_received.emit(error_message)
+		App.show_error(error_message)
 		_end_box_open_deferred_refresh(true)
 		return
 	var result_variant: Variant = response_payload.get("result", {})

@@ -569,9 +569,9 @@ func _on_scene_transition_requested(from_scene_id: int, to_scene_id: int) -> voi
 func _on_scene_transition_failed(reason: String) -> void:
 	_append_log("地图切换失败: %s" % reason)
 	_debug_scene_transition("transition failed reason=%s active=%s" % [reason, str(_scene_map_transition_active)])
-	# 复用全局移动端短提示，不在客户端重复判断地图等级或拼装准入文案。
+	# 服务端拒绝切图属于错误，统一使用可确认提示框展示权威文案。
 	if not reason.is_empty():
-		App.notice_received.emit(reason)
+		App.show_error(reason)
 	if _scene_map_transition_active:
 		_scene_map_transition_failed = true
 	_unlock_scene_visual_apply_for_transition()
@@ -1731,7 +1731,7 @@ func _open_auto_encounter_target_menu() -> void:
 		return
 	var target_entries: Array[Dictionary] = _collect_auto_encounter_target_entries()
 	if target_entries.is_empty():
-		App.notice_received.emit("当前地图未配置可挂机怪物。")
+		App.show_error("当前地图未配置可挂机怪物。")
 		return
 	_close_other_root_panels("auto_encounter_target")
 	_auto_encounter_target_menu.configure("选择挂机目标", target_entries, {

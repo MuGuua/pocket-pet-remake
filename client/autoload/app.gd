@@ -65,6 +65,14 @@ func bootstrap() -> void:
 	MessageRouter.register_handler(CommandIds.KICKOUT_PUSH, Callable(self, "_on_kickout_push"))
 	bootstrapped.emit()
 
+## 统一广播需要确认提示框展示的错误，普通成功或状态提示仍使用 notice_received。
+## message 是需要展示给玩家的错误正文；error_code 是服务端错误码，客户端本地错误使用 0。
+func show_error(message: String, error_code: int = 0) -> void:
+	var display_message: String = message.strip_edges()
+	if display_message.is_empty():
+		return
+	server_error_received.emit(error_code, display_message)
+
 # 执行 HTTP 登录流程，并把成功结果写入全局会话状态。
 func login(account: String, password: String) -> Dictionary:
 	# 等待 HTTP 登录接口返回完整响应。
@@ -592,8 +600,7 @@ func _on_error_push(payload: Dictionary) -> void:
 		GameState.set_ws_authenticated(false)
 		kicked.emit(display_message)
 		return
-	server_error_received.emit(error_code, display_message)
-	notice_received.emit(display_message)
+	show_error(display_message, error_code)
 
 # 处理服务端普通公告推送，并兼容不同字段名。
 func _on_notice_push(payload: Dictionary) -> void:
@@ -918,7 +925,7 @@ func _reconnect_ws() -> void:
 	if err != OK:
 		_set_reconnect_in_progress(false)
 		GameState.set_ws_authenticated(false)
-		notice_received.emit("断线重连失败，请重新登录。")
+		show_error("断线重连失败，请重新登录。")
 
 func _set_reconnect_in_progress(in_progress: bool) -> void:
 	if _reconnect_in_progress == in_progress:

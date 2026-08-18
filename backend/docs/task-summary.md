@@ -1,5 +1,16 @@
 # 任务总结
 
+## 2026-08-17：战斗奖励幂等与错误提示框统一任务总结
+
+- **任务目标**：定位“战斗奖励发放异常，请检查背包空间后重试”的真实原因，避免错误文案误导玩家，并落实运行态错误统一使用确认提示框展示。
+- **根因修复**：`backend/server/internal/transport/ws/battle_handler.go` 在统一发奖或捕宠成功后立即标记正式奖励已提交。后续玩家档案、钱包、背包、宠物或技能同步失败时保留 `battle_record`，同一战斗再次结算只加载权威同步快照，不会重复发放金币、经验和物品。
+- **错误分类**：仅 `bag.ErrContainerCapacityFull` 展示背包空间不足；奖励已提交后的同步错误提示“奖励已发放，请重新登录刷新”；奖励未提交的其他异常提示稍后重试。日志同步记录 `battle_id`、`player_id`、提交状态和真实错误。
+- **提示框统一**：战斗结算错误改发 `ERROR_PUSH`。`client/autoload/app.gd` 新增 `App.show_error`，统一触发主场景既有 `ConfirmPromptPopup`，并删除 `ERROR_PUSH` 对 HUD 短提示的重复广播。背包、切图、挂机目标和重连等本地运行态错误同步接入该入口；成功与普通状态提示保持原行为。
+- **测试覆盖**：`backend/server/internal/transport/ws/battle_handler_reward_test.go` 新增“奖励已落库但宠物同步失败后重试不重复加经验”和两类 `ERROR_PUSH` 文案测试。
+- **验证结果**：`GOCACHE=/tmp/pocket-pet-battle-error-go-cache go test ./server/internal/transport/ws ./server/internal/module/reward -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 Godot 4.7 Headless 全项目解析通过。
+- **范围说明**：本次没有新增数据库结构、迁移、协议字段、场景、UI 节点或依赖；复用现有 `ConfirmPromptPopup`。
+- **建议提交信息**：`fix(battle): 防止结算异常重复发放奖励`
+
 ## 2026-08-17：世界权威移动数据库迁移执行任务总结
 
 - **任务目标**：连接当前项目配置的 PostgreSQL，确认近期迁移真实状态，备份后执行尚未生效的世界权威移动迁移，并验证服务端可正常加载。

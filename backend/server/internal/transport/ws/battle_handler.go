@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -760,12 +761,13 @@ func (h *BattleHandler) pushBattleResultAfterSideEffects(
 	if pushErr != nil {
 		return pushErr
 	}
+	var errorPushErr error
 	if grantErr != nil {
-		_ = h.pushNoticeToPlayer(playerID, "战斗奖励发放异常，请检查背包空间后重试")
+		errorPushErr = h.pushBattleSettlementError(conn, playerID, result.BattleID, settlement, grantErr)
 	}
 	followUpErr := h.pushBattleSettlementFollowUps(ctx, conn, playerID, result, settlement)
-	if grantErr != nil {
-		return followUpErr
+	if errorPushErr != nil {
+		return errorPushErr
 	}
 	if followUpErr != nil {
 		return followUpErr
@@ -824,6 +826,8 @@ type battleSettlement struct {
 	GrantedRewards   []reward.Entry
 	// rewardsAlreadyGranted 表示本场战斗奖励已在更早的结算链路中落库，当前包只做同步展示。
 	rewardsAlreadyGranted bool
+	// rewardGrantCommitted 表示正式奖励已经完成持久化，后续同步失败时不能删除防重复记录。
+	rewardGrantCommitted bool
 }
 
 func (h *BattleHandler) pushBattleResultPacket(ctx context.Context, conn packetSender, result *battle.ResultSnapshot, settlement *battleSettlement) error {
@@ -963,7 +967,11 @@ func battlePopupRewardsFromResult(result *battle.ResultSnapshot, settlement *bat
 	if settlement != nil && settlement.rewardsAlreadyGranted {
 		return nil
 	}
-	// 首次结算或发奖异常时，用战斗快照里的奖励摘要驱动客户端弹窗。
+	// 正式奖励尚未提交时不使用战斗快照兜底，避免“弹窗显示已获得但账户未变更”的假象。
+	if settlement == nil || !settlement.rewardGrantCommitted {
+		return nil
+	}
+	// 奖励已确认落库但没有明细回写时，使用服务端战斗快照补齐弹窗摘要。
 	return popupRewardsFromBattleResultSnapshot(result)
 }
 
@@ -1067,6 +1075,41 @@ func (h *BattleHandler) pushNoticeToPlayer(playerID uint64, message string) erro
 	return nil
 }
 
+// pushBattleSettlementError 根据奖励是否已经落库和真实失败原因，向当前玩家推送可确认的错误提示框消息。
+// 普通 NOTICE_PUSH 只承载成功或状态信息，结算错误统一使用 ERROR_PUSH，避免被渲染成容易错过的 HUD 短提示。
+func (h *BattleHandler) pushBattleSettlementError(
+	conn packetSender,
+	playerID uint64,
+	battleID uint64,
+	settlement *battleSettlement,
+	grantErr error,
+) error {
+	if grantErr == nil {
+		return nil
+	}
+	rewardGrantCommitted := settlement != nil && settlement.rewardGrantCommitted
+	message := "战斗结算异常，奖励未发放，请稍后重试。"
+	if errors.Is(grantErr, bag.ErrContainerCapacityFull) {
+		message = "背包空间不足，战斗物品奖励未能发放，请清理背包后重试。"
+	} else if rewardGrantCommitted {
+		message = "战斗奖励已发放，但结算数据同步异常，请重新登录刷新。"
+	}
+	log.Printf(
+		"[battle-settlement] battle_id=%d player_id=%d reward_grant_committed=%t error=%v",
+		battleID,
+		playerID,
+		rewardGrantCommitted,
+		grantErr,
+	)
+	if conn != nil {
+		return sendError(conn, 0, errcode.WSCodeBattleActionInvalid, message, grantErr)
+	}
+	for _, playerConn := range h.participantConns([]uint64{playerID}) {
+		return sendError(playerConn, 0, errcode.WSCodeBattleActionInvalid, message, grantErr)
+	}
+	return nil
+}
+
 func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ packetSender, playerID uint64, result *battle.ResultSnapshot, preConsumedBag *bag.RuntimeContainerSnapshot) (*battleSettlement, error) {
 	if result == nil {
 		return nil, nil
@@ -1081,7 +1124,7 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 	if !inserted {
 		return h.loadBattleSettlementSync(ctx, playerID, result)
 	}
-	// 发奖占位记录写在奖励真正落库之前；若后续任一步失败，需要删除记录以便重试。
+	// 发奖占位记录写在奖励真正落库之前；仅正式奖励尚未落库时允许删除记录并重试。
 	commitRewardRecord := false
 	defer func() {
 		if !commitRewardRecord {
@@ -1096,8 +1139,10 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		if h.petService != nil && result.CaptureMonsterID > 0 {
 			grantResult, grantErr := h.petService.GrantCapturedPet(ctx, playerID, result.CaptureMonsterID, "battle_capture", result.BattleID)
 			if grantErr != nil {
-				return nil, grantErr
+				return settlement, grantErr
 			}
+			commitRewardRecord = true
+			settlement.rewardGrantCommitted = true
 			if grantResult != nil {
 				captured := grantResult.Pet
 				settlement.CapturedPet = &captured
@@ -1121,7 +1166,7 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 	if h.rewardService != nil && result.Win {
 		grantEntries, grantEntryErr := h.buildBattleGrantEntries(ctx, playerID, result)
 		if grantEntryErr != nil {
-			return nil, grantEntryErr
+			return settlement, grantEntryErr
 		}
 		grantResult, err := h.rewardService.GrantRuntimeRewards(ctx, reward.GrantInput{
 			PlayerID:     playerID,
@@ -1132,11 +1177,11 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 			Rewards:      grantEntries,
 		})
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
-		if recordErr := h.recordGrantedUniqueBattleItems(ctx, playerID, result, grantResult); recordErr != nil {
-			return nil, recordErr
-		}
+		// 统一发奖服务返回成功即代表金币、经验和物品事务已经提交；后续同步失败不得放开重复发奖。
+		commitRewardRecord = true
+		settlement.rewardGrantCommitted = true
 		settlement.LevelUpCount = grantResult.LevelUpCount
 		settlement.AttrPointsGained = grantResult.AttrPointsGained
 		settlement.CombatBonusGain = grantResult.CombatBonusGain
@@ -1148,7 +1193,7 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		if grantResult.BagUpdated && h.bagService != nil {
 			bagSnapshot, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
 			if err != nil {
-				return nil, err
+				return settlement, err
 			}
 			settlement.BagSnapshot = bagSnapshot
 		}
@@ -1156,19 +1201,22 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 			result.DropTexts = battleDropTextsFromGrantedRewards(grantResult.Granted)
 			settlement.GrantedRewards = append([]reward.Entry{}, grantResult.Granted...)
 		}
+		if recordErr := h.recordGrantedUniqueBattleItems(ctx, playerID, result, grantResult); recordErr != nil {
+			return settlement, recordErr
+		}
 	}
 	// 战斗胜利后始终以数据库最新档案回填结算包，避免发奖服务未带回 PlayerProfile 时客户端经验停留在 0。
 	if result.Win && h.playerService != nil {
 		currentProfile, err := h.playerService.GetProfile(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
 		settlement.PlayerProfile = currentProfile
 	}
 	if (result.RewardGold > 0 || result.RewardPlayerExp > 0) && settlement.Wallet == nil && h.walletService != nil {
 		currentWallet, err := h.walletService.GetRuntimeWallet(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
 		settlement.Wallet = currentWallet
 	}
@@ -1176,13 +1224,13 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 		for _, petResult := range result.PetResults {
 			updatedPet, err := h.petService.UpdatePetBattleProgress(ctx, playerID, petResult.PetUID, petResult.HP, petResult.ExpGained)
 			if err != nil {
-				return nil, err
+				return settlement, err
 			}
 			settlement.Pets = append(settlement.Pets, updatedPet)
 		}
 	}
 	if err := h.applyBattleSkillProgressUpdates(ctx, playerID, result); err != nil {
-		return nil, err
+		return settlement, err
 	}
 	settlement.questBefore = questBefore
 	commitRewardRecord = true
@@ -1203,18 +1251,21 @@ func (h *BattleHandler) loadBattleSettlementSync(ctx context.Context, playerID u
 	if result == nil {
 		return nil, nil
 	}
-	settlement := &battleSettlement{rewardsAlreadyGranted: true}
+	settlement := &battleSettlement{
+		rewardsAlreadyGranted: true,
+		rewardGrantCommitted:  true,
+	}
 	if h.playerService != nil {
 		currentProfile, err := h.playerService.GetProfile(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
 		settlement.PlayerProfile = currentProfile
 	}
 	if h.walletService != nil {
 		currentWallet, err := h.walletService.GetRuntimeWallet(ctx, playerID)
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
 		settlement.Wallet = currentWallet
 		settlement.WalletReason = "battle_reward_sync"
@@ -1223,7 +1274,7 @@ func (h *BattleHandler) loadBattleSettlementSync(ctx context.Context, playerID u
 	if h.bagService != nil {
 		bagSnapshot, err := h.bagService.ListRuntimeContainer(ctx, playerID, bag.ContainerTypeBag)
 		if err != nil {
-			return nil, err
+			return settlement, err
 		}
 		settlement.BagSnapshot = bagSnapshot
 	}
