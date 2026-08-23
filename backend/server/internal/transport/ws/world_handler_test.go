@@ -388,6 +388,7 @@ func TestRouterRejectUnauthenticatedEnterWorld(t *testing.T) {
 	}
 }
 
+// TestRouterHandleMoveIntentLocalOnly 验证未携带坐标的兼容心跳会被静默忽略。
 func TestRouterHandleMoveIntentLocalOnly(t *testing.T) {
 	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
 
@@ -408,30 +409,8 @@ func TestRouterHandleMoveIntentLocalOnly(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(conn.packets) != 1 {
-		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
-	}
-
-	respPacket := conn.packets[0]
-	if respPacket.Cmd != protocol.CmdMoveIntentResp {
-		t.Fatalf("respPacket.Cmd = %d, want %d", respPacket.Cmd, protocol.CmdMoveIntentResp)
-	}
-
-	var resp protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(respPacket.Body, &resp); err != nil {
-		t.Fatalf("UnmarshalBody(resp) error = %v", err)
-	}
-	if !resp.Accepted {
-		t.Fatalf("resp.Accepted = false, want true")
-	}
-	if resp.MoveSeq != 3 {
-		t.Fatalf("resp.MoveSeq = %d, want 3", resp.MoveSeq)
-	}
-	if resp.SceneID != 1 {
-		t.Fatalf("resp.SceneID = %d, want 1", resp.SceneID)
-	}
-	if resp.Reason != "local movement handled by client" {
-		t.Fatalf("resp.Reason = %q, want local movement handled by client", resp.Reason)
+	if len(conn.packets) != 0 {
+		t.Fatalf("packets = %+v, want no response for same-scene movement report", conn.packets)
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
@@ -443,7 +422,7 @@ func TestRouterHandleMoveIntentLocalOnly(t *testing.T) {
 	}
 }
 
-// TestRouterHandleMoveIntentSynchronizesPosition 验证新客户端上报坐标后，服务端先持久化再返回权威坐标。
+// TestRouterHandleMoveIntentSynchronizesPosition 验证兼容链路保存客户端坐标，但不向上报者发送回包。
 func TestRouterHandleMoveIntentSynchronizesPosition(t *testing.T) {
 	demoPlayerID, router, playerService, conn := buildWorldRouterForTest(t)
 	targetPos := protocol.Vec2i{X: 9, Y: 7}
@@ -464,19 +443,8 @@ func TestRouterHandleMoveIntentSynchronizesPosition(t *testing.T) {
 	if err := router.Handle(conn, raw); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(conn.packets) != 1 {
-		t.Fatalf("len(conn.packets) = %d, want 1", len(conn.packets))
-	}
-
-	var resp protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(conn.packets[0].Body, &resp); err != nil {
-		t.Fatalf("UnmarshalBody(resp) error = %v", err)
-	}
-	if !resp.Accepted || resp.CorrectedPos != targetPos {
-		t.Fatalf("response = %+v, want accepted target position %+v", resp, targetPos)
-	}
-	if resp.Reason != "position synchronized" {
-		t.Fatalf("resp.Reason = %q, want position synchronized", resp.Reason)
+	if len(conn.packets) != 0 {
+		t.Fatalf("packets = %+v, want no response for same-scene movement report", conn.packets)
 	}
 
 	profile, err := playerService.GetProfile(context.Background(), demoPlayerID)
@@ -618,7 +586,7 @@ func TestRouterHandleMapTeleportWithinCurrentScene(t *testing.T) {
 	}
 }
 
-// TestRouterBroadcastsMovementOnlyToPlayersInSameScene 验证移动推送会到达同场景玩家，且不会回推给移动者自身。
+// TestRouterBroadcastsMovementOnlyToPlayersInSameScene 验证移动上报只推送给同场景其他玩家，上报者和其他场景都不收包。
 func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
 	_, router, _, firstConn := buildWorldRouterForTest(t)
 	secondConn := &fakeConn{id: "conn-2"}
@@ -644,8 +612,8 @@ func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
 		Facing:     &facing,
 		Moving:     &moving,
 	})
-	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
-		t.Fatalf("moving player packets = %+v, want only move response", firstConn.packets)
+	if len(firstConn.packets) != 0 {
+		t.Fatalf("moving player packets = %+v, want no response", firstConn.packets)
 	}
 	if len(secondConn.packets) != 1 || secondConn.packets[0].Cmd != protocol.CmdEntityMovePush {
 		t.Fatalf("nearby player packets = %+v, want one entity move push", secondConn.packets)
@@ -663,13 +631,13 @@ func TestRouterBroadcastsMovementOnlyToPlayersInSameScene(t *testing.T) {
 	}
 }
 
-// TestNormalizeMovementPresentation 验证服务端会限制高精度表现位置并拒绝斜向朝向。
+// TestNormalizeMovementPresentation 验证服务端原样保留高精度坐标，并把非法朝向降级为四方向表现。
 func TestNormalizeMovementPresentation(t *testing.T) {
 	targetPos := world.Vec2i{X: 10, Y: 7}
-	outOfRange := protocol.Vec2i{X: 12000, Y: 5000}
-	precisePos := normalizePreciseMovementPosition(targetPos, &outOfRange)
-	if precisePos.X != 10500 || precisePos.Y != 6500 {
-		t.Fatalf("precise position = %+v, want clamped (10500,6500)", precisePos)
+	reportedPrecisePos := protocol.Vec2i{X: 12000, Y: 5000}
+	precisePos := normalizePreciseMovementPosition(targetPos, &reportedPrecisePos)
+	if precisePos != reportedPrecisePos {
+		t.Fatalf("precise position = %+v, want exact client report %+v", precisePos, reportedPrecisePos)
 	}
 
 	diagonalFacing := protocol.Vec2i{X: 1, Y: 1}
@@ -678,11 +646,7 @@ func TestNormalizeMovementPresentation(t *testing.T) {
 		t.Fatalf("facing = %+v, want inferred right direction", facing)
 	}
 	if !normalizeMovementState(world.Vec2i{X: 9, Y: 7}, targetPos, nil) {
-		t.Fatal("legacy movement state = false, want inferred moving=true")
-	}
-	stopped := false
-	if normalizeMovementState(world.Vec2i{X: 9, Y: 7}, targetPos, &stopped) {
-		t.Fatal("explicit movement state = true, want stopped=false")
+		t.Fatal("legacy moving state = false, want true when integer position changed")
 	}
 }
 
@@ -2695,7 +2659,7 @@ func TestHandleEnterWorldRestoresPostgresPositionVersion(t *testing.T) {
 	}
 }
 
-// TestHandleMoveIntentUsesWorldMovementUseCase 验证 Redis 普通移动只推进短时权威状态，不同步访问 PostgreSQL 档案。
+// TestHandleMoveIntentUsesWorldMovementUseCase 验证 Redis 普通移动只记录并广播客户端上报值，不回包也不同步访问 PostgreSQL。
 func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	basePlayerRepo := teststub.NewPlayerRepository()
 	playerRepoSpy := &playerRepositoryMovementHotPathSpy{Repository: basePlayerRepo}
@@ -2720,7 +2684,7 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	mustHandleJSONPacket(t, router, secondConn, protocol.CmdEnterWorldReq, 291, protocol.EnterWorldReq{})
 	clearPackets(firstConn)
 	clearPackets(secondConn)
-	// 进入世界需要从 PostgreSQL 建立初始快照；这里只统计随后单个普通移动请求的访问量。
+	// 进入世界需要从 PostgreSQL 建立初始快照；这里只统计随后单个普通移动上报的访问量。
 	playerRepoSpy.findCount = 0
 	playerRepoSpy.updatePositionCount = 0
 
@@ -2729,7 +2693,7 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
 	movementRepo.states[demoPlayerID] = state
 	targetPos := protocol.Vec2i{X: 9, Y: 6}
-	precisePos := protocol.Vec2i{X: 9000, Y: 6000}
+	precisePos := protocol.Vec2i{X: 9876, Y: 5432}
 	right := protocol.Vec2i{X: 1}
 	moving := true
 	mustHandleJSONPacket(t, router, firstConn, protocol.CmdMoveIntentReq, 292, protocol.MoveIntentReq{
@@ -2737,19 +2701,12 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 		Input: &right, Facing: &right, Moving: &moving,
 	})
 
-	if len(firstConn.packets) != 1 || firstConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
-		t.Fatalf("moving player packets = %+v, want one move response", firstConn.packets)
+	if len(firstConn.packets) != 0 {
+		t.Fatalf("moving player packets = %+v, want no response", firstConn.packets)
 	}
-	var response protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(firstConn.packets[0].Body, &response); err != nil {
-		t.Fatalf("UnmarshalBody(move response) error = %v", err)
-	}
-	if !response.Accepted || response.CorrectedPos != targetPos || response.CorrectedPrecisePos != precisePos || response.Speed == 0 || response.ServerTick <= 0 || response.CorrectionIgnoreDistance != 125 || response.CorrectionSnapDistance != 1125 {
-		t.Fatalf("move response = %+v, want authoritative position, timing and database-derived correction policy", response)
-	}
-	authoritativeState := movementRepo.states[demoPlayerID]
-	if movementRepo.compareCount != 1 || authoritativeState.LastMoveSeq != 10 || authoritativeState.PersistedPos != (world.Vec2i{X: targetPos.X, Y: targetPos.Y}) {
-		t.Fatalf("movement state compare_count=%d state=%+v, want one CAS at sequence 10 and position %+v", movementRepo.compareCount, authoritativeState, targetPos)
+	reportedState := movementRepo.states[demoPlayerID]
+	if movementRepo.compareCount != 1 || reportedState.LastMoveSeq != 10 || reportedState.PersistedPos != (world.Vec2i{X: targetPos.X, Y: targetPos.Y}) || reportedState.PrecisePos != (world.Vec2i{X: precisePos.X, Y: precisePos.Y}) {
+		t.Fatalf("movement state compare_count=%d state=%+v, want one exact client report write", movementRepo.compareCount, reportedState)
 	}
 	if playerRepoSpy.findCount != 0 || playerRepoSpy.updatePositionCount != 0 {
 		t.Fatalf("PostgreSQL hot-path access find=%d update_position=%d, want both zero", playerRepoSpy.findCount, playerRepoSpy.updatePositionCount)
@@ -2768,12 +2725,12 @@ func TestHandleMoveIntentUsesWorldMovementUseCase(t *testing.T) {
 	if err := protocol.UnmarshalBody(secondConn.packets[0].Body, &push); err != nil {
 		t.Fatalf("UnmarshalBody(entity move push) error = %v", err)
 	}
-	if push.SceneVersion != state.SceneVersion || push.ToPos != targetPos || push.PrecisePos != precisePos || push.Facing != right || !push.Moving || push.Speed != response.Speed || push.ServerTick != response.ServerTick {
-		t.Fatalf("entity move push = %+v, want scene_version=%d and response-compatible authoritative movement", push, state.SceneVersion)
+	if push.SceneVersion != state.SceneVersion || push.ToPos != targetPos || push.PrecisePos != precisePos || push.Facing != right || !push.Moving || push.Speed != reportedState.Speed || push.ServerTick != reportedState.LastServerTickMS || push.ServerTick <= 0 {
+		t.Fatalf("entity move push = %+v, want exact reported movement with scene_version=%d", push, state.SceneVersion)
 	}
 }
 
-// TestHandleMoveIntentRejectsMismatchedRedisSession 验证普通移动的旧会话拒绝已由 world 领域入口负责，并继续返回当前权威位置。
+// TestHandleMoveIntentRejectsMismatchedRedisSession 验证旧会话普通移动会被静默丢弃，不回包也不覆盖 Redis。
 func TestHandleMoveIntentRejectsMismatchedRedisSession(t *testing.T) {
 	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
 	movementRepo := &movementStateRepoForHandlerTest{}
@@ -2797,23 +2754,17 @@ func TestHandleMoveIntentRejectsMismatchedRedisSession(t *testing.T) {
 		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
 	})
 
-	if len(conn.packets) != 1 {
-		t.Fatalf("len(conn.packets) = %d, want one movement rejection", len(conn.packets))
+	if len(conn.packets) != 0 {
+		t.Fatalf("packets = %+v, want stale session report to be silent", conn.packets)
 	}
-	var response protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
-		t.Fatalf("UnmarshalBody(move response) error = %v", err)
-	}
-	if response.Accepted || response.Reason != world.ErrMovementSessionMismatch.Error() || response.CorrectedPos != (protocol.Vec2i{X: state.PersistedPos.X, Y: state.PersistedPos.Y}) || response.CorrectionIgnoreDistance != 125 || response.CorrectionSnapDistance != 1125 {
-		t.Fatalf("move response = %+v, want session mismatch with authoritative position and correction policy", response)
-	}
-	if movementRepo.compareCount != 0 {
-		t.Fatalf("CompareAndSet() calls = %d, want zero for rejected session", movementRepo.compareCount)
+	if movementRepo.compareCount != 0 || movementRepo.states[demoPlayerID] != state {
+		t.Fatalf("movement state changed for stale session: compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], state)
 	}
 }
 
+// TestHandleMoveIntentRejectsDuplicateRedisMovementSequence 验证重复普通移动序号只静默丢弃第二个上报。
 func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
-	_, router, _, conn := buildWorldRouterForTest(t)
+	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
 	movementRepo := &movementStateRepoForHandlerTest{}
 	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
@@ -2826,36 +2777,22 @@ func TestHandleMoveIntentRejectsDuplicateRedisMovementSequence(t *testing.T) {
 		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
 	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 300, protocol.EnterWorldReq{})
-	conn.packets = nil
+	clearPackets(conn)
 
 	targetPos := protocol.Vec2i{X: 9, Y: 6}
-	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 301, protocol.MoveIntentReq{
-		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
-	})
-	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 302, protocol.MoveIntentReq{
-		MoveSeq: 10, SceneID: 1, TargetPos: &targetPos,
-	})
-	if len(conn.packets) != 2 {
-		t.Fatalf("len(conn.packets) = %d, want two movement responses", len(conn.packets))
+	request := protocol.MoveIntentReq{MoveSeq: 10, SceneID: 1, TargetPos: &targetPos}
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 301, request)
+	acceptedState := movementRepo.states[demoPlayerID]
+	mustHandleJSONPacket(t, router, conn, protocol.CmdMoveIntentReq, 302, request)
+	if len(conn.packets) != 0 {
+		t.Fatalf("packets = %+v, want no response for accepted or duplicate reports", conn.packets)
 	}
-	var first protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(conn.packets[0].Body, &first); err != nil {
-		t.Fatalf("UnmarshalBody(first) error = %v", err)
-	}
-	if !first.Accepted || first.ServerTick <= 0 {
-		t.Fatalf("first response = %+v, want accepted authoritative state", first)
-	}
-	var duplicate protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(conn.packets[1].Body, &duplicate); err != nil {
-		t.Fatalf("UnmarshalBody(duplicate) error = %v", err)
-	}
-	if duplicate.Accepted || duplicate.Reason != world.ErrMovementSequenceStale.Error() {
-		t.Fatalf("duplicate response = %+v, want stale sequence rejection", duplicate)
+	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID] != acceptedState || acceptedState.LastMoveSeq != 10 {
+		t.Fatalf("movement state after duplicate compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], acceptedState)
 	}
 }
 
-// TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback 验证成功移动之后到达的倒退序号
-// 只返回当前权威状态，不会再次推进 Redis、回滚 PostgreSQL 位置或向同场景旁观者广播旧坐标。
+// TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback 验证倒退序号会被静默丢弃，不回滚状态或广播旧坐标。
 func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *testing.T) {
 	demoPlayerID, router, playerService, moverConn := buildWorldRouterForTest(t)
 	observerConn := &fakeConn{id: "conn-authoritative-movement-older-sequence-observer"}
@@ -2878,44 +2815,25 @@ func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *tes
 	clearPackets(moverConn)
 	clearPackets(observerConn)
 
-	// 给首个合法移动留出完整服务端时间窗，确保权威位置明确推进到下一格。
-	state := movementRepo.states[demoPlayerID]
-	state.LastServerTickMS = time.Now().Add(-time.Second).UnixMilli()
-	movementRepo.states[demoPlayerID] = state
 	acceptedPos := protocol.Vec2i{X: 9, Y: 6}
 	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 305, protocol.MoveIntentReq{
 		MoveSeq: 10, SceneID: 1, TargetPos: &acceptedPos,
 	})
-	if len(moverConn.packets) != 1 {
-		t.Fatalf("accepted movement packets = %d, want one response", len(moverConn.packets))
-	}
-	var accepted protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &accepted); err != nil {
-		t.Fatalf("UnmarshalBody(accepted) error = %v", err)
-	}
-	if !accepted.Accepted || accepted.CorrectedPos != acceptedPos {
-		t.Fatalf("accepted response = %+v, want authoritative position %+v", accepted, acceptedPos)
+	if len(moverConn.packets) != 0 {
+		t.Fatalf("accepted movement packets = %+v, want no response", moverConn.packets)
 	}
 	acceptedState := movementRepo.states[demoPlayerID]
 	if acceptedState.LastMoveSeq != 10 || movementRepo.compareCount != 1 {
 		t.Fatalf("accepted movement state = %+v compare_count=%d, want sequence 10 after one CAS", acceptedState, movementRepo.compareCount)
 	}
-	clearPackets(moverConn)
 	clearPackets(observerConn)
 
 	olderCandidate := protocol.Vec2i{X: 10, Y: 6}
 	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 306, protocol.MoveIntentReq{
 		MoveSeq: 9, SceneID: 1, TargetPos: &olderCandidate,
 	})
-	if len(moverConn.packets) != 1 || moverConn.packets[0].Cmd != protocol.CmdMoveIntentResp {
-		t.Fatalf("older movement packets = %+v, want one rejection response", moverConn.packets)
-	}
-	var rejected protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &rejected); err != nil {
-		t.Fatalf("UnmarshalBody(rejected) error = %v", err)
-	}
-	if rejected.Accepted || rejected.Reason != world.ErrMovementSequenceStale.Error() || rejected.CorrectedPos != acceptedPos {
-		t.Fatalf("older movement response = %+v, want stale rejection at %+v", rejected, acceptedPos)
+	if len(moverConn.packets) != 0 {
+		t.Fatalf("older movement packets = %+v, want silent discard", moverConn.packets)
 	}
 	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID] != acceptedState {
 		t.Fatalf("movement state changed after older sequence: compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], acceptedState)
@@ -2924,7 +2842,7 @@ func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *tes
 	if err != nil {
 		t.Fatalf("GetProfile() error = %v", err)
 	}
-	// 普通移动只推进 Redis 权威状态；批量写回任务执行前，PostgreSQL 保持进入世界时的快照。
+	// 普通移动只推进 Redis 在线状态；批量写回任务执行前，PostgreSQL 保持进入世界时的快照。
 	if profile.SceneID != 1 || profile.PosX != 8 || profile.PosY != 6 {
 		t.Fatalf("profile scene/position = %d/(%d,%d), want unchanged PostgreSQL snapshot 1/(8,6)", profile.SceneID, profile.PosX, profile.PosY)
 	}
@@ -2933,8 +2851,8 @@ func TestHandleMoveIntentRejectsOlderRedisMovementSequenceWithoutRollback(t *tes
 	}
 }
 
-// TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer 验证切图完成后延迟到达的旧场景普通移动包
-// 会按新场景 Redis 权威状态拒绝并补发重同步，且不会覆盖新场景持久化位置或向任一场景广播旧移动。
+// TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer 验证切图后到达的旧场景普通移动包会被静默丢弃。
+// 旧上报不会覆盖新场景的 Redis/PostgreSQL 位置，也不会向旧场景或新场景旁观者广播。
 func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.T) {
 	demoPlayerID, router, playerService, moverConn := buildWorldRouterForTest(t)
 	movementRepo := &movementStateRepoForHandlerTest{}
@@ -2950,7 +2868,6 @@ func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.
 	}
 	mustHandleJSONPacket(t, router, moverConn, protocol.CmdEnterWorldReq, 307, protocol.EnterWorldReq{})
 
-	// 同时放置旧场景和新场景旁观者，用于确认竞态拒绝不会泄漏任何 ENTITY_MOVE_PUSH。
 	const oldSceneObserverID uint64 = 20001
 	oldSceneObserverConn := &fakeConn{id: "conn-delayed-old-scene-observer"}
 	newSceneObserverConn := &fakeConn{id: "conn-delayed-new-scene-observer"}
@@ -2969,7 +2886,7 @@ func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.
 	router.worldHandler.presenceMu.Unlock()
 	clearPackets(moverConn)
 
-	// 先完成权威切图，使 Redis 与 PostgreSQL 都落在场景 2 的服务端入口格。
+	// 跨场景仍走服务端权威链路，使 Redis 与 PostgreSQL 都落在场景 2 的入口格。
 	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 308, protocol.MoveIntentReq{
 		MoveSeq: 20, SceneID: 1, TargetSceneID: 2, PortalID: 1001,
 	})
@@ -2995,25 +2912,8 @@ func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.
 	mustHandleJSONPacket(t, router, moverConn, protocol.CmdMoveIntentReq, 309, protocol.MoveIntentReq{
 		MoveSeq: 21, SceneID: 1, TargetPos: &delayedOldScenePos,
 	})
-	if len(moverConn.packets) != 2 {
-		t.Fatalf("delayed old-scene movement packets = %d, want rejection and world resync", len(moverConn.packets))
-	}
-	if moverConn.packets[0].Cmd != protocol.CmdMoveIntentResp || moverConn.packets[1].Cmd != protocol.CmdWorldResyncPush {
-		t.Fatalf("packet order = [%d,%d], want MOVE_INTENT_RESP then WORLD_RESYNC_PUSH", moverConn.packets[0].Cmd, moverConn.packets[1].Cmd)
-	}
-	var rejected protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(moverConn.packets[0].Body, &rejected); err != nil {
-		t.Fatalf("UnmarshalBody(rejected move) error = %v", err)
-	}
-	if rejected.Accepted || rejected.Reason != "scene mismatch" || rejected.SceneID != 2 || rejected.CorrectedPos != (protocol.Vec2i{X: 4, Y: 1}) {
-		t.Fatalf("delayed old-scene response = %+v, want scene mismatch at scene 2 position (4,1)", rejected)
-	}
-	var resync protocol.WorldResyncPush
-	if err := protocol.UnmarshalBody(moverConn.packets[1].Body, &resync); err != nil {
-		t.Fatalf("UnmarshalBody(world resync) error = %v", err)
-	}
-	if resync.SceneID != 2 || resync.SelfPos != (protocol.Vec2i{X: 4, Y: 1}) || resync.SceneVersion != transferredState.SceneVersion {
-		t.Fatalf("world resync = %+v, want transferred authoritative snapshot", resync)
+	if len(moverConn.packets) != 0 {
+		t.Fatalf("delayed old-scene movement packets = %+v, want silent discard", moverConn.packets)
 	}
 	if movementRepo.compareCount != 1 || movementRepo.states[demoPlayerID] != transferredState {
 		t.Fatalf("movement state changed after delayed old-scene packet: compare_count=%d state=%+v want=%+v", movementRepo.compareCount, movementRepo.states[demoPlayerID], transferredState)
@@ -3101,8 +3001,9 @@ func TestHandleMapTeleportRejectsDuplicateRedisMovementSequence(t *testing.T) {
 	}
 }
 
-func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
-	_, router, _, conn := buildWorldRouterForTest(t)
+// TestHandleMoveIntentUsesReportedPositionWithoutInputValidation 验证对角输入不会阻止普通坐标上报，服务端原样保存位置且不回包。
+func TestHandleMoveIntentUsesReportedPositionWithoutInputValidation(t *testing.T) {
+	demoPlayerID, router, _, conn := buildWorldRouterForTest(t)
 	movementRepo := &movementStateRepoForHandlerTest{}
 	router.worldHandler.worldService.SetMovementStateRepository(movementRepo)
 	if err := router.worldHandler.worldService.RefreshMovementConfig(context.Background()); err != nil {
@@ -3115,7 +3016,7 @@ func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
 		t.Fatalf("RefreshSceneNavigationCache() error = %v", err)
 	}
 	mustHandleJSONPacket(t, router, conn, protocol.CmdEnterWorldReq, 330, protocol.EnterWorldReq{})
-	conn.packets = nil
+	clearPackets(conn)
 	targetPos := protocol.Vec2i{X: 9, Y: 7}
 	precisePos := protocol.Vec2i{X: 8100, Y: 6100}
 	diagonalInput := protocol.Vec2i{X: 1, Y: 1}
@@ -3124,15 +3025,15 @@ func TestHandleMoveIntentRejectsDiagonalAuthoritativeInput(t *testing.T) {
 		MoveSeq: 1, SceneID: 1, TargetPos: &targetPos, PrecisePos: &precisePos,
 		Input: &diagonalInput, Facing: &diagonalInput, Moving: &moving,
 	})
-	if len(conn.packets) != 1 {
-		t.Fatalf("len(conn.packets) = %d, want one movement rejection", len(conn.packets))
+	if len(conn.packets) != 0 {
+		t.Fatalf("packets = %+v, want no response", conn.packets)
 	}
-	var response protocol.MoveIntentResp
-	if err := protocol.UnmarshalBody(conn.packets[0].Body, &response); err != nil {
-		t.Fatalf("UnmarshalBody() error = %v", err)
+	state := movementRepo.states[demoPlayerID]
+	if movementRepo.compareCount != 1 || state.PersistedPos != (world.Vec2i{X: targetPos.X, Y: targetPos.Y}) || state.PrecisePos != (world.Vec2i{X: precisePos.X, Y: precisePos.Y}) {
+		t.Fatalf("movement state compare_count=%d state=%+v, want exact reported coordinates", movementRepo.compareCount, state)
 	}
-	if response.Accepted || response.Reason != world.ErrMovementInputInvalid.Error() {
-		t.Fatalf("response = %+v, want invalid movement input rejection", response)
+	if state.Facing != (world.Vec2i{X: 1}) || !state.Moving {
+		t.Fatalf("movement facing/moving = %+v/%t, want cardinal fallback and reported moving state", state.Facing, state.Moving)
 	}
 }
 

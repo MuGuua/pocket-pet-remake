@@ -73,7 +73,8 @@ SET level = $3,
     def = $8,
     spd = $9,
     mana = $10,
-    hp = LEAST($11, $6)
+    -- LEAST 的两个占位参数必须显式声明为 INTEGER，避免 PostgreSQL 把未知参数先推导为 TEXT。
+    hp = LEAST($11::INTEGER, $6::INTEGER)
 WHERE player_id = $1 AND id = $2
 `
 
@@ -90,7 +91,8 @@ SET free_attr_points = $3,
     def = $11,
     spd = $12,
     mana = $13,
-    hp = LEAST($14, $9)
+    -- 手动加点写回与经验写回使用相同的 HP 上限约束，参数类型也必须保持为 INTEGER。
+    hp = LEAST($14::INTEGER, $9::INTEGER)
 WHERE player_id = $1 AND id = $2
 `
 
@@ -457,7 +459,8 @@ SET hp_max = $3,
     def = $5,
     spd = $6,
     mana = $7,
-    hp = LEAST($8, $3)
+    -- 批量重算同样需要固定参数类型，否则 PostgreSQL 会在解析 LEAST 时产生 TEXT 与 INTEGER 冲突。
+    hp = LEAST($8::INTEGER, $3::INTEGER)
 WHERE player_id = $1 AND id = $2
 `
 

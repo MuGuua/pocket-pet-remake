@@ -168,6 +168,10 @@ var _npc_menu_refresh_scheduled: bool = false
 var _pending_npc_action_seq: int = 0
 # 与 _pending_npc_action_seq 对应的动作回包缓存。
 var _pending_npc_action_payload: Dictionary = {}
+## 当前等待任务领取或交付回包的请求序列号，防止玩家重复点击任务菜单项。
+var _pending_npc_quest_seq: int = 0
+## 当前 NPC 任务操作对应的实体 ID，成功后只刷新这个 NPC 的权威菜单。
+var _pending_npc_quest_entity_id: int = 0
 # 当前等待 NPC_DIALOGUE_RESP 的请求序列号。
 var _pending_dialogue_request_seq: int = 0
 # 与 _pending_dialogue_request_seq 对应的剧情回包缓存。
@@ -675,6 +679,8 @@ func _on_action_responded(accepted: bool, reason: String) -> void:
 # 处理战斗开始事件，在世界场景上方弹出战斗面板。
 func _on_battle_started(payload: Dictionary) -> void:
 	_append_log("收到战斗开始事件。")
+	if _world_controller != null and _world_controller.has_method("remember_local_pre_battle_position"):
+		_world_controller.call("remember_local_pre_battle_position")
 	_cancel_auto_wild_encounter_schedule()
 	hud_root.set_player_status_visible(false)
 	_close_all_blocking_popups_for_battle()
@@ -847,6 +853,8 @@ func _unmount_battle_scene() -> void:
 		_battle_scene = null
 	if _battle_modal_layer != null:
 		_battle_modal_layer.visible = false
+	if _world_controller != null and _world_controller.has_method("restore_local_pre_battle_position"):
+		_world_controller.call("restore_local_pre_battle_position")
 	_sync_world_player_battle_pose()
 	_refresh_world_pet_follower_after_battle()
 	_set_runtime_menu_locked(false)
@@ -1582,11 +1590,7 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 	if entity_id <= 0 or entry_id.is_empty():
 		return
 	if entry_type == "quest" and quest_id > 0:
-		if quest_state == "AVAILABLE":
-			App.accept_quest(quest_id, entity_id)
-		elif quest_state == "READY_TO_SUBMIT":
-			App.submit_quest(quest_id, entity_id)
-		_begin_npc_menu_request(entity_id)
+		_begin_npc_quest_request(entity_id, quest_id, quest_state)
 		return
 	if entry_type == "warehouse":
 		_append_log("仓库旧面板已移除，等待新版仓库界面接入。")
@@ -1951,6 +1955,56 @@ func _begin_npc_action_request(entity_id: int, entry_id: String) -> void:
 	_show_npc_request_loading()
 	call_deferred("_wait_npc_request", request_seq, CommandIds.NPC_ACTION_REQ, "_finish_npc_action_request")
 
+## 发起 NPC 任务领取或交付请求；必须等待任务状态持久化完成后才能刷新动态菜单。
+func _begin_npc_quest_request(entity_id: int, quest_id: int, quest_state: String) -> void:
+	if _pending_npc_quest_seq > 0:
+		return
+	var request_cmd: int = 0
+	var request_seq: int = 0
+	if quest_state == "AVAILABLE":
+		request_cmd = CommandIds.QUEST_ACCEPT_REQ
+		request_seq = App.accept_quest(quest_id, entity_id)
+	elif quest_state == "READY_TO_SUBMIT":
+		request_cmd = CommandIds.QUEST_SUBMIT_REQ
+		request_seq = App.submit_quest(quest_id, entity_id)
+	else:
+		return
+	if request_seq <= 0:
+		App.show_error("任务请求发送失败，请检查网络后重试。")
+		return
+	_pending_npc_quest_seq = request_seq
+	_pending_npc_quest_entity_id = entity_id
+	_show_npc_request_loading()
+	call_deferred("_wait_npc_quest_request", request_seq, request_cmd)
+
+## 等待指定任务请求结束；App 会先把权威任务快照交给任务控制器，再发出完成信号。
+func _wait_npc_quest_request(expected_seq: int, expected_cmd: int) -> void:
+	while expected_seq > 0:
+		var result: Array = await App.request_finished
+		if result.size() < 5:
+			continue
+		var request_cmd: int = int(result[0])
+		var seq: int = int(result[1])
+		var succeeded: bool = bool(result[2])
+		var payload_variant: Variant = result[4]
+		var payload: Dictionary = payload_variant if payload_variant is Dictionary else {}
+		if request_cmd != expected_cmd or seq != expected_seq:
+			continue
+		_finish_npc_quest_request(expected_seq, succeeded, payload)
+		return
+
+## 任务操作完成后关闭 loading；仅业务成功时重新读取 NPC 菜单，避免旧状态闪回。
+func _finish_npc_quest_request(expected_seq: int, succeeded: bool, payload: Dictionary) -> void:
+	if expected_seq != _pending_npc_quest_seq:
+		return
+	var entity_id: int = _pending_npc_quest_entity_id
+	_hide_npc_request_loading()
+	_pending_npc_quest_seq = 0
+	_pending_npc_quest_entity_id = 0
+	if not succeeded or not bool(payload.get("accepted", false)):
+		return
+	_begin_npc_menu_request(entity_id)
+
 ## 等待指定 NPC 相关请求完成，再回调 finish_method 处理 UI。
 func _wait_npc_request(expected_seq: int, expected_cmd: int, finish_method: StringName) -> void:
 	while expected_seq > 0:
@@ -1992,6 +2046,7 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 	if not bool(payload.get("accepted", false)):
 		var failed_reason: String = str(payload.get("reason", "npc menu request failed"))
 		_append_log("NPC 菜单拉取失败: %s" % failed_reason)
+		App.show_error(failed_reason)
 		return
 	_append_log("收到 NPC 菜单数据: %s" % str(payload.get("npc_name", "未知 NPC")))
 	if _npc_menu == null:
@@ -2007,6 +2062,11 @@ func _open_npc_menu_from_payload(payload: Dictionary) -> void:
 
 ## 处理 NPC 菜单项执行后的服务端结果。
 func _handle_npc_action_payload(payload: Dictionary) -> void:
+	if not bool(payload.get("accepted", false)):
+		var failed_reason: String = str(payload.get("reason", "NPC 操作失败，请稍后重试。"))
+		_append_log("NPC 操作失败: %s" % failed_reason)
+		App.show_error(failed_reason)
+		return
 	if bool(payload.get("accepted", false)) and payload.has("menu_entries"):
 		_cache_scene_npc_menu(payload)
 	var animation_key: String = str(payload.get("client_animation_key", "")).strip_edges()
@@ -2044,6 +2104,7 @@ func _handle_npc_dialogue_payload(payload: Dictionary) -> void:
 		_append_log("剧情推进失败: %s" % failed_reason)
 		if _npc_dialogue_panel != null:
 			_npc_dialogue_panel.show_waiting_state(failed_reason)
+		App.show_error(failed_reason)
 		return
 	var effect_notice: String = ""
 	var node_variant: Variant = payload.get("node", {})

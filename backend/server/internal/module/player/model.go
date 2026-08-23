@@ -73,6 +73,17 @@ func DefaultStarterProfile() StarterProfile {
 	}
 }
 
+// WorldTransferProfile 只包含场景切换校验和位置版本推进所需字段。
+// 该轻量模型禁止触发装备、技能与战斗快照重算，避免切图请求被无关战斗数据阻塞。
+type WorldTransferProfile struct {
+	PlayerID        uint64
+	Level           uint32
+	SceneID         uint32
+	PosX            int32
+	PosY            int32
+	PositionVersion uint64
+}
+
 type Profile struct {
 	PlayerID uint64
 	Name     string

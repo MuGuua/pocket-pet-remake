@@ -21,3 +21,8 @@ type Repository interface {
 type WorldSummaryRepository interface {
 	ListWorldSummariesByPlayerIDs(ctx context.Context, playerIDs []uint64) ([]WorldSummary, error)
 }
+
+// WorldTransferProfileRepository 提供场景切换专用轻量档案读取，避免复用完整战斗档案查询。
+type WorldTransferProfileRepository interface {
+	FindWorldTransferProfile(ctx context.Context, playerID uint64) (*WorldTransferProfile, error)
+}

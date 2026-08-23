@@ -1,5 +1,40 @@
 # 任务总结
 
+## 2026-08-22：客户端自主移动与战斗本地坐标恢复任务总结
+
+- **任务目标**：消除普通移动期间因服务端回包或重同步导致的本机位置回退；普通同场景移动只做坐标上报，战斗结束恢复进入战斗前的本地位置。
+- **后端移动链路**：`backend/server/internal/module/world/model.go`、`backend/server/internal/module/world/service.go` 和 `backend/server/internal/transport/ws/world_handler.go` 将普通移动改为“校验会话/场景/序号 -> 原样记录客户端坐标 -> 广播给其他玩家”。普通移动不再调用 `EvaluateMovement`，不发送 `MOVE_INTENT_RESP`，也不因错误发送 `WORLD_RESYNC_PUSH`；Redis CAS、dirty 标记、停止事件写回和周期持久化继续保留。
+- **客户端移动链路**：`client/scripts/feature/world/world_controller.gd` 删除普通移动单请求在途限制及本机分级纠偏状态；高精度坐标按既有 100ms 间隔上报，整数格、朝向和起停变化立即发送，普通移动发送成功后直接更新本地网络基线。传送和跨场景请求仍保持互斥，并继续消费服务端响应和世界快照。
+- **战斗返回位置**：`client/scripts/bootstrap/main.gd` 在战斗开始时记录本地位置，在战斗弹窗卸载时触发恢复；`client/scripts/feature/world/world_controller.gd` 优先恢复同场景本地记录，缺失或场景不匹配时读取地图传送出生坐标，并强制下一帧重新上报供其他玩家同步；`client/scripts/feature/battle/battle_controller.gd` 不再把服务端 `return_pos` 写入 `GameState`。
+- **测试与文档**：更新 `backend/server/internal/module/world/movement_service_test.go`、`backend/server/internal/transport/ws/world_handler_test.go`，覆盖普通移动不回包、高精度坐标原样广播、旧会话/场景/序号静默丢弃和跨场景契约不变；同步更新 `backend/docs/protocol.md`、`backend/docs/architecture.md` 与 `backend/docs/multiplayer-movement-optimization-plan.md`。
+- **数据影响**：无数据库结构、迁移、后台页面或依赖变更；现有在线位置与永久位置存储结构保持兼容。
+- **验证结果**：Godot 4.7 Headless 全项目编辑器解析通过；`GOCACHE=/tmp/pocket-pet-movement-go-cache go test ./server/... -count=1`、移动领域与 WebSocket 专项测试、`go vet ./server/...`、GDScript 四空格/旧纠偏符号检查和 `git diff --check` 全部通过。
+- **建议提交信息**：`fix(world): 改为客户端自主移动并本地恢复战斗返回坐标`
+
+## 2026-08-18：任务系统端到端打通任务总结
+
+- **检查范围**：核对任务页打开前刷新、任务分类与状态按钮、客户端请求与消息路由、服务端模板/玩家任务/目标仓储、事件推进、NPC 结构化对话、提交补偿和统一奖励发放，确认代码层具备“领取 → 推进 → 待交付 → 交付发奖 → 列表刷新”的完整主链路。
+- **正式数据断点**：只读查询当前 PostgreSQL 后确认 `1101`～`1103` 的目标配置全部为空，`1102`、`1103` 奖励也为空；玩家 `10001` 的 `1101` 为 `ACCEPTED` 且没有任何目标记录。现状下与 NPC 对话不会命中目标，任务不能进入待交付状态。
+- **迁移修复**：新增并执行 `backend/server/migrations/124_repair_main_journey_quest_flow.sql`，从原主线迁移恢复 `1101/1102/1103` 的 `TALK_TO_NPC` 目标和 `100/150/200` 金币奖励，并使用 `ON CONFLICT DO NOTHING` 补齐存量玩家目标。迁移只修复空数组，保留现有非空配置和 `completion_prompt_text`；事务执行结果为 `UPDATE 3`、`INSERT 0 1`。
+- **领取幂等**：修改 `backend/server/internal/module/quest/service.go`。已经处于 `ACCEPTED`、`READY_TO_SUBMIT` 或 `COMPLETED` 的任务再次收到领取请求时，直接返回数据库中的任务与目标快照，不再重建目标或回退状态。
+- **交付补偿**：修改 `backend/server/internal/transport/ws/battle_handler.go`。结构化对话和旧 NPC 提交入口如果在任务写为 `COMPLETED` 后发奖失败，会把任务补偿回 `READY_TO_SUBMIT`；若补偿本身失败，使用 `errors.Join` 保留两个错误供日志排查。
+- **客户端交互**：修改 `client/scripts/bootstrap/main.gd`，NPC 任务菜单的领取/交付请求接入现有 `RuntimeProgressOverlay`，等待精确 `seq/cmd` 回包，成功后再拉取最新 NPC 菜单。NPC 菜单、动作和剧情业务失败，以及 `client/scripts/feature/quest/quest_controller.gd` 的领取、交付、追踪失败，均复用 `App.show_error` 和现有确认提示框。
+- **任务页结论**：`client/scripts/ui/task/task_panel.gd` 打开前会请求最新任务列表，并支持查看主线、支线、日常任务；`AVAILABLE` 可领取，`ACCEPTED` 可追踪/前往，`READY_TO_SUBMIT` 可交付或导航至 NPC，完成任务从活动列表移除。迁移 `124` 已执行，现有三条正式主线已具备可推进数据。
+- **测试结果**：新增 `TestAcceptKeepsExistingProgress` 覆盖进行中进度 `2/3` 和待提交进度 `3/3`；`go test ./server/internal/module/quest ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...`、Godot 4.7 Headless 编辑器解析与 `git diff --check` 全部通过。
+- **数据库执行与备份**：执行前将 `quest_template`、`player_quest`、`player_quest_objective` 中任务 `1101`～`1103` 的相关记录备份到 `/tmp/pocket-pet-quest-migration-124-backup-20260818-170857`。执行后确认三条模板均为 1 个目标和 1 条奖励，玩家 `10001` 的 `1101` 已补齐 `TALK_TO_NPC npc_id=93001`、进度 `0/1` 的目标记录。下一步只需按 `1101 → 1102 → 1103` 实机验收 NPC 对话、交付和奖励弹窗。
+- **建议提交信息**：`fix(quest): 打通主线任务领取推进与交付链路`
+
+## 2026-08-18：战斗宠物成长 SQL 参数类型修复任务总结
+
+- **问题定位**：日志显示 `reward_grant_committed=true`，确认金币、经验和物品奖励已经事务提交，异常发生在战斗结算的后续宠物/技能同步阶段，不能删除 `battle_record` 或重新发奖。
+- **真实根因**：使用当前 PostgreSQL 对 `savePetExpProgressionQuery` 执行 `PREPARE`，稳定复现 `inconsistent types deduced for parameter $6`。`$6` 一处赋给 `player_pet.hp_max INTEGER`，另一处参与 `LEAST($11, $6)`；两个未知参数在多态表达式中被先推导为 `TEXT`，最终与字段要求的 `INTEGER` 冲突。
+- **代码修复**：在 `backend/server/internal/data/postgres/pet_progression_repo.go` 为战斗经验写回的 `$11/$6` 显式转换为 `INTEGER`；同时修复手动加点 `$14/$9` 和批量属性重算 `$8/$3` 的同类问题，避免后续由其他入口再次触发相同 SQLSTATE。
+- **测试补充**：新增 `backend/server/internal/data/postgres/pet_progression_repo_test.go`，分别约束战斗经验、手动加点和批量重算三条 SQL 必须保留 HP 参数的显式整数转换。
+- **数据库安全**：本次只读取 `player_pet` 字段类型，并在 `BEGIN/ROLLBACK` 范围内执行 `PREPARE/DEALLOCATE` 验证；没有更新业务数据、没有执行 DDL，也不需要新增迁移。
+- **兼容性**：未修改战斗协议、客户端提示框、奖励发放顺序或幂等边界。奖励提交后的其他同步异常仍会保持 `battle_record`，同一 `battle_id` 不会重复发奖。
+- **验证结果**：三条修复后的 PostgreSQL 语句均成功 `PREPARE`；`go test ./server/internal/data/postgres ./server/internal/transport/ws -count=1`、`go test ./server/... -count=1`、`go vet ./server/...` 与 `git diff --check` 均通过。
+- **建议提交信息**：`fix(battle): 修复宠物成长 SQL 参数类型冲突`
+
 ## 2026-08-17：战斗奖励幂等与错误提示框统一任务总结
 
 - **任务目标**：定位“战斗奖励发放异常，请检查背包空间后重试”的真实原因，避免错误文案误导玩家，并落实运行态错误统一使用确认提示框展示。
@@ -1736,3 +1771,17 @@
 - `runtime_hud.gd` 继续维护挂机业务状态，并将可用性传给抽屉控制器；非暗雷地图隐藏挂机时，其他四个入口自动紧凑排列，暗雷地图恢复五按钮完整布局。
 - 背包、任务、设置、地图和挂机原有节点名、信号、面板控制器及网络请求链路保持不变；本次无后端、协议、数据库或依赖变更。
 - 验证通过：Godot 4.7 Headless 项目解析、受影响脚本 `--check-only`、抽屉 90° 旋转、触摸拦截、坐标复位和动态挂机可见性的专项交互测试。
+
+## 2026-08-22 场景切换黑屏关键路径优化任务总结
+
+- **服务端轻量读取**：新增 `player.WorldTransferProfile` 与可选 `WorldTransferProfileRepository`，`backend/server/internal/data/postgres/player_repo.go` 使用专用 SQL 只查询切图所需字段；`world_handler.go` 的切图路径不再调用会触发战斗快照链路的完整 `GetProfile()`。
+- **Redis 往返优化**：`backend/server/internal/module/world/service.go` 新增 `AdvanceLoadedMovementState()`，复用 handler 已加载的当前状态执行校验和 Lua CAS；切图关键路径去掉两次重复 Redis 读取，并直接复用已递增位置版本的新状态。
+- **客户端资源预加载**：`client/scripts/feature/world/world_controller.gd` 在传送请求发出时启动 `ResourceLoader.load_threaded_request()`，黑屏中点优先消费目标 `PackedScene`，拒绝、超时、失败和权威场景应用结束时统一清理预加载记录。
+- **黑屏后置工作**：地图挂载不再同步构建完整导航网格；`scene_loaded` 负责视觉就绪，导航在下一帧开始并按每帧最多 64 格扫描，完成后发出 `scene_runtime_ready`。导航未完成时关闭点击寻路与暗雷判定，手动移动不受影响。
+- **多人表现后置**：客户端远端玩家实例化延后到 `scene_loaded` 后；服务端跨场景 `WORLD_RESYNC_PUSH` 先发送不含在线玩家的基础快照，再通过既有实体进入推送补齐多人资料和跟随宠物，未增加协议字段。
+- **耗时诊断**：服务端切图成功路径记录玩家轻量查询、Redis 读取、序号 CAS、传送校验、位置持久化、快照发送和总耗时；世界快照日志进一步拆分场景快照、暗雷配置和在线玩家阶段。客户端记录预加载请求/消费、地图挂载及导航完成耗时。
+- **行为兼容**：普通同场景移动继续由客户端自主完成，只上报给服务端供其他玩家视角广播，本机不接收成功回包或坐标纠错；战斗前本地坐标记录与战斗结束后的本地坐标优先恢复逻辑没有修改。
+- **测试覆盖**：新增 `backend/server/internal/module/player/service_test.go`，确认轻量仓储可用时不会读取完整档案；扩展 `backend/server/internal/module/world/movement_service_test.go`，确认切图状态推进不再次加载 Redis 且只执行一次 CAS。
+- **验证结果**：`GOCACHE=/tmp/pocket-pet-remake-go-cache go test ./server/... -count=1` 与 `go vet ./server/...` 全部通过；Godot 4.7 Headless 编辑器解析通过；GDScript Tab 检查与 `git diff --check` 通过。
+- **数据影响**：无数据库结构或正式数据变更，无迁移、后台页面和新增依赖。
+- **建议提交信息**：`perf(world): 缩短场景切换黑屏关键路径`

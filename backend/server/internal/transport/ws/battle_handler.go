@@ -2301,6 +2301,11 @@ func (h *BattleHandler) applyDialogueNodeSideEffects(ctx context.Context, conn p
 				Rewards:      toRuntimeRewardEntries(result.Rewards),
 			})
 			if grantErr != nil {
+				// 任务状态会先进入 COMPLETED；奖励失败时必须退回 READY_TO_SUBMIT，
+				// 这样背包空间释放或临时故障恢复后，玩家仍可重新交付领奖。
+				if revertErr := h.questService.RevertCompletedQuestToReady(ctx, playerID, node.EffectSubmitQuestID); revertErr != nil {
+					grantErr = errors.Join(grantErr, revertErr)
+				}
 				return grantErr
 			}
 			if conn != nil && grantResult != nil && grantResult.Wallet != nil {
@@ -2437,6 +2442,11 @@ func (h *BattleHandler) handleNPCQuestSubmitAction(conn packetSender, seq uint32
 			OperatorID:   playerID,
 			Rewards:      toRuntimeRewardEntries(result.Rewards),
 		}); grantErr != nil {
+			// 兼容旧 NPC quest_submit 菜单：奖励失败时同样退回可提交状态，
+			// 避免这条入口与 QUEST_SUBMIT_REQ 的补偿语义不一致。
+			if revertErr := h.questService.RevertCompletedQuestToReady(ctx, playerID, questID); revertErr != nil {
+				grantErr = errors.Join(grantErr, revertErr)
+			}
 			return h.sendNPCActionResponse(conn, seq, protocol.NPCActionResp{Accepted: false, Reason: grantErr.Error(), EntityID: target.EntityID, EntryID: entryID, NPCName: target.Name})
 		}
 	}

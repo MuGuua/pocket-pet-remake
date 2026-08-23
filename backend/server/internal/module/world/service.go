@@ -327,7 +327,7 @@ func roundFixedCoordinate(value int32) int32 {
 	return (value - MovementPositionFixedScale/2) / MovementPositionFixedScale
 }
 
-// SetMovementStateRepository 注入在线玩家权威移动状态仓储。
+// SetMovementStateRepository 注入在线玩家移动状态仓储。
 func (s *Service) SetMovementStateRepository(repo MovementStateRepository) {
 	if s == nil {
 		return
@@ -335,12 +335,12 @@ func (s *Service) SetMovementStateRepository(repo MovementStateRepository) {
 	s.movementRepo = repo
 }
 
-// MovementStateEnabled 表示服务端已经装配在线权威移动状态仓储。
+// MovementStateEnabled 表示服务端已经装配在线移动状态仓储。
 func (s *Service) MovementStateEnabled() bool {
 	return s != nil && s.movementRepo != nil
 }
 
-// LoadMovementState 读取玩家当前在线权威移动状态。
+// LoadMovementState 读取玩家当前在线移动状态。
 func (s *Service) LoadMovementState(ctx context.Context, playerID uint64) (*MovementState, error) {
 	if s == nil || s.movementRepo == nil {
 		return nil, ErrMovementStateNotFound
@@ -371,8 +371,8 @@ func (s *Service) RequeueDirtyMovementPlayerIDs(ctx context.Context, playerIDs [
 	return s.movementRepo.RequeueDirtyPlayerIDs(ctx, playerIDs)
 }
 
-// MovePlayer 执行普通同场景移动的服务端权威用例。
-// 该入口负责加载 Redis 状态、验证会话与场景、归一化旧客户端字段、计算合法位置，并通过 CAS 原子推进状态。
+// MovePlayer 记录客户端上报的普通同场景移动状态。
+// 该入口只验证玩家、会话、场景和移动序号，随后原样保存客户端坐标与表现状态；服务端不计算移动距离，也不纠正客户端位置。
 func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (MovePlayerResult, error) {
 	if s == nil || s.movementRepo == nil {
 		return MovePlayerResult{}, ErrMovementStateNotFound
@@ -383,7 +383,7 @@ func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (MovePl
 	}
 	result := MovePlayerResult{PreviousState: *current, State: *current}
 	if current.PlayerID != input.PlayerID {
-		// 仓储若返回了其他玩家状态，按读取失败处理，避免把不属于当前连接的位置暴露给传输层。
+		// 仓储若返回了其他玩家状态，按读取失败处理，避免跨玩家覆盖在线位置。
 		return MovePlayerResult{}, ErrMovementStateNotFound
 	}
 	if current.SessionID != input.SessionID {
@@ -392,31 +392,25 @@ func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (MovePl
 	if current.SceneID != input.SceneID {
 		return result, ErrMovementSceneMismatch
 	}
-	// 旧客户端未携带候选坐标时保持原心跳语义：只确认当前权威状态，不占用移动序号，也不写 Redis。
+	// 未携带坐标的兼容心跳不占用移动序号，也不写 Redis。
 	if !input.HasCandidate {
 		return result, nil
 	}
 
-	movementResult, err := s.EvaluateMovement(*current, MovementIntent{
-		Input:        input.Input,
-		CandidatePos: input.CandidatePos,
-		HasCandidate: true,
-		Facing:       normalizeReportedMovementFacing(current.PersistedPos, input.CandidateCell, input.Facing),
-		Moving:       normalizeReportedMovementState(current.PersistedPos, input.CandidateCell, input.Moving),
-		MoveSeq:      input.MoveSeq,
-		ServerTickMS: input.ServerTickMS,
-	})
-	if err != nil {
+	next := *current
+	next.PrecisePos = input.CandidatePos
+	next.PersistedPos = input.CandidateCell
+	next.Facing = normalizeReportedMovementFacing(current.PersistedPos, input.CandidateCell, input.Facing)
+	next.Moving = normalizeReportedMovementState(current.PersistedPos, input.CandidateCell, input.Moving)
+	next.LastMoveSeq = input.MoveSeq
+	next.LastServerTickMS = input.ServerTickMS
+	if err := validateMovementStateAdvance(*current, &next); err != nil {
 		return result, err
 	}
-	if err := validateMovementStateAdvance(*current, &movementResult.State); err != nil {
+	if err := s.movementRepo.CompareAndSet(ctx, current.LastMoveSeq, next); err != nil {
 		return result, err
 	}
-	if err := s.movementRepo.CompareAndSet(ctx, current.LastMoveSeq, movementResult.State); err != nil {
-		return result, err
-	}
-	result.State = movementResult.State
-	result.Corrected = movementResult.Corrected
+	result.State = next
 	return result, nil
 }
 
@@ -455,8 +449,20 @@ func (s *Service) InitializeMovementState(ctx context.Context, state MovementSta
 	return s.movementRepo.Initialize(ctx, state)
 }
 
-// AdvanceMovementState 校验会话、场景代次和移动序号后，通过仓储 CAS 原子推进权威状态。
-// 场景切换等非普通移动流程继续复用该入口；普通移动统一通过 MovePlayer 完成加载、计算和推进。
+// AdvanceLoadedMovementState 复用调用方已经读取的当前状态执行校验与 CAS。
+// 场景切换使用该入口可避免 AdvanceMovementState 内部重复读取 Redis，并把校验后的新状态回写给调用方。
+func (s *Service) AdvanceLoadedMovementState(ctx context.Context, current MovementState, next *MovementState) error {
+	if s == nil || s.movementRepo == nil {
+		return ErrMovementStateNotFound
+	}
+	if err := validateMovementStateAdvance(current, next); err != nil {
+		return err
+	}
+	return s.movementRepo.CompareAndSet(ctx, current.LastMoveSeq, *next)
+}
+
+// AdvanceMovementState 校验会话、场景代次和移动序号后，通过仓储 CAS 原子推进在线状态。
+// 场景切换等非普通移动流程继续复用该入口；普通移动统一通过 MovePlayer 完成加载、记录和推进。
 func (s *Service) AdvanceMovementState(ctx context.Context, next MovementState) error {
 	if s == nil || s.movementRepo == nil {
 		return ErrMovementStateNotFound
@@ -471,7 +477,7 @@ func (s *Service) AdvanceMovementState(ctx context.Context, next MovementState) 
 	return s.movementRepo.CompareAndSet(ctx, current.LastMoveSeq, next)
 }
 
-// validateMovementStateAdvance 统一验证一次权威状态推进，并确保位置版本严格递增。
+// validateMovementStateAdvance 统一验证一次在线状态推进，并确保位置版本严格递增。
 func validateMovementStateAdvance(current MovementState, next *MovementState) error {
 	if next == nil {
 		return ErrMovementStateNotFound

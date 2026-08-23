@@ -89,6 +89,13 @@ WHERE id = $1 AND status = 1
 LIMIT 1
 `
 
+const findWorldTransferProfileQuery = `
+SELECT id, level, scene_id, pos_x, pos_y, position_version
+FROM player
+WHERE id = $1 AND status = 1
+LIMIT 1
+`
+
 const updatePlayerPositionQuery = `
 UPDATE player
 SET scene_id = $2,
@@ -332,6 +339,24 @@ FROM player
 WHERE account_id = $1
 FOR UPDATE
 `
+
+// FindWorldTransferProfile 直接读取切图所需字段，不刷新或读取战斗属性快照。
+func (r *PlayerRepository) FindWorldTransferProfile(ctx context.Context, playerID uint64) (*player.WorldTransferProfile, error) {
+	if playerID == 0 {
+		return nil, nil
+	}
+	profile := &player.WorldTransferProfile{}
+	err := r.db.QueryRowContext(ctx, findWorldTransferProfileQuery, playerID).Scan(
+		&profile.PlayerID, &profile.Level, &profile.SceneID, &profile.PosX, &profile.PosY, &profile.PositionVersion,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
 
 func (r *PlayerRepository) FindByPlayerID(ctx context.Context, playerID uint64) (*player.Profile, error) {
 	if playerID == 0 {

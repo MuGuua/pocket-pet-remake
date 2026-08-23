@@ -122,23 +122,12 @@ func handle_battle_result(payload: Dictionary) -> void:
 	_battle_fallback_emit_generation += 1
 	## 结算包单独保留一份副本，避免后续 battle_state 合并时被战斗过程字段干扰弹窗展示。
 	var result_snapshot: Dictionary = payload.duplicate(true)
-	_apply_battle_return_position(result_snapshot)
 	GameState.apply_battle_player_rewards(payload)
 	GameState.apply_battle_pet_rewards(payload)
 	GameState.set_battle_state(payload, false)
 	battle_updated.emit(GameState.battle_state)
 	## 延迟一帧再通知主场景结束，确保 battle_updated 已 ingest 并排入演出队列。
 	call_deferred("_emit_battle_finished", result_snapshot)
-
-## 把服务端下发的 return_pos 写回本地玩家快照，避免战后刷新面板时坐标回跳。
-func _apply_battle_return_position(result_snapshot: Dictionary) -> void:
-	var return_pos_variant: Variant = result_snapshot.get("return_pos", {})
-	if return_pos_variant is not Dictionary:
-		return
-	var return_pos: Dictionary = return_pos_variant as Dictionary
-	GameState.sync_player_scene_position(
-		Vector2(float(return_pos.get("x", 0.0)), float(return_pos.get("y", 0.0)))
-	)
 
 ## 当服务端只下发 4012 finished、4013 结算包因奖励落库异常等原因未到达时，兜底退出战斗界面。
 func _emit_battle_finished_from_state(state_snapshot: Dictionary) -> void:

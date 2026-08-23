@@ -220,7 +220,7 @@ func (s *Service) List(ctx context.Context, playerID uint64) ([]Summary, uint64,
 }
 
 func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, npcID uint64) (Summary, error) {
-	template, playerQuestMap, _, err := s.loadSingle(ctx, playerID, questID)
+	template, playerQuestMap, playerObjectiveMap, err := s.loadSingle(ctx, playerID, questID)
 	if err != nil {
 		return Summary{}, err
 	}
@@ -237,8 +237,10 @@ func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, n
 	if !isUnlocked(template, completed, facts) {
 		return Summary{}, ErrQuestLocked
 	}
-	if existing != nil && existing.State == StateCompleted {
-		return buildSummary(*template, existing, nil, completed, facts), nil
+	// 接取请求可能因网络重试或剧情节点重放重复到达。
+	// 已经接取、待提交或已完成的任务必须直接返回当前权威进度，不能重新初始化目标。
+	if existing != nil && (existing.State == StateAccepted || existing.State == StateReadyToSubmit || existing.State == StateCompleted) {
+		return buildSummary(*template, existing, playerObjectiveMap[questID], completed, facts), nil
 	}
 
 	tracked := template.AutoTrack

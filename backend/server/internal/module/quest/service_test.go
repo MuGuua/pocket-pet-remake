@@ -78,6 +78,93 @@ func TestRevertCompletedQuestToReady(t *testing.T) {
 	}
 }
 
+// 验证重复领取不会覆盖服务端已经持久化的目标进度，也不会把待提交任务退回进行中。
+func TestAcceptKeepsExistingProgress(t *testing.T) {
+	testCases := []struct {
+		name         string
+		state        string
+		currentValue uint32
+		targetValue  uint32
+		completed    bool
+	}{
+		{name: "accepted quest", state: StateAccepted, currentValue: 2, targetValue: 3, completed: false},
+		{name: "ready to submit quest", state: StateReadyToSubmit, currentValue: 3, targetValue: 3, completed: true},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			const playerID uint64 = 10001
+			const questID uint64 = 9101
+
+			repo := newQuestServiceTestRepo()
+			repo.templates[questID] = Template{
+				QuestID:   questID,
+				QuestType: "MAIN",
+				Title:     "重复领取幂等测试",
+				Objectives: []ObjectiveTemplate{
+					{ObjectiveID: 1, EventType: "TALK_TO_NPC", Description: "与 NPC 对话", TargetValue: testCase.targetValue},
+				},
+			}
+			repo.playerQuests[playerID][questID] = PlayerQuest{
+				PlayerID: playerID,
+				QuestID:  questID,
+				State:    testCase.state,
+				Tracked:  true,
+			}
+			repo.playerObjectives[playerID] = map[uint64][]PlayerObjective{
+				questID: {
+					{
+						PlayerID:     playerID,
+						QuestID:      questID,
+						ObjectiveID:  1,
+						Description:  "与 NPC 对话",
+						CurrentValue: testCase.currentValue,
+						TargetValue:  testCase.targetValue,
+						Completed:    testCase.completed,
+					},
+				},
+			}
+
+			service := NewService(repo)
+			summary, err := service.Accept(context.Background(), playerID, questID, 0)
+			if err != nil {
+				t.Fatalf("Accept() error = %v", err)
+			}
+
+			storedQuest := repo.playerQuests[playerID][questID]
+			if storedQuest.State != testCase.state {
+				t.Fatalf("stored quest state = %s, want %s", storedQuest.State, testCase.state)
+			}
+			storedObjective := repo.playerObjectives[playerID][questID][0]
+			if storedObjective.CurrentValue != testCase.currentValue || storedObjective.Completed != testCase.completed {
+				t.Fatalf(
+					"stored objective = %d/%d completed=%v, want %d/%d completed=%v",
+					storedObjective.CurrentValue,
+					storedObjective.TargetValue,
+					storedObjective.Completed,
+					testCase.currentValue,
+					testCase.targetValue,
+					testCase.completed,
+				)
+			}
+			if summary.State != testCase.state || len(summary.Objectives) != 1 {
+				t.Fatalf("summary state/objectives = %s/%d, want %s/1", summary.State, len(summary.Objectives), testCase.state)
+			}
+			if summary.Objectives[0].Current != testCase.currentValue || summary.Objectives[0].Completed != testCase.completed {
+				t.Fatalf(
+					"summary objective = %d/%d completed=%v, want %d/%d completed=%v",
+					summary.Objectives[0].Current,
+					summary.Objectives[0].Target,
+					summary.Objectives[0].Completed,
+					testCase.currentValue,
+					testCase.targetValue,
+					testCase.completed,
+				)
+			}
+		})
+	}
+}
+
 // 验证运行时摘要会保留后台配置的目标引导，客户端才能据此显示“前往哪里/找谁”。
 func TestBuildSummaryKeepsObjectiveGuide(t *testing.T) {
 	guide := &ObjectiveGuideInput{SceneID: 3, NPCID: 93001, NPCName: "生产导师·璃梦", Text: "去市场找生产导师"}

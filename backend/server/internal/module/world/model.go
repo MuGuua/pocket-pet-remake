@@ -73,7 +73,7 @@ type MoveDecision struct {
 	Reason       string
 }
 
-// MovementState 保存在线玩家的服务端权威移动状态；高精度坐标使用千分之一场景格定点整数。
+// MovementState 保存在线玩家最近一次上报的移动状态；高精度坐标使用千分之一场景格定点整数。
 type MovementState struct {
 	PlayerID         uint64
 	SessionID        string
@@ -156,8 +156,8 @@ type MovementResult struct {
 	Corrected bool
 }
 
-// MovePlayerInput 是普通同场景移动用例的完整输入。
-// 传输层只负责把协议字段转换为领域值；会话、场景、序号、移动规则和状态推进均由 world 服务判定。
+// MovePlayerInput 是普通同场景移动上报用例的完整输入。
+// 传输层只负责转换协议字段；world 服务校验会话、场景和序号后保存客户端上报的坐标与表现状态。
 type MovePlayerInput struct {
 	PlayerID      uint64
 	SessionID     string
@@ -172,8 +172,8 @@ type MovePlayerInput struct {
 	ServerTickMS  int64
 }
 
-// MovePlayerResult 同时返回移动前后的权威状态。
-// PreviousState 用于传输层广播起点，并在领域拒绝请求时向当前客户端返回可纠偏的事实状态。
+// MovePlayerResult 同时返回移动上报前后的在线状态。
+// PreviousState 用于传输层广播起点和判断停止状态；普通移动失败时只丢弃上报，不向客户端回传纠偏。
 type MovePlayerResult struct {
 	PreviousState MovementState
 	State         MovementState

@@ -33,6 +33,7 @@ func handle_quest_remove(payload: Dictionary) -> void:
 # 处理任务接取响应；成功时优先合并返回的任务快照。
 func handle_quest_accept_response(payload: Dictionary) -> void:
     if not bool(payload.get("accepted", false)):
+        _show_quest_error(payload, "任务领取失败，请稍后重试。")
         return
     if payload.has("quest"):
         handle_quest_update(payload)
@@ -47,6 +48,7 @@ func handle_quest_accept_response(payload: Dictionary) -> void:
 # 处理任务提交响应；成功时优先合并返回的任务快照。
 func handle_quest_submit_response(payload: Dictionary) -> void:
     if not bool(payload.get("accepted", false)):
+        _show_quest_error(payload, "任务交付失败，请稍后重试。")
         return
     if payload.has("quest"):
         handle_quest_update(payload)
@@ -80,7 +82,15 @@ func finish_quest_animation(action: String) -> void:
 # 处理任务追踪响应；成功时切换本地追踪状态。
 func handle_quest_track_response(payload: Dictionary) -> void:
     if not bool(payload.get("accepted", false)):
+        _show_quest_error(payload, "任务追踪切换失败，请稍后重试。")
         return
     GameState.set_tracked_quest(int(payload.get("quest_id", 0)))
     quests_updated.emit(GameState.quests.size())
     App.request_quest_list()
+
+## 使用服务端原因或本地兜底文案展示任务业务错误，确保空 reason 也会进入统一提示框。
+func _show_quest_error(payload: Dictionary, fallback_message: String) -> void:
+    var message: String = str(payload.get("reason", "")).strip_edges()
+    if message.is_empty():
+        message = fallback_message
+    App.show_error(message)

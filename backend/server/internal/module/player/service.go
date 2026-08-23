@@ -49,6 +49,29 @@ func (s *Service) SetBattleChecker(checker ActiveBattleChecker) {
 	s.battleChecker = checker
 }
 
+// GetWorldTransferProfile 读取切图所需的最小玩家字段。
+// PostgreSQL 仓储实现轻量查询；兼容测试桩或旧仓储时才回退到完整档案。
+func (s *Service) GetWorldTransferProfile(ctx context.Context, playerID uint64) (*WorldTransferProfile, error) {
+	if transferRepo, ok := s.repo.(WorldTransferProfileRepository); ok {
+		profile, err := transferRepo.FindWorldTransferProfile(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if profile == nil {
+			return nil, ErrPlayerNotFound
+		}
+		return profile, nil
+	}
+	profile, err := s.GetProfile(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	return &WorldTransferProfile{
+		PlayerID: profile.PlayerID, Level: profile.Level, SceneID: profile.SceneID,
+		PosX: profile.PosX, PosY: profile.PosY, PositionVersion: profile.PositionVersion,
+	}, nil
+}
+
 func (s *Service) GetProfile(ctx context.Context, playerID uint64) (*Profile, error) {
 	profile, err := s.repo.FindByPlayerID(ctx, playerID)
 	if err != nil {

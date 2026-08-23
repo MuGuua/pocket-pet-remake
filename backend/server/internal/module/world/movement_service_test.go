@@ -147,6 +147,32 @@ func TestAdvanceMovementStateRejectsMismatchedAuthority(t *testing.T) {
 	}
 }
 
+// TestAdvanceLoadedMovementStateReusesCallerState 验证切图入口复用调用方已加载状态，只执行一次 CAS 且不会再次读取 Redis。
+func TestAdvanceLoadedMovementStateReusesCallerState(t *testing.T) {
+	current := movementStateForTest()
+	repo := &movementStateRepositoryStub{state: current}
+	service := NewService(nil)
+	service.SetMovementStateRepository(repo)
+	next := current
+	next.LastMoveSeq++
+
+	if err := service.AdvanceLoadedMovementState(context.Background(), current, &next); err != nil {
+		t.Fatalf("AdvanceLoadedMovementState() error = %v", err)
+	}
+	if repo.loadCount != 0 {
+		t.Fatalf("repository load count = %d, want 0", repo.loadCount)
+	}
+	if repo.compareCount != 1 || repo.compareFrom != current.LastMoveSeq {
+		t.Fatalf("repository CAS count=%d expected_seq=%d, want one CAS from %d", repo.compareCount, repo.compareFrom, current.LastMoveSeq)
+	}
+	if next.PositionVersion != current.PositionVersion+1 {
+		t.Fatalf("next position version = %d, want %d", next.PositionVersion, current.PositionVersion+1)
+	}
+	if repo.compareNext != next {
+		t.Fatalf("repository next state = %+v, want %+v", repo.compareNext, next)
+	}
+}
+
 func TestAdvanceMovementStateUsesCurrentSequenceAndAdvancesPositionVersion(t *testing.T) {
 	current := movementStateForTest()
 	repo := &movementStateRepositoryStub{state: current}
@@ -271,38 +297,56 @@ func TestMovePlayerRejectsMismatchedAuthority(t *testing.T) {
 	}
 }
 
-// TestMovePlayerRejectsInvalidOrStaleMovementWithoutWrite 验证序号倒退和非法输入不会推进 Redis 状态。
-func TestMovePlayerRejectsInvalidOrStaleMovementWithoutWrite(t *testing.T) {
+// TestMovePlayerRejectsStaleMovementWithoutWrite 验证重复或倒退序号不会覆盖 Redis 中较新的客户端坐标。
+func TestMovePlayerRejectsStaleMovementWithoutWrite(t *testing.T) {
 	current := movementStateForTest()
 	current.LastServerTickMS = 1000
-	testCases := []struct {
-		name    string
-		moveSeq uint32
-		input   Vec2i
-		wantErr error
-	}{
-		{name: "stale sequence", moveSeq: current.LastMoveSeq, input: Vec2i{X: 1}, wantErr: ErrMovementSequenceStale},
-		{name: "diagonal input", moveSeq: current.LastMoveSeq + 1, input: Vec2i{X: 1, Y: 1}, wantErr: ErrMovementInputInvalid},
-	}
-
 	moving := true
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			repo := &movementStateRepositoryStub{state: current}
-			service := movementServiceForEvaluationTest()
-			service.SetMovementStateRepository(repo)
-			_, err := service.MovePlayer(context.Background(), MovePlayerInput{
-				PlayerID: current.PlayerID, SessionID: current.SessionID, SceneID: current.SceneID,
-				MoveSeq: testCase.moveSeq, CandidatePos: Vec2i{X: 12100, Y: 8000}, CandidateCell: Vec2i{X: 12, Y: 8},
-				HasCandidate: true, Input: &testCase.input, Moving: &moving, ServerTickMS: 1100,
-			})
-			if !errors.Is(err, testCase.wantErr) {
-				t.Fatalf("MovePlayer() error = %v, want %v", err, testCase.wantErr)
-			}
-			if repo.compareCount != 0 {
-				t.Fatalf("CompareAndSet() called for rejected movement")
-			}
-		})
+	right := Vec2i{X: 1}
+	repo := &movementStateRepositoryStub{state: current}
+	service := movementServiceForEvaluationTest()
+	service.SetMovementStateRepository(repo)
+
+	_, err := service.MovePlayer(context.Background(), MovePlayerInput{
+		PlayerID: current.PlayerID, SessionID: current.SessionID, SceneID: current.SceneID,
+		MoveSeq: current.LastMoveSeq, CandidatePos: Vec2i{X: 12100, Y: 8000}, CandidateCell: Vec2i{X: 12, Y: 8},
+		HasCandidate: true, Input: &right, Moving: &moving, ServerTickMS: 1100,
+	})
+	if !errors.Is(err, ErrMovementSequenceStale) {
+		t.Fatalf("MovePlayer() error = %v, want %v", err, ErrMovementSequenceStale)
+	}
+	if repo.compareCount != 0 {
+		t.Fatalf("CompareAndSet() called for stale movement")
+	}
+}
+
+// TestMovePlayerAcceptsReportedPositionWithoutInputValidation 验证普通移动不再根据输入向量计算或拒绝客户端坐标。
+func TestMovePlayerAcceptsReportedPositionWithoutInputValidation(t *testing.T) {
+	current := movementStateForTest()
+	current.LastServerTickMS = 1000
+	diagonalInput := Vec2i{X: 1, Y: 1}
+	diagonalFacing := Vec2i{X: 1, Y: 1}
+	moving := true
+	repo := &movementStateRepositoryStub{state: current}
+	service := movementServiceForEvaluationTest()
+	service.SetMovementStateRepository(repo)
+
+	result, err := service.MovePlayer(context.Background(), MovePlayerInput{
+		PlayerID: current.PlayerID, SessionID: current.SessionID, SceneID: current.SceneID,
+		MoveSeq: current.LastMoveSeq + 1, CandidatePos: Vec2i{X: 18999, Y: 4321}, CandidateCell: Vec2i{X: 19, Y: 4},
+		HasCandidate: true, Input: &diagonalInput, Facing: &diagonalFacing, Moving: &moving, ServerTickMS: 1100,
+	})
+	if err != nil {
+		t.Fatalf("MovePlayer() error = %v", err)
+	}
+	if result.State.PrecisePos != (Vec2i{X: 18999, Y: 4321}) || result.State.PersistedPos != (Vec2i{X: 19, Y: 4}) {
+		t.Fatalf("State position = precise %+v cell %+v, want exact client report", result.State.PrecisePos, result.State.PersistedPos)
+	}
+	if result.State.Facing != (Vec2i{X: 1}) || !result.State.Moving {
+		t.Fatalf("State facing/moving = %+v/%t, want fallback cardinal facing and reported moving state", result.State.Facing, result.State.Moving)
+	}
+	if repo.compareCount != 1 || repo.compareNext != result.State {
+		t.Fatalf("CompareAndSet() count=%d state=%+v, want one exact state write", repo.compareCount, repo.compareNext)
 	}
 }
 
