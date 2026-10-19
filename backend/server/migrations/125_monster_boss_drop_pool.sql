@@ -35,7 +35,5 @@ BEFORE UPDATE ON monster_boss_drop_pool
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
--- 权限种子：复用怪物配置的既有权限键，避免新增权限导致现有管理员需要重新授权。
-INSERT INTO admin_permission (permission_key, permission_name, description) VALUES
-  ('monster:view', '查看怪物配置', '查看怪物模板、遭遇战与掉落池')
-ON CONFLICT (permission_key) DO NOTHING;
+-- 无需新增后台权限：Boss 掉落接口复用 031 迁移已建立的
+-- scene_wild_encounters:view / scene_wild_encounters:edit。
