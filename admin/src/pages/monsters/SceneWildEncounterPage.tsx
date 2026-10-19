@@ -23,13 +23,17 @@ import {
   mapMonsterBattleRewardPayload,
   MonsterBattleRewardEditor,
 } from '../../components/MonsterBattleRewardEditor';
+import { BossDropPoolEditor } from '../../components/BossDropPoolEditor';
 import {
   createAdminSceneWildEncounter,
   deleteAdminSceneWildEncounter,
+  fetchAdminBossDrops,
   fetchAdminSceneWildEncounterDetail,
   fetchAdminSceneWildEncounters,
+  replaceAdminBossDrops,
   updateAdminSceneWildEncounter,
 } from '../../services/sceneWildEncounter';
+import type { AdminBossDropEntry } from '../../services/sceneWildEncounter';
 import { fetchAdminMonsterDefinitions } from '../../services/monsterDefinition';
 import type {
   AdminSceneWildEncounterDetail,
@@ -45,6 +49,8 @@ import type { AdminMonsterBattleRewardEntry } from '../../types/monsterDefinitio
 
 interface SceneWildEncounterFormValues extends Omit<AdminUpsertSceneWildEncounterPayload, 'rewards'> {
   rewards: AdminMonsterBattleRewardEntry[];
+  /** Boss 掉落池独立提交，保存在 scene_wild_encounter 之外的表。 */
+  boss_drops: AdminBossDropEntry[];
 }
 
 type FormationModalMode = 'view' | 'create' | 'edit';
@@ -74,6 +80,8 @@ export function SceneWildEncounterPanel() {
   const [formationModalMode, setFormationModalMode] = useState<FormationModalMode>('create');
   const [editingFormationIndex, setEditingFormationIndex] = useState<number | null>(null);
   const [formationRows, setFormationRows] = useState<AdminSceneWildEncounterFormation[]>([]);
+  // 详情抽屉展示用的 Boss 掉落摘要；打开查看时异步加载，加载完成前显示占位文案。
+  const [detailBossDropText, setDetailBossDropText] = useState('加载中...');
 
   useEffect(() => {
     void loadEncounters(filters, page, pageSize);
@@ -116,8 +124,14 @@ export function SceneWildEncounterPanel() {
     setDetailOpen(true);
     setDetail(null);
     setDetailLoading(true);
+    setDetailBossDropText('加载中...');
     try {
-      setDetail(await fetchAdminSceneWildEncounterDetail(sceneID));
+      const [detailResult, bossDrops] = await Promise.all([
+        fetchAdminSceneWildEncounterDetail(sceneID),
+        fetchAdminBossDrops(sceneID).catch(() => [] as AdminBossDropEntry[]),
+      ]);
+      setDetail(detailResult);
+      setDetailBossDropText(formatBossDropSummary(bossDrops));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载地图暗雷详情失败');
       setDetailOpen(false);
@@ -138,8 +152,13 @@ export function SceneWildEncounterPanel() {
     if (!sceneID) return;
     setDetailLoading(true);
     try {
-      const result = await fetchAdminSceneWildEncounterDetail(sceneID);
+      // 遭遇战主体与 Boss 掉落池分属不同端点，并行加载后再一起填入表单。
+      const [result, bossDrops] = await Promise.all([
+        fetchAdminSceneWildEncounterDetail(sceneID),
+        fetchAdminBossDrops(sceneID).catch(() => [] as AdminBossDropEntry[]),
+      ]);
       const formValues = mapDetailToFormValues(result);
+      formValues.boss_drops = bossDrops;
       setEditingRecord(result);
       setFormationRows(formValues.formations);
       editorForm.setFieldsValue(formValues);
@@ -159,12 +178,28 @@ export function SceneWildEncounterPanel() {
         return;
       }
       const payload = buildPayloadFromForm({ ...values, formations: formationRows });
+      let sceneID = editingRecord?.scene_id ?? 0;
       if (editingRecord) {
         await updateAdminSceneWildEncounter(editingRecord.scene_id, payload);
         message.success('地图暗雷配置更新成功');
       } else {
-        await createAdminSceneWildEncounter(payload);
+        const created = await createAdminSceneWildEncounter(payload);
+        sceneID = created.scene_id;
         message.success('地图暗雷配置创建成功');
+      }
+      // Boss 掉落池只在拿到 scene_id 后单独提交，避免主表单请求体承担两张表的写入。
+      if (sceneID > 0) {
+        await replaceAdminBossDrops(sceneID, {
+          drops: (values.boss_drops ?? []).map((entry, index) => ({
+            item_id: Number(entry.item_id),
+            quantity: Math.max(1, Number(entry.quantity ?? 1)),
+            weight: Math.max(1, Number(entry.weight ?? 100)),
+            draw_group: Math.max(1, Number(entry.draw_group ?? 1)),
+            grant_once: Number(entry.grant_once ?? 0) > 0 ? 1 : 0,
+            sort_order: Number(entry.sort_order ?? 0) > 0 ? Number(entry.sort_order) : index + 1,
+            status: Number(entry.status ?? 1) === 1 ? 1 : 0,
+          })),
+        });
       }
       setEditorOpen(false);
       setEditingRecord(null);
@@ -370,6 +405,7 @@ export function SceneWildEncounterPanel() {
             <Descriptions.Item label="描述">{detail.description || '-'}</Descriptions.Item>
             <Descriptions.Item label="怪物编队">{formatFormations(detail.formations)}</Descriptions.Item>
             <Descriptions.Item label="遭遇战奖励">{formatRewardCount(detail.rewards)}</Descriptions.Item>
+            <Descriptions.Item label="Boss 掉落池">{detailBossDropText}</Descriptions.Item>
           </Descriptions>
         )}
       </Drawer>
@@ -423,6 +459,13 @@ export function SceneWildEncounterPanel() {
             extra="本处奖励会与实际随机到的编队中每个怪物自身奖励相加，作为最终战斗奖励。"
           >
             <MonsterBattleRewardEditor />
+          </Form.Item>
+          <Form.Item
+            label="Boss 掉落池"
+            name="boss_drops"
+            extra="按抽取组加权随机掉落，与上方固定奖励叠加。不配置时该遭遇战只发固定奖励。"
+          >
+            <BossDropPoolEditor />
           </Form.Item>
           <Form.Item label="启用" name="is_enabled" valuePropName="checked">
             <Switch />
@@ -486,6 +529,7 @@ function defaultSceneWildEncounterValues(): SceneWildEncounterFormValues {
     spawn_monster_ids: [9001],
     formations: [defaultFormationValues(0)],
     rewards: [createDefaultMonsterBattleRewardEntry()],
+    boss_drops: [],
     is_enabled: true,
   };
 }
@@ -499,6 +543,7 @@ function mapDetailToFormValues(detail: AdminSceneWildEncounterDetail): SceneWild
     spawn_monster_ids: detail.spawn_monster_ids,
     formations: detail.formations?.length ? detail.formations : [defaultFormationValues(0)],
     rewards: detail.rewards?.length ? detail.rewards : [],
+    boss_drops: [],
     is_enabled: detail.is_enabled,
   };
 }
@@ -601,6 +646,16 @@ function formatMonsterIDs(monsterIDs?: number[]): string {
 
 function formatRewardCount(rewards?: unknown[]): string {
   return rewards?.length ? `${rewards.length} 条` : '未配置';
+}
+
+/** 汇总 Boss 掉落池的条目数与抽取组数，供详情抽屉展示。 */
+function formatBossDropSummary(drops: AdminBossDropEntry[]): string {
+  if (!drops.length) {
+    return '未配置';
+  }
+  const enabled = drops.filter((entry) => Number(entry.status ?? 1) === 1);
+  const groups = new Set(enabled.map((entry) => Number(entry.draw_group ?? 1))).size;
+  return `${enabled.length}/${drops.length} 条启用，${groups} 个抽取组`;
 }
 
 function formationModalTitle(mode: FormationModalMode): string {

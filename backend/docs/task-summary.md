@@ -1,5 +1,20 @@
 # 任务总结
 
+## 2026-10-19：回合战斗 P0 奖励闭环核查与 Boss 掉落池任务总结
+
+- **任务目标**：推进回合战斗清单 P0「先补齐奖励与权威闭环」6 项，确认实际缺口并补齐功能。
+- **核查结论**：6 项中 3 项此前已落地但清单未更新——真实物品掉落（`ResultSnapshot.DropItems`）、bag 发奖链路（`reward.Service.GrantRuntimeRewards` → `bag.GrantRuntimeItem`）、配置驱动（`monster_battle_reward` 表 + `MonsterBattleRewardEditor`）。2 项部分完成——事务统一仅有 best-effort 补偿回滚，跨领域未共用事务；失败重试有 `battle_record` 占位与唯一物品去重，缺重试队列。1 项完全缺失——Boss 特殊掉落，项目内此前无任何 Boss 概念。
+- **新增掉落池**：迁移 `125_monster_boss_drop_pool.sql` 建表，按 `scene_id` 关联暗雷遭遇；字段含 `weight`（权重）、`draw_group`（抽取组）、`grant_once`（唯一掉落）、`sort_order`、`status`。同组内加权抽 1 个，不同组互不影响，可表达「必掉一件武器 + 必掉一件材料」。
+- **领域实现**：`internal/module/monster/boss_drop.go` 提供 `DrawBossDrops`（按组加权抽取）、`BossDropsForScene`（按场景与启用状态过滤）、`SanitizeBossDropInputs`（后台输入默认值与非法值兜底）。抽取用 `math/rand`，与既有 `shouldGrantRewardEntryAtSettlement` 的掉落率判定口径一致。
+- **结算接入**：`RuntimeWildEncounter` 新增 `BossDrops`；`ResolveWildEncounterForScene` 解析遭遇时读取掉落池；`buildPVERewards` 在固定奖励之外追加密钥抽取结果，统一并入 `dropItems` 后走 `reward.Service` 落库，不在战斗模块直接写背包。
+- **仓储与后台**：`internal/data/postgres/boss_drop_repo.go` 提供列表与事务化覆盖保存；`GET/PUT /api/admin/scene-wild-encounters/{scene_id}/boss-drops`；管理端 `BossDropPoolEditor.tsx` 支持物品选择、数量、权重（含组内百分比）、抽取组、唯一掉落、排序与状态，遭遇战表单与详情抽屉同步接入。
+- **测试**：`internal/module/monster/boss_drop_test.go` 覆盖同组只抽 1 个、权重分布（2000 次抽样验证 900:100）、停用条目跳过、空池不 panic、场景过滤、后台输入兜底 6 个用例；`internal/transport/ws/boss_drop_integration_test.go` 覆盖遭遇战挂载掉落池、无配置时正常、后台覆盖保存往返 3 个用例。
+- **验证结果**：`go test ./server/... -count=1` 全部 25 个包通过；`go build ./...` 通过；管理端 `tsc --noEmit` 与 `vite build` 通过。
+- **未完成项**：事务统一与失败重试仍为部分完成，跨领域奖励未共用数据库事务，缺少部分失败的重试队列与人工补偿入口，已在清单中标记 `[~]` 并写明缺口。
+- **数据影响**：新增一张表，迁移 `125` 尚未在正式库执行；无既有表结构变更。
+- **建议提交信息**：`feat(battle): 新增 Boss 权重掉落池与后台配置`
+
+
 ## 2026-10-19：远端移动快照插值与切图加载并行化任务总结
 
 - **任务目标**：修复多人同屏时其他玩家移动「一卡一卡」的问题，要求能看到同地图其他玩家及其宠物的移动、允许有延迟但不明显、流畅度与本机角色一致；同时排查地图切换加载时间过长。

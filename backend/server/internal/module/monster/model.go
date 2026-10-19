@@ -473,6 +473,9 @@ type RuntimeWildEncounter struct {
 	FormationName string
 	Slots         []RuntimeEncounterSlot
 	Rewards       []BattleRewardEntry
+	// BossDrops 是该遭遇战配置的 Boss 权重掉落池；为空表示没有独立 Boss 掉落。
+	// 与 Rewards 固定奖励分离：Rewards 每次都发，BossDrops 按 draw_group 加权抽取。
+	BossDrops []BossDropEntry
 }
 
 // CaptureConfig 描述怪物模板的捕捉发放配置。

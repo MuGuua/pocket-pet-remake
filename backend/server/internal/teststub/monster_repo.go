@@ -51,6 +51,8 @@ type MonsterRepository struct {
 	wildEncounterDetails map[uint32]monster.AdminWildEncounterDetail
 	battleRewards        map[uint32][]monster.BattleRewardEntry
 	nextBattleRewardID   uint64
+	bossDrops            map[uint32][]monster.BossDropEntry
+	nextBossDropID       uint64
 }
 
 func (r *MonsterRepository) ListDefinitionsForAdmin(_ context.Context, query monster.AdminDefinitionListQuery) (*monster.AdminDefinitionList, error) {
@@ -489,6 +491,50 @@ func (r *MonsterRepository) ListBattleRewards(_ context.Context) ([]monster.Batt
 		return result[i].MonsterID < result[j].MonsterID
 	})
 	return result, nil
+}
+
+func (r *MonsterRepository) ListBossDrops(_ context.Context) ([]monster.BossDropEntry, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]monster.BossDropEntry, 0)
+	for _, entries := range r.bossDrops {
+		result = append(result, entries...)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].SceneID == result[j].SceneID {
+			if result[i].DrawGroup == result[j].DrawGroup {
+				return result[i].SortOrder < result[j].SortOrder
+			}
+			return result[i].DrawGroup < result[j].DrawGroup
+		}
+		return result[i].SceneID < result[j].SceneID
+	})
+	return result, nil
+}
+
+func (r *MonsterRepository) ListBossDropsByScene(_ context.Context, sceneID uint32) ([]monster.BossDropEntry, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]monster.BossDropEntry(nil), r.bossDrops[sceneID]...), nil
+}
+
+// ReplaceBossDropsForScene 覆盖保存某场景的 Boss 掉落池，供后台与战斗测试构造配置。
+func (r *MonsterRepository) ReplaceBossDropsForScene(_ context.Context, sceneID uint32, drops []monster.AdminBossDropInput) ([]monster.BossDropEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entries := make([]monster.BossDropEntry, 0, len(drops))
+	for _, input := range monster.SanitizeBossDropInputs(drops) {
+		r.nextBossDropID++
+		entry := input
+		entry.ID = r.nextBossDropID
+		entry.SceneID = sceneID
+		entries = append(entries, entry)
+	}
+	if r.bossDrops == nil {
+		r.bossDrops = map[uint32][]monster.BossDropEntry{}
+	}
+	r.bossDrops[sceneID] = entries
+	return append([]monster.BossDropEntry(nil), entries...), nil
 }
 
 func (r *MonsterRepository) ListBattleRewardsByMonsterID(_ context.Context, monsterID uint32) ([]monster.BattleRewardEntry, error) {

@@ -220,6 +220,23 @@ func (s *Service) ResolvePVERewardBundle(monsterID uint32) PVERewardBundle {
 	return s.battleRewardCache.bundleForMonster(monsterID)
 }
 
+// ListAdminBossDrops 返回指定场景的 Boss 掉落池配置，供后台编辑。
+func (s *Service) ListAdminBossDrops(ctx context.Context, sceneID uint32) ([]BossDropEntry, error) {
+	if s.repo == nil || sceneID == 0 {
+		return nil, ErrInvalidBattleRewardInput
+	}
+	return s.repo.ListBossDropsByScene(ctx, sceneID)
+}
+
+// ReplaceAdminBossDrops 覆盖保存指定场景的 Boss 掉落池。
+// 掉落池按请求实时从数据库读取并挂到遭遇战上，无需额外刷新缓存。
+func (s *Service) ReplaceAdminBossDrops(ctx context.Context, sceneID uint32, input AdminReplaceBossDropsInput) ([]BossDropEntry, error) {
+	if s.repo == nil || sceneID == 0 {
+		return nil, ErrInvalidBattleRewardInput
+	}
+	return s.repo.ReplaceBossDropsForScene(ctx, sceneID, input.Drops)
+}
+
 // ListAdminBattleRewards 返回指定怪物的战斗奖励配置。
 func (s *Service) ListAdminBattleRewards(ctx context.Context, monsterID uint32) ([]BattleRewardEntry, error) {
 	if s.repo == nil || monsterID == 0 {

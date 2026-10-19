@@ -1,5 +1,15 @@
 # 最新变更记录
 
+## 2026-10-19 新增 Boss 权重掉落池
+
+- 新增迁移 `125_monster_boss_drop_pool.sql`：建立 `monster_boss_drop_pool` 表，按 `scene_id` 关联 `scene_wild_encounter`，支持同一抽取组内按 `weight` 加权抽 1 个、不同 `draw_group` 独立命中、`grant_once` 唯一掉落。当前**尚未在正式库执行**。
+- 领域层新增 `monster.DrawBossDrops`：每个 `draw_group` 独立做一次加权抽取，权重非法时回退到首条，停用条目与 `item_id=0` 直接跳过；抽取结果转为 `PVEItemReward` 并入 `buildPVERewards` 的 `dropItems`，统一走 `reward.Service` 落库。
+- `RuntimeWildEncounter` 新增 `BossDrops []BossDropEntry`；`ResolveWildEncounterForScene` 在解析遭遇战时按场景读取掉落池并挂到运行时遭遇上，抽取时机仍是战斗胜利结算。
+- 后台新增 `GET/PUT /api/admin/scene-wild-encounters/{scene_id}/boss-drops`；管理端新增 `BossDropPoolEditor` 组件，支持权重百分比展示、抽取组与唯一掉落配置，详情抽屉展示掉落池摘要。
+- 掉落池与固定奖励分离：固定奖励（`monster_battle_reward`）每次胜利都发，Boss 掉落按概率抽取，两者在结算时叠加。
+- 本次同时核对并更新了 `docs/回合战斗开发任务清单.md` 第 8.1 节：真实物品掉落、bag 发奖链路、配置驱动三项确认已完成；事务统一与失败重试两项标记为部分完成并补充了具体缺口。
+
+
 ## 2026-10-19 远端移动快照插值并并行化切图加载
 
 - 远端移动表现由「外推 + 追赶」改为固定延迟快照插值：观察端固定落后发送方 150ms，在已收到的两个快照之间按发送方时间线性插值，移动速度与发送方本机一致。缓冲耗尽时最多外推 200ms 后停下；相邻快照距离超出正常行走能力时按传送直接瞬移。新快照造成的目标突变转为按 12/秒指数衰减的视觉误差。

@@ -2,9 +2,9 @@ package monster
 
 import (
 	"context"
-	"sync"
 	"fmt"
 	"strings"
+	"sync"
 
 	"pocket-pet-remake/server/internal/module/skill"
 )
@@ -131,7 +131,17 @@ func (s *Service) ResolveWildEncounterForScene(ctx context.Context, sceneID uint
 	if s.repo == nil || sceneID == 0 {
 		return nil, nil
 	}
-	return s.repo.FindRuntimeWildEncounter(ctx, sceneID)
+	encounter, err := s.repo.FindRuntimeWildEncounter(ctx, sceneID)
+	if err != nil || encounter == nil {
+		return encounter, err
+	}
+	// Boss 掉落池按场景配置，与固定奖励一起下发给结算；抽取时机在战斗胜利时，不在这里。
+	drops, dropErr := s.repo.ListBossDropsByScene(ctx, sceneID)
+	if dropErr != nil {
+		return nil, dropErr
+	}
+	encounter.BossDrops = BossDropsForScene(drops, sceneID)
+	return encounter, nil
 }
 
 // GetCaptureConfig 返回怪物模板的捕捉配置，供战斗捕捉判定与发放链路使用。

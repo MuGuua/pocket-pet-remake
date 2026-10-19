@@ -30,4 +30,8 @@ type Repository interface {
 	ListBattleRewards(ctx context.Context) ([]BattleRewardEntry, error)
 	ListBattleRewardsByMonsterID(ctx context.Context, monsterID uint32) ([]BattleRewardEntry, error)
 	ReplaceBattleRewardsForMonster(ctx context.Context, monsterID uint32, rewards []AdminBattleRewardInput) ([]BattleRewardEntry, error)
+
+	ListBossDrops(ctx context.Context) ([]BossDropEntry, error)
+	ListBossDropsByScene(ctx context.Context, sceneID uint32) ([]BossDropEntry, error)
+	ReplaceBossDropsForScene(ctx context.Context, sceneID uint32, drops []AdminBossDropInput) ([]BossDropEntry, error)
 }

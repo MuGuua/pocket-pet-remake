@@ -2052,6 +2052,11 @@ func (b *activeBattle) buildPVERewards() (uint32, uint64, uint64, []DropReward, 
 		dropItems = appendPVEItemRewards(dropItems, encounterBundle.Items)
 		attrRewards = appendPVEAttrRewards(attrRewards, encounterBundle.Attrs)
 	}
+	// Boss 掉落池与固定奖励分离：按 draw_group 加权抽取，每次胜利重新 roll。
+	// 抽取结果并入 dropItems，后续统一走 reward.Service 落库，不在这里直接写背包。
+	if b.wildEncounter != nil && len(b.wildEncounter.BossDrops) > 0 {
+		dropItems = appendPVEItemRewards(dropItems, monster.DrawBossDrops(b.wildEncounter.BossDrops))
+	}
 	for _, enemy := range b.enemies {
 		if enemy == nil || enemy.petID == 0 || !enemy.rewardEnabled {
 			continue
