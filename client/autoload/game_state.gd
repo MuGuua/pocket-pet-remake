@@ -225,7 +225,7 @@ func add_entity(entity: Dictionary) -> void:
     if previous_entity_variant is Dictionary:
         var previous_entity: Dictionary = previous_entity_variant as Dictionary
         # 编队刷新复用 ENTITY_ENTER_PUSH；仅保留新摘要没有携带的短时移动表现，其他字段仍以新摘要完整替换。
-        for transient_key: String in ["precise_pos", "facing", "moving"]:
+        for transient_key: String in ["precise_pos", "facing", "moving", "client_tick"]:
             if not next_entity.has(transient_key) and previous_entity.has(transient_key):
                 next_entity[transient_key] = previous_entity[transient_key]
     nearby_entities[entity_id] = next_entity
@@ -280,6 +280,8 @@ func apply_entity_move(payload: Dictionary) -> bool:
     if facing_variant is Dictionary:
         entity["facing"] = (facing_variant as Dictionary).duplicate(true)
     entity["moving"] = bool(payload.get("moving", false))
+    # 发送方采样时间供观察端快照插值使用；旧服务不转发时为 0，观察端回退为本地接收时间。
+    entity["client_tick"] = int(payload.get("client_tick", 0))
     nearby_entities[entity_id] = entity
 
     if entity_id == player_id:

@@ -273,10 +273,42 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 		return h.handleSameSceneMovement(ctx, conn, packet, sess, request, 0, world.Vec2i{})
 	}
 
-	profileStartedAt := time.Now()
-	profile, err := h.playerService.GetWorldTransferProfile(ctx, sess.PlayerID)
-	profileElapsed := time.Since(profileStartedAt)
-	if err != nil {
+	// 永久档案与 Redis 权威移动状态互不依赖，并行读取让关键路径只承担较慢的那一次往返。
+	// 切图结果同时依赖两者：档案提供等级，Redis 提供最新场景与精确坐标。
+	movementStateEnabled := h.worldService != nil && h.worldService.MovementStateEnabled()
+	var (
+		profile              *player.WorldTransferProfile
+		profileErr           error
+		profileElapsed       time.Duration
+		currentMovementState *world.MovementState
+		redisLoadElapsed     time.Duration
+	)
+	loadStartedAt := time.Now()
+	if movementStateEnabled {
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			profileStartedAt := time.Now()
+			profile, profileErr = h.playerService.GetWorldTransferProfile(ctx, sess.PlayerID)
+			profileElapsed = time.Since(profileStartedAt)
+		}()
+		go func() {
+			defer wg.Done()
+			redisLoadStartedAt := time.Now()
+			currentMovementState, err = h.worldService.LoadMovementState(ctx, sess.PlayerID)
+			redisLoadElapsed = time.Since(redisLoadStartedAt)
+		}()
+		wg.Wait()
+	} else {
+		profileStartedAt := time.Now()
+		profile, profileErr = h.playerService.GetWorldTransferProfile(ctx, sess.PlayerID)
+		profileElapsed = time.Since(profileStartedAt)
+	}
+	if movementStateEnabled && err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "load movement state failed", err)
+	}
+	if profileErr != nil {
 		return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found")
 	}
 	if !isSceneTransfer {
@@ -285,21 +317,14 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 
 	currentPos := world.Vec2i{X: profile.PosX, Y: profile.PosY}
 	authoritativeSceneID := profile.SceneID
-	var currentMovementState *world.MovementState
-	var redisLoadElapsed time.Duration
-	if h.worldService != nil && h.worldService.MovementStateEnabled() {
-		redisLoadStartedAt := time.Now()
-		currentMovementState, err = h.worldService.LoadMovementState(ctx, sess.PlayerID)
-		redisLoadElapsed = time.Since(redisLoadStartedAt)
-		if err != nil {
-			return sendError(conn, packet.Seq, errcode.WSCodeWorldMoveFailed, "load movement state failed", err)
-		}
+	if movementStateEnabled {
 		if currentMovementState.SessionID != sess.ID {
 			return h.sendMovementStateRejected(conn, packet.Seq, request.MoveSeq, currentMovementState, world.ErrMovementSessionMismatch)
 		}
 		authoritativeSceneID = currentMovementState.SceneID
 		currentPos = currentMovementState.PersistedPos
 	}
+	loadElapsed := time.Since(loadStartedAt)
 	log.Printf(
 		"[SceneTransition][Server] request player_id=%d seq=%d move_seq=%d from_scene=%d profile_scene=%d target_scene=%d portal=%d current_pos=(%d,%d)",
 		sess.PlayerID, packet.Seq, request.MoveSeq, request.SceneID, authoritativeSceneID, request.TargetSceneID, request.PortalID, currentPos.X, currentPos.Y,
@@ -406,10 +431,12 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			false,
 			movementConfig.SpeedMilliCellsPerSecond,
 			movementServerTick,
+			// 快速传送落点由服务端决定，不存在客户端采样时间。
+			0,
 		)
 		snapshotStartedAt := time.Now()
 		err := h.sendWorldResync(conn, authoritativeSceneID, decision.SpawnPos)
-		h.logSceneTransferTiming(sess.PlayerID, profileElapsed, redisLoadElapsed, redisReserveElapsed, evaluateElapsed, persistElapsed, time.Since(snapshotStartedAt), time.Since(transitionStartedAt))
+		h.logSceneTransferTiming(sess.PlayerID, loadElapsed, profileElapsed, redisLoadElapsed, redisReserveElapsed, evaluateElapsed, persistElapsed, time.Since(snapshotStartedAt), time.Since(transitionStartedAt))
 		return err
 	}
 	// 先更新进程内场景索引并推送基础权威快照，客户端无需等待多人资料、宠物或任务查询即可完成换图。
@@ -418,21 +445,22 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 	if err := h.sendWorldResyncWithOnlinePlayers(conn, decision.ToSceneID, decision.SpawnPos, false); err != nil {
 		return err
 	}
-	h.logSceneTransferTiming(sess.PlayerID, profileElapsed, redisLoadElapsed, redisReserveElapsed, evaluateElapsed, persistElapsed, time.Since(snapshotStartedAt), time.Since(transitionStartedAt))
-	// 多人实体与跟随宠物使用轻量批量查询，并在黑屏关键路径结束后通过增量推送补齐。
-	h.syncPlayerSceneEntities(ctx, conn, sess.PlayerID, decision.ToSceneID)
+	h.logSceneTransferTiming(sess.PlayerID, loadElapsed, profileElapsed, redisLoadElapsed, redisReserveElapsed, evaluateElapsed, persistElapsed, time.Since(snapshotStartedAt), time.Since(transitionStartedAt))
+	sceneID := decision.ToSceneID
+	// 同场景玩家互相感知必须同步：新玩家需要立刻看到同屏其他人，旁观者也需要立刻看到新玩家。
+	h.syncPlayerSceneEntities(ctx, conn, sess.PlayerID, sceneID)
 	if h.questService != nil {
 		changedQuests, questErr := h.questService.HandleProgressEvent(ctx, quest.Event{
 			PlayerID:  sess.PlayerID,
 			EventType: "ENTER_SCENE",
-			SceneID:   decision.ToSceneID,
+			SceneID:   sceneID,
 			Count:     1,
 		})
 		if questErr == nil {
 			_ = pushQuestUpdates(conn, changedQuests)
 		}
 	}
-	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, decision.ToSceneID)
+	return h.pushPendingSceneTrigger(ctx, conn, sess.PlayerID, sceneID)
 }
 
 // handleSameSceneMovement 记录客户端上报的同场景位置，并把表现状态广播给同场景其他玩家。
@@ -529,6 +557,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 		reportedMoving,
 		movementSpeed,
 		serverTick,
+		request.ClientTick,
 	)
 	if stoppedMoving {
 		go h.persistStoppedMovement(sess.PlayerID)
@@ -821,7 +850,8 @@ func (h *WorldHandler) movePlayerScenePresence(playerID uint64, fromSceneID uint
 
 // broadcastEntityMove 把服务端确认后的权威移动状态发给同场景其他玩家，发送失败不反向中断移动者连接。
 // sceneVersion 来自移动者当前 Redis 场景代次；未装配移动状态仓储的兼容链路保留零值，由客户端按当前快照代次兼容。
-func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64) {
+// clientTick 是移动者本次采样的客户端单调时钟毫秒数，原样透传给观察端做快照插值；服务端生成的移动传零。
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64, clientTick int64) {
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
 		SceneID:      sceneID,
 		SceneVersion: sceneVersion,
@@ -834,6 +864,7 @@ func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, 
 		Moving:       moving,
 		Speed:        speed,
 		ServerTick:   serverTick,
+		ClientTick:   clientTick,
 	})
 	if err == nil {
 		h.sendPacketToScene(sceneID, playerID, packet)
@@ -1187,10 +1218,11 @@ func (h *WorldHandler) sendMoveRejectedWithResync(conn packetSender, seq uint32,
 }
 
 // logSceneTransferTiming 输出一次切图关键路径分段耗时，便于区分数据库、Redis 和场景快照瓶颈。
-func (h *WorldHandler) logSceneTransferTiming(playerID uint64, profileElapsed time.Duration, redisLoadElapsed time.Duration, redisReserveElapsed time.Duration, evaluateElapsed time.Duration, persistElapsed time.Duration, snapshotElapsed time.Duration, totalElapsed time.Duration) {
+// 注：profile 与 Redis 移动状态并行读取，load_ms 是两者合并后的等待时间，profile_ms/redis_load_ms 是各自的单次耗时。
+func (h *WorldHandler) logSceneTransferTiming(playerID uint64, loadElapsed time.Duration, profileElapsed time.Duration, redisLoadElapsed time.Duration, redisReserveElapsed time.Duration, evaluateElapsed time.Duration, persistElapsed time.Duration, snapshotElapsed time.Duration, totalElapsed time.Duration) {
 	log.Printf(
-		"[SceneTransition][Server][Timing] player_id=%d profile_ms=%d redis_load_ms=%d redis_reserve_ms=%d evaluate_ms=%d persist_ms=%d snapshot_send_ms=%d total_ms=%d",
-		playerID, profileElapsed.Milliseconds(), redisLoadElapsed.Milliseconds(), redisReserveElapsed.Milliseconds(), evaluateElapsed.Milliseconds(), persistElapsed.Milliseconds(), snapshotElapsed.Milliseconds(), totalElapsed.Milliseconds(),
+		"[SceneTransition][Server][Timing] player_id=%d load_ms=%d profile_ms=%d redis_load_ms=%d redis_reserve_ms=%d evaluate_ms=%d persist_ms=%d snapshot_send_ms=%d total_ms=%d",
+		playerID, loadElapsed.Milliseconds(), profileElapsed.Milliseconds(), redisLoadElapsed.Milliseconds(), redisReserveElapsed.Milliseconds(), evaluateElapsed.Milliseconds(), persistElapsed.Milliseconds(), snapshotElapsed.Milliseconds(), totalElapsed.Milliseconds(),
 	)
 }
 
@@ -1199,6 +1231,7 @@ func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPo
 }
 
 // sendWorldResyncWithOnlinePlayers 推送权威场景快照；切图关键路径可先省略在线玩家，再通过实体进入推送补齐。
+// 场景实体快照、野怪配置与在线玩家摘要三条查询互不依赖，并行执行以缩短 WORLD_RESYNC_PUSH 延迟。
 func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, sceneID uint32, selfPos world.Vec2i, includeOnlinePlayers bool) error {
 	startedAt := time.Now()
 	sess, err := h.sessionService.GetByConnID(conn.ID())
@@ -1206,25 +1239,49 @@ func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, scene
 		return sendError(conn, 0, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 
-	snapshotStartedAt := time.Now()
-	snapshot, err := h.worldService.GetSceneSnapshot(context.Background(), sess.PlayerID, sceneID, selfPos)
-	snapshotElapsed := time.Since(snapshotStartedAt)
-	if err != nil {
+	ctx := context.Background()
+	var (
+		snapshot        *world.SceneSnapshot
+		snapshotErr     error
+		snapshotElapsed time.Duration
+		wildEncounter   protocol.WildEncounterConfig
+		wildErr         error
+		wildElapsed     time.Duration
+		onlineEntities  []protocol.EntityBrief
+		onlineElapsed   time.Duration
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		t := time.Now()
+		snapshot, snapshotErr = h.worldService.GetSceneSnapshot(ctx, sess.PlayerID, sceneID, selfPos)
+		snapshotElapsed = time.Since(t)
+	}()
+	go func() {
+		defer wg.Done()
+		t := time.Now()
+		wildEncounter, wildErr = h.loadWildEncounterConfig(ctx, sceneID)
+		wildElapsed = time.Since(t)
+	}()
+	wg.Wait()
+
+	if snapshotErr != nil {
 		return sendError(conn, 0, errcode.WSCodeWorldMoveFailed, "load scene snapshot failed")
 	}
-	wildStartedAt := time.Now()
-	wildEncounter, err := h.loadWildEncounterConfig(context.Background(), snapshot.SceneID)
-	wildElapsed := time.Since(wildStartedAt)
-	if err != nil {
+	if wildErr != nil {
 		return sendError(conn, 0, errcode.WSCodeWorldMoveFailed, "load wild encounter config failed")
 	}
 
 	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
-	onlineStartedAt := time.Now()
 	if includeOnlinePlayers {
-		nearbyEntities = h.appendOnlinePlayerEntities(context.Background(), sess.PlayerID, snapshot.SceneID, nearbyEntities)
+		t := time.Now()
+		onlineEntities = h.loadOnlinePlayerEntities(ctx, sess.PlayerID, snapshot.SceneID)
+		onlineElapsed = time.Since(t)
+		_ = onlineEntities
+		nearbyEntities = h.appendOnlinePlayerEntities(ctx, sess.PlayerID, snapshot.SceneID, nearbyEntities)
 	}
-	onlineElapsed := time.Since(onlineStartedAt)
 	packet, err := protocol.NewJSONPacket(protocol.CmdWorldResyncPush, 0, errcode.WSCodeSuccess, protocol.WorldResyncPush{
 		SceneID:        snapshot.SceneID,
 		SelfPos:        protocol.Vec2i{X: snapshot.SelfPos.X, Y: snapshot.SelfPos.Y},

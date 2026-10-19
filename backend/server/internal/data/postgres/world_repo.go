@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 
 	"pocket-pet-remake/server/internal/module/world"
 )
@@ -472,7 +473,12 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64,
 	}
 	defer rows.Close()
 
-	nearby := []world.Entity{}
+	type scannedEntity struct {
+		value          world.Entity
+		conditionsJSON []byte
+	}
+	scanned := make([]scannedEntity, 0, 16)
+	requiredFlags := map[string]struct{}{}
 	for rows.Next() {
 		var value world.Entity
 		var visibilityConditionsJSON []byte
@@ -484,11 +490,23 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64,
 		); err != nil {
 			return nil, err
 		}
-		visible, err := r.entityVisibleForPlayer(ctx, playerID, visibilityConditionsJSON)
-		if err != nil {
-			return nil, err
+		for _, flagKey := range parseVisibilityRequiredFlags(visibilityConditionsJSON) {
+			requiredFlags[flagKey] = struct{}{}
 		}
-		if !visible {
+		scanned = append(scanned, scannedEntity{value: value, conditionsJSON: visibilityConditionsJSON})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// 一次批量读取本场景所有可见性条件涉及的剧情标记，替代逐行 EXISTS 查询。
+	playerFlags, err := r.loadPlayerStoryFlags(ctx, playerID, requiredFlags)
+	if err != nil {
+		return nil, err
+	}
+	nearby := []world.Entity{}
+	for _, entry := range scanned {
+		value := entry.value
+		if !entityVisibleWithFlags(entry.conditionsJSON, playerID, playerFlags) {
 			continue
 		}
 		// NPC 坐标由客户端场景资源维护；服务端快照只保留 entity_id/name 供交互与附近列表使用。
@@ -503,9 +521,6 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64,
 		}
 		nearby = append(nearby, value)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 
 	return &world.SceneSnapshot{
 		SceneID:        sceneID,
@@ -515,43 +530,72 @@ func (r *WorldRepository) GetSceneSnapshot(ctx context.Context, playerID uint64,
 	}, nil
 }
 
-// entityVisibleForPlayer 根据 world_entity_definition.visibility_conditions_json 判断 NPC 是否对当前玩家可见。
-// 第一版只支持 required_flags，后续任务状态、等级、活动开关都可以继续扩展到这里。
-func (r *WorldRepository) entityVisibleForPlayer(ctx context.Context, playerID uint64, raw []byte) (bool, error) {
+// parseVisibilityRequiredFlags 解析实体可见性条件中的 required_flags，供批量预读剧情标记使用。
+func parseVisibilityRequiredFlags(raw []byte) []string {
 	conditions := struct {
 		RequiredFlags []string `json:"required_flags"`
 	}{}
 	if len(raw) == 0 || string(raw) == "{}" || string(raw) == "null" {
-		return true, nil
+		return nil
 	}
 	if err := json.Unmarshal(raw, &conditions); err != nil {
-		return true, nil
+		return nil
 	}
-	if len(conditions.RequiredFlags) == 0 {
-		return true, nil
+	result := make([]string, 0, len(conditions.RequiredFlags))
+	for _, flagKey := range conditions.RequiredFlags {
+		if flagKey != "" {
+			result = append(result, flagKey)
+		}
+	}
+	return result
+}
+
+// entityVisibleWithFlags 根据已读取的剧情标记集合判断实体是否对当前玩家可见。
+// 与 parseVisibilityRequiredFlags 共用同一套解析口径：条件缺失或格式非法都按可见处理，保持旧行为。
+func entityVisibleWithFlags(raw []byte, playerID uint64, playerFlags map[string]struct{}) bool {
+	required := parseVisibilityRequiredFlags(raw)
+	if len(required) == 0 {
+		return true
 	}
 	if playerID == 0 {
-		return false, nil
+		return false
 	}
-	for _, flagKey := range conditions.RequiredFlags {
-		if flagKey == "" {
-			continue
-		}
-		var exists bool
-		err := r.db.QueryRowContext(ctx, `
-SELECT EXISTS (
-  SELECT 1 FROM player_story_flag
-  WHERE player_id = $1 AND flag_key = $2
-)
-`, playerID, flagKey).Scan(&exists)
-		if err != nil {
-			return false, err
-		}
-		if !exists {
-			return false, nil
+	for _, flagKey := range required {
+		if _, ok := playerFlags[flagKey]; !ok {
+			return false
 		}
 	}
-	return true, nil
+	return true
+}
+
+// loadPlayerStoryFlags 一次读取玩家在指定标记集合中的已有剧情标记。
+// flagKeys 为空时直接返回，避免为没有可见性条件的场景发起空查询。
+func (r *WorldRepository) loadPlayerStoryFlags(ctx context.Context, playerID uint64, flagKeys map[string]struct{}) (map[string]struct{}, error) {
+	if playerID == 0 || len(flagKeys) == 0 {
+		return map[string]struct{}{}, nil
+	}
+	keys := make([]string, 0, len(flagKeys))
+	for flagKey := range flagKeys {
+		keys = append(keys, flagKey)
+	}
+	sort.Strings(keys)
+	rows, err := r.db.QueryContext(ctx, `
+SELECT flag_key FROM player_story_flag
+WHERE player_id = $1 AND flag_key = ANY($2) AND flag_value <> '' AND flag_value <> '0'
+`, playerID, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]struct{}, len(keys))
+	for rows.Next() {
+		var flagKey string
+		if err := rows.Scan(&flagKey); err != nil {
+			return nil, err
+		}
+		result[flagKey] = struct{}{}
+	}
+	return result, rows.Err()
 }
 
 func (r *WorldRepository) EvaluateTransfer(ctx context.Context, _ uint64, playerLevel uint32, sceneID uint32, currentPos world.Vec2i, targetSceneID uint32, portalID uint32) (*world.MoveDecision, error) {

@@ -2,6 +2,7 @@ package monster
 
 import (
 	"context"
+	"sync"
 	"fmt"
 	"strings"
 
@@ -62,6 +63,7 @@ func (s *Service) ResolveEncounterForEntity(ctx context.Context, entityID uint64
 }
 
 // BuildWildEncounterConfig 读取指定地图的暗雷配置，供进图/切图下发客户端。
+// 地图内可能有多种怪物；每种怪物定义互不依赖，并行查询替代原来的逐条串行读取。
 func (s *Service) BuildWildEncounterConfig(ctx context.Context, sceneID uint32) (*RuntimeWildEncounterConfig, error) {
 	if s.repo == nil || sceneID == 0 {
 		return &RuntimeWildEncounterConfig{SceneID: sceneID}, nil
@@ -73,27 +75,52 @@ func (s *Service) BuildWildEncounterConfig(ctx context.Context, sceneID uint32) 
 	if config == nil {
 		return &RuntimeWildEncounterConfig{SceneID: sceneID}, nil
 	}
-	config.Targets = make([]RuntimeWildEncounterTarget, 0, len(config.SpawnMonsterIDs))
-	seenMonsterIDs := make(map[uint32]struct{}, len(config.SpawnMonsterIDs))
+	// 去重，保留首次出现顺序。
+	seen := make(map[uint32]struct{}, len(config.SpawnMonsterIDs))
+	uniqueIDs := make([]uint32, 0, len(config.SpawnMonsterIDs))
 	for _, monsterID := range config.SpawnMonsterIDs {
 		if monsterID == 0 {
 			continue
 		}
-		if _, exists := seenMonsterIDs[monsterID]; exists {
+		if _, ok := seen[monsterID]; ok {
 			continue
 		}
-		definition, findErr := s.repo.FindRuntimeDefinition(ctx, monsterID)
-		if findErr != nil {
-			return nil, findErr
+		seen[monsterID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, monsterID)
+	}
+	if len(uniqueIDs) == 0 {
+		config.Targets = nil
+		return config, nil
+	}
+	// 每个怪物定义独立查询，互不依赖，并行执行。
+	type result struct {
+		def *RuntimeDefinition
+		err error
+		idx int
+	}
+	results := make([]result, len(uniqueIDs))
+	var wg sync.WaitGroup
+	for i, monsterID := range uniqueIDs {
+		wg.Add(1)
+		go func(idx int, id uint32) {
+			defer wg.Done()
+			def, findErr := s.repo.FindRuntimeDefinition(ctx, id)
+			results[idx] = result{def: def, err: findErr, idx: idx}
+		}(i, monsterID)
+	}
+	wg.Wait()
+	config.Targets = make([]RuntimeWildEncounterTarget, 0, len(uniqueIDs))
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
 		}
-		if definition == nil {
+		if r.def == nil {
 			continue
 		}
-		seenMonsterIDs[monsterID] = struct{}{}
 		config.Targets = append(config.Targets, RuntimeWildEncounterTarget{
-			MonsterID:   definition.MonsterID,
-			MonsterName: definition.MonsterName,
-			SkinID:      definition.SkinID,
+			MonsterID:   r.def.MonsterID,
+			MonsterName: r.def.MonsterName,
+			SkinID:      r.def.SkinID,
 		})
 	}
 	return config, nil

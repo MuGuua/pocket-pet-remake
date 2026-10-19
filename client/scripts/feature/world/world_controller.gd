@@ -21,6 +21,8 @@ const CLICK_MARKER_WIDTH: float = 2.0
 const CLICK_MARKER_ANIMATION_DURATION: float = 0.28
 ## 每帧最多记录的宠物跟随路径步数，防止主角锚点异常时在单帧 while 中卡死。
 const PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME: int = 6
+## 远端宠物与其主人距离超过该值（像素）时直接重置到主人身边，用于传送或断流恢复。
+const REMOTE_PET_RESET_DISTANCE_PX: float = 24.0 * 8.0
 ## 远端玩家复用现有角色场景，确保人物形象、动画和地图层级口径一致。
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/world/player.tscn")
 ## 服务端场景实体中代表玩家的类型值。
@@ -29,6 +31,8 @@ const PLAYER_ENTITY_TYPE: int = 1
 const NETWORK_POSITION_FIXED_SCALE: int = 1000
 ## 移动中的高精度表现坐标最多每 100 毫秒发送一次，兼顾移动端流量与视觉同步精度。
 const NETWORK_MOVEMENT_REPORT_INTERVAL_MS: int = 100
+## 物理模拟时钟与真实时钟允许的最大偏差，超过后重新对齐。
+const NETWORK_PHYSICS_CLOCK_MAX_DRIFT_MS: float = 500.0
 ## 每帧最多扫描的导航格数量，避免移动端在切图中点执行整图物理查询。
 const NAVIGATION_BUILD_CELLS_PER_FRAME: int = 64
 
@@ -77,6 +81,8 @@ var _loaded_scene_id: int = 0
 var _portal_cooldown_until_ms: int = 0
 var _render_frame_size: Vector2 = DEFAULT_RENDER_FRAME_SIZE
 var _last_reported_player_position: Vector2 = Vector2.INF
+## 网络上报使用的物理模拟时钟（毫秒），每个物理帧精确递增，作为发送给观察端的采样时间戳。
+var _network_physics_clock_msec: float = 0.0
 var _current_level: Node2D
 ## 当前地图左上角在地图根节点本地坐标中的位置，用于把服务端场景坐标映射到地图实际像素。
 var _current_level_scene_origin_pixels: Vector2 = Vector2.ZERO
@@ -116,8 +122,6 @@ var _leader_path_direction: Vector2 = Vector2.ZERO
 var _remote_player_nodes: Dictionary = {}
 ## 当前地图已创建的远端玩家宠物跟随节点，键与远端玩家 entity_id 一致。
 var _remote_pet_follower_nodes: Dictionary = {}
-## 远端玩家最近一次权威目标坐标，用于把其移动路径同步给宠物跟随节点。
-var _remote_player_target_positions: Dictionary = {}
 ## 每个远端宠物对应的玩家路径记录锚点，键为远端玩家 entity_id。
 var _remote_pet_path_anchors: Dictionary = {}
 ## 每个远端宠物上一次记录路径时的玩家朝向，键为远端玩家 entity_id。
@@ -140,6 +144,17 @@ var _local_pre_battle_scene_position: Vector2 = Vector2.ZERO
 var _local_pre_battle_scene_id: int = 0
 ## 是否存在可用于本次战斗返回的本地坐标记录。
 var _has_local_pre_battle_scene_position: bool = false
+
+## 网络上报放在物理帧：本机人物在 _physics_process 中 move_and_slide，按物理时钟打时间戳才能让观察端插值速度与本机一致。
+func _physics_process(delta: float) -> void:
+    var now_msec: float = float(Time.get_ticks_msec())
+    if _network_physics_clock_msec <= 0.0 or absf(now_msec - _network_physics_clock_msec) > NETWORK_PHYSICS_CLOCK_MAX_DRIFT_MS:
+        # 首次使用或严重掉帧导致模拟时间与真实时间偏离过大时重新对齐。
+        _network_physics_clock_msec = now_msec
+    else:
+        _network_physics_clock_msec += delta * 1000.0
+    if player_node != null and is_instance_valid(player_node):
+        _report_player_position_to_server(_current_player_scene_position())
 
 func _process(delta: float) -> void:
     _update_pet_follow(delta)
@@ -216,7 +231,12 @@ func handle_entity_move(payload: Dictionary) -> void:
         return
     if _scene_visual_apply_locked or _pending_target_scene_id != 0:
         return
-    _sync_remote_players()
+    # 只更新本包对应的玩家；全量同步会把其他远端玩家的旧快照重新推一遍，曾导致多人同屏互相打断插值。
+    var entity_id: int = int(payload.get("entity_id", 0))
+    if _remote_player_nodes.has(entity_id):
+        _sync_single_remote_player(entity_id)
+    else:
+        _sync_remote_players()
 
 func handle_move_intent_response(payload: Dictionary) -> void:
     var accepted: bool = bool(payload.get("accepted", false))
@@ -1902,8 +1922,7 @@ func _report_player_position_if_changed() -> void:
     if player_node == null or not is_instance_valid(player_node):
         return
     var current_position: Vector2 = _current_player_scene_position()
-    # 网络表现同步需要在人物停止后补发 moving=false，即使当前坐标与上一帧相同也不能提前返回。
-    _report_player_position_to_server(current_position)
+    # 网络上报已移到 _physics_process，与人物物理移动同步采样；这里只负责 HUD 与本地快照。
     # HUD 和本地权威快照只需要整数场景格；逐像素重排文字和复制字典会造成移动时主线程抖动。
     var display_position: Vector2 = Vector2(roundi(current_position.x), roundi(current_position.y))
     if display_position.is_equal_approx(_last_reported_player_position):
@@ -1951,11 +1970,15 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
         or moving != _last_network_moving
     )
     var precise_position_changed: bool = precise_position != _last_network_precise_position
-    if not movement_state_changed and not precise_position_changed:
-        return
     var now_msec: int = Time.get_ticks_msec()
-    if not movement_state_changed and now_msec - _last_network_report_msec < NETWORK_MOVEMENT_REPORT_INTERVAL_MS:
-        return
+    if not movement_state_changed:
+        if now_msec - _last_network_report_msec < NETWORK_MOVEMENT_REPORT_INTERVAL_MS:
+            return
+        # 移动中即使被墙挡住坐标不变，也按间隔发送心跳，观察端才能确认人物停在原地而不是继续外推。
+        if not precise_position_changed and not moving:
+            return
+    # 观察端按该时间戳在快照之间插值；使用物理模拟时钟保证时间戳与位置采样严格对应。
+    var sample_tick: int = roundi(_network_physics_clock_msec) if _network_physics_clock_msec > 0.0 else now_msec
     var move_seq: int = _take_next_move_seq()
     var request_seq: int = NetClient.send_command(
         CommandIds.MOVE_INTENT_REQ,
@@ -1968,7 +1991,7 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
             "facing": {"x": network_facing.x, "y": network_facing.y},
             "moving": moving,
             "input": {"x": movement_input.x, "y": movement_input.y},
-            "client_tick": now_msec,
+            "client_tick": sample_tick,
         }
     )
     if request_seq <= 0:
@@ -1981,6 +2004,7 @@ func _report_player_position_to_server(scene_position: Vector2) -> void:
     _has_last_network_position = true
 
 ## 根据 GameState 的附近实体快照创建、更新或移除当前地图中的远端玩家节点。
+## 只在实体进出、整图快照等低频事件时调用；高频移动包走 _sync_single_remote_player，避免互相打断插值。
 func _sync_remote_players() -> void:
     if _current_level == null or not is_instance_valid(_current_level):
         return
@@ -1991,76 +2015,91 @@ func _sync_remote_players() -> void:
             continue
         var entity: Dictionary = entity_variant
         var entity_id: int = int(entity.get("entity_id", entity_id_variant))
-        var remote_player_id: int = int(entity.get("player_id", 0))
-        if int(entity.get("entity_type", 0)) != PLAYER_ENTITY_TYPE:
-            continue
-        if entity_id <= 0 or remote_player_id == GameState.player_id:
-            continue
-        expected_entity_ids[entity_id] = true
-        var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
-        var position_variant: Variant = entity.get("pos", {})
-        var server_position: Vector2 = Vector2(
-            float(position_variant.get("x", entity.get("x", 0.0))) if position_variant is Dictionary else float(entity.get("x", 0.0)),
-            float(position_variant.get("y", entity.get("y", 0.0))) if position_variant is Dictionary else float(entity.get("y", 0.0))
-        )
-        var presentation_scene_position: Vector2 = server_position
-        # ENTITY_ENTER_PUSH 与世界快照中的玩家实体没有 precise_pos 字段；
-        # 这里必须排除空字典，否则缺省值 {} 会把远端出生点算成 (0,0) 地图左上角。
-        var precise_position_variant: Variant = entity.get("precise_pos", null)
-        if precise_position_variant is Dictionary and not (precise_position_variant as Dictionary).is_empty():
-            var precise_position: Dictionary = precise_position_variant as Dictionary
-            presentation_scene_position = Vector2(
-                float(precise_position.get("x", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
-                float(precise_position.get("y", 0)) / float(NETWORK_POSITION_FIXED_SCALE)
-            )
-        var local_position: Vector2 = _server_to_local_position(_current_scene_id(), presentation_scene_position)
-        var facing_direction: Vector2 = _extract_remote_facing_direction(entity)
-        var has_motion_state: bool = entity.has("moving") and entity.has("facing")
-        var remote_moving: bool = bool(entity.get("moving", false))
-        if remote_node == null or not is_instance_valid(remote_node):
-            remote_node = REMOTE_PLAYER_SCENE.instantiate() as player
-            if remote_node == null:
-                continue
-            remote_node.name = "RemotePlayer_%d" % entity_id
-            remote_node.is_remote_avatar = true
-            _get_player_host(_current_level).add_child(remote_node)
-            # 远端实例不能读取本机 GameState.player_snapshot；必须显式消费该实体自己的服务端 skin_id。
-            remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
-            remote_node.apply_remote_initial_position(local_position)
-            if has_motion_state:
-                remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving)
-            _configure_actor_y_sort(remote_node)
-            _remote_player_nodes[entity_id] = remote_node
-        else:
-            # ENTITY_ENTER_PUSH 也用于形象或编队刷新，已有节点同样要重新应用权威人物形象。
-            remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
-            if has_motion_state:
-                remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving)
-            else:
-                remote_node.set_remote_target_position(local_position)
-        _sync_remote_player_pet(entity_id, entity, local_position, facing_direction, remote_moving)
+        if _apply_remote_player_entity(entity_id, entity):
+            expected_entity_ids[entity_id] = true
     for entity_id_variant: Variant in _remote_player_nodes.keys():
         var entity_id: int = int(entity_id_variant)
         if expected_entity_ids.has(entity_id):
             continue
         _remove_remote_player_entity(entity_id)
 
-## 根据玩家实体中的权威首只编队宠物创建或更新远端跟随表现。
+## 只把指定远端玩家的最新移动快照推给其节点，不触碰同场景其他玩家。
+## entity_id 是刚收到 ENTITY_MOVE_PUSH 的远端玩家实体标识。
+func _sync_single_remote_player(entity_id: int) -> void:
+    if _current_level == null or not is_instance_valid(_current_level):
+        return
+    var entity_variant: Variant = GameState.nearby_entities.get(entity_id, null)
+    if entity_variant is not Dictionary:
+        return
+    _apply_remote_player_entity(entity_id, entity_variant as Dictionary)
+
+## 创建或更新单个远端玩家节点；返回 false 表示该实体不是需要表现的远端玩家。
+## entity_id 是场景实体标识。
+## entity 是 GameState 中合并后的实体摘要。
+func _apply_remote_player_entity(entity_id: int, entity: Dictionary) -> bool:
+    var remote_player_id: int = int(entity.get("player_id", 0))
+    if int(entity.get("entity_type", 0)) != PLAYER_ENTITY_TYPE:
+        return false
+    if entity_id <= 0 or remote_player_id == GameState.player_id:
+        return false
+    var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
+    var position_variant: Variant = entity.get("pos", {})
+    var server_position: Vector2 = Vector2(
+        float(position_variant.get("x", entity.get("x", 0.0))) if position_variant is Dictionary else float(entity.get("x", 0.0)),
+        float(position_variant.get("y", entity.get("y", 0.0))) if position_variant is Dictionary else float(entity.get("y", 0.0))
+    )
+    var presentation_scene_position: Vector2 = server_position
+    # ENTITY_ENTER_PUSH 与世界快照中的玩家实体没有 precise_pos 字段；
+    # 这里必须排除空字典，否则缺省值 {} 会把远端出生点算成 (0,0) 地图左上角。
+    var precise_position_variant: Variant = entity.get("precise_pos", null)
+    if precise_position_variant is Dictionary and not (precise_position_variant as Dictionary).is_empty():
+        var precise_position: Dictionary = precise_position_variant as Dictionary
+        presentation_scene_position = Vector2(
+            float(precise_position.get("x", 0)) / float(NETWORK_POSITION_FIXED_SCALE),
+            float(precise_position.get("y", 0)) / float(NETWORK_POSITION_FIXED_SCALE)
+        )
+    var local_position: Vector2 = _server_to_local_position(_current_scene_id(), presentation_scene_position)
+    var facing_direction: Vector2 = _extract_remote_facing_direction(entity)
+    var has_motion_state: bool = entity.has("moving") and entity.has("facing")
+    var remote_moving: bool = bool(entity.get("moving", false))
+    var sample_tick: int = int(entity.get("client_tick", 0))
+    if remote_node == null or not is_instance_valid(remote_node):
+        remote_node = REMOTE_PLAYER_SCENE.instantiate() as player
+        if remote_node == null:
+            return false
+        remote_node.name = "RemotePlayer_%d" % entity_id
+        remote_node.is_remote_avatar = true
+        _get_player_host(_current_level).add_child(remote_node)
+        # 远端实例不能读取本机 GameState.player_snapshot；必须显式消费该实体自己的服务端 skin_id。
+        remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
+        remote_node.apply_remote_initial_position(local_position)
+        if has_motion_state:
+            remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving, sample_tick)
+        _configure_actor_y_sort(remote_node)
+        _remote_player_nodes[entity_id] = remote_node
+    else:
+        # ENTITY_ENTER_PUSH 也用于形象或编队刷新，已有节点同样要重新应用权威人物形象。
+        remote_node.apply_remote_skin_id(str(entity.get("skin_id", "")))
+        if has_motion_state:
+            # 同一采样（client_tick 相同）重复推送会被节点内部去重，不会重置插值时间线。
+            remote_node.set_remote_motion_target(local_position, facing_direction, remote_moving, sample_tick)
+        else:
+            remote_node.set_remote_target_position(local_position)
+    _sync_remote_player_pet(entity_id, entity, remote_node, facing_direction)
+    return true
+
+## 根据玩家实体中的权威首只编队宠物创建、刷新或移除远端跟随表现。
+## 宠物路径不在这里记录，而是每帧从远端人物的插值画面位置采样，与本机宠物跟随口径一致。
 ## entity_id 是远端玩家的场景实体标识。
 ## entity 是服务端下发的玩家实体摘要。
-## leader_target_position 是远端玩家本次收到的高精度本地目标坐标。
+## remote_node 是该玩家的远端人物节点。
 ## leader_facing 是服务端归一化后的远端玩家朝向。
-## leader_moving 表示远端玩家是否仍在移动。
 func _sync_remote_player_pet(
     entity_id: int,
     entity: Dictionary,
-    leader_target_position: Vector2,
-    leader_facing: Vector2,
-    leader_moving: bool
+    remote_node: player,
+    leader_facing: Vector2
 ) -> void:
-    var previous_position_variant: Variant = _remote_player_target_positions.get(entity_id, Vector2.INF)
-    var previous_target_position: Vector2 = previous_position_variant as Vector2
-    _remote_player_target_positions[entity_id] = leader_target_position
     var following_pet_variant: Variant = entity.get("following_pet", {})
     if following_pet_variant is not Dictionary or (following_pet_variant as Dictionary).is_empty():
         _remove_remote_pet_follower(entity_id)
@@ -2074,41 +2113,43 @@ func _sync_remote_player_pet(
         _configure_actor_y_sort(follower)
         _remote_pet_follower_nodes[entity_id] = follower
         follower.sync_lineup_pet(following_pet)
-        var initial_direction: Vector2 = leader_facing
-        if initial_direction == Vector2.ZERO:
-            initial_direction = _remote_move_direction(previous_target_position, leader_target_position)
-        follower.reset_near_leader(leader_target_position, _remote_pet_reset_offset(initial_direction))
-        _remote_pet_path_anchors[entity_id] = leader_target_position
-        _remote_pet_path_directions[entity_id] = initial_direction
+        _reset_remote_pet_near_leader(entity_id, follower, remote_node.position, leader_facing)
         return
     follower.sync_lineup_pet(following_pet)
-    if not leader_moving or previous_target_position == Vector2.INF or previous_target_position.is_equal_approx(leader_target_position):
-        return
-    var move_direction: Vector2 = leader_facing
-    if move_direction == Vector2.ZERO:
-        move_direction = _remote_move_direction(previous_target_position, leader_target_position)
-    if move_direction != Vector2.ZERO:
-        _record_remote_pet_leader_path(entity_id, follower, leader_target_position, move_direction)
 
 
-## 从远端玩家高精度轨迹中按 24px 间隔记录宠物路径，避免网络采样点被当成完整格步。
+## 把远端宠物放回人物身后半格，并清空路径锚点（新建、传送或距离过远时调用）。
+func _reset_remote_pet_near_leader(entity_id: int, follower: WorldPetFollower, leader_position: Vector2, leader_facing: Vector2) -> void:
+    var initial_direction: Vector2 = leader_facing if leader_facing != Vector2.ZERO else Vector2.DOWN
+    follower.reset_near_leader(leader_position, _remote_pet_reset_offset(initial_direction))
+    _remote_pet_path_anchors[entity_id] = Vector2.INF
+    _remote_pet_path_directions[entity_id] = initial_direction
+
+
+## 按远端人物当前插值画面位置记录 24px 格步路径，逻辑与本机宠物 _record_leader_path_for_pet_follow 一致。
 ## entity_id 是远端玩家场景实体标识。
 ## follower 是该玩家对应的宠物跟随节点。
-## leader_position 是远端玩家本次权威表现目标位置。
-## leader_direction 是服务端明确下发的四方向朝向。
-func _record_remote_pet_leader_path(
-    entity_id: int,
-    follower: WorldPetFollower,
-    leader_position: Vector2,
-    leader_direction: Vector2
-) -> void:
-    var anchor_variant: Variant = _remote_pet_path_anchors.get(entity_id, leader_position)
-    var anchor: Vector2 = anchor_variant as Vector2
-    var previous_direction_variant: Variant = _remote_pet_path_directions.get(entity_id, Vector2.ZERO)
-    var previous_direction: Vector2 = previous_direction_variant as Vector2
+## remote_node 是远端人物节点。
+func _record_remote_pet_leader_path(entity_id: int, follower: WorldPetFollower, remote_node: player) -> void:
+    if not remote_node.is_walking():
+        return
+    var leader_direction: Vector2 = remote_node.get_cardinal_direction()
+    if leader_direction == Vector2.ZERO:
+        return
+    var leader_position: Vector2 = remote_node.position
+    var anchor: Vector2 = _remote_pet_path_anchors.get(entity_id, Vector2.INF) as Vector2
+    if anchor == Vector2.INF:
+        _remote_pet_path_anchors[entity_id] = leader_position
+        _remote_pet_path_directions[entity_id] = leader_direction
+        return
+    var previous_direction: Vector2 = _remote_pet_path_directions.get(entity_id, Vector2.ZERO) as Vector2
     if previous_direction != Vector2.ZERO and previous_direction != leader_direction:
+        # 转向时从当前拐角重新累计格距，避免旧方向不足一格的残余距离被投射到新方向。
         anchor = leader_position
     _remote_pet_path_directions[entity_id] = leader_direction
+    if (leader_position - anchor).dot(leader_direction) <= 0.0:
+        _remote_pet_path_anchors[entity_id] = leader_position
+        return
     var recorded_steps: int = 0
     while leader_position.distance_to(anchor) >= PathFollowController.PATH_STEP_SIZE:
         if recorded_steps >= PET_FOLLOW_MAX_LEADER_STEPS_PER_FRAME:
@@ -2124,7 +2165,7 @@ func _record_remote_pet_leader_path(
     _remote_pet_path_anchors[entity_id] = anchor
 
 
-## 按帧推进所有远端宠物沿其所属玩家的权威移动路径跟随。
+## 按帧推进所有远端宠物沿其所属玩家的插值画面轨迹跟随。
 ## delta 是当前渲染帧间隔秒数。
 func _update_remote_pet_followers(delta: float) -> void:
     for entity_id_variant: Variant in _remote_pet_follower_nodes.keys():
@@ -2133,8 +2174,14 @@ func _update_remote_pet_followers(delta: float) -> void:
         if follower == null or not is_instance_valid(follower) or not follower.visible:
             continue
         var remote_node: player = _remote_player_nodes.get(entity_id, null) as player
-        var move_speed: float = remote_node.get_move_speed() if remote_node != null and is_instance_valid(remote_node) else 100.0
-        follower.update_follow(delta, move_speed)
+        if remote_node == null or not is_instance_valid(remote_node):
+            continue
+        if follower.position.distance_to(remote_node.position) > REMOTE_PET_RESET_DISTANCE_PX:
+            # 远端人物传送或长时间断流后，宠物直接回到身边，不沿整条地图追赶。
+            _reset_remote_pet_near_leader(entity_id, follower, remote_node.position, remote_node.get_cardinal_direction())
+            continue
+        _record_remote_pet_leader_path(entity_id, follower, remote_node)
+        follower.update_follow(delta, remote_node.get_move_speed())
 
 
 ## 从远端实体快照读取四方向朝向；字段缺失或非法时返回零向量交给兼容逻辑推导。
@@ -2147,20 +2194,6 @@ func _extract_remote_facing_direction(entity: Dictionary) -> Vector2:
     var direction: Vector2 = Vector2(float(facing.get("x", 0)), float(facing.get("y", 0)))
     if direction == Vector2.LEFT or direction == Vector2.RIGHT or direction == Vector2.UP or direction == Vector2.DOWN:
         return direction
-    return Vector2.ZERO
-
-
-## 计算远端玩家两次权威坐标之间的四方向移动方向。
-## from_position 是上一次目标坐标。
-## to_position 是本次目标坐标。
-func _remote_move_direction(from_position: Vector2, to_position: Vector2) -> Vector2:
-    if from_position == Vector2.INF:
-        return Vector2.DOWN
-    var offset: Vector2 = to_position - from_position
-    if absf(offset.x) >= absf(offset.y) and not is_zero_approx(offset.x):
-        return Vector2.RIGHT if offset.x > 0.0 else Vector2.LEFT
-    if not is_zero_approx(offset.y):
-        return Vector2.DOWN if offset.y > 0.0 else Vector2.UP
     return Vector2.ZERO
 
 
@@ -2179,7 +2212,6 @@ func _remove_remote_player_entity(entity_id: int) -> void:
         remote_node.queue_free()
     _remote_player_nodes.erase(entity_id)
     _remove_remote_pet_follower(entity_id)
-    _remote_player_target_positions.erase(entity_id)
 
 
 ## 删除指定远端玩家的宠物跟随节点；玩家本体仍可继续保留。
@@ -2197,7 +2229,6 @@ func _clear_remote_players() -> void:
     for entity_id_variant: Variant in _remote_player_nodes.keys():
         _remove_remote_player_entity(int(entity_id_variant))
     _remote_pet_follower_nodes.clear()
-    _remote_player_target_positions.clear()
     _remote_pet_path_anchors.clear()
     _remote_pet_path_directions.clear()
     _has_last_network_position = false

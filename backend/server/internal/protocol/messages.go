@@ -576,6 +576,9 @@ type EntityMovePush struct {
 	Speed  uint32 `json:"speed"`
 	// ServerTick 是该权威移动状态在服务端生成时的单调时间基线。
 	ServerTick int64 `json:"server_tick"`
+	// ClientTick 原样转发移动者上报时的客户端单调时钟毫秒数，观察端据此做快照插值，消除网络抖动造成的卡顿。
+	// 服务端生成的移动（如快速传送）没有客户端采样时间，保持零值，观察端回退为本地接收时间。
+	ClientTick int64 `json:"client_tick,omitempty"`
 }
 
 // EntityEnterPush 通知同场景客户端创建一个新进入视野的实体。

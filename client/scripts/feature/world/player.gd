@@ -16,10 +16,19 @@ const STATE_BATTLE := "battle"
 const LEGACY_BATTLE_ANIMATION := "battle_pose"
 # 世界场景进入战斗后统一替换的形象资源 ID，对应 resources/battle/unit_skins/其他/战斗待机_004.tres。
 const WORLD_BATTLE_SKIN_ID: String = "战斗待机_004"
-## 远端角色追赶服务端目标点时使用的像素速度，略高于本地移速以吸收网络抖动。
-const REMOTE_INTERPOLATION_SPEED_PX_PER_SEC: float = 140.0
-## 单个移动包允许连续预测的最长时间，超过后停止外推，避免断网时人物持续走远。
-const REMOTE_PREDICTION_MAX_SECONDS: float = 0.18
+## 远端角色的插值渲染延迟：观察端固定落后发送方这么多毫秒，用已收到的两个快照之间插值。
+## 需要大于发送间隔（100ms）再加上网络抖动余量，抖动在此范围内时远端移动完全匀速。
+const REMOTE_INTERPOLATION_DELAY_MS: float = 150.0
+## 缓冲耗尽（丢包或长时间卡顿）时允许沿最后朝向外推的最长毫秒数，超过后原地等待新包。
+const REMOTE_MAX_EXTRAPOLATION_MS: float = 200.0
+## 每个远端角色最多缓存的快照数量，防止后台挂起后堆积。
+const REMOTE_SNAPSHOT_BUFFER_LIMIT: int = 32
+## 新包到达导致画面目标点突变时，视觉误差按此速率指数衰减，避免肉眼可见的瞬移。
+const REMOTE_ERROR_DECAY_PER_SECOND: float = 12.0
+## 超过该距离的突变视为传送，直接瞬移，不做平滑。
+const REMOTE_SNAP_DISTANCE_PX: float = 96.0
+## 时钟偏移估计向较大样本缓慢靠拢的系数，用于适应网络延迟整体上升。
+const REMOTE_CLOCK_OFFSET_RISE_RATE: float = 0.02
 
 # 本地角色移动速度。
 @export var move_speed: float = 90.0
@@ -65,18 +74,17 @@ var _character_visual: CharacterVisual = null
 var _uses_character_visual: bool = false
 # 标记当前是否正在使用战斗专用形象覆盖正常 skin_id。
 var _battle_skin_override_active: bool = false
-## 远端角色最近一次收到的服务端目标像素坐标。
-var _remote_target_position: Vector2 = Vector2.ZERO
-## 标记远端角色是否已经取得有效目标点。
+## 远端角色按发送方采样时间排序的移动快照，每项为 { "t": float, "pos": Vector2, "facing": Vector2, "moving": bool }。
+## t 位于发送方时钟域（毫秒）；旧服务未转发 client_tick 时用本地接收时间换算到同一时钟域。
+var _remote_snapshots: Array[Dictionary] = []
+## 标记远端角色是否已经取得有效初始位置。
 var _remote_target_initialized: bool = false
-## 服务端明确下发的远端角色四方向朝向，避免根据延迟坐标推导出错误方向。
-var _remote_authoritative_direction: Vector2 = Vector2.DOWN
-## 服务端明确下发的远端角色移动状态，用于在网络采样间隔内保持动画连续。
-var _remote_authoritative_moving: bool = false
-## 最近一次收到远端移动表现包的单调时钟毫秒数。
-var _remote_target_received_msec: int = 0
-## 是否收到支持明确起停状态的新协议；旧协议仍只追赶整数目标点，不执行外推。
-var _remote_prediction_enabled: bool = false
+## 本地时钟减发送方时钟的估计值（毫秒），取最快到达的包作为基线，从而为慢包留出抖动余量。
+var _remote_clock_offset_ms: float = 0.0
+## 时钟偏移是否已经初始化。
+var _remote_clock_offset_valid: bool = false
+## 当前画面位置与插值理想位置之间的视觉误差，新包修正目标时逐帧衰减到零。
+var _remote_render_error: Vector2 = Vector2.ZERO
 ## 远端角色最近一次成功应用的服务端人物形象 ID，用于跳过重复的形象刷新。
 var _remote_applied_skin_id: String = ""
 ## 相机在人物本地坐标中的固定跟随锚点；像素吸附时使用原始值，避免逐帧累计舍入误差。
@@ -181,17 +189,14 @@ func apply_authoritative_position(local_position: Vector2) -> void:
 	if _update_state():
 		_update_animation()
 
-## 立即放置远端角色，首次创建或切图重建时不播放从原点飞入的插值。
+## 立即放置远端角色，首次创建、切图重建或传送时不播放从旧位置滑过来的插值。
 ## local_position 是服务端权威场景坐标换算后的本地像素坐标。
 func apply_remote_initial_position(local_position: Vector2) -> void:
 	# 远端表现保留浮点坐标；项目级像素吸附只影响最终绘制，不应反向破坏插值轨迹。
-	_remote_target_position = local_position
+	_remote_snapshots.clear()
 	_remote_target_initialized = true
-	_remote_authoritative_direction = Vector2.DOWN
-	_remote_authoritative_moving = false
-	_remote_target_received_msec = Time.get_ticks_msec()
-	_remote_prediction_enabled = false
-	position = _remote_target_position
+	_remote_render_error = Vector2.ZERO
+	position = local_position
 	direction = Vector2.ZERO
 	velocity = Vector2.ZERO
 	_update_state()
@@ -211,63 +216,149 @@ func apply_remote_skin_id(skin_id: String) -> void:
 	_apply_normal_skin_id(normalized_skin_id)
 
 
-## 写入远端角色最新权威目标点，后续帧只做平滑追赶，不参与本地碰撞判定。
+## 写入不带移动状态的远端目标点（兼容旧协议的实体摘要），按静止快照处理。
 ## local_position 是服务端整数坐标换算后的本地像素坐标。
 func set_remote_target_position(local_position: Vector2) -> void:
-	var inferred_direction: Vector2 = _resolve_cardinal_direction(local_position - _remote_target_position)
-	_remote_target_position = local_position
-	if inferred_direction != Vector2.ZERO:
-		_remote_authoritative_direction = inferred_direction
-	_remote_authoritative_moving = not local_position.is_equal_approx(position)
-	_remote_target_received_msec = Time.get_ticks_msec()
-	_remote_prediction_enabled = false
 	if not _remote_target_initialized:
-		apply_remote_initial_position(_remote_target_position)
+		apply_remote_initial_position(local_position)
+		return
+	var facing: Vector2 = cardinal_direction
+	if not _remote_snapshots.is_empty():
+		var last: Dictionary = _remote_snapshots.back()
+		var inferred: Vector2 = _resolve_cardinal_direction(local_position - (last["pos"] as Vector2))
+		if inferred != Vector2.ZERO:
+			facing = inferred
+		elif (last["pos"] as Vector2).is_equal_approx(local_position):
+			# 摘要刷新（换形象、换编队）重复携带同一坐标时，不应打断正在播放的移动插值。
+			return
+	_push_remote_snapshot(local_position, facing, false, 0)
 
 
-## 写入服务端校验后的远端表现位置、朝向和移动状态。
-## local_position 是换算后的地图像素目标点。
+## 写入一条远端移动快照，后续帧在相邻快照之间按发送方时间线性插值。
+## local_position 是换算后的地图像素坐标。
 ## facing_direction 是服务端归一化后的四方向单位向量。
-## moving 表示远端玩家是否仍在移动。
-func set_remote_motion_target(local_position: Vector2, facing_direction: Vector2, moving: bool) -> void:
-	_remote_target_position = local_position
+## moving 表示发送方在采样时是否仍在移动。
+## sample_tick_ms 是发送方采样时的客户端单调时钟毫秒数；旧服务未转发时传 0，退化为本地接收时间。
+func set_remote_motion_target(local_position: Vector2, facing_direction: Vector2, moving: bool, sample_tick_ms: int = 0) -> void:
 	var resolved_direction: Vector2 = _resolve_cardinal_direction(facing_direction)
-	var received_msec: int = Time.get_ticks_msec()
-	if resolved_direction != Vector2.ZERO:
-		_remote_authoritative_direction = resolved_direction
-	_remote_authoritative_moving = moving
-	_remote_target_received_msec = received_msec
-	_remote_prediction_enabled = true
+	if resolved_direction == Vector2.ZERO:
+		resolved_direction = cardinal_direction if cardinal_direction != Vector2.ZERO else Vector2.DOWN
 	if not _remote_target_initialized:
-		apply_remote_initial_position(_remote_target_position)
-		_remote_authoritative_direction = resolved_direction if resolved_direction != Vector2.ZERO else Vector2.DOWN
-		_remote_authoritative_moving = moving
-		_remote_target_received_msec = received_msec
-		_remote_prediction_enabled = true
+		apply_remote_initial_position(local_position)
+		cardinal_direction = resolved_direction
+	_push_remote_snapshot(local_position, resolved_direction, moving, sample_tick_ms)
 
 
-## 根据服务端目标点更新远端角色位置、朝向和行走动画。
-## delta 是当前渲染帧耗时秒数，用于生成与帧率无关的连续插值步长。
+## 把快照按发送方时间插入缓冲区，并维护时钟偏移估计与视觉误差，保证画面连续。
+func _push_remote_snapshot(local_position: Vector2, facing: Vector2, moving: bool, sample_tick_ms: int) -> void:
+	var now_ms: float = float(Time.get_ticks_msec())
+	var tick: float = float(sample_tick_ms)
+	if sample_tick_ms <= 0:
+		# 无发送方时间戳：把本地接收时刻换算到发送方时钟域，等价于按到达时间插值。
+		tick = now_ms - _remote_clock_offset_ms if _remote_clock_offset_valid else now_ms
+	if not _remote_snapshots.is_empty():
+		var last: Dictionary = _remote_snapshots.back()
+		var last_tick: float = float(last["t"])
+		if tick <= last_tick:
+			if last_tick - tick > 5000.0:
+				# 发送方时钟大幅倒退（对方重启客户端），旧缓冲与偏移全部作废。
+				_remote_snapshots.clear()
+				_remote_clock_offset_valid = false
+			else:
+				# 同一采样的重复推送或乱序旧包，直接忽略。
+				return
+
+	# 时钟偏移取“到达最快”的样本，慢包因此落在插值延迟窗口内；同时缓慢上调以适应延迟整体变大。
+	var offset_sample: float = now_ms - tick
+	if not _remote_clock_offset_valid or offset_sample < _remote_clock_offset_ms:
+		_remote_clock_offset_ms = offset_sample
+		_remote_clock_offset_valid = true
+	else:
+		_remote_clock_offset_ms += (offset_sample - _remote_clock_offset_ms) * REMOTE_CLOCK_OFFSET_RISE_RATE
+
+	var sample_before: Dictionary = _sample_remote_presentation(_remote_render_time_ms())
+	if not _remote_snapshots.is_empty():
+		var previous: Dictionary = _remote_snapshots.back()
+		var elapsed_seconds: float = maxf(tick - float(previous["t"]), 0.0) / 1000.0
+		var reachable_px: float = move_speed * elapsed_seconds * 1.5 + REMOTE_SNAP_DISTANCE_PX
+		if (previous["pos"] as Vector2).distance_to(local_position) > reachable_px:
+			# 两个快照之间的距离超出正常行走能力（传送或重同步），前一段按静止处理，时间线到达后直接瞬移。
+			previous["moving"] = false
+	_remote_snapshots.append({"t": tick, "pos": local_position, "facing": facing, "moving": moving})
+	while _remote_snapshots.size() > REMOTE_SNAPSHOT_BUFFER_LIMIT:
+		_remote_snapshots.pop_front()
+	var sample_after: Dictionary = _sample_remote_presentation(_remote_render_time_ms())
+	# 正常情况下新快照位于渲染时间之后，插值结果不变；只有缓冲耗尽外推后才会产生突变，此时转成可衰减的视觉误差。
+	var jump: Vector2 = (sample_before["pos"] as Vector2) - (sample_after["pos"] as Vector2)
+	_remote_render_error += jump
+	if _remote_render_error.length() > REMOTE_SNAP_DISTANCE_PX:
+		_remote_render_error = Vector2.ZERO
+
+
+## 返回当前帧应该渲染的发送方时间点（毫秒）。
+func _remote_render_time_ms() -> float:
+	return float(Time.get_ticks_msec()) - _remote_clock_offset_ms - REMOTE_INTERPOLATION_DELAY_MS
+
+
+## 在快照缓冲中按发送方时间采样远端表现。
+## 返回 { "pos": Vector2, "facing": Vector2, "walking": bool }。
+func _sample_remote_presentation(render_time_ms: float) -> Dictionary:
+	if _remote_snapshots.is_empty():
+		return {"pos": position - _remote_render_error, "facing": cardinal_direction, "walking": false}
+	var first: Dictionary = _remote_snapshots[0]
+	if render_time_ms <= float(first["t"]):
+		# 渲染时间早于最早快照：停在最早快照，等待时间线推进。
+		return {"pos": first["pos"], "facing": first["facing"], "walking": false}
+	for index in range(_remote_snapshots.size() - 1):
+		var a: Dictionary = _remote_snapshots[index]
+		var b: Dictionary = _remote_snapshots[index + 1]
+		var a_t: float = float(a["t"])
+		var b_t: float = float(b["t"])
+		if render_time_ms > b_t:
+			continue
+		if not bool(a["moving"]):
+			# 发送方在 a 时刻已经停下，直到 b 时刻才重新起步；中间保持静止而不是慢慢滑过去。
+			return {"pos": a["pos"], "facing": a["facing"], "walking": false}
+		var span: float = maxf(b_t - a_t, 1.0)
+		var alpha: float = clampf((render_time_ms - a_t) / span, 0.0, 1.0)
+		var a_pos: Vector2 = a["pos"]
+		var b_pos: Vector2 = b["pos"]
+		return {"pos": a_pos.lerp(b_pos, alpha), "facing": a["facing"], "walking": not a_pos.is_equal_approx(b_pos)}
+	# 渲染时间已越过最新快照（缓冲耗尽）：移动中则沿最后朝向短暂外推，静止则停在原地。
+	var last: Dictionary = _remote_snapshots.back()
+	var last_pos: Vector2 = last["pos"]
+	if not bool(last["moving"]):
+		return {"pos": last_pos, "facing": last["facing"], "walking": false}
+	var overshoot_ms: float = render_time_ms - float(last["t"])
+	var clamped_ms: float = minf(overshoot_ms, REMOTE_MAX_EXTRAPOLATION_MS)
+	var facing: Vector2 = last["facing"]
+	return {
+		"pos": last_pos + facing * move_speed * clamped_ms / 1000.0,
+		"facing": facing,
+		"walking": overshoot_ms < REMOTE_MAX_EXTRAPOLATION_MS,
+	}
+
+
+## 每帧按插值时间线更新远端角色位置、朝向和行走动画。
+## delta 是当前渲染帧耗时秒数，用于衰减新包带来的视觉误差。
 func _update_remote_avatar(delta: float) -> void:
 	if not _remote_target_initialized:
 		return
-	var presentation_target: Vector2 = _remote_target_position
-	var predicting_motion: bool = false
-	if _remote_prediction_enabled and _remote_authoritative_moving:
-		# 在相邻网络包之间按服务端确认的朝向和角色速度继续前进，下一包到达后自然纠正目标。
-		var raw_elapsed_seconds: float = float(Time.get_ticks_msec() - _remote_target_received_msec) / 1000.0
-		var elapsed_seconds: float = minf(raw_elapsed_seconds, REMOTE_PREDICTION_MAX_SECONDS)
-		predicting_motion = raw_elapsed_seconds < REMOTE_PREDICTION_MAX_SECONDS
-		presentation_target += _remote_authoritative_direction * move_speed * elapsed_seconds
-	var offset: Vector2 = presentation_target - position
-	if offset.length() <= 0.05:
-		position = presentation_target
-	else:
-		# 不在逻辑层 round()：逐帧取整会把连续速度重新变成走一像素、停一帧的阶梯运动。
-		position = position.move_toward(presentation_target, REMOTE_INTERPOLATION_SPEED_PX_PER_SEC * delta)
-	# 停止包到达时如果仍有少量插值距离，先走到最终位置再切待机，避免人物静止滑动。
-	var should_walk: bool = offset.length() > 0.05 or predicting_motion
-	direction = _remote_authoritative_direction if should_walk else Vector2.ZERO
+	var render_time_ms: float = _remote_render_time_ms()
+	# 丢弃渲染时间之前、已经不再需要的旧快照（保留一个作为插值起点）。
+	while _remote_snapshots.size() >= 2 and float(_remote_snapshots[1]["t"]) <= render_time_ms:
+		_remote_snapshots.pop_front()
+	var sample: Dictionary = _sample_remote_presentation(render_time_ms)
+	_remote_render_error *= exp(-REMOTE_ERROR_DECAY_PER_SECOND * delta)
+	if _remote_render_error.length() < 0.05:
+		_remote_render_error = Vector2.ZERO
+	# 不在逻辑层 round()：逐帧取整会把连续速度重新变成走一像素、停一帧的阶梯运动。
+	position = (sample["pos"] as Vector2) + _remote_render_error
+	var walking: bool = bool(sample["walking"])
+	var facing: Vector2 = sample["facing"]
+	if facing != Vector2.ZERO:
+		cardinal_direction = facing
+	direction = facing if walking else Vector2.ZERO
 	_set_direction()
 	_update_state()
 	_update_animation()
