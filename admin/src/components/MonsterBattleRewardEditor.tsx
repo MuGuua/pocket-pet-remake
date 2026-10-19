@@ -16,6 +16,10 @@ interface RewardEditorFormValues {
   exp_value?: number;
   attr_key?: string;
   drop_rate?: number;
+  /** 0 = 独立判定；>0 = 权重抽取组。 */
+  draw_group?: number;
+  /** 抽取组内权重。 */
+  weight?: number;
   item_id?: number;
   item_name?: string;
   quantity?: number;
@@ -82,7 +86,30 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
         dataIndex: 'drop_rate',
         key: 'drop_rate',
         width: 92,
-        render: (dropRate: number | undefined) => formatDropRate(dropRate),
+        render: (dropRate: number | undefined, record) =>
+          Number(record.draw_group ?? 0) > 0 ? '-' : formatDropRate(dropRate),
+      },
+      {
+        title: '抽取',
+        key: 'draw_group',
+        width: 120,
+        render: (_value, record) => {
+          const group = Number(record.draw_group ?? 0);
+          if (group <= 0) {
+            return <Tag>独立</Tag>;
+          }
+          // 展示同组内该条目的命中概率，便于运营判断权重比例是否合理。
+          const groupTotal = value
+            .filter(
+              (entry) =>
+                Number(entry.status ?? 1) === 1 &&
+                Number(entry.draw_group ?? 0) === group,
+            )
+            .reduce((sum, entry) => sum + Math.max(1, Number(entry.weight ?? 100)), 0);
+          const current = Math.max(1, Number(record.weight ?? 100));
+          const percent = groupTotal > 0 ? ((current / groupTotal) * 100).toFixed(1) : '0.0';
+          return <Tag color="blue">组{group} · {percent}%</Tag>;
+        },
       },
       {
         title: '排序',
@@ -172,6 +199,8 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
         exp_value: current.exp_value,
         attr_key: current.attr_key,
         drop_rate: current.drop_rate ?? 10000,
+        draw_group: current.draw_group ?? 0,
+        weight: current.weight ?? 100,
         item_id: current.item_id > 0 ? current.item_id : undefined,
         item_name: current.item_name ?? '',
         quantity: current.quantity > 0 ? current.quantity : 1,
@@ -205,7 +234,8 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Typography.Text type="secondary">
-          共 {value.length} 条奖励，启用 {enabledCount} 条。胜利后按排序依次发放；物品支持唯一掉落。
+          共 {value.length} 条奖励，启用 {enabledCount} 条。抽取组为 0 时按掉落率独立判定；
+          大于 0 时同组只出 1 个，按权重随机。物品支持唯一掉落。
         </Typography.Text>
         <Button type="primary" onClick={() => openEditor(null)}>添加奖励</Button>
       </Space>
@@ -293,11 +323,29 @@ export function MonsterBattleRewardEditor({ value = [], onChange }: MonsterBattl
           <Form.Item
             label="掉落率（万分比）"
             name="drop_rate"
-            tooltip="10000 表示必掉；5000 表示 50%；1 表示 0.01%。"
+            tooltip="10000 表示必掉；5000 表示 50%；1 表示 0.01%。抽取组大于 0 时忽略此字段。"
             rules={[{ required: true, message: '请输入掉落率' }]}
           >
             <InputNumber min={1} max={10000} style={{ width: '100%' }} />
           </Form.Item>
+          <Space size={16} style={{ width: '100%' }}>
+            <Form.Item
+              label="抽取组"
+              name="draw_group"
+              style={{ flex: 1 }}
+              tooltip="0 = 独立判定，可与同怪其他条目同时掉落；大于 0 = 同组按权重随机抽 1 个，不同组互不影响。"
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              label="权重"
+              name="weight"
+              style={{ flex: 1 }}
+              tooltip="仅在抽取组大于 0 时生效，同组内权重越大越容易命中。"
+            >
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+          </Space>
           <Space size={16} style={{ width: '100%' }}>
             <Form.Item label="排序" name="sort_order" style={{ flex: 1 }}>
               <InputNumber min={1} style={{ width: '100%' }} />
@@ -319,6 +367,9 @@ export function normalizeMonsterBattleRewardEntry(
 ): AdminMonsterBattleRewardEntry {
   const sortOrder = Number(formValues.sort_order ?? 0) > 0 ? Number(formValues.sort_order) : fallbackSortOrder + 1;
   const status = Number(formValues.status ?? 1);
+  // draw_group = 0 保持独立判定；大于 0 时同组按 weight 加权抽 1 个。
+  const drawGroup = Math.max(0, Number(formValues.draw_group ?? 0));
+  const weight = Math.max(1, Number(formValues.weight ?? 100));
   if (formValues.reward_type === 'item') {
     return {
       reward_type: 'item',
@@ -328,6 +379,8 @@ export function normalizeMonsterBattleRewardEntry(
       quantity: Number(formValues.quantity ?? 0),
       exp_value: 0,
       drop_rate: Number(formValues.drop_rate ?? 10000),
+      draw_group: drawGroup,
+      weight,
       sort_order: sortOrder,
       status,
       grant_once: Number(formValues.grant_once ?? 0) > 0 ? 1 : 0,
@@ -341,6 +394,8 @@ export function normalizeMonsterBattleRewardEntry(
       quantity: 0,
       exp_value: Number(formValues.exp_value ?? 0),
       drop_rate: Number(formValues.drop_rate ?? 10000),
+      draw_group: drawGroup,
+      weight,
       sort_order: sortOrder,
       status,
     };
@@ -354,6 +409,8 @@ export function normalizeMonsterBattleRewardEntry(
       exp_value: Number(formValues.exp_value ?? 0),
       attr_key: String(formValues.attr_key ?? '').trim(),
       drop_rate: Number(formValues.drop_rate ?? 10000),
+      draw_group: drawGroup,
+      weight,
       sort_order: sortOrder,
       status,
     };
@@ -385,6 +442,8 @@ export function createDefaultMonsterBattleRewardRow(nextSortOrder: number): Rewa
     quantity: 1,
     grant_once: 0,
     drop_rate: 10000,
+    draw_group: 0,
+    weight: 100,
     sort_order: nextSortOrder,
     status: 1,
   };
@@ -402,6 +461,8 @@ export function mapMonsterBattleRewardPayload(
       exp_value: item.exp_value,
       attr_key: item.attr_key,
       drop_rate: item.drop_rate,
+      draw_group: item.draw_group,
+      weight: item.weight,
       item_id: item.item_id > 0 ? item.item_id : undefined,
       item_name: item.item_name,
       quantity: item.quantity > 0 ? item.quantity : undefined,
@@ -419,6 +480,8 @@ export function mapMonsterBattleRewardPayload(
     exp_value: normalized.exp_value,
     attr_key: normalized.attr_key,
     drop_rate: normalized.drop_rate,
+    draw_group: normalized.draw_group,
+    weight: normalized.weight,
     sort_order: normalized.sort_order,
     status: normalized.status,
     grant_once: normalized.grant_once,

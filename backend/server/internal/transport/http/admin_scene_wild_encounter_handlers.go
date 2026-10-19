@@ -40,16 +40,6 @@ func (h *AdminSceneWildEncounterHandler) ServeHTTP(w http.ResponseWriter, r *htt
 		}
 		return
 	}
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-	if len(segments) == 2 && segments[1] == "boss-drops" {
-		sceneIDValue, err := parseUintPathID(segments[0])
-		if err != nil || sceneIDValue == 0 || sceneIDValue > uint64(^uint32(0)) {
-			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene_id", nil)
-			return
-		}
-		h.handleBossDrops(w, r, uint32(sceneIDValue))
-		return
-	}
 	sceneIDValue, err := parseUintPathID(path)
 	if err != nil || sceneIDValue == 0 || sceneIDValue > uint64(^uint32(0)) {
 		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "invalid scene_id", nil)
@@ -63,35 +53,6 @@ func (h *AdminSceneWildEncounterHandler) ServeHTTP(w http.ResponseWriter, r *htt
 		h.handleUpdate(w, r, sceneID)
 	case http.MethodDelete:
 		h.handleDelete(w, r, sceneID)
-	default:
-		writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
-	}
-}
-
-// handleBossDrops 提供遭遇战 Boss 权重掉落池的读取与覆盖保存。
-// 掉落池与固定奖励分开维护：固定奖励每次都发，Boss 掉落按权重抽取。
-func (h *AdminSceneWildEncounterHandler) handleBossDrops(w http.ResponseWriter, r *http.Request, sceneID uint32) {
-	switch r.Method {
-	case http.MethodGet:
-		items, err := h.monsterService.ListAdminBossDrops(r.Context(), sceneID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "load boss drops failed", nil)
-			return
-		}
-		writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": items})
-	case http.MethodPut:
-		defer r.Body.Close()
-		var request monster.AdminReplaceBossDropsInput
-		if err := decodeJSONBody(w, r, &request); err != nil {
-			writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, err.Error(), nil)
-			return
-		}
-		updated, err := h.monsterService.ReplaceAdminBossDrops(r.Context(), sceneID, request)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, http.StatusInternalServerError, "save boss drops failed", nil)
-			return
-		}
-		writeJSON(w, http.StatusOK, http.StatusOK, "success", map[string]any{"items": updated})
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, http.StatusMethodNotAllowed, "method not allowed", nil)
 	}

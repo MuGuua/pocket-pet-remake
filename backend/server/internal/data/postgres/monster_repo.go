@@ -1002,6 +1002,7 @@ const listMonsterBattleRewardsQuery = `
 SELECT
   mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
   mbr.exp_value, COALESCE(mbr.attr_key, '') AS attr_key, COALESCE(mbr.drop_rate, 10000) AS drop_rate,
+  COALESCE(mbr.draw_group, 0) AS draw_group, COALESCE(mbr.weight, 100) AS weight,
   mbr.sort_order, mbr.status, mbr.grant_once,
   COALESCE(idf.item_name, '') AS item_name
 FROM monster_battle_reward mbr
@@ -1013,6 +1014,7 @@ const listMonsterBattleRewardsByMonsterIDQuery = `
 SELECT
   mbr.id, mbr.monster_id, mbr.reward_type, mbr.exp_target, mbr.item_id, mbr.quantity,
   mbr.exp_value, COALESCE(mbr.attr_key, '') AS attr_key, COALESCE(mbr.drop_rate, 10000) AS drop_rate,
+  COALESCE(mbr.draw_group, 0) AS draw_group, COALESCE(mbr.weight, 100) AS weight,
   mbr.sort_order, mbr.status, mbr.grant_once,
   COALESCE(idf.item_name, '') AS item_name
 FROM monster_battle_reward mbr
@@ -1028,9 +1030,10 @@ WHERE monster_id = $1
 
 const insertMonsterBattleRewardQuery = `
 INSERT INTO monster_battle_reward (
-  monster_id, reward_type, exp_target, item_id, quantity, exp_value, attr_key, drop_rate, sort_order, status, grant_once
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, COALESCE(attr_key, ''), COALESCE(drop_rate, 10000), sort_order, status, grant_once
+  monster_id, reward_type, exp_target, item_id, quantity, exp_value, attr_key, drop_rate,
+  draw_group, weight, sort_order, status, grant_once
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, monster_id, reward_type, exp_target, item_id, quantity, exp_value, COALESCE(attr_key, ''), COALESCE(drop_rate, 10000), COALESCE(draw_group, 0), COALESCE(weight, 100), sort_order, status, grant_once
 `
 
 func (r *MonsterRepository) ListBattleRewards(ctx context.Context) ([]monster.BattleRewardEntry, error) {
@@ -1078,6 +1081,8 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(ctx context.Context, 
 			reward.ExpValue,
 			reward.AttrKey,
 			reward.DropRate,
+			reward.DrawGroup,
+			reward.Weight,
 			reward.SortOrder,
 			reward.Status,
 			reward.GrantOnce,
@@ -1126,11 +1131,11 @@ func scanMonsterBattleRewardRow(row *sql.Row) (monster.BattleRewardEntry, error)
 
 func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry, error) {
 	var entry monster.BattleRewardEntry
-	var monsterID, sortOrder, status, grantOnce, dropRate int64
+	var monsterID, sortOrder, status, grantOnce, dropRate, drawGroup, weight int64
 	var itemID, quantity, expValue int64
 	if err := rows.Scan(
 		&entry.ID, &monsterID, &entry.RewardType, &entry.ExpTarget, &itemID, &quantity, &expValue,
-		&entry.AttrKey, &dropRate, &sortOrder, &status, &grantOnce, &entry.ItemName,
+		&entry.AttrKey, &dropRate, &drawGroup, &weight, &sortOrder, &status, &grantOnce, &entry.ItemName,
 	); err != nil {
 		return monster.BattleRewardEntry{}, err
 	}
@@ -1139,6 +1144,8 @@ func scanMonsterBattleRewardFromRows(rows *sql.Rows) (monster.BattleRewardEntry,
 	entry.Quantity = uint64(quantity)
 	entry.ExpValue = uint64(expValue)
 	entry.DropRate = uint32(dropRate)
+	entry.DrawGroup = uint32(drawGroup)
+	entry.Weight = uint32(weight)
 	entry.SortOrder = uint32(sortOrder)
 	entry.Status = uint32(status)
 	entry.GrantOnce = uint32(grantOnce)

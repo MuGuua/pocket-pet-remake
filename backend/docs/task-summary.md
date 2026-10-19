@@ -1,5 +1,19 @@
 # 任务总结
 
+## 2026-10-19：掉落权重抽取下沉到怪物奖励配置任务总结
+
+- **背景**：上一版为「Boss 特殊掉落」新增了场景级 `monster_boss_drop_pool` 表。评审时确认每只怪本来就有 `monster_battle_reward` 专属配置，不需要引入 Boss 概念；真正缺失的只是「一池候选中必出 1 个」这种抽取语义，原表每条独立 roll，概率会叠加。
+- **方案调整**：撤销场景级掉落池，把权重抽取下沉到 `monster_battle_reward`。新增 `draw_group`（0 = 独立判定，沿用原有语义）与 `weight`（组内权重）。这样掉落内容仍按 `monster_id` 归属，单只怪可同时配置固定掉落与抽取组。
+- **迁移**：`126_battle_reward_draw_group.sql` 已在 `117.72.124.51` 执行，新增两列、两条 CHECK 约束与部分索引 `idx_monster_battle_reward_draw`。`monster_boss_drop_pool` 表确认 0 行后已 `DROP`。本次不新增后台权限。
+- **服务端**：`BuildPVERewardBundle` 先按 `draw_group` 分组，`draw_group = 0` 的条目走原有 `shouldGrantRewardEntryAtSettlement` 独立判定，`draw_group > 0` 的每组走 `pickWeightedBattleRewardEntry` 加权抽 1 个；两类结果统一经新增的 `applyBattleRewardEntry` 合并，消除原先 switch 分支重复。组内支持物品、货币、经验、属性全部奖励类型。
+- **仓储**：两条 SELECT 与 INSERT 增加 `draw_group`、`weight` 字段，`scanMonsterBattleRewardFromRows` 同步扩列。
+- **清理**：删除 `boss_drop.go`、`boss_drop_repo.go`、`boss_drop_test.go`、`boss_drop_integration_test.go`、`BossDropPoolEditor.tsx`，以及遭遇战页面中的掉落池表单、详情摘要与独立提交逻辑。
+- **后台**：怪物奖励编辑器新增「抽取组」「权重」字段。抽取组为 0 时表格显示「独立」，大于 0 时显示 `组N · 命中百分比`，百分比由同组启用条目的权重实时汇总，便于运营核对。
+- **测试**：新增 6 个用例覆盖独立条目并存、同组只出 1 个、组内权重分布（2000 次抽样）、抽取组与独立条目混用、组内抽中货币、停用条目跳过。
+- **验证结果**：`go test ./server/... -count=1` 全部 25 个包通过；`go build ./...` 通过；管理端 `tsc --noEmit` 与 `vite build` 通过；迁移执行成功且旧表已清理。
+- **建议提交信息**：`refactor(battle): 掉落权重抽取下沉到怪物奖励配置`
+
+
 ## 2026-10-19：回合战斗 P0 奖励闭环核查与 Boss 掉落池任务总结
 
 - **任务目标**：推进回合战斗清单 P0「先补齐奖励与权威闭环」6 项，确认实际缺口并补齐功能。

@@ -95,6 +95,10 @@ export interface AdminMonsterBattleRewardEntry {
   exp_value: number;
   attr_key?: string;
   drop_rate?: number;
+  /** 0 = 独立判定；>0 = 权重抽取组，同组只出 1 个。 */
+  draw_group?: number;
+  /** 抽取组内权重，draw_group > 0 时生效。 */
+  weight?: number;
   sort_order: number;
   status: number;
   grant_once?: number;
@@ -109,6 +113,8 @@ export interface AdminMonsterBattleRewardSaveEntry {
   exp_value: number;
   attr_key?: string;
   drop_rate?: number;
+  draw_group?: number;
+  weight?: number;
   sort_order: number;
   status: number;
   grant_once?: number;

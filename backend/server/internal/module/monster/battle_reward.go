@@ -39,8 +39,13 @@ type BattleRewardEntry struct {
 	ExpValue   uint64 `json:"exp_value"`
 	AttrKey    string `json:"attr_key"`
 	DropRate   uint32 `json:"drop_rate"`
-	SortOrder  uint32 `json:"sort_order"`
-	Status     uint32 `json:"status"`
+	// DrawGroup 为 0 表示该条独立按 drop_rate 判定，可与其他条目同时掉落。
+	// 大于 0 表示权重抽取组：同一怪物同一组内所有启用条目按 Weight 加权抽 1 个，不同组互不影响。
+	DrawGroup uint32 `json:"draw_group"`
+	// Weight 仅在 DrawGroup > 0 时生效，组内权重越大越容易命中。
+	Weight    uint32 `json:"weight"`
+	SortOrder uint32 `json:"sort_order"`
+	Status    uint32 `json:"status"`
 	// GrantOnce 为 1 时表示该物品奖励每名玩家仅首次获得，之后战斗不再重复发放。
 	GrantOnce uint32 `json:"grant_once"`
 	// ItemName 仅后台列表展示用，来自 item_definition 关联查询，不入库。
@@ -56,6 +61,8 @@ type AdminBattleRewardInput struct {
 	ExpValue   uint64 `json:"exp_value"`
 	AttrKey    string `json:"attr_key"`
 	DropRate   uint32 `json:"drop_rate"`
+	DrawGroup  uint32 `json:"draw_group"`
+	Weight     uint32 `json:"weight"`
 	SortOrder  uint32 `json:"sort_order"`
 	Status     uint32 `json:"status"`
 	GrantOnce  uint32 `json:"grant_once"`
@@ -79,6 +86,9 @@ func (input AdminBattleRewardInput) Normalize() AdminBattleRewardInput {
 	}
 	if input.GrantOnce > 1 {
 		input.GrantOnce = 1
+	}
+	if input.Weight == 0 {
+		input.Weight = 100
 	}
 	return input
 }
@@ -145,44 +155,107 @@ func (c *battleRewardCache) bundleForMonster(monsterID uint32) PVERewardBundle {
 // 否则后台保存 50% 掉落时只会在刷新缓存那一刻 roll 一次，后续战斗都会沿用同一个结果。
 func BuildPVERewardBundle(entries []BattleRewardEntry) PVERewardBundle {
 	bundle := PVERewardBundle{Items: []PVEItemReward{}, Attrs: []PVEAttrReward{}}
+	// 先按抽取组划分：draw_group = 0 的条目保持原有独立判定语义；
+	// draw_group > 0 的条目归组，稍后每组按权重抽 1 个。
+	weightedGroups := make(map[uint32][]BattleRewardEntry)
+	orderedGroups := make([]uint32, 0, 4)
+	for _, entry := range entries {
+		if entry.Status != 1 || entry.DrawGroup == 0 {
+			continue
+		}
+		group := entry.DrawGroup
+		if _, exists := weightedGroups[group]; !exists {
+			orderedGroups = append(orderedGroups, group)
+		}
+		weightedGroups[group] = append(weightedGroups[group], entry)
+	}
 	for _, entry := range entries {
 		if entry.Status != 1 {
+			continue
+		}
+		// 抽取组内的条目不在独立判定阶段发放，避免概率叠加。
+		if entry.DrawGroup > 0 {
 			continue
 		}
 		if !shouldGrantRewardEntryAtSettlement(entry) {
 			continue
 		}
-		switch entry.RewardType {
-		case RewardTypeExp:
-			switch entry.ExpTarget {
-			case ExpTargetPet:
-				bundle.PetExp += entry.ExpValue
-			default:
-				bundle.PlayerExp += entry.ExpValue
-			}
-		case RewardTypeItem:
-			if entry.ItemID == 0 || entry.Quantity == 0 {
-				continue
-			}
-			bundle.Items = append(bundle.Items, PVEItemReward{
-				ItemID:    entry.ItemID,
-				Quantity:  entry.Quantity,
-				GrantOnce: entry.GrantOnce == 1,
-			})
-		case RewardTypeGold:
-			bundle.Gold += entry.ExpValue * CopperPerGold
-		case RewardTypeSilver:
-			bundle.Gold += entry.ExpValue * CopperPerSilver
-		case RewardTypeCopper:
-			bundle.Gold += entry.ExpValue
-		case RewardTypeAttr:
-			if entry.AttrKey == "" || entry.ExpValue == 0 {
-				continue
-			}
-			bundle.Attrs = append(bundle.Attrs, PVEAttrReward{AttrKey: entry.AttrKey, Value: entry.ExpValue})
+		applyBattleRewardEntry(&bundle, entry)
+	}
+	// 每个抽取组独立抽 1 个；组内所有奖励类型（物品/货币/经验/属性）都可能被抽中。
+	for _, group := range orderedGroups {
+		selected := pickWeightedBattleRewardEntry(weightedGroups[group])
+		if selected == nil {
+			continue
 		}
+		applyBattleRewardEntry(&bundle, *selected)
 	}
 	return bundle
+}
+
+// pickWeightedBattleRewardEntry 在同一个抽取组内按 weight 加权选一条，总权重非法时回退首条。
+func pickWeightedBattleRewardEntry(candidates []BattleRewardEntry) *BattleRewardEntry {
+	if len(candidates) == 0 {
+		return nil
+	}
+	totalWeight := 0
+	for index := range candidates {
+		weight := candidates[index].Weight
+		if weight == 0 {
+			weight = 100
+		}
+		totalWeight += int(weight)
+	}
+	if totalWeight <= 0 {
+		return &candidates[0]
+	}
+	roll := rand.Intn(totalWeight)
+	accumulated := 0
+	for index := range candidates {
+		weight := candidates[index].Weight
+		if weight == 0 {
+			weight = 100
+		}
+		accumulated += int(weight)
+		if roll < accumulated {
+			return &candidates[index]
+		}
+	}
+	return &candidates[len(candidates)-1]
+}
+
+// applyBattleRewardEntry 把一条已经确定发放的奖励条目并入奖励包。
+// 抽取组抽中的条目直接生效，不再重复判定 drop_rate。
+func applyBattleRewardEntry(bundle *PVERewardBundle, entry BattleRewardEntry) {
+	switch entry.RewardType {
+	case RewardTypeExp:
+		switch entry.ExpTarget {
+		case ExpTargetPet:
+			bundle.PetExp += entry.ExpValue
+		default:
+			bundle.PlayerExp += entry.ExpValue
+		}
+	case RewardTypeItem:
+		if entry.ItemID == 0 || entry.Quantity == 0 {
+			return
+		}
+		bundle.Items = append(bundle.Items, PVEItemReward{
+			ItemID:    entry.ItemID,
+			Quantity:  entry.Quantity,
+			GrantOnce: entry.GrantOnce == 1,
+		})
+	case RewardTypeGold:
+		bundle.Gold += entry.ExpValue * CopperPerGold
+	case RewardTypeSilver:
+		bundle.Gold += entry.ExpValue * CopperPerSilver
+	case RewardTypeCopper:
+		bundle.Gold += entry.ExpValue
+	case RewardTypeAttr:
+		if entry.AttrKey == "" || entry.ExpValue == 0 {
+			return
+		}
+		bundle.Attrs = append(bundle.Attrs, PVEAttrReward{AttrKey: entry.AttrKey, Value: entry.ExpValue})
+	}
 }
 
 func shouldGrantRewardEntryAtSettlement(entry BattleRewardEntry) bool {
@@ -218,23 +291,6 @@ func (s *Service) ResolvePVERewardBundle(monsterID uint32) PVERewardBundle {
 		return PVERewardBundle{Items: []PVEItemReward{}}
 	}
 	return s.battleRewardCache.bundleForMonster(monsterID)
-}
-
-// ListAdminBossDrops 返回指定场景的 Boss 掉落池配置，供后台编辑。
-func (s *Service) ListAdminBossDrops(ctx context.Context, sceneID uint32) ([]BossDropEntry, error) {
-	if s.repo == nil || sceneID == 0 {
-		return nil, ErrInvalidBattleRewardInput
-	}
-	return s.repo.ListBossDropsByScene(ctx, sceneID)
-}
-
-// ReplaceAdminBossDrops 覆盖保存指定场景的 Boss 掉落池。
-// 掉落池按请求实时从数据库读取并挂到遭遇战上，无需额外刷新缓存。
-func (s *Service) ReplaceAdminBossDrops(ctx context.Context, sceneID uint32, input AdminReplaceBossDropsInput) ([]BossDropEntry, error) {
-	if s.repo == nil || sceneID == 0 {
-		return nil, ErrInvalidBattleRewardInput
-	}
-	return s.repo.ReplaceBossDropsForScene(ctx, sceneID, input.Drops)
 }
 
 // ListAdminBattleRewards 返回指定怪物的战斗奖励配置。

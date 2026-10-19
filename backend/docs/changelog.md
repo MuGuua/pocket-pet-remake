@@ -1,5 +1,15 @@
 # 最新变更记录
 
+## 2026-10-19 掉落权重抽取下沉到怪物奖励配置
+
+- 迁移 `126_battle_reward_draw_group.sql` 已执行：`monster_battle_reward` 新增 `draw_group`（默认 0）与 `weight`（默认 100），并建立按 `monster_id + draw_group` 的部分索引。
+- 语义：`draw_group = 0` 时该条按 `drop_rate` 独立判定，可与其他条目同时掉落（保持原有行为）；`draw_group > 0` 时同组内按 `weight` 加权抽 1 个，不同组互不影响。组内可以配物品、货币、经验、属性任意奖励类型。
+- 结论修正：上一版按场景挂 `monster_boss_drop_pool` 的方案已撤销。每只怪本来就有专属奖励配置，不需要 Boss 概念；真正缺的只是「一池候选中必出 1 个」这种抽取语义，现已并入既有表。`monster_boss_drop_pool` 表已删除（表内 0 行）。
+- 后台在既有怪物奖励编辑器内新增「抽取组」与「权重」字段：抽取组为 0 显示为「独立」，大于 0 时表格展示该条目在其组内的命中百分比，便于核对权重配置。
+- 服务端 `BuildPVERewardBundle` 按组划分后分别处理，独立条目走原有 `shouldGrantRewardEntryAtSettlement`，组内条目走新增的 `pickWeightedBattleRewardEntry`；两者结果统一经 `applyBattleRewardEntry` 合并，避免两套逻辑漂移。
+- 本次无新增后台权限，复用 `monster_definitions:view/edit`。
+
+
 ## 2026-10-19 新增 Boss 权重掉落池
 
 - 新增迁移 `125_monster_boss_drop_pool.sql`：建立 `monster_boss_drop_pool` 表，按 `scene_id` 关联 `scene_wild_encounter`，支持同一抽取组内按 `weight` 加权抽 1 个、不同 `draw_group` 独立命中、`grant_once` 唯一掉落。当前**尚未在正式库执行**。
