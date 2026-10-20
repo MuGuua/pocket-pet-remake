@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -292,6 +293,10 @@ func (h *AdminRewardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, "player_id, reason and rewards are required", nil)
 		return
 	}
+	if validateErr := validateAdminRewardEntries(request.Rewards); validateErr != nil {
+		writeJSON(w, http.StatusBadRequest, http.StatusBadRequest, validateErr.Error(), nil)
+		return
+	}
 	result, err := h.rewardService.GrantRuntimeRewards(r.Context(), reward.GrantInput{
 		PlayerID:     request.PlayerID,
 		ReasonType:   "admin_reward",
@@ -313,7 +318,22 @@ func (h *AdminRewardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		bagSnapshot = snapshot
 	}
-	writeJSON(w, http.StatusOK, http.StatusOK, "success", adminRewardGrantResponse{
+	// 补发已经落库，审计日志写入失败不回滚发奖，只在响应里提示运营，避免重复补发。
+	auditErr := h.adminService.RecordOperation(r.Context(), admin.OperationLogEntry{
+		AdminUserID:   adminProfile.AdminUserID,
+		ModuleKey:     "reward",
+		ActionKey:     "grant",
+		TargetType:    "player",
+		TargetID:      strconv.FormatUint(request.PlayerID, 10),
+		Reason:        request.Reason,
+		AfterSnapshot: map[string]any{"granted": result.Granted},
+		ExtraPayload:  map[string]any{"requested": request.Rewards},
+	})
+	message := "success"
+	if auditErr != nil {
+		message = "success (audit log write failed)"
+	}
+	writeJSON(w, http.StatusOK, http.StatusOK, message, adminRewardGrantResponse{
 		PlayerID:    request.PlayerID,
 		Reason:      request.Reason,
 		Granted:     result.Granted,
@@ -321,6 +341,39 @@ func (h *AdminRewardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Bag:         bagSnapshot,
 		GrantedPets: append([]pet.Pet{}, result.GrantedPets...),
 	})
+}
+
+// adminRewardMaxEntries 限制单次补发的条目数，降低误操作影响范围。
+const adminRewardMaxEntries = 20
+
+// adminRewardMaxAmount 限制单条奖励的数量/数值上限，防止多输几个 0 造成经济事故。
+const adminRewardMaxAmount uint64 = 100_000_000
+
+// validateAdminRewardEntries 校验后台补发条目：类型白名单、必填字段与数值上限。
+// 发奖服务本身对非法条目是静默跳过，后台必须在入口显式拒绝，让运营看到明确错误而不是「成功但没到账」。
+func validateAdminRewardEntries(entries []reward.Entry) error {
+	if len(entries) > adminRewardMaxEntries {
+		return fmt.Errorf("rewards count exceeds %d", adminRewardMaxEntries)
+	}
+	for index, entry := range entries {
+		switch entry.Type {
+		case "item":
+			if entry.ItemID == 0 || entry.Count == 0 || entry.Count > adminRewardMaxAmount {
+				return fmt.Errorf("rewards[%d]: item requires item_id and count in 1..%d", index, adminRewardMaxAmount)
+			}
+		case "gold", "exp":
+			if entry.Value == 0 || entry.Value > adminRewardMaxAmount {
+				return fmt.Errorf("rewards[%d]: %s requires value in 1..%d", index, entry.Type, adminRewardMaxAmount)
+			}
+		case "pet":
+			if entry.PetID == 0 {
+				return fmt.Errorf("rewards[%d]: pet requires pet_id", index)
+			}
+		default:
+			return fmt.Errorf("rewards[%d]: unsupported type %q", index, entry.Type)
+		}
+	}
+	return nil
 }
 
 func parseAdminItemListQuery(r *http.Request) (item.AdminListQuery, error) {

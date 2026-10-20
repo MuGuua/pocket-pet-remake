@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strings"
 
 	"pocket-pet-remake/server/internal/module/admin"
@@ -113,4 +114,38 @@ func splitCSV(raw string) []string {
 		}
 	}
 	return result
+}
+
+const insertAdminOperationLogQuery = `
+INSERT INTO admin_operation_log (
+  admin_user_id, module_key, action_key, target_type, target_id, reason, after_snapshot, extra_payload
+) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+`
+
+// InsertOperationLog 把后台操作审计写入 admin_operation_log。
+// 快照与附加信息序列化为 JSON；nil 时写入空对象，满足表上 NOT NULL DEFAULT '{}' 的约束口径。
+func (r *AdminRepository) InsertOperationLog(ctx context.Context, entry admin.OperationLogEntry) error {
+	afterJSON, err := marshalAdminLogJSON(entry.AfterSnapshot)
+	if err != nil {
+		return err
+	}
+	extraJSON, err := marshalAdminLogJSON(entry.ExtraPayload)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, insertAdminOperationLogQuery,
+		entry.AdminUserID, entry.ModuleKey, entry.ActionKey, entry.TargetType, entry.TargetID, entry.Reason, afterJSON, extraJSON)
+	return err
+}
+
+// marshalAdminLogJSON 把任意值序列化为审计 JSON 文本；nil 统一为 "{}"。
+func marshalAdminLogJSON(value any) (string, error) {
+	if value == nil {
+		return "{}", nil
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
 }

@@ -44,6 +44,7 @@ import { PlayerPetSection } from './PlayerPetSection';
 import { TableActionDropdown } from '../../components/TableActionDropdown';
 import { PlayerBagSection } from './PlayerBagSection';
 import { PlayerWalletSection } from './PlayerWalletSection';
+import { PlayerRewardGrantSection } from './PlayerRewardGrantSection';
 import { formatDisplayLabel, PLAYER_STATUS_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
 import { FIXED_FORM_MODAL_STYLES, FIXED_FORM_MODAL_TOP } from '../../utils/modalLayout';
@@ -554,6 +555,19 @@ export function PlayerListPage() {
                   </div>
                 ),
               },
+              {
+                key: 'rewards',
+                label: '补发奖励',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_DETAIL_PANEL_HEIGHT)}>
+                    <PlayerRewardGrantSection
+                      playerId={detail.player_id}
+                      playerName={detail.name}
+                      onDataChanged={() => refreshPlayerViews(detail.player_id)}
+                    />
+                  </div>
+                ),
+              },
             ]}
           />
         ) : null}
@@ -702,6 +716,19 @@ export function PlayerListPage() {
                 children: (
                   <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
                     <PlayerBagSection
+                      playerId={editingRecord.player_id}
+                      playerName={editingRecord.name}
+                      onDataChanged={() => refreshPlayerViews(editingRecord.player_id)}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'rewards',
+                label: '补发奖励',
+                children: (
+                  <div style={buildWorkbenchPanelStyle(PLAYER_EDITOR_PANEL_HEIGHT)}>
+                    <PlayerRewardGrantSection
                       playerId={editingRecord.player_id}
                       playerName={editingRecord.name}
                       onDataChanged={() => refreshPlayerViews(editingRecord.player_id)}

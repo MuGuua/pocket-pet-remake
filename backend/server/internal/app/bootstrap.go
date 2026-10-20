@@ -76,6 +76,10 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	adminSigner := admin.NewHMACSigner(cfg.JWTSecret, cfg.AccessTokenTTL)
 	authService := auth.NewService(repos.Accounts, repos.WSTokens, signer, cfg.WSTokenTTL)
 	adminService := admin.NewService(repos.Admins, adminSigner)
+	// 后台审计日志与管理员账号共用 AdminRepository；仓储实现了写日志接口时才装配，避免影响测试桩。
+	if logWriter, ok := repos.Admins.(admin.OperationLogWriter); ok {
+		adminService.SetOperationLogWriter(logWriter)
+	}
 	bagService := bag.NewService(repos.Bags)
 	itemService := item.NewService(repos.Items)
 	skillService := skill.NewService(repos.Skills)

@@ -11,6 +11,8 @@ import (
 type Service struct {
 	users  UserRepository
 	signer AccessTokenSigner
+	// operationLogs 为可选的审计日志写入器，见 operation_log.go。
+	operationLogs OperationLogWriter
 }
 
 func NewService(users UserRepository, signer AccessTokenSigner) *Service {
