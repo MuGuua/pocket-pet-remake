@@ -1795,7 +1795,31 @@ func TestRouterHandleNPCActionBattle(t *testing.T) {
 }
 
 func TestRouterHandleInteractAndBattleAction(t *testing.T) {
-	_, router, _, conn := buildWorldRouterForTest(t)
+	// 这条测试验证的是「交互开战 -> 提交动作 -> 结算推送 -> 奖励与背包刷新」整条链路，
+	// 与暴击等随机判定无关。这里把本次测试独享的怪物仓库里的 9001 改成 1 点生命，
+	// 让战斗结果确定，避免测试依赖随机暴击命中才能击杀。
+	// 每个测试都会新建自己的 MonsterRepository，因此不影响其它用例。
+	monsterRepo := teststub.NewMonsterRepository()
+	monsterService := monster.NewService(monsterRepo, nil, nil)
+	if _, err := monsterService.UpdateAdminMonsterDefinition(context.Background(), 9001, monster.AdminUpsertDefinitionInput{
+		MonsterID:   9001,
+		MonsterName: "野生怪物",
+		IsEnabled:   true,
+		Level:       1,
+		Quality:     1,
+		HP:          1,
+		HPMax:       1,
+		ATK:         12,
+		DEF:         9,
+		SPD:         8,
+		MANA:        9,
+		SkillIDs:    []uint32{90001, 90002},
+		SkinID:      "史莱姆_001",
+	}); err != nil {
+		t.Fatalf("UpdateAdminMonsterDefinition() error = %v", err)
+	}
+
+	_, router, _, conn := buildWorldRouterWithMonsterServiceForTest(t, monsterService)
 
 	interactPacket, err := protocol.NewJSONPacket(protocol.CmdInteractReq, 16, 0, protocol.InteractReq{
 		EntityID: 90001,
@@ -2389,8 +2413,23 @@ func buildWorldRouterForTest(t *testing.T) (uint64, *Router, *player.Service, *f
 	return buildWorldRouterWithPlayerServiceForTest(t, teststub.NewTestPlayerService())
 }
 
+// buildWorldRouterWithMonsterServiceForTest 允许测试注入自定义怪物服务，
+// 用于注册专属怪物定义，让战斗流程断言不依赖随机暴击等不确定因素。
+func buildWorldRouterWithMonsterServiceForTest(t *testing.T, monsterService *monster.Service) (uint64, *Router, *player.Service, *fakeConn) {
+	t.Helper()
+
+	return buildWorldRouterForTestWith(t, teststub.NewTestPlayerService(), monsterService)
+}
+
 // buildWorldRouterWithPlayerServiceForTest 允许专项测试注入带访问计数的玩家服务，同时复用完整路由装配。
 func buildWorldRouterWithPlayerServiceForTest(t *testing.T, playerService *player.Service) (uint64, *Router, *player.Service, *fakeConn) {
+	t.Helper()
+
+	return buildWorldRouterForTestWith(t, playerService, nil)
+}
+
+// buildWorldRouterForTestWith 是路由装配的唯一入口；monsterService 为 nil 时使用默认测试怪物仓库。
+func buildWorldRouterForTestWith(t *testing.T, playerService *player.Service, monsterService *monster.Service) (uint64, *Router, *player.Service, *fakeConn) {
 	t.Helper()
 
 	logger := log.New(io.Discard, "", 0)
@@ -2405,7 +2444,9 @@ func buildWorldRouterWithPlayerServiceForTest(t *testing.T, playerService *playe
 	unlockService := unlock.NewService(teststub.NewUnlockRepository())
 	worldService := world.NewService(teststub.NewWorldRepository())
 	questService := quest.NewService(teststub.NewQuestRepository())
-	monsterService := monster.NewService(teststub.NewMonsterRepository(), nil, nil)
+	if monsterService == nil {
+		monsterService = monster.NewService(teststub.NewMonsterRepository(), nil, nil)
+	}
 	if err := monsterService.RefreshBattleRewardCache(context.Background()); err != nil {
 		t.Fatalf("RefreshBattleRewardCache() error = %v", err)
 	}

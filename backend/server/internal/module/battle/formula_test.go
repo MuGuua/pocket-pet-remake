@@ -19,6 +19,8 @@ func TestCalculatePocketDamageMatchesExcelSample(t *testing.T) {
 		AntiClassPct:      31,
 		ElementAdvPct:     30,
 		ElementPenaltyPct: 15,
+		// 新表样例本身就按暴击结果取值，这里显式标记本次结算为暴击。
+		IsCrit: true,
 	}
 
 	cases := []struct {
@@ -54,6 +56,7 @@ func TestCalculatePocketDamageNumeratorMatchesExcel(t *testing.T) {
 		AntiCrit:      1000,
 		SkillRes:      50,
 		DefenderPanel: 500000,
+		IsCrit:        true,
 	}
 	got := calculatePocketDamageNumerator(input)
 	if got != 14500000 {
@@ -80,6 +83,58 @@ func TestClampCritValues(t *testing.T) {
 	}
 	if got := clampCritDmgPct(5000); got != 2000 {
 		t.Fatalf("clampCritDmgPct(5000) = %d, want 2000", got)
+	}
+}
+
+// TestCritMultiplierPctFollowsCritFlag 锁定「未暴击固定 100、暴击走爆伤链」这条核心规则。
+// 旧实现在这里无条件套用爆伤，导致暴击率属性形同虚设。
+func TestCritMultiplierPctFollowsCritFlag(t *testing.T) {
+	input := pocketDamageInput{CritDmg: 2000, SkillCritAdd: 0, AntiCrit: 1000}
+
+	if got := critMultiplierPct(input); got != 100 {
+		t.Fatalf("non-crit multiplier = %d, want 100", got)
+	}
+
+	input.IsCrit = true
+	if got := critMultiplierPct(input); got != 1000 {
+		t.Fatalf("crit multiplier = %d, want 1000", got)
+	}
+}
+
+// TestCritMultiplierPctFloorsAt150 锁定「抗爆伤最多把实际爆伤压到 150%」。
+func TestCritMultiplierPctFloorsAt150(t *testing.T) {
+	input := pocketDamageInput{CritDmg: 200, AntiCrit: 1000, IsCrit: true}
+	if got := critMultiplierPct(input); got != 150 {
+		t.Fatalf("crit multiplier = %d, want floor 150", got)
+	}
+}
+
+// TestCritMultiplierPctCapsAt2000 锁定爆伤上限 2000%。
+func TestCritMultiplierPctCapsAt2000(t *testing.T) {
+	input := pocketDamageInput{CritDmg: 5000, SkillCritAdd: 500, IsCrit: true}
+	if got := critMultiplierPct(input); got != 2000 {
+		t.Fatalf("crit multiplier = %d, want cap 2000", got)
+	}
+}
+
+// TestNonCritDamageIsLowerThanCrit 证明暴击判定真正影响最终伤害，而不是只影响事件文案。
+func TestNonCritDamageIsLowerThanCrit(t *testing.T) {
+	base := pocketDamageInput{
+		AttackerPanel: 100000,
+		SkillMult:     30,
+		CritDmg:       2000,
+		AntiCrit:      1000,
+		SkillRes:      50,
+		DefenderPanel: 500000,
+	}
+	normal := calculatePocketDamage(base)
+
+	critInput := base
+	critInput.IsCrit = true
+	crit := calculatePocketDamage(critInput)
+
+	if normal >= crit {
+		t.Fatalf("normal damage = %d, crit damage = %d; want normal < crit", normal, crit)
 	}
 }
 
@@ -550,6 +605,82 @@ func TestPureFixedDamageDoesNotCrit(t *testing.T) {
 	}
 	if damage != 10 {
 		t.Fatalf("damage = %d, want 10", damage)
+	}
+}
+
+// TestCritChancePctSubtractsTargetCritResist 锁定「攻击者暴击率 - 目标抗致命」的判定口径。
+func TestCritChancePctSubtractsTargetCritResist(t *testing.T) {
+	cases := []struct {
+		name     string
+		attacker uint32
+		target   uint32
+		want     uint32
+	}{
+		{name: "抗致命抵消", attacker: 60, target: 20, want: 40},
+		{name: "抗致命更高时归零", attacker: 20, target: 60, want: 0},
+		{name: "暴击率封顶 100", attacker: 150, target: 10, want: 100},
+	}
+	for _, tc := range cases {
+		got := critChancePct(effectiveStats{CritRatePct: tc.attacker}, effectiveStats{CritResistPct: tc.target})
+		if got != tc.want {
+			t.Fatalf("%s: critChancePct = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestDamageAgainstRespectsAllowCrit 锁定「技能未开启 allow_crit 时不暴击」。
+func TestDamageAgainstRespectsAllowCrit(t *testing.T) {
+	attacker := &actorRuntime{
+		actorID:     1,
+		hp:          1000,
+		hpMax:       1000,
+		atk:         1000,
+		critRatePct: 100,
+		critDmgPct:  2000,
+	}
+	target := &actorRuntime{
+		actorID: 2,
+		hp:      100000,
+		hpMax:   100000,
+		def:     10,
+	}
+	// 暴击率 100 但 allow_crit=false，结果必须不是暴击。
+	_, crit := attacker.damageAgainst(target, skillDef{SkillMult: 30, AllowCrit: false}, 70002, 1)
+	if crit {
+		t.Fatal("crit = true, want false when allow_crit is disabled")
+	}
+}
+
+// TestDamageAgainstCritsWhenChanceIsFull 验证暴击率 100 时必然暴击，且伤害高于非暴击。
+func TestDamageAgainstCritsWhenChanceIsFull(t *testing.T) {
+	attacker := &actorRuntime{
+		actorID:     1,
+		hp:          1000,
+		hpMax:       1000,
+		atk:         1000,
+		critRatePct: 100,
+		critDmgPct:  2000,
+	}
+	target := &actorRuntime{
+		actorID: 2,
+		hp:      100000,
+		hpMax:   100000,
+		def:     10,
+	}
+	skill := skillDef{SkillMult: 30, AllowCrit: true}
+
+	critDamage, crit := attacker.damageAgainst(target, skill, 70003, 1)
+	if !crit {
+		t.Fatal("crit = false, want true when crit rate is 100")
+	}
+
+	attacker.critRatePct = 0
+	normalDamage, normalCrit := attacker.damageAgainst(target, skill, 70003, 1)
+	if normalCrit {
+		t.Fatal("crit = true, want false when crit rate is 0")
+	}
+	if critDamage <= normalDamage {
+		t.Fatalf("crit damage = %d, normal damage = %d; want crit > normal", critDamage, normalDamage)
 	}
 }
 

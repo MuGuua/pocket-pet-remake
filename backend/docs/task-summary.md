@@ -1,5 +1,19 @@
 # 任务总结
 
+## 2026-10-20：修复暴击判定未生效任务总结
+
+- **任务目标**：修复「暴击率属性完全无效、所有伤害恒按爆伤结算」这一服务端权威战斗缺陷。
+- **缺陷定位**：`backend/server/internal/module/battle/service.go` 的 `actorRuntime.damageAgainst` 三条返回路径都写死 `crit=false`，而 `backend/server/internal/module/battle/formula.go` 的 `calculatePocketDamageNumerator` 无条件使用 `CritDmg + SkillCritAdd - AntiCrit` 作为倍率。两条链路脱节，导致 `crit_rate_pct`、`crit_resist_pct`、`allow_crit`、`StatusCritBoost` 全部失效。
+- **公式层修复**：`pocketDamageInput` 新增 `IsCrit`；新增 `critMultiplierPct`，未暴击返回 `100`，暴击返回爆伤链并按规则夹在 `150% ~ 2000%`；`calculatePocketDamageNumerator` 改为调用该函数。新增常量 `minCritMultiplierPct`、`maxCritDmgPct`，并让 `clampCritDmgPct` 复用上限常量。
+- **判定层修复**：`damageAgainst` 先算 `critChancePct`（攻击者暴击率减目标抗致命，夹在 0~100），再用 `rollCrit` 掷骰，最后把结果传入公式层。`rollCrit` 使用与既有 `rollChance` 一致的确定性种子思路，保证重连补帧与测试复算稳定。
+- **边界处理**：抽出 `skillDef.isPureFixedDamage()`，固定伤害不暴击；`AllowCrit=false` 不暴击；复合面板技能分支补上暴击支持。
+- **连带修复**：`TestRouterHandleInteractAndBattleAction` 此前靠「必然暴击」才能一轮击杀 22 血怪物，修复后不再成立。改为在该测试自己的怪物仓库里把 9001 改成 1 点生命，使链路断言与随机判定解耦；新增 `buildWorldRouterWithMonsterServiceForTest` 与 `buildWorldRouterForTestWith` 作为可注入怪物服务的装配入口，原有辅助函数签名保持不变。
+- **数值影响**：修复后全量伤害下降，此前属于全程暴击的偏高水平。建议后续按新口径重新校准怪物血量与技能倍率。
+- **验证结果**：`go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 25 个包通过。
+- **未完成项**：暴击相关数值（怪物血量、技能倍率、爆伤上限）尚未按修复后的口径整体复核；`StatusCritBoost` 的 `CritRateBonusPct` 已进入有效属性，但缺少端到端用例验证状态叠满后的实际暴击表现。
+- **数据影响**：无数据库结构、迁移、协议、后台页面或依赖变更。
+- **建议提交信息**：`fix(battle): 修复暴击判定未生效导致伤害恒按爆伤结算`
+
 ## 2026-10-19：掉落权重抽取下沉到怪物奖励配置任务总结
 
 - **背景**：上一版为「Boss 特殊掉落」新增了场景级 `monster_boss_drop_pool` 表。评审时确认每只怪本来就有 `monster_battle_reward` 专属配置，不需要引入 Boss 概念；真正缺失的只是「一池候选中必出 1 个」这种抽取语义，原表每条独立 roll，概率会叠加。

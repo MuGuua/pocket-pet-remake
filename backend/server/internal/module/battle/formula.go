@@ -2,6 +2,13 @@ package battle
 
 import "math"
 
+const (
+	// minCritMultiplierPct 为暴击后的最低爆伤倍率。《战斗系统规则》规定抗爆伤最多把实际爆伤压到 150%。
+	minCritMultiplierPct int64 = 150
+	// maxCritDmgPct 为爆伤属性与暴击倍率的共同上限，对应规则中的 2000%。
+	maxCritDmgPct int64 = 2000
+)
+
 // pocketDamageInput 对应《口袋伤害计算新表》中的进攻/防守参数。
 type pocketDamageInput struct {
 	AttackerPanel        int64
@@ -22,6 +29,8 @@ type pocketDamageInput struct {
 	IsAOE                bool
 	ElementAdvantaged    bool
 	ElementDisadvantaged bool
+	// IsCrit 表示本次结算是否通过暴击判定；未暴击时倍率固定为 100，抗爆伤不参与计算。
+	IsCrit bool
 }
 
 // effectiveStats 是公式层与部分战斗分支共用的快照；伤害面板取 Attack 字段。
@@ -211,6 +220,12 @@ func (skill skillDef) usesPocketPanelScaling() bool {
 	return skill.SkillMult > 0 || skill.AttackPct > 0
 }
 
+// isPureFixedDamage 判断技能是否只结算固定伤害、不参与面板倍率。
+// 《战斗系统规则》要求固定伤害默认不暴击，这条判定在伤害入口与暴击入口共用。
+func (skill skillDef) isPureFixedDamage() bool {
+	return !skill.usesPocketPanelScaling() && skill.FixedDamage > 0
+}
+
 func scaledPanelBase(input pocketDamageInput) int64 {
 	if input.SkillMult > 0 {
 		return input.AttackerPanel * int64(input.SkillMult)
@@ -221,12 +236,29 @@ func scaledPanelBase(input pocketDamageInput) int64 {
 	return 0
 }
 
+// critMultiplierPct 计算本次伤害实际使用的暴击倍率（百分比）。
+// 规则来自《战斗系统规则》：未暴击时倍率固定为 100；暴击时为「攻击者爆伤 + 技能附加爆伤 - 目标抗爆伤」，
+// 且最低不得低于 150%，避免抗爆伤把暴击收益压到比普攻还低。
+func critMultiplierPct(input pocketDamageInput) int64 {
+	if !input.IsCrit {
+		return 100
+	}
+	critChain := int64(input.CritDmg) + int64(input.SkillCritAdd) - int64(input.AntiCrit)
+	if critChain < minCritMultiplierPct {
+		return minCritMultiplierPct
+	}
+	if critChain > maxCritDmgPct {
+		return maxCritDmgPct
+	}
+	return critChain
+}
+
 func calculatePocketDamageNumerator(input pocketDamageInput) int64 {
 	panelBase := scaledPanelBase(input)
 	if panelBase <= 0 {
 		return 0
 	}
-	critChain := int64(input.CritDmg) + int64(input.SkillCritAdd) - int64(input.AntiCrit)
+	critChain := critMultiplierPct(input)
 	skillResFactor := int64(100) - (int64(input.SkillRes) - int64(input.RevSkill))
 	return panelBase*critChain/100*skillResFactor/100 - input.DefenderPanel
 }
@@ -299,12 +331,13 @@ func clampCritRatePct(critRatePct uint32) uint32 {
 	return critRatePct
 }
 
+// clampCritDmgPct 限制爆伤属性本身的取值范围；100 表示没有爆伤加成，2000 为上限。
 func clampCritDmgPct(critDmgPct uint32) uint32 {
 	if critDmgPct < 100 {
 		return 100
 	}
-	if critDmgPct > 2000 {
-		return 2000
+	if critDmgPct > uint32(maxCritDmgPct) {
+		return uint32(maxCritDmgPct)
 	}
 	return critDmgPct
 }

@@ -2710,13 +2710,66 @@ func (a *actorRuntime) effectiveSpeed() uint32 {
 	return uint32(maxInt32(a.effectiveStats().Speed, 0))
 }
 
-func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, _ uint64, _ uint32) (int32, bool) {
+// critChancePct 计算本次攻击的暴击概率。
+// 口径为「攻击者暴击率 - 目标抗致命」，并限制在 0~100；抗致命用于抵消对手的暴击率。
+func critChancePct(attackerStats effectiveStats, targetStats effectiveStats) uint32 {
+	chance := int32(attackerStats.CritRatePct) - int32(targetStats.CritResistPct)
+	if chance <= 0 {
+		return 0
+	}
+	if chance > 100 {
+		return 100
+	}
+	return uint32(chance)
+}
+
+// rollCrit 用同一套「战斗 ID + 回合 + 双方单位 ID」种子做确定性掷骰，
+// 保证同一回合对同一目标的重放、补帧和测试复算得到完全一致的暴击结果。
+func rollCrit(battleID uint64, round uint32, attackerID uint64, targetID uint64, chancePct uint32) bool {
+	if chancePct == 0 {
+		return false
+	}
+	if chancePct >= 100 {
+		return true
+	}
+	rng := rand.New(rand.NewSource(int64(battleID) + int64(round)*173 + int64(attackerID)*7 + int64(targetID)))
+	return uint32(rng.Intn(100)) < chancePct
+}
+
+// critDamageMultiplierPct 返回本次暴击实际使用的爆伤倍率（百分比）。
+// 多面板技能不走口袋伤害公式，但抗爆伤规则必须与其它伤害路径保持一致，因此单独抽出入口。
+func critDamageMultiplierPct(attackerStats effectiveStats, targetStats effectiveStats, skill skillDef) int64 {
+	return critMultiplierPct(pocketDamageInput{
+		CritDmg:      attackerStats.CritDmgPct,
+		SkillCritAdd: skill.SkillCritAdd,
+		AntiCrit:     targetStats.CritDmgResistPct,
+		IsCrit:       true,
+	})
+}
+
+// damageAgainst 结算一次攻击的伤害与暴击结果。
+// 暴击判定前置：先按「攻击者暴击率 - 目标抗致命」掷骰，再把结果传入公式层决定爆伤倍率。
+// 纯固定伤害按规则默认不暴击；必中技能仅跳过命中判定，仍然正常参与暴击判定。
+func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, battleID uint64, round uint32) (int32, bool) {
+	attackerStats := a.effectiveStats()
+	targetStats := target.effectiveStats()
+	crit := false
+	if skill.AllowCrit && !skill.isPureFixedDamage() {
+		crit = rollCrit(battleID, round, a.actorID, target.actorID, critChancePct(attackerStats, targetStats))
+	}
 	if skill.usesCompositePanelDamage() {
 		isAOE := skill.TargetRule == targetEnemyAll || skill.TargetRule == targetEnemyMulti
-		damage := calculateCompositeSkillDamage(a.effectiveStats(), target.effectiveStats(), skill, isAOE)
-		return damage, false
+		damage := calculateCompositeSkillDamage(attackerStats, targetStats, skill, isAOE)
+		if crit {
+			critMultiplier := critDamageMultiplierPct(attackerStats, targetStats, skill)
+			damage = int32(int64(damage) * critMultiplier / 100)
+			if damage < 1 {
+				damage = 1
+			}
+		}
+		return damage, crit
 	}
-	if !skill.usesPocketPanelScaling() && skill.FixedDamage > 0 {
+	if skill.isPureFixedDamage() {
 		damage := skill.FixedDamage
 		if damage < 1 {
 			damage = 1
@@ -2724,7 +2777,8 @@ func (a *actorRuntime) damageAgainst(target *actorRuntime, skill skillDef, _ uin
 		return damage, false
 	}
 	input := buildPocketDamageInput(a, target, skill)
-	return calculatePocketDamage(input), false
+	input.IsCrit = crit
+	return calculatePocketDamage(input), crit
 }
 
 func (a *actorRuntime) applyDamage(amount int32) int32 {

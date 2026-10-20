@@ -1,5 +1,16 @@
 # 最新变更记录
 
+## 2026-10-20 修复暴击判定未生效导致伤害恒按爆伤结算
+
+- 问题：`actorRuntime.damageAgainst` 的两条伤害分支都恒返回 `crit=false`，但 `formula.go` 计算分子时无条件把 `CritDmg + SkillCritAdd - AntiCrit` 当作倍率使用。结果是暴击率（`crit_rate_pct`）与抗致命（`crit_resist_pct`）完全不参与战斗，所有伤害都按「已暴击」结算，`AllowCrit`、`StatusCritBoost` 等同批属性与状态成为死数据。
+- 修复：`pocketDamageInput` 新增 `IsCrit` 字段；新增 `critMultiplierPct` 统一决定倍率——未暴击固定 `100`，暴击走爆伤链，并按《战斗系统规则》把实际爆伤限制在 `150% ~ 2000%`。`calculatePocketDamageNumerator` 改用该函数，不再无条件套用爆伤。
+- 暴击判定：`damageAgainst` 现在先按 `critChancePct = 攻击者暴击率 - 目标抗致命`（0~100）掷骰，再计算伤害。掷骰复用既有确定性种子风格（战斗 ID + 回合 + 双方单位 ID），保证重连补帧、重放和测试复算结果一致。
+- 边界：纯固定伤害按规则默认不暴击，抽出 `skillDef.isPureFixedDamage()` 供伤害入口与暴击入口共用；`AllowCrit=false` 的技能不参与暴击；多面板复合技能（`usesCompositePanelDamage`）首次获得暴击支持，此前该分支同样恒返回 `crit=false`。
+- 影响：修复后所有 PVE/PVP 伤害数值会低于修复前（此前相当于全程暴击）。以测试数据「人物 24 攻 vs 22 血怪物」为例，实际伤害由约 20 降为约 10。这是规则原本的预期口径，不是削弱。
+- 测试：新增 6 个用例覆盖未暴击倍率固定 100、暴击倍率下限 150、上限 2000、暴击伤害高于非暴击、`crit_chance` 扣除目标抗致命、`AllowCrit=false` 不暴击。原先依赖「必然暴击」才能击杀的 `TestRouterHandleInteractAndBattleAction` 改为在测试内注入 1 点生命怪物，使链路断言不再依赖随机判定。
+- 验证：`go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 25 个包通过。
+- 本次无数据库结构、迁移、协议或后台页面变更。
+
 ## 2026-10-19 掉落权重抽取下沉到怪物奖励配置
 
 - 迁移 `126_battle_reward_draw_group.sql` 已执行：`monster_battle_reward` 新增 `draw_group`（默认 0）与 `weight`（默认 100），并建立按 `monster_id + draw_group` 的部分索引。
