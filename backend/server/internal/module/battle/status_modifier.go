@@ -10,9 +10,13 @@ type statusModifierProfile struct {
 	ReversePhysicalResistPenalty uint32
 	ReverseSkillResistPenalty    uint32
 	SpeedMultiplierPct           uint32
-	BlocksAction                 bool
-	ForcesConfusion              bool
-	NonStackable                 bool
+	// PropertyMultiplierPct 按百分比整体缩放若干战斗属性，用于「属性降至 50%」这类效果。
+	// 与上面的 Penalty 字段不同，Penalty 是固定点数扣减，这里是对有效值的乘法。
+	// 0 或 100 表示不缩放；多个来源取最小值（即削弱最强的那一个）。
+	PropertyMultiplierPct uint32
+	BlocksAction          bool
+	ForcesConfusion       bool
+	NonStackable          bool
 }
 
 // statusDerivedModifiers 从当前 status 列表汇总后的运行时修饰快照。
@@ -25,6 +29,7 @@ type statusDerivedModifiers struct {
 	ReversePhysicalResistPenalty uint32
 	ReverseSkillResistPenalty    uint32
 	SpeedMultiplierPct           uint32
+	PropertyMultiplierPct        uint32
 	ResistBlessingBonus          uint32
 	VulnerabilityPct             uint32
 	ArmorBroken                  bool
@@ -84,7 +89,14 @@ func defaultStatusProfile(statusID uint32) statusModifierProfile {
 	case StatusConfusion:
 		return statusModifierProfile{ForcesConfusion: true, NonStackable: true}
 	case StatusParalysis:
-		return statusModifierProfile{BlocksAction: true, NonStackable: true}
+		// 《战斗系统规则》6. 控制效果：麻痹使物理抗性、技能抗性、抗爆伤、命中、闪避各降低 50%，
+		// 并且无法行动。这里用 PropertyMultiplierPct 表达「有效值 × 50%」，
+		// 五个属性的缩放统一在 effectiveStats 中应用。
+		return statusModifierProfile{
+			PropertyMultiplierPct: 50,
+			BlocksAction:          true,
+			NonStackable:          true,
+		}
 	case StatusResistBlessing:
 		return statusModifierProfile{NonStackable: true}
 	default:
@@ -171,6 +183,11 @@ func mergeStatusDerivedModifiers(into *statusDerivedModifiers, profile statusMod
 	if profile.SpeedMultiplierPct > 0 {
 		if into.SpeedMultiplierPct == 0 || profile.SpeedMultiplierPct < into.SpeedMultiplierPct {
 			into.SpeedMultiplierPct = profile.SpeedMultiplierPct
+		}
+	}
+	if profile.PropertyMultiplierPct > 0 && profile.PropertyMultiplierPct < 100 {
+		if into.PropertyMultiplierPct == 0 || profile.PropertyMultiplierPct < into.PropertyMultiplierPct {
+			into.PropertyMultiplierPct = profile.PropertyMultiplierPct
 		}
 	}
 	if profile.BlocksAction {

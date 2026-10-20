@@ -1717,6 +1717,13 @@ func (b *activeBattle) resolveDamageSkill(actor *actorRuntime, target *actorRunt
 		}
 	}
 
+	// 《战斗系统规则》6. 控制效果：昏睡在受到攻击后解除。
+	// 必须放在实际扣血之后、后续被动与状态结算之前，这样本次攻击照常生效，
+	// 而下一次该单位行动时已经不再处于昏睡。
+	if actualDamage > 0 {
+		events = append(events, b.wakeFromSleep(target)...)
+	}
+
 	if allowLifesteal && actualDamage > 0 && actor.lifestealPct > 0 && !actor.isDead() {
 		healAmount := maxInt32(int32(actualDamage)*int32(actor.lifestealPct)/100, 1)
 		restored := actor.restoreHP(healAmount)
@@ -1958,6 +1965,24 @@ func (b *activeBattle) resolveActorTurnEndStatusTicks(actor *actorRuntime) []Eve
 		}
 	}
 	return events
+}
+
+// wakeFromSleep 在目标受到实际伤害后解除其昏睡状态。
+// 《战斗系统规则》规定昏睡单位无法行动，但受到攻击会立即醒来；伤害本身仍然照常生效。
+// 返回的事件用于向客户端展示解除提示，未处于昏睡时返回 nil。
+func (b *activeBattle) wakeFromSleep(target *actorRuntime) []Event {
+	if target == nil || target.isDead() || !target.hasStatus(StatusSleep) {
+		return nil
+	}
+	// 目标已经倒下时保留状态，避免死亡动画期间出现「醒来」的错误提示。
+	delete(target.statuses, StatusSleep)
+	target.refreshStatusDerivedModifiers()
+	return []Event{{
+		EventType: EventTypeStatusTick,
+		TargetID:  target.actorID,
+		StateID:   StatusSleep,
+		Label:     target.name + " 受到攻击，从昏睡中醒来。",
+	}}
 }
 
 func (b *activeBattle) expireActorStatuses(actor *actorRuntime) {

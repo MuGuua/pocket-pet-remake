@@ -711,3 +711,96 @@ func TestBuildPocketDamageInputMapsRuntimeActors(t *testing.T) {
 		t.Fatalf("Guard = %d, want 700", input.Guard)
 	}
 }
+
+// TestSleepWakesAfterTakingDamage 锁定《战斗系统规则》6 中「昏睡受到攻击后解除」。
+func TestSleepWakesAfterTakingDamage(t *testing.T) {
+	battle := &activeBattle{battleID: 81001, round: 1}
+
+	attacker := &actorRuntime{
+		actorID:             1,
+		name:                "Attacker",
+		hp:                  50,
+		hpMax:               50,
+		atk:                 40,
+		mana:                10,
+		critDmgPct:          150,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	sleeper := &actorRuntime{
+		actorID:             2,
+		name:                "Sleeper",
+		hp:                  100,
+		hpMax:               100,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	if !sleeper.applyStatus(StatusSleep, 3, 0) {
+		t.Fatal("apply sleep = false, want true")
+	}
+	if _, _, blocked := sleeper.actionBlockedStatus(); !blocked {
+		t.Fatal("sleeping actor should be blocked before taking damage")
+	}
+
+	events := battle.resolveDamageSkill(attacker, sleeper, DefaultAttackSkillID, skillDef{AttackPct: 100}, false, false, false)
+
+	var sawWake bool
+	for _, event := range events {
+		if event.EventType == EventTypeStatusTick && event.StateID == StatusSleep && event.TargetID == sleeper.actorID {
+			sawWake = true
+		}
+	}
+	if !sawWake {
+		t.Fatalf("events = %#v, want a wake-up status event", events)
+	}
+	if sleeper.hasStatus(StatusSleep) {
+		t.Fatal("sleeper should no longer be asleep after taking damage")
+	}
+	if _, _, blocked := sleeper.actionBlockedStatus(); blocked {
+		t.Fatal("sleeper should be able to act after waking up")
+	}
+	// 伤害本身必须照常生效，不能因为解除昏睡而抵消。
+	if sleeper.hp >= 100 {
+		t.Fatalf("sleeper.hp = %d, want damage applied", sleeper.hp)
+	}
+}
+
+// TestPocketDamageInputUsesStatusAdjustedStats 验证伤害公式读取的是 effectiveStats，
+// 而不是原始字段；否则状态带来的抗性/爆伤削减会在结算时被绕过。
+func TestPocketDamageInputUsesStatusAdjustedStats(t *testing.T) {
+	attacker := &actorRuntime{
+		actorID:             1,
+		hp:                  100,
+		hpMax:               100,
+		atk:                 100,
+		critDmgPct:          150,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	target := &actorRuntime{
+		actorID:             2,
+		hp:                  100,
+		hpMax:               100,
+		skillResistPct:      80,
+		critDmgResistPct:    40,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	// 先记录未受影响时的取值。
+	baseInput := buildPocketDamageInput(attacker, target, skillDef{SkillMult: 30})
+	if baseInput.SkillRes != 80 || baseInput.AntiCrit != 40 {
+		t.Fatalf("base input = res %d / antiCrit %d, want 80/40", baseInput.SkillRes, baseInput.AntiCrit)
+	}
+
+	// 麻痹把技能抗性与抗爆伤各压到 50%。
+	if !target.applyStatusWithProfile(StatusParalysis, 2, 0, defaultStatusProfile(StatusParalysis)) {
+		t.Fatal("apply paralysis failed")
+	}
+	paralysedInput := buildPocketDamageInput(attacker, target, skillDef{SkillMult: 30})
+	if paralysedInput.SkillRes != 40 {
+		t.Fatalf("SkillRes = %d, want 40 (80 × 50%%)", paralysedInput.SkillRes)
+	}
+	if paralysedInput.AntiCrit != 20 {
+		t.Fatalf("AntiCrit = %d, want 20 (40 × 50%%)", paralysedInput.AntiCrit)
+	}
+}

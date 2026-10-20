@@ -85,3 +85,72 @@ func TestBloodConfusionForcesConfusionWithoutActionBlock(t *testing.T) {
 		t.Fatal("blood confusion should not block action, only redirect target")
 	}
 }
+
+// TestParalysisHalvesDefensiveStats 锁定《战斗系统规则》6 中「麻痹使物理抗性、技能抗性、
+// 抗爆伤、命中、闪避各降低 50%」的规则，同时保留无法行动的效果。
+func TestParalysisHalvesDefensiveStats(t *testing.T) {
+	actor := &actorRuntime{
+		hp:                  100,
+		hpMax:               100,
+		hitPct:              80,
+		dodgeRatePct:        60,
+		critDmgPct:          400,
+		physicalResistPct:   60,
+		skillResistPct:      50,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	profile := defaultStatusProfile(StatusParalysis)
+	if !actor.applyStatusWithProfile(StatusParalysis, 2, 0, profile) {
+		t.Fatal("applyStatusWithProfile() = false, want true")
+	}
+
+	stats := actor.effectiveStats()
+	if stats.HitPct != 40 {
+		t.Fatalf("HitPct = %d, want 40 (80 × 50%%)", stats.HitPct)
+	}
+	if stats.DodgePct != 30 {
+		t.Fatalf("DodgePct = %d, want 30 (60 × 50%%)", stats.DodgePct)
+	}
+	if stats.CritDmgPct != 200 {
+		t.Fatalf("CritDmgPct = %d, want 200 (400 × 50%%)", stats.CritDmgPct)
+	}
+	if stats.PhysicalResistPct != 30 {
+		t.Fatalf("PhysicalResistPct = %d, want 30 (60 × 50%%)", stats.PhysicalResistPct)
+	}
+	if stats.SkillResistPct != 25 {
+		t.Fatalf("SkillResistPct = %d, want 25 (50 × 50%%)", stats.SkillResistPct)
+	}
+	// 麻痹仍然阻止行动，这条不能因为补丁属性削弱而丢失。
+	if _, _, blocked := actor.actionBlockedStatus(); !blocked {
+		t.Fatal("paralysis should still block action")
+	}
+}
+
+// TestParalysisRestoresStatsAfterExpiry 验证状态到期后派生属性恢复，避免削弱被永久写入。
+func TestParalysisRestoresStatsAfterExpiry(t *testing.T) {
+	actor := &actorRuntime{
+		hp:                  100,
+		hpMax:               100,
+		hitPct:              80,
+		critDmgPct:          400,
+		physicalResistPct:   60,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	if !actor.applyStatusWithProfile(StatusParalysis, 1, 0, defaultStatusProfile(StatusParalysis)) {
+		t.Fatal("apply failed")
+	}
+	if stats := actor.effectiveStats(); stats.HitPct != 40 {
+		t.Fatalf("while paralysed HitPct = %d, want 40", stats.HitPct)
+	}
+
+	delete(actor.statuses, StatusParalysis)
+	actor.refreshStatusDerivedModifiers()
+
+	stats := actor.effectiveStats()
+	if stats.HitPct != 80 || stats.CritDmgPct != 400 || stats.PhysicalResistPct != 60 {
+		t.Fatalf("stats after expiry = hit %d / critdmg %d / physres %d, want 80/400/60",
+			stats.HitPct, stats.CritDmgPct, stats.PhysicalResistPct)
+	}
+}

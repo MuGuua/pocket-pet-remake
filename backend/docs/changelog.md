@@ -1,5 +1,18 @@
 # 最新变更记录
 
+## 2026-10-20 补齐麻痹与昏睡规则，修复伤害公式绕过状态修正
+
+- 问题一（麻痹）：`docs/战斗系统规则.md` §6 规定麻痹使物理抗性、技能抗性、抗爆伤、命中、闪避各降低 50%，但 `status_modifier.go` 只给了 `BlocksAction`，五项属性一个都没削，行为上与眩晕完全重复。
+- 问题二（昏睡）：规则要求「受到攻击后解除昏睡」，代码中不存在任何解除逻辑，昏睡单位只能等回合数耗尽。
+- 问题三（公式绕过状态）：`buildPocketDamageInput` 的 `AntiCrit`、`SkillRes` 直接读取 `actorRuntime` 原始字段，绕过了已经应用状态修正的 `effectiveStats`。导致圣光忏悔、魅惑之风、恶魔之力、幻影闪击这些已有的抗性削减状态在伤害结算里完全失效——这是一个比麻痹更早就存在的隐藏缺陷。
+- 修复：`statusModifierProfile` 新增 `PropertyMultiplierPct`（乘法整体缩放，区别于既有 `Penalty` 的固定点数扣减），麻痹设为 50 并在 `effectiveStats` 中对命中、闪避、爆伤、抗爆伤、物理抗性、技能抗性统一应用，且放在点数扣减之后，符合「原有效属性 × 50%」口径；新增 `scalePercentValue` 辅助函数（向下取整，避免削弱被四舍五入放大）。
+- 修复：新增 `activeBattle.wakeFromSleep`，在 `resolveDamageSkill` 实际扣血后、后续被动与状态结算前解除昏睡，伤害本身照常生效；目标已倒下时不触发，避免死亡动画期间出现「醒来」提示。
+- 修复：`buildPocketDamageInput` 的 `AntiCrit` / `SkillRes` / `CritDmg` 改为读取 `effectiveStats`，让状态带来的抗性与爆伤削减真正进入伤害公式。
+- 数值影响（实测，`裂空斩` 10% 暴击率对 4% 抗致命）：新手 24 攻对 22 血目标伤害降 42%（1.1→1.9 回合击杀）；中期 120 攻对 300 血目标降 55%（2.3→5.1 回合）。叠加在 2026-10-20 暴击修复之上，整体战斗节奏比修复前慢一倍左右。**怪物血量与技能倍率需要按新口径重新校准，本次未调整任何数值配置。**
+- 测试：新增 4 个用例覆盖麻痹五项属性减半、麻痹到期后属性恢复、昏睡受击解除且伤害照常生效、伤害输入使用状态修正后的抗性值。
+- 验证：`go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 25 个包通过。
+- 本次无数据库结构、迁移、协议或后台页面变更。
+
 ## 2026-10-20 修复暴击判定未生效导致伤害恒按爆伤结算
 
 - 问题：`actorRuntime.damageAgainst` 的两条伤害分支都恒返回 `crit=false`，但 `formula.go` 计算分子时无条件把 `CritDmg + SkillCritAdd - AntiCrit` 当作倍率使用。结果是暴击率（`crit_rate_pct`）与抗致命（`crit_resist_pct`）完全不参与战斗，所有伤害都按「已暴击」结算，`AllowCrit`、`StatusCritBoost` 等同批属性与状态成为死数据。

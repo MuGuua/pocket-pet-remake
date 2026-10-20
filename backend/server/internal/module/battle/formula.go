@@ -128,6 +128,19 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 		reverseSkill -= derived.ReverseSkillResistPenalty
 	}
 
+	critDmgResistPct := a.critDmgResistPct
+
+	// 麻痹等「属性降至 X%」类的整体缩放。按规则作用于物理抗性、技能抗性、抗爆伤、命中、闪避，
+	// 必须在固定点数扣减之后应用，才是「原有效属性 × 50%」的口径。
+	if multiplier := derived.PropertyMultiplierPct; multiplier > 0 && multiplier < 100 {
+		hitPct = scalePercentValue(hitPct, multiplier)
+		dodgePct = scalePercentValue(dodgePct, multiplier)
+		critDmgPct = scalePercentValue(critDmgPct, multiplier)
+		critDmgResistPct = scalePercentValue(critDmgResistPct, multiplier)
+		physicalResist = scalePercentValue(physicalResist, multiplier)
+		skillResist = scalePercentValue(skillResist, multiplier)
+	}
+
 	return effectiveStats{
 		UnitClass:              a.unitClass,
 		Attack:                 attack,
@@ -141,7 +154,7 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 		CritRatePct:            a.critRatePct + derived.CritRateBonusPct,
 		CritDmgPct:             critDmgPct,
 		CritResistPct:          a.critResistPct,
-		CritDmgResistPct:       a.critDmgResistPct,
+		CritDmgResistPct:       critDmgResistPct,
 		ArmorBroken:            derived.ArmorBroken,
 		VulnerabilityPct:       derived.VulnerabilityPct,
 		PhysicalResistPct:      physicalResist,
@@ -199,11 +212,14 @@ func buildPocketDamageInput(attacker *actorRuntime, target *actorRuntime, skill 
 		DefenderPanel:        int64(targetStats.Defense),
 		SkillMult:            skill.SkillMult,
 		AttackScalePct:       skill.AttackPct,
+		// 这三项必须取 effectiveStats 的值，而不是 actorRuntime 的原始字段。
+		// effectiveStats 已经把状态带来的抗性/爆伤削减算进去了（麻痹、圣光忏悔、魅惑之风、
+		// 恶魔之力、幻影闪击等），直接读原始字段会让这些状态在伤害公式里完全失效。
 		CritDmg:              attackerStats.CritDmgPct,
 		SkillCritAdd:         skill.SkillCritAdd,
-		AntiCrit:             target.critDmgResistPct,
+		AntiCrit:             targetStats.CritDmgResistPct,
 		RevSkill:             attackerStats.ReverseSkillResistPct,
-		SkillRes:             target.skillResistPct,
+		SkillRes:             targetStats.SkillResistPct,
 		Guard:                targetStats.Guard,
 		TalentDmgPct:         attackerStats.TalentDmgPct,
 		TalentReducePct:      talentReducePct,
@@ -322,6 +338,15 @@ func applyPercentModifier(base int32, specificMultiplierPct uint32, globalMultip
 		return 0
 	}
 	return value
+}
+
+// scalePercentValue 按百分比缩放一个百分比类属性（命中、闪避、抗性、爆伤等）。
+// 用于「属性降至 50%」这类乘法效果；结果向下取整，避免削弱效果被四舍五入放大。
+func scalePercentValue(value uint32, multiplierPct uint32) uint32 {
+	if multiplierPct == 0 || multiplierPct >= 100 {
+		return value
+	}
+	return value * multiplierPct / 100
 }
 
 func clampCritRatePct(critRatePct uint32) uint32 {
