@@ -104,3 +104,39 @@ func TestBuildPVERewardBundleSkipsDisabledGroupEntries(t *testing.T) {
 		}
 	}
 }
+
+// TestAdminBattleRewardInputRoundTripPreservesDrawGroup 验证后台输入经 Normalize 后保留抽取组与权重。
+// 该用例防止后续新增字段时只改结构体、忘记在转换链路里透传。
+func TestAdminBattleRewardInputRoundTripPreservesDrawGroup(t *testing.T) {
+	input := AdminBattleRewardInput{
+		RewardType: RewardTypeItem,
+		ExpTarget:  ExpTargetPlayer,
+		ItemID:     3101,
+		Quantity:   1,
+		DropRate:   RewardRateMax,
+		DrawGroup:  2,
+		Weight:     350,
+	}
+	normalized := input.Normalize()
+	if normalized.DrawGroup != 2 {
+		t.Fatalf("DrawGroup = %d, want 2", normalized.DrawGroup)
+	}
+	if normalized.Weight != 350 {
+		t.Fatalf("Weight = %d, want 350", normalized.Weight)
+	}
+}
+
+// TestAdminBattleRewardInputNormalizesZeroWeight 验证 weight=0 会兜底成 100，避免组内权重求和为 0。
+func TestAdminBattleRewardInputNormalizesZeroWeight(t *testing.T) {
+	input := AdminBattleRewardInput{
+		RewardType: RewardTypeItem,
+		ItemID:     3101,
+		Quantity:   1,
+		DropRate:   RewardRateMax,
+		DrawGroup:  1,
+		Weight:     0,
+	}
+	if got := input.Normalize().Weight; got != 100 {
+		t.Fatalf("Weight = %d, want 100", got)
+	}
+}

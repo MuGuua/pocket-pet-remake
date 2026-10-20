@@ -576,6 +576,8 @@ func parseBattleRewardsJSON(rewardsJSON []byte) ([]monster.BattleRewardEntry, er
 			ExpValue:   input.ExpValue,
 			AttrKey:    input.AttrKey,
 			DropRate:   input.DropRate,
+			DrawGroup:  input.DrawGroup,
+			Weight:     input.Weight,
 			SortOrder:  input.SortOrder,
 			Status:     input.Status,
 			GrantOnce:  input.GrantOnce,

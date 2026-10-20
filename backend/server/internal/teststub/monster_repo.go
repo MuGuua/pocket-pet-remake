@@ -513,6 +513,8 @@ func (r *MonsterRepository) ReplaceBattleRewardsForMonster(_ context.Context, mo
 			ExpValue:   reward.ExpValue,
 			AttrKey:    reward.AttrKey,
 			DropRate:   reward.DropRate,
+			DrawGroup:  reward.DrawGroup,
+			Weight:     reward.Weight,
 			SortOrder:  reward.SortOrder,
 			Status:     reward.Status,
 			GrantOnce:  reward.GrantOnce,
