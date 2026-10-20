@@ -421,6 +421,11 @@ export function SkillDefinitionPage() {
               <Descriptions.Item label="封印">{detail.status_effects.seal_chance_pct}% / 威力 {detail.status_effects.seal_power}</Descriptions.Item>
               <Descriptions.Item label="通用控制">{detail.status_effects.control_chance_pct}% / 威力 {detail.status_effects.control_power}</Descriptions.Item>
               <Descriptions.Item label="控制状态">{formatControlStatusLabel(detail.status_effects.control_status_id)}</Descriptions.Item>
+              <Descriptions.Item label="状态强度">
+                {detail.status_effects.control_status_power > 0
+                  ? `${detail.status_effects.control_status_power}%`
+                  : '默认'}
+              </Descriptions.Item>
               <Descriptions.Item label="控制回合">{detail.status_effects.control_rounds}</Descriptions.Item>
             </Descriptions>
             <Descriptions bordered column={2} size="small" title="战斗表现">

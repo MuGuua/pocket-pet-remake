@@ -73,6 +73,7 @@ func runtimeDefinitionToSkillDef(item skill.RuntimeDefinition) skillDef {
 		ControlPower:           item.ControlPower,
 		ControlRounds:          item.ControlRounds,
 		ControlStatusID:        item.ControlStatusID,
+		ControlStatusPower:     item.ControlStatusPower,
 		PreferredTargetHP:      item.PreferredTargetHP,
 		TargetCount:            item.TargetCount,
 		IsBasicAttack:          item.IsBasicAttack,

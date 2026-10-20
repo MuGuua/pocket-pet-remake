@@ -154,3 +154,76 @@ func TestParalysisRestoresStatsAfterExpiry(t *testing.T) {
 			stats.HitPct, stats.CritDmgPct, stats.PhysicalResistPct)
 	}
 }
+
+// TestParalysisPotencyComesFromSkill 验证麻痹的削弱幅度由施加技能配置决定，
+// 而不是写死在状态里：同一状态可以配成 50%（默认）、30% 等不同强度。
+func TestParalysisPotencyComesFromSkill(t *testing.T) {
+	cases := []struct {
+		name     string
+		potency  int32
+		wantHit  uint32
+		wantPhys uint32
+	}{
+		// potency 为 0 时回退到规则默认的 50%。
+		{name: "未配置走默认50%", potency: 0, wantHit: 40, wantPhys: 30},
+		{name: "技能配成30%", potency: 30, wantHit: 24, wantPhys: 18},
+		{name: "技能配成80%", potency: 80, wantHit: 64, wantPhys: 48},
+	}
+	for _, tc := range cases {
+		actor := &actorRuntime{
+			hp:                  100,
+			hpMax:               100,
+			hitPct:              80,
+			physicalResistPct:   60,
+			statuses:            map[uint32]*statusRuntime{},
+			globalMultiplierPct: 100,
+		}
+		profile := defaultStatusProfile(StatusParalysis)
+		if !actor.applyStatusWithProfile(StatusParalysis, 2, tc.potency, profile) {
+			t.Fatalf("%s: apply failed", tc.name)
+		}
+		stats := actor.effectiveStats()
+		if stats.HitPct != tc.wantHit {
+			t.Fatalf("%s: HitPct = %d, want %d", tc.name, stats.HitPct, tc.wantHit)
+		}
+		if stats.PhysicalResistPct != tc.wantPhys {
+			t.Fatalf("%s: PhysicalResistPct = %d, want %d", tc.name, stats.PhysicalResistPct, tc.wantPhys)
+		}
+	}
+}
+
+// TestParalysisScaleMaskLimitsAffectedProperties 验证作用范围由掩码控制，
+// 只削弱指定属性时其它属性保持原值。
+func TestParalysisScaleMaskLimitsAffectedProperties(t *testing.T) {
+	actor := &actorRuntime{
+		hp:                  100,
+		hpMax:               100,
+		hitPct:              80,
+		dodgeRatePct:        60,
+		physicalResistPct:   40,
+		skillResistPct:      40,
+		statuses:            map[uint32]*statusRuntime{},
+		globalMultiplierPct: 100,
+	}
+	// 只削弱命中，不动其它项。
+	profile := statusModifierProfile{
+		PropertyMultiplierPct:         50,
+		PropertyScaleMask:             paralysisScaleHit,
+		PropertyMultiplierFromPotency: true,
+		BlocksAction:                  true,
+		NonStackable:                  true,
+	}
+	if !actor.applyStatusWithProfile(StatusParalysis, 2, 50, profile) {
+		t.Fatal("apply failed")
+	}
+	stats := actor.effectiveStats()
+	if stats.HitPct != 40 {
+		t.Fatalf("HitPct = %d, want 40 (命中被削弱)", stats.HitPct)
+	}
+	if stats.PhysicalResistPct != 40 {
+		t.Fatalf("PhysicalResistPct = %d, want 40 (未被掩码选中，应保持原值)", stats.PhysicalResistPct)
+	}
+	if stats.SkillResistPct != 40 {
+		t.Fatalf("SkillResistPct = %d, want 40 (未被掩码选中，应保持原值)", stats.SkillResistPct)
+	}
+}

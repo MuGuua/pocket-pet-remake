@@ -1900,13 +1900,17 @@ func (b *activeBattle) applyOnHitStatuses(actor *actorRuntime, target *actorRunt
 	}
 	if chancePct := resolveSignatureStatusApplyChance(skill.ControlChancePct, skill.ControlPower, statusApplyResistPct(target, skill.ControlStatusID)); chancePct > 0 && skill.ControlStatusID != 0 && b.rollChance(chancePct, actor.actorID+71, target.actorID+73) {
 		profile := defaultStatusProfile(skill.ControlStatusID)
-		if target.applyStatusWithProfile(skill.ControlStatusID, skill.ControlRounds, 0, profile) {
+		// control_status_power 是该控制状态自身的强度参数：麻痹用它表达「抗性降至百分之多少」。
+		// potency 为 0 时由状态自身默认值兜底，保持旧配置的行为不变。
+		potency := int32(skill.ControlStatusPower)
+		if target.applyStatusWithProfile(skill.ControlStatusID, skill.ControlRounds, potency, profile) {
 			events = append(events, Event{
 				EventType: EventTypeApplyStatus,
 				SourceID:  actor.actorID,
 				TargetID:  target.actorID,
 				SkillID:   skillID,
 				StateID:   skill.ControlStatusID,
+				Value:     potency,
 				Label:     target.name + statusApplyLabel(skill.ControlStatusID),
 			})
 		}

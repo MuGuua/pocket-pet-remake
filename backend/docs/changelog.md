@@ -1,5 +1,16 @@
 # 最新变更记录
 
+## 2026-10-20 麻痹强度与作用范围改为技能可配置
+
+- 背景：上一版把麻痹的抗性削减幅度写死为 50%，作用范围固定为五项全削。实际上「降到百分之多少、影响哪几项」应由施加该状态的技能决定，同一个麻痹状态在不同技能下可以有不同表现。
+- 迁移 `127_skill_control_status_power.sql`：`skill_definition` 新增 `control_status_power`（默认 0，CHECK 0~100）。语义随 `control_status_id` 而定，麻痹用它表示「抗性降至百分之多少」，0 表示沿用规则默认 50%。**当前尚未在正式库执行。**
+- 领域层：`statusModifierProfile` 新增 `PropertyScaleMask`（用 `paralysisScale*` 位掩码描述作用范围）与 `PropertyMultiplierFromPotency`（强度取自状态实例 potency）；`mergeStatusDerivedModifiers` 接收 potency，技能配了非 0 值时覆盖状态默认强度；`effectiveStats` 按掩码逐项决定缩放哪些属性，掩码为空时回退到规则默认的「五项全削」。
+- 施加链路：`applyControlStatuses` 读取 `skill.ControlStatusPower` 作为 potency 传给 `applyStatusWithProfile`，事件 `value` 一并下发，供客户端展示实际强度。
+- 协议与后台：`skillDef`、`RuntimeDefinition`、`AdminStatusEffects`、`AdminUpsertInput` 同步新增字段；仓储 SELECT / INSERT / UPDATE / scan 全链路补齐（INSERT 占位符 67→68，UPDATE 后续占位符顺延）；后台技能编辑「控制」页签新增「状态强度 (%)」输入与详情展示，未配置显示「默认」。
+- 兼容性：新字段默认 0，既有技能配置行为不变；`control_status_power` 为 0 时麻痹仍按规则默认 50% 结算。
+- 测试：新增 2 个用例覆盖「同一麻痹按 30% / 50% / 80% 三档强度结算」与「掩码只削弱指定属性、其余保持原值」。
+- 验证：`go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 25 个包通过；后台 `npm run build` 通过。
+
 ## 2026-10-20 补齐麻痹与昏睡规则，修复伤害公式绕过状态修正
 
 - 问题一（麻痹）：`docs/战斗系统规则.md` §6 规定麻痹使物理抗性、技能抗性、抗爆伤、命中、闪避各降低 50%，但 `status_modifier.go` 只给了 `BlocksAction`，五项属性一个都没削，行为上与眩晕完全重复。

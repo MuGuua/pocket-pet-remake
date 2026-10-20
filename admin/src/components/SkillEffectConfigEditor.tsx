@@ -267,6 +267,13 @@ export function SkillEffectConfigEditor({ value = [], onChange, activationMode =
                   ]}
                 />
               </Form.Item>
+              <Form.Item
+                label="状态强度 (%)"
+                name="control_status_power"
+                tooltip="麻痹：抗性降至百分之多少，留 0 表示沿用规则默认的 50%。其它控制状态暂未使用该字段。"
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+              </Form.Item>
             </>
           ) : null}
           {entryType === 'bleed' ? (

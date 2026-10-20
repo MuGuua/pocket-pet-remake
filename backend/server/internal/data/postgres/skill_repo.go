@@ -85,6 +85,7 @@ const skillDefinitionSelectColumns = `
   control_power,
   control_rounds,
   control_status_id,
+  control_status_power,
   passive_attr_key,
   passive_attr_mode,
   passive_attr_value,
@@ -127,13 +128,13 @@ const skillDefinitionInsertColumns = `
   slow_chance_pct, slow_rounds, slow_multiplier_pct,
   crit_boost_rounds, crit_boost_pct,
   curse_chance_pct, curse_rounds, curse_damage, curse_mana_pct,
-  control_chance_pct, control_power, control_rounds, control_status_id,
+  control_chance_pct, control_power, control_rounds, control_status_id, control_status_power,
   passive_attr_key, passive_attr_mode, passive_attr_value, skill_quality,
   sort_weight, status
 `
 
 const skillDefinitionInsertPlaceholders = `
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60,$61,$62,$63,$64,$65,$66,$67
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60,$61,$62,$63,$64,$65,$66,$67,$68
 `
 
 const insertSkillDefinitionQuery = `
@@ -203,12 +204,13 @@ SET skill_code = $2,
     control_power = $59,
     control_rounds = $60,
     control_status_id = $61,
-    passive_attr_key = $62,
-    passive_attr_mode = $63,
-    passive_attr_value = $64,
-    skill_quality = $65,
-    sort_weight = $66,
-    status = $67
+    control_status_power = $62,
+    passive_attr_key = $63,
+    passive_attr_mode = $64,
+    passive_attr_value = $65,
+    skill_quality = $66,
+    sort_weight = $67,
+    status = $68
 WHERE skill_id = $1
 `
 
@@ -508,7 +510,7 @@ func skillUpsertArgs(skillID uint32, input skill.AdminUpsertInput, status int64)
 		input.SlowChancePct, input.SlowRounds, input.SlowMultiplierPct,
 		input.CritBoostRounds, input.CritBoostPct,
 		input.CurseChancePct, input.CurseRounds, input.CurseDamage, input.CurseManaPct,
-		input.ControlChancePct, input.ControlPower, input.ControlRounds, input.ControlStatusID,
+		input.ControlChancePct, input.ControlPower, input.ControlRounds, input.ControlStatusID, input.ControlStatusPower,
 		input.PassiveAttrKey, input.PassiveAttrMode, input.PassiveAttrValue,
 		input.SkillQuality,
 		input.SortWeight, status,
@@ -535,75 +537,76 @@ func scanAdminSkillSummaryRow(rows *sql.Rows) (skill.AdminSummary, error) {
 }
 
 type skillDefinitionRow struct {
-	skillID          int64
-	skillCode        string
-	skillName        string
-	skillCategory    string
-	weaponDiscipline string
-	learnExpRequired int64
-	learnExpPerUse   int64
-	skillType        string
-	activationMode   string
-	description      string
-	acquireMethod    string
-	targetType       string
-	targetCount      int64
-	preferredHP      string
-	animationKey     string
-	skillVisualID    string
-	castColor        string
-	impactColor      string
-	projectile       bool
-	isSkillAttack    bool
-	isBasicAttack    bool
-	energyCost       int64
-	allowCrit        bool
-	ignoreDefense    bool
-	skillMult        int64
-	skillCritAdd     int64
-	skillHitBonus    int64
-	attackPct        int64
-	manaPct          int64
-	defensePct       int64
-	speedPct         int64
-	targetHPPct      int64
-	fixedDamage      int64
-	healPct          int64
-	fixedHeal        int64
-	armorBreakPct    int64
-	vulnPct          int64
-	bleedChance      int64
-	bleedRounds      int64
-	bleedDamage      int64
-	sealChance       int64
-	sealPower        int64
-	sealRounds       int64
-	vulnChance       int64
-	vulnRounds       int64
-	vulnApply        int64
-	abChance         int64
-	abRounds         int64
-	slowChance       int64
-	slowRounds       int64
-	slowMult         int64
-	critRounds       int64
-	critPct          int64
-	curseChance      int64
-	curseRounds      int64
-	curseDamage      int64
-	curseManaPct     int64
-	controlChance    int64
-	controlPower     int64
-	controlRounds    int64
-	controlStatus    int64
-	passiveAttrKey   string
-	passiveAttrMode  string
-	passiveAttrValue int64
-	skillQuality     string
-	sortWeight       int64
-	status           int64
-	createdAt        time.Time
-	updatedAt        time.Time
+	skillID            int64
+	skillCode          string
+	skillName          string
+	skillCategory      string
+	weaponDiscipline   string
+	learnExpRequired   int64
+	learnExpPerUse     int64
+	skillType          string
+	activationMode     string
+	description        string
+	acquireMethod      string
+	targetType         string
+	targetCount        int64
+	preferredHP        string
+	animationKey       string
+	skillVisualID      string
+	castColor          string
+	impactColor        string
+	projectile         bool
+	isSkillAttack      bool
+	isBasicAttack      bool
+	energyCost         int64
+	allowCrit          bool
+	ignoreDefense      bool
+	skillMult          int64
+	skillCritAdd       int64
+	skillHitBonus      int64
+	attackPct          int64
+	manaPct            int64
+	defensePct         int64
+	speedPct           int64
+	targetHPPct        int64
+	fixedDamage        int64
+	healPct            int64
+	fixedHeal          int64
+	armorBreakPct      int64
+	vulnPct            int64
+	bleedChance        int64
+	bleedRounds        int64
+	bleedDamage        int64
+	sealChance         int64
+	sealPower          int64
+	sealRounds         int64
+	vulnChance         int64
+	vulnRounds         int64
+	vulnApply          int64
+	abChance           int64
+	abRounds           int64
+	slowChance         int64
+	slowRounds         int64
+	slowMult           int64
+	critRounds         int64
+	critPct            int64
+	curseChance        int64
+	curseRounds        int64
+	curseDamage        int64
+	curseManaPct       int64
+	controlChance      int64
+	controlPower       int64
+	controlRounds      int64
+	controlStatus      int64
+	controlStatusPower int64
+	passiveAttrKey     string
+	passiveAttrMode    string
+	passiveAttrValue   int64
+	skillQuality       string
+	sortWeight         int64
+	status             int64
+	createdAt          time.Time
+	updatedAt          time.Time
 }
 
 func scanSkillDefinitionRow(scanner interface {
@@ -625,7 +628,7 @@ func scanSkillDefinitionRow(scanner interface {
 		&row.slowChance, &row.slowRounds, &row.slowMult,
 		&row.critRounds, &row.critPct,
 		&row.curseChance, &row.curseRounds, &row.curseDamage, &row.curseManaPct,
-		&row.controlChance, &row.controlPower, &row.controlRounds, &row.controlStatus,
+		&row.controlChance, &row.controlPower, &row.controlRounds, &row.controlStatus, &row.controlStatusPower,
 		&row.passiveAttrKey, &row.passiveAttrMode, &row.passiveAttrValue,
 		&row.skillQuality,
 		&row.sortWeight, &row.status, &row.createdAt, &row.updatedAt,
@@ -715,9 +718,9 @@ func adminDetailFromRow(raw skillDefinitionRow) *skill.AdminDetail {
 			ControlPower:           uint32(raw.controlPower),
 			ControlRounds:          uint32(raw.controlRounds),
 			ControlStatusID:        uint32(raw.controlStatus),
+			ControlStatusPower:     uint32(raw.controlStatusPower),
 		},
-		Presentation: skill.AdminPresentation{
-			AnimationKey:  raw.animationKey,
+		Presentation: skill.AdminPresentation{			AnimationKey:  raw.animationKey,
 			SkillVisualID: raw.skillVisualID,
 			CastColor:     raw.castColor,
 			ImpactColor:   raw.impactColor,
@@ -799,6 +802,7 @@ func runtimeFromRow(raw skillDefinitionRow) skill.RuntimeDefinition {
 		ControlPower:           uint32(raw.controlPower),
 		ControlRounds:          uint32(raw.controlRounds),
 		ControlStatusID:        uint32(raw.controlStatus),
+		ControlStatusPower:     uint32(raw.controlStatusPower),
 		PassiveAttrKey:         raw.passiveAttrKey,
 		PassiveAttrMode:        raw.passiveAttrMode,
 		PassiveAttrValue:       int32(raw.passiveAttrValue),

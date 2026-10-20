@@ -1,5 +1,19 @@
 package battle
 
+// paralysisScaledResistMask 标识麻痹会削弱的抗性项。具体强弱由施加技能配置的
+// control_status_power 决定，这里只描述「规则允许影响哪些属性」。
+// 用位掩码是为了让同一套逻辑既能表达「全部抗性」，也能只削弱其中若干项。
+const (
+	paralysisScalePhysicalResist uint32 = 1 << iota
+	paralysisScaleSkillResist
+	paralysisScaleCritDmgResist
+	paralysisScaleHit
+	paralysisScaleDodge
+	// paralysisScaleAllResist 是规则《战斗系统规则》§6 中麻痹的默认作用范围。
+	paralysisScaleAllResist = paralysisScalePhysicalResist | paralysisScaleSkillResist |
+		paralysisScaleCritDmgResist | paralysisScaleHit | paralysisScaleDodge
+)
+
 // statusModifierProfile 描述一个战斗状态附带的数值修饰；由 statusRuntime 持有并在 refresh 阶段汇总。
 type statusModifierProfile struct {
 	HitPenalty                   uint32
@@ -14,9 +28,15 @@ type statusModifierProfile struct {
 	// 与上面的 Penalty 字段不同，Penalty 是固定点数扣减，这里是对有效值的乘法。
 	// 0 或 100 表示不缩放；多个来源取最小值（即削弱最强的那一个）。
 	PropertyMultiplierPct uint32
-	BlocksAction          bool
-	ForcesConfusion       bool
-	NonStackable          bool
+	// PropertyScaleMask 指定 PropertyMultiplierPct 作用于哪些属性，取值见 paralysisScale* 常量。
+	// 具体削弱哪几项由施加该状态的技能决定，而不是在状态里写死。
+	PropertyScaleMask uint32
+	// PropertyMultiplierFromPotency 为真时，使用状态实例上的 potency 作为缩放比例，
+	// 让同一种状态可以被不同技能配置成不同的削弱强度。
+	PropertyMultiplierFromPotency bool
+	BlocksAction                  bool
+	ForcesConfusion               bool
+	NonStackable                  bool
 }
 
 // statusDerivedModifiers 从当前 status 列表汇总后的运行时修饰快照。
@@ -30,6 +50,7 @@ type statusDerivedModifiers struct {
 	ReverseSkillResistPenalty    uint32
 	SpeedMultiplierPct           uint32
 	PropertyMultiplierPct        uint32
+	PropertyScaleMask            uint32
 	ResistBlessingBonus          uint32
 	VulnerabilityPct             uint32
 	ArmorBroken                  bool
@@ -81,7 +102,7 @@ func defaultStatusProfile(statusID uint32) statusModifierProfile {
 		}
 	case StatusDemonPower:
 		return statusModifierProfile{
-			CritDmgPenalty:      150,
+			CritDmgPenalty:        150,
 			PhysicalResistPenalty: 30,
 			SkillResistPenalty:    30,
 			NonStackable:          true,
@@ -89,13 +110,15 @@ func defaultStatusProfile(statusID uint32) statusModifierProfile {
 	case StatusConfusion:
 		return statusModifierProfile{ForcesConfusion: true, NonStackable: true}
 	case StatusParalysis:
-		// 《战斗系统规则》6. 控制效果：麻痹使物理抗性、技能抗性、抗爆伤、命中、闪避各降低 50%，
-		// 并且无法行动。这里用 PropertyMultiplierPct 表达「有效值 × 50%」，
-		// 五个属性的缩放统一在 effectiveStats 中应用。
+		// 《战斗系统规则》§6：麻痹使物理抗性、技能抗性、抗爆伤、命中、闪避降低，并且无法行动。
+		// 具体降低幅度由施加技能配置的 control_status_power 决定（缺省 50%），
+		// 作用范围在此给出规则默认值，技能可用更小的掩码覆盖。
 		return statusModifierProfile{
-			PropertyMultiplierPct: 50,
-			BlocksAction:          true,
-			NonStackable:          true,
+			PropertyMultiplierPct:         50,
+			PropertyMultiplierFromPotency: true,
+			PropertyScaleMask:             paralysisScaleAllResist,
+			BlocksAction:                  true,
+			NonStackable:                  true,
 		}
 	case StatusResistBlessing:
 		return statusModifierProfile{NonStackable: true}
@@ -169,7 +192,9 @@ func resolveSignatureStatusApplyChance(chancePct uint32, power uint32, targetRes
 	return chancePct
 }
 
-func mergeStatusDerivedModifiers(into *statusDerivedModifiers, profile statusModifierProfile) {
+// mergeStatusDerivedModifiers 合并单条状态的修饰。potency 是该状态实例上的强度参数，
+// 用于「同一状态被不同技能配置成不同强度」的场景（例如麻痹由技能决定削弱到百分之多少）。
+func mergeStatusDerivedModifiers(into *statusDerivedModifiers, profile statusModifierProfile, potency int32) {
 	if into == nil {
 		return
 	}
@@ -185,9 +210,17 @@ func mergeStatusDerivedModifiers(into *statusDerivedModifiers, profile statusMod
 			into.SpeedMultiplierPct = profile.SpeedMultiplierPct
 		}
 	}
-	if profile.PropertyMultiplierPct > 0 && profile.PropertyMultiplierPct < 100 {
-		if into.PropertyMultiplierPct == 0 || profile.PropertyMultiplierPct < into.PropertyMultiplierPct {
-			into.PropertyMultiplierPct = profile.PropertyMultiplierPct
+	multiplierPct := profile.PropertyMultiplierPct
+	if profile.PropertyMultiplierFromPotency {
+		// 技能可覆盖削弱幅度；未配置（potency 为 0）时回退到状态默认值。
+		if fromPotency := uint32(maxInt32(potency, 0)); fromPotency > 0 && fromPotency < 100 {
+			multiplierPct = fromPotency
+		}
+	}
+	if multiplierPct > 0 && multiplierPct < 100 {
+		if into.PropertyMultiplierPct == 0 || multiplierPct < into.PropertyMultiplierPct {
+			into.PropertyMultiplierPct = multiplierPct
+			into.PropertyScaleMask = profile.PropertyScaleMask
 		}
 	}
 	if profile.BlocksAction {
@@ -207,7 +240,7 @@ func (a *actorRuntime) collectStatusDerivedModifiers() statusDerivedModifiers {
 		if status == nil || status.remainingRound == 0 {
 			continue
 		}
-		mergeStatusDerivedModifiers(&result, status.modifiers)
+		mergeStatusDerivedModifiers(&result, status.modifiers, status.potency)
 		switch status.statusID {
 		case StatusVulnerability:
 			result.VulnerabilityPct = maxUint32(result.VulnerabilityPct, uint32(maxInt32(status.potency, 0)))

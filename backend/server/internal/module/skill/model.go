@@ -154,6 +154,10 @@ type AdminStatusEffects struct {
 	ControlPower           uint32 `json:"control_power"`
 	ControlRounds          uint32 `json:"control_rounds"`
 	ControlStatusID        uint32 `json:"control_status_id"`
+	// ControlStatusPower 是控制状态自身的强度参数，含义由状态类型决定。
+	// 麻痹用它表达「抗性降至百分之多少」（如 50 表示各项抗性 ×50%）；
+	// 减速类的倍率仍走 slow_multiplier_pct，不复用本字段。
+	ControlStatusPower uint32 `json:"control_status_power"`
 }
 
 // AdminPresentation 描述客户端战斗表现层使用的展示参数。
@@ -260,6 +264,7 @@ type AdminUpsertInput struct {
 	ControlPower           uint32 `json:"control_power"`
 	ControlRounds          uint32 `json:"control_rounds"`
 	ControlStatusID        uint32 `json:"control_status_id"`
+	ControlStatusPower     uint32 `json:"control_status_power"`
 	PassiveAttrKey         string `json:"passive_attr_key"`
 	PassiveAttrMode        string `json:"passive_attr_mode"`
 	PassiveAttrValue       int32  `json:"passive_attr_value"`
@@ -398,6 +403,7 @@ type RuntimeDefinition struct {
 	ControlPower           uint32
 	ControlRounds          uint32
 	ControlStatusID        uint32
+	ControlStatusPower     uint32
 	PassiveAttrKey         string
 	PassiveAttrMode        string
 	PassiveAttrValue       int32

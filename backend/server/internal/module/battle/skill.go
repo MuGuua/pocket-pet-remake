@@ -71,8 +71,11 @@ type skillDef struct {
 	ControlPower           uint32
 	ControlRounds          uint32
 	ControlStatusID        uint32
-	PreferredTargetHP      string
-	TargetCount            uint32
+	// ControlStatusPower 是控制状态的强度参数，含义随状态类型而定。
+	// 麻痹用它表示「抗性降至百分之多少」（如 50 = 各项抗性 ×50%），0 表示沿用规则默认值。
+	ControlStatusPower uint32
+	PreferredTargetHP  string
+	TargetCount        uint32
 }
 
 var skillCatalog = map[uint32]skillDef{

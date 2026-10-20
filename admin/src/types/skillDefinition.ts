@@ -76,6 +76,7 @@ export interface AdminSkillStatusEffects {
   control_power: number;
   control_rounds: number;
   control_status_id: number;
+  control_status_power: number;
 }
 
 export interface AdminSkillPresentation {
@@ -190,6 +191,7 @@ export interface AdminUpsertSkillPayload {
   control_power: number;
   control_rounds: number;
   control_status_id: number;
+  control_status_power: number;
   passive_attr_key: string;
   passive_attr_mode: string;
   passive_attr_value: number;
@@ -259,6 +261,7 @@ export function defaultSkillValues(skillID: number): AdminUpsertSkillPayload {
     control_power: 0,
     control_rounds: 0,
     control_status_id: 0,
+    control_status_power: 0,
     passive_attr_key: '',
     passive_attr_mode: '',
     passive_attr_value: 0,
@@ -332,6 +335,7 @@ export function detailToPayload(detail: AdminSkillDetail): AdminUpsertSkillPaylo
     control_power: detail.status_effects.control_power,
     control_rounds: detail.status_effects.control_rounds,
     control_status_id: detail.status_effects.control_status_id,
+    control_status_power: detail.status_effects.control_status_power,
     passive_attr_key: detail.passive_attr_key,
     passive_attr_mode: detail.passive_attr_mode,
     passive_attr_value: detail.passive_attr_value,

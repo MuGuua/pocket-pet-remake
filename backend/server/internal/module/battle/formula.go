@@ -35,34 +35,34 @@ type pocketDamageInput struct {
 
 // effectiveStats 是公式层与部分战斗分支共用的快照；伤害面板取 Attack 字段。
 type effectiveStats struct {
-	UnitClass            uint32
-	Attack               int32
-	Defense              int32
-	Speed                int32
-	Mana                 int32
-	CurrentHP            int32
-	MaxHP                int32
-	HitPct               uint32
-	DodgePct             uint32
-	CritRatePct          uint32
-	CritDmgPct           uint32
-	CritResistPct        uint32
-	CritDmgResistPct     uint32
-	ArmorBroken          bool
-	VulnerabilityPct     uint32
-	PhysicalResistPct    uint32
-	SkillResistPct       uint32
-	ReverseSkillResistPct  uint32
+	UnitClass                uint32
+	Attack                   int32
+	Defense                  int32
+	Speed                    int32
+	Mana                     int32
+	CurrentHP                int32
+	MaxHP                    int32
+	HitPct                   uint32
+	DodgePct                 uint32
+	CritRatePct              uint32
+	CritDmgPct               uint32
+	CritResistPct            uint32
+	CritDmgResistPct         uint32
+	ArmorBroken              bool
+	VulnerabilityPct         uint32
+	PhysicalResistPct        uint32
+	SkillResistPct           uint32
+	ReverseSkillResistPct    uint32
 	ReversePhysicalResistPct uint32
-	GenericShieldPct     uint32
-	CharacterResistPct   uint32
-	PetResistPct         uint32
-	MercenaryResistPct   uint32
-	Guard                uint32
-	TalentDmgPct         uint32
-	TalentReducePct      uint32
-	ElementAdvPct        uint32
-	ElementPenaltyPct    uint32
+	GenericShieldPct         uint32
+	CharacterResistPct       uint32
+	PetResistPct             uint32
+	MercenaryResistPct       uint32
+	Guard                    uint32
+	TalentDmgPct             uint32
+	TalentReducePct          uint32
+	ElementAdvPct            uint32
+	ElementPenaltyPct        uint32
 }
 
 func (a *actorRuntime) effectiveStats() effectiveStats {
@@ -132,44 +132,63 @@ func (a *actorRuntime) effectiveStats() effectiveStats {
 
 	// 麻痹等「属性降至 X%」类的整体缩放。按规则作用于物理抗性、技能抗性、抗爆伤、命中、闪避，
 	// 必须在固定点数扣减之后应用，才是「原有效属性 × 50%」的口径。
+	// 具体削弱哪几项由状态掩码决定：规则给出默认范围，技能可用更小的掩码只削减其中几项。
 	if multiplier := derived.PropertyMultiplierPct; multiplier > 0 && multiplier < 100 {
-		hitPct = scalePercentValue(hitPct, multiplier)
-		dodgePct = scalePercentValue(dodgePct, multiplier)
-		critDmgPct = scalePercentValue(critDmgPct, multiplier)
-		critDmgResistPct = scalePercentValue(critDmgResistPct, multiplier)
-		physicalResist = scalePercentValue(physicalResist, multiplier)
-		skillResist = scalePercentValue(skillResist, multiplier)
+		mask := derived.PropertyScaleMask
+		if mask == 0 {
+			// 未显式配置掩码时按规则默认范围处理，避免遗漏削弱。
+			mask = paralysisScaleAllResist
+		}
+		if mask&paralysisScaleHit != 0 {
+			hitPct = scalePercentValue(hitPct, multiplier)
+		}
+		if mask&paralysisScaleDodge != 0 {
+			dodgePct = scalePercentValue(dodgePct, multiplier)
+		}
+		if mask&paralysisScaleCritDmgResist != 0 {
+			critDmgResistPct = scalePercentValue(critDmgResistPct, multiplier)
+		}
+		if mask&paralysisScalePhysicalResist != 0 {
+			physicalResist = scalePercentValue(physicalResist, multiplier)
+		}
+		if mask&paralysisScaleSkillResist != 0 {
+			skillResist = scalePercentValue(skillResist, multiplier)
+		}
+		// 攻击者自身的爆伤同样属于「抗性」体系里的对应项，麻痹时一并削弱。
+		if mask&paralysisScaleCritDmgResist != 0 {
+			critDmgPct = scalePercentValue(critDmgPct, multiplier)
+		}
 	}
 
 	return effectiveStats{
-		UnitClass:              a.unitClass,
-		Attack:                 attack,
-		Defense:                defense,
-		Speed:                  speed,
-		Mana:                   mana,
-		CurrentHP:              int32(a.hp),
-		MaxHP:                  int32(a.hpMax),
-		HitPct:                 hitPct,
-		DodgePct:               dodgePct,
-		CritRatePct:            a.critRatePct + derived.CritRateBonusPct,
-		CritDmgPct:             critDmgPct,
-		CritResistPct:          a.critResistPct,
-		CritDmgResistPct:       critDmgResistPct,
-		ArmorBroken:            derived.ArmorBroken,
-		VulnerabilityPct:       derived.VulnerabilityPct,
-		PhysicalResistPct:      physicalResist,
-		SkillResistPct:         skillResist,
+		UnitClass:                a.unitClass,
+		Attack:                   attack,
+		Defense:                  defense,
+		Speed:                    speed,
+		Mana:                     mana,
+		CurrentHP:                int32(a.hp),
+		MaxHP:                    int32(a.hpMax),
+		HitPct:                   hitPct,
+		DodgePct:                 dodgePct,
+		CritRatePct:              a.critRatePct + derived.CritRateBonusPct,
+		CritDmgPct:               critDmgPct,
+		CritResistPct:            a.critResistPct,
+		CritDmgResistPct:         critDmgResistPct,
+		ArmorBroken:              derived.ArmorBroken,
+		VulnerabilityPct:         derived.VulnerabilityPct,
+		PhysicalResistPct:        physicalResist,
+		SkillResistPct:           skillResist,
 		ReversePhysicalResistPct: reversePhysical,
-		ReverseSkillResistPct: reverseSkill,
-		GenericShieldPct:       a.genericShieldPct,
-		CharacterResistPct:     a.characterResistPct,
-		PetResistPct:           a.petResistPct,
-		MercenaryResistPct:     a.mercenaryResistPct,
-		Guard:                  guard,
-		TalentDmgPct:           a.talentDmgPct,
-		TalentReducePct:        a.talentReducePct,
-		ElementAdvPct:          a.elementAdvPct,
-		ElementPenaltyPct:      a.elementPenaltyPct,
+		ReverseSkillResistPct:    reverseSkill,
+		GenericShieldPct:         a.genericShieldPct,
+		CharacterResistPct:       a.characterResistPct,
+		PetResistPct:             a.petResistPct,
+		MercenaryResistPct:       a.mercenaryResistPct,
+		Guard:                    guard,
+		TalentDmgPct:             a.talentDmgPct,
+		TalentReducePct:          a.talentReducePct,
+		ElementAdvPct:            a.elementAdvPct,
+		ElementPenaltyPct:        a.elementPenaltyPct,
 	}
 }
 
@@ -208,10 +227,10 @@ func buildPocketDamageInput(attacker *actorRuntime, target *actorRuntime, skill 
 	isAOE := skill.TargetRule == targetEnemyAll || skill.TargetRule == targetEnemyMulti
 	attackerPanel := pocketAttackerPanel(attackerStats, skill)
 	return pocketDamageInput{
-		AttackerPanel:        attackerPanel,
-		DefenderPanel:        int64(targetStats.Defense),
-		SkillMult:            skill.SkillMult,
-		AttackScalePct:       skill.AttackPct,
+		AttackerPanel:  attackerPanel,
+		DefenderPanel:  int64(targetStats.Defense),
+		SkillMult:      skill.SkillMult,
+		AttackScalePct: skill.AttackPct,
 		// 这三项必须取 effectiveStats 的值，而不是 actorRuntime 的原始字段。
 		// effectiveStats 已经把状态带来的抗性/爆伤削减算进去了（麻痹、圣光忏悔、魅惑之风、
 		// 恶魔之力、幻影闪击等），直接读原始字段会让这些状态在伤害公式里完全失效。
