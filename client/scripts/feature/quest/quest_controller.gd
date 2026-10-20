@@ -88,6 +88,17 @@ func handle_quest_track_response(payload: Dictionary) -> void:
     quests_updated.emit(GameState.quests.size())
     App.request_quest_list()
 
+## 处理放弃任务回包（6052）：成功时用服务端返回的任务快照覆盖本地状态，随后差量推送会继续同步。
+## payload 为 QuestAbandonResp，quest 字段是放弃后的权威任务状态。
+func handle_quest_abandon_response(payload: Dictionary) -> void:
+    if not bool(payload.get("accepted", false)):
+        _show_quest_error(payload, "任务放弃失败，请稍后重试。")
+        return
+    if payload.has("quest"):
+        handle_quest_update(payload)
+    quests_updated.emit(GameState.quests.size())
+
+
 ## 使用服务端原因或本地兜底文案展示任务业务错误，确保空 reason 也会进入统一提示框。
 func _show_quest_error(payload: Dictionary, fallback_message: String) -> void:
     var message: String = str(payload.get("reason", "")).strip_edges()

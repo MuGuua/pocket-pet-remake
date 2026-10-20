@@ -345,6 +345,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
 		return r.questHandler.HandleQuestTrack(conn, packet)
+	case protocol.CmdQuestAbandonReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		return r.questHandler.HandleQuestAbandon(conn, packet)
 	default:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

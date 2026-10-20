@@ -49,6 +49,8 @@
 - `6032 QUEST_SUBMIT_RESP`
 - `6041 QUEST_TRACK_REQ`
 - `6042 QUEST_TRACK_RESP`
+- `6051 QUEST_ABANDON_REQ`
+- `6052 QUEST_ABANDON_RESP`
 - `6051 QUEST_GUIDE_PUSH`
 - `6061 QUEST_DAILY_REFRESH_PUSH`
 
@@ -688,6 +690,45 @@
 说明：
 - 追踪状态变化后，服务端也可补发 `QUEST_UPDATE_PUSH`
 - 客户端本地不应只靠按钮状态自行切换最终追踪结果
+
+### 10.3 `6051 QUEST_ABANDON_REQ`
+
+```json
+{ "quest_id": 7001 }
+```
+
+服务端规则（`quest.Service.Abandon`）：
+- 模板 `can_abandon = TRUE`
+- `accept_mode != AUTO`（自动接取任务放弃后会被立即重新接取，因此直接禁止）
+- 当前状态为 `ACCEPTED` 或 `READY_TO_SUBMIT`
+
+满足后清空目标进度、取消追踪，任务回到 `AVAILABLE`；`completed_at` 保留（可重复任务的历史完成仍算数）。
+不满足时回 `ERROR_PUSH`，`msg = "quest cannot be abandoned"`。
+
+### 10.4 `6052 QUEST_ABANDON_RESP`
+
+```json
+{
+  "accepted": true,
+  "reason": "quest abandoned",
+  "quest": { "quest_id": 7001, "state": "AVAILABLE", "can_abandon": false, "objectives": [] }
+}
+```
+
+- 回包后服务端继续推送 `QUEST_UPDATE_PUSH` 差量
+
+### 10.5 任务快照新增字段与可重复任务刷新
+
+`QuestSummary` 新增：
+- `can_abandon`：当前是否可放弃，客户端只按它显示「放弃」按钮
+- `next_refresh_at_ms`：已完成的可重复任务下次重置时间（毫秒时间戳），不刷新时省略
+
+模板配置（迁移 `129_quest_refresh_cycle.sql`）：
+- `is_repeatable`：交付后可重置
+- `refresh_cycle`：`none`（交付后立即可重做）/ `daily`（每天 `refresh_hour` 点）/ `weekly`（每周一 `refresh_hour` 点），时间按服务器时区
+- `refresh_hour`：0~23
+
+刷新为**惰性执行**：交付时写入 `player_quest.next_refresh_at`；之后任何任务读写（列表、事件、接取、交付、放弃）加载状态时，若已到时刻则把任务重置为 `AVAILABLE` 并清空目标。自动接取的可重复任务重置后会被再次自动接取。无需定时器，也不扫描离线玩家。
 - 任务面板根据服务端任务快照生成的前置或目标引导文案统一通过 `ConfirmPromptPopup` 展示；普通系统通知仍保留 HUD 日志行为
 
 ## 11. 引导推送协议

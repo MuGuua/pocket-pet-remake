@@ -2728,6 +2728,10 @@ func (r *QuestRepository) FindAdminTemplateDetailByQuestID(_ context.Context, qu
 		MinPlayerLevel:     1,
 		Status:             1,
 		StatusText:         quest.AdminQuestTemplateStatusText(1),
+		CanAbandon:         template.CanAbandon,
+		IsRepeatable:       template.IsRepeatable,
+		RefreshCycle:       template.RefreshCycle,
+		RefreshHour:        template.RefreshHour,
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
 		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
@@ -2761,6 +2765,10 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		SubmitAnimationKey: input.SubmitAnimationKey,
 		AutoTrack:          input.AutoTrack,
 		MinPlayerLevel:     input.MinPlayerLevel,
+		CanAbandon:         input.CanAbandon,
+		IsRepeatable:       input.IsRepeatable,
+		RefreshCycle:       input.RefreshCycle,
+		RefreshHour:        input.RefreshHour,
 		PreQuestIDs:        append([]uint64{}, input.PreQuestIDs...),
 		AcceptConditions:   append([]quest.AcceptCondition{}, input.AcceptConditions...),
 		Rewards:            adminRewardsToRuntime(input.Rewards),
@@ -2797,6 +2805,10 @@ func (r *QuestRepository) CreateTemplateForAdmin(_ context.Context, input quest.
 		MinPlayerLevel:     input.MinPlayerLevel,
 		Status:             input.Status,
 		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
+		CanAbandon:         template.CanAbandon,
+		IsRepeatable:       template.IsRepeatable,
+		RefreshCycle:       template.RefreshCycle,
+		RefreshHour:        template.RefreshHour,
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
 		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
@@ -2872,6 +2884,10 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 	template.PreQuestIDs = append([]uint64{}, input.PreQuestIDs...)
 	template.AcceptConditions = append([]quest.AcceptCondition{}, input.AcceptConditions...)
 	template.MinPlayerLevel = input.MinPlayerLevel
+	template.CanAbandon = input.CanAbandon
+	template.IsRepeatable = input.IsRepeatable
+	template.RefreshCycle = input.RefreshCycle
+	template.RefreshHour = input.RefreshHour
 	template.Rewards = adminRewardsToRuntime(input.Rewards)
 	template.Objectives = []quest.ObjectiveTemplate{}
 	for _, objective := range input.Objectives {
@@ -2906,6 +2922,10 @@ func (r *QuestRepository) UpdateTemplateForAdmin(_ context.Context, questID uint
 		MinPlayerLevel:     input.MinPlayerLevel,
 		Status:             input.Status,
 		StatusText:         quest.AdminQuestTemplateStatusText(input.Status),
+		CanAbandon:         template.CanAbandon,
+		IsRepeatable:       template.IsRepeatable,
+		RefreshCycle:       template.RefreshCycle,
+		RefreshHour:        template.RefreshHour,
 		PreQuestIDs:        append([]uint64{}, template.PreQuestIDs...),
 		AcceptConditions:   append([]quest.AcceptCondition{}, template.AcceptConditions...),
 		Objectives:         objectives,
@@ -3178,8 +3198,57 @@ func (r *QuestRepository) UpsertPlayerQuest(_ context.Context, value quest.Playe
 	if r.playerQuests[value.PlayerID] == nil {
 		r.playerQuests[value.PlayerID] = map[uint64]quest.PlayerQuest{}
 	}
+	// 与正式仓储口径一致：完成时记录 completed_at，其它状态保留已有的完成与刷新时间。
+	previous, exists := r.playerQuests[value.PlayerID][value.QuestID]
+	if value.State == quest.StateCompleted {
+		now := time.Now()
+		value.CompletedAt = &now
+	} else if exists {
+		value.CompletedAt = previous.CompletedAt
+	}
+	if exists && value.NextRefreshAt == nil {
+		value.NextRefreshAt = previous.NextRefreshAt
+	}
 	r.playerQuests[value.PlayerID][value.QuestID] = value
 	return nil
+}
+
+// ResetPlayerQuest 模拟正式仓储的重置：状态回到 AVAILABLE，清空目标、追踪与刷新时间，保留 completed_at。
+func (r *QuestRepository) ResetPlayerQuest(_ context.Context, playerID uint64, questID uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	target, ok := r.playerQuests[playerID][questID]
+	if !ok {
+		return nil
+	}
+	target.State = quest.StateAvailable
+	target.Tracked = false
+	target.NextRefreshAt = nil
+	r.playerQuests[playerID][questID] = target
+	if r.playerObjectives[playerID] != nil {
+		delete(r.playerObjectives[playerID], questID)
+	}
+	return nil
+}
+
+// SetQuestNextRefreshAt 写入可重复任务的下次刷新时间。
+func (r *QuestRepository) SetQuestNextRefreshAt(_ context.Context, playerID uint64, questID uint64, nextRefreshAt *time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	target, ok := r.playerQuests[playerID][questID]
+	if !ok {
+		return nil
+	}
+	target.NextRefreshAt = nextRefreshAt
+	r.playerQuests[playerID][questID] = target
+	return nil
+}
+
+// PutTemplate 供测试直接写入或覆盖任务模板，用于验证可重复、可放弃等配置。
+func (r *QuestRepository) PutTemplate(template quest.Template) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.templates[template.QuestID] = template
 }
 
 func (r *QuestRepository) ReplacePlayerObjectives(_ context.Context, playerID uint64, questID uint64, objectives []quest.PlayerObjective) error {

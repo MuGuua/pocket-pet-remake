@@ -37,7 +37,11 @@ SELECT
   accept_conditions,
   pre_quest_ids,
   objectives_json,
-  rewards_json
+  rewards_json,
+  can_abandon,
+  is_repeatable,
+  refresh_cycle,
+  refresh_hour
 FROM quest_template
 WHERE status = 1
 ORDER BY chapter ASC, sort_order ASC, quest_id ASC
@@ -62,14 +66,18 @@ SELECT
   accept_conditions,
   pre_quest_ids,
   objectives_json,
-  rewards_json
+  rewards_json,
+  can_abandon,
+  is_repeatable,
+  refresh_cycle,
+  refresh_hour
 FROM quest_template
 WHERE quest_id = $1 AND status = 1
 LIMIT 1
 `
 
 const listPlayerQuestsQuery = `
-SELECT player_id, quest_id, state, tracked
+SELECT player_id, quest_id, state, tracked, completed_at, next_refresh_at
 FROM player_quest
 WHERE player_id = $1
 `
@@ -216,7 +224,7 @@ func (r *QuestRepository) ListPlayerQuestsByPlayerID(ctx context.Context, player
 	result := []quest.PlayerQuest{}
 	for rows.Next() {
 		var value quest.PlayerQuest
-		if err := rows.Scan(&value.PlayerID, &value.QuestID, &value.State, &value.Tracked); err != nil {
+		if err := rows.Scan(&value.PlayerID, &value.QuestID, &value.State, &value.Tracked, &value.CompletedAt, &value.NextRefreshAt); err != nil {
 			return nil, err
 		}
 		result = append(result, value)
@@ -426,6 +434,42 @@ func (r *QuestRepository) RevertCompletedQuestToReady(ctx context.Context, playe
 	return err
 }
 
+// resetPlayerQuestQuery 用单条语句完成「任务状态重置 + 清空目标进度」，保证两者原子生效。
+// completed_at 保留，用于后置任务解锁判断；accepted_at 置空，下次接取重新记录。
+const resetPlayerQuestQuery = `
+WITH reset AS (
+  UPDATE player_quest
+  SET state = 'AVAILABLE',
+      tracked = FALSE,
+      accepted_at = NULL,
+      next_refresh_at = NULL,
+      reward_claimed = FALSE
+  WHERE player_id = $1 AND quest_id = $2
+  RETURNING player_id, quest_id
+)
+DELETE FROM player_quest_objective o
+USING reset r
+WHERE o.player_id = r.player_id AND o.quest_id = r.quest_id
+`
+
+const setQuestNextRefreshAtQuery = `
+UPDATE player_quest
+SET next_refresh_at = $3
+WHERE player_id = $1 AND quest_id = $2
+`
+
+// ResetPlayerQuest 把任务恢复为可接取并清空目标，供可重复任务刷新与放弃任务共用。
+func (r *QuestRepository) ResetPlayerQuest(ctx context.Context, playerID uint64, questID uint64) error {
+	_, err := r.db.ExecContext(ctx, resetPlayerQuestQuery, playerID, questID)
+	return err
+}
+
+// SetQuestNextRefreshAt 写入可重复任务的下次刷新时间。
+func (r *QuestRepository) SetQuestNextRefreshAt(ctx context.Context, playerID uint64, questID uint64, nextRefreshAt *time.Time) error {
+	_, err := r.db.ExecContext(ctx, setQuestNextRefreshAtQuery, playerID, questID, nextRefreshAt)
+	return err
+}
+
 func (r *QuestRepository) enrichQuestGuideNPCNames(ctx context.Context, template *quest.Template) error {
 	if template == nil {
 		return nil
@@ -508,10 +552,15 @@ func scanQuestTemplate(scanner rowScanner) (quest.Template, error) {
 		&preQuestRaw,
 		&objectivesRaw,
 		&rewardsRaw,
+		&value.CanAbandon,
+		&value.IsRepeatable,
+		&value.RefreshCycle,
+		&value.RefreshHour,
 	)
 	if err != nil {
 		return quest.Template{}, err
 	}
+	value.RefreshCycle = quest.NormalizeRefreshCycle(value.RefreshCycle)
 	if len(acceptRaw) > 0 {
 		if err := json.Unmarshal(acceptRaw, &value.AcceptConditions); err != nil {
 			return quest.Template{}, err

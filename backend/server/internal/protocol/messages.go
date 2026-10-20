@@ -1262,6 +1262,10 @@ type QuestSummary struct {
 	CompletionPromptText string                `json:"completion_prompt_text,omitempty"`
 	Objectives           []QuestObjectiveState `json:"objectives"`
 	Rewards              []QuestReward         `json:"rewards,omitempty"`
+	// CanAbandon 表示当前是否允许放弃该任务，客户端据此显示「放弃」按钮。
+	CanAbandon bool `json:"can_abandon"`
+	// NextRefreshAtMS 为已完成的可重复任务下次重置时间（毫秒时间戳），0 表示不刷新。
+	NextRefreshAtMS int64 `json:"next_refresh_at_ms,omitempty"`
 }
 
 type QuestListResp struct {
@@ -1306,6 +1310,18 @@ type QuestSubmitResp struct {
 	LevelUpBonus         *LevelUpBonus `json:"level_up_bonus,omitempty"`
 	ClientAnimationKey   string        `json:"client_animation_key,omitempty"`
 	CompletionPromptText string        `json:"completion_prompt_text,omitempty"`
+}
+
+// QuestAbandonReq 是放弃任务请求（6051）；只允许放弃模板 can_abandon=true、非自动接取的进行中任务。
+type QuestAbandonReq struct {
+	QuestID uint64 `json:"quest_id"`
+}
+
+// QuestAbandonResp 是放弃任务回包（6052）；quest 为放弃后的权威任务状态。
+type QuestAbandonResp struct {
+	Accepted bool         `json:"accepted"`
+	Reason   string       `json:"reason"`
+	Quest    QuestSummary `json:"quest"`
 }
 
 type QuestTrackReq struct {

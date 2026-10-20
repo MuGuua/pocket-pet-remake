@@ -1,5 +1,16 @@
 # 最新变更记录
 
+## 2026-10-20 任务日常刷新与放弃任务
+
+- 背景：`quest_template.can_abandon`、`is_repeatable` 两列建表即有，但服务端从未读取；客户端「日常任务」页签的任务交付后永远停在已完成，玩家也无法放弃任务。
+- 迁移 `129_quest_refresh_cycle.sql`：模板新增 `refresh_cycle`（none/daily/weekly，CHECK 约束）与 `refresh_hour`（0~23）；已有 `DAILY` 类型任务初始化为「可重复 + 每日刷新」。**尚未在正式库执行。**
+- 领域层：新增 `quest/refresh.go`（`NextRefreshTime`、`shouldResetRepeatable`、`canAbandon`）；`Service` 注入可替换时钟；交付时写入 `next_refresh_at`；`loadState` 内惰性重置到期任务；新增 `Abandon` 与 `ErrQuestCannotAbandon`；`completedQuestSet` 同时认 `completed_at`，可重复任务重置后后置任务不会被重新锁住；自动接取的可重复任务重置后会再次自动接取。
+- 仓储：模板查询读取 4 个新列；玩家任务查询读取 `completed_at`、`next_refresh_at`；新增 `ResetPlayerQuest`（单条 CTE 同时重置状态并删除目标，原子生效）与 `SetQuestNextRefreshAt`。
+- 协议：新增 `6051 QUEST_ABANDON_REQ / 6052 QUEST_ABANDON_RESP`；`QuestSummary` 新增 `can_abandon`、`next_refresh_at_ms`。详见 `docs/quest-protocol.md` §10.3~10.5。
+- 后台：任务模板新增/编辑/详情支持「允许放弃 / 可重复 / 刷新周期 / 刷新时刻」，仓储 INSERT/UPDATE 字段追加在末尾（占位符 22→26），不影响原有参数顺序。
+- 客户端：`App.abandon_quest`、`quest_controller.handle_quest_abandon_response`；任务卡片场景新增默认隐藏的「放弃」按钮，仅在 `can_abandon` 时显示，点击后通过通用确认弹窗二次确认；任务详情展示下次刷新时间。
+- 测试：新增每日/每周/不可重复刷新时刻、跨日端到端重置、放弃成功与拒绝的领域用例，以及 2 个放弃 WS 用例。`go test ./server/... -count=1` 全部 27 个包通过，后台 `npm run build` 通过，Godot 校验 5 个改动脚本无语法错误。
+
 ## 2026-10-20 商店出售闭环、后台补发前端与审计、药囊配置
 
 ### 商店出售（5111 / 5112）

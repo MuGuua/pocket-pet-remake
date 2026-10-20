@@ -210,6 +210,10 @@ const QUEST_SUBMIT_RESP: int = 6032
 const QUEST_TRACK_REQ: int = 6041
 # 任务追踪响应消息号。
 const QUEST_TRACK_RESP: int = 6042
+## 放弃任务请求消息号；只允许放弃模板可放弃、非自动接取的进行中任务。
+const QUEST_ABANDON_REQ: int = 6051
+## 放弃任务响应消息号。
+const QUEST_ABANDON_RESP: int = 6052
 
 # 服务端公告推送消息号。
 const NOTICE_PUSH: int = 9001
@@ -418,6 +422,10 @@ static func name_of(cmd: int) -> String:
             return "QUEST_TRACK_REQ"
         QUEST_TRACK_RESP:
             return "QUEST_TRACK_RESP"
+        QUEST_ABANDON_REQ:
+            return "QUEST_ABANDON_REQ"
+        QUEST_ABANDON_RESP:
+            return "QUEST_ABANDON_RESP"
         NOTICE_PUSH:
             return "NOTICE_PUSH"
         KICKOUT_PUSH:

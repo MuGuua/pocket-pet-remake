@@ -354,6 +354,11 @@ func submit_quest(quest_id: int, npc_id: int = 0) -> int:
 func track_quest(quest_id: int) -> int:
 	return _send_command(CommandIds.QUEST_TRACK_REQ, {"quest_id": quest_id})
 
+## 向服务端提交放弃任务请求；能否放弃完全由服务端按任务模板与当前状态判定。
+## quest_id 为要放弃的任务 ID，返回请求序列号供 UI 等待回包。
+func abandon_quest(quest_id: int) -> int:
+	return _send_command(CommandIds.QUEST_ABANDON_REQ, {"quest_id": quest_id})
+
 ## 通知服务端指定场景剧情已经播放完毕，由服务端落库剧情 flag 并执行任务/NPC 解锁。
 func ack_scene_trigger(trigger_code: String) -> int:
 	return _send_command(CommandIds.SCENE_TRIGGER_ACK_REQ, {"trigger_code": trigger_code})
@@ -755,6 +760,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.QUEST_SUBMIT_REQ
 		CommandIds.QUEST_TRACK_RESP:
 			return CommandIds.QUEST_TRACK_REQ
+		CommandIds.QUEST_ABANDON_RESP:
+			return CommandIds.QUEST_ABANDON_REQ
 		CommandIds.SCENE_TRIGGER_ACK_RESP:
 			return CommandIds.SCENE_TRIGGER_ACK_REQ
 		_:

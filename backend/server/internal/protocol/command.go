@@ -107,6 +107,8 @@ const (
 	CmdQuestSubmitResp            uint16 = 6032
 	CmdQuestTrackReq              uint16 = 6041
 	CmdQuestTrackResp             uint16 = 6042
+	CmdQuestAbandonReq            uint16 = 6051
+	CmdQuestAbandonResp           uint16 = 6052
 	CmdNoticePush                 uint16 = 9001
 	CmdKickOutPush                uint16 = 9002
 )

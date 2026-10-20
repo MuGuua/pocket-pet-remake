@@ -1,3 +1,6 @@
+/** 可重复任务的刷新周期，与服务端 quest.NormalizeRefreshCycle 取值一致。 */
+export type QuestRefreshCycle = 'none' | 'daily' | 'weekly';
+
 export interface AdminQuestTemplateSummary {
   quest_id: number;
   name: string;
@@ -84,6 +87,14 @@ export interface AdminQuestTemplateDetail {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  /** 允许玩家放弃已接取、未交付的任务；自动接取的任务始终不可放弃。 */
+  can_abandon: boolean;
+  /** 交付后按刷新周期重置为可接取。 */
+  is_repeatable: boolean;
+  /** 刷新周期：none / daily / weekly。 */
+  refresh_cycle: QuestRefreshCycle;
+  /** 刷新时刻，0~23 点（服务器时区）。 */
+  refresh_hour: number;
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
@@ -119,6 +130,14 @@ export interface AdminCreateQuestTemplatePayload {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  /** 允许玩家放弃已接取、未交付的任务；自动接取的任务始终不可放弃。 */
+  can_abandon: boolean;
+  /** 交付后按刷新周期重置为可接取。 */
+  is_repeatable: boolean;
+  /** 刷新周期：none / daily / weekly。 */
+  refresh_cycle: QuestRefreshCycle;
+  /** 刷新时刻，0~23 点（服务器时区）。 */
+  refresh_hour: number;
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;

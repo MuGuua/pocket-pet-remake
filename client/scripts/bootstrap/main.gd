@@ -348,6 +348,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.QUEST_ACCEPT_RESP, Callable(quest_controller, "handle_quest_accept_response"))
 	MessageRouter.register_handler(CommandIds.QUEST_SUBMIT_RESP, Callable(quest_controller, "handle_quest_submit_response"))
 	MessageRouter.register_handler(CommandIds.QUEST_TRACK_RESP, Callable(quest_controller, "handle_quest_track_response"))
+	MessageRouter.register_handler(CommandIds.QUEST_ABANDON_RESP, Callable(quest_controller, "handle_quest_abandon_response"))
 
 # 注销主运行态注册过的全部协议路由。
 func _unregister_routes() -> void:
@@ -403,6 +404,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.QUEST_ACCEPT_RESP, Callable(quest_controller, "handle_quest_accept_response"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_SUBMIT_RESP, Callable(quest_controller, "handle_quest_submit_response"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_TRACK_RESP, Callable(quest_controller, "handle_quest_track_response"))
+	MessageRouter.unregister_handler(CommandIds.QUEST_ABANDON_RESP, Callable(quest_controller, "handle_quest_abandon_response"))
 
 # 绑定主运行态依赖的应用信号、HUD 交互信号和全局状态信号。
 func _connect_signals() -> void:

@@ -3,6 +3,7 @@ package wstransport
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"pocket-pet-remake/server/internal/module/quest"
 	"pocket-pet-remake/server/internal/platform/errcode"
@@ -124,7 +125,17 @@ func toProtocolQuestSummary(value quest.Summary) protocol.QuestSummary {
 		CompletionPromptText: value.CompletionPromptText,
 		Objectives:           objectives,
 		Rewards:              toProtocolQuestRewards(value.Rewards),
+		CanAbandon:           value.CanAbandon,
+		NextRefreshAtMS:      questNextRefreshAtMS(value.NextRefreshAt),
 	}
+}
+
+// questNextRefreshAtMS 把刷新时间转为毫秒时间戳，未设置时返回 0（字段会被省略）。
+func questNextRefreshAtMS(value *time.Time) int64 {
+	if value == nil {
+		return 0
+	}
+	return value.UnixMilli()
 }
 
 func copyQuestTargetSelector(value map[string]any) map[string]any {

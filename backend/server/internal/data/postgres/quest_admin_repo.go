@@ -57,7 +57,11 @@ SELECT
   objectives_json,
   rewards_json,
   created_at,
-  updated_at
+  updated_at,
+  can_abandon,
+  is_repeatable,
+  refresh_cycle,
+  refresh_hour
 FROM quest_template
 WHERE quest_id = $1
 LIMIT 1
@@ -86,9 +90,13 @@ INSERT INTO quest_template (
   pre_quest_ids,
   objectives_json,
   rewards_json,
-  status
+  status,
+  can_abandon,
+  is_repeatable,
+  refresh_cycle,
+  refresh_hour
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 )
 `
 
@@ -117,7 +125,11 @@ SET quest_type = $2,
     pre_quest_ids = $19,
     objectives_json = $20,
     rewards_json = $21,
-    status = $22
+    status = $22,
+    can_abandon = $23,
+    is_repeatable = $24,
+    refresh_cycle = $25,
+    refresh_hour = $26
 WHERE quest_id = $1
 `
 
@@ -352,6 +364,7 @@ func (r *QuestRepository) CreateTemplateForAdmin(ctx context.Context, input ques
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
 		input.MinPlayerLevel, acceptConditionsJSON, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
+		input.CanAbandon, input.IsRepeatable, input.RefreshCycle, input.RefreshHour,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -387,6 +400,7 @@ func (r *QuestRepository) UpdateTemplateForAdmin(ctx context.Context, questID ui
 		input.Chapter, input.SortOrder, input.AcceptMode, input.SubmitMode, input.AutoTrack,
 		input.ClientIconID, input.StartNPCID, input.SubmitNPCID, input.AcceptAnimationKey, input.SubmitAnimationKey,
 		input.MinPlayerLevel, acceptConditionsJSON, preQuestIDsJSON, objectivesJSON, rewardsJSON, input.Status,
+		input.CanAbandon, input.IsRepeatable, input.RefreshCycle, input.RefreshHour,
 	)
 	if err != nil {
 		return nil, err
@@ -789,7 +803,7 @@ func scanAdminQuestTemplateDetail(row *sql.Row) (*quest.AdminTemplateDetail, err
 		objectivesRaw []byte
 		rewardsRaw    []byte
 	)
-	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &item.CompletionPromptText, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &acceptRaw, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := row.Scan(&item.QuestID, &item.Name, &item.QuestType, &item.Title, &item.Description, &item.CompletionPromptText, &chapter, &sortOrder, &item.AcceptMode, &item.SubmitMode, &item.AutoTrack, &item.ClientIconID, &item.StartNPCID, &item.SubmitNPCID, &item.AcceptAnimationKey, &item.SubmitAnimationKey, &minLevel, &status, &acceptRaw, &preQuestRaw, &objectivesRaw, &rewardsRaw, &item.CreatedAt, &item.UpdatedAt, &item.CanAbandon, &item.IsRepeatable, &item.RefreshCycle, &item.RefreshHour); err != nil {
 		return nil, err
 	}
 	item.Chapter = uint32(chapter)

@@ -1,6 +1,9 @@
 package quest
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Repository interface {
 	ListTemplates(ctx context.Context) ([]Template, error)
@@ -24,4 +27,8 @@ type Repository interface {
 	ReplacePlayerObjectives(ctx context.Context, playerID uint64, questID uint64, objectives []PlayerObjective) error
 	SetTrackedQuest(ctx context.Context, playerID uint64, questID uint64) error
 	RevertCompletedQuestToReady(ctx context.Context, playerID uint64, questID uint64) error
+	// ResetPlayerQuest 把任务恢复为 AVAILABLE：清空目标进度、取消追踪与刷新时间，保留 completed_at。
+	ResetPlayerQuest(ctx context.Context, playerID uint64, questID uint64) error
+	// SetQuestNextRefreshAt 写入可重复任务的下次刷新时间；nil 表示清除。
+	SetQuestNextRefreshAt(ctx context.Context, playerID uint64, questID uint64, nextRefreshAt *time.Time) error
 }

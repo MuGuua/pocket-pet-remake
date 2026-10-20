@@ -17,10 +17,28 @@ const (
 
 type Service struct {
 	repo Repository
+	// now 返回当前时间；测试可替换以验证跨日刷新，生产使用服务器本地时间。
+	now func() time.Time
 }
 
 func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{repo: repo, now: time.Now}
+}
+
+// SetClock 替换服务内部时钟，仅供测试验证刷新时刻使用。
+func (s *Service) SetClock(now func() time.Time) {
+	if s == nil || now == nil {
+		return
+	}
+	s.now = now
+}
+
+// currentTime 返回当前时间，未设置时钟时回退到 time.Now。
+func (s *Service) currentTime() time.Time {
+	if s == nil || s.now == nil {
+		return time.Now()
+	}
+	return s.now()
 }
 
 // ListAdminTemplates 返回后台任务模板列表。
@@ -316,8 +334,16 @@ func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, n
 	if err := s.repo.ReplacePlayerObjectives(ctx, playerID, questID, objectives); err != nil {
 		return SubmitResult{}, err
 	}
+	completedAt := s.currentTime()
+	nextRefreshAt := NextRefreshTime(*template, completedAt)
+	if nextRefreshAt != nil {
+		// 可重复任务在交付时就写好下次重置时间，后续加载任务列表时据此自动重置。
+		if err := s.repo.SetQuestNextRefreshAt(ctx, playerID, questID, nextRefreshAt); err != nil {
+			return SubmitResult{}, err
+		}
+	}
 
-	playerQuest := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateCompleted, Tracked: existing.Tracked}
+	playerQuest := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateCompleted, Tracked: existing.Tracked, CompletedAt: &completedAt, NextRefreshAt: nextRefreshAt}
 	completed := completedQuestSet(playerQuestMap)
 	completed[questID] = true
 	return SubmitResult{
@@ -344,6 +370,29 @@ func (s *Service) Track(ctx context.Context, playerID uint64, questID uint64) er
 		return ErrQuestTemplateNotFound
 	}
 	return s.repo.SetTrackedQuest(ctx, playerID, questID)
+}
+
+// Abandon 放弃一个进行中或待交付的任务：清空目标进度、取消追踪，并把任务恢复为可接取。
+// 已领取过的奖励不受影响（未交付的任务本来就没有发奖），completed_at 也会保留。
+func (s *Service) Abandon(ctx context.Context, playerID uint64, questID uint64) (Summary, error) {
+	template, playerQuestMap, _, err := s.loadSingle(ctx, playerID, questID)
+	if err != nil {
+		return Summary{}, err
+	}
+	existing := playerQuestMap[questID]
+	if !canAbandon(*template, existing) {
+		return Summary{}, ErrQuestCannotAbandon
+	}
+	if err := s.repo.ResetPlayerQuest(ctx, playerID, questID); err != nil {
+		return Summary{}, err
+	}
+	facts, err := s.repo.LoadAcceptConditionFacts(ctx, playerID)
+	if err != nil {
+		return Summary{}, err
+	}
+	reset := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateAvailable, CompletedAt: existing.CompletedAt}
+	playerQuestMap[questID] = reset
+	return buildSummary(*template, reset, nil, completedQuestSet(playerQuestMap), facts), nil
 }
 
 func (s *Service) HandleEvent(ctx context.Context, event Event) ([]Summary, error) {
@@ -479,7 +528,11 @@ func (s *Service) materializeAutoAcceptedQuests(ctx context.Context, playerID ui
 	completed := completedQuestSet(playerQuestMap)
 	autoAcceptedQuestIDs := make([]uint64, 0)
 	for _, template := range templates {
-		if playerQuestMap[template.QuestID] != nil || template.AcceptMode != "AUTO" || !isUnlocked(&template, completed, facts) {
+		// 已有记录的任务不重复自动接取；但可重复任务重置后记录状态为 AVAILABLE，需要再次自动接取。
+		if existing := playerQuestMap[template.QuestID]; existing != nil && existing.State != StateAvailable {
+			continue
+		}
+		if template.AcceptMode != "AUTO" || !isUnlocked(&template, completed, facts) {
 			continue
 		}
 		tracked := template.AutoTrack
@@ -534,7 +587,34 @@ func (s *Service) loadState(ctx context.Context, playerID uint64) ([]Template, m
 	for _, objective := range playerObjectives {
 		playerObjectiveMap[objective.QuestID] = append(playerObjectiveMap[objective.QuestID], objective)
 	}
+	if err := s.resetDueRepeatableQuests(ctx, playerID, templates, playerQuestMap, playerObjectiveMap); err != nil {
+		return nil, nil, nil, err
+	}
 	return templates, playerQuestMap, playerObjectiveMap, nil
+}
+
+// resetDueRepeatableQuests 在任何任务读写前惰性刷新：已完成且到达 next_refresh_at 的可重复任务
+// 重置为 AVAILABLE 并清空目标。惰性刷新不需要定时器，玩家下次打开任务、触发事件或交互时自然生效，
+// 离线玩家也不会被批量扫描。
+func (s *Service) resetDueRepeatableQuests(ctx context.Context, playerID uint64, templates []Template, playerQuestMap map[uint64]*PlayerQuest, playerObjectiveMap map[uint64][]PlayerObjective) error {
+	now := s.currentTime()
+	for _, template := range templates {
+		current := playerQuestMap[template.QuestID]
+		if !shouldResetRepeatable(template, current, now) {
+			continue
+		}
+		if err := s.repo.ResetPlayerQuest(ctx, playerID, template.QuestID); err != nil {
+			return err
+		}
+		playerQuestMap[template.QuestID] = &PlayerQuest{
+			PlayerID:    playerID,
+			QuestID:     template.QuestID,
+			State:       StateAvailable,
+			CompletedAt: current.CompletedAt,
+		}
+		delete(playerObjectiveMap, template.QuestID)
+	}
+	return nil
 }
 
 func (s *Service) loadSingle(ctx context.Context, playerID uint64, questID uint64) (*Template, map[uint64]*PlayerQuest, map[uint64][]PlayerObjective, error) {
@@ -555,7 +635,8 @@ func (s *Service) loadSingle(ctx context.Context, playerID uint64, questID uint6
 func completedQuestSet(playerQuestMap map[uint64]*PlayerQuest) map[uint64]bool {
 	result := make(map[uint64]bool, len(playerQuestMap))
 	for questID, value := range playerQuestMap {
-		if value != nil && value.State == StateCompleted {
+		// 可重复任务重置后 state 回到 AVAILABLE，但 completed_at 保留，后置任务仍视其为已完成。
+		if value != nil && (value.State == StateCompleted || value.CompletedAt != nil) {
 			result[questID] = true
 		}
 	}
@@ -702,7 +783,17 @@ func buildSummary(template Template, playerQuest *PlayerQuest, objectives []Play
 		CompletionPromptText: template.CompletionPromptText,
 		Objectives:           objectiveSummaries,
 		Rewards:              collectSupportedRewards(template.Rewards),
+		CanAbandon:           canAbandon(template, playerQuest),
+		NextRefreshAt:        summaryNextRefreshAt(state, playerQuest),
 	}
+}
+
+// summaryNextRefreshAt 只在已完成状态下返回下次刷新时间，其它状态没有展示意义。
+func summaryNextRefreshAt(state string, playerQuest *PlayerQuest) *time.Time {
+	if state != StateCompleted || playerQuest == nil {
+		return nil
+	}
+	return playerQuest.NextRefreshAt
 }
 
 func buildInitialObjectives(playerID uint64, template Template) []PlayerObjective {

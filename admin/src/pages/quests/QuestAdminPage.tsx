@@ -54,6 +54,7 @@ import type {
   AdminQuestTemplateSummary,
   AdminUpdatePlayerQuestPayload,
   AdminUpdateQuestTemplatePayload,
+  QuestRefreshCycle,
 } from '../../types/quest';
 import { buildFilterSelectOptions, buildSelectOptions, formatDisplayLabel, QUEST_EVENT_TYPE_LABELS, QUEST_MODE_LABELS, QUEST_STATE_LABELS, QUEST_TYPE_LABELS } from '../../utils/displayLabels';
 import { formatDateTime } from '../../utils/formatDateTime';
@@ -82,6 +83,10 @@ interface TemplateFormValues {
   accept_mode: string;
   submit_mode: string;
   auto_track: boolean;
+  can_abandon: boolean;
+  is_repeatable: boolean;
+  refresh_cycle: QuestRefreshCycle;
+  refresh_hour: number;
   client_icon_id: number;
   start_npc_id: number;
   submit_npc_id: number;
@@ -108,6 +113,13 @@ const templateStatusOptions = [
   { label: '全部状态', value: '' },
   { label: '启用', value: '1' },
   { label: '停用', value: '0' },
+];
+
+/** 可重复任务刷新周期选项；配置值与服务端 refresh_cycle 一致，展示文案为中文。 */
+const QUEST_REFRESH_CYCLE_OPTIONS: Array<{ label: string; value: QuestRefreshCycle }> = [
+  { label: '不按时间刷新（交付后立即可重做）', value: 'none' },
+  { label: '每日刷新', value: 'daily' },
+  { label: '每周一刷新', value: 'weekly' },
 ];
 
 const editableTemplateStatusOptions = [
@@ -519,6 +531,18 @@ function QuestTemplatePanel() {
                             <Col xs={24} md={12}><Form.Item label="交付动画键" name="submit_animation_key" rules={[{ pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5-]*$/, message: '只能填写动画注册键' }]}><Input allowClear /></Form.Item></Col>
                             <Col xs={12} md={6}><Form.Item label="状态" name="status"><Select options={editableTemplateStatusOptions} /></Form.Item></Col>
                             <Col xs={24} md={8}><Form.Item label="自动追踪" name="auto_track" valuePropName="checked" extra="接取后是否默认开启追踪。"><Switch /></Form.Item></Col>
+                            <Col xs={24} md={8}><Form.Item label="允许放弃" name="can_abandon" valuePropName="checked" extra="玩家可放弃进行中的任务；自动接取的任务即使开启也不可放弃。"><Switch /></Form.Item></Col>
+                            <Col xs={24} md={8}><Form.Item label="可重复" name="is_repeatable" valuePropName="checked" extra="交付后按刷新周期重置为可接取，后置任务解锁不受影响。"><Switch /></Form.Item></Col>
+                            <Col xs={12} md={8}>
+                              <Form.Item label="刷新周期" name="refresh_cycle" extra="仅对可重复任务生效。">
+                                <Select options={QUEST_REFRESH_CYCLE_OPTIONS} />
+                              </Form.Item>
+                            </Col>
+                            <Col xs={12} md={8}>
+                              <Form.Item label="刷新时刻（点）" name="refresh_hour" extra="0~23，服务器时区；每周刷新为每周一该时刻。">
+                                <InputNumber min={0} max={23} precision={0} style={{ width: '100%' }} />
+                              </Form.Item>
+                            </Col>
                             <Col span={24}>
                               <Form.Item label="任务开启条件" tooltip="所有条件均由服务端读取数据库权威数据并按 AND 关系校验。">
                                 <QuestAcceptConditionEditor
@@ -817,6 +841,10 @@ function defaultTemplateValues(): TemplateFormValues {
     accept_mode: 'AUTO',
     submit_mode: 'AUTO',
     auto_track: true,
+    can_abandon: false,
+    is_repeatable: false,
+    refresh_cycle: 'none',
+    refresh_hour: 5,
     client_icon_id: 1,
     start_npc_id: 0,
     submit_npc_id: 0,
@@ -855,6 +883,10 @@ function mapTemplateDetailToForm(detail: AdminQuestTemplateDetail): TemplateForm
     accept_mode: detail.accept_mode,
     submit_mode: detail.submit_mode,
     auto_track: detail.auto_track,
+    can_abandon: detail.can_abandon ?? false,
+    is_repeatable: detail.is_repeatable ?? false,
+    refresh_cycle: detail.refresh_cycle ?? 'none',
+    refresh_hour: detail.refresh_hour ?? 5,
     client_icon_id: detail.client_icon_id || 1,
     start_npc_id: detail.start_npc_id,
     submit_npc_id: detail.submit_npc_id,
@@ -893,6 +925,10 @@ function mapTemplateFormToCreatePayload(values: TemplateFormValues): AdminCreate
     accept_mode: values.accept_mode,
     submit_mode: values.submit_mode,
     auto_track: values.auto_track,
+    can_abandon: Boolean(values.can_abandon),
+    is_repeatable: Boolean(values.is_repeatable),
+    refresh_cycle: values.refresh_cycle ?? 'none',
+    refresh_hour: Math.trunc(values.refresh_hour ?? 5),
     client_icon_id: values.client_icon_id || 1,
     start_npc_id: values.start_npc_id,
     submit_npc_id: values.submit_npc_id,

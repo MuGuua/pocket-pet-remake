@@ -214,6 +214,40 @@ func (h *QuestHandler) HandleQuestTrack(conn packetSender, packet *protocol.Pack
 	return pushQuestDiff(ctx, conn, h.questService, playerID, before)
 }
 
+// HandleQuestAbandon 放弃任务（6051 -> 6052）。规则校验全部在 quest.Service.Abandon，
+// handler 只负责协议编排：回包后推送任务差量，让任务面板与追踪区同步刷新。
+func (h *QuestHandler) HandleQuestAbandon(conn packetSender, packet *protocol.Packet) error {
+	var request protocol.QuestAbandonReq
+	if err := protocol.UnmarshalBody(packet.Body, &request); err != nil || request.QuestID == 0 {
+		return sendError(conn, packet.Seq, errcode.WSCodeInvalidPacket, "invalid quest abandon body")
+	}
+	playerID, err := h.requirePlayerID(conn.ID())
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
+	}
+	ctx := context.Background()
+	before, err := listQuestSummaries(ctx, h.questService, playerID)
+	if err != nil {
+		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
+	}
+	summary, err := h.questService.Abandon(ctx, playerID, request.QuestID)
+	if err != nil {
+		return h.sendQuestDomainError(conn, packet.Seq, err)
+	}
+	responsePacket, err := protocol.NewJSONPacket(protocol.CmdQuestAbandonResp, packet.Seq, errcode.WSCodeSuccess, protocol.QuestAbandonResp{
+		Accepted: true,
+		Reason:   "quest abandoned",
+		Quest:    toProtocolQuestSummary(summary),
+	})
+	if err != nil {
+		return err
+	}
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	return pushQuestDiff(ctx, conn, h.questService, playerID, before)
+}
+
 func (h *QuestHandler) requirePlayerID(connID string) (uint64, error) {
 	sess, err := h.sessionService.GetByConnID(connID)
 	if err != nil {
@@ -237,6 +271,8 @@ func (h *QuestHandler) sendQuestDomainError(conn packetSender, seq uint32, err e
 		reason = "quest accept npc mismatch"
 	case errors.Is(err, quest.ErrQuestSubmitNPCMismatch):
 		reason = "quest submit npc mismatch"
+	case errors.Is(err, quest.ErrQuestCannotAbandon):
+		reason = "quest cannot be abandoned"
 	}
 	packet, packetErr := protocol.NewJSONPacket(protocol.CmdErrorPush, seq, errcode.WSCodeSuccess, protocol.ErrorPush{
 		Code: errcode.WSCodeSuccess,

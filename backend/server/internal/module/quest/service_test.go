@@ -285,7 +285,11 @@ func newQuestServiceTestRepo() *questServiceTestRepo {
 }
 
 func (r *questServiceTestRepo) ListTemplates(context.Context) ([]Template, error) {
-	return []Template{}, nil
+	result := make([]Template, 0, len(r.templates))
+	for _, template := range r.templates {
+		result = append(result, template)
+	}
+	return result, nil
 }
 
 func (r *questServiceTestRepo) FindTemplateByQuestID(_ context.Context, questID uint64) (*Template, error) {
@@ -367,7 +371,43 @@ func (r *questServiceTestRepo) UpsertPlayerQuest(_ context.Context, value Player
 	if r.playerQuests[value.PlayerID] == nil {
 		r.playerQuests[value.PlayerID] = map[uint64]PlayerQuest{}
 	}
+	// 与正式仓储一致：完成时写入 completed_at，其它状态保留完成与刷新时间。
+	previous, exists := r.playerQuests[value.PlayerID][value.QuestID]
+	if value.State == StateCompleted {
+		now := time.Now()
+		value.CompletedAt = &now
+	} else if exists {
+		value.CompletedAt = previous.CompletedAt
+	}
+	if exists && value.NextRefreshAt == nil {
+		value.NextRefreshAt = previous.NextRefreshAt
+	}
 	r.playerQuests[value.PlayerID][value.QuestID] = value
+	return nil
+}
+
+func (r *questServiceTestRepo) ResetPlayerQuest(_ context.Context, playerID uint64, questID uint64) error {
+	current, ok := r.playerQuests[playerID][questID]
+	if !ok {
+		return nil
+	}
+	current.State = StateAvailable
+	current.Tracked = false
+	current.NextRefreshAt = nil
+	r.playerQuests[playerID][questID] = current
+	if r.playerObjectives[playerID] != nil {
+		delete(r.playerObjectives[playerID], questID)
+	}
+	return nil
+}
+
+func (r *questServiceTestRepo) SetQuestNextRefreshAt(_ context.Context, playerID uint64, questID uint64, nextRefreshAt *time.Time) error {
+	current, ok := r.playerQuests[playerID][questID]
+	if !ok {
+		return nil
+	}
+	current.NextRefreshAt = nextRefreshAt
+	r.playerQuests[playerID][questID] = current
 	return nil
 }
 

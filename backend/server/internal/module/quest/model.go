@@ -36,6 +36,14 @@ type Template struct {
 	AcceptConditions     []AcceptCondition
 	Objectives           []ObjectiveTemplate
 	Rewards              []Reward
+	// CanAbandon 为 true 时玩家可放弃已接取、未交付的任务。
+	CanAbandon bool
+	// IsRepeatable 为 true 时任务交付后会在 RefreshCycle 指定的时刻重置为可接取。
+	IsRepeatable bool
+	// RefreshCycle 为 none / daily / weekly，见 refresh.go。
+	RefreshCycle string
+	// RefreshHour 为刷新时刻（0~23 点，服务器时区）。
+	RefreshHour uint32
 }
 
 const (
@@ -91,6 +99,10 @@ type PlayerQuest struct {
 	QuestID  uint64
 	State    string
 	Tracked  bool
+	// CompletedAt 为最近一次完成时间；可重复任务重置后仍保留，用于判断后置任务是否解锁。
+	CompletedAt *time.Time
+	// NextRefreshAt 为可重复任务的下次重置时间，为空表示不刷新。
+	NextRefreshAt *time.Time
 }
 
 type PlayerObjective struct {
@@ -118,6 +130,10 @@ type Summary struct {
 	CompletionPromptText string
 	Objectives           []ObjectiveSummary
 	Rewards              []Reward
+	// CanAbandon 表示当前状态下玩家能否放弃该任务，客户端据此显示「放弃」按钮。
+	CanAbandon bool
+	// NextRefreshAt 为已完成的可重复任务下次重置时间，客户端可展示「明日 5 点刷新」。
+	NextRefreshAt *time.Time
 }
 
 type ObjectiveSummary struct {
@@ -245,32 +261,44 @@ func (input AdminRewardInput) Normalize() AdminRewardInput {
 
 // AdminCreateTemplateInput 描述后台新增任务模板时允许写入的持久化字段。
 type AdminCreateTemplateInput struct {
-	QuestID              uint64                `json:"quest_id"`
-	Name                 string                `json:"name"`
-	QuestType            string                `json:"quest_type"`
-	Title                string                `json:"title"`
-	Description          string                `json:"description"`
-	CompletionPromptText string                `json:"completion_prompt_text"`
-	Chapter              uint32                `json:"chapter"`
-	SortOrder            uint32                `json:"sort_order"`
-	AcceptMode           string                `json:"accept_mode"`
-	SubmitMode           string                `json:"submit_mode"`
-	AutoTrack            bool                  `json:"auto_track"`
-	ClientIconID         uint64                `json:"client_icon_id"`
-	StartNPCID           uint64                `json:"start_npc_id"`
-	SubmitNPCID          uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey   string                `json:"accept_animation_key"`
-	SubmitAnimationKey   string                `json:"submit_animation_key"`
-	MinPlayerLevel       uint32                `json:"min_player_level"`
-	Status               uint32                `json:"status"`
-	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
-	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
-	Objectives           []AdminObjectiveInput `json:"objectives"`
-	Rewards              []AdminRewardInput    `json:"rewards"`
+	QuestID              uint64 `json:"quest_id"`
+	Name                 string `json:"name"`
+	QuestType            string `json:"quest_type"`
+	Title                string `json:"title"`
+	Description          string `json:"description"`
+	CompletionPromptText string `json:"completion_prompt_text"`
+	Chapter              uint32 `json:"chapter"`
+	SortOrder            uint32 `json:"sort_order"`
+	AcceptMode           string `json:"accept_mode"`
+	SubmitMode           string `json:"submit_mode"`
+	AutoTrack            bool   `json:"auto_track"`
+	ClientIconID         uint64 `json:"client_icon_id"`
+	StartNPCID           uint64 `json:"start_npc_id"`
+	SubmitNPCID          uint64 `json:"submit_npc_id"`
+	AcceptAnimationKey   string `json:"accept_animation_key"`
+	SubmitAnimationKey   string `json:"submit_animation_key"`
+	MinPlayerLevel       uint32 `json:"min_player_level"`
+	Status               uint32 `json:"status"`
+	// CanAbandon 允许玩家放弃已接取、未交付的任务（自动接取任务始终不可放弃）。
+	CanAbandon bool `json:"can_abandon"`
+	// IsRepeatable 为 true 时交付后按 RefreshCycle 重置为可接取。
+	IsRepeatable bool `json:"is_repeatable"`
+	// RefreshCycle 为 none / daily / weekly。
+	RefreshCycle string `json:"refresh_cycle"`
+	// RefreshHour 为刷新时刻（0~23 点，服务器时区）。
+	RefreshHour      uint32                `json:"refresh_hour"`
+	PreQuestIDs      []uint64              `json:"pre_quest_ids"`
+	AcceptConditions []AcceptCondition     `json:"accept_conditions"`
+	Objectives       []AdminObjectiveInput `json:"objectives"`
+	Rewards          []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 	input.Name = strings.TrimSpace(input.Name)
+	input.RefreshCycle = NormalizeRefreshCycle(input.RefreshCycle)
+	if input.RefreshHour > 23 {
+		input.RefreshHour = 23
+	}
 	input.QuestType = strings.TrimSpace(input.QuestType)
 	input.Title = strings.TrimSpace(input.Title)
 	input.Description = strings.TrimSpace(input.Description)
@@ -303,31 +331,43 @@ func (input AdminCreateTemplateInput) Normalize() AdminCreateTemplateInput {
 
 // AdminUpdateTemplateInput 描述后台编辑任务模板时允许调整的字段。
 type AdminUpdateTemplateInput struct {
-	Name                 string                `json:"name"`
-	QuestType            string                `json:"quest_type"`
-	Title                string                `json:"title"`
-	Description          string                `json:"description"`
-	CompletionPromptText string                `json:"completion_prompt_text"`
-	Chapter              uint32                `json:"chapter"`
-	SortOrder            uint32                `json:"sort_order"`
-	AcceptMode           string                `json:"accept_mode"`
-	SubmitMode           string                `json:"submit_mode"`
-	AutoTrack            bool                  `json:"auto_track"`
-	ClientIconID         uint64                `json:"client_icon_id"`
-	StartNPCID           uint64                `json:"start_npc_id"`
-	SubmitNPCID          uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey   string                `json:"accept_animation_key"`
-	SubmitAnimationKey   string                `json:"submit_animation_key"`
-	MinPlayerLevel       uint32                `json:"min_player_level"`
-	Status               uint32                `json:"status"`
-	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
-	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
-	Objectives           []AdminObjectiveInput `json:"objectives"`
-	Rewards              []AdminRewardInput    `json:"rewards"`
+	Name                 string `json:"name"`
+	QuestType            string `json:"quest_type"`
+	Title                string `json:"title"`
+	Description          string `json:"description"`
+	CompletionPromptText string `json:"completion_prompt_text"`
+	Chapter              uint32 `json:"chapter"`
+	SortOrder            uint32 `json:"sort_order"`
+	AcceptMode           string `json:"accept_mode"`
+	SubmitMode           string `json:"submit_mode"`
+	AutoTrack            bool   `json:"auto_track"`
+	ClientIconID         uint64 `json:"client_icon_id"`
+	StartNPCID           uint64 `json:"start_npc_id"`
+	SubmitNPCID          uint64 `json:"submit_npc_id"`
+	AcceptAnimationKey   string `json:"accept_animation_key"`
+	SubmitAnimationKey   string `json:"submit_animation_key"`
+	MinPlayerLevel       uint32 `json:"min_player_level"`
+	Status               uint32 `json:"status"`
+	// CanAbandon 允许玩家放弃已接取、未交付的任务（自动接取任务始终不可放弃）。
+	CanAbandon bool `json:"can_abandon"`
+	// IsRepeatable 为 true 时交付后按 RefreshCycle 重置为可接取。
+	IsRepeatable bool `json:"is_repeatable"`
+	// RefreshCycle 为 none / daily / weekly。
+	RefreshCycle string `json:"refresh_cycle"`
+	// RefreshHour 为刷新时刻（0~23 点，服务器时区）。
+	RefreshHour      uint32                `json:"refresh_hour"`
+	PreQuestIDs      []uint64              `json:"pre_quest_ids"`
+	AcceptConditions []AcceptCondition     `json:"accept_conditions"`
+	Objectives       []AdminObjectiveInput `json:"objectives"`
+	Rewards          []AdminRewardInput    `json:"rewards"`
 }
 
 func (input AdminUpdateTemplateInput) Normalize() AdminUpdateTemplateInput {
 	input.Name = strings.TrimSpace(input.Name)
+	input.RefreshCycle = NormalizeRefreshCycle(input.RefreshCycle)
+	if input.RefreshHour > 23 {
+		input.RefreshHour = 23
+	}
 	input.QuestType = strings.TrimSpace(input.QuestType)
 	input.Title = strings.TrimSpace(input.Title)
 	input.Description = strings.TrimSpace(input.Description)
@@ -399,31 +439,39 @@ type AdminTemplateList struct {
 }
 
 type AdminTemplateDetail struct {
-	QuestID              uint64                `json:"quest_id"`
-	Name                 string                `json:"name"`
-	QuestType            string                `json:"quest_type"`
-	Title                string                `json:"title"`
-	Description          string                `json:"description"`
-	CompletionPromptText string                `json:"completion_prompt_text"`
-	Chapter              uint32                `json:"chapter"`
-	SortOrder            uint32                `json:"sort_order"`
-	AcceptMode           string                `json:"accept_mode"`
-	SubmitMode           string                `json:"submit_mode"`
-	AutoTrack            bool                  `json:"auto_track"`
-	ClientIconID         uint64                `json:"client_icon_id"`
-	StartNPCID           uint64                `json:"start_npc_id"`
-	SubmitNPCID          uint64                `json:"submit_npc_id"`
-	AcceptAnimationKey   string                `json:"accept_animation_key"`
-	SubmitAnimationKey   string                `json:"submit_animation_key"`
-	MinPlayerLevel       uint32                `json:"min_player_level"`
-	Status               uint32                `json:"status"`
-	StatusText           string                `json:"status_text"`
-	PreQuestIDs          []uint64              `json:"pre_quest_ids"`
-	AcceptConditions     []AcceptCondition     `json:"accept_conditions"`
-	Objectives           []AdminObjectiveInput `json:"objectives"`
-	Rewards              []AdminRewardInput    `json:"rewards"`
-	CreatedAt            time.Time             `json:"created_at"`
-	UpdatedAt            time.Time             `json:"updated_at"`
+	QuestID              uint64 `json:"quest_id"`
+	Name                 string `json:"name"`
+	QuestType            string `json:"quest_type"`
+	Title                string `json:"title"`
+	Description          string `json:"description"`
+	CompletionPromptText string `json:"completion_prompt_text"`
+	Chapter              uint32 `json:"chapter"`
+	SortOrder            uint32 `json:"sort_order"`
+	AcceptMode           string `json:"accept_mode"`
+	SubmitMode           string `json:"submit_mode"`
+	AutoTrack            bool   `json:"auto_track"`
+	ClientIconID         uint64 `json:"client_icon_id"`
+	StartNPCID           uint64 `json:"start_npc_id"`
+	SubmitNPCID          uint64 `json:"submit_npc_id"`
+	AcceptAnimationKey   string `json:"accept_animation_key"`
+	SubmitAnimationKey   string `json:"submit_animation_key"`
+	MinPlayerLevel       uint32 `json:"min_player_level"`
+	Status               uint32 `json:"status"`
+	// CanAbandon 允许玩家放弃已接取、未交付的任务（自动接取任务始终不可放弃）。
+	CanAbandon bool `json:"can_abandon"`
+	// IsRepeatable 为 true 时交付后按 RefreshCycle 重置为可接取。
+	IsRepeatable bool `json:"is_repeatable"`
+	// RefreshCycle 为 none / daily / weekly。
+	RefreshCycle string `json:"refresh_cycle"`
+	// RefreshHour 为刷新时刻（0~23 点，服务器时区）。
+	RefreshHour      uint32                `json:"refresh_hour"`
+	StatusText       string                `json:"status_text"`
+	PreQuestIDs      []uint64              `json:"pre_quest_ids"`
+	AcceptConditions []AcceptCondition     `json:"accept_conditions"`
+	Objectives       []AdminObjectiveInput `json:"objectives"`
+	Rewards          []AdminRewardInput    `json:"rewards"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
 }
 
 // AdminPlayerObjectiveInput 让后台可以直接修正玩家任务目标进度。

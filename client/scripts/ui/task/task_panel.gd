@@ -7,6 +7,13 @@ signal quest_prompt_requested(message: String)
 
 ## 通用任务卡片场景；列表按服务端任务数量逐个实例化该场景。
 const TASK_CARD_SCENE: PackedScene = preload("res://scenes/ui/task/task_list.tscn")
+## 通用确认弹窗场景；放弃任务会清空进度，必须二次确认。
+const CONFIRM_PROMPT_POPUP_SCENE: PackedScene = preload(ConfirmPromptPopup.SCENE_PATH)
+
+## 放弃任务确认弹窗，按需懒创建。
+var _abandon_confirm_popup: ConfirmPromptPopup = null
+## 等待玩家确认放弃的任务 ID；0 表示没有待确认的放弃操作。
+var _pending_abandon_quest_id: int = 0
 
 ## 面板打开前拉取任务列表的流程代次，避免快速重复点击时旧请求打开新面板。
 var _open_load_generation: int = 0
@@ -172,6 +179,9 @@ func _connect_task_card_buttons(card: Control) -> void:
     var detail_button: BaseButton = _task_detail_button(card)
     if detail_button != null and not detail_button.pressed.is_connected(_on_task_card_detail_pressed.bind(card)):
         detail_button.pressed.connect(_on_task_card_detail_pressed.bind(card))
+    var abandon_button: BaseButton = _task_abandon_button(card)
+    if abandon_button != null and not abandon_button.pressed.is_connected(_on_task_card_abandon_pressed.bind(card)):
+        abandon_button.pressed.connect(_on_task_card_abandon_pressed.bind(card))
 
 
 ## 把单个任务快照写入卡片的标题、描述、进度和按钮文案。
@@ -207,6 +217,11 @@ func _apply_quest_to_card(card: Control, quest: Dictionary) -> void:
     var detail_button: BaseButton = _task_detail_button(card)
     if detail_button != null:
         detail_button.disabled = false
+    # 「放弃」只在服务端标记 can_abandon 时显示，客户端不自行推断任务是否可放弃。
+    var abandon_button: BaseButton = _task_abandon_button(card)
+    if abandon_button != null:
+        abandon_button.visible = bool(quest.get("can_abandon", false))
+        abandon_button.disabled = _pending_action_seq > 0
 
 
 ## 生成任务描述：优先展示当前目标，保留任务描述作为补充。
@@ -360,7 +375,67 @@ func _build_task_notice(quest: Dictionary) -> String:
         parts.append("引导：%s" % guide_text)
     if not reward_text.is_empty():
         parts.append("奖励：%s" % reward_text)
+    var refresh_text: String = _format_next_refresh(quest)
+    if not refresh_text.is_empty():
+        parts.append(refresh_text)
     return _join_strings(parts, "\n")
+
+
+## 已完成的可重复任务展示下次刷新时间；时间来自服务端 next_refresh_at_ms，按本机时区格式化。
+func _format_next_refresh(quest: Dictionary) -> String:
+    var next_refresh_ms: int = int(quest.get("next_refresh_at_ms", 0))
+    if next_refresh_ms <= 0:
+        return ""
+    var local_unix: int = int(next_refresh_ms / 1000) + int(Time.get_time_zone_from_system().get("bias", 0)) * 60
+    var moment: Dictionary = Time.get_datetime_dict_from_unix_time(local_unix)
+    return "刷新：%d月%d日 %02d:%02d 后可再次接取" % [int(moment.get("month", 0)), int(moment.get("day", 0)), int(moment.get("hour", 0)), int(moment.get("minute", 0))]
+
+
+## 点击「放弃」时先弹出二次确认；确认后才向服务端发送放弃请求。
+func _on_task_card_abandon_pressed(card: Control) -> void:
+    if _pending_action_seq > 0:
+        return
+    var quest: Dictionary = _quest_for_card(card)
+    var quest_id: int = int(quest.get("quest_id", 0))
+    if quest_id <= 0 or not bool(quest.get("can_abandon", false)):
+        return
+    _pending_abandon_quest_id = quest_id
+    _ensure_abandon_confirm_popup()
+    if _abandon_confirm_popup == null:
+        return
+    var title: String = UiFormat.normalize_text(str(quest.get("title", "任务")))
+    _abandon_confirm_popup.show_prompt("放弃任务", "确定放弃「%s」吗？\n当前进度将被清空，之后可重新接取。" % title, {"confirm_label": "确认放弃"})
+
+
+## 懒创建放弃确认弹窗，并绑定确认 / 取消回调。
+func _ensure_abandon_confirm_popup() -> void:
+    if _abandon_confirm_popup != null:
+        return
+    _abandon_confirm_popup = CONFIRM_PROMPT_POPUP_SCENE.instantiate() as ConfirmPromptPopup
+    if _abandon_confirm_popup == null:
+        return
+    add_child(_abandon_confirm_popup)
+    move_child(_abandon_confirm_popup, get_child_count() - 1)
+    _abandon_confirm_popup.confirmed.connect(_on_abandon_confirmed)
+    _abandon_confirm_popup.cancelled.connect(_on_abandon_cancelled)
+
+
+## 玩家确认放弃：发送 6051 请求并锁定按钮，等待回包与差量推送刷新列表。
+func _on_abandon_confirmed() -> void:
+    var quest_id: int = _pending_abandon_quest_id
+    _pending_abandon_quest_id = 0
+    if quest_id <= 0 or _pending_action_seq > 0:
+        return
+    _pending_action_seq = App.abandon_quest(quest_id)
+    if _pending_action_seq <= 0:
+        return
+    _refresh_task_lists()
+    call_deferred("_wait_task_action_request", _pending_action_seq)
+
+
+## 玩家取消放弃：只清除待确认状态。
+func _on_abandon_cancelled() -> void:
+    _pending_abandon_quest_id = 0
 
 
 ## 格式化服务端下发的奖励预览。
@@ -507,5 +582,10 @@ func _task_action_button(card: Control) -> BaseButton:
 
 
 ## 通用任务卡片详情按钮。
+## 读取卡片里的「放弃」按钮，节点在 task_list.tscn 中预先配置，默认隐藏。
+func _task_abandon_button(card: Control) -> BaseButton:
+    return card.get_node_or_null("MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer/AbandonButton") as BaseButton
+
+
 func _task_detail_button(card: Control) -> BaseButton:
     return card.get_node_or_null("MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer/Button2") as BaseButton
