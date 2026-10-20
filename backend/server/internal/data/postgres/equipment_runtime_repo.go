@@ -1233,3 +1233,54 @@ func runtimeItemBonusFromAggregate(bonus equipment.BonusAggregate) bag.RuntimeIt
 		PetResistPct:             bonus.PetResistPct,
 	}
 }
+
+const findEquippedMedicinePouchQuery = `
+SELECT
+  ie.item_id,
+  id.item_name,
+  COALESCE(mp.restore_player_hp, FALSE),
+  COALESCE(mp.restore_player_spirit, FALSE),
+  COALESCE(mp.restore_player_vigor, FALSE),
+  COALESCE(mp.restore_pet_hp, FALSE),
+  COALESCE(mp.restore_pet_spirit, FALSE),
+  COALESCE(mp.restore_lineup_pets, FALSE)
+FROM player_equipment_slot pes
+JOIN equipment_instance ei ON ei.item_uid = pes.item_uid
+JOIN item_definition id ON id.item_id = ei.item_id
+LEFT JOIN item_medicine_pouch_extra mp ON mp.item_id = ei.item_id
+WHERE pes.player_id = $1 AND pes.equip_slot = 'medicine_pouch'
+LIMIT 1
+`
+
+// FindEquippedMedicinePouch 读取玩家当前佩戴药囊的战后恢复配置。
+// 未佩戴药囊时返回 (nil, nil)，调用方据此保持「未佩戴则保留上一场剩余值」的规则。
+// item_medicine_pouch_extra 缺失时按全 FALSE 处理，避免运营漏配扩展行导致恢复被误触发。
+func (r *EquipmentRepository) FindEquippedMedicinePouch(ctx context.Context, playerID uint64) (*equipment.RuntimeMedicinePouch, error) {
+	if playerID == 0 {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx, findEquippedMedicinePouchQuery, playerID)
+	var (
+		itemID   int64
+		itemName string
+		pouch    equipment.RuntimeMedicinePouch
+	)
+	if err := row.Scan(
+		&itemID,
+		&itemName,
+		&pouch.RestorePlayerHP,
+		&pouch.RestorePlayerSpirit,
+		&pouch.RestorePlayerVigor,
+		&pouch.RestorePetHP,
+		&pouch.RestorePetSpirit,
+		&pouch.RestoreLineupPets,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	pouch.ItemID = uint64(itemID)
+	pouch.ItemName = itemName
+	return &pouch, nil
+}

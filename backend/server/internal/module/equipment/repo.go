@@ -15,6 +15,8 @@ type Repository interface {
 	DeleteForAdmin(ctx context.Context, itemID uint64) error
 
 	ListEquipped(ctx context.Context, playerID uint64) ([]RuntimeEquippedItem, error)
+	// FindEquippedMedicinePouch 返回玩家当前佩戴的药囊恢复配置；未佩戴时返回 (nil, nil)。
+	FindEquippedMedicinePouch(ctx context.Context, playerID uint64) (*RuntimeMedicinePouch, error)
 	EquipFromBagSlot(ctx context.Context, playerID uint64, containerType string, bagSlotIndex uint32, recalc RecalcContext, currentProfile *player.Profile) (*EquipFromBagResult, error)
 	UnequipSlot(ctx context.Context, playerID uint64, equipSlot string, containerType string, recalc RecalcContext, currentProfile *player.Profile) (*UnequipSlotResult, error)
 	RecalcEquippedCombatStats(ctx context.Context, playerID uint64, recalc RecalcContext, currentProfile *player.Profile, refillHP bool) error

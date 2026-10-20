@@ -10,7 +10,7 @@ var (
 	ErrEquipmentNotFound       = errors.New("equipment instance not found")
 	ErrEquipmentSlotOccupied   = errors.New("equipment slot already occupied")
 	ErrEquipmentSlotEmpty      = errors.New("equipment slot empty")
-	ErrEquipmentLevelTooLow      = errors.New("player level too low for equipment")
+	ErrEquipmentLevelTooLow    = errors.New("player level too low for equipment")
 	ErrEquipmentSlotMismatch   = errors.New("equipment slot mismatch")
 	ErrEquipmentBagItemInvalid = errors.New("bag item is not equippable equipment")
 	ErrEquipmentNotOwned       = errors.New("equipment not owned by player")
@@ -20,24 +20,24 @@ var (
 
 // RuntimeEquippedItem 描述玩家当前佩戴的单件装备实例与模板摘要。
 type RuntimeEquippedItem struct {
-	EquipSlot     string            `json:"equip_slot"`
-	EquipSlotLabel string           `json:"equip_slot_label"`
-	ItemUID       string            `json:"item_uid"`
-	ItemID        uint64            `json:"item_id"`
-	ItemName      string            `json:"item_name"`
-	Icon          string            `json:"icon"`
-	RequiredLevel    uint32            `json:"required_level"`
-	EnhanceLevel  uint32            `json:"enhance_level"`
-	IsDamaged     bool              `json:"is_damaged,omitempty"`
-	AppearanceSkinID string         `json:"appearance_skin_id,omitempty"`
-	AppearanceOnly   bool           `json:"appearance_only"`
+	EquipSlot        string `json:"equip_slot"`
+	EquipSlotLabel   string `json:"equip_slot_label"`
+	ItemUID          string `json:"item_uid"`
+	ItemID           uint64 `json:"item_id"`
+	ItemName         string `json:"item_name"`
+	Icon             string `json:"icon"`
+	RequiredLevel    uint32 `json:"required_level"`
+	EnhanceLevel     uint32 `json:"enhance_level"`
+	IsDamaged        bool   `json:"is_damaged,omitempty"`
+	AppearanceSkinID string `json:"appearance_skin_id,omitempty"`
+	AppearanceOnly   bool   `json:"appearance_only"`
 	// Description 来自 item_definition.desc，供客户端详情面板展示后台编辑的介绍文案。
 	Description string `json:"description,omitempty"`
 	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。
 	DescriptionMentions []item.DescriptionMention `json:"description_mentions,omitempty"`
-	Bonus         BonusAggregate       `json:"bonus"`
-	WeaponSkills  []RuntimeWeaponSkill `json:"weapon_skills,omitempty"`
-	WeaponType    string               `json:"weapon_type,omitempty"`
+	Bonus               BonusAggregate            `json:"bonus"`
+	WeaponSkills        []RuntimeWeaponSkill      `json:"weapon_skills,omitempty"`
+	WeaponType          string                    `json:"weapon_type,omitempty"`
 }
 
 // BonusAggregate 汇总单件或全身装备的固定数值加成。
@@ -114,4 +114,24 @@ type EquippedTemplateRefreshEntry struct {
 	PlayerID  uint64
 	EquipSlot string
 	ItemUID   string
+}
+
+// RuntimeMedicinePouch 描述玩家当前佩戴的药囊在战斗结束后需要执行的恢复配置。
+// 未佩戴药囊时返回 nil，调用方据此跳过恢复，保持「未佩戴则保留上一场剩余值」的规则。
+type RuntimeMedicinePouch struct {
+	ItemID              uint64 `json:"item_id"`
+	ItemName            string `json:"item_name"`
+	RestorePlayerHP     bool   `json:"restore_player_hp"`
+	RestorePlayerSpirit bool   `json:"restore_player_spirit"`
+	RestorePlayerVigor  bool   `json:"restore_player_vigor"`
+	RestorePetHP        bool   `json:"restore_pet_hp"`
+	RestorePetSpirit    bool   `json:"restore_pet_spirit"`
+	RestoreLineupPets   bool   `json:"restore_lineup_pets"`
+}
+
+// HasAnyRestore 判断该药囊是否存在至少一项生效的恢复配置。
+// 全部为 false 时视为无需处理，避免无意义的数据库写入。
+func (p RuntimeMedicinePouch) HasAnyRestore() bool {
+	return p.RestorePlayerHP || p.RestorePlayerSpirit || p.RestorePlayerVigor ||
+		p.RestorePetHP || p.RestorePetSpirit
 }

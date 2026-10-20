@@ -228,45 +228,123 @@ texture = SubResource("AtlasTexture_rkwb1")
 expand_mode = 1
 stretch_mode = 4
 
-[node name="GridContainer" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=1454133839]
+[node name="天生技" type="HBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=1454133839]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技" unique_id=2088011001]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "天生技"
+vertical_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技" unique_id=2088011002]
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 8
-columns = 6
+columns = 5
 
-[node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1271741053 instance=ExtResource("2_o0mde")]
+[node name="Button" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技/Grid" unique_id=1271741053 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 theme = ExtResource("3_dm5ub")
 
-[node name="Button2" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=2016119033 instance=ExtResource("2_o0mde")]
+[node name="Button2" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技/Grid" unique_id=2016119033 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button3" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1787741550 instance=ExtResource("2_o0mde")]
+[node name="Button3" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技/Grid" unique_id=1787741550 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button4" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=2124029819 instance=ExtResource("2_o0mde")]
+[node name="Button4" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技/Grid" unique_id=2124029819 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button5" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=996405689 instance=ExtResource("2_o0mde")]
+[node name="Button5" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/天生技/Grid" unique_id=996405689 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button6" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=541164725 instance=ExtResource("2_o0mde")]
+[node name="普通技" type="HBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=2088011003]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/普通技" unique_id=2088011004]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "普通技"
+vertical_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/普通技" unique_id=2088011005]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="Button6" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/普通技/Grid" unique_id=541164725 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button7" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1170937890 instance=ExtResource("2_o0mde")]
+[node name="Button7" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/普通技/Grid" unique_id=1170937890 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button8" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1060150215 instance=ExtResource("2_o0mde")]
+[node name="Button8" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/普通技/Grid" unique_id=1060150215 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button9" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1757955836 instance=ExtResource("2_o0mde")]
+[node name="护符技" type="HBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=2088011006]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技" unique_id=2088011007]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "护符技"
+vertical_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技" unique_id=2088011008]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 5
+
+[node name="Button9" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技/Grid" unique_id=1757955836 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button10" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=558158466 instance=ExtResource("2_o0mde")]
+[node name="Button10" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技/Grid" unique_id=558158466 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button11" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1140193125 instance=ExtResource("2_o0mde")]
+[node name="Button11" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技/Grid" unique_id=1140193125 instance=ExtResource("2_o0mde")]
 layout_mode = 2
 
-[node name="Button12" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer" unique_id=1922429234 instance=ExtResource("2_o0mde")]
+[node name="Button12" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技/Grid" unique_id=1922429234 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button13" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/护符技/Grid" unique_id=2088011009 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="法宝技" type="HBoxContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer" unique_id=2088011010]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/法宝技" unique_id=2088011011]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "法宝技"
+vertical_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/法宝技" unique_id=2088011012]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="Button14" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/法宝技/Grid" unique_id=2088011013 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button15" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/法宝技/Grid" unique_id=2088011014 instance=ExtResource("2_o0mde")]
+layout_mode = 2
+
+[node name="Button16" parent="资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/法宝技/Grid" unique_id=2088011015 instance=ExtResource("2_o0mde")]
 layout_mode = 2

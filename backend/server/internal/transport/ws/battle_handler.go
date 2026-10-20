@@ -1110,6 +1110,73 @@ func (h *BattleHandler) pushBattleSettlementError(
 	return nil
 }
 
+// applyMedicinePouchRestore 按玩家佩戴的药囊配置，在战斗结束后恢复人物与宠物的生命/精力。
+// 《装备系统》§14 已确认规则：佩戴药囊则战后自动回满，未佩戴则保留上一场剩余值。
+// 该步骤在宠物经验与战斗属性写回之后执行，确保恢复出的满血不会被后续 HP 上限重算覆盖。
+// 装备服务缺失或查询失败时不阻断结算，只跳过恢复，避免因辅助能力异常导致战斗无法收尾。
+func (h *BattleHandler) applyMedicinePouchRestore(ctx context.Context, playerID uint64, settlement *battleSettlement) error {
+	if h == nil || h.equipmentService == nil || settlement == nil || playerID == 0 {
+		return nil
+	}
+	pouch, err := h.equipmentService.FindEquippedMedicinePouch(ctx, playerID)
+	if err != nil || pouch == nil || !pouch.HasAnyRestore() {
+		return nil
+	}
+
+	if pouch.RestorePlayerHP || pouch.RestorePlayerSpirit || pouch.RestorePlayerVigor {
+		// refillHP 为 true 会把人物当前生命补满到重算后的上限，精力与体力由成长层一并刷新。
+		if recalcErr := h.equipmentService.RecalcPlayerCombatStats(ctx, playerID, true); recalcErr != nil {
+			return recalcErr
+		}
+		if h.playerService != nil {
+			if profile, profileErr := h.playerService.GetProfile(ctx, playerID); profileErr == nil {
+				settlement.PlayerProfile = profile
+			}
+		}
+	}
+
+	if !pouch.RestorePetHP || h.petService == nil {
+		return nil
+	}
+	// 默认只恢复本场出战过的宠物；勾选 restore_lineup_pets 时扩展为整个出战编队。
+	targets := make(map[uint64]struct{}, len(settlement.Pets))
+	for _, updatedPet := range settlement.Pets {
+		targets[updatedPet.PetUID] = struct{}{}
+	}
+	if pouch.RestoreLineupPets {
+		if lineup, lineupErr := h.petService.ListLineup(ctx, playerID); lineupErr == nil {
+			for _, lineupPet := range lineup {
+				targets[lineupPet.PetUID] = struct{}{}
+			}
+		}
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+	// 用一次全量宠物列表取得各自的 HP 上限，避免逐只查询。
+	pets, listErr := h.petService.ListPets(ctx, playerID)
+	if listErr != nil {
+		return listErr
+	}
+	restoredPets := make([]pet.Pet, 0, len(targets))
+	for _, current := range pets {
+		if _, ok := targets[current.PetUID]; !ok {
+			continue
+		}
+		restored, updateErr := h.petService.UpdatePetHP(ctx, playerID, current.PetUID, current.HPMax)
+		if updateErr != nil {
+			return updateErr
+		}
+		restoredPets = append(restoredPets, restored)
+	}
+	if len(restoredPets) == 0 {
+		return nil
+	}
+	// 用药囊恢复后的宠物快照替换结算包里的旧值，保证后续推送展示的是最终血量。
+	settlement.Pets = restoredPets
+	return nil
+}
+
 func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ packetSender, playerID uint64, result *battle.ResultSnapshot, preConsumedBag *bag.RuntimeContainerSnapshot) (*battleSettlement, error) {
 	if result == nil {
 		return nil, nil
@@ -1228,6 +1295,10 @@ func (h *BattleHandler) applyBattleResultSideEffects(ctx context.Context, _ pack
 			}
 			settlement.Pets = append(settlement.Pets, updatedPet)
 		}
+	}
+	// 药囊在宠物经验与战斗属性写回之后执行，避免恢复出的满血被后续 HP 上限重算覆盖。
+	if err := h.applyMedicinePouchRestore(ctx, playerID, settlement); err != nil {
+		return settlement, err
 	}
 	if err := h.applyBattleSkillProgressUpdates(ctx, playerID, result); err != nil {
 		return settlement, err

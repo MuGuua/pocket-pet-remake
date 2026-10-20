@@ -18,6 +18,15 @@ func NewEquipmentRepository() *EquipmentRepository {
 type EquipmentRepository struct {
 	mu    sync.RWMutex
 	items map[uint64]equipment.AdminEquipmentDetail
+	// medicinePouch 允许测试注入玩家佩戴的药囊配置；默认 nil 表示未佩戴。
+	medicinePouch *equipment.RuntimeMedicinePouch
+}
+
+// SetMedicinePouch 供测试设置当前佩戴的药囊配置。
+func (r *EquipmentRepository) SetMedicinePouch(pouch *equipment.RuntimeMedicinePouch) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.medicinePouch = pouch
 }
 
 func (r *EquipmentRepository) ListForAdmin(_ context.Context, query equipment.AdminListQuery) (*equipment.AdminEquipmentList, error) {
@@ -103,6 +112,12 @@ func (r *EquipmentRepository) DeleteForAdmin(_ context.Context, itemID uint64) e
 
 func (r *EquipmentRepository) ListEquipped(_ context.Context, _ uint64) ([]equipment.RuntimeEquippedItem, error) {
 	return []equipment.RuntimeEquippedItem{}, nil
+}
+
+// FindEquippedMedicinePouch 默认返回未佩戴，使测试不受药囊恢复逻辑影响。
+// 需要验证药囊行为的用例可自行设置该字段。
+func (r *EquipmentRepository) FindEquippedMedicinePouch(_ context.Context, _ uint64) (*equipment.RuntimeMedicinePouch, error) {
+	return r.medicinePouch, nil
 }
 
 func (r *EquipmentRepository) EquipFromBagSlot(_ context.Context, _ uint64, _ string, _ uint32, _ equipment.RecalcContext, _ *player.Profile) (*equipment.EquipFromBagResult, error) {

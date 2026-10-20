@@ -203,20 +203,30 @@ func _collect_pet_buttons() -> void:
             button_index += 1
 
 
+## 技能面板四个分区的根节点名，顺序与界面自上而下一致。
+## 服务端 skill_slots 按这些分区返回槽位，客户端按同样顺序收集按钮，保证「第 N 个槽位稳定落到第 N 个按钮」。
+const SKILL_PANEL_SECTION_NAMES: Array[String] = ["天生技", "普通技", "护符技", "法宝技"]
+
 ## 收集技能资质页中的技能槽按钮，并缓存场景默认图标。
+## 按钮按 SKILL_PANEL_SECTION_NAMES 的分区顺序收集，同一分区内再按节点名排序。
 func _collect_skill_buttons() -> void:
     _skill_buttons.clear()
     _skill_entry_by_button_id.clear()
     if _skill_panel == null:
         return
-    var grid: GridContainer = _skill_panel.get_node_or_null("资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/GridContainer") as GridContainer
-    if grid == null:
-        return
-    for child: Node in grid.get_children():
-        if child is BaseButton:
+    for section_name: String in SKILL_PANEL_SECTION_NAMES:
+        var grid: GridContainer = _skill_panel.get_node_or_null(
+            "资质与技能/VBoxContainer/技能面板/PanelContainer/MarginContainer/VBoxContainer/%s/Grid" % section_name
+        ) as GridContainer
+        if grid == null:
+            continue
+        var section_buttons: Array[BaseButton] = []
+        for child: Node in grid.get_children():
+            if child is not BaseButton:
+                continue
             var button: BaseButton = child as BaseButton
             button.toggle_mode = false
-            _skill_buttons.append(button)
+            section_buttons.append(button)
             if _default_skill_icon == null:
                 var icon_node: TextureRect = _resolve_skill_button_icon(button)
                 if icon_node != null:
@@ -227,7 +237,8 @@ func _collect_skill_buttons() -> void:
                 button.mouse_exited.connect(_on_skill_button_unhovered.bind(button))
             if not button.button_down.is_connected(_on_skill_button_down.bind(button)):
                 button.button_down.connect(_on_skill_button_down.bind(button))
-    _sort_skill_buttons_by_visual_slot()
+        section_buttons.sort_custom(_compare_skill_buttons_by_visual_slot)
+        _skill_buttons.append_array(section_buttons)
 
 
 ## 按场景按钮命名排序技能槽：Button/Button2...Button6 为上排 1~6，Button7...Button12 为下排 7~12。
@@ -619,28 +630,47 @@ func _resolve_growth_aptitude_total(pet: Dictionary, total_key: String, fallback
     return fallback_value
 
 
-## 从服务端快照中提取技能展示列表。
-## skill_ids 是服务端已经整理好的战斗技能顺序，客户端只负责按数组序号渲染到按钮 1~12。
-## skill_slots 仅作为技能名、富文本描述等槽位元数据来源，避免分类空槽把图标挤到后面的按钮。
+## 从服务端快照中提取技能展示列表，顺序必须与 SKILL_PANEL_SECTION_NAMES 的界面分区一致。
+## 每个分区都按服务端槽位顺序逐格输出，空槽保留占位，避免「某个槽没配技能」时后面的技能整体前移。
+## 这样技能就会显示在自己所属分区的正确位置上，而不是像旧实现那样挤进开头连续的按钮。
 func _collect_skill_entries(pet: Dictionary) -> Array[Dictionary]:
-    var slot_entries: Array[Dictionary] = []
+    var result: Array[Dictionary] = []
     var slots_variant: Variant = pet.get("skill_slots", {})
-    if slots_variant is Dictionary:
-        var slots: Dictionary = slots_variant as Dictionary
-        _append_skill_slot_array(slot_entries, slots.get("innate", []), "innate")
-        _append_skill_slot_entry(slot_entries, slots.get("active_talisman", {}), "active_talisman")
-        _append_skill_slot_entry(slot_entries, slots.get("talisman_hero", {}), "talisman_hero")
-        _append_skill_slot_entry(slot_entries, slots.get("talisman_1", {}), "talisman_1")
-        _append_skill_slot_entry(slot_entries, slots.get("talisman_2", {}), "talisman_2")
-        _append_skill_slot_entry(slot_entries, slots.get("talisman_3", {}), "talisman_3")
-        _append_skill_slot_array(slot_entries, slots.get("normal", []), "normal")
-        _append_skill_slot_array(slot_entries, slots.get("artifact", []), "artifact")
-    var skill_ids_variant: Variant = pet.get("skill_ids", [])
-    if skill_ids_variant is Array:
-        var ordered_entries: Array[Dictionary] = _collect_ordered_skill_entries_from_ids(skill_ids_variant as Array, slot_entries)
-        if not ordered_entries.is_empty():
-            return ordered_entries
-    return _collect_non_empty_skill_slot_entries(slot_entries)
+    var slots: Dictionary = slots_variant as Dictionary if slots_variant is Dictionary else {}
+
+    # 天生技：多槽位列表。
+    _append_skill_slot_array_filled(result, slots.get("innate", []), "innate", 5)
+    # 普通技：多槽位列表。
+    _append_skill_slot_array_filled(result, slots.get("normal", []), "normal", 3)
+    # 护符技：主动护符 + 护符 1~3 共 4 个独立单槽。
+    _append_skill_slot_entry_filled(result, slots.get("active_talisman", {}), "active_talisman")
+    _append_skill_slot_entry_filled(result, slots.get("talisman_hero", {}), "talisman_hero")
+    _append_skill_slot_entry_filled(result, slots.get("talisman_1", {}), "talisman_1")
+    _append_skill_slot_entry_filled(result, slots.get("talisman_2", {}), "talisman_2")
+    # 法宝技：多槽位列表。
+    _append_skill_slot_array_filled(result, slots.get("artifact", []), "artifact", 3)
+
+    for index: int in range(result.size()):
+        result[index]["slot_index"] = index
+    return result
+
+
+## 追加一组技能槽位，并补齐到指定数量；空槽同样写入占位，保证按钮位置稳定。
+func _append_skill_slot_array_filled(result: Array[Dictionary], value: Variant, slot_type: String, expected_count: int) -> void:
+    var entries: Array = value as Array if value is Array else []
+    for index: int in range(expected_count):
+        if index < entries.size():
+            _append_skill_slot_entry(result, entries[index], slot_type)
+            continue
+        result.append({"skill_id": 0, "slot_type": slot_type, "enabled": false})
+
+
+## 追加单个技能槽；服务端未下发时写入空占位，保证该分区的位置不被后续分区挤占。
+func _append_skill_slot_entry_filled(result: Array[Dictionary], value: Variant, slot_type: String) -> void:
+    if value is Dictionary and not (value as Dictionary).is_empty():
+        _append_skill_slot_entry(result, value, slot_type)
+        return
+    result.append({"skill_id": 0, "slot_type": slot_type, "enabled": false})
 
 
 ## 按服务端 skill_ids 的数组顺序生成技能按钮数据，并从 skill_slots 补齐技能名与描述。

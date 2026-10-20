@@ -1,5 +1,29 @@
 # 最新变更记录
 
+## 2026-10-20 药囊战后恢复接入结算链路，宠物技能面板按分区展示
+
+### 药囊战后恢复
+
+- 背景：《装备系统》§14 已确认规则——佩戴药囊则战斗结束后自动回满人物与出战宠物生命/精力，未佩戴则保留上一场剩余值。此前只有后台配置表 `item_medicine_pouch_extra` 与读写接口，运行时从未消费。
+- 领域层：新增 `equipment.RuntimeMedicinePouch`（含五项恢复开关与 `HasAnyRestore`），仓储接口新增 `FindEquippedMedicinePouch`，`equipment.Service` 暴露同名方法；未佩戴返回 `(nil, nil)`，`item_medicine_pouch_extra` 缺失行按全 FALSE 处理，避免运营漏配导致误恢复。
+- 仓储实现：`findEquippedMedicinePouchQuery` 由 `player_equipment_slot` 关联 `equipment_instance`、`item_definition` 与 `item_medicine_pouch_extra`，LEFT JOIN 保证扩展行缺失时仍能返回基础信息。
+- 结算接入：`BattleHandler.applyMedicinePouchRestore` 在 `UpdatePetBattleProgress` 之后、技能进度写回之前执行。顺序很关键——若先恢复再写回宠物属性，满血会被后续 HP 上限重算覆盖。
+- 恢复范围：默认只回满本场出战过的宠物（取 `settlement.Pets`）；药囊勾选 `restore_lineup_pets` 时扩展为整个出战编队。人物侧复用既有 `RecalcPlayerCombatStats(refillHP=true)`，恢复后重新读取档案写入结算包。
+- 降级策略：装备服务缺失、查询失败或未佩戴时静默跳过，不阻断战斗结算，避免辅助能力异常导致战斗无法收尾。
+
+### 宠物技能面板分区展示
+
+- 背景：`pet-skill-slots.md` 待实现项之一。服务端 `skill_slots` 早已按 `innate / normal / active_talisman / talisman_hero / talisman_1~3 / artifact` 分区下发，但客户端把 `skill_ids` 平铺到 12 个连续按钮，运营在某个分区留空槽时后面的技能会整体前移。
+- 场景改造：`pet_resistance_panel.tscn` 由单个 6 列 `GridContainer` 拆成「天生技 / 普通技 / 护符技 / 法宝技」四个分区，每区一行标题 + `Grid`，按钮按服务端槽位上限配置（5 / 3 / 5 / 3 共 16 个），不再由脚本动态创建 UI。
+- 脚本改造：`pet_status_panel.gd` 新增 `SKILL_PANEL_SECTION_NAMES` 作为分区顺序的唯一来源；`_collect_skill_buttons` 按分区分组收集按钮，同一分区内按节点名排序；`_collect_skill_entries` 改为按分区逐格输出并补空占位，保证「第 N 个槽位稳定落到第 N 个按钮」。
+- 保留兼容：`skill_ids` 与 `skill_slots` 仍以服务端为准，客户端不做任何本地推断；空槽渲染为空按钮占位，不再挤占后续分区。
+
+### 验证
+
+- `go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 25 个包通过，其中新增 `TestMedicinePouchRestoresPetToFullHP` 覆盖「未佩戴保持残血 / 佩戴后回满」。
+- Godot 4.7 headless 校验：`pet_status_panel.gd` 无语法错误；场景加载后四个分区按钮数为 5 / 3 / 5 / 3；分区落位算法用例输出 `5001,0,0,0,0 | 5002,0,0 | 5003,0,0,0 | 5004,0,0` 与预期一致。
+- 本次无数据库结构、迁移或协议变更。
+
 ## 2026-10-20 麻痹强度与作用范围改为技能可配置
 
 - 背景：上一版把麻痹的抗性削减幅度写死为 50%，作用范围固定为五项全削。实际上「降到百分之多少、影响哪几项」应由施加该状态的技能决定，同一个麻痹状态在不同技能下可以有不同表现。

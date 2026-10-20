@@ -142,6 +142,15 @@ func (s *Service) ListEquipped(ctx context.Context, playerID uint64) ([]RuntimeE
 	return s.repo.ListEquipped(ctx, playerID)
 }
 
+// FindEquippedMedicinePouch 返回玩家当前佩戴药囊的战后恢复配置。
+// 未佩戴时返回 (nil, nil)；查询失败不阻断战斗结算，由调用方决定降级策略。
+func (s *Service) FindEquippedMedicinePouch(ctx context.Context, playerID uint64) (*RuntimeMedicinePouch, error) {
+	if s.repo == nil || playerID == 0 {
+		return nil, nil
+	}
+	return s.repo.FindEquippedMedicinePouch(ctx, playerID)
+}
+
 // EquipFromBagSlot 从背包指定格子佩戴装备并重算玩家战斗属性。
 func (s *Service) EquipFromBagSlot(ctx context.Context, playerID uint64, containerType string, bagSlotIndex uint32) (*EquipFromBagResult, *player.Profile, error) {
 	recalc, profile, err := s.buildRecalcContext(ctx, playerID)
