@@ -1,5 +1,35 @@
 # 最新变更记录
 
+## 2026-10-20 商店出售闭环、后台补发前端与审计、药囊配置
+
+### 商店出售（5111 / 5112）
+
+- 新增独立领域模块 `module/shop`，`QuoteSell` 统一负责可卖校验与定价（总铜币真值），`bag` 只管容器、`wallet` 只管货币，商店规则不再散落在 handler 里。失败语义：数量非法、不可卖（未启用/`can_sell=false`/售价 0）、已绑定、佩戴中、总价溢出。
+- `BagHandler.HandleSellItem`（`transport/ws/shop_sell_handler.go`）：校验商店距离 → 读取背包权威快照并核对 `slot_index` 与 `item_id` → 定价 → 先扣背包 → 再加钱包，加钱包失败把物品补回并推送背包，避免「白拿钱」。
+- 新增命令 `5111 SELL_ITEM_REQ` / `5112 SELL_ITEM_RESP`、错误码 `50006 WSCodeShopSellFailed`，路由与调试日志同步注册。
+- 背包快照条目新增 `can_sell`、`sell_price_copper` 展示字段（仓储 SELECT/scan、领域模型、协议、转换全链路）。
+- 客户端：`CommandIds` 与 `App.request_sell_item`；`bag_controller.handle_sell_item_response`；`main.gd` 出售请求走通用 loading，回包后刷新钱包并提示收入；商店面板新增「购买 / 出售」页签与可滚动列表，出售列表来自 `GameState.bag_items`，背包推送到达后自动重建。顺带修正 `npc_shop_panel.tscn` 根节点场景层默认隐藏。
+- 无数据库结构变更（`item_definition.can_sell` / `sell_price_copper` 早已存在）。
+
+### 后台补发前端接通与审计
+
+- 后端 `/api/admin/rewards` 早已实现，但前端从未调用，且运营填写的「操作原因」没有落库，审计时无从追查。
+- `admin` 模块新增 `OperationLogEntry` / `OperationLogWriter` / `RecordOperation`，`AdminRepository.InsertOperationLog` 写入早已建表但从未使用的 `admin_operation_log`；`bootstrap` 通过类型断言装配，测试桩不受影响。
+- 补发成功后写审计（模块 `reward`、动作 `grant`、目标玩家、原因、请求与实际到账明细）；审计写入失败不回滚已到账奖励，仅在响应 `msg` 中提示。
+- 新增 `validateAdminRewardEntries`：类型白名单 `item / gold / exp / pet`、必填字段、单次最多 20 条、单条数值上限 1 亿。此前发奖服务对非法条目静默跳过，运营会看到「成功但没到账」。
+- 后台前端：`types/reward.ts`、`services/reward.ts`、`PlayerRewardGrantSection`，挂到玩家详情与编辑弹窗的「补发奖励」页签。高风险保护：必填原因、提交前二次确认并列出影响明细、数量整数上限、结果区展示服务端实际到账值。宠物仍走既有「宠物」页签模板发放，不重复入口。
+
+### 药囊配置（迁移 128，待执行）
+
+- `128_seed_medicine_pouch_items.sql`：新增 `900101 初级药囊`（只回满本场出战宠物生命）与 `900102 高级药囊`（回满人物生命/精力/体力与整个编队宠物生命/精力），写入 `item_definition`、`item_equipment_extra`、`item_medicine_pouch_extra`，介绍为富文本。
+- 同时给测试账号 `10001` 背包各发一件（自动找空格，满则跳过并 NOTICE）。**不直接写佩戴表**，佩戴需在游戏内操作，由服务端同事务重算战斗属性。
+- 幂等：以 `item_id` / `item_code` / `item_uid` 判断，可重复执行；文件头附回滚 SQL。**尚未在正式库执行。**
+
+### 验证
+
+- `go build ./...`、`go vet ./server/...`、`go test ./server/... -count=1` 全部 27 个包通过；新增 `shop` 定价用例、3 个出售路由用例、补发校验用例、3 个审计日志用例。
+- 后台 `npm run build` 通过；Godot 4.7 headless 校验 5 个改动脚本无语法错误，商店场景节点路径齐全。
+
 ## 2026-10-20 药囊战后恢复接入结算链路，宠物技能面板按分区展示
 
 ### 药囊战后恢复
