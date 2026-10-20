@@ -18,6 +18,7 @@ func isBagEquipCmd(cmd uint16) bool {
 		protocol.CmdWarehouseToBagReq, protocol.CmdWarehouseToBagResp,
 		protocol.CmdWalletQueryReq, protocol.CmdWalletQueryResp,
 		protocol.CmdBuyItemReq, protocol.CmdBuyItemResp,
+		protocol.CmdSellItemReq, protocol.CmdSellItemResp,
 		protocol.CmdPlayerEquipmentListReq, protocol.CmdPlayerEquipmentListResp,
 		protocol.CmdPlayerEquipReq, protocol.CmdPlayerEquipResp,
 		protocol.CmdPlayerUnequipReq, protocol.CmdPlayerUnequipResp,
@@ -62,6 +63,10 @@ func bagEquipCmdName(cmd uint16) string {
 		return "BUY_ITEM_REQ"
 	case protocol.CmdBuyItemResp:
 		return "BUY_ITEM_RESP"
+	case protocol.CmdSellItemReq:
+		return "SELL_ITEM_REQ"
+	case protocol.CmdSellItemResp:
+		return "SELL_ITEM_RESP"
 	case protocol.CmdPlayerEquipmentListReq:
 		return "PLAYER_EQUIPMENT_LIST_REQ"
 	case protocol.CmdPlayerEquipmentListResp:

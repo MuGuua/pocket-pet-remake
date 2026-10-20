@@ -1052,21 +1052,24 @@ type WalletSnapshot struct {
 }
 
 type ContainerItemSnapshot struct {
-	SlotIndex           uint32                       `json:"slot_index"`
-	ItemID              uint64                       `json:"item_id"`
-	ItemUID             string                       `json:"item_uid"`
-	Quantity            uint64                       `json:"quantity"`
-	IsBound             bool                         `json:"is_bound"`
-	ItemName            string                       `json:"item_name"`
-	ItemType            string                       `json:"item_type"`
-	ItemSubType         string                       `json:"item_sub_type"`
-	Quality             uint32                       `json:"quality"`
-	Icon                string                       `json:"icon,omitempty"`
-	RequiredLevel       uint32                       `json:"required_level"`
-	EnhanceLevel        uint32                       `json:"enhance_level"`
-	IsDamaged           bool                         `json:"is_damaged,omitempty"`
-	Usable              bool                         `json:"usable"`
-	CanDrop             bool                         `json:"can_drop"`
+	SlotIndex     uint32 `json:"slot_index"`
+	ItemID        uint64 `json:"item_id"`
+	ItemUID       string `json:"item_uid"`
+	Quantity      uint64 `json:"quantity"`
+	IsBound       bool   `json:"is_bound"`
+	ItemName      string `json:"item_name"`
+	ItemType      string `json:"item_type"`
+	ItemSubType   string `json:"item_sub_type"`
+	Quality       uint32 `json:"quality"`
+	Icon          string `json:"icon,omitempty"`
+	RequiredLevel uint32 `json:"required_level"`
+	EnhanceLevel  uint32 `json:"enhance_level"`
+	IsDamaged     bool   `json:"is_damaged,omitempty"`
+	Usable        bool   `json:"usable"`
+	CanDrop       bool   `json:"can_drop"`
+	// CanSell / SellPriceCopper 只用于商店出售页展示，最终以 5111 服务端校验为准。
+	CanSell             bool                         `json:"can_sell"`
+	SellPriceCopper     uint64                       `json:"sell_price_copper"`
 	TargetType          string                       `json:"target_type"`
 	EffectType          string                       `json:"effect_type"`
 	EquipSlot           string                       `json:"equip_slot,omitempty"`
@@ -1192,6 +1195,26 @@ type BuyItemResp struct {
 	Quantity uint64         `json:"quantity"`
 	Cost     CurrencyCost   `json:"cost"`
 	Wallet   WalletSnapshot `json:"wallet"`
+}
+
+// SellItemReq 是背包物品出售请求（5111）。
+// shop_id 为附近商店 NPC 的实体 ID，沿用购买链路的距离与菜单校验；
+// 价格完全由服务端按 item_definition.sell_price_copper 计算，客户端不传价格。
+type SellItemReq struct {
+	ShopID    uint64 `json:"shop_id"`
+	SlotIndex uint32 `json:"slot_index"`
+	ItemID    uint64 `json:"item_id"`
+	Quantity  uint64 `json:"quantity"`
+}
+
+// SellItemResp 是出售成功回包（5112）；背包与钱包最新快照另走 5011 / 5091 推送。
+type SellItemResp struct {
+	ShopID    uint64         `json:"shop_id"`
+	SlotIndex uint32         `json:"slot_index"`
+	ItemID    uint64         `json:"item_id"`
+	Quantity  uint64         `json:"quantity"`
+	Income    CurrencyCost   `json:"income"`
+	Wallet    WalletSnapshot `json:"wallet"`
 }
 
 type QuestListReq struct{}

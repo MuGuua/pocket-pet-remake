@@ -6,6 +6,8 @@ signal bag_updated(count: int)
 signal container_snapshot_applied(container_type: String)
 # 商店购买回包到达后向外广播完整载荷。
 signal buy_item_responded(payload: Dictionary)
+## 商店出售回包（5112）到达后向外广播完整载荷；背包变化由随后的 5011 推送写入 GameState。
+signal sell_item_responded(payload: Dictionary)
 # 丢弃物品成功回包到达后向外广播完整载荷；UI 仍需等待后续容器快照刷新后再结束 loading。
 signal drop_item_responded(payload: Dictionary)
 
@@ -70,6 +72,13 @@ func handle_wallet_update(payload: Dictionary) -> void:
 func handle_buy_item_response(payload: Dictionary) -> void:
     _apply_wallet_payload(payload)
     buy_item_responded.emit(payload)
+
+
+## 处理出售回包：先写入服务端返回的钱包快照，再通知商店面板刷新收入提示。
+## payload 为 SellItemResp，包含 income 与最新 wallet。
+func handle_sell_item_response(payload: Dictionary) -> void:
+    _apply_wallet_payload(payload)
+    sell_item_responded.emit(payload)
 
 
 func _apply_container_payload(payload: Dictionary) -> void:

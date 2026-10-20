@@ -443,6 +443,20 @@ func request_buy_item(shop_id: int, item_id: int, quantity: int = 1) -> int:
 		}
 	)
 
+## 向服务端提交背包物品出售请求；shop_id 为附近商店 NPC 的 entity_id。
+## slot_index 与 item_id 共同标识要卖的格子，服务端会校验两者一致，防止旧快照误卖其它物品。
+## 返回请求序列号，供带 loading 的 UI 等待回包。
+func request_sell_item(shop_id: int, slot_index: int, item_id: int, quantity: int = 1) -> int:
+	return _send_command(
+		CommandIds.SELL_ITEM_REQ,
+		{
+			"shop_id": shop_id,
+			"slot_index": slot_index,
+			"item_id": item_id,
+			"quantity": quantity,
+		}
+	)
+
 # 向服务端发起一次单人 PVP 挑战请求。
 func request_pvp_challenge(target_player_id: int) -> void:
 	_send_command(
@@ -731,6 +745,8 @@ func _request_cmd_for_response(response_cmd: int) -> int:
 			return CommandIds.WALLET_QUERY_REQ
 		CommandIds.BUY_ITEM_RESP:
 			return CommandIds.BUY_ITEM_REQ
+		CommandIds.SELL_ITEM_RESP:
+			return CommandIds.SELL_ITEM_REQ
 		CommandIds.QUEST_LIST_RESP:
 			return CommandIds.QUEST_LIST_REQ
 		CommandIds.QUEST_ACCEPT_RESP:

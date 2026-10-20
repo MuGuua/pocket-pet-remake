@@ -185,6 +185,10 @@ const WALLET_UPDATE_PUSH: int = 5091
 const BUY_ITEM_REQ: int = 5101
 # 商店购买物品响应消息号。
 const BUY_ITEM_RESP: int = 5102
+# 商店出售背包物品请求消息号；价格由服务端按物品模板售价计算。
+const SELL_ITEM_REQ: int = 5111
+# 商店出售背包物品响应消息号。
+const SELL_ITEM_RESP: int = 5112
 
 # 任务列表请求消息号。
 const QUEST_LIST_REQ: int = 6001
@@ -390,6 +394,10 @@ static func name_of(cmd: int) -> String:
             return "BUY_ITEM_REQ"
         BUY_ITEM_RESP:
             return "BUY_ITEM_RESP"
+        SELL_ITEM_REQ:
+            return "SELL_ITEM_REQ"
+        SELL_ITEM_RESP:
+            return "SELL_ITEM_RESP"
         QUEST_LIST_REQ:
             return "QUEST_LIST_REQ"
         QUEST_LIST_RESP:

@@ -182,6 +182,10 @@ var _active_shop_entity_id: int = 0
 var _pending_buy_item_seq: int = 0
 # 与 _pending_buy_item_seq 对应的购买回包缓存。
 var _pending_buy_item_payload: Dictionary = {}
+## 当前等待 SELL_ITEM_RESP 的请求序列号；大于 0 表示有出售请求在途。
+var _pending_sell_item_seq: int = 0
+## 与 _pending_sell_item_seq 对应的出售回包缓存。
+var _pending_sell_item_payload: Dictionary = {}
 # 标记是否正在播放地图切换的黑色遮罩过渡。
 var _scene_map_transition_active: bool = false
 # 新地图是否已在过渡中点之前加载完成，供中点换图后渐出。
@@ -337,6 +341,7 @@ func _register_routes() -> void:
 	MessageRouter.register_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
 	MessageRouter.register_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
 	MessageRouter.register_handler(CommandIds.BUY_ITEM_RESP, Callable(bag_controller, "handle_buy_item_response"))
+	MessageRouter.register_handler(CommandIds.SELL_ITEM_RESP, Callable(bag_controller, "handle_sell_item_response"))
 	MessageRouter.register_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.register_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.register_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -391,6 +396,7 @@ func _unregister_routes() -> void:
 	MessageRouter.unregister_handler(CommandIds.WALLET_QUERY_RESP, Callable(bag_controller, "handle_wallet_query"))
 	MessageRouter.unregister_handler(CommandIds.WALLET_UPDATE_PUSH, Callable(bag_controller, "handle_wallet_update"))
 	MessageRouter.unregister_handler(CommandIds.BUY_ITEM_RESP, Callable(bag_controller, "handle_buy_item_response"))
+	MessageRouter.unregister_handler(CommandIds.SELL_ITEM_RESP, Callable(bag_controller, "handle_sell_item_response"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_LIST_RESP, Callable(quest_controller, "handle_quest_list"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_UPDATE_PUSH, Callable(quest_controller, "handle_quest_update"))
 	MessageRouter.unregister_handler(CommandIds.QUEST_REMOVE_PUSH, Callable(quest_controller, "handle_quest_remove"))
@@ -437,6 +443,8 @@ func _connect_signals() -> void:
 		quest_controller.connect("quest_animation_requested", Callable(self, "_on_quest_animation_requested"))
 	if bag_controller.has_signal("buy_item_responded"):
 		bag_controller.connect("buy_item_responded", Callable(self, "_on_buy_item_responded"))
+	if bag_controller.has_signal("sell_item_responded"):
+		bag_controller.connect("sell_item_responded", Callable(self, "_on_sell_item_responded"))
 
 	GameState.session_changed.connect(_refresh_view)
 	GameState.world_snapshot_changed.connect(_on_world_snapshot_changed)
@@ -1489,6 +1497,8 @@ func _create_npc_shop_panel() -> void:
 	add_child(_npc_shop_panel)
 	if _npc_shop_panel.has_signal("buy_requested"):
 		_npc_shop_panel.connect("buy_requested", Callable(self, "_on_shop_buy_requested"))
+	if _npc_shop_panel.has_signal("sell_requested"):
+		_npc_shop_panel.connect("sell_requested", Callable(self, "_on_shop_sell_requested"))
 	if _npc_shop_panel.has_signal("panel_closed"):
 		_npc_shop_panel.connect("panel_closed", Callable(self, "_on_runtime_menu_closed"))
 
@@ -2201,6 +2211,41 @@ func _finish_buy_item_request(succeeded: bool) -> void:
 func _on_buy_item_responded(payload: Dictionary) -> void:
 	if _pending_buy_item_seq > 0:
 		_pending_buy_item_payload = payload.duplicate(true)
+
+## 发起 SELL_ITEM 请求；slot_index/item_id 来自服务端背包快照，quantity 为本次出售数量。
+## 全程走通用 loading，回包到达后再刷新商店面板，不在本地预先扣物品或加钱。
+func _on_shop_sell_requested(slot_index: int, item_id: int, quantity: int) -> void:
+	if _active_shop_entity_id <= 0 or slot_index <= 0 or item_id <= 0 or _pending_sell_item_seq > 0:
+		return
+	_pending_sell_item_payload.clear()
+	var request_seq: int = App.request_sell_item(_active_shop_entity_id, slot_index, item_id, quantity)
+	if request_seq <= 0:
+		if _npc_shop_panel != null:
+			_npc_shop_panel.show_error_message("出售请求发送失败")
+		return
+	_pending_sell_item_seq = request_seq
+	_show_npc_request_loading()
+	call_deferred("_wait_npc_request", request_seq, CommandIds.SELL_ITEM_REQ, "_finish_sell_item_request")
+
+## SELL_ITEM 回包到达后关闭 loading，并用服务端收入与钱包快照刷新商店面板；succeeded 表示服务端是否接受。
+func _finish_sell_item_request(succeeded: bool) -> void:
+	_hide_npc_request_loading()
+	var payload: Dictionary = _pending_sell_item_payload.duplicate(true)
+	_pending_sell_item_seq = 0
+	_pending_sell_item_payload.clear()
+	if _npc_shop_panel == null:
+		return
+	if not succeeded or payload.is_empty():
+		_npc_shop_panel.show_error_message("出售失败")
+		return
+	var income_variant: Variant = payload.get("income", {})
+	var income_copper: int = int((income_variant as Dictionary).get("total_copper", 0)) if income_variant is Dictionary else 0
+	_npc_shop_panel.update_wallet_with_status(payload.get("wallet", {}), "出售成功，获得 %d 铜" % income_copper)
+
+## 缓存 SELL_ITEM 回包，供 loading 等待完成后消费。
+func _on_sell_item_responded(payload: Dictionary) -> void:
+	if _pending_sell_item_seq > 0:
+		_pending_sell_item_payload = payload.duplicate(true)
 
 ## 处理服务端权威场景剧情触发；客户端只负责播放本地动画，完成后再 Ack 服务端落库。
 func _on_scene_trigger_push(payload: Dictionary) -> void:

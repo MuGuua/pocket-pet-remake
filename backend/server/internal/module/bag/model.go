@@ -204,9 +204,13 @@ type RuntimeItemSnapshot struct {
 	IsDamaged     bool       `json:"is_damaged,omitempty"`
 	Usable        bool       `json:"usable"`
 	CanDrop       bool       `json:"can_drop"`
-	TargetType    string     `json:"target_type"`
-	EffectType    string     `json:"effect_type"`
-	EquipSlot     string     `json:"equip_slot,omitempty"`
+	// CanSell 与 SellPriceCopper 来自物品模板，仅供客户端商店出售页展示；
+	// 是否真能卖、实际收入多少，仍由 5111 出售请求在服务端重新校验计算。
+	CanSell         bool   `json:"can_sell"`
+	SellPriceCopper uint64 `json:"sell_price_copper"`
+	TargetType      string `json:"target_type"`
+	EffectType      string `json:"effect_type"`
+	EquipSlot       string `json:"equip_slot,omitempty"`
 	// Description 来自 item_definition.desc，供详情面板直接展示后台编辑的介绍文案。
 	Description string `json:"description,omitempty"`
 	// DescriptionMentions 为介绍文案中 {item:ID} 占位符解析出的关联物品，供客户端内联展示 icon。

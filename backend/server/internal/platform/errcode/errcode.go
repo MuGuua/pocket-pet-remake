@@ -25,4 +25,5 @@ const (
 	WSCodeWalletQueryFailed          = 50003
 	WSCodeShopRequestInvalid         = 50004
 	WSCodeShopBuyFailed              = 50005
+	WSCodeShopSellFailed             = 50006
 )

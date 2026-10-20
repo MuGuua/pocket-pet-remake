@@ -174,6 +174,8 @@
 - `5102 BUY_ITEM_RESP`
 - `5111 SELL_ITEM_REQ`
 - `5112 SELL_ITEM_RESP`
+- `5111 SELL_ITEM_REQ`
+- `5112 SELL_ITEM_RESP`
 
 详细字段设计、数据库分层与客户端展示约束请同步参考 `backend/docs/bag-system.md`。
 
@@ -1397,6 +1399,40 @@
   - `5091 WALLET_UPDATE_PUSH`：刷新钱包余额
 - 当前最小实现暂未补入独立商店货架表，因此购买价格直接来自 `item_definition.buy_price_copper`
 - 若背包加物成功但钱包扣减失败，服务端会回滚本次加到背包里的购买道具，避免出现“白拿道具”
+
+### 5111 SELL_ITEM_REQ
+
+```json
+{
+  "shop_id": 93002,
+  "slot_index": 1,
+  "item_id": 3003,
+  "quantity": 2
+}
+```
+
+- `shop_id` 与购买一致，为附近商店 NPC 的 `entity_id`，沿用同一套距离与 `entry_type=shop` 菜单校验
+- `slot_index` 与 `item_id` 同时提交，服务端读取背包权威快照并要求两者一致，防止客户端拿旧快照误卖其它物品
+- 客户端不传价格；单价来自 `item_definition.sell_price_copper`，总价按总铜币真值计算
+- 定价规则收口在 `module/shop.QuoteSell`，判定顺序：数量合法 → 模板启用且 `can_sell=true` 且售价 > 0 → 未绑定 → 未佩戴 → 总价不溢出
+- 失败回包均为 `50004 WSCodeShopRequestInvalid`，`msg` 为稳定原因：`bag slot item mismatch` / `sell quantity invalid` / `item cannot be sold` / `bound item cannot be sold` / `equipped item cannot be sold` / `sell price overflow`；扣背包或加钱包失败为 `50006 WSCodeShopSellFailed`
+
+### 5112 SELL_ITEM_RESP
+
+```json
+{
+  "shop_id": 93002,
+  "slot_index": 1,
+  "item_id": 3003,
+  "quantity": 2,
+  "income": { "currency_type": "base_coin", "total_copper": 320, "gold": 0, "silver": 0, "copper": 320 },
+  "wallet": { "total_copper": 2345998, "gold": 2, "silver": 345, "copper": 998 }
+}
+```
+
+- 成功后继续推送 `5011 BAG_UPDATE_PUSH` 与 `5091 WALLET_UPDATE_PUSH`（`reason_type=shop_sell`）
+- 事务顺序为「先扣背包、再加钱包」；若加钱包失败，服务端把物品补回背包并推送最新背包，避免出现“白拿钱”
+- 背包快照条目新增展示字段 `can_sell`、`sell_price_copper`，供客户端商店「出售」页签过滤与展示，最终以 5111 服务端校验为准
 
 ### 5111 SELL_ITEM_REQ（规划）
 

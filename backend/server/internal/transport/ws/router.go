@@ -241,6 +241,14 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
 		}
 		return r.bagHandler.HandleBuyItem(conn, packet)
+	case protocol.CmdSellItemReq:
+		if !r.sessionService.IsAuthenticated(conn.ID()) {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
+		}
+		if r.bagHandler == nil {
+			return sendError(conn, packet.Seq, errcode.WSCodeUnsupportedCmd, "bag handler unavailable")
+		}
+		return r.bagHandler.HandleSellItem(conn, packet)
 	case protocol.CmdWildEncounterReq:
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")

@@ -95,6 +95,8 @@ const (
 	CmdWalletUpdatePush           uint16 = 5091
 	CmdBuyItemReq                 uint16 = 5101
 	CmdBuyItemResp                uint16 = 5102
+	CmdSellItemReq                uint16 = 5111
+	CmdSellItemResp               uint16 = 5112
 	CmdQuestListReq               uint16 = 6001
 	CmdQuestListResp              uint16 = 6002
 	CmdQuestUpdatePush            uint16 = 6011
