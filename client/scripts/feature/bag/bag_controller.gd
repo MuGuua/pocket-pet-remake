@@ -58,7 +58,7 @@ func handle_drop_item_response(payload: Dictionary) -> void:
 
 # 处理仓库等其他容器的完整快照响应。
 func handle_container_list(payload: Dictionary) -> void:
-    _apply_container_payload(payload)
+    _apply_container_payload(payload, true)
 
 
 # 处理钱包独立查询响应。
@@ -84,12 +84,20 @@ func handle_sell_item_response(payload: Dictionary) -> void:
     sell_item_responded.emit(payload)
 
 
-func _apply_container_payload(payload: Dictionary) -> void:
+## full_container 为 true 表示载荷是完整容器（CONTAINER_LIST），不是分页背包（BAG_LIST）。
+func _apply_container_payload(payload: Dictionary, full_container: bool = false) -> void:
     var container_variant: Variant = payload.get("container", {})
     var applied_container_type: String = "bag"
     if container_variant is Dictionary and not container_variant.is_empty():
-        applied_container_type = str(container_variant.get("container_type", "bag"))
-        GameState.set_container_snapshot(container_variant)
+        var container: Dictionary = (container_variant as Dictionary).duplicate(true)
+        applied_container_type = str(container.get("container_type", "bag"))
+        if full_container:
+            # CONTAINER_LIST 不分页，但服务端仍会回填 page=1、page_size=物品数。
+            # 保留这些字段会让 GameState 把它当成分页背包，后续整包推送时按旧物品数切片，
+            # 导致从仓库取出的物品在背包区被截断。完整容器一律去掉分页字段。
+            for key: String in ["page", "page_size", "category", "total_items"]:
+                container.erase(key)
+        GameState.set_container_snapshot(container)
     else:
         # 兼容旧协议仍然直接返回 items 数组的情况。
         var items_variant: Variant = payload.get("items", [])

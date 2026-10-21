@@ -61,6 +61,7 @@
 - **创建 UI 面板或交互组件前，必须先检查 `client/scenes/ui/common/` 与 `client/scripts/ui/common/` 是否已有可复用的通用样式或组件**（清单见 `client/scenes/ui/common/README.md`）。优先复用 `modal_popup_layer`、`RuntimeRootPanel`、`AnchoredPopupBase`、`ConfirmPromptPopup`、`ActionMenuPopup`、`ItemSlotPicker`、`OptionListPanel`、`ItemDescriptionView`、`MenuFrame`、`RuntimeActionButton`、`RuntimeProgressOverlay`、`RewardPopup`、`BagItemHoverName` 等通用资源；只有在现有组件无法满足需求时，才新增专用 UI，并评估是否应沉淀为新的通用组件。
 - 除非任务明确要求，否则不要重命名自动加载单例、场景路径或资源路径。
 - loading 遮罩使用通用UI与对应脚本，所有场景都必须使用这个UI。所有与服务端的请求都必须通过这个UI进行。获取到数据以后再进行面板打开（打开以后直接是新数据，不能老数据变成新数据的过程，本地不再内存中缓存旧数据），动画渲染，npc交互菜单拉取等等，除了多人同屏功能.
+- **例外：仓库存取（`warehouse_panel.gd`）允许乐观更新。** 玩家确认存入 / 取出后立即在本地移动物品、不展示 loading；服务端成功推送的容器整包快照覆盖本地结果，失败（含 `accepted=false`）时把两个容器还原到操作前快照并提示服务端原因。该例外仅限仓库存取，其它请求仍须遵守上一条 loading 规则；新增乐观更新场景必须先经用户确认并在此登记。
 - 所有浮点数数值在ui面板，动画渲染的时候都转成int类型，不能直接使用float64类型。
 - 声明变量的类型的时候禁止使用类型推断，必须显式指定类型。
 - 所有ui都必须使用场景和节点数，禁止使用脚本生成ui,避免在脚本中重新设置ui节点的尺寸，最多设置出现位置，方便开发者调整

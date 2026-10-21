@@ -372,15 +372,120 @@ func _on_action_selected(action_key: String) -> void:
 		App.notice_received.emit("请求发送失败，请稍后重试。")
 		_clear_selection()
 		return
-	_show_loading()
-	var result: Dictionary = await _wait_single_request(request_seq, request_cmd)
-	_hide_loading()
-	_request_in_flight = false
+	# 乐观更新（AGENTS.md 仓库存取例外）：请求发出后立即在本地移动物品，不展示 loading。
+	# 服务端成功后会推送两个容器的整包快照，用权威数据覆盖本地结果；
+	# 失败时把两个容器恢复到操作前的快照，并提示服务端原因。
+	var from_type: String = "bag" if action_key == ACTION_DEPOSIT else "warehouse"
+	var to_type: String = "warehouse" if action_key == ACTION_DEPOSIT else "bag"
+	var from_before: Dictionary = _container_snapshot(from_type)
+	var to_before: Dictionary = _container_snapshot(to_type)
+	var preview: Dictionary = WarehousePanel.build_optimistic_transfer(from_before, to_before, slot_index, quantity)
 	_clear_selection()
+	if bool(preview.get("ok", false)):
+		GameState.set_container_snapshot(preview.get("from", {}))
+		GameState.set_container_snapshot(preview.get("to", {}))
+	var result: Dictionary = await _wait_single_request(request_seq, request_cmd)
+	_request_in_flight = false
+	if _is_transfer_accepted(result):
+		return
+	# 失败回滚：服务端失败时不会推送容器，本地快照必须还原。
+	if bool(preview.get("ok", false)):
+		GameState.set_container_snapshot(from_before)
+		GameState.set_container_snapshot(to_before)
+	App.notice_received.emit(_transfer_failure_text(action_key, result.get("payload", {})))
+
+
+## 判断存取是否真正成功：请求本身成功，且回包 accepted 不为 false。
+## 服务端对「仓库已满、物品不可存放」等业务失败返回的是 accepted=false 的正常回包，而不是错误码。
+func _is_transfer_accepted(result: Dictionary) -> bool:
 	if not bool(result.get("succeeded", false)):
-		App.notice_received.emit(_transfer_failure_text(action_key, result.get("payload", {})))
-	# 成功时两个容器的新快照已由 5011 推送写入 GameState，这里补一次重绘兜底。
-	_refresh_all()
+		return false
+	var payload_variant: Variant = result.get("payload", {})
+	if payload_variant is Dictionary:
+		return bool((payload_variant as Dictionary).get("accepted", true))
+	return true
+
+
+## 读取指定容器的当前快照副本；用于乐观更新前留底和失败回滚。
+func _container_snapshot(container_type: String) -> Dictionary:
+	var source: Dictionary = GameState.warehouse_container if container_type == "warehouse" else GameState.bag_container
+	var copied: Dictionary = source.duplicate(true)
+	copied["container_type"] = container_type
+	if not copied.has("items"):
+		copied["items"] = []
+	return copied
+
+
+## 计算乐观更新后的两个容器（纯函数，不修改入参，便于测试）。
+## from_container / to_container 为容器快照；slot_index 为源格子；quantity 为移动数量。
+## 规则只用于本地预览，最终结果以服务端推送为准：
+## - 源格子数量不足时整格移走，否则扣减数量；
+## - 可堆叠物品优先叠到目标容器中同 item_id 的非实例格子；
+## - 否则放进目标容器第一个空格；目标没有空格时返回 ok=false，不做预览，交给服务端判定。
+## 返回 {"ok": bool, "from": Dictionary, "to": Dictionary}。
+static func build_optimistic_transfer(from_container: Dictionary, to_container: Dictionary, slot_index: int, quantity: int) -> Dictionary:
+	var from_next: Dictionary = from_container.duplicate(true)
+	var to_next: Dictionary = to_container.duplicate(true)
+	var from_items: Array = (from_next.get("items", []) as Array).duplicate(true) if from_next.get("items", []) is Array else []
+	var to_items: Array = (to_next.get("items", []) as Array).duplicate(true) if to_next.get("items", []) is Array else []
+	var source_index: int = -1
+	for index: int in range(from_items.size()):
+		if from_items[index] is Dictionary and int((from_items[index] as Dictionary).get("slot_index", 0)) == slot_index:
+			source_index = index
+			break
+	if source_index < 0 or quantity <= 0:
+		return {"ok": false}
+	var source: Dictionary = from_items[source_index] as Dictionary
+	var source_quantity: int = maxi(1, int(source.get("quantity", 1)))
+	var moved_quantity: int = mini(quantity, source_quantity)
+	var item_uid: String = str(source.get("item_uid", "")).strip_edges()
+	var stackable: bool = item_uid.is_empty() and bool(source.get("is_stackable", source_quantity > 1))
+
+	# 先在目标容器找落点：同物品可叠加的格子，或第一个空格。
+	var merge_index: int = -1
+	if stackable:
+		for index: int in range(to_items.size()):
+			var candidate: Dictionary = to_items[index] as Dictionary
+			if int(candidate.get("item_id", 0)) == int(source.get("item_id", 0)) and str(candidate.get("item_uid", "")).is_empty():
+				merge_index = index
+				break
+	var free_slot: int = 0
+	if merge_index < 0:
+		var occupied: Dictionary = {}
+		for candidate_variant: Variant in to_items:
+			if candidate_variant is Dictionary:
+				occupied[int((candidate_variant as Dictionary).get("slot_index", 0))] = true
+		var capacity: int = int(to_next.get("capacity", to_next.get("max_capacity", 0)))
+		for candidate_slot: int in range(1, capacity + 1):
+			if not occupied.has(candidate_slot):
+				free_slot = candidate_slot
+				break
+		if free_slot <= 0:
+			return {"ok": false}
+
+	# 扣减源格子。
+	if moved_quantity >= source_quantity:
+		from_items.remove_at(source_index)
+	else:
+		source["quantity"] = source_quantity - moved_quantity
+		from_items[source_index] = source
+
+	# 写入目标格子。
+	if merge_index >= 0:
+		var merged: Dictionary = to_items[merge_index] as Dictionary
+		merged["quantity"] = int(merged.get("quantity", 1)) + moved_quantity
+		to_items[merge_index] = merged
+	else:
+		var placed: Dictionary = (from_container.get("items", []) as Array)[source_index].duplicate(true)
+		placed["slot_index"] = free_slot
+		placed["quantity"] = moved_quantity
+		to_items.append(placed)
+
+	from_next["items"] = from_items
+	from_next["used_slots"] = from_items.size()
+	to_next["items"] = to_items
+	to_next["used_slots"] = to_items.size()
+	return {"ok": true, "from": from_next, "to": to_next}
 
 
 ## 弹出数量选择并返回确认的数量；取消返回 0。
