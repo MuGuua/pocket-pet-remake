@@ -1583,11 +1583,22 @@ func _on_main_menu_item_selected(item: Dictionary) -> void:
 			_main_menu.call("close_menu")
 		call_deferred("_open_pet_panel_prepared")
 		return
-	if label != "全服竞技场":
-		return
 	if _main_menu != null and _main_menu.has_method("close_menu"):
 		_main_menu.call("close_menu")
-	_open_pvp_target_menu()
+	match label:
+		"全服竞技场":
+			_open_pvp_target_menu()
+		"查看任务":
+			call_deferred("_open_task_panel_prepared")
+		"原地挂机":
+			call_deferred("_on_hud_auto_encounter_pressed")
+		"世界地图", "区域地图":
+			var map_controller: Node = get_node_or_null("MapPanelController")
+			if map_controller != null and map_controller.has_method("open_map_panel"):
+				map_controller.call_deferred("open_map_panel")
+		_:
+			# 其余入口对应的功能尚未开发；统一给出明确提示，避免玩家点击后毫无反馈。
+			hud_root.show_notice("「%s」尚未开放，敬请期待。" % label)
 
 func _on_npc_menu_option_selected(option: Dictionary) -> void:
 	if _is_battle_modal_active():

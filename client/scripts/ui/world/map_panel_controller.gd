@@ -42,6 +42,15 @@ func _on_map_button_pressed() -> void:
     _set_world_input_locked(true)
 
 
+## 供主菜单等外部入口打开地图面板；已打开时保持打开，不做切换，战斗期间不响应。
+func open_map_panel() -> void:
+    if map_panel == null or GameState.is_in_battle or map_panel.visible:
+        return
+    _close_other_runtime_panels()
+    map_panel.open_menu()
+    _set_world_input_locked(true)
+
+
 ## 地图面板关闭后恢复世界输入。
 func _on_map_panel_closed() -> void:
     if not GameState.is_in_battle:
