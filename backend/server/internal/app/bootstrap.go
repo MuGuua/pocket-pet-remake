@@ -171,6 +171,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	worldHandler.SetStoryProgressService(storyProgressService)
 	worldHandler.SetMovementFinalPersister(movementWorker)
 	equipmentHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
+	equipmentHandler.SetBagService(bagService)
 	battleHandler.SetRuntimeSnapshotService(runtimeSnapshotService)
 	battleHandler.SetMovementFinalPersister(movementWorker)
 	bagHandler := wstransport.NewBagHandler(sessionService, bagService, itemService, walletService, playerService, petService, equipmentService, worldService, npcService)

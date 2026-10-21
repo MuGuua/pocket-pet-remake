@@ -19,6 +19,9 @@ type EquipmentHandler struct {
 	sessionService   *session.Service
 	equipmentService *equipment.Service
 	runtimeSnapshots *runtimeview.Service
+	// bagService 可选；注入后佩戴、卸下、修理成功会推送背包整包快照（5011），
+	// 客户端据此在本地重算当前页，不必再补拉 BAG_LIST。
+	bagService *bag.Service
 }
 
 // NewEquipmentHandler 构造人物装备处理器。
@@ -35,6 +38,27 @@ func (h *EquipmentHandler) SetRuntimeSnapshotService(service *runtimeview.Servic
 		return
 	}
 	h.runtimeSnapshots = service
+}
+
+// SetBagService 注入背包服务，用于装备变更后推送背包最新快照。
+func (h *EquipmentHandler) SetBagService(service *bag.Service) {
+	if h == nil {
+		return
+	}
+	h.bagService = service
+}
+
+// pushBagSnapshot 在装备变更回包之后推送背包整包快照；推送失败不影响已成功的装备操作。
+// 强化不调用它：客户端会在强化演出结束后再刷新背包，避免格子在动画中途跳变。
+func (h *EquipmentHandler) pushBagSnapshot(conn packetSender, playerID uint64) {
+	if h == nil || h.bagService == nil || conn == nil {
+		return
+	}
+	snapshot, err := h.bagService.ListRuntimeContainer(context.Background(), playerID, bag.ContainerTypeBag)
+	if err != nil || snapshot == nil {
+		return
+	}
+	_ = conn.SendPacket(mustJSONPacket(protocol.CmdBagUpdatePush, 0, buildContainerUpdatePush(*snapshot)))
 }
 
 // HandleList 拉取玩家当前已佩戴装备列表。
@@ -95,7 +119,11 @@ func (h *EquipmentHandler) HandleEquip(conn packetSender, packet *protocol.Packe
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(responsePacket)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	h.pushBagSnapshot(conn, sess.PlayerID)
+	return nil
 }
 
 // HandleUnequip 卸下指定槽位装备。
@@ -128,7 +156,11 @@ func (h *EquipmentHandler) HandleUnequip(conn packetSender, packet *protocol.Pac
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(responsePacket)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	h.pushBagSnapshot(conn, sess.PlayerID)
+	return nil
 }
 
 // HandleEnhance 消耗材料并尝试强化指定装备实例。
@@ -195,7 +227,11 @@ func (h *EquipmentHandler) HandleRepair(conn packetSender, packet *protocol.Pack
 	if err != nil {
 		return err
 	}
-	return conn.SendPacket(responsePacket)
+	if err := conn.SendPacket(responsePacket); err != nil {
+		return err
+	}
+	h.pushBagSnapshot(conn, sess.PlayerID)
+	return nil
 }
 
 func mapEquipmentEnhanceError(conn packetSender, seq uint32, err error) error {

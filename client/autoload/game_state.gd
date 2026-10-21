@@ -537,8 +537,22 @@ func upsert_bag_item(item: Dictionary) -> void:
         bag_container["used_slots"] = bag_items.size()
     bag_changed.emit()
 
+## 背包分页分类键，与服务端 bag_handler.go 的 bagListCategory* 常量保持一致。
+const BAG_CATEGORY_ALL: String = "all"
+const BAG_CATEGORY_EQUIPMENT: String = "equipment"
+const BAG_CATEGORY_OTHER: String = "other"
+const BAG_CATEGORY_ENHANCE_MATERIAL: String = "enhance_material"
+## 强化材料的物品子类型，与服务端 bag.ItemSubTypeEquipmentEnhance 一致。
+const BAG_ITEM_SUB_TYPE_ENHANCE_MATERIAL: String = "equipment_enhance"
+
 # 按服务端增量推送把指定容器的多个格子更新合并进本地状态。
 func apply_container_updates(container_type: String, updates: Array, capacity: int = 0, max_capacity: int = 0, used_slots: int = -1) -> void:
+    # 背包处于分页模式时，bag_container.items 只存当前页；服务端 5011 推送却是整个背包。
+    # 直接合并会得到「既不是当前页也没按分类过滤」的中间态，过去只能再补拉一次 BAG_LIST 才正确，
+    # 造成操作结束后界面延迟变化。这里改为用整包推送在本地按服务端同一规则重算当前页。
+    if container_type != "warehouse" and bag_container.has("page_size") and _is_full_container_push(updates, capacity):
+        _apply_paged_bag_full_push(updates, capacity, max_capacity, used_slots)
+        return
     var target_container: Dictionary = warehouse_container.duplicate(true) if container_type == "warehouse" else bag_container.duplicate(true)
     var items_variant: Variant = target_container.get("items", [])
     var target_items: Array = items_variant.duplicate(true) if items_variant is Array else []
@@ -582,6 +596,78 @@ func apply_container_updates(container_type: String, updates: Array, capacity: i
         bag_container = target_container
         bag_items = target_items
     bag_changed.emit()
+
+## 判断推送是否覆盖了容器全部格子（1..capacity 每格都有更新或删除标记），即服务端的整包快照。
+## updates 为 5011 的 updates 数组；capacity 为推送携带的容器容量。
+func is_full_container_push(updates: Array, capacity: int) -> bool:
+    return _is_full_container_push(updates, capacity)
+
+
+func _is_full_container_push(updates: Array, capacity: int) -> bool:
+    if capacity <= 0 or updates.size() < capacity:
+        return false
+    return true
+
+
+## 用整包推送重建分页背包：按 slot_index 升序 → 按当前分类过滤 → 按当前页切片。
+## 规则与服务端 buildPaginatedContainerSnapshot 完全一致，结果等同于重新请求一次 BAG_LIST。
+## 若当前页因物品减少而越界，回退到最后一页，避免出现空白页。
+func _apply_paged_bag_full_push(updates: Array, capacity: int, max_capacity: int, used_slots: int) -> void:
+    var all_items: Array = []
+    for update_variant: Variant in updates:
+        if update_variant is not Dictionary:
+            continue
+        var update: Dictionary = update_variant as Dictionary
+        if bool(update.get("deleted", false)):
+            continue
+        var item_variant: Variant = update.get("item", {})
+        if item_variant is Dictionary and not (item_variant as Dictionary).is_empty():
+            all_items.append((item_variant as Dictionary).duplicate(true))
+    all_items.sort_custom(func(left: Variant, right: Variant) -> bool:
+        return int((left as Dictionary).get("slot_index", 0)) < int((right as Dictionary).get("slot_index", 0)))
+
+    var category: String = str(bag_container.get("category", BAG_CATEGORY_ALL))
+    var filtered: Array = []
+    for item_variant: Variant in all_items:
+        if _bag_item_matches_category(item_variant as Dictionary, category):
+            filtered.append(item_variant)
+
+    var page_size: int = maxi(1, int(bag_container.get("page_size", 28)))
+    var page: int = maxi(1, int(bag_container.get("page", 1)))
+    var last_page: int = maxi(1, int(ceil(float(filtered.size()) / float(page_size))))
+    page = mini(page, last_page)
+    var start_index: int = (page - 1) * page_size
+    var page_items: Array = filtered.slice(start_index, mini(start_index + page_size, filtered.size()))
+
+    var next_container: Dictionary = bag_container.duplicate(true)
+    next_container["container_type"] = "bag"
+    if capacity > 0:
+        next_container["capacity"] = capacity
+    if max_capacity > 0:
+        next_container["max_capacity"] = max_capacity
+    next_container["page"] = page
+    next_container["total_items"] = filtered.size()
+    next_container["items"] = page_items
+    next_container["used_slots"] = used_slots if used_slots >= 0 else all_items.size()
+    bag_container = next_container
+    bag_items = page_items
+    bag_changed.emit()
+
+
+## 判断物品是否属于背包分类；与服务端 filterBagSnapshotItems 口径一致。
+func _bag_item_matches_category(item: Dictionary, category: String) -> bool:
+    var is_equipment: bool = str(item.get("item_type", "")).to_lower() == BAG_CATEGORY_EQUIPMENT
+    var is_enhance_material: bool = str(item.get("item_sub_type", "")).to_lower() == BAG_ITEM_SUB_TYPE_ENHANCE_MATERIAL
+    match category:
+        BAG_CATEGORY_EQUIPMENT:
+            return is_equipment
+        BAG_CATEGORY_ENHANCE_MATERIAL:
+            return is_enhance_material
+        BAG_CATEGORY_OTHER:
+            return not is_equipment and not is_enhance_material
+        _:
+            return true
+
 
 # 按当前任务列表优先选择显式追踪任务，否则回落到首个可展示任务。
 func _pick_default_tracked_quest_id() -> int:

@@ -30,7 +30,10 @@ func handle_bag_update(payload: Dictionary) -> void:
             int(payload.get("max_capacity", 0)),
             int(payload.get("used_slots", -1))
         )
-        _refresh_paginated_bag_page_if_needed(container_type)
+        # 整包推送已在 GameState 中按当前页与分类重算完毕，无需再补拉；
+        # 只有不完整的旧式增量推送才回退到补拉当前页。
+        if not GameState.is_full_container_push(updates, int(payload.get("capacity", 0))):
+            _refresh_paginated_bag_page_if_needed(container_type)
         _emit_bag_updated()
         if not updates.is_empty():
             container_snapshot_applied.emit(container_type)

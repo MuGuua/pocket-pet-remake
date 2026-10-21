@@ -72,6 +72,6 @@ func _apply_equipment_mutation_response(payload: Dictionary) -> void:
     var all_equipped_variant: Variant = payload.get("all_equipped", [])
     if all_equipped_variant is Array:
         GameState.set_equipped_items(all_equipped_variant as Array)
-    if GameState.is_ws_authenticated:
-        App.request_bag_list()
+    # 佩戴 / 卸下后服务端会紧接着推送背包整包快照（5011），GameState 会按当前页与分类重算，
+    # 不再在这里补拉 BAG_LIST；旧实现用默认参数补拉，还会把背包跳回第 1 页、重置筛选。
     equipment_updated.emit()
