@@ -301,10 +301,12 @@ func _on_filter_pressed(filter_key: String) -> void:
 func _on_slot_selected(item: Dictionary, slot: BagSlot, container_type: String) -> void:
 	if _request_in_flight or item.is_empty():
 		return
-	_clear_selection()
+	# 被点的格子此时已由 toggle 自身切到按下态，这里只清理其它格子。
+	# 不能先把它设回未按下再设为按下：button_pressed 变化会重新触发 toggled → item_selected，
+	# 回到本函数形成无限递归，导致动作菜单永远弹不出来。
+	_clear_selection(slot)
 	_selected_item = item.duplicate(true)
 	_selected_container = container_type
-	slot.set_selected(true)
 	_ensure_action_menu()
 	if _action_menu == null:
 		return
@@ -439,14 +441,17 @@ func _wait_single_request(expected_seq: int, request_cmd: int) -> Dictionary:
 	return {"succeeded": false, "payload": {}}
 
 
-## 清除选中物品与格子高亮。
-func _clear_selection() -> void:
+## 清除选中物品与格子高亮；keep_slot 为需要保留按下态的格子（刚被点击的格子），默认全部清除。
+## 设为未选中只会触发 toggled(false)，BagSlot 不会因此发出 item_selected，因此不会递归。
+func _clear_selection(keep_slot: BagSlot = null) -> void:
 	_selected_item = {}
 	_selected_container = ""
 	for slot: BagSlot in _warehouse_slots:
-		slot.set_selected(false)
+		if slot != keep_slot:
+			slot.set_selected(false)
 	for slot: BagSlot in _bag_slots:
-		slot.set_selected(false)
+		if slot != keep_slot:
+			slot.set_selected(false)
 
 
 ## 展示通用全屏 loading（懒创建）。
