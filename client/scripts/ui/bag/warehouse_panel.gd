@@ -20,6 +20,8 @@ const ACTION_WITHDRAW: String = "withdraw"
 const ACTION_MENU_SCENE: PackedScene = preload(ActionMenuPopup.SCENE_PATH)
 ## 通用全屏 loading；所有存取请求等待期间都必须展示它。
 const LOADING_SCENE: PackedScene = preload(GenericLoadingScene.SCENE_PATH)
+## 数量选择弹窗，复用背包「丢弃」的同一个弹窗，保证样式一致。
+const QUANTITY_POPUP_SCENE: PackedScene = preload(DropItemPopup.SCENE_PATH)
 
 ## 标题栏关闭按钮。
 @onready var _close_button: Button = $RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer/Button
@@ -66,6 +68,7 @@ var _open_generation: int = 0
 ## 懒创建的动作菜单与 loading 实例。
 var _action_menu: ActionMenuPopup = null
 var _loading: GenericLoadingScene = null
+var _quantity_popup: DropItemPopup = null
 
 
 ## 绑定按钮与数据刷新信号；面板默认隐藏，由主场景在数据就绪后打开。
@@ -144,6 +147,8 @@ func close_menu() -> void:
 func _close_all_overlays() -> void:
 	if _action_menu != null:
 		_action_menu.hide_menu()
+	if _quantity_popup != null:
+		_quantity_popup.force_close_popup()
 	_clear_selection()
 
 
@@ -327,17 +332,31 @@ func _ensure_action_menu() -> void:
 
 
 ## 动作菜单被点空白关闭时取消选中，避免格子残留高亮。
+## ActionMenuPopup 点选动作时会先关闭、再发出 action_selected，因此这里延迟一帧再判断：
+## 若期间已进入存取流程（_request_in_flight 为 true），就保留选中物品不清理。
 func _on_action_menu_closed() -> void:
+	call_deferred("_clear_selection_if_idle")
+
+
+## 仅在没有存取流程进行时清除选中。
+func _clear_selection_if_idle() -> void:
 	if not _request_in_flight:
 		_clear_selection()
 
 
-## 执行存入 / 取出：整格移动，数量取格子当前数量；全程展示通用 loading。
+## 执行存入 / 取出：可堆叠物品先选择数量，实例物品（装备等）整件移动；请求期间展示通用 loading。
 func _on_action_selected(action_key: String) -> void:
 	if _request_in_flight or _selected_item.is_empty() or _warehouse_entity_id <= 0:
 		return
-	var slot_index: int = BagUiMapper.slot_index(_selected_item)
-	var quantity: int = max(1, BagUiMapper.quantity(_selected_item))
+	var item: Dictionary = _selected_item.duplicate(true)
+	var slot_index: int = BagUiMapper.slot_index(item)
+	# 先锁住，避免数量弹窗打开期间再次点击格子。
+	_request_in_flight = true
+	var quantity: int = await _prompt_transfer_quantity(action_key, item)
+	if quantity <= 0:
+		_request_in_flight = false
+		_clear_selection()
+		return
 	var request_seq: int = 0
 	var request_cmd: int = 0
 	if action_key == ACTION_DEPOSIT:
@@ -347,10 +366,10 @@ func _on_action_selected(action_key: String) -> void:
 		request_cmd = CommandIds.WAREHOUSE_TO_BAG_REQ
 		request_seq = App.request_warehouse_to_bag(_warehouse_entity_id, slot_index, quantity)
 	if request_seq <= 0:
+		_request_in_flight = false
 		App.notice_received.emit("请求发送失败，请稍后重试。")
 		_clear_selection()
 		return
-	_request_in_flight = true
 	_show_loading()
 	var result: Dictionary = await _wait_single_request(request_seq, request_cmd)
 	_hide_loading()
@@ -360,6 +379,25 @@ func _on_action_selected(action_key: String) -> void:
 		App.notice_received.emit(_transfer_failure_text(action_key, result.get("payload", {})))
 	# 成功时两个容器的新快照已由 5011 推送写入 GameState，这里补一次重绘兜底。
 	_refresh_all()
+
+
+## 弹出数量选择并返回确认的数量；取消返回 0。
+## 只有可部分移动的堆叠物品会显示数量行，其余物品弹窗只做确认，数量为整格数量。
+func _prompt_transfer_quantity(action_key: String, item: Dictionary) -> int:
+	if _quantity_popup == null:
+		_quantity_popup = QUANTITY_POPUP_SCENE.instantiate() as DropItemPopup
+		if _quantity_popup == null:
+			return max(1, BagUiMapper.quantity(item))
+		add_child(_quantity_popup)
+	var is_deposit: bool = action_key == ACTION_DEPOSIT
+	var result: Dictionary = await _quantity_popup.prompt_quantity(item, {
+		"title": "存入仓库" if is_deposit else "取出到背包",
+		"warning_bbcode": "将 %s 存入仓库" if is_deposit else "将 %s 取出到背包",
+		"confirm_label": "存入" if is_deposit else "取出",
+	})
+	if not bool(result.get("confirmed", false)):
+		return 0
+	return max(1, int(result.get("quantity", 1)))
 
 
 ## 生成存取失败提示：优先展示服务端原因，缺失时给出通用文案。

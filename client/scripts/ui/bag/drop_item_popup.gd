@@ -19,6 +19,8 @@ signal prompt_finished(result: Dictionary)
 @onready var _confirm_button: RuntimeActionButton = %ConfirmButton
 @onready var _cancel_button: RuntimeActionButton = %CancelButton
 @onready var _top_close_button: BaseButton = %TopCloseButton
+## 标题文案；丢弃、存入仓库、取出到背包共用本弹窗时按场景切换。
+@onready var _title_label: Label = get_node_or_null("CenterContainer/PanelContainer/RootVBox/HeaderRow/TitleLabel") as Label
 @onready var _dim_layer: ColorRect = $DimLayer
 
 ## 当前待丢弃物品快照。
@@ -31,6 +33,8 @@ var _quantity_min: int = 1
 var _quantity_max: int = 1
 ## 是否正在等待玩家确认，防止重复 finish。
 var _prompt_active: bool = false
+## 本次弹窗的展示配置：title / warning_bbcode / confirm_label；为空时使用丢弃的默认文案。
+var _prompt_config: Dictionary = {}
 
 
 ## 绑定按钮；默认隐藏，遮罩仅拦截点击不自动关闭。
@@ -55,7 +59,16 @@ func _ready() -> void:
 
 ## 打开丢弃确认弹窗并阻塞到玩家确认或取消；返回 confirmed 与 quantity。
 func prompt_drop(item: Dictionary) -> Dictionary:
+	return await prompt_quantity(item, {})
+
+
+## 通用数量确认：复用丢弃弹窗的数量选择，供仓库存取等场景使用。
+## item 为背包/仓库格子快照；config 可选 title、warning_bbcode（BBCode，%s 会替换为物品名）、confirm_label。
+## 返回 {"confirmed": bool, "quantity": int}。
+func prompt_quantity(item: Dictionary, config: Dictionary) -> Dictionary:
 	_item = item.duplicate(true)
+	_prompt_config = config.duplicate(true)
+	_apply_prompt_texts()
 	_apply_item_view()
 	_prompt_active = true
 	_set_runtime_input_locked(true)
@@ -125,7 +138,8 @@ func _apply_item_view() -> void:
 			meta_parts.append("数量 %d" % qty)
 		_item_meta_label.text = " · ".join(meta_parts) if not meta_parts.is_empty() else ""
 	if _warning_label != null:
-		_warning_label.text = "确定要丢弃 %s 吗？\n[color=#c9a227]此操作不可撤销。[/color]" % item_name
+		var warning_template: String = str(_prompt_config.get("warning_bbcode", "确定要丢弃 %s 吗？\n[color=#c9a227]此操作不可撤销。[/color]"))
+		_warning_label.text = warning_template % item_name if warning_template.contains("%s") else warning_template
 	var supports_partial: bool = BagUiMapper.supports_partial_drop(_item)
 	_quantity_min = 1
 	_quantity_max = maxi(1, BagUiMapper.quantity(_item)) if supports_partial else 1
@@ -133,6 +147,14 @@ func _apply_item_view() -> void:
 	if _quantity_row != null:
 		_quantity_row.visible = supports_partial
 	_refresh_quantity_label()
+
+
+## 按本次配置刷新标题与确认按钮文案；未配置时回到丢弃的默认文案。
+func _apply_prompt_texts() -> void:
+	if _title_label != null:
+		_title_label.text = str(_prompt_config.get("title", "丢弃物品"))
+	if _confirm_button != null:
+		_confirm_button.set_button_label(str(_prompt_config.get("confirm_label", "丢弃")))
 
 
 ## 刷新数量标签。
