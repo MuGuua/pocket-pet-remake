@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-10-20 仓库界面接入（客户端）
+
+- 背景：服务端仓库协议（`5031 CONTAINER_LIST`、`5041 BAG_TO_WAREHOUSE`、`5051 WAREHOUSE_TO_BAG`）与距离校验早已完整，存取后会同时推送两个容器的 `5011`；客户端 NPC 菜单的仓库入口却只打印「旧面板已移除」日志。
+- 新增 `client/scenes/ui/bag/warehouse_panel.tscn`：由背包面板场景派生，沿用同一套面板底图、模糊背景、关闭按钮、`slot.tscn` 格子、7 列网格、筛选与翻页资源。原装备栏位置替换为仓库区（容量 + 3×7 格子 + 翻页），下半部分保持与背包一致（容量、金银铜、4×7 格子、全部/装备/其他筛选、翻页）；去掉了仓库场景下无意义的扩容与充值按钮；根节点默认隐藏。
+- 新增 `client/scripts/ui/bag/warehouse_panel.gd`：打开前并行拉取仓库与背包完整快照，就绪后才显示；点击格子在旁边弹出通用 `ActionMenuPopup`（存入仓库 / 取出到背包），整格移动，请求期间展示通用 `GenericLoadingScene`；失败时用服务端原因提示；数据随 `GameState.bag_changed` / `wallet_changed` 重绘。仓库与背包均在客户端分页，筛选口径与背包面板一致。
+- `main.gd`：创建仓库面板，纳入根面板互斥与阻塞判断；NPC 菜单 `entry_type=warehouse` 改为先 loading 拉取数据再打开面板。
+- 本次无协议、服务端或数据库变更。Godot 4.7 headless 校验脚本无语法错误，场景节点路径全部可解析，仓库 21 格、背包 28 格。
+
 ## 2026-10-20 任务日常刷新与放弃任务
 
 - 背景：`quest_template.can_abandon`、`is_repeatable` 两列建表即有，但服务端从未读取；客户端「日常任务」页签的任务交付后永远停在已完成，玩家也无法放弃任务。

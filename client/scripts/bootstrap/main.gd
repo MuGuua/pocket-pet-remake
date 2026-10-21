@@ -8,6 +8,8 @@ const MAIN_MENU_SCENE := preload("res://scenes/ui/main_menu.tscn")
 const PLAYER_PANEL_SCENE := preload("res://scenes/ui/status_panels/player_status_panel.tscn")
 const PET_PANEL_SCENE := preload("res://scenes/ui/pet/pet_status_panel.tscn")
 const BAG_PANEL_SCENE := preload("res://scenes/ui/bag/bag_panel.tscn")
+## 仓库面板场景；视觉沿用背包面板，上半部分为仓库格子。
+const WAREHOUSE_PANEL_SCENE: PackedScene = preload("res://scenes/ui/bag/warehouse_panel.tscn")
 const TASK_PANEL_SCENE := preload("res://scenes/ui/task/task_panel.tscn")
 const OPTION_LIST_PANEL_SCENE := preload(OptionListPanel.SCENE_PATH)
 const RUNTIME_PROGRESS_OVERLAY_SCENE := preload(RuntimeProgressOverlay.SCENE_PATH)
@@ -84,6 +86,8 @@ var _main_menu: CanvasLayer
 var _player_panel: CanvasLayer
 var _pet_panel: CanvasLayer
 var _bag_panel: CanvasLayer
+## 仓库面板实例，由 NPC 菜单的仓库入口打开。
+var _warehouse_panel: WarehousePanel
 var _task_panel: CanvasLayer
 var _npc_menu: OptionListPanel = null
 var _npc_list_menu: OptionListPanel = null
@@ -136,6 +140,8 @@ var _queued_scene_trigger_payload: Dictionary = {}
 var _npc_request_loading: RuntimeProgressOverlay = null
 # 背包面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _bag_panel_open_in_flight: bool = false
+## 仓库面板是否正在拉取数据，防止重复点击仓库入口。
+var _warehouse_panel_open_in_flight: bool = false
 # 任务面板是否正在执行「先 loading 再打开」流程，避免重复点击。
 var _task_panel_open_in_flight: bool = false
 # 人物状态面板是否正在执行「先 loading 再打开」流程，避免重复点击。
@@ -1090,6 +1096,7 @@ func _create_runtime_ui() -> void:
 	_create_player_panel()
 	_create_pet_panel()
 	_create_bag_panel()
+	_create_warehouse_panel()
 	_create_task_panel()
 	_create_npc_menu()
 	_create_npc_list_menu()
@@ -1392,6 +1399,14 @@ func _create_bag_panel() -> void:
 		if not bag_controller.container_snapshot_applied.is_connected(snapshot_applied_handler):
 			bag_controller.container_snapshot_applied.connect(snapshot_applied_handler)
 
+## 创建仓库面板，并接入运行时根面板关闭信号。
+func _create_warehouse_panel() -> void:
+	_warehouse_panel = WAREHOUSE_PANEL_SCENE.instantiate() as WarehousePanel
+	if _warehouse_panel == null:
+		return
+	add_child(_warehouse_panel)
+	_warehouse_panel.menu_closed.connect(_on_runtime_menu_closed)
+
 ## 创建任务面板，并接入运行时根面板关闭信号。
 func _create_task_panel() -> void:
 	_task_panel = TASK_PANEL_SCENE.instantiate() as CanvasLayer
@@ -1616,7 +1631,7 @@ func _on_npc_menu_option_selected(option: Dictionary) -> void:
 		_begin_npc_quest_request(entity_id, quest_id, quest_state)
 		return
 	if entry_type == "warehouse":
-		_append_log("仓库旧面板已移除，等待新版仓库界面接入。")
+		call_deferred("_open_warehouse_panel_prepared", entity_id)
 		return
 	_begin_npc_action_request(entity_id, entry_id)
 
@@ -2529,6 +2544,7 @@ func _close_other_root_panels(keep_key: String) -> void:
 		["player_panel", _player_panel],
 		["pet_panel", _pet_panel],
 		["bag_panel", _bag_panel],
+		["warehouse_panel", _warehouse_panel],
 		["task_panel", _task_panel],
 		["npc_menu", _npc_menu],
 		["npc_list", _npc_list_menu],
@@ -2629,6 +2645,24 @@ func _open_bag_panel_prepared() -> void:
 		_bag_panel.call("open_menu")
 	_set_runtime_menu_locked(true)
 
+## 先展示全屏 loading 并拉取仓库与背包的完整快照，就绪后再打开仓库面板。
+## entity_id 为仓库 NPC 实体 ID，存取请求会带回服务端做距离校验。
+func _open_warehouse_panel_prepared(entity_id: int) -> void:
+	if _warehouse_panel == null or entity_id <= 0 or _warehouse_panel_open_in_flight:
+		return
+	_warehouse_panel_open_in_flight = true
+	_close_other_root_panels("warehouse_panel")
+	_create_npc_request_loading()
+	_show_npc_request_loading_immediate()
+	var prepared: bool = await _warehouse_panel.prepare_open_data(entity_id)
+	_hide_npc_request_loading()
+	_warehouse_panel_open_in_flight = false
+	if not prepared:
+		hud_root.show_notice("仓库数据加载失败，请稍后重试。")
+		return
+	_warehouse_panel.open_menu()
+	_set_runtime_menu_locked(true)
+
 ## 先展示全屏 loading 并拉取任务列表，权威快照就绪后再打开任务面板。
 func _open_task_panel_prepared() -> void:
 	if _task_panel == null:
@@ -2689,6 +2723,8 @@ func _has_blocking_ui_open(except: String = "") -> bool:
 	if except != "pet_panel" and _pet_panel != null and _pet_panel.visible:
 		return true
 	if except != "bag_panel" and _bag_panel != null and _bag_panel.visible:
+		return true
+	if except != "warehouse_panel" and _warehouse_panel != null and _warehouse_panel.visible:
 		return true
 	if except != "task_panel" and _task_panel != null and _task_panel.visible:
 		return true
