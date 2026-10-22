@@ -166,3 +166,25 @@ func findSummaryState(summaries []Summary, questID uint64) string {
 	}
 	return ""
 }
+
+// TestWithBeforeLoadsStateOnce 锁定「操作前快照与操作本身共用一次加载」：
+// 接取 / 交付 / 追踪 / 放弃各自只读取一次开启条件事实（全量状态加载的代表性开销）。
+func TestWithBeforeLoadsStateOnce(t *testing.T) {
+	ctx := context.Background()
+	cases := map[string]func(*Service) error{
+		"accept":  func(s *Service) error { _, _, err := s.AcceptWithBefore(ctx, 10001, 7001, 0); return err },
+		"submit":  func(s *Service) error { _, _, err := s.SubmitWithBefore(ctx, 10001, 7001, 0); return err },
+		"track":   func(s *Service) error { _, err := s.TrackWithBefore(ctx, 10001, 7001); return err },
+		"abandon": func(s *Service) error { _, _, err := s.AbandonWithBefore(ctx, 10001, 7001); return err },
+	}
+	for name, run := range cases {
+		repo, service, _ := newDailyQuestFixture()
+		before := repo.fullFactsCalls
+		if err := run(service); err != nil {
+			t.Fatalf("%s error = %v", name, err)
+		}
+		if calls := repo.fullFactsCalls - before; calls != 1 {
+			t.Fatalf("%s loaded facts %d times, want 1", name, calls)
+		}
+	}
+}

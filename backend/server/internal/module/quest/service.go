@@ -203,24 +203,62 @@ func (s *Service) DeleteAdminPlayerQuest(ctx context.Context, recordID uint64) e
 	return s.repo.DeletePlayerQuestForAdmin(ctx, recordID)
 }
 
+// List 返回玩家全部任务摘要与当前追踪任务。
 func (s *Service) List(ctx context.Context, playerID uint64) ([]Summary, uint64, error) {
-	templates, playerQuestMap, playerObjectiveMap, err := s.loadState(ctx, playerID)
+	snap, err := s.loadSnapshot(ctx, playerID)
 	if err != nil {
 		return nil, 0, err
+	}
+	summaries, trackedQuestID := snap.summaries()
+	return summaries, trackedQuestID, nil
+}
+
+// stateSnapshot 是一次请求内加载的玩家任务权威状态，可在「操作前快照」与操作本身之间复用，
+// 避免同一次接取 / 交付 / 追踪 / 放弃把模板、玩家任务、目标与开启条件事实重复读取多遍。
+type stateSnapshot struct {
+	templates  []Template
+	byID       map[uint64]*Template
+	quests     map[uint64]*PlayerQuest
+	objectives map[uint64][]PlayerObjective
+	facts      AcceptConditionFacts
+}
+
+// loadSnapshot 加载任务状态（含到期刷新与自动接取），与 List 的口径完全一致。
+func (s *Service) loadSnapshot(ctx context.Context, playerID uint64) (*stateSnapshot, error) {
+	templates, playerQuestMap, playerObjectiveMap, err := s.loadState(ctx, playerID)
+	if err != nil {
+		return nil, err
 	}
 	facts, err := s.repo.LoadAcceptConditionFacts(ctx, playerID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if _, err := s.materializeAutoAcceptedQuests(ctx, playerID, templates, playerQuestMap, playerObjectiveMap, facts); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
+	byID := make(map[uint64]*Template, len(templates))
+	for index := range templates {
+		byID[templates[index].QuestID] = &templates[index]
+	}
+	return &stateSnapshot{templates: templates, byID: byID, quests: playerQuestMap, objectives: playerObjectiveMap, facts: facts}, nil
+}
 
-	summaries := make([]Summary, 0, len(templates))
+// template 按任务 ID 取模板；不存在（含已停用）时返回 ErrQuestTemplateNotFound。
+func (snap *stateSnapshot) template(questID uint64) (*Template, error) {
+	template := snap.byID[questID]
+	if template == nil {
+		return nil, ErrQuestTemplateNotFound
+	}
+	return template, nil
+}
+
+// summaries 由快照生成全部任务摘要与追踪任务 ID，规则与原 List 一致。
+func (snap *stateSnapshot) summaries() ([]Summary, uint64) {
+	summaries := make([]Summary, 0, len(snap.templates))
 	var trackedQuestID uint64
-	completed := completedQuestSet(playerQuestMap)
-	for _, template := range templates {
-		summary := buildSummary(template, playerQuestMap[template.QuestID], playerObjectiveMap[template.QuestID], completed, facts)
+	completed := completedQuestSet(snap.quests)
+	for _, template := range snap.templates {
+		summary := buildSummary(template, snap.quests[template.QuestID], snap.objectives[template.QuestID], completed, snap.facts)
 		if summary.Tracked {
 			trackedQuestID = summary.QuestID
 		}
@@ -234,31 +272,44 @@ func (s *Service) List(ctx context.Context, playerID uint64) ([]Summary, uint64,
 			}
 		}
 	}
-	return summaries, trackedQuestID, nil
+	return summaries, trackedQuestID
 }
 
 func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, npcID uint64) (Summary, error) {
-	template, playerQuestMap, playerObjectiveMap, err := s.loadSingle(ctx, playerID, questID)
+	_, summary, err := s.AcceptWithBefore(ctx, playerID, questID, npcID)
+	return summary, err
+}
+
+// AcceptWithBefore 接取任务，并返回操作前的全部任务摘要（供 handler 计算差量推送）。
+// 操作前快照与接取共用同一次状态加载。
+func (s *Service) AcceptWithBefore(ctx context.Context, playerID uint64, questID uint64, npcID uint64) ([]Summary, Summary, error) {
+	snap, err := s.loadSnapshot(ctx, playerID)
+	if err != nil {
+		return nil, Summary{}, err
+	}
+	before, _ := snap.summaries()
+	summary, err := s.acceptIn(ctx, snap, playerID, questID, npcID)
+	return before, summary, err
+}
+
+func (s *Service) acceptIn(ctx context.Context, snap *stateSnapshot, playerID uint64, questID uint64, npcID uint64) (Summary, error) {
+	template, err := snap.template(questID)
 	if err != nil {
 		return Summary{}, err
 	}
 	if template.AcceptMode == "NPC" && template.StartNPCID != 0 && template.StartNPCID != npcID {
 		return Summary{}, ErrQuestAcceptNPCMismatch
 	}
-
-	completed := completedQuestSet(playerQuestMap)
-	facts, err := s.repo.LoadAcceptConditionFacts(ctx, playerID)
-	if err != nil {
-		return Summary{}, err
-	}
-	existing := playerQuestMap[questID]
+	completed := completedQuestSet(snap.quests)
+	facts := snap.facts
+	existing := snap.quests[questID]
 	if !isUnlocked(template, completed, facts) {
 		return Summary{}, ErrQuestLocked
 	}
 	// 接取请求可能因网络重试或剧情节点重放重复到达。
 	// 已经接取、待提交或已完成的任务必须直接返回当前权威进度，不能重新初始化目标。
 	if existing != nil && (existing.State == StateAccepted || existing.State == StateReadyToSubmit || existing.State == StateCompleted) {
-		return buildSummary(*template, existing, playerObjectiveMap[questID], completed, facts), nil
+		return buildSummary(*template, existing, snap.objectives[questID], completed, facts), nil
 	}
 
 	tracked := template.AutoTrack
@@ -270,19 +321,7 @@ func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, n
 	}); err != nil {
 		return Summary{}, err
 	}
-
-	objectives := make([]PlayerObjective, 0, len(template.Objectives))
-	for _, objective := range template.Objectives {
-		objectives = append(objectives, PlayerObjective{
-			PlayerID:     playerID,
-			QuestID:      questID,
-			ObjectiveID:  objective.ObjectiveID,
-			Description:  objective.Description,
-			CurrentValue: 0,
-			TargetValue:  objective.TargetValue,
-			Completed:    false,
-		})
-	}
+	objectives := buildInitialObjectives(playerID, *template)
 	if err := s.repo.ReplacePlayerObjectives(ctx, playerID, questID, objectives); err != nil {
 		return Summary{}, err
 	}
@@ -291,17 +330,33 @@ func (s *Service) Accept(ctx context.Context, playerID uint64, questID uint64, n
 			return Summary{}, err
 		}
 	}
-	refreshedObjectives := make([]PlayerObjective, 0, len(objectives))
-	refreshedObjectives = append(refreshedObjectives, objectives...)
 	playerQuest := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateAccepted, Tracked: tracked}
-	return buildSummary(*template, playerQuest, refreshedObjectives, completed, facts), nil
+	return buildSummary(*template, playerQuest, objectives, completed, facts), nil
 }
 
 func (s *Service) Submit(ctx context.Context, playerID uint64, questID uint64, npcID uint64) (SubmitResult, error) {
-	template, playerQuestMap, playerObjectiveMap, err := s.loadSingle(ctx, playerID, questID)
+	_, result, err := s.SubmitWithBefore(ctx, playerID, questID, npcID)
+	return result, err
+}
+
+// SubmitWithBefore 交付任务，并返回操作前的全部任务摘要；两者共用同一次状态加载。
+func (s *Service) SubmitWithBefore(ctx context.Context, playerID uint64, questID uint64, npcID uint64) ([]Summary, SubmitResult, error) {
+	snap, err := s.loadSnapshot(ctx, playerID)
+	if err != nil {
+		return nil, SubmitResult{}, err
+	}
+	before, _ := snap.summaries()
+	result, err := s.submitIn(ctx, snap, playerID, questID, npcID)
+	return before, result, err
+}
+
+func (s *Service) submitIn(ctx context.Context, snap *stateSnapshot, playerID uint64, questID uint64, npcID uint64) (SubmitResult, error) {
+	template, err := snap.template(questID)
 	if err != nil {
 		return SubmitResult{}, err
 	}
+	playerQuestMap := snap.quests
+	playerObjectiveMap := snap.objectives
 	if template.SubmitMode == "NPC" && template.SubmitNPCID != 0 && template.SubmitNPCID != npcID {
 		return SubmitResult{}, ErrQuestSubmitNPCMismatch
 	}
@@ -362,23 +417,45 @@ func (s *Service) RevertCompletedQuestToReady(ctx context.Context, playerID uint
 }
 
 func (s *Service) Track(ctx context.Context, playerID uint64, questID uint64) error {
-	template, _, _, err := s.loadSingle(ctx, playerID, questID)
-	if err != nil {
-		return err
-	}
-	if template == nil {
-		return ErrQuestTemplateNotFound
-	}
-	return s.repo.SetTrackedQuest(ctx, playerID, questID)
+	_, err := s.TrackWithBefore(ctx, playerID, questID)
+	return err
 }
 
-// Abandon 放弃一个进行中或待交付的任务：清空目标进度、取消追踪，并把任务恢复为可接取。
-// 已领取过的奖励不受影响（未交付的任务本来就没有发奖），completed_at 也会保留。
+// TrackWithBefore 切换追踪任务，并返回操作前的全部任务摘要；两者共用同一次状态加载。
+func (s *Service) TrackWithBefore(ctx context.Context, playerID uint64, questID uint64) ([]Summary, error) {
+	snap, err := s.loadSnapshot(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	before, _ := snap.summaries()
+	if _, err := snap.template(questID); err != nil {
+		return before, err
+	}
+	return before, s.repo.SetTrackedQuest(ctx, playerID, questID)
+}
+
 func (s *Service) Abandon(ctx context.Context, playerID uint64, questID uint64) (Summary, error) {
-	template, playerQuestMap, _, err := s.loadSingle(ctx, playerID, questID)
+	_, summary, err := s.AbandonWithBefore(ctx, playerID, questID)
+	return summary, err
+}
+
+// AbandonWithBefore 放弃任务，并返回操作前的全部任务摘要；两者共用同一次状态加载。
+func (s *Service) AbandonWithBefore(ctx context.Context, playerID uint64, questID uint64) ([]Summary, Summary, error) {
+	snap, err := s.loadSnapshot(ctx, playerID)
+	if err != nil {
+		return nil, Summary{}, err
+	}
+	before, _ := snap.summaries()
+	summary, err := s.abandonIn(ctx, snap, playerID, questID)
+	return before, summary, err
+}
+
+func (s *Service) abandonIn(ctx context.Context, snap *stateSnapshot, playerID uint64, questID uint64) (Summary, error) {
+	template, err := snap.template(questID)
 	if err != nil {
 		return Summary{}, err
 	}
+	playerQuestMap := snap.quests
 	existing := playerQuestMap[questID]
 	if !canAbandon(*template, existing) {
 		return Summary{}, ErrQuestCannotAbandon
@@ -386,10 +463,7 @@ func (s *Service) Abandon(ctx context.Context, playerID uint64, questID uint64) 
 	if err := s.repo.ResetPlayerQuest(ctx, playerID, questID); err != nil {
 		return Summary{}, err
 	}
-	facts, err := s.repo.LoadAcceptConditionFacts(ctx, playerID)
-	if err != nil {
-		return Summary{}, err
-	}
+	facts := snap.facts
 	reset := &PlayerQuest{PlayerID: playerID, QuestID: questID, State: StateAvailable, CompletedAt: existing.CompletedAt}
 	playerQuestMap[questID] = reset
 	return buildSummary(*template, reset, nil, completedQuestSet(playerQuestMap), facts), nil
@@ -615,21 +689,6 @@ func (s *Service) resetDueRepeatableQuests(ctx context.Context, playerID uint64,
 		delete(playerObjectiveMap, template.QuestID)
 	}
 	return nil
-}
-
-func (s *Service) loadSingle(ctx context.Context, playerID uint64, questID uint64) (*Template, map[uint64]*PlayerQuest, map[uint64][]PlayerObjective, error) {
-	template, err := s.repo.FindTemplateByQuestID(ctx, questID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if template == nil {
-		return nil, nil, nil, ErrQuestTemplateNotFound
-	}
-	_, playerQuestMap, playerObjectiveMap, err := s.loadState(ctx, playerID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return template, playerQuestMap, playerObjectiveMap, nil
 }
 
 func completedQuestSet(playerQuestMap map[uint64]*PlayerQuest) map[uint64]bool {

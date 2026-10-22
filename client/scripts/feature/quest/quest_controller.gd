@@ -40,8 +40,8 @@ func handle_quest_accept_response(payload: Dictionary) -> void:
     elif payload.has("quests"):
         handle_quest_list(payload)
     var animation_key: String = str(payload.get("client_animation_key", "")).strip_edges()
+    # 服务端在回包后已推送任务差量（6011/6012），GameState 随之更新，无需再补拉完整列表。
     if animation_key.is_empty():
-        App.request_quest_list()
         return
     quest_animation_requested.emit(animation_key, "accept")
 
@@ -77,7 +77,7 @@ func finish_quest_animation(action: String) -> void:
             completion_prompt_text = str(quest.get("completion_prompt_text", "")).strip_edges()
         if level_up_count > 0 or attr_points_gained > 0 or not rewards.is_empty() or not completion_prompt_text.is_empty():
             quest_settlement_popup_requested.emit(payload)
-    App.request_quest_list()
+    # 交付后的任务状态由服务端差量推送同步，不再补拉完整列表。
 
 # 处理任务追踪响应；成功时切换本地追踪状态。
 func handle_quest_track_response(payload: Dictionary) -> void:
@@ -86,7 +86,7 @@ func handle_quest_track_response(payload: Dictionary) -> void:
         return
     GameState.set_tracked_quest(int(payload.get("quest_id", 0)))
     quests_updated.emit(GameState.quests.size())
-    App.request_quest_list()
+    # 追踪变化由服务端差量推送同步，不再补拉完整列表。
 
 ## 处理放弃任务回包（6052）：成功时用服务端返回的任务快照覆盖本地状态，随后差量推送会继续同步。
 ## payload 为 QuestAbandonResp，quest 字段是放弃后的权威任务状态。

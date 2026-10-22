@@ -1,5 +1,13 @@
 # 最新变更记录
 
+## 2026-10-20 去掉人为等待与重复请求
+
+- 使用消耗品：移除固定 1 秒进度条（`USE_ITEM_PROGRESS_DURATION_SEC`），请求开始即 `show_waiting()`（超过 1 秒才显示遮罩），回包与背包推送到达后立即结束。开礼包 3 秒演出、强化动画后再刷新保持原设计不变。
+- 佩戴 / 卸下：新增 `_run_equipment_mutation`，请求在途时锁定佩戴、卸下与主操作点击，防止连点重复提交；使用延迟 loading，补齐此前缺失的 loading（`AGENTS.md` 规则）。
+- 丢弃、修理：不再在回包后补拉 `BAG_LIST`，改为等待服务端随后推送的背包整包；丢弃不再重复调用 `show_waiting()`（重复调用会重置 1 秒延迟计时，慢网下遮罩反而更晚出现）。
+- 任务：`quest.Service` 新增 `stateSnapshot` 与 `AcceptWithBefore / SubmitWithBefore / TrackWithBefore / AbandonWithBefore`，handler 的「操作前快照」与操作本身共用一次状态加载（模板、玩家任务、目标、开启条件事实），移除不再使用的 `loadSingle`；客户端接取、交付、追踪回包后不再补拉任务列表，改由服务端差量推送同步。一次任务操作的全量加载由 4 次降为 2 次（操作前 1 次 + 差量推送 1 次）。
+- 验证：`go test ./server/... -count=1` 全部 27 个包通过，新增 `TestWithBeforeLoadsStateOnce` 锁定每个操作只加载一次；Godot headless 运行时验证佩戴锁（发出后锁定、无关回包不解锁、对应回包后解锁）；改动脚本语法检查通过。无协议字段或数据库变更，**需要重启后端**。
+
 ## 2026-10-20 仓库存取改为乐观更新
 
 - 需求：点击存入 / 取出后立即看到变化，不等请求完成。经确认作为 `AGENTS.md` loading 规则的唯一例外登记（仅限仓库存取）。

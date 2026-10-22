@@ -22,10 +22,6 @@ const BOX_OPEN_PROGRESS_STATUS_TEXT: String = "打开中..."
 ## 礼包开启成功后奖励弹窗标题。
 ## 等待 USE_ITEM 回包的最长帧数（约 15 秒），防止界面永久卡住。
 const BOX_OPEN_RESPONSE_TIMEOUT_FRAMES: int = 900
-## 普通消耗品使用进度条时长（秒）。
-const USE_ITEM_PROGRESS_DURATION_SEC: float = 1.0
-## 普通消耗品使用进度条提示文案。
-const USE_ITEM_PROGRESS_STATUS_TEXT: String = "使用中..."
 ## 拉取目标列表请求超时帧数。
 const USE_TARGET_FETCH_TIMEOUT_FRAMES: int = 300
 ## 详情面板与锚点按钮之间的垂直间距（像素）。
@@ -153,6 +149,8 @@ var _use_item_in_flight: bool = false
 var _use_item_request_seq: int = 0
 ## USE_ITEM 成功回包后，是否正在等待最新背包快照落地再结束 loading。
 var _use_item_waiting_bag_refresh: bool = false
+## 佩戴 / 卸下请求是否在途；在途时忽略新的佩戴、卸下与使用点击。
+var _equipment_mutation_in_flight: bool = false
 ## USE_ITEM 成功回包缓存；等背包快照写入后再统一提示结果。
 var _use_item_response_payload: Dictionary = {}
 ## USE_ITEM 回包监听 Callable。
@@ -841,18 +839,42 @@ func _on_item_action_requested(action_key: String, item: Dictionary) -> void:
 
 ## 按当前已选装备槽向服务端发起卸装请求。
 func _execute_unequip_action(item: Dictionary) -> void:
+	if _equipment_mutation_in_flight:
+		return
 	var equip_slot_key: String = _selected_equip_slot_key
 	if equip_slot_key.is_empty():
 		equip_slot_key = str(item.get("equip_slot", "")).strip_edges()
 	if equip_slot_key.is_empty():
 		App.show_error("装备槽标识缺失，暂时无法卸下。")
 		return
-	App.request_player_unequip(equip_slot_key, "bag")
 	_hide_detail_popup()
+	_run_equipment_mutation(CommandIds.PLAYER_UNEQUIP_REQ, App.request_player_unequip(equip_slot_key, "bag"))
+
+
+## 等待佩戴 / 卸下回包：请求期间锁定，防止连点重复提交；使用延迟 loading，快请求不闪烁。
+## request_cmd 为请求命令号，request_seq 为已发出请求的序列号（<=0 表示发送失败）。
+## 背包与装备栏的最新数据由服务端回包和随后的 5011 整包推送写入 GameState，这里不补拉。
+func _run_equipment_mutation(request_cmd: int, request_seq: int) -> void:
+	if request_seq <= 0:
+		App.show_error("请求发送失败，请稍后再试。")
+		return
+	_equipment_mutation_in_flight = true
+	await _ensure_runtime_popup_ui_ready()
+	if _progress_overlay != null:
+		_progress_overlay.show_waiting()
+	while true:
+		var result: Array = await App.request_finished
+		if result.size() >= 5 and int(result[0]) == request_cmd and int(result[1]) == request_seq:
+			break
+	if _progress_overlay != null:
+		_progress_overlay.hide_waiting()
+	_equipment_mutation_in_flight = false
 
 
 ## 按物品类型把“主操作”分发到对应服务端权威接口。
 func _execute_primary_item_action(item: Dictionary) -> void:
+	if _equipment_mutation_in_flight:
+		return
 	var slot_index: int = BagUiMapper.slot_index(item)
 	if slot_index <= 0:
 		App.show_error("物品格子编号无效，暂时无法操作。")
@@ -861,8 +883,8 @@ func _execute_primary_item_action(item: Dictionary) -> void:
 		if BagUiMapper.is_damaged(item):
 			App.show_error("该装备已损坏，请先修复后再佩戴。")
 			return
-		App.request_player_equip(slot_index, "bag")
 		_hide_detail_popup()
+		_run_equipment_mutation(CommandIds.PLAYER_EQUIP_REQ, App.request_player_equip(slot_index, "bag"))
 		return
 	if BagUiMapper.is_box_item(item):
 		_execute_box_open_action(item)
@@ -953,8 +975,8 @@ func _submit_use_item_request(item: Dictionary, target_pet_uid: int, target_item
 		_finish_use_item_action(false, {"msg": "使用请求发送失败，请稍后再试。"})
 		return
 	_use_item_request_seq = request_seq
-	if _progress_overlay != null:
-		await _progress_overlay.play_progress(USE_ITEM_PROGRESS_DURATION_SEC)
+	# 不再固定等待 1 秒进度条：请求开始时已调用 show_waiting()，超过 1 秒才显示遮罩，
+	# 回包与背包推送到达后由 _finish_use_item_action 立即收起，快请求不会出现等待。
 	var waited_frames: int = 0
 	while _use_item_in_flight and waited_frames < BOX_OPEN_RESPONSE_TIMEOUT_FRAMES:
 		await get_tree().process_frame
@@ -1289,11 +1311,9 @@ func _handle_drop_success_response(payload: Dictionary) -> void:
 	_drop_waiting_bag_refresh = true
 	_drop_refresh_response_received = false
 	_drop_snapshot_applied_received = false
-	if _progress_overlay != null:
-		_progress_overlay.show_waiting()
-	_drop_refresh_request_seq = _send_current_bag_page_request()
-	if _drop_refresh_request_seq <= 0:
-		_finish_drop_action(false, {"msg": "背包刷新请求发送失败，请稍后再试。"})
+	# 服务端在丢弃回包后紧接着推送背包整包（5011），GameState 会按当前页与分类重算；
+	# 不再补拉 BAG_LIST，也不再重复 show_waiting（重复调用会重置 1 秒延迟计时，慢网下遮罩反而更晚出现）。
+	# 推送写入后由 on_bag_snapshot_applied 结束流程。
 
 
 ## 背包完整快照已经写入 GameState；丢弃流程此时才允许结束 loading 和提示成功。
@@ -1649,10 +1669,8 @@ func _handle_repair_request_finished(
 		return
 	_repair_waiting_bag_refresh = true
 	_repair_response_payload = payload.duplicate(true)
-	# 修复结果会改变装备损坏状态和修复材料数量；必须按玩家当前停留的页码与分类刷新快照。
-	var refresh_seq: int = _send_current_bag_page_request()
-	if refresh_seq <= 0:
-		_finish_repair_action(false, {"msg": "背包刷新请求发送失败，请稍后再试。"})
+	# 服务端修复成功后推送背包整包（5011），GameState 按当前页与分类重算，
+	# 推送写入后由 on_bag_snapshot_applied 结束流程，不再补拉 BAG_LIST。
 
 
 ## 结束修复流程：隐藏 loading，并根据结果提示玩家。

@@ -78,11 +78,8 @@ func (h *QuestHandler) HandleQuestAccept(conn packetSender, packet *protocol.Pac
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 	ctx := context.Background()
-	before, err := listQuestSummaries(ctx, h.questService, playerID)
-	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
-	}
-	summary, err := h.questService.Accept(ctx, playerID, request.QuestID, request.NPCID)
+	// 操作前快照与接取共用一次状态加载，供后续差量推送对比。
+	before, summary, err := h.questService.AcceptWithBefore(ctx, playerID, request.QuestID, request.NPCID)
 	if err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)
 	}
@@ -113,11 +110,8 @@ func (h *QuestHandler) HandleQuestSubmit(conn packetSender, packet *protocol.Pac
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 	ctx := context.Background()
-	before, err := listQuestSummaries(ctx, h.questService, playerID)
-	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
-	}
-	result, err := h.questService.Submit(ctx, playerID, request.QuestID, request.NPCID)
+	// 操作前快照与交付共用一次状态加载，供后续差量推送对比。
+	before, result, err := h.questService.SubmitWithBefore(ctx, playerID, request.QuestID, request.NPCID)
 	if err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)
 	}
@@ -192,11 +186,9 @@ func (h *QuestHandler) HandleQuestTrack(conn packetSender, packet *protocol.Pack
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 	ctx := context.Background()
-	before, err := listQuestSummaries(ctx, h.questService, playerID)
+	// 操作前快照与追踪切换共用一次状态加载，供后续差量推送对比。
+	before, err := h.questService.TrackWithBefore(ctx, playerID, request.QuestID)
 	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
-	}
-	if err := h.questService.Track(ctx, playerID, request.QuestID); err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)
 	}
 
@@ -226,11 +218,8 @@ func (h *QuestHandler) HandleQuestAbandon(conn packetSender, packet *protocol.Pa
 		return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
 	}
 	ctx := context.Background()
-	before, err := listQuestSummaries(ctx, h.questService, playerID)
-	if err != nil {
-		return sendError(conn, packet.Seq, errcode.WSCodeWorldEnterFailed, "load quest state failed", err)
-	}
-	summary, err := h.questService.Abandon(ctx, playerID, request.QuestID)
+	// 操作前快照与放弃共用一次状态加载，供后续差量推送对比。
+	before, summary, err := h.questService.AbandonWithBefore(ctx, playerID, request.QuestID)
 	if err != nil {
 		return h.sendQuestDomainError(conn, packet.Seq, err)
 	}
