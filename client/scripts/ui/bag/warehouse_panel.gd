@@ -5,8 +5,8 @@ class_name WarehousePanel
 ## 所有存取都走服务端权威协议（5041 存入 / 5051 取出），面板只负责展示与发起请求；
 ## 存取成功后服务端会推送两个容器的最新快照（5011），面板随 GameState.bag_changed 刷新。
 
-## 仓库区每页格子数，对应场景中 WarehouseGrid 的 21 个 Slot（3 行 × 7 列）。
-const WAREHOUSE_SLOTS_PER_PAGE: int = 21
+## 仓库区每页格子数，对应场景中 WarehouseGrid 的 28 个 Slot（4 行 × 7 列）。
+const WAREHOUSE_SLOTS_PER_PAGE: int = 28
 ## 背包区每页格子数，与背包面板保持一致（4 行 × 7 列）。
 const BAG_SLOTS_PER_PAGE: int = 28
 ## 背包区筛选键，与背包面板含义一致：全部 / 装备 / 其他。
@@ -216,12 +216,11 @@ func _render_page(slots: Array[BagSlot], items: Array, page: int, per_page: int)
 	return resolved_page
 
 
-## 读取容器快照中的物品数组，并按服务端格子序号排序，保证展示顺序稳定。
+## 读取容器快照中的物品数组，并按进入容器的时间排序（最早进入的在第一页第一个），与服务端规则一致。
 func _container_items(container: Dictionary) -> Array:
 	var items_variant: Variant = container.get("items", [])
 	var items: Array = (items_variant as Array).duplicate() if items_variant is Array else []
-	items.sort_custom(func(left: Variant, right: Variant) -> bool:
-		return BagUiMapper.slot_index(left as Dictionary) < BagUiMapper.slot_index(right as Dictionary))
+	GameState.sort_container_items(items)
 	return items
 
 
@@ -441,14 +440,18 @@ static func build_optimistic_transfer(from_container: Dictionary, to_container: 
 	var item_uid: String = str(source.get("item_uid", "")).strip_edges()
 	var stackable: bool = item_uid.is_empty() and bool(source.get("is_stackable", source_quantity > 1))
 
-	# 先在目标容器找落点：同物品可叠加的格子，或第一个空格。
+	# 先在目标容器找落点：同物品、同绑定状态的可叠加格子（与服务端合并条件一致），或第一个空格。
 	var merge_index: int = -1
 	if stackable:
 		for index: int in range(to_items.size()):
 			var candidate: Dictionary = to_items[index] as Dictionary
-			if int(candidate.get("item_id", 0)) == int(source.get("item_id", 0)) and str(candidate.get("item_uid", "")).is_empty():
+			if int(candidate.get("item_id", 0)) == int(source.get("item_id", 0)) \
+					and str(candidate.get("item_uid", "")).is_empty() \
+					and bool(candidate.get("is_bound", false)) == bool(source.get("is_bound", false)):
 				merge_index = index
 				break
+	# 移动过来的物品进入时间记为现在，按排序规则排到目标容器最后；服务端合并时同样会刷新该格的进入时间。
+	var now_us: int = int(Time.get_unix_time_from_system() * 1000000.0)
 	var free_slot: int = 0
 	if merge_index < 0:
 		var occupied: Dictionary = {}
@@ -474,11 +477,13 @@ static func build_optimistic_transfer(from_container: Dictionary, to_container: 
 	if merge_index >= 0:
 		var merged: Dictionary = to_items[merge_index] as Dictionary
 		merged["quantity"] = int(merged.get("quantity", 1)) + moved_quantity
+		merged["entered_at_us"] = now_us
 		to_items[merge_index] = merged
 	else:
 		var placed: Dictionary = (from_container.get("items", []) as Array)[source_index].duplicate(true)
 		placed["slot_index"] = free_slot
 		placed["quantity"] = moved_quantity
+		placed["entered_at_us"] = now_us
 		to_items.append(placed)
 
 	from_next["items"] = from_items

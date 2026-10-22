@@ -1,6 +1,8 @@
 package wstransport
 
 import (
+	"time"
+
 	"pocket-pet-remake/server/internal/module/bag"
 	"pocket-pet-remake/server/internal/module/equipment"
 	"pocket-pet-remake/server/internal/module/item"
@@ -85,6 +87,7 @@ func toProtocolContainerItemSnapshot(item bag.RuntimeItemSnapshot) protocol.Cont
 		IsDamaged:           item.IsDamaged,
 		Usable:              item.Usable,
 		CanDrop:             item.CanDrop,
+		EnteredAtUS:         enteredAtUS(item.EnteredAt),
 		CanSell:             item.CanSell,
 		SellPriceCopper:     item.SellPriceCopper,
 		TargetType:          item.TargetType,
@@ -166,4 +169,12 @@ func toProtocolDescriptionMentions(mentions []item.DescriptionMention) []protoco
 		})
 	}
 	return result
+}
+
+// enteredAtUS 把进入容器时间转为 Unix 微秒；零值（测试桩或旧数据）返回 0，排序时退化为按格子序号。
+func enteredAtUS(value time.Time) int64 {
+	if value.IsZero() {
+		return 0
+	}
+	return value.UnixMicro()
 }

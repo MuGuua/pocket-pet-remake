@@ -180,14 +180,16 @@ SELECT
   COALESCE(iee.base_stats_json, '{}'::jsonb),
   COALESCE(iee.enhance_per_level_stats_json, '{}'::jsonb),
   COALESCE(iee.can_enhance, FALSE),
-  COALESCE(iee.max_enhance_level, 0)
+  COALESCE(iee.max_enhance_level, 0),
+  pci.entered_at
 FROM player_container_item pci
 LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 LEFT JOIN equipment_instance eq ON eq.item_uid = pci.item_uid
 LEFT JOIN item_equipment_extra iee ON iee.item_id = pci.item_id
 WHERE pci.player_id = $1
   AND pci.container_type = $2
-ORDER BY pci.slot_index ASC
+-- 按进入容器的时间展示：最早进入的在前，同一时间再按格子序号，客户端本地分页使用同一规则。
+ORDER BY pci.entered_at ASC, pci.slot_index ASC
 `
 
 const runtimeTransferSourceItemQuery = `
@@ -246,6 +248,14 @@ LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 WHERE pci.player_id = $1
   AND pci.container_type = $2
 ORDER BY pci.slot_index ASC
+`
+
+// runtimeTransferTouchEnteredAtQuery 在跨容器移动合并到已有堆叠时刷新进入时间，
+// 使「刚移动过来的物品」排到容器最后。clock_timestamp() 取语句执行时刻，晚于事务内先插入的行。
+const runtimeTransferTouchEnteredAtQuery = `
+UPDATE player_container_item
+SET entered_at = clock_timestamp()
+WHERE id = $1
 `
 
 const runtimeTransferUpdateQuantityQuery = `
@@ -753,6 +763,7 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			&enhancePerLevelStatsJSON,
 			&canEnhance,
 			&maxEnhanceLevel,
+			&value.EnteredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -883,6 +894,10 @@ func (r *BagRepository) TransferRuntimeItem(ctx context.Context, playerID uint64
 			available := sourceRow.MaxStack - targetRow.Quantity
 			moveQuantity := minUint64(available, remainingQuantity)
 			if err := updateTransferItemQuantity(ctx, tx, targetRow.RecordID, targetRow.Quantity+moveQuantity); err != nil {
+				return nil, err
+			}
+			// 跨容器移动合并到已有堆叠：刷新进入时间，让移动过来的物品出现在容器最后。
+			if err := touchTransferEnteredAt(ctx, tx, targetRow.RecordID); err != nil {
 				return nil, err
 			}
 			if err := insertItemChangeLog(ctx, tx, itemChangeLogEntry{
@@ -2132,6 +2147,12 @@ func loadContainerStackRows(ctx context.Context, tx *sql.Tx, playerID uint64, co
 
 func updateTransferItemQuantity(ctx context.Context, tx *sql.Tx, recordID int64, quantity uint64) error {
 	_, err := tx.ExecContext(ctx, runtimeTransferUpdateQuantityQuery, recordID, quantity)
+	return err
+}
+
+// touchTransferEnteredAt 刷新跨容器移动合并目标的进入时间。
+func touchTransferEnteredAt(ctx context.Context, tx *sql.Tx, recordID int64) error {
+	_, err := tx.ExecContext(ctx, runtimeTransferTouchEnteredAtQuery, recordID)
 	return err
 }
 

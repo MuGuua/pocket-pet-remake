@@ -1067,6 +1067,9 @@ type ContainerItemSnapshot struct {
 	IsDamaged     bool   `json:"is_damaged,omitempty"`
 	Usable        bool   `json:"usable"`
 	CanDrop       bool   `json:"can_drop"`
+	// EnteredAtUS 为物品进入当前容器的时间（Unix 微秒）。背包与仓库按它升序展示，同一时间再按 slot_index；
+	// 客户端本地分页、乐观更新必须使用同一规则，保证与服务端 BAG_LIST 结果一致。
+	EnteredAtUS int64 `json:"entered_at_us"`
 	// CanSell / SellPriceCopper 只用于商店出售页展示，最终以 5111 服务端校验为准。
 	CanSell             bool                         `json:"can_sell"`
 	SellPriceCopper     uint64                       `json:"sell_price_copper"`

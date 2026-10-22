@@ -623,8 +623,7 @@ func _apply_paged_bag_full_push(updates: Array, capacity: int, max_capacity: int
         var item_variant: Variant = update.get("item", {})
         if item_variant is Dictionary and not (item_variant as Dictionary).is_empty():
             all_items.append((item_variant as Dictionary).duplicate(true))
-    all_items.sort_custom(func(left: Variant, right: Variant) -> bool:
-        return int((left as Dictionary).get("slot_index", 0)) < int((right as Dictionary).get("slot_index", 0)))
+    sort_container_items(all_items)
 
     var category: String = str(bag_container.get("category", BAG_CATEGORY_ALL))
     var filtered: Array = []
@@ -652,6 +651,24 @@ func _apply_paged_bag_full_push(updates: Array, capacity: int, max_capacity: int
     bag_container = next_container
     bag_items = page_items
     bag_changed.emit()
+
+
+## 按服务端展示规则就地排序容器物品：进入容器时间 entered_at_us 升序，同一时间再按 slot_index 升序。
+## 与服务端 runtimeContainerItemsQuery 的 ORDER BY entered_at, slot_index 保持一致；
+## 背包本地分页与仓库面板都必须调用它，避免本地顺序与服务端 BAG_LIST 不一致。
+func sort_container_items(items: Array) -> void:
+    items.sort_custom(_container_item_before)
+
+
+## sort_custom 比较器：left 是否应排在 right 前面。
+func _container_item_before(left: Variant, right: Variant) -> bool:
+    var left_item: Dictionary = left as Dictionary
+    var right_item: Dictionary = right as Dictionary
+    var left_time: int = int(left_item.get("entered_at_us", 0))
+    var right_time: int = int(right_item.get("entered_at_us", 0))
+    if left_time != right_time:
+        return left_time < right_time
+    return int(left_item.get("slot_index", 0)) < int(right_item.get("slot_index", 0))
 
 
 ## 判断物品是否属于背包分类；与服务端 filterBagSnapshotItems 口径一致。

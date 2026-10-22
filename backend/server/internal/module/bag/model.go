@@ -188,22 +188,24 @@ type AdminItemDetail struct {
 // RuntimeItemSnapshot 描述玩家端运行时直接消费的格子物品快照。
 // 这里保留模板与实例的混合字段，确保客户端打开背包时无需再拼装第二次请求。
 type RuntimeItemSnapshot struct {
-	SlotIndex     uint32     `json:"slot_index"`
-	ItemID        uint64     `json:"item_id"`
-	ItemUID       string     `json:"item_uid"`
-	Quantity      uint64     `json:"quantity"`
-	IsBound       bool       `json:"is_bound"`
-	ExpireAt      *time.Time `json:"expire_at,omitempty"`
-	ItemName      string     `json:"item_name"`
-	ItemType      string     `json:"item_type"`
-	ItemSubType   string     `json:"item_sub_type"`
-	Quality       uint32     `json:"quality"`
-	Icon          string     `json:"icon"`
-	RequiredLevel uint32     `json:"required_level"`
-	EnhanceLevel  uint32     `json:"enhance_level"`
-	IsDamaged     bool       `json:"is_damaged,omitempty"`
-	Usable        bool       `json:"usable"`
-	CanDrop       bool       `json:"can_drop"`
+	SlotIndex uint32     `json:"slot_index"`
+	ItemID    uint64     `json:"item_id"`
+	ItemUID   string     `json:"item_uid"`
+	Quantity  uint64     `json:"quantity"`
+	IsBound   bool       `json:"is_bound"`
+	ExpireAt  *time.Time `json:"expire_at,omitempty"`
+	// EnteredAt 为物品进入当前容器的时间；背包与仓库按它升序展示（同一时间再按 SlotIndex）。
+	EnteredAt     time.Time `json:"entered_at"`
+	ItemName      string    `json:"item_name"`
+	ItemType      string    `json:"item_type"`
+	ItemSubType   string    `json:"item_sub_type"`
+	Quality       uint32    `json:"quality"`
+	Icon          string    `json:"icon"`
+	RequiredLevel uint32    `json:"required_level"`
+	EnhanceLevel  uint32    `json:"enhance_level"`
+	IsDamaged     bool      `json:"is_damaged,omitempty"`
+	Usable        bool      `json:"usable"`
+	CanDrop       bool      `json:"can_drop"`
 	// CanSell 与 SellPriceCopper 来自物品模板，仅供客户端商店出售页展示；
 	// 是否真能卖、实际收入多少，仍由 5111 出售请求在服务端重新校验计算。
 	CanSell         bool   `json:"can_sell"`
