@@ -1,5 +1,12 @@
 # 最新变更记录
 
+## 2026-10-23 确认迁移 127 / 128 / 129 / 130 已在正式库执行
+
+- 新增 `backend/docs/check_migrations_127_130.sql`：只读自检脚本（全部 `SELECT`，不写库、不加锁），用于确认四个迁移的列、索引与种子数据是否就位。
+- 正式库实测结果：`skill_definition.control_status_power`、`quest_template.refresh_cycle`、`quest_template.refresh_hour`、`player_container_item.entered_at` 四列均存在；`idx_player_container_item_entered` 索引存在；两个药囊模板（900101 / 900102）与 `mig128_*` 装备实例各 2 条；`player_container_item` 存量 22 行且 `entered_at` 全部等于 `created_at`（回填完成，无遗漏）。
+- 因此 `129_quest_refresh_cycle.sql` 由「尚未在正式库执行」更新为「已执行」。此前记录的未执行状态已过期，据其推迟重启后端不再必要。
+- 本次只新增只读检查脚本并更正文档，不修改任何代码、协议或表结构。
+
 ## 2026-10-20 容器物品按进入时间排序与仓库面板重做
 
 - 背包与仓库统一按「物品进入该容器的时间」排序：`entered_at` 升序（最早加入的排在第一页第一个），同一时间再按 `slot_index` 升序，保证顺序稳定、翻页不跳位。
@@ -46,7 +53,7 @@
 ## 2026-10-20 任务日常刷新与放弃任务
 
 - 背景：`quest_template.can_abandon`、`is_repeatable` 两列建表即有，但服务端从未读取；客户端「日常任务」页签的任务交付后永远停在已完成，玩家也无法放弃任务。
-- 迁移 `129_quest_refresh_cycle.sql`：模板新增 `refresh_cycle`（none/daily/weekly，CHECK 约束）与 `refresh_hour`（0~23）；已有 `DAILY` 类型任务初始化为「可重复 + 每日刷新」。**尚未在正式库执行。**
+- 迁移 `129_quest_refresh_cycle.sql`：模板新增 `refresh_cycle`（none/daily/weekly，CHECK 约束）与 `refresh_hour`（0~23）；已有 `DAILY` 类型任务初始化为「可重复 + 每日刷新」。**已在正式库执行（2026-10-23 确认）。**
 - 领域层：新增 `quest/refresh.go`（`NextRefreshTime`、`shouldResetRepeatable`、`canAbandon`）；`Service` 注入可替换时钟；交付时写入 `next_refresh_at`；`loadState` 内惰性重置到期任务；新增 `Abandon` 与 `ErrQuestCannotAbandon`；`completedQuestSet` 同时认 `completed_at`，可重复任务重置后后置任务不会被重新锁住；自动接取的可重复任务重置后会再次自动接取。
 - 仓储：模板查询读取 4 个新列；玩家任务查询读取 `completed_at`、`next_refresh_at`；新增 `ResetPlayerQuest`（单条 CTE 同时重置状态并删除目标，原子生效）与 `SetQuestNextRefreshAt`。
 - 协议：新增 `6051 QUEST_ABANDON_REQ / 6052 QUEST_ABANDON_RESP`；`QuestSummary` 新增 `can_abandon`、`next_refresh_at_ms`。详见 `docs/quest-protocol.md` §10.3~10.5。
