@@ -2199,6 +2199,7 @@ func (b *activeBattle) snapshotActorStates() []ActorState {
 			Dead:       actor.isDead(),
 			CanAct:     !actor.isDead() && !actor.isActionBlocked(),
 			StatusIDs:  actor.statusIDs(),
+			Statuses:   actor.statusSnapshots(),
 			ChargeDone: !b.isPendingActor(actor.actorID),
 		})
 	}
@@ -2714,6 +2715,7 @@ func (a *actorRuntime) toSnapshot() ActorSnapshot {
 		Skills:             skillSnapshots,
 		SkillIDs:           skillIDsForClientSnapshot(a.skillIDs),
 		StatusIDs:          a.statusIDs(),
+		Statuses:           a.statusSnapshots(),
 		LineupIndex:        a.lineupIndex,
 	}
 }
@@ -2956,6 +2958,19 @@ func (a *actorRuntime) statusIDs() []uint32 {
 	sort.Slice(result, func(left, right int) bool {
 		return result[left] < result[right]
 	})
+	return result
+}
+
+// statusSnapshots 返回生效中状态及剩余回合，顺序与 statusIDs 一致（StatusID 升序）。
+func (a *actorRuntime) statusSnapshots() []StatusSnapshot {
+	ids := a.statusIDs()
+	result := make([]StatusSnapshot, 0, len(ids))
+	for _, statusID := range ids {
+		result = append(result, StatusSnapshot{
+			StatusID:        statusID,
+			RemainingRounds: a.statuses[statusID].remainingRound,
+		})
+	}
 	return result
 }
 

@@ -1778,6 +1778,7 @@ func toProtocolBattleActors(actors []battle.ActorSnapshot) []protocol.BattleActo
 			Skills:        skillSnapshots,
 			SkillIDs:      skills,
 			StatusIDs:     append([]uint32{}, actor.StatusIDs...),
+			Statuses:      toProtocolBattleStatuses(actor.Statuses),
 			LineupIndex:   actor.LineupIndex,
 		})
 	}
@@ -1816,6 +1817,7 @@ func toProtocolBattleActorStates(actors []battle.ActorState) []protocol.BattleAc
 			Dead:       actor.Dead,
 			CanAct:     actor.CanAct,
 			StatusIDs:  append([]uint32{}, actor.StatusIDs...),
+			Statuses:   toProtocolBattleStatuses(actor.Statuses),
 			ChargeDone: actor.ChargeDone,
 		})
 	}
@@ -2567,6 +2569,18 @@ func questMenuEntriesForNPC(npcID uint64, summaries []quest.Summary) []protocol.
 				Priority:   100,
 			})
 		}
+	}
+	return result
+}
+
+// toProtocolBattleStatuses 把领域层状态快照转换为协议结构；始终返回非 nil 切片，客户端拿到的是 [] 而不是 null。
+func toProtocolBattleStatuses(statuses []battle.StatusSnapshot) []protocol.BattleStatusSnapshot {
+	result := make([]protocol.BattleStatusSnapshot, 0, len(statuses))
+	for _, status := range statuses {
+		result = append(result, protocol.BattleStatusSnapshot{
+			StatusID:        status.StatusID,
+			RemainingRounds: status.RemainingRounds,
+		})
 	}
 	return result
 }

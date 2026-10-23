@@ -148,6 +148,9 @@ func _build_unit_data(actor: Dictionary, is_ally: bool) -> Dictionary:
 		"owner_player_id": int(actor.get("owner_player_id", 0)),
 		"skills": _normalize_skills(actor.get("skills", [])),
 		"items": [],
+		# 开战时已带的状态（如重连恢复进行中的战斗），由单位直接画出状态图标。
+		"statuses": actor.get("statuses", []),
+		"status_ids": actor.get("status_ids", []),
 	}
 
 func _resolve_unit_type(_actor: Dictionary, is_ally: bool, unit_class: int) -> String:

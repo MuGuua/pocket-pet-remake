@@ -747,23 +747,31 @@ type PlayerEquipmentRepairResp struct {
 }
 
 type BattleActorSnapshot struct {
-	ActorID       uint64                `json:"actor_id"`
-	ActorType     uint32                `json:"actor_type"`
-	UnitClass     uint32                `json:"unit_class"`
-	OwnerPlayerID uint64                `json:"owner_player_id"`
-	PetUID        uint64                `json:"pet_uid"`
-	PetID         uint32                `json:"pet_id"`
-	Name          string                `json:"name"`
-	SkinID        string                `json:"skin_id"`
-	HP            uint32                `json:"hp"`
-	HPMax         uint32                `json:"hp_max"`
-	ATK           uint32                `json:"atk"`
-	DEF           uint32                `json:"def"`
-	SPD           uint32                `json:"spd"`
-	Skills        []BattleSkillSnapshot `json:"skills"`
-	SkillIDs      []uint32              `json:"skill_ids"`
-	StatusIDs     []uint32              `json:"status_ids"`
-	LineupIndex   uint32                `json:"lineup_index"`
+	ActorID       uint64                 `json:"actor_id"`
+	ActorType     uint32                 `json:"actor_type"`
+	UnitClass     uint32                 `json:"unit_class"`
+	OwnerPlayerID uint64                 `json:"owner_player_id"`
+	PetUID        uint64                 `json:"pet_uid"`
+	PetID         uint32                 `json:"pet_id"`
+	Name          string                 `json:"name"`
+	SkinID        string                 `json:"skin_id"`
+	HP            uint32                 `json:"hp"`
+	HPMax         uint32                 `json:"hp_max"`
+	ATK           uint32                 `json:"atk"`
+	DEF           uint32                 `json:"def"`
+	SPD           uint32                 `json:"spd"`
+	Skills        []BattleSkillSnapshot  `json:"skills"`
+	SkillIDs      []uint32               `json:"skill_ids"`
+	StatusIDs     []uint32               `json:"status_ids"`
+	Statuses      []BattleStatusSnapshot `json:"statuses"`
+	LineupIndex   uint32                 `json:"lineup_index"`
+}
+
+// BattleStatusSnapshot 是单位身上一个生效中的状态，供客户端绘制状态图标与剩余回合。
+// 与 StatusIDs 同源同序（按 StatusID 升序），StatusIDs 保留给旧客户端兼容。
+type BattleStatusSnapshot struct {
+	StatusID        uint32 `json:"status_id"`
+	RemainingRounds uint32 `json:"remaining_rounds"`
 }
 
 type BattleSkillSnapshot struct {
@@ -830,13 +838,14 @@ type BattleEvent struct {
 }
 
 type BattleActorState struct {
-	ActorID    uint64   `json:"actor_id"`
-	HP         uint32   `json:"hp"`
-	HPMax      uint32   `json:"hp_max"`
-	Dead       bool     `json:"dead"`
-	CanAct     bool     `json:"can_act"`
-	StatusIDs  []uint32 `json:"status_ids"`
-	ChargeDone bool     `json:"charge_done"`
+	ActorID    uint64                 `json:"actor_id"`
+	HP         uint32                 `json:"hp"`
+	HPMax      uint32                 `json:"hp_max"`
+	Dead       bool                   `json:"dead"`
+	CanAct     bool                   `json:"can_act"`
+	StatusIDs  []uint32               `json:"status_ids"`
+	Statuses   []BattleStatusSnapshot `json:"statuses"`
+	ChargeDone bool                   `json:"charge_done"`
 }
 
 type BattleStatePush struct {

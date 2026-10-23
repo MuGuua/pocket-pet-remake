@@ -1738,7 +1738,11 @@
       "hp_max": 30,
       "dead": false,
       "can_act": true,
-      "status_ids": [],
+      "status_ids": [5, 11],
+      "statuses": [
+        {"status_id": 5, "remaining_rounds": 3},
+        {"status_id": 11, "remaining_rounds": 2}
+      ],
       "charge_done": false
     },
     {
@@ -1753,6 +1757,8 @@
   ]
 }
 ```
+
+`actors[].statuses`（4011 的 `allies/enemies[]` 同样携带）：单位身上生效中的状态及剩余回合，按 `status_id` 升序，与 `status_ids` 同源同序；没有状态时为 `[]`。`status_ids` 保留给旧客户端兼容。客户端据此绘制状态图标：每批事件播放完毕后用该批 `actors` 校准（状态到期、沉睡被打醒等移除只通过快照体现，没有单独的移除事件）。状态 ID 与 `backend/server/internal/module/battle/model.go` 的 `Status*` 常量一致。
 
 ### 4013 BATTLE_RESULT_PUSH
 

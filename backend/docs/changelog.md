@@ -1,5 +1,16 @@
 # 最新变更记录
 
+## 2026-10-23 战斗状态图标
+
+- 背景：服务端早已在每次 `4012` 推送中下发每个单位的 `status_ids`，但客户端从未消费；`battle_unit.gd` 只把施加事件的 `buff_id` 存进数组，从不绘制，且没有任何移除逻辑。玩家中了麻痹、破甲、沉睡等状态，界面上只有一行日志。
+- 协议：`BattleActorSnapshot`（4011）与 `BattleActorState`（4012）新增 `statuses: [{status_id, remaining_rounds}]`，与 `status_ids` 同源同序，保留 `status_ids` 兼容旧客户端；领域层新增 `StatusSnapshot` 与 `actorRuntime.statusSnapshots()`，ws 层转换函数始终返回非 nil 切片。
+- 客户端新增 `scripts/feature/battle/battle_status_icons.gd`：19 个状态 ID 映射到 `asset/分类/状态符` 下的像素图标（两帧图标交替播放），右下角显示剩余回合，超过 4 个时最后一格显示「+N」，未配置图标的新状态用名字首字兜底。
+- 数据流：开战用 4011 快照初始化；播放中遇到「施加状态」事件时图标立刻出现（与战斗日志同步）；每批事件播完后用该批 `actors` 权威快照校准，到期 / 被打醒的状态在这里移除；单位死亡清空图标。客户端不做任何到期推算。
+- 布局：图标竖排在单位外侧（选择箭头占内侧），只占单位自身高度，不会压到阵型上下相邻单位的名称与血条；外侧距离按当前贴图不透明像素宽度计算并缓存，大体型怪物与 CHJ 宠物不会被遮挡。
+- 验证：新增 `TestStatusSnapshotsCarryRemainingRounds`、`TestStatusSnapshotsEmptyIsNotNil`，`go test ./...` 全部通过；Godot 运行时验证开战初始化、旧服务端仅 `status_ids` 兼容、事件即时添加、批次校准移除、无状态字段快照不误清、空快照清空、死亡清空、溢出「+N」与归一化去重排序，并以真实阵型参数和螳螂怪 / 狮子王 CHJ 皮肤截图检查。
+- 调整入口：图标外观在 `client/scenes/battle/battle_status_icons.tscn` 检查器里调整（缩放、间距、最多显示数、换帧间隔、回合数字字号与偏移、外推上限、预览状态），脚本为 `@tool`，编辑器内实时预览；位置在 `client/scenes/battle/battle_unit.tscn` 中拖动 `StatusIcons` 子节点（按敌方一侧摆放，友方运行时自动镜像，预览图标不会带进游戏）。
+- 需要重启后端；无数据库变更。
+
 ## 2026-10-23 确认迁移 127 / 128 / 129 / 130 已在正式库执行
 
 - 新增 `backend/docs/check_migrations_127_130.sql`：只读自检脚本（全部 `SELECT`，不写库、不加锁），用于确认四个迁移的列、索引与种子数据是否就位。

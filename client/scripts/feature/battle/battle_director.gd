@@ -141,6 +141,8 @@ func handle_battle_state_update() -> void:
 		var runtime_actors: Array[Dictionary] = batch.get("actors", []) as Array[Dictionary]
 		_lock_interaction("正在播放战斗演出")
 		await _play_state_events(events, runtime_actors)
+		# 每批事件播完后用该批的权威快照校准状态图标：到期、被唤醒等移除只在这里生效。
+		_sync_unit_statuses(runtime_actors)
 		_last_played_frame = frame
 		_pending_frame_batches.pop_front()
 		# 只以当前正在播放的批次 phase 判断是否结束，避免最新 GameState 已变为 finished 时
@@ -843,6 +845,13 @@ func _play_state_events(events: Array[Dictionary], runtime_actors: Array[Diction
 		if timeline_step_value is Dictionary:
 			await _play_timeline_step(timeline_step_value as Dictionary)
 	_is_playing_events = false
+
+## 只用某一批的权威 actors 快照刷新状态图标，不改 HP（HP 由该批演出逐段推进）。
+func _sync_unit_statuses(runtime_actors: Array[Dictionary]) -> void:
+	for runtime_actor: Dictionary in runtime_actors:
+		var unit: BattleUnit = _get_unit(int(runtime_actor.get("actor_id", 0)))
+		if unit != null:
+			unit.apply_status_snapshot(runtime_actor)
 
 func _sync_runtime_actors() -> void:
 	for runtime_actor: Dictionary in _network.get_runtime_actors():

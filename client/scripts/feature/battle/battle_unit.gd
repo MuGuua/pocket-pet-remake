@@ -55,6 +55,16 @@ var _skin: UnitSkin
 @onready var _ally_target_arrow: Sprite2D = %AllyTargetArrow
 ## 右侧敌方单位头顶名称标签，运行时创建以避免大范围重写 .tscn。
 var _name_label: Label = null
+## 脚下状态图标行（运行时创建）；只展示服务端下发的状态，不做本地到期推算。
+var _status_icons: BattleStatusIcons = null
+## 状态图标场景；battle_unit.tscn 已内置 StatusIcons 子节点，这里只用于旧场景兜底创建。
+const STATUS_ICONS_SCENE: PackedScene = preload("res://scenes/battle/battle_status_icons.tscn")
+## StatusIcons 节点在场景中摆放的位置（敌方一侧基准），首次取到后缓存，运行时据此镜像与外推。
+## 图标竖排在单位外侧（选择箭头占内侧：敌方箭头在左、友方箭头在右），
+## 只占单位自身高度，不会压到阵型中上下相邻单位的名称与血条。
+var _status_icons_base_position: Vector2 = Vector2.ZERO
+## 贴图不透明像素包围盒缓存：texture instance id → Rect2i，每张贴图只解析一次。
+static var _opaque_rect_cache: Dictionary = {}
 
 const SELECTION_ARROW_NONE: String = ""
 const SELECTION_ARROW_ENEMY: String = "enemy"
@@ -154,6 +164,7 @@ func setup(data: Dictionary, slot_position: Vector2, skin: UnitSkin) -> void:
 	_refresh_hp_display()
 	_set_hp_bar_visible(false)
 	_update_dead_visual()
+	_apply_status_snapshot(data)
 	set_selection_arrow(SELECTION_ARROW_NONE)
 	_play_idle_animation()
 
@@ -248,6 +259,10 @@ func apply_buff_change(change: Dictionary) -> void:
 		"add", "refresh":
 			if not buffs.has(buff_id):
 				buffs.append(buff_id)
+			# 施加状态的事件播到这里时图标立刻出现；剩余回合与到期移除等本批权威快照校准。
+			if not is_dead:
+				_ensure_status_icons()
+				_status_icons.add_status(int(buff_id))
 		"remove":
 			buffs.erase(buff_id)
 
@@ -375,6 +390,106 @@ func _ensure_scene_nodes() -> void:
 	if _ally_target_arrow == null:
 		_ally_target_arrow = get_node_or_null("AllyTargetArrow") as Sprite2D
 	_ensure_name_label()
+	_ensure_status_icons()
+
+
+## 确保脚下状态图标行存在。
+func _ensure_status_icons() -> void:
+	if _status_icons != null:
+		return
+	_status_icons = get_node_or_null("StatusIcons") as BattleStatusIcons
+	if _status_icons == null:
+		_status_icons = STATUS_ICONS_SCENE.instantiate() as BattleStatusIcons
+		_status_icons.position = Vector2(22.0, -23.0)
+		add_child(_status_icons)
+	_status_icons_base_position = _status_icons.position
+	# 场景里的预览图标只在编辑器显示；运行时从空状态开始，等服务端数据。
+	_status_icons.clear_statuses()
+	_refresh_status_icons_layout()
+
+
+## 按阵营把状态图标放到单位外侧；setup 后 unit_type 才确定，因此每次刷新快照时同步一次。
+func _refresh_status_icons_layout() -> void:
+	if _status_icons == null:
+		return
+	var outer_sign: float = 1.0 if unit_type == "enemy" else -1.0
+	var min_outer_x: float = absf(_status_icons_base_position.x)
+	var outer_x: float = min_outer_x
+	var body_extent: float = _visual_outer_extent(outer_sign)
+	if body_extent > 0.0:
+		outer_x = body_extent + _status_icons.body_gap + _status_icons.icon_display_size() * 0.5
+	outer_x = clampf(outer_x, min_outer_x, maxf(min_outer_x, _status_icons.max_outer_x))
+	_status_icons.position = Vector2(outer_x * outer_sign, _status_icons_base_position.y)
+
+
+## 当前显示贴图在外侧方向上的不透明边缘到单位原点的距离（单位本地坐标）；取不到时返回 0。
+## outer_sign 为 1 表示向 +X（敌方外侧），-1 表示向 -X（友方外侧）。
+func _visual_outer_extent(outer_sign: float) -> float:
+	var node: Node2D = null
+	var texture: Texture2D = null
+	var flipped: bool = false
+	if _chj_renderer != null and _chj_renderer.visible:
+		node = _chj_renderer
+		texture = _chj_renderer.texture
+		flipped = _chj_renderer.flip_h
+	elif _character_sprite != null and _character_sprite.sprite_frames != null:
+		node = _character_sprite
+		var animation_name: StringName = _character_sprite.animation
+		if _character_sprite.sprite_frames.has_animation(animation_name) and _character_sprite.sprite_frames.get_frame_count(animation_name) > 0:
+			texture = _character_sprite.sprite_frames.get_frame_texture(animation_name, 0)
+		flipped = _character_sprite.flip_h
+	if node == null or texture == null:
+		return 0.0
+	var opaque: Rect2i = _opaque_rect(texture)
+	if opaque.size.x <= 0:
+		return 0.0
+	var half_width: float = float(texture.get_width()) * 0.5
+	var left: float = float(opaque.position.x) - half_width
+	var right: float = float(opaque.end.x) - half_width
+	if flipped:
+		var mirrored_left: float = -right
+		right = -left
+		left = mirrored_left
+	var edge: float = right if outer_sign > 0.0 else -left
+	return edge * absf(node.scale.x) + node.position.x * outer_sign
+
+
+## 贴图不透明像素包围盒（带缓存）；无法读取像素时返回空矩形。
+static func _opaque_rect(texture: Texture2D) -> Rect2i:
+	var key: int = texture.get_instance_id()
+	if _opaque_rect_cache.has(key):
+		return _opaque_rect_cache[key] as Rect2i
+	var rect: Rect2i = Rect2i()
+	var image: Image = texture.get_image()
+	if image != null and not image.is_empty():
+		if image.is_compressed():
+			image.decompress()
+		rect = image.get_used_rect()
+	_opaque_rect_cache[key] = rect
+	return rect
+
+
+## 用服务端单位快照刷新状态图标；优先 statuses（含剩余回合），旧服务端回退 status_ids。
+func _apply_status_snapshot(snapshot: Dictionary) -> void:
+	_ensure_status_icons()
+	_refresh_status_icons_layout()
+	if is_dead:
+		_status_icons.clear_statuses()
+		return
+	_status_icons.set_statuses(snapshot.get("statuses", []), snapshot.get("status_ids", []))
+
+
+## 只用权威快照校准状态图标，不触碰 HP（批次中途 HP 由演出逐段推进）。
+func apply_status_snapshot(runtime_actor: Dictionary) -> void:
+	if not runtime_actor.has("statuses") and not runtime_actor.has("status_ids"):
+		return
+	_apply_status_snapshot(runtime_actor)
+
+
+## 当前图标展示的状态 ID，供测试与调试使用。
+func get_status_icon_ids() -> Array[int]:
+	_ensure_status_icons()
+	return _status_icons.get_status_ids()
 
 
 ## 刷新选择箭头位置：X 使用 battle_unit.tscn 中手动设置的值，Y 固定落在码放点上方 50 像素。
@@ -543,6 +658,7 @@ func apply_runtime_snapshot(runtime_actor: Dictionary) -> void:
 	_refresh_hp_display()
 	_set_hp_bar_visible(false)
 	_update_dead_visual()
+	apply_status_snapshot(runtime_actor)
 
 ## 受击或治疗时显示血条，并取消尚未执行的隐藏定时。
 func _show_hp_bar_for_hit() -> void:
@@ -601,6 +717,8 @@ func _update_dead_visual() -> void:
 		if _chj_renderer != null:
 			_chj_renderer.modulate = _sprite_tint
 		_status_root.modulate = Color(1.0, 1.0, 1.0, 0.32)
+		if _status_icons != null:
+			_status_icons.clear_statuses()
 		set_selection_arrow(SELECTION_ARROW_NONE)
 	else:
 		modulate = Color.WHITE

@@ -120,6 +120,7 @@ type ActorSnapshot struct {
 	Skills             []SkillSnapshot
 	SkillIDs           []uint32
 	StatusIDs          []uint32
+	Statuses           []StatusSnapshot
 	LineupIndex        uint32
 }
 
@@ -176,7 +177,14 @@ type ActorState struct {
 	Dead       bool
 	CanAct     bool
 	StatusIDs  []uint32
+	Statuses   []StatusSnapshot
 	ChargeDone bool
+}
+
+// StatusSnapshot 是单位身上一个生效中的状态及其剩余回合，顺序与 StatusIDs 一致。
+type StatusSnapshot struct {
+	StatusID        uint32
+	RemainingRounds uint32
 }
 
 type StateSnapshot struct {
