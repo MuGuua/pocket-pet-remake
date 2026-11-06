@@ -65,6 +65,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wsConn.SetReadLimit(1 << 20)
 	if !h.registerConnection(conn) {
 		_ = conn.Close()
+		<-conn.writerDone
 		return
 	}
 	defer h.unregisterConnection(conn.ID())
@@ -132,6 +133,8 @@ func (h *Hub) serveConn(conn *Connection) {
 	defer func() {
 		h.sessionService.Disconnect(conn.ID())
 		_ = conn.Close()
+		// 注销前等待写协程退出，停服排空不会遗留仍在发送的连接。
+		<-conn.writerDone
 	}()
 
 	for {

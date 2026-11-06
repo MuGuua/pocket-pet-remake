@@ -238,3 +238,21 @@ INSERT INTO schema_migrations (version) VALUES ('124_repair_main_journey_quest_f
 - `backend/docs/architecture.md`：数据层架构与运行时缓存装配
 - `backend/docs/changelog.md`：每次迁移执行的业务背景与验证结果
 - `backend/docs/task-summary.md`：迁移执行的详细操作记录
+
+
+## 131：AOI 数据库配置（2026-11-06）
+
+- 文件：`backend/server/migrations/131_world_aoi_config.sql`，由维护者手动执行，AI 未操作正式数据库。
+- 新建单例 `world_aoi_config`，默认关闭、24000 千分之一格、邻域半径 1。重复执行不覆盖管理员已有配置，管理员标识关联现有 `admin_user`。
+- 发布顺序：先备份正式数据库并执行 SQL，再发布新后端和后台，最后更新客户端时钟/诊断补丁。新后端启动会读取该表，未迁移明确报错。配置保存后重启生效，不能将 configured 当作当前 active。
+- 验证：后台世界移动页可读取 configured/active，默认关闭时原整场景广播不变；启用前用目标设备核对镜头和预加载余量。共享 Redis 在线租约可查询，但不代表跨实例消息已经互通。
+- 回滚：先关闭配置并重启，保留该新增表即可兼容旧版本；确认所有新进程已停止读表后，维护者可按 SQL 文件注释手动清理。不要在仍有新后端运行时删表。
+
+
+### 132_runtime_snapshot_versions.sql / 133_world_relay_config.sql
+
+维护者依次执行 131（若未执行）、132、133，再部署后端/后台。132 新建两张派生视图版本表、为已有玩家建源版本，并为十二张源表安装事务触发器；旧快照首次使用时按源重建，位置写回除外。正式启动缺少版本结构/公共行或启用触发器时失败，不能只手工建表不装触发器。133 为世界配置增加 `relay_enabled`，默认 false，所有参与实例重启生效，旧 PUT 省略字段保留原值。
+
+普通 INSERT/UPDATE/DELETE 自动失效；维护者若执行 TRUNCATE、禁用触发器或手动清空派生快照，需在维护窗口显式清空 `runtime_snapshot_stamp` 后恢复服务；新增源依赖需追加迁移，不可只改公式后依赖旧标记。更新计算公式/代码数据规则后亦应在维护迁移中清空发布标记，禁止继续使用旧算法的快照。
+
+回滚优先关闭 relay 后重启旧服务，新增表/字段可保留兼容。若确需删除，先移除十二张源表的 `runtime_snapshot_invalidate` 触发器，再删除 `invalidate_runtime_snapshot()`、`runtime_snapshot_stamp`、`runtime_snapshot_source`，最后删除不再读取的配置列；迁移末尾注明顺序。本文不直接执行正式 SQL。

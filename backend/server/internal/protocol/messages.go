@@ -15,7 +15,18 @@ type WsAuthResp struct {
 }
 
 type HeartbeatReq struct {
-	ClientTimeMS int64 `json:"client_time_ms"`
+	ClientTimeMS   int64                 `json:"client_time_ms"`
+	RequestTimings []ClientRequestTiming `json:"request_timings,omitempty"`
+}
+
+// 客户端观测只用于运维，不参与游戏权威判定；服务端白名单和数量/数值边界另行校验。
+type ClientRequestTiming struct {
+	Cmd        uint16 `json:"cmd"`
+	TotalUS    int64  `json:"total_us"`
+	ResponseUS int64  `json:"response_us"`
+	DispatchUS int64  `json:"dispatch_us"`
+	Succeeded  bool   `json:"succeeded"`
+	TimedOut   bool   `json:"timed_out,omitempty"`
 }
 
 type HeartbeatResp struct {
@@ -113,18 +124,24 @@ type EntityBrief struct {
 	PlayerID   uint64 `json:"player_id"`
 	EntityType uint32 `json:"entity_type"`
 	Pos        Vec2i  `json:"pos"`
-	Dir        uint32 `json:"dir"`
-	Speed      uint32 `json:"speed"`
-	Name       string `json:"name"`
-	Level      uint32 `json:"level,omitempty"`
-	Exp        uint64 `json:"exp,omitempty"`
-	HP         uint32 `json:"hp,omitempty"`
-	HPMax      uint32 `json:"hp_max,omitempty"`
-	Vigor      uint32 `json:"vigor,omitempty"`
-	VigorMax   uint32 `json:"vigor_max,omitempty"`
-	Spirit     uint32 `json:"spirit,omitempty"`
-	SpiritMax  uint32 `json:"spirit_max,omitempty"`
-	SkinID     string `json:"skin_id,omitempty"`
+	// AOI 首次可见时可携带最近确认的表现状态；旧消费者可忽略，非 AOI 摘要保持省略。
+	PrecisePos *Vec2i `json:"precise_pos,omitempty"`
+	Facing     *Vec2i `json:"facing,omitempty"`
+	Moving     *bool  `json:"moving,omitempty"`
+	ClientTick int64  `json:"client_tick,omitempty"`
+
+	Dir       uint32 `json:"dir"`
+	Speed     uint32 `json:"speed"`
+	Name      string `json:"name"`
+	Level     uint32 `json:"level,omitempty"`
+	Exp       uint64 `json:"exp,omitempty"`
+	HP        uint32 `json:"hp,omitempty"`
+	HPMax     uint32 `json:"hp_max,omitempty"`
+	Vigor     uint32 `json:"vigor,omitempty"`
+	VigorMax  uint32 `json:"vigor_max,omitempty"`
+	Spirit    uint32 `json:"spirit,omitempty"`
+	SpiritMax uint32 `json:"spirit_max,omitempty"`
+	SkinID    string `json:"skin_id,omitempty"`
 	// FollowingPet 仅用于玩家实体，表示当前编队首只宠物的权威世界展示摘要。
 	FollowingPet *PetBrief `json:"following_pet,omitempty"`
 }
@@ -256,12 +273,19 @@ type PetAllocateAttrResp struct {
 	Pet PetDetail `json:"pet"`
 }
 
-// PetListReq 拉取宠物列表摘要；完整属性需再按 pet_uid 请求 PetSkillDetailReq。
-type PetListReq struct{}
+// 宠物列表请求默认只取摘要；打开面板时可合并单只完整详情，减少一次网络往返。
+type PetListReq struct {
+	// 打开面板时可合并单只详情；默认仍只返回轻量摘要，兼容旧客户端。
+	IncludeSelectedDetail bool `json:"include_selected_detail,omitempty"`
+	// 优先选择的自有宠物；零值或已不存在时由列表第一只兜底，不读取其他玩家宠物。
+	SelectedPetUID uint64 `json:"selected_pet_uid,omitempty"`
+}
 
 type PetListResp struct {
 	Pets   []PetDetail `json:"pets"`
 	Lineup []PetBrief  `json:"lineup"`
+	// 仅显式请求合并详情且列表非空时返回；沿用单只详情的完整属性和富文本技能。
+	SelectedPet *PetDetail `json:"selected_pet,omitempty"`
 }
 
 type PetUpdatePush struct {

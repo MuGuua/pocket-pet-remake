@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"pocket-pet-remake/server/internal/module/world"
+	"pocket-pet-remake/server/internal/platform/telemetry"
 )
 
 const movementPersistenceRequeueTimeout = 3 * time.Second
@@ -121,7 +122,9 @@ func (w *movementPersistenceWorker) PersistPlayerMovement(ctx context.Context, p
 
 // PersistMovementState 把调用方已经确认的权威状态按版本写入 PostgreSQL。
 // 返回 false 表示数据库已经持有相同或更高版本，调用方可按自身流程决定将其视为安全 stale 或并发冲突。
-func (w *movementPersistenceWorker) PersistMovementState(ctx context.Context, state world.MovementState) (bool, error) {
+func (w *movementPersistenceWorker) PersistMovementState(ctx context.Context, state world.MovementState) (persisted bool, persistErr error) {
+	started := time.Now()
+	defer func() { telemetry.Duration("world.persist", time.Since(started), persistErr != nil) }()
 	if state.PlayerID == 0 {
 		return false, fmt.Errorf("movement persistence player id is required")
 	}

@@ -2,9 +2,13 @@ package world
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
 	"sync"
+	"time"
+
+	"pocket-pet-remake/server/internal/platform/telemetry"
 )
 
 const (
@@ -15,6 +19,8 @@ const (
 )
 
 type Service struct {
+	aoiMu               sync.RWMutex
+	aoiConfig           AOIConfig
 	repo                Repository
 	movementRepo        MovementStateRepository
 	movementConfigRepo  MovementConfigRepository
@@ -373,7 +379,17 @@ func (s *Service) RequeueDirtyMovementPlayerIDs(ctx context.Context, playerIDs [
 
 // MovePlayer 记录客户端上报的普通同场景移动状态。
 // 该入口只验证玩家、会话、场景和移动序号，随后原样保存客户端坐标与表现状态；服务端不计算移动距离，也不纠正客户端位置。
-func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (MovePlayerResult, error) {
+func (s *Service) MovePlayer(ctx context.Context, input MovePlayerInput) (movementResult MovePlayerResult, moveErr error) {
+	started := time.Now()
+	defer func() {
+		telemetry.Duration("world.move", time.Since(started), moveErr != nil)
+		if errors.Is(moveErr, ErrMovementSessionMismatch) || errors.Is(moveErr, ErrMovementSceneMismatch) || errors.Is(moveErr, ErrMovementSequenceStale) || errors.Is(moveErr, ErrMovementInputInvalid) || errors.Is(moveErr, ErrMovementAxisInvalid) {
+			telemetry.Default.Record("world.move_rejected", "events", 1, true)
+		}
+		if errors.Is(moveErr, ErrMovementStateNotFound) {
+			telemetry.Default.Record("world.move_authority_lost", "events", 1, true)
+		}
+	}()
 	if s == nil || s.movementRepo == nil {
 		return MovePlayerResult{}, ErrMovementStateNotFound
 	}

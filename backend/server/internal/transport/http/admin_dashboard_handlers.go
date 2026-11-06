@@ -8,6 +8,7 @@ import (
 	"pocket-pet-remake/server/internal/module/auth"
 	"pocket-pet-remake/server/internal/module/player"
 	"pocket-pet-remake/server/internal/module/session"
+	"pocket-pet-remake/server/internal/platform/telemetry"
 )
 
 var dashboardStatLocation = time.FixedZone("Asia/Shanghai", 8*3600)
@@ -29,6 +30,12 @@ func (h *AdminDashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if _, ok := authenticateAdminRequest(w, r, h.adminService, "dashboard:view"); !ok {
+		return
+	}
+
+	// 指标读取只使用进程内有界观测，不依赖业务 SQL 成功，权限仍复用控制台查看权限。
+	if r.URL.Path == "/api/admin/dashboard/runtime-metrics" {
+		writeJSON(w, http.StatusOK, http.StatusOK, "success", telemetry.Default.Snapshots())
 		return
 	}
 

@@ -19,6 +19,10 @@ const HEADER_SIZE: int = 26
 # CRC32 校验计算使用的多项式常量。
 const CRC32_POLYNOMIAL: int = 0xEDB88320
 
+## CRC32/IEEE 的 256 项查找表，只保存协议运算常量，不缓存任何业务数据。
+## 首次校验时生成一次，后续发送和接收共用；64 位整数容纳完整无符号 32 位结果。
+var _crc32_lookup_table: PackedInt64Array = PackedInt64Array()
+
 # 是否切换到纯文本 JSON 调试传输模式。
 var dev_json_transport: bool = false
 
@@ -195,7 +199,13 @@ func _send_heartbeat_if_needed() -> void:
         return
 
     _last_heartbeat_sent_ms = now_ms
-    send_command(CommandIds.HEARTBEAT_REQ, {"client_time_ms": now_ms})
+    ## 复用现有心跳承载有界诊断，避免为运行观测增加额外请求或 loading。
+    var heartbeat_payload: Dictionary = {"client_time_ms": now_ms}
+    ## 运行期读取应用单例，避免两个自动加载脚本形成静态编译依赖环。
+    var app_node: Node = get_node_or_null("/root/App")
+    if app_node != null and app_node.has_method("take_request_timing_upload"):
+        heartbeat_payload["request_timings"] = app_node.call("take_request_timing_upload")
+    send_command(CommandIds.HEARTBEAT_REQ, heartbeat_payload)
 
 # 把消息号、序列号和 JSON 载荷编码为正式链路二进制数据包。
 func _encode_json_packet(cmd: int, seq: int, code: int, payload: Dictionary) -> PackedByteArray:
@@ -283,19 +293,27 @@ func _build_checksum_bytes(cmd: int, seq: int, timestamp_ms: int, body: PackedBy
         writer.put_data(body)
     return writer.data_array
 
-# 对给定字节序列执行 CRC32 校验计算。
+## 按标准反射多项式生成查找表；返回 256 个无符号 32 位校验常量。
+func _build_crc32_lookup_table() -> PackedInt64Array:
+    ## 一次性分配全部 256 项，避免逐项扩容。
+    var table: PackedInt64Array = PackedInt64Array()
+    table.resize(256)
+    for index: int in range(256):
+        ## 当前输入字节经过 8 次标准多项式迭代后的查表结果。
+        var value: int = index
+        for _bit: int in range(8):
+            value = ((value >> 1) ^ CRC32_POLYNOMIAL) if (value & 1) == 1 else (value >> 1)
+        table[index] = value & 0xFFFFFFFF
+    return table
+
+## 对 bytes 中的原始协议字节计算 CRC32/IEEE，返回与旧逐位算法完全相同的无符号整数。
 func _crc32(bytes: PackedByteArray) -> int:
-    # 以全 1 作为 CRC32 的初始值。
-    var crc := 0xFFFFFFFF
-    for value in bytes:
-        crc ^= int(value)
-        for _bit in range(8):
-            # 按最低位决定是否与多项式进行异或运算。
-            if (crc & 1) == 1:
-                crc = (crc >> 1) ^ CRC32_POLYNOMIAL
-            else:
-                crc >>= 1
-            crc &= 0xFFFFFFFF
+    if _crc32_lookup_table.is_empty():
+        _crc32_lookup_table = _build_crc32_lookup_table()
+    ## 正值整数保存无符号校验寄存器，右移时不会发生符号扩展。
+    var crc: int = 0xFFFFFFFF
+    for value: int in bytes:
+        crc = (crc >> 8) ^ _crc32_lookup_table[(crc ^ value) & 0xFF]
     return (~crc) & 0xFFFFFFFF
 
 # 返回下一个可用的协议序列号，并在上限后回绕。

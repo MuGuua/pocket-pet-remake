@@ -1,5 +1,193 @@
 # 最新变更记录
 
+## 2026-11-06：补齐快照版本与跨实例世界广播代码
+
+- 迁移 132 增加十二个源表的事务失效触发器及个人/公共源版本，正式快照仓储改为版本未变只读判定；重建、发布标记原子提交，同玩家并发去重，源在计算中变化则回滚重试。纯位置写回不失效，装备实例变化定向失效佩戴者；正式启动检测迁移与触发器是否完整。
+- 迁移 133 增加默认关闭的跨实例世界广播配置。复用 Redis Streams（20000 条）和每实例 256 条发布队列，独立游标/连续序号检测漏消息，ConnID 租约防旧连接事件，按本机活跃场景补齐/清理远端节点；已有全场景和 AOI 事件契约不变。
+- 后台扩展既有配置卡，区分数据库/当前进程开关，省略新字段的旧 PUT 保留现值；失败恢复指标提供中文名称。Godot 协议、战斗结算与依赖保持兼容。
+- 真实 PG 并发/回滚/源变化、Redis 双游标/缺口、双独立 WS 实例全场景/AOI 的移动/跨格/停步/断开，以及旧连接/租约/远端转本机边界回归通过。全后端 race、vet、后台构建及 diff 检查通过，新增真实依赖关键链路重复三轮通过；详细验证与未验收范围见最新任务总结。
+- 正式 SQL 仍由用户执行，先迁移 131→132→133 再更新服务。当前只完成世界实体跨实例展示，不扩展战斗/PVP/会话归属，不替代真机、公网及长期容量验收；未自动部署或 git 提交。
+
+## 2026-11-06：剩余延迟优化合并批次
+
+- 世界编排、人物档案与宠物读取去掉同一请求内的重复快照刷新；规范容器只读快判，脏堆叠原事务整理和精确计数不变。
+- 新增有界 SQL/Redis/WS/移动写回观测与后台运行指标，支持中文/标识检索、单位筛选与更新时间。客户端诊断通过现有心跳上传，数量/范围/命令受限，诊断超时不改变业务结果。
+- 迁移 `131_world_aoi_config.sql` 提供默认关闭、重启生效的网格配置；后台沿用现有世界配置权限。新增本进程双向可见图和 Redis 场景 ConnID 租约，覆盖切图、重连、跨格、外观和断开；Redis 索引共享不等同跨实例消息广播。
+- 移动权威状态缺失触发原重连恢复，客户端修复摘要接收时钟与真实采样时钟切换。100 人持续压测发现旧 64 帧容量不足后改为 256 帧有界 FIFO，指标使用分片环槽；广播读取连接接口，避免完整会话副本分配，保留原隔离/错误语义。
+- 本机真实 PG/Redis 故障与容器重启恢复、Godot 诊断/弱网回归及多人数完整链路短测通过；最新全场景/AOI 12 组广播回归通过。100 人 30 秒修正后两轮通过（P95 约 307ms/29ms，波动明显），不宣称公网延迟、真机或长期稳定性已验收；最终检验结果见任务总结和移动清单。
+- 最后移除广播完整会话分配后，第三轮 100 人 30 秒通过，P95 9.117ms，全部位置/版本落库。全后端 race、vet、后台构建与两项 Godot headless 回归通过；保留前两轮波动记录，不承诺实际部署延迟。
+- 部署前须由维护者先执行迁移 131；未触碰正式库或服务，无新增依赖，未自动提交。建议按 runtime / ops / AOI / recovery / WS / tests 六个职责拆分提交，具体信息见任务总结。
+
+
+## 2026-11-06 单实体进场广播避免整场景摘要读取
+
+- 任务总结：消除进入通知中“读取全场景玩家及首只宠物 → 只取进入者一条”的无关数据处理；同屏接收者数量仍由现有场景索引决定。
+- `backend/server/internal/transport/ws/world_handler.go` 单人进入广播传入 `[]uint64{playerID}` 复用现有领域/仓储轻量摘要与转换，不扩大字段、接口或 SQL。场景里其他玩家只作为广播接收者，不参与该次摘要/宠物查询；世界完整快照及切图双向补齐流程仍按真实需要批量读取全名单。重复同场景登记不会重复触发查询。
+- `world_entry_summary_test.go` 通过真实领域服务和会话广播检查 20/50/100 名旁观者时两类仓储请求均只有进入者；逐字段核对角色身份、位置、等级、经验、生命/精力/法力、外观与跟随宠物，校验排除自身与其他地图、断开后重进读取最新源值，以及人物缺失/错误、宠物错误和无宠物服务的兼容行为。完整档案/战斗路径不应被测试仓储调用。
+- 最小受影响入口测试、`go test -race ./server/internal/transport/ws`、`go test ./server/...` 与 diff 检查通过。未新增或执行数据库迁移，不连接正式数据库；原 SQL/仓储未改动，此轮未额外执行隔离 SQL 测试。未测线上操作耗时，查询次数仍为现有的一组玩家/宠物查询，不宣称按人数等比例缩短延迟。
+- 更新 architecture、移动优化计划与任务总结；无客户端、协议、依赖或持久化变化，仅需部署后端。修改前备份 `/tmp/pocket-before-entry-summary-20261106.tar.gz`。
+- 建议 commit：`perf(world): read only the entering entity for presence broadcasts`。
+
+## 2026-11-06 协议封包分配与客户端 CRC32 查表优化
+
+- 任务总结：优先减少所有消息共有的编解码开销，降低服务端临时分配和客户端主线程校验成本，保留原 26 字节大端包头、JSON、CRC32/IEEE 和新旧两端的字节兼容。
+- `backend/server/internal/protocol/codec.go` 直接按固定偏移读写包头，以 CRC32 分段更新替代复制整份校验载荷；解码先检查长度和校验，再分配成功包/载荷，仍复制载荷并保持原错误文本与包的长度/校验回填语义。没有引入缓冲池、共享可写载荷或额外运行时路径。
+- `client/autoload/net_client.gd` 首次校验时生成 256 项 IEEE 查找常量，后续每字节查表一次；保留原多项式、全 1 初值、最终取反与无符号 32 位结果。新增脚本均显式类型/四空格，两个受影响文件 Tab 数为零；网络命令、鉴权、loading、采样频率、分发及玩法权威不变。
+- 256 字节载荷微基准：Go 编码从 13 allocs/720B 到 1 alloc/288B，解码从 14 allocs/752B 到 2 allocs/320B。隔离复测编码约 75–77ns、解码约 86–109ns，原基准编码约 314–315ns、解码约 372–374ns；仅局部微基准。本机真实 Godot 2000 次 256 字节 CRC：旧算法 260389µs、新算法 17954µs，约快 14.5 倍；不能解释为整帧或公网延迟同幅改善。
+- `codec_compat_test.go` 冻结改动前实现，比较 256 组确定性任意字节/大包、整数边界、编码元信息、解码结果、错误与缓冲归属；模糊测试 10 秒完成 762683 次输入无失败。`codec_benchmark_test.go` 覆盖空包、256 字节与 64KiB 载荷。
+- `client/tools/test_network_codec.gd` 保存可重复的标准值、7 种字节长度、3 个真实服务端固定包和客户端往返检查；临时工具另外用实际 Go/Godot 两端完成双向编解码。Godot 检查通过，仍有已知货币图标 ID/音频退出告警，verbose 确认退出对象为 AudioStreamGeneratorPlayback。
+- `go test -race ./server/internal/protocol ./server/internal/transport/ws`、`go test ./server/...`、20/50/100 人普通/阻塞六组真实 WebSocket 广播回归与 diff 检查通过。日志与双向检查工具在 `/tmp/pocket-codec-verification-20261106/`；前后分配基准分别在 `/tmp/pocket-codec-before-20261106.log`、`/tmp/pocket-codec-after-isolated-20261106.log`，广播回归 `/tmp/pocket-codec-scene-load-20261106.log`。
+- 架构/协议/移动优化计划及任务总结同步。地图边界与镜头推算提示当前小地图 AOI 收益可能有限；未读取正式数据库/真机镜头，网格 AOI 仍为待办。本轮无迁移、正式库操作或依赖变化，新旧两端可分别发布。原 Go/文档备份 `/tmp/pocket-before-packet-codec-20261106.tar.gz`，客户端备份 `/tmp/pocket-before-net-client-crc-20261106.gd`。
+- 建议 commit：`perf(net): reduce packet allocations and accelerate client CRC32`。
+
+## 2026-11-06 同屏广播真实网络压测与带宽基线
+
+- 任务总结：按既有移动优化方案先补 AOI 之前的可重复测量，避免未验证可视范围就引入网格裁切。本轮新增压测，不修改正式发送、玩法或协议行为。
+- `backend/server/internal/transport/ws/scene_load_test.go` 增加 `POCKET_WS_SCENE_LOAD_TEST=1` 显式启用的真实 loopback WebSocket 用例，覆盖 20/50/100 名健康玩家以及各混入一个阻塞写接收者的六组场景。发送者每人 20 帧，名义周期 100ms，错峰发送；不追赶补发过时样本。每帧转向保留不可合并边界，逐实体检查完整序号、场景/代次、排除自身、最终停步和健康连接不关闭，阻塞接收者独立触发原有背压关闭。
+- 六组及追加两轮复测通过，每轮总计 509200 帧。无阻塞组本机解码 P95：20 人 1.500ms、50 人 1.953ms、100 人 1.850ms；100 人移动广播总载荷约 23.7 MiB/s。该耗时从调用广播前测到 Go 接收端解码后，单调时钟同进程测量，不能解释为完整操作延迟或线上结论。原始独立运行与复测日志分别为 `/tmp/pocket-scene-load-paced-20261106.log`、`/tmp/pocket-scene-load-repeat-20261106.log`。
+- `POCKET_WS_SCENE_LOAD_TEST=1 go test -race ./server/internal/transport/ws -run '^TestSceneBroadcastLoad/players_20/' -count=1 -v` 两组通过；默认 `go test -race ./server/internal/transport/ws`、`go test ./server/...` 与 diff 检查通过。
+- 现有 architecture、移动优化计划与任务总结记录输入、结果表、运行命令和限制。P3-05 仅标为进行中：完整移动上报/Redis/写回链路、长时间稳定性、TLS、公网和移动设备仍待验收，AOI 网格/邻域未实现。无数据库操作、迁移、依赖、客户端或生产逻辑变更；无需部署。文档修改前备份 `/tmp/pocket-before-scene-load-docs-20261106.tar.gz`。
+- 建议 commit：`test(ws): add opt-in multi-peer broadcast load regression`。
+
+## 2026-11-06 同屏接收者按场景直接索引
+
+- 任务总结：消除每次场景广播遍历全服 `playerScenes` 的成本，保留整场景可见范围及原消息顺序/慢连接隔离策略。
+- `backend/server/internal/transport/ws/world_handler.go` 增加 `scenePlayers` 反向索引和统一场景登记入口；原正向索引与反向成员集合共用 `presenceMu`。进入/重复进入/切图同步维护两侧；断开同时移除成员与空桶，重新进入可重新登记。场景成员读取只复制目标场景集合，网络/SQL 不在该锁内运行；索引属于临时连接生命周期，不承载玩法数据或持久化副本。
+- `scene_presence_test.go` 覆盖正式进出场入口、重复断开、重连登记、同场景传送、空桶回收、返回切片隔离、10000 名跨地图成员、实际广播旧/新场景边界及并发一致性。既有 world_handler/conn/movement_queue 测试改用统一登记入口，避免直接写单侧索引。
+- `go test ./server/internal/transport/ws`、`go test -race ./server/internal/transport/ws`、`go test ./server/...` 与 diff 检查通过。`BenchmarkScenePresenceLookup` 对同场景 20/50/100 人、其他场景 0/10000 人各执行两轮 200ms 微基准；Apple M2 本机查询约 195–758 ns/op，单次分配，增加其他场景人数没有呈现全服扫描增长。该结果仅覆盖索引查询，不包含 SQL、编码、Redis、网络和客户端，不代表线上延迟或多人网络压测。
+- 更新现有架构、移动优化计划与任务总结；未实现网格可见邻域或 Redis 跨进程场景索引，P3-02/P3-04/P3-05 保持待办。无协议/客户端/数据库/依赖变化，仅需部署后端。修改前备份 `/tmp/pocket-before-scene-index-20261106.tar.gz`。
+- 建议 commit：`perf(world): index scene recipients without scanning all online players`。
+
+## 2026-11-06 合并尚未发送的直线移动样本
+
+- 任务总结：在已有慢连接隔离上减少观察端旧移动样本积压，保持每段直线首帧和最新帧，避免将后续位置改写到业务回包或进出场通知之前。
+- `backend/server/internal/transport/ws/conn.go` 为 2013 增加受短锁保护的待发送索引：只合并同实体、场景/代次/朝向/速度一致且序号/采样时钟递增、精细坐标同向共线的行走状态。停步、无采样时间或旧代次兼容消息走普通有序入口；几何弯折和其他状态变化保留独立片段。写协程取出后固定编码引用，不修改共享字节或在途帧。
+- 业务及通用广播入队成功后清空合并索引，形成顺序屏障；业务等待空间时不持有锁，通过容量通知唤醒。不同实体的移动尾样本独立更新，并不承诺所有实体采样时间的全局排序。仍使用 64 帧有界队列、实际写回执和溢出关闭，不增加优先级重排。
+- `world_handler.go` 将同一权威广播载荷与一次编码后的共享字节传入可选移动队列接口；旧连接保留原接口。源上报校验、Redis/SQL 持久化、协议字段及客户端消费代码不变。
+- `movement_queue_test.go` 覆盖首帧/最新帧/停步、同朝向几何转弯、速度/场景/时钟边界、业务与实体生命周期屏障、多实体、满队列仍可合并、共享编码、在途帧不变、可靠发送唤醒、并发关闭及旧消息兼容。`go test -race ./server/internal/transport/ws` 和 `go test ./server/...` 通过。
+- 阻塞写入的确定性回归中 100 个直线样本仅占两个队列位置；临时 Godot 脚本调用真实远端插值函数，对完整/合并轨迹在 61 个时刻验证位置、朝向与行走状态一致。此为指定轨迹正确性验证，不代表任意变速轨迹完全相同，也不是线上性能或真机弱网结论。
+- 更新 architecture、protocol、移动优化计划与任务总结；无数据库迁移/正式库操作、依赖或客户端改动，仅需部署后端。AOI、20/50/100 人压测、线上分位延迟和手机弱网尚未完成。修改前备份 `/tmp/pocket-before-movement-coalescing-20261106.tar.gz`。
+- 建议 commit：`perf(ws): coalesce queued straight-line movement without crossing state barriers`。
+
+## 2026-11-05 同屏广播有界发送队列与慢连接隔离
+
+- 任务总结：避免同屏广播循环逐个等待网络写入，由每连接有界队列和单写协程完成发送；保留业务回包实际写入后才返回的语义，以及同连接入队帧的 FIFO 顺序。
+- `backend/server/internal/transport/ws/conn.go` 增加 64 帧队列、同步业务回执、5 秒写超时和关闭信号。广播队列满时立即拒绝新发送并异步关闭底层网络，单次关闭、唤醒业务等待者，避免慢 TLS/网络关闭拖住其他玩家；没有按包创建 goroutine，也不无限缓存。
+- `world_handler.go` 同屏广播只编码一次，生产连接共享不可变帧并非阻塞入队，避免并发编码修改同一个包。地图过滤/发送者排除保持现状；旧连接/测试桩兼容原同步接口。`hub.go` 断线/拒绝/停服生命周期等待读写协程退出后完成注销。
+- 验证：队列顺序、实际写入回执、并发单写、写错误保留、关闭唤醒、容量上限、慢写及慢关闭隔离、健康玩家收到广播、跨地图/发送者排除、并发关闭幂等、真实 WebSocket 编码/顺序、真实 Hub 停服排空测试通过；`go test -race ./server/internal/transport/ws` 和 `go test ./server/...` 全量通过，diff 检查通过。
+- 行为边界：积压超过上限的连接会断开，恢复依靠原重连快照；没有对移动包做合并或业务消息优先级重排，仍是整地图广播，AOI 尚未完成。尚未执行大量玩家压测、手机弱网和线上耗时验收。
+- 无客户端、协议、依赖或数据库变更，仅部署后端。说明更新至现有架构文档。修改前备份：`/tmp/pocket-before-ws-send-queue-20261105.tar.gz`。
+- 建议 commit：`perf(ws): isolate slow scene peers with bounded ordered send queues`。
+
+## 2026-11-05 非战斗人物资料只读化
+
+- 任务总结：人物面板非战斗查看从最新源档案、加点规则和装备只读计算，不再因查看写入持久化快照并重复重算；保留服务端权威与最新数据返回流程。
+- `backend/server/internal/data/postgres/combat_snapshot_repo.go` 抽出展示与快照写入共用的原计算函数，持久化刷新仍使用原写入口；新增只读展示投影，与旧快照字段逐一对应，保留血量上限、基础值、技能、抗性、位置版本和时装规则。
+- `backend/server/internal/module/player/service.go` 提供可选只读展示能力，补齐剩余经验；`transport/ws/player_handler.go` 的 2065 面板查询改用该入口。战斗期间及旧仓储沿用原读取流程，查询缺失/失败不以旧数据兜底。开战、装备变更、结算和后台读取未改造。
+- 验证：领域层只读优先、失败、缺失、战斗与旧仓储回退测试通过；隔离真实 PostgreSQL 对初始装备、源属性变更、损坏、规则变化、时装、强化五组结果与真实写入后读取的快照逐字段比较，全部一致；只读路径三次查询、零写入、单连接可运行，错误不回退写路径。WS 路由验证身份、命令和 seq 及只读入口选择通过；带所有隔离 SQL 测试的 `go test ./server/...` 全量通过，diff 检查通过。
+- 无正式数据库操作、迁移、协议、客户端或依赖变化；仅部署后端。尚未测量线上耗时或完成真机验收，战斗快照的维护式刷新仍待后续核对。
+- 文档同步至现有 architecture/protocol 与任务总结；修改前备份 `/tmp/pocket-before-player-readonly-profile-20261105.tar.gz`。
+- 建议 commit：`perf(player): compute nonbattle profile views without snapshot writes`。
+
+## 2026-11-05 宠物展示详情读取与快照重建分离
+
+- 任务总结：优先解决宠物面板查看时整批删除/重写战斗快照的问题。详情服务直接读取目标宠物最新源数据，复用现有服务端属性补全；不以未经验证的陈旧持久化快照替代读取，避免要求所有写入入口先完成快照维护才可优化。
+- `backend/server/internal/module/pet/service.go` 的详情入口改为源记录读取，保留可用模板、成长、被动属性、技能/法宝元数据与编队标记；使用编队摘要，不进入完整战斗编队刷新。列表附带详情与独立详情自动复用这条只读链路。
+- `backend/server/internal/data/postgres/pet_repo.go` 将按 UID 查找从全量宠物/法宝读取改为 SQL 同时限定玩家与宠物，复用字段扫描、封顶及法宝技能合并；读取后及时关闭游标，保留单只记录的编队标记。全量读取、战斗快照、结算与写操作刷新仍保持现状。
+- 验证：带快照接口的领域测试证明查看不访问旧快照、不重建视图，源血量变化与归属校验有效；隔离真实 PostgreSQL 逐字段比较单只与全量读取，验证属性封顶、血量/名称/法宝变化立即可见、非自有记录拒绝、无快照写入及无其他宠物完整属性读取，并在单连接下完成。复用原 SQL 测试初始化/清理，背包分页 SQL 回归同样通过；带这些 SQL 测试的 `go test ./server/...` 全量通过，diff 检查通过。
+- 边界：人物资料和战斗快照改为变更时维护尚未实施；本轮未执行线上耗时测量或真机验收。未连接/修改正式数据库，无迁移、协议、客户端或依赖变化。
+- 说明更新至 `backend/docs/architecture.md`、`backend/docs/protocol.md`。修改前备份：`/tmp/pocket-before-pet-readonly-detail-20261105.tar.gz`。仅需部署后端。
+- 建议 commit：`perf(pet): read fresh pet details without rebuilding combat snapshots`。
+
+## 2026-11-05 背包分页下推 PostgreSQL
+
+- 任务总结：5001 随身背包列表从“完整读取并丰富所有物品后裁切”改为数据库分类和分页，仅转换与丰富当前页；协议、客户端展示和物品操作流程保持现状。
+- 领域层新增可选分页接口与分页数据模型，统一默认值/分类和兼容裁切；支持分页的仓储优先走新入口，旧仓储仍可用完整快照，连接瞬断保留一次重试。大页码偏移先扩成 64 位，越界直接返回空页，避免回绕。
+- `backend/server/internal/data/postgres/bag_repo.go` 复用原明细扫描和预览处理，增加参数化分类、LIMIT/OFFSET 及容量/占用数/分类计数查询，保留真实 slot_index、entered_at/slot_index 排序和原有规范化。`used_slots` 为整个背包，`total_items` 为分类总数；仓库、操作后整包推送、钱包和已穿戴装备读取不变。
+- 边界：全容器计数和原有堆叠整理仍存在，尚未优化为纯只读或维护式计数；本轮没有移除写入规范化，没有数据库结构、客户端代码、依赖或后台 CRUD 变更。
+- 验证：领域层分类/页码/槽位/重试/旧仓储回退、WS 分页入口与完整容器隔离测试通过；本机独立临时 PostgreSQL 上的 60 条混合物品 fixture 与原全量裁切逐字段一致，9 类分页查询和空/缺失容器检查通过，分页路径禁止全量明细读取，材料聚合不重复。带 SQL 集成测试的 `go test ./server/...` 全量通过，`git diff --check` 通过。未测量线上收益；正式数据库未连接或修改。
+- 主要新增测试：`module/bag/runtime_page_test.go`、`data/postgres/bag_page_test.go`、`transport/ws/bag_pagination_test.go`。业务/协议说明更新至现有 architecture/protocol 文档。
+- 修改前备份：`/tmp/pocket-before-bag-db-pagination-20261105.tar.gz`。只需部署后端，无 SQL 迁移。
+- 建议 commit：`perf(bag): push inventory filtering and pagination into PostgreSQL`。
+
+## 2026-11-05 主要查询链路增加有界耗时诊断
+
+- 任务总结：为后续延迟优化补充实测依据，区分客户端响应等待、同步状态分发和服务端 handler 的慢请求；不宣称本轮直接减少了网络延迟，也未改动 UI、玩法、协议或持久化流程。
+- `client/autoload/app.gd` 以单调微秒时间按真实 seq 和响应命令关联七类查询，仅保留每类最近 64 条样本，按需计算 P50/P95；诊断在途最多 128 条，过期/重连清理独立于原业务队列。500ms 以上才输出摘要，未记录请求载荷。统计发生在路由之后、原 request_finished 之前，完整数据仍先进入 GameState。
+- `backend/server/internal/transport/ws/router.go` 与 `ws_debug_log.go` 增加 200ms 慢查询日志，覆盖正常返回、业务错误和发送错误的 defer 路径；仅记录连接、命令、序号、大小和 handler 微秒，不记录令牌或正文，高频移动/心跳不输出。
+- 使用方法、采样边界和排查顺序补入 `backend/docs/architecture.md`。客户端等待包含网络、排队与服务端时间，不能标成纯 RTT；服务端 handler 包含同步 SQL 与发送，尚未细分每条 SQL；客户端绘制耗时尚未覆盖。
+- 验证：慢日志阈值、移动/心跳过滤测试通过；客户端真实 WebSocket 7 类宠物回归及耗时统计验证通过，另验证命令不匹配/零序号忽略、过期排除、64/128 上限、副本隔离及断线清理。后端全量测试通过，GDScript 缩进与 diff 检查通过。尚未进行线上测量或真机验收。
+- 无数据库迁移、协议变更、后台页面或依赖变化；代码备份 `/tmp/pocket-before-network-timings-20261105.tar.gz`。
+- 建议 commit：`perf(network): add bounded request timing and slow query diagnostics`。
+
+## 2026-11-05 宠物面板打开合并列表与所选详情
+
+- 任务总结：将打开宠物面板时的“列表回包后再请求详情”合并为一次 3001/3002 往返，保留服务端权威属性、持久化路径及获取新数据后打开的规则。普通 HUD 刷新仍只请求摘要，切换宠物继续按单只详情接口获取。
+- `backend/server/internal/protocol/messages.go` 为请求增加可选 `include_selected_detail`、`selected_pet_uid`，响应增加可选 `selected_pet`。`transport/ws/pet_handler.go` 只从本次玩家自有列表选择目标，标识不存在时退到第一只；复用原详情服务与转换，包含完整技能/法宝及富文本元数据。空列表不取详情，详情失败则整个请求报错，不发送缺失详情的成功响应。
+- `client/autoload/app.gd` 增加兼容默认调用的可选参数；`client/scripts/feature/pet/pet_controller.gd` 先合并选中详情再一次写入 GameState；`client/scripts/ui/pet_status_panel.gd` 打开时请求合并详情，匹配回包后不再发第二个请求，旧服务端缺少字段时沿用补拉。选中标识已不存在时按本次列表重新选择。两个原有 Tab 脚本按要求统一为空格，场景布局及样式未调整。
+- 兼容：旧客户端 `{}` 保持原行为，新增字段可选且命令号不变；新客户端遇到旧服务端按原两次请求打开。无数据库、依赖或后台 CRUD 变更；协议细节更新至 `backend/docs/protocol.md`。
+- 验证：`go test ./server/...` 全量通过，后端覆盖普通摘要、默认选择、保持选择、无效/非自有标识回退、空列表及详情读取失败；合并详情与独立 3036 回包逐字段一致。客户端本地真实 WebSocket 验证首次打开、保留选择、失效选择、空列表、旧服务端、失败、取消 7 类流程，新服务端打开只发一次请求，详情合并后才广播状态；旧服务端两次请求回退通过。未测量线上毫秒收益或完成手机真机验收。
+- 修改前备份：`/tmp/pocket-before-pet-open-optimization-20261105.tar.gz`。需更新客户端并部署后端；不执行迁移。
+- 建议 commit：`perf(pet): include selected detail in panel list response`。
+
+## 2026-11-05 背包打开链路第一轮延迟优化
+
+- 任务总结：沿用服务端权威回包及 loading 后打开的规则，去掉一次重复装备请求，并减少同次背包读取中的强化材料重复查询。
+- 客户端 `client/scripts/ui/bag/bag_panel.gd` 仅发送 `5001 BAG_LIST_REQ`，复用既有单请求等待；`5002 BAG_LIST_RESP` 已包含 container、wallet、equipped_items，既有 BagController 先应用这三份数据，App 再通知请求完成。删除不再使用的双请求等待，成功、失败及关闭代次判断保持原有语义。按项目规则将该脚本原有 Tab 统一为 4 空格，未调整 UI 场景、尺寸或样式。
+- 服务端 `backend/server/internal/data/postgres/bag_repo.go` 在同次容器读取中按需查询一次强化材料持有量，没有装备时不查；`bag_enhance_preview.go` 接收共享原始材料，并为每件装备复制独立选项，再计算装备专属的成功率和惩罚，避免切片共享导致预览串值。不跨请求缓存，不省略其他业务校验。
+- 确定减少的工作量：每次打开背包的请求由 2 个降为 1 个；包含 N 件装备的一次容器读取，其强化材料聚合查询由 N 次降为 1 次，N=0 时仍为 0 次。这不是线上毫秒耗时测试结果；全量背包读取和其他预览查询尚未改造。
+- 验证：新增材料预览互相隔离、空材料保持 JSON 数组两项测试；`go test ./server/...` 通过。本地真实 WebSocket 封包经 NetClient → App → MessageRouter → BagController 回归空装备清理、最新装备替换、失败返回和关闭取消，4 个场景均只发送一次 BAG_LIST_REQ，并在请求完成前更新数据。GDScript 缩进、资源加载及 `git diff --check` 通过。未进行线上 RTT/SQL 耗时及手机真机测试。
+- 无协议字段、数据库结构、迁移或依赖变化；客户端需重新运行，服务端查询优化需重新部署后端。修改前备份：`/tmp/pocket-before-bag-network-optimization-20261105.tar.gz`。
+- 建议 commit：`perf(bag): remove redundant equipment request and reuse enhancement material reads`。
+
+## 2026-11-04 修正背包内部布局与操作图标比例
+
+- 任务总结：修复手机尺寸调整后背包内容贴边、容量/货币区域对齐不一致，以及加号被拉伸、禁用翻页箭头不可辨认的问题。仅修改 `client/scenes/ui/bag/bag_panel.tscn` 的原生节点参数与按钮样式。
+- 外框内统一留 16、主分区间距 12，移除容量、货币和物品分区的负边距；货币区占满内容宽度并分配数值空间，容量图标垂直居中，页码输入框填满自己的容器。
+- 加号及前后翻页使用独立字号和共享按钮状态底板，保留 88×88 热区，禁用时仍显示灰色箭头。原 28 格分页、装备预览、信号连接、请求链路和 68% 不透明底板保持现状。
+- 验证：390×844、834×1366 及 360×780 模拟窗口检查四个内容分区与 28 格边界、六位金币数值和页码宽度；原生指针事件分别点击货币加号及前后翻页通过。资源引用与差异空白检查通过，尚未进行 Android/iOS 真机验收。
+- 修改前场景备份：`/tmp/pocket-bag-before-layout-fix-20261104.tar.gz`。
+- 建议 commit：`fix(ui): correct backpack spacing and action button proportions`。
+
+## 2026-11-04 背包、人物与宠物数据面板统一透明度
+
+- 任务总结：背包、人物、宠物、仓库、任务及锻造底板统一为 68% 不透明的近黑底，保留原边框、文字、图标和按钮状态；仅修改展示资源，无数据、协议或持久化变更。
+- `client/resources/ui/pixel_panel.gdshader` 增加图集底色识别；`atlas_panel_material.tres` 复用同一着色器，仅替换图集深蓝中心。仓库使用相同底色的原生平面样式，人物/宠物数据子页与仓库卡片取消重复背景填充。
+- `client/scripts/ui/common/runtime_root_panel.gd` 与商店、物品操作、锻造等场景的遮罩统一为黑色 0.08；背包/仓库/任务/锻造取消额外模糊，保留原输入拦截节点。场景尺寸、按钮位置和业务入口保持现有设计。
+- 主要入口：`client/scenes/ui/bag/`、`client/scenes/ui/status_panels/`、`client/scenes/ui/pet/`、`client/scenes/ui/task/task_panel.tscn`；调参说明更新至 `client/scenes/ui/common/README.md`。
+- 验证：6 个完整面板在实际地图贴图上通过 Godot Compatibility 渲染与着色器检查；既有手机 UI 交互回归全部通过，12 个相关场景的资源路径与修改脚本空格缩进检查通过。尚未进行 Android/iOS 真机验收。
+- 修改前备份：`/tmp/pocket-ui-before-unified-opacity-20261104.tar.gz` 与 `/tmp/pocket-ui-unified-dim-backup-20261104.tar.gz`。
+- 建议 commit：`fix(ui): unify data panel backgrounds and backdrop opacity`。
+
+## 2026-11-04 通用面板对齐参考图的像素边框与透明度
+
+- 任务总结：在已完成的手机操作尺寸基础上，对齐参考图的半透明近黑底、清晰像素描边和紧凑正文缩进；不改变玩法、协议、按钮热区或滚动入口。
+- 新增 `client/resources/ui/pixel_panel.gdshader` 与共享材质：将旧菜单底图约 95.7% 不透明的深蓝中心替换为 68% 不透明的近黑底，保持边框和透明转角；描边向内扩展 2 个贴图像素。仅九宫格边缘增加采样，正文和图标不继承材质。
+- 已复用原版菜单样式的提示、奖励、NPC 对话/商店、选项、主菜单、物品详情/数量/修复、地图及战斗选择容器统一接入；完整背包/宠物面板的另一套美术资源保持现状。
+- 确认遮罩由 0.65 降为 0.08，商店、数量与修复等遮罩改为 0.12；奖励去掉原模糊效果，保留遮罩节点和交互拦截。确认、奖励与对话正文总缩进由 24～32 收到 16，缩小提示区分段间隔；短提示框由 680×720 调为 736×560，奖励和对话宽度也统一为 736，使基准视口左右各留 22，长正文仍可滚动。
+- 验证：在项目地图贴图上渲染对照截图；Godot Compatibility 渲染下完成菜单、确认/取消、奖励关闭、长文本滚动、剧情继续/选项回归，16 个 UI 场景在 360×780、390×844、430×932 窗口检查布局与着色器。无服务端或数据库变更，原生移动渲染器和真机观感仍需设备验收。
+- 调参入口与材质约束更新至 `client/scenes/ui/common/README.md`。本轮前的 UI 状态备份：`/tmp/pocket-ui-before-reference-20261104.tar.gz`。
+- 建议 commit：`fix(ui): match reference pixel frames and translucent panel backgrounds`。
+
+## 2026-11-04 手机竖屏 UI 布局与操作尺寸调整
+
+- 任务总结：沿用现有 Godot 场景、美术和网络入口，统一主要字号与点击热区；默认字号由 14 调整为 28，通用操作/关闭按钮使用 88 高度，底部常驻入口使用 96×96，原生移动端方向设为竖屏。保留 `780×1440 + canvas_items + expand`。
+- 主菜单改为场景预置的分类与功能按钮，扩大面板并支持列表滚动；保留原有菜单数据、分类标题、选择信号与键盘导航。关闭按钮跟随标题栏，不再贴在屏幕右上角。
+- 确认提示、奖励和 NPC 对话将正文滚动与标题/底部操作分离，修复长文本把操作按钮推出屏幕的问题；同一按钮按下并释放才执行，正文拖动不推进对话，保留确认/取消、剧情节点和服务端选项标识。
+- 背包、仓库、人物、宠物、任务、商店、数量选择、修复、强化、物品详情、地图导航、登录输入与战斗选择的相关尺寸和位置同步整理。背包容量和货币改为两行，宠物列表改为可滚动单列；每页格数、物品操作、仓库乐观更新与战斗流程保持原有逻辑。运行时弹窗补齐资源层默认隐藏。
+- 主要文件入口：`client/scenes/ui/main_menu.tscn`、`client/scenes/ui/common/`、`client/scenes/ui/bag/`、`client/scenes/ui/pet/`、`client/scenes/bootstrap/main.tscn`；参数与调整方法见 `client/scenes/ui/common/README.md`。
+- 验证：基准窗口中已回归菜单 6 个分类及选择载荷、确认/取消、奖励关闭、长文本滚动、对话继续/选项及重新打开；16 个 UI 场景在 360×780、390×844、430×932 模拟窗口完成布局与截图检查，另检查登录、HUD 和战斗选择布局。修改资源加载、GDScript 4 空格缩进和 diff 空白检查通过。尚未完成 Android/iOS 真机和软键盘验收。
+- 无新增依赖、数据库迁移或服务端协议变更；重新运行客户端生效。本次修改前的客户端 UI 备份位于 `/tmp/pocket-ui-before-mobile-20261104.tar.gz`。
+- 建议 commit：`fix(ui): adapt game panels and touch targets for portrait phones`。
+
+## 2026-11-04 NPC 对话头像与当前实体一致
+
+- 任务总结：修复剧情对话未读取当前 NPC 地图形象、未覆盖的立绘键回退到其他 NPC 默认头像的问题。
+- `client/scripts/bootstrap/main.gd` 在展示服务端剧情节点时复用现有实体 ID 查找链路，将当前 NPC 的地图帧传给面板；`client/scripts/ui/npc_dialogue_panel.gd` 对当前 NPC 发言优先裁剪该帧上半身。玩家、其他说话人、显式纹理及地图实体缺失时的原有头像逻辑保留。
+- 已核对数据库 `npc_dialogue_node.speaker / portrait_key` → 服务端节点转换 → NPC 操作 / 继续 / 分支响应 → 客户端展示链路；无协议、数据库或后端逻辑变更，无需迁移或重启后端。
+- 两个修改脚本按仓库要求统一为 4 空格缩进。Godot headless 已验证当前 NPC、空说话人、其他说话人、玩家、显式纹理和实体缺失回退 6 类场景；尚未进行登录后的实机对话视觉验收。
+- 建议 commit：`fix(client): use current NPC appearance for dialogue portrait`。
+
 ## 2026-10-23 战斗状态图标
 
 - 背景：服务端早已在每次 `4012` 推送中下发每个单位的 `status_ids`，但客户端从未消费；`battle_unit.gd` 只把施加事件的 `buff_id` 存进数组，从不绘制，且没有任何移除逻辑。玩家中了麻痹、破甲、沉睡等状态，界面上只有一行日志。

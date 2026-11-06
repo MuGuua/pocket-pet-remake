@@ -8,6 +8,9 @@ import type {
   UpdateSceneBoundaryPayload,
   UpdateWorldMovementConfigPayload,
   WorldMovementConfig,
+  WorldAOIState,
+  WorldSceneOnline,
+  UpdateWorldAOIPayload,
 } from '../types/worldMovement';
 
 // 读取数据库中的权威移动配置，页面不自行缓存或拼装正式参数。
@@ -56,4 +59,17 @@ export async function publishSceneNavigation(navigationID: number, payload: Publ
 }
 export async function rollbackSceneNavigation(sceneID: number, payload: RollbackSceneNavigationPayload): Promise<SceneNavigation> {
   return requestJSON<SceneNavigation>({ url: `/api/admin/world/scene-navigations/scenes/${sceneID}/rollback`, method: 'POST', data: payload });
+}
+
+// AOI 保存仅写入数据库，接口同时返回当前进程仍在使用的启动配置。
+export async function fetchWorldAOIConfig(): Promise<WorldAOIState> {
+  return requestJSON<WorldAOIState>({ url: '/api/admin/world/aoi-config', method: 'GET' });
+}
+export async function updateWorldAOIConfig(payload: UpdateWorldAOIPayload): Promise<WorldAOIState> {
+  return requestJSON<WorldAOIState>({ url: '/api/admin/world/aoi-config', method: 'PUT', data: payload });
+}
+
+// 共享 Redis 场景租约索引用于运维观测，不将成员当作跨进程消息投递能力。
+export async function fetchWorldSceneOnline(sceneID: number): Promise<WorldSceneOnline> {
+  return requestJSON<WorldSceneOnline>({ url: '/api/admin/world/scene-online', method: 'GET', params: { scene_id: sceneID } });
 }

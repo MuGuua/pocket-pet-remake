@@ -68,10 +68,12 @@ var runtimeEnhancePreviewStatDefs = []enhancePreviewStatDef{
 }
 
 // buildRuntimeEnhancePreview 为背包内可强化装备组装强化弹窗预览数据。
+// 同次查询传入共享材料持有量，预览内部复制后再填充装备专属的成功率和消耗。
 func buildRuntimeEnhancePreview(
 	ctx context.Context,
 	db DBTX,
 	playerID uint64,
+	baseMaterials []bag.RuntimeEnhanceMaterialOption,
 	itemID uint64,
 	canEnhance bool,
 	maxEnhanceLevel uint32,
@@ -89,10 +91,8 @@ func buildRuntimeEnhancePreview(
 	requiredLevel uint32,
 	isDamaged bool,
 ) (*bag.RuntimeEnhancePreview, error) {
-	materials, err := loadRuntimeBagEnhanceMaterials(ctx, db, playerID, bag.ContainerTypeBag)
-	if err != nil {
-		return nil, err
-	}
+	// 每件装备必须拥有独立切片，避免成功率补全覆盖其他装备的预览或共享原始数据。
+	materials := append([]bag.RuntimeEnhanceMaterialOption{}, baseMaterials...)
 	if equipSlot == "" {
 		preview := &bag.RuntimeEnhancePreview{
 			CanEnhance:              false,

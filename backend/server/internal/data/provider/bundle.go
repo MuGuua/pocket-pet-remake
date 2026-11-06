@@ -29,6 +29,7 @@ import (
 )
 
 type Bundle struct {
+	WorldEvents    world.SceneEventBus
 	Accounts       auth.AccountRepository
 	Admins         admin.UserRepository
 	Battles        battle.Repository
@@ -67,20 +68,20 @@ func NewConfiguredBundle(cfg config.Config, deps Dependencies) (Bundle, error) {
 	}
 
 	return Bundle{
-		Accounts:       pgrepo.NewAccountRepository(deps.Postgres),
+		WorldEvents: redisrepo.NewSceneEventBus(deps.Redis, cfg.Redis.KeyPrefix), Accounts: pgrepo.NewAccountRepository(deps.Postgres),
 		Admins:         pgrepo.NewAdminRepository(deps.Postgres),
 		Battles:        pgrepo.NewBattleRepository(deps.Postgres),
 		Bags:           pgrepo.NewBagRepository(deps.Postgres),
 		Items:          pgrepo.NewItemRepository(deps.Postgres),
-		Equipment:      pgrepo.NewEquipmentRepository(deps.Postgres),
+		Equipment:      pgrepo.NewEquipmentRepository(deps.Postgres, true),
 		Monsters:       pgrepo.NewMonsterRepository(deps.Postgres),
 		Skills:         pgrepo.NewSkillRepository(deps.Postgres),
-		PlayerSkills:   pgrepo.NewPlayerSkillProgressRepository(deps.Postgres),
-		Players:        pgrepo.NewPlayerRepository(deps.Postgres),
+		PlayerSkills:   pgrepo.NewPlayerSkillProgressRepository(deps.Postgres, true),
+		Players:        pgrepo.NewPlayerRepository(deps.Postgres, true),
 		Progression:    pgrepo.NewProgressionRepository(deps.Postgres),
 		PetProgression: pgrepo.NewPetProgressionRepository(deps.Postgres),
 		StoryProgress:  pgrepo.NewStoryProgressRepository(deps.Postgres),
-		Pets:           pgrepo.NewPetRepository(deps.Postgres),
+		Pets:           pgrepo.NewPetRepository(deps.Postgres, true),
 		Quests:         pgrepo.NewQuestRepository(deps.Postgres),
 		Unlocks:        pgrepo.NewUnlockRepository(deps.Postgres),
 		NPCs:           pgrepo.NewNPCRepository(deps.Postgres),

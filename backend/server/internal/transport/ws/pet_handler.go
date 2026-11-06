@@ -50,9 +50,28 @@ func (h *PetHandler) HandlePetList(conn packetSender, packet *protocol.Packet) e
 		return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load pet lineup failed", err)
 	}
 
+	// 从本次自有列表选择详情目标，避免客户端等待列表后再发起第二轮请求。
+	var selectedPet *protocol.PetDetail
+	if request.IncludeSelectedDetail && len(pets) > 0 {
+		selectedUID := pets[0].PetUID
+		for _, item := range pets {
+			if item.PetUID == request.SelectedPetUID {
+				selectedUID = item.PetUID
+				break
+			}
+		}
+		item, detailErr := h.petService.GetPetDetail(ctx, sess.PlayerID, selectedUID)
+		if detailErr != nil {
+			return sendError(conn, packet.Seq, errcode.WSCodePetListFailed, "load selected pet detail failed", detailErr)
+		}
+		detail := toProtocolPetDetail(item)
+		selectedPet = &detail
+	}
+
 	responsePacket, err := protocol.NewJSONPacket(protocol.CmdPetListResp, packet.Seq, errcode.WSCodeSuccess, protocol.PetListResp{
-		Pets:   toProtocolPetDetails(pets),
-		Lineup: toProtocolLineup(lineup, h.petService.ResolveSkinID),
+		Pets:        toProtocolPetDetails(pets),
+		Lineup:      toProtocolLineup(lineup, h.petService.ResolveSkinID),
+		SelectedPet: selectedPet,
 	})
 	if err != nil {
 		return err

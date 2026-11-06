@@ -161,7 +161,7 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 		}
 		s.enrichProgressionFields(pets)
 		applyPersistentPassiveBonusesToPets(pets, s.resolveRuntimeSkillDefinition)
-		lineup, err := s.ListLineup(ctx, playerID)
+		lineup, err := s.ListPreparedLineup(ctx, playerID)
 		if err != nil {
 			return nil, err
 		}
@@ -206,11 +206,19 @@ func (s *Service) ListPets(ctx context.Context, playerID uint64) ([]Pet, error) 
 	return pets, nil
 }
 
+// 标准编队读取仍刷新一次；已在同一用例刷新过的调用方可直接读取准备好的结果。
 func (s *Service) ListLineup(ctx context.Context, playerID uint64) ([]LineupPet, error) {
-	if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
-		if err := snapshotRepo.RefreshPlayerPetCombatSnapshots(ctx, playerID); err != nil {
+	if repo, ok := s.repo.(CombatSnapshotRepository); ok {
+		if err := repo.RefreshPlayerPetCombatSnapshots(ctx, playerID); err != nil {
 			return nil, err
 		}
+	}
+	return s.ListPreparedLineup(ctx, playerID)
+}
+
+// 只读取本次已准备快照，保留被动加成和旧仓储逻辑，不引入跨请求缓存。
+func (s *Service) ListPreparedLineup(ctx context.Context, playerID uint64) ([]LineupPet, error) {
+	if snapshotRepo, ok := s.repo.(CombatSnapshotRepository); ok {
 		lineup, err := snapshotRepo.ListPlayerLineupCombatSnapshotsByPlayerID(ctx, playerID)
 		if err != nil {
 			return nil, err
@@ -993,11 +1001,30 @@ func (s *Service) UnequipArtifact(ctx context.Context, playerID uint64, petUID u
 	return s.loadPetByUID(ctx, playerID, updatedPet.PetUID)
 }
 
-// GetPetDetail 返回单只宠物完整快照，供技能详情等需要法宝技分槽的界面使用。
+// 读取当前宠物源数据并在服务端补齐展示属性；查看详情不重建整批持久化战斗快照。
 func (s *Service) GetPetDetail(ctx context.Context, playerID uint64, petUID uint64) (Pet, error) {
-	item, err := s.loadPetByUID(ctx, playerID, petUID)
+	item, err := s.repo.FindPetByUID(ctx, playerID, petUID)
 	if err != nil {
 		return Pet{}, err
+	}
+	items := []Pet{item}
+	if err := s.applyUsableFlags(ctx, items); err != nil {
+		return Pet{}, err
+	}
+	s.enrichProgressionFields(items)
+	applyPersistentPassiveBonusesToPets(items, s.resolveRuntimeSkillDefinition)
+	// 编队仅用于展示标记，使用摘要，不进入完整战斗快照刷新链。
+	lineup, err := s.ListLineupSummaries(ctx, playerID)
+	if err != nil {
+		return Pet{}, err
+	}
+	item = items[0]
+	item.InLineup = false
+	for _, entry := range lineup {
+		if entry.PetUID == petUID {
+			item.InLineup = true
+			break
+		}
 	}
 	s.applySkillMetadata(&item)
 	return item, nil

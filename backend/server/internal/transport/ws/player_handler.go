@@ -40,7 +40,7 @@ func (h *PlayerHandler) HandleProfile(conn packetSender, packet *protocol.Packet
 		return sendError(conn, packet.Seq, errcode.WSCodeInteractFailed, "player service unavailable")
 	}
 
-	profile, err := h.playerService.GetBattleReadyProfile(context.Background(), sess.PlayerID)
+	profile, err := h.playerService.GetDisplayProfile(context.Background(), sess.PlayerID)
 	if err != nil {
 		if errors.Is(err, player.ErrPlayerNotFound) {
 			return sendError(conn, packet.Seq, errcode.WSCodePlayerNotFound, "player not found", err)

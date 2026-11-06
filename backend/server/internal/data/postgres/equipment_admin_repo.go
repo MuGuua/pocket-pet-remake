@@ -13,12 +13,14 @@ import (
 
 // EquipmentRepository 把人物装备模板 Admin CRUD 映射到 item_definition + item_equipment_extra。
 type EquipmentRepository struct {
-	db DBTX
+	// 正式装配启用持久化版本判定，旧替代仓储保留原重建语义。
+	versioned bool
+	db        DBTX
 }
 
 // NewEquipmentRepository 构造装备模板仓储。
-func NewEquipmentRepository(db DBTX) *EquipmentRepository {
-	return &EquipmentRepository{db: db}
+func NewEquipmentRepository(db DBTX, versioned ...bool) *EquipmentRepository {
+	return &EquipmentRepository{db: db, versioned: len(versioned) > 0 && versioned[0]}
 }
 
 const adminEquipmentListBaseQuery = `

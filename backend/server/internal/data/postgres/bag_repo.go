@@ -146,7 +146,7 @@ WHERE player_id = $1
 LIMIT 1
 `
 
-const runtimeContainerItemsQuery = `
+const runtimeContainerItemsSelectQuery = `
 SELECT
   pci.slot_index,
   pci.item_id,
@@ -188,8 +188,33 @@ LEFT JOIN equipment_instance eq ON eq.item_uid = pci.item_uid
 LEFT JOIN item_equipment_extra iee ON iee.item_id = pci.item_id
 WHERE pci.player_id = $1
   AND pci.container_type = $2
+`
+
+const runtimeContainerItemsOrderQuery = `
 -- 按进入容器的时间展示：最早进入的在前，同一时间再按格子序号，客户端本地分页使用同一规则。
 ORDER BY pci.entered_at ASC, pci.slot_index ASC
+`
+
+// 分类参数始终绑定；全部和分类总数采用同一套谓词，不拼接客户端输入。
+const runtimeContainerCategoryPredicate = `(
+    $3 = 'all'
+    OR ($3 = 'equipment' AND LOWER(COALESCE(idf.item_type, '')) = 'equipment')
+    OR ($3 = 'enhance_material' AND LOWER(COALESCE(idf.item_sub_type, '')) = 'equipment_enhance')
+    OR ($3 = 'other' AND LOWER(COALESCE(idf.item_type, '')) <> 'equipment'
+        AND LOWER(COALESCE(idf.item_sub_type, '')) <> 'equipment_enhance')
+)`
+
+const runtimeContainerItemsQuery = runtimeContainerItemsSelectQuery + runtimeContainerItemsOrderQuery
+const runtimeContainerPageItemsQuery = runtimeContainerItemsSelectQuery + ` AND ` + runtimeContainerCategoryPredicate + runtimeContainerItemsOrderQuery + ` LIMIT $4 OFFSET $5`
+
+const runtimeContainerPageMetaQuery = `
+SELECT c.capacity, c.max_capacity, COUNT(pci.id),
+       COUNT(pci.id) FILTER (WHERE ` + runtimeContainerCategoryPredicate + `)
+FROM player_container c
+LEFT JOIN player_container_item pci ON pci.player_id = c.player_id AND pci.container_type = c.container_type
+LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
+WHERE c.player_id = $1 AND c.container_type = $2
+GROUP BY c.capacity, c.max_capacity
 `
 
 const runtimeTransferSourceItemQuery = `
@@ -248,6 +273,25 @@ LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
 WHERE pci.player_id = $1
   AND pci.container_type = $2
 ORDER BY pci.slot_index ASC
+`
+
+// 只判断是否存在需要整理的可堆叠组，不向 Go 传输全部容器行，也不获取写锁。
+// 已规范组必须是若干满堆叠与末尾至多一个余量；全零组沿用原整理器的忽略语义。
+const runtimeContainerNeedsNormalizationQuery = `
+SELECT EXISTS (
+    SELECT 1
+    FROM player_container_item pci
+    JOIN player_container c ON c.player_id = pci.player_id AND c.container_type = pci.container_type AND c.capacity > 0
+    LEFT JOIN item_definition idf ON idf.item_id = pci.item_id
+    WHERE pci.player_id = $1 AND pci.container_type = $2
+      AND COALESCE(pci.item_uid, '') = '' AND COALESCE(idf.max_stack, 1) > 1
+    GROUP BY pci.item_id, pci.is_bound, pci.expire_at, idf.max_stack
+    HAVING SUM(pci.quantity) > 0 AND (
+        MAX(pci.quantity) > idf.max_stack
+        OR COUNT(*) > CEIL(SUM(pci.quantity)::numeric / idf.max_stack)
+        OR MIN(pci.slot_index) FILTER (WHERE pci.quantity < idf.max_stack) < MAX(pci.slot_index)
+    )
+)
 `
 
 // runtimeTransferTouchEnteredAtQuery 在跨容器移动合并到已有堆叠时刷新进入时间，
@@ -682,19 +726,63 @@ func (r *BagRepository) DeleteForAdmin(ctx context.Context, recordID uint64) err
 	return nil
 }
 
-func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*bag.RuntimeContainerSnapshot, error) {
+// 已规范容器只做只读判定；需要修复时仍在原事务内重新读取并整理，不能用判定结果作为写入依据。
+// 正式写操作仍统一获取容器锁并执行原整理流程，避免并发写入绕过原有持久化约束。
+func (r *BagRepository) normalizeRuntimeContainer(ctx context.Context, playerID uint64, containerType string) error {
 	if beginner, ok := r.db.(txBeginner); ok {
+		var needsNormalization bool
+		if err := r.db.QueryRowContext(ctx, runtimeContainerNeedsNormalizationQuery, playerID, containerType).Scan(&needsNormalization); err != nil {
+			return err
+		}
+		if !needsNormalization {
+			return nil
+		}
 		tx, err := beginner.BeginTx(ctx, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		defer rollbackTx(tx)
 		if err := normalizeRuntimeContainers(ctx, tx, playerID, containerType); err != nil {
-			return nil, err
+			return err
 		}
 		if err := tx.Commit(); err != nil {
-			return nil, err
+			return err
 		}
+	}
+	return nil
+}
+
+// 只查询随身背包当前分类的一页，保留全容器格数与真实槽位标识。
+func (r *BagRepository) ListRuntimeBagPage(ctx context.Context, playerID uint64, query bag.RuntimePageQuery) (*bag.RuntimeContainerPage, error) {
+	query = query.Normalize()
+	if err := r.normalizeRuntimeContainer(ctx, playerID, bag.ContainerTypeBag); err != nil {
+		return nil, err
+	}
+	snapshot := bag.RuntimeContainerSnapshot{ContainerType: bag.ContainerTypeBag, Items: []bag.RuntimeItemSnapshot{}}
+	var total uint32
+	err := r.db.QueryRowContext(ctx, runtimeContainerPageMetaQuery, playerID, bag.ContainerTypeBag, query.Category).Scan(&snapshot.Capacity, &snapshot.MaxCapacity, &snapshot.UsedSlots, &total)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	offset := (uint64(query.Page) - 1) * uint64(query.PageSize)
+	if offset < uint64(total) {
+		usedSlots := snapshot.UsedSlots
+		items, readErr := r.readRuntimeContainerItems(ctx, playerID, snapshot, runtimeContainerPageItemsQuery, playerID, bag.ContainerTypeBag, query.Category, int64(query.PageSize), int64(offset))
+		if readErr != nil {
+			return nil, readErr
+		}
+		snapshot = *items
+		snapshot.UsedSlots = usedSlots
+	}
+	return &bag.RuntimeContainerPage{Snapshot: snapshot, Query: query, TotalItems: total}, nil
+}
+
+func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint64, containerType string) (*bag.RuntimeContainerSnapshot, error) {
+	if err := r.normalizeRuntimeContainer(ctx, playerID, containerType); err != nil {
+		return nil, err
 	}
 	var snapshot bag.RuntimeContainerSnapshot
 	snapshot.ContainerType = containerType
@@ -705,12 +793,19 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 		return nil, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, runtimeContainerItemsQuery, playerID, containerType)
+	return r.readRuntimeContainerItems(ctx, playerID, snapshot, runtimeContainerItemsQuery, playerID, containerType)
+}
+
+// 复用完整容器的扫描、描述与预览转换；分页路径传入 LIMIT 查询，仅丰富当前页。
+func (r *BagRepository) readRuntimeContainerItems(ctx context.Context, playerID uint64, snapshot bag.RuntimeContainerSnapshot, query string, args ...any) (*bag.RuntimeContainerSnapshot, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	// 同次容器读取共享材料持有量；没有装备时不额外查库，不跨请求保留数据。
+	var enhanceMaterials []bag.RuntimeEnhanceMaterialOption
 	items := make([]bag.RuntimeItemSnapshot, 0)
 	for rows.Next() {
 		var (
@@ -794,10 +889,18 @@ func (r *BagRepository) ListRuntimeContainer(ctx context.Context, playerID uint6
 			value.Bonus = runtimeItemBonusFromAggregate(bonus)
 		}
 		if isEquipmentItem {
+			if enhanceMaterials == nil {
+				materials, materialsErr := loadRuntimeBagEnhanceMaterials(ctx, r.db, playerID, bag.ContainerTypeBag)
+				if materialsErr != nil {
+					return nil, materialsErr
+				}
+				enhanceMaterials = materials
+			}
 			preview, previewErr := buildRuntimeEnhancePreview(
 				ctx,
 				r.db,
 				playerID,
+				enhanceMaterials,
 				value.ItemID,
 				canEnhance,
 				uint32(maxEnhanceLevel),

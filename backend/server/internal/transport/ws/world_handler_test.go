@@ -2921,10 +2921,8 @@ func TestHandleMoveIntentRejectsDelayedOldSceneMovementAfterTransfer(t *testing.
 	if err := playerService.UpdatePosition(context.Background(), teststub.RivalPlayerID, 2, 4, 1); err != nil {
 		t.Fatalf("UpdatePosition(rival) error = %v", err)
 	}
-	router.worldHandler.presenceMu.Lock()
-	router.worldHandler.playerScenes[oldSceneObserverID] = 1
-	router.worldHandler.playerScenes[teststub.RivalPlayerID] = 2
-	router.worldHandler.presenceMu.Unlock()
+	router.worldHandler.setPlayerScenePresence(oldSceneObserverID, 1)
+	router.worldHandler.setPlayerScenePresence(teststub.RivalPlayerID, 2)
 	clearPackets(moverConn)
 
 	// 跨场景仍走服务端权威链路，使 Redis 与 PostgreSQL 都落在场景 2 的入口格。

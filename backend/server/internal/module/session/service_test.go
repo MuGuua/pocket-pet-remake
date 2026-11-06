@@ -59,3 +59,41 @@ func TestServiceBindInvokesReplacementHandler(t *testing.T) {
 		t.Fatalf("replacement callbacks after reconnect = %v, want unchanged", replacedPlayerIDs)
 	}
 }
+
+// 广播读取只获得当前连接，断线/重连/顶号不保留旧引用，热读取不能逐接收者分配会话。
+func TestBroadcastConnectionLifecycle(t *testing.T) {
+	service := NewService(log.New(io.Discard, "", 0), time.Second, 3*time.Second)
+	if service.ConnectionByPlayerID(1) != nil {
+		t.Fatal("unknown player has connection")
+	}
+	first := &sessionConnStub{id: "first"}
+	current, err := service.Bind(1, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if service.ConnectionByPlayerID(1) != first {
+		t.Fatal("wrong bound connection")
+	}
+	if count := testing.AllocsPerRun(1000, func() { _ = service.ConnectionByPlayerID(1) }); count != 0 {
+		t.Fatalf("broadcast lookup allocates: %v", count)
+	}
+	service.Disconnect(first.ID())
+	if service.ConnectionByPlayerID(1) != nil {
+		t.Fatal("disconnected connection retained")
+	}
+	second := &sessionConnStub{id: "second"}
+	if _, err := service.Reconnect(current.ReconnectToken, second); err != nil {
+		t.Fatal(err)
+	}
+	if service.ConnectionByPlayerID(1) != second {
+		t.Fatal("wrong reconnect connection")
+	}
+	third := &sessionConnStub{id: "third"}
+	if _, err := service.Bind(1, third); err != nil {
+		t.Fatal(err)
+	}
+	service.Disconnect(second.ID())
+	if service.ConnectionByPlayerID(1) != third {
+		t.Fatal("late disconnect removed new connection")
+	}
+}

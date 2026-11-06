@@ -50,6 +50,7 @@ type App struct {
 	battleHandler             *wstransport.BattleHandler
 	wsHub                     *wstransport.Hub
 	movementPersistenceWorker *movementPersistenceWorker
+	worldHandler              *wstransport.WorldHandler
 	logger                    *log.Logger
 	cleanupClosers            []io.Closer
 }
@@ -132,6 +133,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	if err := worldService.RefreshMovementConfig(context.Background()); err != nil {
 		return nil, fmt.Errorf("load world movement config: %w", err)
 	}
+	if err := worldService.RefreshAOIConfig(context.Background()); err != nil {
+		return nil, fmt.Errorf("load world AOI config (apply migrations 131 and 133 first): %w", err)
+	}
 	if err := worldService.RefreshSceneBoundaryCache(context.Background()); err != nil {
 		return nil, fmt.Errorf("load world scene boundary cache: %w", err)
 	}
@@ -163,6 +167,9 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 
 	authHandler := wstransport.NewAuthHandler(authService, sessionService)
 	worldHandler := wstransport.NewWorldHandler(sessionService, playerService, petService, questService, walletService, worldService, monsterService, equipmentService)
+	if err := worldHandler.ConfigureWorldRelay(repos.WorldEvents); err != nil {
+		return nil, err
+	}
 	petHandler := wstransport.NewPetHandler(sessionService, petService, petProgressionService)
 	playerHandler := wstransport.NewPlayerHandler(sessionService, playerService)
 	equipmentHandler := wstransport.NewEquipmentHandler(sessionService, equipmentService)
@@ -186,7 +193,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	sessionService.SetDisconnectHandler(persistFinalMovement)
 	sessionService.SetReplacementHandler(persistFinalMovement)
 	sessionService.AddDisconnectHandler(battleHandler.HandleSessionDisconnect)
-	sessionService.AddDisconnectHandler(worldHandler.HandleSessionDisconnect)
+	sessionService.AddDisconnectHandler(worldHandler.HandleOfflineSession)
 	questHandler := wstransport.NewQuestHandler(questService, sessionService, bagService, petService, walletService, unlockService, playerService)
 	wsRouter := wstransport.NewRouter(authHandler, worldHandler, petHandler, playerHandler, equipmentHandler, battleHandler, bagHandler, questHandler, sessionService)
 	wsHub := wstransport.NewHub(logger, wsRouter, sessionService)
@@ -202,6 +209,7 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 	}
 
 	return &App{
+		worldHandler:              worldHandler,
 		server:                    server,
 		sessionService:            sessionService,
 		battleHandler:             battleHandler,
@@ -214,6 +222,15 @@ func newApp(cfg config.Config, logger *log.Logger, deps provider.Dependencies, c
 
 func (a *App) Run(ctx context.Context) error {
 	defer a.closeResources()
+	relayCtx, stopRelay := context.WithCancel(ctx)
+	relayDone := make(chan struct{})
+	go func() {
+		defer close(relayDone)
+		if a.worldHandler != nil {
+			a.worldHandler.RunWorldRelay(relayCtx)
+		}
+	}()
+	defer func() { stopRelay(); <-relayDone }()
 	movementWorkerCtx, stopMovementWorker := context.WithCancel(ctx)
 	movementWorkerDone := make(chan struct{})
 	if a.movementPersistenceWorker == nil {

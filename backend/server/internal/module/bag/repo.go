@@ -23,3 +23,8 @@ type Repository interface {
 	// RecordUniqueItemObtained 记录玩家首次获得唯一道具，重复写入会被忽略。
 	RecordUniqueItemObtained(ctx context.Context, playerID uint64, itemID uint64, reasonType string, reasonRefID uint64) error
 }
+
+// 可选分页能力不扩大旧仓储必需接口；生产 PostgreSQL 实现直接查询当前页。
+type RuntimePageRepository interface {
+	ListRuntimeBagPage(ctx context.Context, playerID uint64, query RuntimePageQuery) (*RuntimeContainerPage, error)
+}

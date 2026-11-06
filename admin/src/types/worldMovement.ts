@@ -57,3 +57,12 @@ export interface SceneNavigationExportData {
 export interface CreateSceneNavigationDraftPayload extends SceneNavigationExportData { reason: string; }
 export interface PublishSceneNavigationPayload { reason: string; }
 export interface RollbackSceneNavigationPayload { source_version: number; reason: string; }
+
+// AOI 配置是数据库事实值；active 是当前进程启动时加载的生效快照。
+export interface WorldAOIConfig {
+  enabled: boolean; relay_enabled: boolean; cell_size_milli: number; radius: number; updated_at: string; reason: string; admin_user_id: number;
+}
+export interface WorldAOIState { configured: WorldAOIConfig; active: WorldAOIConfig; }
+export interface UpdateWorldAOIPayload { enabled: boolean; relay_enabled: boolean; cell_size_milli: number; radius: number; reason: string; }
+
+export interface WorldSceneOnline { scene_id: number; count: number; }

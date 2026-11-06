@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"pocket-pet-remake/server/internal/config"
 )
@@ -13,10 +14,12 @@ import (
 const pingTimeout = 5 * time.Second
 
 func Open(cfg config.PostgresConfig) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.DSN)
+	connectionConfig, err := pgx.ParseConfig(cfg.DSN)
 	if err != nil {
 		return nil, err
 	}
+	connectionConfig.Tracer = queryMetricsTracer{}
+	db := stdlib.OpenDB(*connectionConfig)
 
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)

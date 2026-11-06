@@ -1,3 +1,4 @@
+import { WorldAOIConfigCard } from './WorldAOIConfigCard';
 import {
   Alert,
   Button,
@@ -347,6 +348,7 @@ export function WorldMovementConfigPage() {
   return (
     <Spin spinning={loading}>
       <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <WorldAOIConfigCard scenes={boundaries} />
         <Card
           title="世界移动配置"
           extra={<Button type="primary" disabled={!config} onClick={openConfigEditor}>调整参数</Button>}

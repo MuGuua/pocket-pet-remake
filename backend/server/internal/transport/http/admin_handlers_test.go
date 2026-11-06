@@ -1158,3 +1158,31 @@ func marshalJSON(t *testing.T, value any) []byte {
 	}
 	return data
 }
+
+// 运行观测沿用控制台查看权限，未登录请求不得读取服务进程内部信息。
+func TestAdminRuntimeMetricsHandler(t *testing.T) {
+	handlers := newAdminHandlersForTest(t)
+	for _, authorized := range []bool{false, true} {
+		request := httptest.NewRequest(http.MethodGet, "/api/admin/dashboard/runtime-metrics", nil)
+		if authorized {
+			request.Header.Set("Authorization", "Bearer "+issueAdminTokenForTest(t))
+		}
+		response := httptest.NewRecorder()
+		handlers.Dashboard.ServeHTTP(response, request)
+		if !authorized {
+			if response.Code == http.StatusOK {
+				t.Fatal("unauthenticated metrics exposed")
+			}
+			continue
+		}
+		if response.Code != http.StatusOK {
+			t.Fatalf("metrics status=%d body=%s", response.Code, response.Body.String())
+		}
+		var result struct {
+			Data []json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || result.Data == nil {
+			t.Fatalf("invalid metric envelope: %s %v", response.Body.String(), err)
+		}
+	}
+}

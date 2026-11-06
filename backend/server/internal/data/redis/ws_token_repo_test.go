@@ -56,6 +56,12 @@ func (f *fakeClient) Eval(_ context.Context, script string, keys []string, args 
 	if f.evalErr != nil {
 		return nil, f.evalErr
 	}
+	if script == initializeIndexedMovementScript {
+		return "ok", f.SetEX(context.Background(), keys[0], args[0].([]byte), movementStateTTL)
+	}
+	if script == deleteIndexedMovementScript {
+		return int64(1), f.Del(context.Background(), keys[0])
+	}
 	if f.evalResult == nil {
 		return nil, errors.New("Eval is not configured by fake client")
 	}

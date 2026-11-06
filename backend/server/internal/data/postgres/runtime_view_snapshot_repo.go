@@ -109,7 +109,20 @@ ORDER BY skill_id ASC
 `
 
 // RefreshPlayerEquipmentSnapshot 把当前已佩戴装备写入独立视图快照表。
+// 源版本未变时不重写视图；变更后的重建与版本发布共用一个事务。
 func (r *EquipmentRepository) RefreshPlayerEquipmentSnapshot(ctx context.Context, playerID uint64) error {
+	if !r.versioned {
+		return r.rebuildPlayerEquipmentSnapshot(ctx, playerID)
+	}
+	return refreshVersionedSnapshot(ctx, r.db, playerID, "equipment", func(db DBTX) error {
+		scoped := *r
+		scoped.db = db
+		return scoped.rebuildPlayerEquipmentSnapshot(ctx, playerID)
+	})
+}
+
+// 仅负责原有计算与写视图，由外层统一处理版本和事务。
+func (r *EquipmentRepository) rebuildPlayerEquipmentSnapshot(ctx context.Context, playerID uint64) error {
 	items, err := r.listEquippedRaw(ctx, playerID)
 	if err != nil {
 		return err
@@ -229,7 +242,20 @@ func (r *EquipmentRepository) listEquippedRaw(ctx context.Context, playerID uint
 }
 
 // RefreshPlayerSkillProgressSnapshot 把人物技能学习进度同步到快照表。
+// 源版本未变时不重写视图；变更后的重建与版本发布共用一个事务。
 func (r *PlayerSkillProgressRepository) RefreshPlayerSkillProgressSnapshot(ctx context.Context, playerID uint64) error {
+	if !r.versioned {
+		return r.rebuildPlayerSkillProgressSnapshot(ctx, playerID)
+	}
+	return refreshVersionedSnapshot(ctx, r.db, playerID, "skills", func(db DBTX) error {
+		scoped := *r
+		scoped.db = db
+		return scoped.rebuildPlayerSkillProgressSnapshot(ctx, playerID)
+	})
+}
+
+// 仅负责原有计算与写视图，由外层统一处理版本和事务。
+func (r *PlayerSkillProgressRepository) rebuildPlayerSkillProgressSnapshot(ctx context.Context, playerID uint64) error {
 	if playerID == 0 {
 		return nil
 	}

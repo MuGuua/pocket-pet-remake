@@ -20,6 +20,7 @@ import (
 	"pocket-pet-remake/server/internal/module/wallet"
 	"pocket-pet-remake/server/internal/module/world"
 	"pocket-pet-remake/server/internal/platform/errcode"
+	"pocket-pet-remake/server/internal/platform/telemetry"
 	"pocket-pet-remake/server/internal/protocol"
 )
 
@@ -43,10 +44,15 @@ type WorldHandler struct {
 	movementPersister movementFinalPersister
 	presenceMu        sync.RWMutex
 	playerScenes      map[uint64]uint32
+	playerOwners      map[uint64]string
+	// 按场景反向索引当前进程内的玩家，和正向索引始终由 presenceMu 同步维护。
+	scenePlayers map[uint32]map[uint64]struct{}
+	aoi          *worldAOI
+	relay        *worldRelay
 }
 
 func NewWorldHandler(sessionService *session.Service, playerService *player.Service, petService *pet.Service, questService *quest.Service, walletService *wallet.Service, worldService *world.Service, monsterService *monster.Service, equipmentService *equipment.Service) *WorldHandler {
-	return &WorldHandler{
+	handler := &WorldHandler{
 		sessionService:   sessionService,
 		playerService:    playerService,
 		petService:       petService,
@@ -56,7 +62,17 @@ func NewWorldHandler(sessionService *session.Service, playerService *player.Serv
 		monsterService:   monsterService,
 		equipmentService: equipmentService,
 		playerScenes:     make(map[uint64]uint32),
+		playerOwners:     make(map[uint64]string),
+		scenePlayers:     make(map[uint32]map[uint64]struct{}),
 	}
+	if worldService != nil {
+		config := worldService.AOIConfigSnapshot()
+		if config.Enabled {
+			handler.aoi = newWorldAOI(config, handler)
+		}
+	}
+	return handler
+
 }
 
 // SetRuntimeSnapshotService 注入统一运行时快照刷新入口。
@@ -123,12 +139,21 @@ func (h *WorldHandler) BuildReconnectWorldSnapshot(ctx context.Context, sess *se
 // buildWorldSnapshotForPlayer 允许重连使用 Redis 运行态位置；其他入口继续使用 PostgreSQL 永久位置。
 // 第二个返回值是构建快照所依据的位置版本，Redis 状态缺失时必须用它恢复单调递增基线。
 func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID uint64, movementState *world.MovementState) (*protocol.EnterWorldResp, uint64, error) {
+	var refreshed runtimeview.RefreshResult
 	if h.runtimeSnapshots != nil {
-		if err := h.runtimeSnapshots.RefreshPlayerRuntimeSnapshots(ctx, playerID); err != nil {
+		var err error
+		refreshed, err = h.runtimeSnapshots.RefreshPlayerRuntimeSnapshotsWithResult(ctx, playerID)
+		if err != nil {
 			return nil, 0, err
 		}
 	}
-	profile, err := h.playerService.GetBattleReadyProfile(ctx, playerID)
+	var profile *player.Profile
+	var err error
+	if refreshed.Player {
+		profile, err = h.playerService.GetPreparedBattleProfile(ctx, playerID)
+	} else {
+		profile, err = h.playerService.GetBattleReadyProfile(ctx, playerID)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -140,7 +165,12 @@ func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID
 		authoritativePos = movementState.PersistedPos
 		positionVersion = movementState.PositionVersion
 	}
-	lineup, err := h.petService.ListLineup(ctx, playerID)
+	var lineup []pet.LineupPet
+	if refreshed.Pets {
+		lineup, err = h.petService.ListPreparedLineup(ctx, playerID)
+	} else {
+		lineup, err = h.petService.ListLineup(ctx, playerID)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -186,7 +216,11 @@ func (h *WorldHandler) buildWorldSnapshotForPlayer(ctx context.Context, playerID
 		playerSnapshot.EquippedItems = toProtocolEquippedItems(equippedItems)
 	}
 	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
-	nearbyEntities = h.appendOnlinePlayerEntities(ctx, playerID, snapshot.SceneID, nearbyEntities)
+	if h.aoi != nil {
+		nearbyEntities = h.aoiWorldEntities(ctx, playerID, snapshot.SceneID, authoritativePos, nearbyEntities)
+	} else {
+		nearbyEntities = h.appendOnlinePlayerEntities(ctx, playerID, snapshot.SceneID, nearbyEntities)
+	}
 	response := &protocol.EnterWorldResp{
 		Self: protocol.PlayerBrief{
 			PlayerID: profile.PlayerID,
@@ -245,7 +279,7 @@ func (h *WorldHandler) HandleEnterWorld(conn packetSender, packet *protocol.Pack
 	if err := conn.SendPacket(responsePacket); err != nil {
 		return err
 	}
-	h.enterPlayerScene(ctx, sess.PlayerID, responseBody.SceneID)
+	h.enterPlayerScene(ctx, sess.PlayerID, responseBody.SceneID, responseBody.NearbyEntities)
 	if h.questService != nil {
 		_ = pushQuestDiff(ctx, conn, h.questService, sess.PlayerID, questBefore)
 	}
@@ -433,6 +467,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 			movementServerTick,
 			// 快速传送落点由服务端决定，不存在客户端采样时间。
 			0,
+			conn.ID(),
 		)
 		snapshotStartedAt := time.Now()
 		err := h.sendWorldResync(conn, authoritativeSceneID, decision.SpawnPos)
@@ -467,7 +502,7 @@ func (h *WorldHandler) HandleMoveIntent(conn packetSender, packet *protocol.Pack
 // 普通移动是单向上报：服务端不计算、不纠正本机坐标，也不会向上报者发送 MOVE_INTENT_RESP 或 WORLD_RESYNC_PUSH。
 func (h *WorldHandler) handleSameSceneMovement(
 	ctx context.Context,
-	_ packetSender,
+	conn packetSender,
 	_ *protocol.Packet,
 	sess *session.Session,
 	request protocol.MoveIntentReq,
@@ -505,6 +540,10 @@ func (h *WorldHandler) handleSameSceneMovement(
 			ServerTickMS:  serverTick,
 		})
 		if stateErr != nil {
+			// 权威状态已丢失时不能永远丢弃后续移动；关闭后复用既有重连流程，从持久化位置重建。
+			if errors.Is(stateErr, world.ErrMovementStateNotFound) {
+				_ = conn.Close()
+			}
 			// 旧会话、错误场景、倒退序号或短时仓储异常都只丢弃本次表现上报，禁止触发本机坐标回退。
 			log.Printf(
 				"discard same-scene movement report player_id=%d session_id=%s scene_id=%d move_seq=%d: %v",
@@ -558,6 +597,7 @@ func (h *WorldHandler) handleSameSceneMovement(
 		movementSpeed,
 		serverTick,
 		request.ClientTick,
+		conn.ID(),
 	)
 	if stoppedMoving {
 		go h.persistStoppedMovement(sess.PlayerID)
@@ -702,9 +742,29 @@ func toWorldMovementInput(input *protocol.Vec2i) *world.Vec2i {
 func (h *WorldHandler) HandleSessionDisconnect(playerID uint64) {
 	h.presenceMu.Lock()
 	sceneID, exists := h.playerScenes[playerID]
+	owner := h.playerOwners[playerID]
+	delete(h.playerOwners, playerID)
 	delete(h.playerScenes, playerID)
+	if exists {
+		h.removeScenePlayerLocked(sceneID, playerID)
+	}
 	h.presenceMu.Unlock()
 	if !exists {
+		return
+	}
+	relayPacket, _ := protocol.NewJSONPacket(protocol.CmdEntityLeavePush, 0, 0, protocol.EntityLeavePush{SceneID: sceneID, EntityID: playerID})
+	h.publishSceneEvent(sceneID, playerID, relayPacket, owner)
+	if h.worldService != nil && owner != "" {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+			if err := h.worldService.UnmarkSceneOnline(ctx, playerID, owner); err != nil {
+				log.Printf("unmark scene online player_id=%d: %v", playerID, err)
+			}
+		}()
+	}
+	if h.aoi != nil {
+		h.aoi.remove(playerID)
 		return
 	}
 	h.broadcastEntityLeave(sceneID, playerID)
@@ -712,6 +772,7 @@ func (h *WorldHandler) HandleSessionDisconnect(playerID uint64) {
 
 // appendOnlinePlayerEntities 把进程内已进入世界的同场景玩家合并到数据库场景实体快照。
 func (h *WorldHandler) appendOnlinePlayerEntities(ctx context.Context, selfPlayerID uint64, sceneID uint32, entities []protocol.EntityBrief) []protocol.EntityBrief {
+	h.syncRelayScene(ctx, sceneID)
 	seenEntityIDs := make(map[uint64]struct{}, len(entities))
 	playerIDs := make([]uint64, 0, len(entities))
 	for _, entity := range entities {
@@ -783,6 +844,13 @@ func (h *WorldHandler) loadPlayerEntities(ctx context.Context, playerIDs []uint6
 				entity.FollowingPet = &petBrief
 			}
 		}
+		if h.relay != nil {
+			state, err := h.worldService.LoadMovementState(ctx, summary.PlayerID)
+			if err != nil {
+				continue
+			}
+			entity = movementStateBrief(entity, state)
+		}
 		result[summary.PlayerID] = entity
 	}
 	return result
@@ -790,6 +858,12 @@ func (h *WorldHandler) loadPlayerEntities(ctx context.Context, playerIDs []uint6
 
 // syncPlayerSceneEntities 用一组批量查询同时完成“通知旧玩家”和“补齐新玩家视图”，避免重复读取同场景摘要。
 func (h *WorldHandler) syncPlayerSceneEntities(ctx context.Context, conn packetSender, selfPlayerID uint64, sceneID uint32) {
+	h.setPlayerScenePresence(selfPlayerID, sceneID, conn.ID())
+	h.refreshSceneOnlineLease(selfPlayerID)
+	if h.aoi != nil {
+		h.ensureAOIEntry(ctx, selfPlayerID, sceneID, nil)
+		return
+	}
 	for _, entity := range h.loadOnlinePlayerEntities(ctx, 0, sceneID) {
 		packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
 			SceneID: sceneID,
@@ -807,28 +881,46 @@ func (h *WorldHandler) syncPlayerSceneEntities(ctx context.Context, conn packetS
 }
 
 // enterPlayerScene 记录在线场景，并仅在首次进入或切换场景时向其他玩家广播实体进入。
-func (h *WorldHandler) enterPlayerScene(ctx context.Context, playerID uint64, sceneID uint32) {
-	h.presenceMu.Lock()
-	previousSceneID, existed := h.playerScenes[playerID]
-	h.playerScenes[playerID] = sceneID
-	h.presenceMu.Unlock()
-	if existed && previousSceneID == sceneID {
+func (h *WorldHandler) enterPlayerScene(ctx context.Context, playerID uint64, sceneID uint32, knownSnapshots ...[]protocol.EntityBrief) {
+	owner := ""
+	if h.sessionService != nil {
+		if current, err := h.sessionService.GetByPlayerID(playerID); err == nil {
+			owner = current.ConnID
+		}
+	}
+	previousSceneID, existed, previousOwner := h.setPlayerScenePresence(playerID, sceneID, owner)
+	replacedConnection := existed && owner != "" && previousOwner != owner
+	if replacedConnection {
+		// 新连接重新建立实体基线，避免 Redis 恢复后的较小场景代次被观察端永久当作旧包。
+		if h.aoi != nil {
+			relayPacket, _ := protocol.NewJSONPacket(protocol.CmdEntityLeavePush, 0, 0, protocol.EntityLeavePush{SceneID: previousSceneID, EntityID: playerID})
+			h.publishSceneEvent(previousSceneID, playerID, relayPacket, previousOwner)
+			h.aoi.remove(playerID)
+		} else {
+			h.broadcastEntityLeave(previousSceneID, playerID)
+		}
+	}
+	if !existed || previousSceneID != sceneID || previousOwner != owner {
+		h.refreshSceneOnlineLease(playerID)
+	}
+	if h.aoi != nil {
+		var known []protocol.EntityBrief
+		if len(knownSnapshots) > 0 {
+			known = knownSnapshots[0]
+		}
+		h.ensureAOIEntry(ctx, playerID, sceneID, known)
+		return
+	}
+	if existed && previousSceneID == sceneID && !replacedConnection {
 		return
 	}
 	h.broadcastPlayerSceneEntry(ctx, playerID, sceneID)
 }
 
-// broadcastPlayerSceneEntry 使用轻量世界摘要通知目标场景内其他玩家。
+// 进入通知只需要进入者的权威摘要和跟随宠物，避免读取整个场景后仅使用其中一条。
 func (h *WorldHandler) broadcastPlayerSceneEntry(ctx context.Context, playerID uint64, sceneID uint32) {
-	entities := h.loadOnlinePlayerEntities(ctx, 0, sceneID)
-	var entity protocol.EntityBrief
-	for _, candidate := range entities {
-		if candidate.PlayerID == playerID {
-			entity = candidate
-			break
-		}
-	}
-	if entity.PlayerID == 0 {
+	entity, exists := h.loadPlayerEntities(ctx, []uint64{playerID})[playerID]
+	if !exists || entity.PlayerID == 0 {
 		return
 	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
@@ -842,17 +934,21 @@ func (h *WorldHandler) broadcastPlayerSceneEntry(ctx context.Context, playerID u
 
 // movePlayerScenePresence 只更新在线索引并广播旧场景离开，不执行任何数据库查询。
 func (h *WorldHandler) movePlayerScenePresence(playerID uint64, fromSceneID uint32, toSceneID uint32) {
-	h.presenceMu.Lock()
-	h.playerScenes[playerID] = toSceneID
-	h.presenceMu.Unlock()
+	h.setPlayerScenePresence(playerID, toSceneID)
+	if h.aoi != nil {
+		relayPacket, _ := protocol.NewJSONPacket(protocol.CmdEntityLeavePush, 0, 0, protocol.EntityLeavePush{SceneID: fromSceneID, EntityID: playerID})
+		h.publishSceneEvent(fromSceneID, playerID, relayPacket)
+		h.aoi.remove(playerID)
+		return
+	}
 	h.broadcastEntityLeave(fromSceneID, playerID)
 }
 
 // broadcastEntityMove 把服务端确认后的权威移动状态发给同场景其他玩家，发送失败不反向中断移动者连接。
 // sceneVersion 来自移动者当前 Redis 场景代次；未装配移动状态仓储的兼容链路保留零值，由客户端按当前快照代次兼容。
 // clientTick 是移动者本次采样的客户端单调时钟毫秒数，原样透传给观察端做快照插值；服务端生成的移动传零。
-func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64, clientTick int64) {
-	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, protocol.EntityMovePush{
+func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, playerID uint64, moveSeq uint32, fromPos world.Vec2i, toPos world.Vec2i, precisePos protocol.Vec2i, facing protocol.Vec2i, moving bool, speed uint32, serverTick int64, clientTick int64, sourceOwner ...string) {
+	payload := protocol.EntityMovePush{
 		SceneID:      sceneID,
 		SceneVersion: sceneVersion,
 		EntityID:     playerID,
@@ -865,10 +961,24 @@ func (h *WorldHandler) broadcastEntityMove(sceneID uint32, sceneVersion uint32, 
 		Speed:        speed,
 		ServerTick:   serverTick,
 		ClientTick:   clientTick,
-	})
-	if err == nil {
-		h.sendPacketToScene(sceneID, playerID, packet)
 	}
+
+	// 单实例 AOI 只在图内编码一次，关闭跨实例开关时不增加热路径 JSON 构造。
+	if h.aoi != nil && h.relay == nil {
+		h.aoi.move(payload)
+		return
+	}
+	packet, err := protocol.NewJSONPacket(protocol.CmdEntityMovePush, 0, errcode.WSCodeSuccess, payload)
+	if err != nil {
+		return
+	}
+	// 发送者携带采样时的连接代次，不能在重连竞态中把旧输入误标成新连接事件。
+	h.publishSceneEvent(sceneID, playerID, packet, sourceOwner...)
+	if h.aoi != nil {
+		h.aoi.move(payload)
+		return
+	}
+	h.deliverScenePacket(sceneID, playerID, packet, &payload)
 }
 
 const movementPositionFixedScale int32 = world.MovementPositionFixedScale
@@ -927,14 +1037,89 @@ func (h *WorldHandler) broadcastEntityLeave(sceneID uint32, playerID uint64) {
 	}
 }
 
-// sendPacketToScene 按在线场景索引筛选接收者，避免把坐标泄漏给其他地图玩家。
+// 仅向同场景玩家广播；生产连接只入队，不让慢连接的实际网络写入阻塞其他玩家。
 func (h *WorldHandler) sendPacketToScene(sceneID uint32, excludedPlayerID uint64, packet *protocol.Packet) {
-	for _, playerID := range h.playerIDsInScene(sceneID, excludedPlayerID) {
-		sess, err := h.sessionService.GetByPlayerID(playerID)
-		if err != nil || sess.Conn == nil {
+	h.sendScenePacket(sceneID, excludedPlayerID, packet, nil)
+}
+
+// 只有明确的移动广播提供合并描述；其他通知与业务数据仍按原 FIFO 保留。
+func (h *WorldHandler) sendScenePacket(sceneID uint32, excludedPlayerID uint64, packet *protocol.Packet, movement *protocol.EntityMovePush) {
+	h.publishSceneEvent(sceneID, excludedPlayerID, packet)
+	h.deliverScenePacket(sceneID, excludedPlayerID, packet, movement)
+}
+
+// 仅本机投递，接收远端事件复用本入口，避免在实例之间循环发布。
+func (h *WorldHandler) deliverScenePacket(sceneID uint32, excludedPlayerID uint64, packet *protocol.Packet, movement *protocol.EntityMovePush) {
+	playerIDs := h.playerIDsInScene(sceneID, excludedPlayerID)
+	telemetry.Default.Record("world.broadcast_recipients", "players", int64(len(playerIDs)), false)
+	if len(playerIDs) == 0 {
+		return
+	}
+	// 广播只编码一次；队列共享不可变字节，不在写协程中并发改写同一个协议包。
+	encoded, err := protocol.EncodePacket(packet)
+	if err != nil {
+		return
+	}
+	for _, playerID := range playerIDs {
+		conn := h.sessionService.ConnectionByPlayerID(playerID)
+		if conn == nil {
 			continue
 		}
-		_ = sess.Conn.SendPacket(packet)
+		if movement != nil {
+			if queued, ok := conn.(interface {
+				TryQueueMovementPacket([]byte, protocol.EntityMovePush) bool
+			}); ok {
+				queued.TryQueueMovementPacket(encoded, *movement)
+				continue
+			}
+		}
+		if queued, ok := conn.(interface{ TryQueueEncodedPacket([]byte) bool }); ok {
+			queued.TryQueueEncodedPacket(encoded)
+			continue
+		}
+		// 兼容没有队列能力的旧连接和测试桩，生产 Connection 始终使用有界队列。
+		_ = conn.SendPacket(packet)
+	}
+}
+
+// 同一次加锁完成正反索引与连接代次更新，返回原场景、登记状态和原连接，供进入通知判断。
+// 索引只描述连接生命周期，不替代 Redis 移动状态或数据库持久化；零值 handler 也可安全登记。
+func (h *WorldHandler) setPlayerScenePresence(playerID uint64, sceneID uint32, owner ...string) (uint32, bool, string) {
+	h.presenceMu.Lock()
+	defer h.presenceMu.Unlock()
+	previousSceneID, existed := h.playerScenes[playerID]
+	previousOwner := h.playerOwners[playerID]
+	if existed && previousSceneID != sceneID {
+		h.removeScenePlayerLocked(previousSceneID, playerID)
+	}
+	if h.playerScenes == nil {
+		h.playerScenes = make(map[uint64]uint32)
+	}
+	if h.scenePlayers == nil {
+		h.scenePlayers = make(map[uint32]map[uint64]struct{})
+	}
+	if h.scenePlayers[sceneID] == nil {
+		h.scenePlayers[sceneID] = make(map[uint64]struct{})
+	}
+	if len(owner) > 0 {
+		if h.playerOwners == nil {
+			h.playerOwners = make(map[uint64]string)
+		}
+		h.playerOwners[playerID] = owner[0]
+	}
+	h.playerScenes[playerID] = sceneID
+	h.scenePlayers[sceneID][playerID] = struct{}{}
+	telemetry.Default.Record(fmt.Sprintf("world.scene_online.%d", sceneID), "players", int64(len(h.scenePlayers[sceneID])), false)
+	return previousSceneID, existed, previousOwner
+}
+
+// 调用方必须持有 presenceMu 写锁；最后一名玩家离开后删除空桶，避免历史场景持续占用内存。
+func (h *WorldHandler) removeScenePlayerLocked(sceneID uint32, playerID uint64) {
+	players := h.scenePlayers[sceneID]
+	delete(players, playerID)
+	telemetry.Default.Record(fmt.Sprintf("world.scene_online.%d", sceneID), "players", int64(len(players)), false)
+	if len(players) == 0 {
+		delete(h.scenePlayers, sceneID)
 	}
 }
 
@@ -942,9 +1127,10 @@ func (h *WorldHandler) sendPacketToScene(sceneID uint32, excludedPlayerID uint64
 func (h *WorldHandler) playerIDsInScene(sceneID uint32, excludedPlayerID uint64) []uint64 {
 	h.presenceMu.RLock()
 	defer h.presenceMu.RUnlock()
-	result := make([]uint64, 0)
-	for playerID, currentSceneID := range h.playerScenes {
-		if currentSceneID == sceneID && playerID != excludedPlayerID {
+	players := h.scenePlayers[sceneID]
+	result := make([]uint64, 0, len(players))
+	for playerID := range players {
+		if playerID != excludedPlayerID {
 			result = append(result, playerID)
 		}
 	}
@@ -1019,6 +1205,12 @@ func (h *WorldHandler) BroadcastPlayerEntityRefresh(ctx context.Context, playerI
 	}
 	profile, err := h.playerService.GetProfile(ctx, playerID)
 	if err != nil {
+		return
+	}
+	if h.aoi != nil {
+		relayPacket, _ := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, 0, protocol.EntityEnterPush{SceneID: sceneID, Entity: h.playerEntity(ctx, profile)})
+		h.publishSceneEvent(sceneID, playerID, relayPacket)
+		h.aoi.refresh(playerID, h.playerEntity(ctx, profile))
 		return
 	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdEntityEnterPush, 0, errcode.WSCodeSuccess, protocol.EntityEnterPush{
@@ -1231,7 +1423,7 @@ func (h *WorldHandler) sendWorldResync(conn packetSender, sceneID uint32, selfPo
 }
 
 // sendWorldResyncWithOnlinePlayers 推送权威场景快照；切图关键路径可先省略在线玩家，再通过实体进入推送补齐。
-// 场景实体快照、野怪配置与在线玩家摘要三条查询互不依赖，并行执行以缩短 WORLD_RESYNC_PUSH 延迟。
+// 场景实体与野怪配置并行读取；在线玩家在基础快照完成后补齐，只读取一次。
 func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, sceneID uint32, selfPos world.Vec2i, includeOnlinePlayers bool) error {
 	startedAt := time.Now()
 	sess, err := h.sessionService.GetByConnID(conn.ID())
@@ -1247,7 +1439,6 @@ func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, scene
 		wildEncounter   protocol.WildEncounterConfig
 		wildErr         error
 		wildElapsed     time.Duration
-		onlineEntities  []protocol.EntityBrief
 		onlineElapsed   time.Duration
 	)
 
@@ -1277,10 +1468,21 @@ func (h *WorldHandler) sendWorldResyncWithOnlinePlayers(conn packetSender, scene
 	nearbyEntities := toProtocolEntities(snapshot.NearbyEntities)
 	if includeOnlinePlayers {
 		t := time.Now()
-		onlineEntities = h.loadOnlinePlayerEntities(ctx, sess.PlayerID, snapshot.SceneID)
+		if h.aoi != nil {
+			nearbyEntities = h.aoiWorldEntities(ctx, sess.PlayerID, snapshot.SceneID, selfPos, nearbyEntities)
+		} else {
+			nearbyEntities = h.appendOnlinePlayerEntities(ctx, sess.PlayerID, snapshot.SceneID, nearbyEntities)
+		}
 		onlineElapsed = time.Since(t)
-		_ = onlineEntities
-		nearbyEntities = h.appendOnlinePlayerEntities(ctx, sess.PlayerID, snapshot.SceneID, nearbyEntities)
+	}
+	if h.aoi != nil && !includeOnlinePlayers {
+		staticEntities := make([]protocol.EntityBrief, 0, len(nearbyEntities))
+		for _, entity := range nearbyEntities {
+			if entity.EntityType != 1 {
+				staticEntities = append(staticEntities, entity)
+			}
+		}
+		nearbyEntities = staticEntities
 	}
 	packet, err := protocol.NewJSONPacket(protocol.CmdWorldResyncPush, 0, errcode.WSCodeSuccess, protocol.WorldResyncPush{
 		SceneID:        snapshot.SceneID,
@@ -1333,5 +1535,38 @@ func toProtocolWildEncounterConfig(config *monster.RuntimeWildEncounterConfig) p
 		EncounterRate:   config.EncounterRate,
 		SpawnMonsterIDs: spawnMonsterIDs,
 		Targets:         targets,
+	}
+}
+
+// 重连已经绑定新连接时跳过迟到的旧断线回调；代次清理同时由 Redis ConnID 比较保护。
+func (h *WorldHandler) HandleOfflineSession(playerID uint64) {
+	if h.sessionService != nil {
+		if current, err := h.sessionService.GetByPlayerID(playerID); err == nil && current.Conn != nil {
+			return
+		}
+	}
+	h.HandleSessionDisconnect(playerID)
+}
+
+// 复用现有心跳刷新在线租约，不增加客户端请求；短时失败由下一次心跳恢复，租约到期会自动排除。
+func (h *WorldHandler) refreshSceneOnlineLease(playerID uint64) {
+	if h.worldService == nil || h.sessionService == nil {
+		return
+	}
+	h.presenceMu.RLock()
+	scene, exists := h.playerScenes[playerID]
+	owner := h.playerOwners[playerID]
+	h.presenceMu.RUnlock()
+	if !exists {
+		return
+	}
+	current, err := h.sessionService.GetByPlayerID(playerID)
+	if err != nil || current.Conn == nil || current.ConnID != owner {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := h.worldService.MarkSceneOnline(ctx, playerID, scene, current.ID, current.ConnID, h.sessionService.HeartbeatTimeout()); err != nil {
+		log.Printf("mark scene online player_id=%d: %v", playerID, err)
 	}
 }

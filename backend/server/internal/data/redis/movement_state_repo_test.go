@@ -61,7 +61,7 @@ func TestMovementStateRepositoryCompareAndSetMarksPlayerDirty(t *testing.T) {
 	if err := repo.CompareAndSet(context.Background(), 6, state); err != nil {
 		t.Fatalf("CompareAndSet() error = %v", err)
 	}
-	wantKeys := []string{"test:world:movement:player:10001", "test:world:movement:dirty"}
+	wantKeys := []string{"test:world:movement:player:10001", "test:world:movement:dirty", "test:world:movement:scene:3", "test:world:movement:owner:10001"}
 	if !reflect.DeepEqual(client.evalKeys, wantKeys) {
 		t.Fatalf("CompareAndSet() keys = %v, want %v", client.evalKeys, wantKeys)
 	}

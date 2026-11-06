@@ -33,6 +33,28 @@ func (h *AdminWorldMovementHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	if r.URL.Path == "/api/admin/world/scene-online" {
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, 405, "method not allowed", nil)
+			return
+		}
+		scene, err := strconv.ParseUint(r.URL.Query().Get("scene_id"), 10, 32)
+		if err != nil || scene == 0 {
+			writeJSON(w, http.StatusBadRequest, 400, "场景标识无效", nil)
+			return
+		}
+		ids, err := h.worldService.ListSceneOnlinePlayerIDs(r.Context(), uint32(scene))
+		if err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, 503, "Redis 场景在线索引暂不可用", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, 200, "success", map[string]any{"scene_id": scene, "count": len(ids)})
+		return
+	}
+	if r.URL.Path == "/api/admin/world/aoi-config" {
+		h.serveAOIConfig(w, r, profile.AdminUserID)
+		return
+	}
 	if r.URL.Path == "/api/admin/world/movement-config" {
 		h.serveMovementConfig(w, r, profile.AdminUserID)
 		return
@@ -253,4 +275,37 @@ func parseRequiredUint32(raw string) (uint32, bool) {
 		return 0, false
 	}
 	return uint32(value), true
+}
+
+// AOI 配置写入数据库后重启生效，保留管理员与原因，避免在线裁切一半的可见图。
+func (h *AdminWorldMovementHandler) serveAOIConfig(w http.ResponseWriter, r *http.Request, adminID uint64) {
+	switch r.Method {
+	case http.MethodGet:
+		state, err := h.worldService.GetAdminAOIConfig(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, 500, "读取 AOI 配置失败，请核对迁移 131", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, 200, "success", state)
+	case http.MethodPut:
+		defer r.Body.Close()
+		var input world.UpdateAOIConfigInput
+		if err := decodeJSONBody(w, r, &input); err != nil {
+			writeJSON(w, http.StatusBadRequest, 400, err.Error(), nil)
+			return
+		}
+		input.AdminUserID = adminID
+		state, err := h.worldService.UpdateAdminAOIConfig(r.Context(), input)
+		if errors.Is(err, world.ErrAOIConfigInvalid) {
+			writeJSON(w, http.StatusBadRequest, 400, "AOI 配置或操作原因无效", nil)
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, 500, "保存 AOI 配置失败", nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, 200, "success", state)
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, 405, "method not allowed", nil)
+	}
 }

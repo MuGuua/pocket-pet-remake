@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"pocket-pet-remake/server/internal/config"
 	pgrepo "pocket-pet-remake/server/internal/data/postgres"
@@ -18,6 +20,13 @@ func OpenDependencies(cfg config.Config) (Dependencies, []io.Closer, error) {
 		return Dependencies{}, nil, fmt.Errorf("open postgres dependency: %w", err)
 	}
 
+	schemaCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	schemaErr := pgrepo.ValidateRuntimeSnapshotSchema(schemaCtx, postgresDB)
+	cancel()
+	if schemaErr != nil {
+		_ = postgresDB.Close()
+		return Dependencies{}, nil, schemaErr
+	}
 	redisClient, err := redisrepo.Open(cfg.Redis)
 	if err != nil {
 		// Redis 初始化失败时立即释放已经建立的 PostgreSQL 连接，避免启动失败后泄漏资源。

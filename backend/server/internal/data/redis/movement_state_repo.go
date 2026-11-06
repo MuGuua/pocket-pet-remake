@@ -22,6 +22,13 @@ if tonumber(current.scene_id) ~= tonumber(ARGV[2]) or tonumber(current.scene_ver
 if tonumber(current.last_move_seq) ~= tonumber(ARGV[4]) or tonumber(ARGV[5]) <= tonumber(current.last_move_seq) then return 'stale_sequence' end
 redis.call('SET', KEYS[1], ARGV[6], 'EX', ARGV[7])
 redis.call('SADD', KEYS[2], ARGV[8])
+local lease = redis.call('PTTL', KEYS[4])
+if lease > 0 then
+    local now = redis.call('TIME')
+    local expires = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2])/1000) + lease
+    redis.call('ZADD', KEYS[3], expires, ARGV[8])
+    redis.call('EXPIRE', KEYS[3], ARGV[7])
+end
 return 'ok'
 `
 
@@ -90,7 +97,8 @@ func (r *MovementStateRepository) Initialize(ctx context.Context, state world.Mo
 	if err != nil {
 		return err
 	}
-	return r.client.SetEX(ctx, r.playerKey(state.PlayerID), payload, movementStateTTL)
+	_, err = r.client.Eval(ctx, initializeIndexedMovementScript, []string{r.playerKey(state.PlayerID), r.sceneKey(state.SceneID)}, payload, int64(movementStateTTL/time.Second), state.PlayerID, r.sceneKeyPrefix())
+	return err
 }
 
 // CompareAndSet 仅允许同会话、同场景代次且序号连续向前的状态覆盖当前值。
@@ -102,7 +110,7 @@ func (r *MovementStateRepository) CompareAndSet(ctx context.Context, expectedMov
 	result, err := r.client.Eval(
 		ctx,
 		compareAndSetMovementScript,
-		[]string{r.playerKey(state.PlayerID), r.dirtyKey()},
+		[]string{r.playerKey(state.PlayerID), r.dirtyKey(), r.sceneKey(state.SceneID), r.ownerKey(state.PlayerID)},
 		state.SessionID,
 		state.SceneID,
 		state.SceneVersion,
@@ -162,7 +170,8 @@ func (r *MovementStateRepository) RequeueDirtyPlayerIDs(ctx context.Context, pla
 
 // Delete 删除玩家退出世界后的短时状态；调用方必须先完成最终持久化。
 func (r *MovementStateRepository) Delete(ctx context.Context, playerID uint64) error {
-	return r.client.Del(ctx, r.playerKey(playerID))
+	_, err := r.client.Eval(ctx, deleteIndexedMovementScript, []string{r.playerKey(playerID), r.ownerKey(playerID)}, r.sceneKeyPrefix(), playerID)
+	return err
 }
 
 func (r *MovementStateRepository) playerKey(playerID uint64) string {

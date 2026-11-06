@@ -11,12 +11,14 @@ import (
 
 // PlayerSkillProgressRepository 映射 player_skill_progress 表。
 type PlayerSkillProgressRepository struct {
-	db DBTX
+	// 正式装配启用持久化版本判定，旧替代仓储保留原重建语义。
+	versioned bool
+	db        DBTX
 }
 
 // NewPlayerSkillProgressRepository 构造玩家技能进度仓储。
-func NewPlayerSkillProgressRepository(db DBTX) *PlayerSkillProgressRepository {
-	return &PlayerSkillProgressRepository{db: db}
+func NewPlayerSkillProgressRepository(db DBTX, versioned ...bool) *PlayerSkillProgressRepository {
+	return &PlayerSkillProgressRepository{db: db, versioned: len(versioned) > 0 && versioned[0]}
 }
 
 const listPlayerSkillProgressQuery = `

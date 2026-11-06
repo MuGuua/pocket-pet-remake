@@ -494,18 +494,44 @@ LIMIT 1
 `
 
 // RefreshPlayerCombatSnapshot 重新计算并写入单个玩家的最终战斗属性快照。
+// 源版本未变时不重写视图；变更后的重建与版本发布共用一个事务。
 func (r *PlayerRepository) RefreshPlayerCombatSnapshot(ctx context.Context, playerID uint64) error {
-	rawProfile, err := r.findPlayerByIDRaw(ctx, playerID)
+	if !r.versioned {
+		return r.rebuildPlayerCombatSnapshot(ctx, playerID)
+	}
+	return refreshVersionedSnapshot(ctx, r.db, playerID, "player", func(db DBTX) error {
+		scoped := *r
+		scoped.db = db
+		return scoped.rebuildPlayerCombatSnapshot(ctx, playerID)
+	})
+}
+
+// 仅负责原有计算与写视图，由外层统一处理版本和事务。
+func (r *PlayerRepository) rebuildPlayerCombatSnapshot(ctx context.Context, playerID uint64) error {
+	rawProfile, result, err := r.buildPlayerCombatResult(ctx, playerID)
 	if err != nil {
 		return err
 	}
+	skillIDsJSON, err := json.Marshal(rawProfile.SkillIDs)
+	if err != nil {
+		return fmt.Errorf("marshal player combat snapshot skill ids: %w", err)
+	}
+	return savePlayerCombatSnapshot(ctx, r.db, rawProfile, result, rawProfile.HP, skillIDsJSON)
+}
+
+// 展示与持久化共用同一套最新源数据计算，避免复制装备/加点公式或读取旧视图。
+func (r *PlayerRepository) buildPlayerCombatResult(ctx context.Context, playerID uint64) (*player.Profile, equipment.RecalcResult, error) {
+	rawProfile, err := r.findPlayerByIDRaw(ctx, playerID)
+	if err != nil {
+		return nil, equipment.RecalcResult{}, err
+	}
 	if rawProfile == nil {
-		return player.ErrPlayerNotFound
+		return nil, equipment.RecalcResult{}, player.ErrPlayerNotFound
 	}
 
 	rules, err := r.loadPlayerAttrConvertRules(ctx)
 	if err != nil {
-		return err
+		return nil, equipment.RecalcResult{}, err
 	}
 	allocated := progression.AllocatedAttrs{
 		Strength: rawProfile.Strength,
@@ -517,7 +543,7 @@ func (r *PlayerRepository) RefreshPlayerCombatSnapshot(ctx context.Context, play
 
 	pieceTemplates, err := loadEquippedPieceTemplates(ctx, r.db, playerID)
 	if err != nil {
-		return err
+		return nil, equipment.RecalcResult{}, err
 	}
 	equipmentBonus := equipment.SumEquippedBonus(pieceTemplates)
 	skinID := equipment.ResolveEquippedSkinIDForSnapshot(pieceTemplates, rawProfile)
@@ -553,16 +579,6 @@ func (r *PlayerRepository) RefreshPlayerCombatSnapshot(ctx context.Context, play
 		spirit = spiritMax
 	}
 
-	currentHP := rawProfile.HP
-	if currentHP > hpMax {
-		currentHP = hpMax
-	}
-
-	skillIDsJSON, err := json.Marshal(rawProfile.SkillIDs)
-	if err != nil {
-		return fmt.Errorf("marshal player combat snapshot skill ids: %w", err)
-	}
-
 	result := equipment.RecalcResult{
 		HPMax:              hpMax,
 		ATK:                atk,
@@ -588,7 +604,43 @@ func (r *PlayerRepository) RefreshPlayerCombatSnapshot(ctx context.Context, play
 		PetResistPct:       equipmentBonus.PetResistPct,
 		SkinID:             skinID,
 	}
-	return savePlayerCombatSnapshot(ctx, r.db, rawProfile, result, currentHP, skillIDsJSON)
+	return rawProfile, result, nil
+}
+
+// 仅构造展示档案，不写快照；字段覆盖与原持久化快照投影保持一致。
+func (r *PlayerRepository) FindDisplayProfile(ctx context.Context, playerID uint64) (*player.Profile, error) {
+	raw, result, err := r.buildPlayerCombatResult(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	profile := *raw
+	profile.HPMax = result.HPMax
+	profile.ATK = result.ATK
+	profile.DEF = result.DEF
+	profile.SPD = result.SPD
+	profile.MANA = result.MANA
+	profile.HitPct = result.HitPct
+	profile.DodgePct = result.DodgePct
+	profile.Spirit = result.Spirit
+	profile.SpiritMax = result.SpiritMax
+	profile.CritRatePct = result.CritRatePct
+	profile.CritDmgPct = result.CritDmgPct
+	profile.PhysicalResistPct = result.PhysicalResistPct
+	profile.SkillResistPct = result.SkillResistPct
+	profile.ConfusionResistPct = result.ConfusionResistPct
+	profile.SleepResistPct = result.SleepResistPct
+	profile.ParalysisResistPct = result.ParalysisResistPct
+	profile.SealResistPct = result.SealResistPct
+	profile.CurseResistPct = result.CurseResistPct
+	profile.CritResistPct = result.CritResistPct
+	profile.CritDmgResistPct = result.CritDmgResistPct
+	profile.CharacterResistPct = result.CharacterResistPct
+	profile.PetResistPct = result.PetResistPct
+	profile.SkinID = result.SkinID
+	if profile.HP > profile.HPMax {
+		profile.HP = profile.HPMax
+	}
+	return &profile, nil
 }
 
 // FindPlayerCombatSnapshot 读取单个玩家的最终战斗属性快照。
@@ -601,7 +653,20 @@ func (r *PlayerRepository) FindPlayerCombatSnapshot(ctx context.Context, playerI
 }
 
 // RefreshPlayerPetCombatSnapshots 按玩家全量刷新宠物最终属性快照。
+// 源版本未变时不重写视图；变更后的重建与版本发布共用一个事务。
 func (r *PetRepository) RefreshPlayerPetCombatSnapshots(ctx context.Context, playerID uint64) error {
+	if !r.versioned {
+		return r.rebuildPlayerPetCombatSnapshots(ctx, playerID)
+	}
+	return refreshVersionedSnapshot(ctx, r.db, playerID, "pets", func(db DBTX) error {
+		scoped := *r
+		scoped.db = db
+		return scoped.rebuildPlayerPetCombatSnapshots(ctx, playerID)
+	})
+}
+
+// 仅负责原有计算与写视图，由外层统一处理版本和事务。
+func (r *PetRepository) rebuildPlayerPetCombatSnapshots(ctx context.Context, playerID uint64) error {
 	rawPets, err := r.ListPetsByPlayerID(ctx, playerID)
 	if err != nil {
 		return err

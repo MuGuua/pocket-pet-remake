@@ -13,11 +13,13 @@ import (
 )
 
 type PetRepository struct {
-	db DBTX
+	// 正式装配启用持久化版本判定，旧替代仓储保留原重建语义。
+	versioned bool
+	db        DBTX
 }
 
-func NewPetRepository(db DBTX) *PetRepository {
-	return &PetRepository{db: db}
+func NewPetRepository(db DBTX, versioned ...bool) *PetRepository {
+	return &PetRepository{db: db, versioned: len(versioned) > 0 && versioned[0]}
 }
 
 const listLineupByPlayerIDQuery = `
@@ -128,7 +130,7 @@ WHERE pp.player_id = $1
 ORDER BY pp.id ASC
 `
 
-const listPetsByPlayerIDQuery = `
+const listPetsByPlayerIDSelectQuery = `
 SELECT
   pp.id,
   pp.pet_id,
@@ -210,15 +212,21 @@ SELECT
 FROM player_pet pp
 LEFT JOIN pet_definition pd ON pd.pet_id = pp.pet_id
 WHERE pp.player_id = $1
-ORDER BY pp.id ASC
 `
 
-const listArtifactEquipmentByPlayerIDQuery = `
+const listPetsByPlayerIDQuery = listPetsByPlayerIDSelectQuery + ` ORDER BY pp.id ASC`
+
+// 详情在 SQL 层限定玩家及宠物标识，不读取其他宠物的完整属性。
+const findPetByUIDQuery = listPetsByPlayerIDSelectQuery + ` AND pp.id = $2 LIMIT 1`
+
+const listArtifactEquipmentSelectQuery = `
 SELECT pet_uid, slot_index, skill_id
 FROM pet_artifact_equipment
 WHERE player_id = $1
-ORDER BY pet_uid ASC, slot_index ASC
 `
+
+const listArtifactEquipmentByPlayerIDQuery = listArtifactEquipmentSelectQuery + ` ORDER BY pet_uid ASC, slot_index ASC`
+const listArtifactEquipmentByPetUIDQuery = listArtifactEquipmentSelectQuery + ` AND pet_uid = $2 ORDER BY slot_index ASC`
 
 const deleteLineupByPlayerIDQuery = `
 DELETE FROM player_lineup
@@ -1429,28 +1437,47 @@ func (r *PetRepository) loadRuntimePetDefinition(ctx context.Context, petID uint
 	return &value, nil
 }
 
+// 从当前数据库读取单只宠物，复用全量读取的扫描和上限规则，关闭游标后再读取法宝与编队。
 func (r *PetRepository) loadPetByUID(ctx context.Context, playerID uint64, petUID uint64) (*pet.Pet, error) {
-	pets, err := r.ListPetsByPlayerID(ctx, playerID)
+	caps, err := r.LoadCombatStatCaps(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lineup, err := r.ListLineupByPlayerID(ctx, playerID)
+	rows, err := r.db.QueryContext(ctx, findPetByUIDQuery, playerID, petUID)
 	if err != nil {
 		return nil, err
 	}
-	lineupSet := make(map[uint64]struct{}, len(lineup))
-	for _, current := range lineup {
-		lineupSet[current.PetUID] = struct{}{}
+	if !rows.Next() {
+		readErr := rows.Err()
+		rows.Close()
+		return nil, readErr
 	}
-	for _, current := range pets {
-		if current.PetUID != petUID {
-			continue
+	item, err := scanPetRow(rows)
+	closeErr := rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	pet.ClampPetCombatStats(&item, caps)
+	artifactMap, err := r.loadArtifactEquipment(ctx, playerID, petUID)
+	if err != nil {
+		return nil, err
+	}
+	applyArtifactEquipment(&item, artifactMap[petUID])
+	pet.ResolvePetBattleSkills(&item)
+	lineup, err := r.ListLineupSummariesByPlayerID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range lineup {
+		if entry.PetUID == petUID {
+			item.InLineup = true
+			break
 		}
-		_, current.InLineup = lineupSet[current.PetUID]
-		copyValue := current
-		return &copyValue, nil
 	}
-	return nil, nil
+	return &item, nil
 }
 
 func scanPetRow(rows *sql.Rows) (pet.Pet, error) {
@@ -1741,7 +1768,18 @@ func decodeSkillLoadout(
 }
 
 func (r *PetRepository) loadArtifactEquipmentByPlayerID(ctx context.Context, playerID uint64) (map[uint64][pet.MaxArtifactSkillSlots]uint32, error) {
-	rows, err := r.db.QueryContext(ctx, listArtifactEquipmentByPlayerIDQuery, playerID)
+	return r.loadArtifactEquipment(ctx, playerID, 0)
+}
+
+// 零标识读取玩家全部法宝，详情路径按宠物标识限制，复用原槽位解析与异常处理。
+func (r *PetRepository) loadArtifactEquipment(ctx context.Context, playerID uint64, petUID uint64) (map[uint64][pet.MaxArtifactSkillSlots]uint32, error) {
+	query := listArtifactEquipmentByPlayerIDQuery
+	args := []any{playerID}
+	if petUID > 0 {
+		query = listArtifactEquipmentByPetUIDQuery
+		args = append(args, petUID)
+	}
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

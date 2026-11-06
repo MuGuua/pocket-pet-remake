@@ -24,6 +24,11 @@ type CombatSnapshotRepository interface {
 	FindPlayerCombatSnapshot(ctx context.Context, playerID uint64) (*Profile, error)
 }
 
+// 可选只读展示能力；不扩大既有仓储接口，旧实现仍可沿用原读取行为。
+type DisplayProfileRepository interface {
+	FindDisplayProfile(ctx context.Context, playerID uint64) (*Profile, error)
+}
+
 type Service struct {
 	repo               Repository
 	skillService       *skill.Service
@@ -156,7 +161,7 @@ func (s *Service) GetBattleReadyProfile(ctx context.Context, playerID uint64) (*
 			if err := snapshotRepo.RefreshPlayerCombatSnapshot(ctx, playerID); err != nil {
 				return nil, err
 			}
-			return s.GetProfile(ctx, playerID)
+			return s.GetPreparedBattleProfile(ctx, playerID)
 		}
 	}
 	if !inBattle && s.equipmentRecalc != nil {
@@ -165,6 +170,42 @@ func (s *Service) GetBattleReadyProfile(ctx context.Context, playerID uint64) (*
 		}
 	}
 	return s.GetProfile(ctx, playerID)
+}
+
+// 调用方已在本次流程中刷新人物快照时，直接读取当前结果并补齐展示经验，避免再次写库。
+// 未提供快照能力的旧仓储仍执行原标准读取；缺失快照保留完整档案兼容回退，错误不隐藏。
+func (s *Service) GetPreparedBattleProfile(ctx context.Context, playerID uint64) (*Profile, error) {
+	if repo, ok := s.repo.(CombatSnapshotRepository); ok {
+		profile, err := repo.FindPlayerCombatSnapshot(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if profile != nil {
+			s.fillExpToNext(profile)
+			return profile, nil
+		}
+		return s.GetProfile(ctx, playerID)
+	}
+	return s.GetBattleReadyProfile(ctx, playerID)
+}
+
+// 面板非战斗查看使用只读计算；战斗期间保留原流程，不改变战斗中属性读取语义。
+func (s *Service) GetDisplayProfile(ctx context.Context, playerID uint64) (*Profile, error) {
+	if s.battleChecker != nil && s.battleChecker.IsPlayerInActiveBattle(playerID) {
+		return s.GetBattleReadyProfile(ctx, playerID)
+	}
+	if repo, ok := s.repo.(DisplayProfileRepository); ok {
+		profile, err := repo.FindDisplayProfile(ctx, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if profile == nil {
+			return nil, ErrPlayerNotFound
+		}
+		s.fillExpToNext(profile)
+		return profile, nil
+	}
+	return s.GetBattleReadyProfile(ctx, playerID)
 }
 
 // ListAdminPlayers 返回后台玩家列表。

@@ -3,10 +3,12 @@ package wstransport
 import (
 	"context"
 	"log"
+	"strconv"
 	"time"
 
 	"pocket-pet-remake/server/internal/module/session"
 	"pocket-pet-remake/server/internal/platform/errcode"
+	"pocket-pet-remake/server/internal/platform/telemetry"
 	"pocket-pet-remake/server/internal/protocol"
 )
 
@@ -39,10 +41,25 @@ func NewRouter(authHandler *AuthHandler, worldHandler *WorldHandler, petHandler 
 	}
 }
 
-func (r *Router) Handle(conn packetSender, raw []byte) error {
+func (r *Router) Handle(conn packetSender, raw []byte) (handleErr error) {
 	packet, err := protocol.DecodePacket(raw)
 	if err != nil {
 		return sendError(conn, 0, errcode.WSCodeInvalidPacket, "invalid packet")
+	}
+
+	handledAt := time.Now()
+	defer func() {
+		telemetry.Duration("ws.handler", time.Since(handledAt), handleErr != nil)
+		if isTimedWSRequest(packet.Cmd) {
+			telemetry.Duration("ws.cmd."+strconv.Itoa(int(packet.Cmd)), time.Since(handledAt), handleErr != nil)
+		}
+	}()
+
+	if isTimedWSRequest(packet.Cmd) {
+		startedAt := time.Now()
+		defer func() {
+			logSlowWSRequest(log.Default(), conn.ID(), packet.Cmd, packet.Seq, len(raw), time.Since(startedAt))
+		}()
 	}
 
 	switch packet.Cmd {
@@ -52,6 +69,7 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 		if !r.sessionService.IsAuthenticated(conn.ID()) {
 			return sendError(conn, packet.Seq, errcode.WSCodeUnauthorized, "unauthorized")
 		}
+		recordClientRequestTimings(packet.Body)
 		_, err := r.sessionService.Touch(conn.ID())
 		if err != nil {
 			return sendError(conn, packet.Seq, errcode.WSCodeSessionInvalid, "session invalid")
@@ -64,6 +82,11 @@ func (r *Router) Handle(conn packetSender, raw []byte) error {
 		}
 		if err := conn.SendPacket(responsePacket); err != nil {
 			return err
+		}
+		if r.worldHandler != nil {
+			if current, err := r.sessionService.GetByConnID(conn.ID()); err == nil {
+				r.worldHandler.refreshSceneOnlineLease(current.PlayerID)
+			}
 		}
 		if r.battleHandler != nil {
 			return r.battleHandler.HandleBattleHeartbeat(conn)
@@ -416,7 +439,7 @@ func (r *Router) handleReconnect(conn packetSender, packet *protocol.Packet) err
 		return err
 	}
 	if r.worldHandler != nil && worldSnapshot != nil {
-		r.worldHandler.enterPlayerScene(context.Background(), sess.PlayerID, worldSnapshot.SceneID)
+		r.worldHandler.enterPlayerScene(context.Background(), sess.PlayerID, worldSnapshot.SceneID, worldSnapshot.NearbyEntities)
 	}
 	return nil
 }
@@ -436,4 +459,27 @@ func sendError(conn packetSender, seq uint32, code uint32, message string, cause
 		log.Printf("[ws-error] conn_id=%s seq=%d code=%d msg=%s", conn.ID(), seq, code, message)
 	}
 	return conn.SendPacket(packet)
+}
+
+// 忽略不合规诊断但不影响心跳原行为；原始样本用于求分位，不聚合各客户端的 P95。
+func recordClientRequestTimings(body []byte) {
+	var heartbeat protocol.HeartbeatReq
+	if protocol.UnmarshalBody(body, &heartbeat) != nil {
+		return
+	}
+	for _, sample := range heartbeat.RequestTimings[:min(32, len(heartbeat.RequestTimings))] {
+		if !isTimedWSRequest(sample.Cmd) || sample.TotalUS < 0 || sample.TotalUS > 30000000 || sample.ResponseUS < 0 || sample.DispatchUS < 0 || sample.ResponseUS > sample.TotalUS || sample.DispatchUS > sample.TotalUS || sample.ResponseUS+sample.DispatchUS != sample.TotalUS {
+			continue
+		}
+		command := strconv.Itoa(int(sample.Cmd))
+		if sample.TimedOut {
+			if !sample.Succeeded {
+				telemetry.Default.Record("client.timeout."+command, "events", 1, true)
+			}
+			continue
+		}
+		telemetry.Default.Record("client.total."+command, "us", sample.TotalUS, !sample.Succeeded)
+		telemetry.Default.Record("client.response."+command, "us", sample.ResponseUS, !sample.Succeeded)
+		telemetry.Default.Record("client.dispatch."+command, "us", sample.DispatchUS, !sample.Succeeded)
+	}
 }

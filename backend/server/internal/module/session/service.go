@@ -47,6 +47,9 @@ func (s *Service) HeartbeatInterval() time.Duration {
 	return s.heartbeatInterval
 }
 
+// 返回实际心跳超时配置，供 Redis 在线租约共用同一生命周期期限。
+func (s *Service) HeartbeatTimeout() time.Duration { return s.heartbeatTimeout }
+
 // CountOnlinePlayers 统计当前仍保持有效 WebSocket 心跳的在线玩家数。
 func (s *Service) CountOnlinePlayers() uint32 {
 	s.mu.RLock()
@@ -103,6 +106,18 @@ func (s *Service) GetByPlayerID(playerID uint64) (*Session, error) {
 	}
 	copy := *current
 	return &copy, nil
+}
+
+// 仅在读锁内复制当前连接接口，广播无需分配含凭据和时间字段的完整会话副本。
+// 返回后连接仍可能断开或被替换，发送方沿用连接自身的关闭与队列错误处理；不暴露会话指针。
+func (s *Service) ConnectionByPlayerID(playerID uint64) Conn {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	current := s.sessionsByID[s.sessionIDByPlayer[playerID]]
+	if current == nil {
+		return nil
+	}
+	return current.Conn
 }
 
 // ListConnected 返回当前仍绑定 WebSocket 的会话副本，供同服实时消息按玩家筛选接收者。

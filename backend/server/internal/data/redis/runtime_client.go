@@ -8,6 +8,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"pocket-pet-remake/server/internal/config"
+	"pocket-pet-remake/server/internal/platform/telemetry"
 )
 
 const pingTimeout = 5 * time.Second
@@ -32,12 +33,18 @@ func Open(cfg config.RedisConfig) (*RuntimeClient, error) {
 	return &RuntimeClient{inner: client}, nil
 }
 
-func (c *RuntimeClient) SetEX(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+func (c *RuntimeClient) SetEX(ctx context.Context, key string, value []byte, ttl time.Duration) (err error) {
+	started := time.Now()
+	defer func() { telemetry.Duration("redis.SET", time.Since(started), err != nil) }()
 	return c.inner.Set(ctx, key, value, ttl).Err()
 }
 
-func (c *RuntimeClient) GetDel(ctx context.Context, key string) ([]byte, error) {
-	value, err := c.inner.GetDel(ctx, key).Bytes()
+func (c *RuntimeClient) GetDel(ctx context.Context, key string) (value []byte, err error) {
+	started := time.Now()
+	defer func() {
+		telemetry.Duration("redis.GETDEL", time.Since(started), err != nil && !errors.Is(err, ErrCacheMiss))
+	}()
+	value, err = c.inner.GetDel(ctx, key).Bytes()
 	if errors.Is(err, goredis.Nil) {
 		return nil, ErrCacheMiss
 	}
@@ -47,19 +54,27 @@ func (c *RuntimeClient) GetDel(ctx context.Context, key string) ([]byte, error) 
 	return value, nil
 }
 
-func (c *RuntimeClient) Get(ctx context.Context, key string) ([]byte, error) {
-	value, err := c.inner.Get(ctx, key).Bytes()
+func (c *RuntimeClient) Get(ctx context.Context, key string) (value []byte, err error) {
+	started := time.Now()
+	defer func() {
+		telemetry.Duration("redis.GET", time.Since(started), err != nil && !errors.Is(err, ErrCacheMiss))
+	}()
+	value, err = c.inner.Get(ctx, key).Bytes()
 	if errors.Is(err, goredis.Nil) {
 		return nil, ErrCacheMiss
 	}
 	return value, err
 }
 
-func (c *RuntimeClient) Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+func (c *RuntimeClient) Eval(ctx context.Context, script string, keys []string, args ...any) (result any, err error) {
+	started := time.Now()
+	defer func() { telemetry.Duration("redis.EVAL", time.Since(started), err != nil) }()
 	return c.inner.Eval(ctx, script, keys, args...).Result()
 }
 
-func (c *RuntimeClient) Del(ctx context.Context, key string) error {
+func (c *RuntimeClient) Del(ctx context.Context, key string) (err error) {
+	started := time.Now()
+	defer func() { telemetry.Duration("redis.DEL", time.Since(started), err != nil) }()
 	return c.inner.Del(ctx, key).Err()
 }
 

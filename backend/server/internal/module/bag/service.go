@@ -274,3 +274,33 @@ func (s *Service) RecordUniqueItemObtained(ctx context.Context, playerID uint64,
 	}
 	return s.repo.RecordUniqueItemObtained(ctx, playerID, itemID, reasonType, reasonRefID)
 }
+
+// 获取随身背包的数据页；保留瞬断重试，仓库和整包推送继续使用完整容器读取。
+func (s *Service) ListRuntimeBagPage(ctx context.Context, playerID uint64, query RuntimePageQuery) (*RuntimeContainerPage, error) {
+	if playerID == 0 {
+		return nil, ErrContainerNotFound
+	}
+	query = query.Normalize()
+	if repo, ok := s.repo.(RuntimePageRepository); ok {
+		var result *RuntimeContainerPage
+		var err error
+		for attempt := 1; attempt <= runtimeContainerSnapshotMaxAttempts; attempt++ {
+			result, err = repo.ListRuntimeBagPage(ctx, playerID, query)
+			if err == nil {
+				break
+			}
+			if attempt == runtimeContainerSnapshotMaxAttempts || !isRetryableRuntimeContainerSnapshotError(err) {
+				return nil, err
+			}
+		}
+		if result == nil {
+			return nil, ErrContainerNotFound
+		}
+		return result, nil
+	}
+	snapshot, err := s.ListRuntimeContainer(ctx, playerID, ContainerTypeBag)
+	if err != nil {
+		return nil, err
+	}
+	return query.Apply(*snapshot), nil
+}

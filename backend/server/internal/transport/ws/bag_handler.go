@@ -19,15 +19,6 @@ import (
 	"pocket-pet-remake/server/internal/protocol"
 )
 
-const (
-	defaultBagListPage             uint32 = 1
-	defaultBagListPageSize         uint32 = 28
-	bagListCategoryAll             string = "all"
-	bagListCategoryEquip           string = "equipment"
-	bagListCategoryOther           string = "other"
-	bagListCategoryEnhanceMaterial string = "enhance_material"
-)
-
 // BagHandler 负责玩家端背包、仓库与钱包查询协议。
 // 当前先打通查询链路，后续容器移动、扩容和使用道具都可以继续挂在这里扩展。
 type BagHandler struct {
@@ -613,7 +604,17 @@ func (h *BagHandler) sendContainerList(conn packetSender, seq uint32, request pr
 	}
 
 	ctx := context.Background()
-	containerSnapshot, err := h.bagService.ListRuntimeContainer(ctx, sess.PlayerID, request.ContainerType)
+	containerType, err := bag.NormalizeRuntimeContainerType(request.ContainerType)
+	var result *bag.RuntimeContainerPage
+	if err == nil && responseCmd == protocol.CmdBagListResp && containerType == bag.ContainerTypeBag {
+		result, err = h.bagService.ListRuntimeBagPage(ctx, sess.PlayerID, bag.RuntimePageQuery{Page: request.Page, PageSize: request.PageSize, Category: request.Category})
+	} else if err == nil {
+		var snapshot *bag.RuntimeContainerSnapshot
+		snapshot, err = h.bagService.ListRuntimeContainer(ctx, sess.PlayerID, containerType)
+		if snapshot != nil {
+			result = &bag.RuntimeContainerPage{Snapshot: *snapshot, Query: bag.RuntimePageQuery{Page: 1, PageSize: uint32(len(snapshot.Items)), Category: "all"}, TotalItems: uint32(len(snapshot.Items))}
+		}
+	}
 	if err != nil {
 		if errors.Is(err, bag.ErrInvalidContainerType) {
 			return sendError(conn, seq, errcode.WSCodeBagRequestInvalid, "invalid container type", err)
@@ -623,11 +624,6 @@ func (h *BagHandler) sendContainerList(conn packetSender, seq uint32, request pr
 		}
 		return sendError(conn, seq, errcode.WSCodeBagListFailed, "load container snapshot failed", err)
 	}
-	paginatedSnapshot, page, pageSize, category, totalItems := buildPaginatedContainerSnapshot(
-		*containerSnapshot,
-		request,
-		responseCmd == protocol.CmdBagListResp,
-	)
 
 	walletSnapshot, err := h.walletService.GetRuntimeWallet(ctx, sess.PlayerID)
 	if err != nil {
@@ -638,7 +634,7 @@ func (h *BagHandler) sendContainerList(conn packetSender, seq uint32, request pr
 	}
 
 	responseBody := protocol.ContainerListResp{
-		Container: toProtocolContainerSnapshot(paginatedSnapshot, page, pageSize, category, totalItems),
+		Container: toProtocolContainerSnapshot(result.Snapshot, result.Query.Page, result.Query.PageSize, result.Query.Category, result.TotalItems),
 		Wallet:    toProtocolWalletSnapshot(*walletSnapshot),
 	}
 	if responseCmd == protocol.CmdBagListResp {
@@ -690,89 +686,6 @@ func toProtocolContainerSnapshot(
 		Category:      category,
 		Items:         items,
 	}
-}
-
-// buildPaginatedContainerSnapshot 按请求分类和分页裁切容器快照。
-// 仅 BAG_LIST_REQ 当前会走服务端分页；其他容器查询仍保持原始完整列表契约。
-func buildPaginatedContainerSnapshot(
-	snapshot bag.RuntimeContainerSnapshot,
-	request protocol.BagListReq,
-	useBagPagination bool,
-) (bag.RuntimeContainerSnapshot, uint32, uint32, string, uint32) {
-	if !useBagPagination || !strings.EqualFold(snapshot.ContainerType, bag.ContainerTypeBag) {
-		return snapshot, 1, uint32(len(snapshot.Items)), bagListCategoryAll, uint32(len(snapshot.Items))
-	}
-	page, pageSize, category := normalizeBagListQuery(request)
-	filteredItems := filterBagSnapshotItems(snapshot.Items, category)
-	pageItems := paginateBagSnapshotItems(filteredItems, page, pageSize)
-	snapshot.Items = pageItems
-	return snapshot, page, pageSize, category, uint32(len(filteredItems))
-}
-
-// normalizeBagListQuery 为背包列表分页提供稳定默认值，兼容旧客户端空请求。
-func normalizeBagListQuery(request protocol.BagListReq) (uint32, uint32, string) {
-	page := request.Page
-	if page == 0 {
-		page = defaultBagListPage
-	}
-	pageSize := request.PageSize
-	if pageSize == 0 {
-		pageSize = defaultBagListPageSize
-	}
-	category := strings.ToLower(strings.TrimSpace(request.Category))
-	switch category {
-	case "", bagListCategoryAll:
-		category = bagListCategoryAll
-	case bagListCategoryEquip:
-		category = bagListCategoryEquip
-	case bagListCategoryOther:
-		category = bagListCategoryOther
-	case bagListCategoryEnhanceMaterial:
-		category = bagListCategoryEnhanceMaterial
-	default:
-		category = bagListCategoryAll
-	}
-	return page, pageSize, category
-}
-
-// filterBagSnapshotItems 按背包分类筛选运行时物品列表；装备单独归类，强化材料按 item_sub_type 过滤，其余统一归到“其他”。
-func filterBagSnapshotItems(items []bag.RuntimeItemSnapshot, category string) []bag.RuntimeItemSnapshot {
-	if category == bagListCategoryAll {
-		return append([]bag.RuntimeItemSnapshot{}, items...)
-	}
-	filtered := make([]bag.RuntimeItemSnapshot, 0, len(items))
-	for _, itemValue := range items {
-		isEquipment := strings.EqualFold(itemValue.ItemType, bagListCategoryEquip)
-		isEnhanceMaterial := strings.EqualFold(itemValue.ItemSubType, bag.ItemSubTypeEquipmentEnhance)
-		if category == bagListCategoryEquip && isEquipment {
-			filtered = append(filtered, itemValue)
-			continue
-		}
-		if category == bagListCategoryEnhanceMaterial && isEnhanceMaterial {
-			filtered = append(filtered, itemValue)
-			continue
-		}
-		if category == bagListCategoryOther && !isEquipment && !isEnhanceMaterial {
-			filtered = append(filtered, itemValue)
-		}
-	}
-	return filtered
-}
-
-// paginateBagSnapshotItems 按页码和页长裁切列表，保持服务端原始顺序不变。
-func paginateBagSnapshotItems(items []bag.RuntimeItemSnapshot, page uint32, pageSize uint32) []bag.RuntimeItemSnapshot {
-	if len(items) == 0 {
-		return []bag.RuntimeItemSnapshot{}
-	}
-	startIndex := int((page - 1) * pageSize)
-	if startIndex >= len(items) {
-		return []bag.RuntimeItemSnapshot{}
-	}
-	endIndex := startIndex + int(pageSize)
-	if endIndex > len(items) {
-		endIndex = len(items)
-	}
-	return append([]bag.RuntimeItemSnapshot{}, items[startIndex:endIndex]...)
 }
 
 func (h *BagHandler) handleContainerTransfer(conn packetSender, seq uint32, entityID uint64, fromContainerType string, toContainerType string, fromSlotIndex uint32, quantity uint64, responseCmd uint16) error {
