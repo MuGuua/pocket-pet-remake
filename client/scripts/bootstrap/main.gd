@@ -2181,7 +2181,8 @@ func _present_dialogue_node(entity_id: int, npc_name: String, node_variant: Vari
 		_play_dialogue_action_node(node_payload)
 		return
 	if _npc_dialogue_panel != null:
-		_npc_dialogue_panel.show_dialogue(npc_name, node_payload)
+		## 由服务端实体标识定位地图 NPC，把真实形象交给对话角标，避免未知立绘键落到默认头像。
+		_npc_dialogue_panel.show_dialogue(npc_name, node_payload, false, _resolve_npc_header_portrait(entity_id))
 	_set_runtime_menu_locked(true)
 	_append_log("打开剧情对话: %s" % npc_name)
 

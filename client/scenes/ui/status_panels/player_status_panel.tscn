@@ -11,11 +11,14 @@
 [ext_resource type="PackedScene" uid="uid://bbmrtwr0qog8c" path="res://scenes/ui/common/generic_loading_scene.tscn" id="9_loading"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="10_close_btn"]
 
+[ext_resource type="Material" path="res://resources/ui/atlas_panel_material.tres" id="99_panel_alpha"]
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_mvs75"]
 atlas = ExtResource("1_hqwm8")
 region = Rect2(387, 29, 176, 291)
 
 [node name="PlayerStatusPanel" type="CanvasLayer" unique_id=602936780]
+visible = false
 script = ExtResource("8_player")
 
 [node name="Control" type="Control" parent="." unique_id=209631995]
@@ -36,6 +39,7 @@ grow_vertical = 2
 pivot_offset = Vector2(352, 582)
 
 [node name="TextureRect" type="TextureRect" parent="Control" unique_id=1684407338]
+material = ExtResource("99_panel_alpha")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -68,10 +72,12 @@ theme_override_constants/margin_top = 6
 layout_mode = 2
 
 [node name="Control" type="Control" parent="Control/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1149278054]
-custom_minimum_size = Vector2(276, 0)
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 
 [node name="Label" type="Label" parent="Control/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1873705031]
+size_flags_horizontal = 3
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78039217, 0.73333335, 0.6901961, 1)
 theme_override_font_sizes/font_size = 36
@@ -80,7 +86,8 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Control2" type="Control" parent="Control/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1989058184]
-custom_minimum_size = Vector2(187, 0)
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="Control/VBoxContainer/MarginContainer/HBoxContainer" unique_id=1556444584]
@@ -89,8 +96,8 @@ theme_override_constants/margin_top = 12
 theme_override_constants/margin_bottom = 12
 
 [node name="Button" parent="Control/VBoxContainer/MarginContainer/HBoxContainer/MarginContainer" unique_id=25050881 instance=ExtResource("10_close_btn")]
-custom_minimum_size = Vector2(71, 71)
-custom_maximum_size = Vector2(94, 94)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 layout_mode = 2
 
 [node name="MarginContainer2" type="MarginContainer" parent="Control/VBoxContainer" unique_id=588020027]
@@ -105,7 +112,7 @@ size_flags_horizontal = 4
 theme_override_constants/separation = 8
 
 [node name="Button" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=280695537]
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(200, 88)
 layout_mode = 2
 theme = ExtResource("2_mvs75")
 theme_override_font_sizes/font_size = 32
@@ -114,7 +121,7 @@ action_mode = 0
 text = "战斗属性"
 
 [node name="Button2" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1675498571]
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(200, 88)
 layout_mode = 2
 theme = ExtResource("3_e4pro")
 theme_override_font_sizes/font_size = 32
@@ -123,7 +130,7 @@ action_mode = 0
 text = "状态抗性"
 
 [node name="Button3" type="Button" parent="Control/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1585211468]
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(200, 88)
 layout_mode = 2
 theme = ExtResource("4_wnekc")
 theme_override_font_sizes/font_size = 32

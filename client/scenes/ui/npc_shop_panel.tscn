@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://dgkmo4spou5ct"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" uid="uid://be26x55a4k0nf" path="res://scripts/ui/npc_shop_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_wv165"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
 [node name="NPCShopPanel" type="CanvasLayer" unique_id=365153277]
-layer = 25
 visible = false
+layer = 25
 script = ExtResource("1_script")
 
 [node name="Root" type="Control" parent="." unique_id=420902208]
@@ -23,20 +25,23 @@ mouse_filter = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.62)
+color = Color(0, 0, 0, 0.08)
 
 [node name="Panel" type="PanelContainer" parent="Root" unique_id=860815640]
-custom_maximum_size = Vector2(220, 300)
+material = ExtResource("ref_panel_material")
+texture_filter = 1
+custom_minimum_size = Vector2(680, 1040)
+custom_maximum_size = Vector2(680, 1040)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -170.0
-offset_top = -180.0
-offset_right = 170.0
-offset_bottom = 180.0
+offset_left = -340.0
+offset_top = -520.0
+offset_right = 340.0
+offset_bottom = 520.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = ExtResource("2_style")
@@ -49,12 +54,16 @@ theme_override_constants/separation = 8
 layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="Root/Panel/Layout/HeaderRow" unique_id=1368533425]
+text_overrun_behavior = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "商店"
 horizontal_alignment = 1
 
 [node name="TopCloseButton" parent="Root/Panel/Layout/HeaderRow" instance=ExtResource("4_close_btn")]
+custom_maximum_size = Vector2(88, 88)
+custom_minimum_size = Vector2(88, 88)
 unique_name_in_owner = true
 layout_mode = 2
 
@@ -68,22 +77,27 @@ theme_override_constants/separation = 8
 alignment = 1
 
 [node name="BuyTabButton" type="Button" parent="Root/Panel/Layout/TabRow" unique_id=1593304381]
+theme_override_font_sizes/font_size = 30
+size_flags_horizontal = 3
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 36)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
 text = "购买"
 
 [node name="SellTabButton" type="Button" parent="Root/Panel/Layout/TabRow" unique_id=1593304382]
+theme_override_font_sizes/font_size = 30
+size_flags_horizontal = 3
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 36)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 toggle_mode = true
 text = "出售"
 
 [node name="ListScroll" type="ScrollContainer" parent="Root/Panel/Layout" unique_id=1593304383]
-custom_minimum_size = Vector2(0, 180)
+vertical_scroll_mode = 1
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
@@ -106,6 +120,16 @@ layout_mode = 2
 autowrap_mode = 3
 
 [node name="RuntimeActionButton" parent="Root/Panel/Layout" unique_id=2063865073 instance=ExtResource("3_wv165")]
+button_label = "关闭商店"
+custom_minimum_size = Vector2(240, 88)
 layout_mode = 2
-size_flags_horizontal = 6
+size_flags_horizontal = 4
 size_flags_vertical = 4
+
+[node name="GoodsTemplate" parent="Root/Panel/Layout/ListScroll/ListBox/GoodsContainer" instance=ExtResource("3_wv165")]
+visible = false
+layout_mode = 2
+
+[node name="SellTemplate" parent="Root/Panel/Layout/ListScroll/ListBox/SellContainer" instance=ExtResource("3_wv165")]
+visible = false
+layout_mode = 2

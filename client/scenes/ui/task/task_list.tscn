@@ -59,7 +59,7 @@ theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
 [node name="PanelContainer" type="PanelContainer" parent="MarginContainer" unique_id=390407831]
-custom_minimum_size = Vector2(0, 110)
+custom_minimum_size = Vector2(0, 144)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_skkc2")
 
@@ -90,7 +90,7 @@ vertical_alignment = 1
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(1, 1, 1, 0.6666667)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 24
 bbcode_enabled = true
 text = "取得任意战斗胜利30次"
 fit_content = true
@@ -115,7 +115,7 @@ show_percentage = false
 
 [node name="Label" type="Label" parent="MarginContainer/PanelContainer/HBoxContainer/VBoxContainer/MarginContainer/HBoxContainer" unique_id=791392275]
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 24
 text = "5/30"
 vertical_alignment = 1
 
@@ -134,18 +134,18 @@ alignment = 1
 [node name="Button" type="Button" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1991365075]
 layout_mode = 2
 theme = ExtResource("2_re4hj")
-theme_override_font_sizes/font_size = 23
+theme_override_font_sizes/font_size = 24
 text = "前往"
 
 [node name="Button2" type="Button" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1901155745]
 layout_mode = 2
 theme = ExtResource("3_wv1on")
-theme_override_font_sizes/font_size = 23
+theme_override_font_sizes/font_size = 24
 text = "详情"
 
 [node name="AbandonButton" type="Button" parent="MarginContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1901155746]
 visible = false
 layout_mode = 2
 theme = ExtResource("3_wv1on")
-theme_override_font_sizes/font_size = 23
+theme_override_font_sizes/font_size = 24
 text = "放弃"

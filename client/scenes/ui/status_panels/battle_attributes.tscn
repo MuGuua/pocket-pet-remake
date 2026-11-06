@@ -16,7 +16,7 @@ corner_radius_bottom_right = 16
 corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xw5ed"]
-bg_color = Color(0.6, 0.6, 0.6, 0.023529412)
+bg_color = Color(0.6, 0.6, 0.6, 0)
 border_color = Color(0.15294118, 0.1764706, 0.27058825, 1)
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_3swwj"]

@@ -35,7 +35,7 @@ const DEFAULT_TAB_KEY: String = "basic"
 ## 标题栏关闭按钮。
 @onready var _close_button: BaseButton = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/Title/HBoxContainer/Button") as BaseButton
 ## 左侧宠物列表容器，复用场景里已有的宠物按钮组件。
-@onready var _pet_grid: GridContainer = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/GridContainer") as GridContainer
+@onready var _pet_grid: GridContainer = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DataPanel/HBoxContainer/宠物列表/MarginContainer/PetScroll/GridContainer") as GridContainer
 ## 顶部展示区的宠物名称。
 @onready var _pet_name_label: RichTextLabel = get_node_or_null("PanelContainer/MarginContainer/VBoxContainer/DisplayPanel/PanelContainer/VBoxContainer/PanelContainer/HBoxContainer/PetName") as RichTextLabel
 ## 顶部展示区的宠物等级。
@@ -95,6 +95,8 @@ var _pending_pet_list_seq: int = 0
 var _pending_pet_list_ready: bool = false
 ## PET_LIST_REQ 是否成功。
 var _pending_pet_list_ok: bool = false
+## 本次列表回包已合并完整详情的宠物标识；零值用于兼容旧服务端。
+var _pending_pet_list_detail_uid: int = 0
 ## 当前等待的 PET_SKILL_DETAIL_REQ 序列号。
 var _pending_skill_detail_seq: int = 0
 ## PET_SKILL_DETAIL_REQ 是否已有回调结果。
@@ -137,7 +139,8 @@ func prepare_open_data() -> bool:
     var load_id: int = _open_load_generation
     if not GameState.is_ws_authenticated:
         return false
-    _pending_pet_list_seq = App.request_pet_list()
+    _pending_pet_list_detail_uid = 0
+    _pending_pet_list_seq = App.request_pet_list(true, _selected_pet_uid)
     if _pending_pet_list_seq <= 0:
         return false
     _pending_pet_list_ready = false
@@ -150,7 +153,11 @@ func prepare_open_data() -> bool:
         return false
     if _pending_pet_list_ok:
         _ensure_selected_pet()
-        await _request_selected_pet_skill_detail_for_open(load_id)
+        if _pending_pet_list_detail_uid != _selected_pet_uid:
+            ## 旧服务端忽略新增请求字段时，仍通过原详情接口获取新数据。
+            await _request_selected_pet_skill_detail_for_open(load_id)
+        if load_id != _open_load_generation:
+            return false
     _pending_pet_list_seq = 0
     return _pending_pet_list_ok
 
@@ -341,10 +348,16 @@ func _on_close_button_pressed() -> void:
 
 
 ## 处理 PET_LIST_REQ 回包结果，只接收当前打开流程的同一个 seq。
-func _on_request_finished(request_cmd: int, seq: int, succeeded: bool, _response_cmd: int, _payload: Dictionary) -> void:
+func _on_request_finished(request_cmd: int, seq: int, succeeded: bool, _response_cmd: int, payload: Dictionary) -> void:
     if request_cmd == CommandIds.PET_LIST_REQ:
         if _pending_pet_list_seq <= 0 or seq != _pending_pet_list_seq:
             return
+        var detail_variant: Variant = payload.get("selected_pet", {})
+        if succeeded and detail_variant is Dictionary:
+            var detail: Dictionary = detail_variant as Dictionary
+            _pending_pet_list_detail_uid = int(detail.get("pet_uid", 0))
+            if _pending_pet_list_detail_uid > 0:
+                _selected_pet_uid = _pending_pet_list_detail_uid
         _pending_pet_list_ready = true
         _pending_pet_list_ok = succeeded
         return
@@ -359,8 +372,10 @@ func _ensure_selected_pet() -> void:
     if GameState.pets.is_empty():
         _selected_pet_uid = 0
         return
-    if _selected_pet_uid > 0 and not _resolve_selected_pet().is_empty():
-        return
+    ## 必须按标识检查本次列表，不能把详情读取函数的首只兜底当成选中宠物仍存在。
+    for pet_variant: Variant in GameState.pets:
+        if pet_variant is Dictionary and int(pet_variant.get("pet_uid", 0)) == _selected_pet_uid:
+            return
     var first_pet_variant: Variant = GameState.pets[0]
     if first_pet_variant is Dictionary:
         var first_pet: Dictionary = first_pet_variant as Dictionary

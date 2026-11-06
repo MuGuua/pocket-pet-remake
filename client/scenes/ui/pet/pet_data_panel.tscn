@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://ck0w1rrdiqp8c" path="res://asset/分类/菜单表情/菜单图标1.png" id="2_urqiu"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
-bg_color = Color(0.6, 0.6, 0.6, 0.07450981)
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_3swwj"]
 load_path = "res://.godot/imported/菜单图标1.png-9ffe5a8faf29adfe463e1d3912e3ce87.ctex"

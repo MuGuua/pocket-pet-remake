@@ -1,10 +1,15 @@
 [gd_scene format=3 uid="uid://ctktslgpn3tsi"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" uid="uid://dai0y0bcuiupj" path="res://scripts/ui/npc_dialogue_panel.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://cyno3jl548n14" path="res://scenes/ui/common/continue_button.tscn" id="3_80pdx"]
+[ext_resource type="PackedScene" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close"]
+[ext_resource type="PackedScene" path="res://scenes/ui/common/option_row.tscn" id="5_option"]
 
 [node name="NPCDialoguePanel" type="CanvasLayer" unique_id=1513106823]
+visible = false
 layer = 25
 script = ExtResource("1_script")
 
@@ -24,31 +29,30 @@ color = Color(0, 0, 0, 0)
 
 [node name="DialogueVBox" type="VBoxContainer" parent="Root" unique_id=39689053]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 0)
-custom_maximum_size = Vector2(720, -1)
+custom_minimum_size = Vector2(736, 720)
+custom_maximum_size = Vector2(736, 720)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -360.0
-offset_top = -101.0
-offset_right = 360.0
-offset_bottom = 101.0
+anchor_bottom = 1.0
+offset_left = -368.0
+offset_top = -784.0
+offset_right = 368.0
+offset_bottom = -64.0
 grow_horizontal = 2
 grow_vertical = 2
-offset_transform_enabled = true
-offset_transform_position = Vector2(0, 250)
 theme_override_constants/separation = 0
 
 [node name="SpeakerRow" type="HBoxContainer" parent="Root/DialogueVBox" unique_id=1353239236]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
-custom_maximum_size = Vector2(-1, 60)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 
 [node name="NpcSpeakerPanel" type="PanelContainer" parent="Root/DialogueVBox/SpeakerRow" unique_id=1930243910]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
@@ -73,6 +77,8 @@ size_flags_horizontal = 3
 mouse_filter = 2
 
 [node name="PlayerSpeakerPanel" type="PanelContainer" parent="Root/DialogueVBox/SpeakerRow" unique_id=2005081550]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
@@ -91,15 +97,35 @@ scroll_active = false
 autowrap_mode = 0
 
 [node name="Panel" type="PanelContainer" parent="Root/DialogueVBox" unique_id=1205518682]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
+size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = ExtResource("2_style")
 
-[node name="Layout" type="VBoxContainer" parent="Root/DialogueVBox/Panel" unique_id=454858714]
+[node name="Margin" type="MarginContainer" parent="Root/DialogueVBox/Panel"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
 
-[node name="ContentLabel" type="RichTextLabel" parent="Root/DialogueVBox/Panel/Layout" unique_id=328413872]
+[node name="Layout" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Margin" unique_id=454858714]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="ContentScroll" type="ScrollContainer" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+scroll_deadzone = 16
+
+[node name="ContentLabel" type="RichTextLabel" parent="Root/DialogueVBox/Panel/Margin/Layout/ContentScroll" unique_id=328413872]
+mouse_filter = 2
+theme_override_constants/line_separation = 6
+size_flags_horizontal = 3
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_font_sizes/normal_font_size = 32
@@ -107,20 +133,38 @@ bbcode_enabled = true
 fit_content = true
 scroll_active = false
 
-[node name="ItemMentionContainer" type="HBoxContainer" parent="Root/DialogueVBox/Panel/Layout" unique_id=1132092949]
+[node name="ItemMentionContainer" type="HBoxContainer" parent="Root/DialogueVBox/Panel/Margin/Layout" unique_id=1132092949]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="StatusLabel" type="Label" parent="Root/DialogueVBox/Panel/Layout" unique_id=797711055]
+[node name="StatusLabel" type="Label" parent="Root/DialogueVBox/Panel/Margin/Layout" unique_id=797711055]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
-[node name="OptionsContainer" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Layout" unique_id=1152968195]
+[node name="OptionsScroll" type="ScrollContainer" parent="Root/DialogueVBox/Panel/Margin/Layout"]
+visible = false
+custom_minimum_size = Vector2(0, 204)
+custom_maximum_size = Vector2(-1, 204)
 layout_mode = 2
-theme_override_constants/separation = 8
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+scroll_deadzone = 16
 
-[node name="Button" parent="Root/DialogueVBox/Panel/Layout" unique_id=563716072 instance=ExtResource("3_80pdx")]
-custom_minimum_size = Vector2(0, 34)
+[node name="OptionsContainer" type="VBoxContainer" parent="Root/DialogueVBox/Panel/Margin/Layout/OptionsScroll" unique_id=1152968195]
+size_flags_horizontal = 3
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Button" parent="Root/DialogueVBox/Panel/Margin/Layout" unique_id=563716072 instance=ExtResource("3_80pdx")]
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="TopCloseButton" parent="Root/DialogueVBox/SpeakerRow" instance=ExtResource("4_close")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="OptionTemplate" parent="Root/DialogueVBox/Panel/Margin/Layout/OptionsScroll/OptionsContainer" instance=ExtResource("5_option")]
+visible = false
+layout_mode = 2

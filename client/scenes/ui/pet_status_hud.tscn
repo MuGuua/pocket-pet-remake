@@ -51,10 +51,10 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
 [node name="PetStatusHud" type="PanelContainer" unique_id=2057247650]
-custom_minimum_size = Vector2(200, 100)
-offset_left = 399.0
-offset_right = 649.0
-offset_bottom = 80.0
+custom_minimum_size = Vector2(312, 144)
+offset_left = 0.0
+offset_right = 312.0
+offset_bottom = 144.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("1_script")
 
@@ -75,7 +75,7 @@ theme_override_styles/panel = SubResource("StyleBoxTexture_y1mnv")
 
 [node name="PetButton" type="TextureButton" parent="Margin/HBox/PanelContainer" unique_id=584941501]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(68, 34)
+custom_minimum_size = Vector2(88, 112)
 layout_mode = 2
 focus_mode = 0
 mouse_default_cursor_shape = 2
@@ -103,11 +103,11 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 3
 
 [node name="NameLabel" type="RichTextLabel" parent="Margin/HBox/VBox" unique_id=1037397437]
+theme_override_font_sizes/normal_font_size = 24
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 15)
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81960785, 0.9019608, 0.9607843, 1)
-theme_override_font_sizes/font_size = 16
 text = "宠物"
 bbcode_enabled = true
 fit_content = true
@@ -116,7 +116,7 @@ clip_text = true
 
 [node name="HpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=451876426]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 18)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -137,7 +137,7 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0.0352941, 0.0470588, 0.0745098, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 20
 text = "生命 0/0"
 clip_text = true
 horizontal_alignment = 1
@@ -145,7 +145,7 @@ vertical_alignment = 1
 
 [node name="MpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=1711279898]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 18)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -166,7 +166,7 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0.0352941, 0.0470588, 0.0745098, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 20
 text = "法力 0/0"
 clip_text = true
 horizontal_alignment = 1
@@ -174,7 +174,7 @@ vertical_alignment = 1
 
 [node name="ExpBar" type="ProgressBar" parent="Margin/HBox/VBox" unique_id=119846744]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 18)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
@@ -195,7 +195,7 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0.0352941, 0.0470588, 0.0745098, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 20
 text = "经验 0/0"
 clip_text = true
 horizontal_alignment = 1

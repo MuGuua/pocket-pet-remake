@@ -4,9 +4,9 @@ class_name RuntimeActionButton
 ## 按钮中心展示文案；实例化场景时在检查器里改这个字段即可。
 @export var button_label: String = "按钮"
 ## 鼠标悬停时的缩放比例。
-@export var hover_scale: Vector2 = Vector2(1.1, 1.1)
+@export var hover_scale: Vector2 = Vector2.ONE
 ## 按下瞬间的缩放比例。
-@export var pressed_scale: Vector2 = Vector2(0.9, 0.9)
+@export var pressed_scale: Vector2 = Vector2(0.97, 0.97)
 
 ## 当前正在播放的缩放动画，避免快速移入移出时 tween 互相打架。
 var _scale_tween: Tween = null

@@ -6,10 +6,13 @@
 [ext_resource type="StyleBox" uid="uid://dphinv4vw770o" path="res://resources/ui/runtime_action_button_hover.tres" id="3_sinhg"]
 
 [node name="OptionRow1" type="Button" unique_id=2061039568]
-custom_minimum_size = Vector2(0, 60)
+expand_icon = true
+theme_override_constants/icon_max_width = 48
+clip_text = true
+custom_minimum_size = Vector2(0, 88)
 offset_right = 114.0
 offset_bottom = 59.0
-theme_override_font_sizes/font_size = 31
+theme_override_font_sizes/font_size = 30
 theme_override_styles/normal = ExtResource("1_31gjl")
 theme_override_styles/pressed = ExtResource("2_v64rg")
 theme_override_styles/hover = ExtResource("3_sinhg")

@@ -12,8 +12,9 @@ texture = ExtResource("1_no_opacity")
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_close_focus"]
 
 [node name="PanelCloseButton" type="Button" unique_id=1200169584]
-custom_minimum_size = Vector2(40, 40)
-custom_maximum_size = Vector2(40, 40)
+focus_mode = 0
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 theme_override_styles/normal = SubResource("StyleBoxTexture_close_opacity")
 theme_override_styles/pressed = SubResource("StyleBoxTexture_close_no_opacity")
 theme_override_styles/hover = SubResource("StyleBoxTexture_close_no_opacity")

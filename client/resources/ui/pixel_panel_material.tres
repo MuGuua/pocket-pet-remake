@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://resources/ui/pixel_panel.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/background_color = Color(0.012, 0.016, 0.012, 0.68)
+shader_parameter/border_inset_pixels = 2.0

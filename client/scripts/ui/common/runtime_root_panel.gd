@@ -26,7 +26,8 @@ func _ensure_backdrop() -> void:
     _backdrop.offset_top = 0.0
     _backdrop.offset_right = 0.0
     _backdrop.offset_bottom = 0.0
-    _backdrop.color = Color(0.0, 0.0, 0.0, 0.28)
+    ## 与通用提示框一致，只轻微压暗地图，避免遮罩叠加掩盖面板通透度。
+    _backdrop.color = Color(0.0, 0.0, 0.0, 0.08)
     _backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
     _backdrop.visible = false
     _backdrop.gui_input.connect(_on_backdrop_gui_input)

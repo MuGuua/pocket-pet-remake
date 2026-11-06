@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="6_close_button"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.043137256, 0.05882353, 0.10980392, 0.98039216)
+bg_color = Color(0.012, 0.016, 0.012, 0.68)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
@@ -24,7 +24,7 @@ content_margin_left = 10.0
 content_margin_top = 10.0
 content_margin_right = 10.0
 content_margin_bottom = 10.0
-bg_color = Color(0.07058824, 0.09411765, 0.15686275, 0.92156863)
+bg_color = Color(0, 0, 0, 0)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -104,7 +104,7 @@ content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
 content_margin_bottom = 4.0
-bg_color = Color(0.05098039, 0.07058824, 0.12156863, 0.9019608)
+bg_color = Color(0, 0, 0, 0)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -146,18 +146,20 @@ visible = false
 script = ExtResource("1_bagpanel")
 
 [node name="ColorRect" parent="." instance=ExtResource("5_blur") unique_id=700000002]
+material = null
+color = Color(0, 0, 0, 0)
 
 [node name="RootPanel" type="PanelContainer" parent="." unique_id=700000003]
-custom_minimum_size = Vector2(736, 1168)
+custom_minimum_size = Vector2(736, 1280)
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -368.0
-offset_top = -584.0
+offset_top = -640.0
 offset_right = 368.0
-offset_bottom = 584.0
+offset_bottom = 640.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -183,7 +185,7 @@ theme_override_constants/separation = 10
 
 [node name="Control" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000008]
 layout_mode = 2
-custom_minimum_size = Vector2(56, 0)
+custom_minimum_size = Vector2(0, 0)
 size_flags_horizontal = 3
 
 [node name="Line" type="ColorRect" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000009]
@@ -193,8 +195,9 @@ size_flags_vertical = 4
 color = Color(0.84705883, 0.69411767, 0.42745098, 0.65)
 
 [node name="DiamondWrap" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000010]
+size_flags_horizontal = 3
 layout_mode = 2
-custom_minimum_size = Vector2(14, 14)
+custom_minimum_size = Vector2(0, 0)
 size_flags_vertical = 4
 
 [node name="Diamond" type="ColorRect" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer/DiamondWrap" unique_id=700000011]
@@ -208,6 +211,9 @@ pivot_offset = Vector2(5, 5)
 color = Color(0.84705883, 0.69411767, 0.42745098, 0.9)
 
 [node name="Label" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000012]
+text_overrun_behavior = 3
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
 theme_override_font_sizes/font_size = 34
@@ -222,8 +228,9 @@ size_flags_vertical = 4
 color = Color(0.84705883, 0.69411767, 0.42745098, 0.65)
 
 [node name="DiamondWrap2" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000014]
+size_flags_horizontal = 3
 layout_mode = 2
-custom_minimum_size = Vector2(14, 14)
+custom_minimum_size = Vector2(0, 0)
 size_flags_vertical = 4
 
 [node name="Diamond2" type="ColorRect" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer/DiamondWrap2" unique_id=700000015]
@@ -237,12 +244,13 @@ pivot_offset = Vector2(5, 5)
 color = Color(0.84705883, 0.69411767, 0.42745098, 0.9)
 
 [node name="Control2" type="Control" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" unique_id=700000016]
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Button" parent="RootPanel/MarginContainer/VBoxContainer/Title/HBoxContainer" instance=ExtResource("6_close_button") unique_id=700000017]
-custom_minimum_size = Vector2(52, 52)
-custom_maximum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -397,7 +405,7 @@ theme_override_constants/separation = 12
 [node name="WarehousePrevButton" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/WarehouseSection/Pager" unique_id=700000057]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(64, 56)
+custom_minimum_size = Vector2(88, 88)
 theme_override_colors/font_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
 theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
@@ -409,7 +417,7 @@ text = "<"
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/WarehouseSection/Pager" unique_id=700000058]
 layout_mode = 2
-custom_minimum_size = Vector2(104, 56)
+custom_minimum_size = Vector2(104, 88)
 theme_override_styles/panel = SubResource("StyleBoxFlat_page")
 
 [node name="WarehousePageLabel" type="Label" parent="RootPanel/MarginContainer/VBoxContainer/WarehouseSection/Pager/PanelContainer" unique_id=700000059]
@@ -424,7 +432,7 @@ vertical_alignment = 1
 [node name="WarehouseNextButton" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/WarehouseSection/Pager" unique_id=700000060]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(64, 56)
+custom_minimum_size = Vector2(88, 88)
 theme_override_colors/font_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
 theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
@@ -465,7 +473,7 @@ stretch_mode = 4
 layout_mode = 2
 custom_minimum_size = Vector2(104, 0)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "0/0"
 vertical_alignment = 1
 
@@ -502,7 +510,7 @@ stretch_mode = 4
 layout_mode = 2
 custom_minimum_size = Vector2(74, 0)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "0"
 vertical_alignment = 1
 
@@ -530,7 +538,7 @@ stretch_mode = 4
 layout_mode = 2
 custom_minimum_size = Vector2(62, 0)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "0"
 vertical_alignment = 1
 
@@ -558,7 +566,7 @@ stretch_mode = 4
 layout_mode = 2
 custom_minimum_size = Vector2(62, 0)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "0"
 vertical_alignment = 1
 
@@ -685,11 +693,11 @@ theme_override_constants/separation = 8
 
 [node name="Button" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=700000123]
 layout_mode = 2
-custom_minimum_size = Vector2(92, 52)
+custom_minimum_size = Vector2(92, 88)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
 theme_override_colors/font_pressed_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
 theme_override_colors/font_hover_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -700,11 +708,11 @@ text = "全部"
 
 [node name="Button2" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=700000124]
 layout_mode = 2
-custom_minimum_size = Vector2(92, 52)
+custom_minimum_size = Vector2(92, 88)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
 theme_override_colors/font_pressed_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
 theme_override_colors/font_hover_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -715,11 +723,11 @@ text = "装备"
 
 [node name="Button3" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer" unique_id=700000125]
 layout_mode = 2
-custom_minimum_size = Vector2(92, 52)
+custom_minimum_size = Vector2(92, 88)
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
 theme_override_colors/font_pressed_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
 theme_override_colors/font_hover_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
@@ -741,7 +749,7 @@ theme_override_constants/separation = 10
 
 [node name="Button4" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=700000129]
 layout_mode = 2
-custom_minimum_size = Vector2(64, 52)
+custom_minimum_size = Vector2(88, 88)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_colors/font_color = Color(0.84705883, 0.69411767, 0.42745098, 1)
@@ -755,12 +763,13 @@ text = "<"
 
 [node name="PanelContainer" type="PanelContainer" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=700000130]
 layout_mode = 2
-custom_minimum_size = Vector2(96, 52)
+custom_minimum_size = Vector2(96, 88)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_styles/panel = SubResource("StyleBoxFlat_page")
 
 [node name="PageInput" type="LineEdit" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer/PanelContainer" unique_id=700000131]
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.94509804, 0.8980392, 0.8039216, 1)
@@ -778,7 +787,7 @@ caret_blink = true
 
 [node name="Button5" type="Button" parent="RootPanel/MarginContainer/VBoxContainer/MarginContainer/PanelContainer/VBoxContainer/MarginContainer2/PanelContainer/MarginContainer/HBoxContainer/MarginContainer/HBoxContainer" unique_id=700000132]
 layout_mode = 2
-custom_minimum_size = Vector2(64, 52)
+custom_minimum_size = Vector2(88, 88)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_colors/font_color = Color(0.84705883, 0.69411767, 0.42745098, 1)

@@ -9,10 +9,6 @@ const RENDER_NPC_ENTRY: String = "npc_entry"
 const RENDER_PORTRAIT_TEXT: String = "portrait_text"
 ## 不可点击的 NPC 菜单项状态。
 const DISABLED_STATES: Array[String] = ["locked", "completed"]
-## 选项滚动区最大高度占视口高度的比例；超出后启用竖向滚动。
-const MAX_OPTIONS_SCROLL_VIEWPORT_RATIO: float = 0.42
-## 选项滚动区最小高度（像素）；避免只有 1 项时区域过扁。
-const MIN_OPTIONS_SCROLL_HEIGHT: float = 24.0
 
 ## 玩家选中某个选项后向外广播完整选项快照。
 signal option_selected(option: Dictionary)
@@ -176,24 +172,8 @@ func _refresh_options_scroll_layout_deferred() -> void:
 func _refresh_options_scroll_layout() -> void:
 	if _options_scroll == null or _buttons_container == null:
 		return
-	var content_height: float = _buttons_container.get_combined_minimum_size().y
-	if content_height <= 0.0:
-		content_height = _buttons_container.size.y
-	if content_height <= 0.0:
-		_options_scroll.custom_minimum_size = Vector2.ZERO
-		_options_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		_options_scroll.scroll_vertical = 0
-		return
-	var viewport_height: float = get_viewport().get_visible_rect().size.y
-	var max_scroll_height: float = viewport_height * MAX_OPTIONS_SCROLL_VIEWPORT_RATIO
-	var scroll_height: float = minf(content_height, max_scroll_height)
-	scroll_height = maxf(scroll_height, MIN_OPTIONS_SCROLL_HEIGHT)
-	_options_scroll.custom_minimum_size = Vector2(0.0, scroll_height)
-	if content_height > scroll_height + 1.0:
-		_options_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	else:
-		_options_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		_options_scroll.scroll_vertical = 0
+	## 固定面板中的伸缩滚动区由场景布局决定，长列表只滚动正文，不再撑高面板。
+	_options_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 
 
 ## 控制标题行右上角关闭按钮的显隐。

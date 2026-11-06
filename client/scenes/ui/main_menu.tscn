@@ -1,14 +1,21 @@
 [gd_scene format=3 uid="uid://c38jx0ejg8wdh"]
 
-[ext_resource type="Script" uid="uid://cjrh8y5aouh46" path="res://scripts/ui/main_menu.gd" id="1_5rxl3"]
-[ext_resource type="PackedScene" uid="uid://dmxg0ackwawrn" path="res://scenes/ui/common/menu_frame.tscn" id="2_11on6"]
-[ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close_btn"]
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
 
-[node name="MainMenu" type="CanvasLayer" unique_id=988296387]
+[ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_script"]
+[ext_resource type="StyleBox" path="res://dialogue/原版样式.tres" id="2_panel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/common/panel_close_button.tscn" id="3_close"]
+[ext_resource type="StyleBox" path="res://resources/ui/runtime_action_button_normal.tres" id="4_normal"]
+[ext_resource type="StyleBox" path="res://resources/ui/runtime_action_button_pressed.tres" id="5_pressed"]
+[ext_resource type="StyleBox" path="res://resources/ui/runtime_action_button_hover.tres" id="6_hover"]
+
+; Mobile layout: existing navy/gold art; title > categories > actions. 720-wide card, 88-high targets, 16/24 spacing.
+[node name="MainMenu" type="CanvasLayer"]
 visible = false
-script = ExtResource("1_5rxl3")
+layer = 10
+script = ExtResource("1_script")
 
-[node name="Root" type="Control" parent="." unique_id=1768600115]
+[node name="Root" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,60 +24,297 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="CloseButton" parent="Root" unique_id=1768600116 instance=ExtResource("3_close_btn")]
+[node name="Panel" type="PanelContainer" parent="Root"]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -30.0
-offset_top = 18.0
-offset_right = -10.0
-offset_bottom = 36.0
-grow_horizontal = 0
-
-[node name="TabsFrame" parent="Root" unique_id=296405793 instance=ExtResource("2_11on6")]
-layout_mode = 1
-anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -182.0
-offset_right = 150.0
-offset_bottom = -146.0
+offset_left = -360.0
+offset_top = -560.0
+offset_right = 360.0
+offset_bottom = 560.0
 grow_horizontal = 2
 grow_vertical = 2
-content_margin_left = 14
-content_margin_right = 14
+theme_override_styles/panel = ExtResource("2_panel")
 
-[node name="TabsRow" type="HBoxContainer" parent="Root/TabsFrame/Content"]
-unique_name_in_owner = true
+[node name="Margin" type="MarginContainer" parent="Root/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Root/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Header" type="HBoxContainer" parent="Root/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Root/Panel/Margin/Layout/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+theme_override_font_sizes/font_size = 36
+text = "功能菜单"
+vertical_alignment = 1
 
-[node name="ItemsFrame" parent="Root" unique_id=267236833 instance=ExtResource("2_11on6")]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -140.0
-offset_right = 150.0
-offset_bottom = 118.0
-grow_horizontal = 2
-grow_vertical = 2
-content_margin_left = 14
-content_margin_top = 12
-content_margin_right = 14
-content_margin_bottom = 12
-
-[node name="ItemsList" type="VBoxContainer" parent="Root/ItemsFrame/Content"]
+[node name="CloseButton" parent="Root/Panel/Margin/Layout/Header" instance=ExtResource("3_close")]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="TabsRow" type="GridContainer" parent="Root/Panel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="Tab1" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
 size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "常用"
+
+[node name="Tab2" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "辅助"
+
+[node name="Tab3" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "聊天"
+
+[node name="Tab4" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "任务"
+
+[node name="Tab5" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "系统"
+
+[node name="Tab6" type="Button" parent="Root/Panel/Margin/Layout/TabsRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+text = "商城"
+
+[node name="ItemsScroll" type="ScrollContainer" parent="Root/Panel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 4
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+scroll_deadzone = 16
+
+[node name="ItemsList" type="VBoxContainer" parent="Root/Panel/Margin/Layout/ItemsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Item1" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item2" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item3" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item4" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item5" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item6" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item7" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item8" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item9" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")
+
+[node name="Item10" type="Button" parent="Root/Panel/Margin/Layout/ItemsScroll/ItemsList"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+toggle_mode = true
+theme_override_constants/icon_max_width = 32
+expand_icon = true
+clip_text = true
+alignment = 0
+theme_override_font_sizes/font_size = 30
+theme_override_constants/h_separation = 20
+theme_override_styles/normal = ExtResource("4_normal")
+theme_override_styles/pressed = ExtResource("5_pressed")
+theme_override_styles/hover = ExtResource("6_hover")

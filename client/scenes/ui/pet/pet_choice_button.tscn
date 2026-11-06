@@ -14,7 +14,7 @@ atlas = ExtResource("3_3ibk8")
 region = Rect2(142, 73, 331, 323)
 
 [node name="Button" type="Button" unique_id=1563053846]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(88, 88)
 propagate_maximum_size = true
 offset_right = 72.0
 offset_bottom = 72.0
@@ -45,11 +45,13 @@ expand_mode = 1
 stretch_mode = 4
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=829756967]
-custom_maximum_size = Vector2(72, 72)
+anchor_bottom = 1.0
+anchor_right = 1.0
+anchors_preset = 15
 layout_mode = 0
 mouse_filter = 2
-offset_right = 160.0
-offset_bottom = 160.0
+offset_right = 0.0
+offset_bottom = 0.0
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 4
 

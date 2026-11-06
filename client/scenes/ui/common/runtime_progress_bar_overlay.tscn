@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://d3smw2t2p8c4g"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" path="res://scripts/ui/common/runtime_progress_bar_overlay.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 
@@ -31,6 +33,8 @@ anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="ProgressPanel" type="PanelContainer" parent="Root/CenterContainer"]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2

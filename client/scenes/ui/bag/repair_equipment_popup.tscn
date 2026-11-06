@@ -1,11 +1,14 @@
 [gd_scene format=3 uid="uid://bys23rk7sjly0"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" uid="uid://dvi5p4t2g8dip" path="res://scripts/ui/bag/repair_equipment_popup.gd" id="1_script"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_style"]
 [ext_resource type="PackedScene" uid="uid://bryjwvh0cp7mp" path="res://scenes/ui/common/runtime_action_button.tscn" id="3_action_btn"]
 [ext_resource type="PackedScene" uid="uid://bsg5ckqad6i2w" path="res://scenes/ui/common/panel_close_button.tscn" id="4_close_btn"]
 
 [node name="RepairEquipmentPopup" type="CanvasLayer" unique_id=785339992]
+visible = false
 layer = 135
 script = ExtResource("1_script")
 
@@ -15,23 +18,25 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.039215688, 0.078431375, 0.14117648, 0.45)
+color = Color(0, 0, 0, 0.08)
 
 [node name="CenterContainer" type="CenterContainer" parent="." unique_id=609426120]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 59.0
-offset_top = 246.0
-offset_right = -41.0
-offset_bottom = -574.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=1237869586]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 custom_minimum_size = Vector2(680, 0)
-custom_maximum_size = Vector2(960, 1280)
+custom_maximum_size = Vector2(680, 1100)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("2_style")
 
@@ -43,10 +48,13 @@ theme_override_constants/separation = 32
 layout_mode = 2
 
 [node name="Control" type="Control" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=269607410]
-custom_minimum_size = Vector2(80, 0)
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=393057618]
+text_overrun_behavior = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.952941, 0.745098, 1)
@@ -58,8 +66,8 @@ horizontal_alignment = 1
 
 [node name="TopCloseButton" parent="CenterContainer/PanelContainer/RootVBox/HeaderRow" unique_id=1503999159 instance=ExtResource("4_close_btn")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 72)
-custom_maximum_size = Vector2(80, 80)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 layout_mode = 2
 
 [node name="ItemRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/RootVBox" unique_id=355991249]

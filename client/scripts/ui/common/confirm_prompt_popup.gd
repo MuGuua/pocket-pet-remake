@@ -8,7 +8,7 @@ const DEFAULT_TITLE: String = "提示"
 ## 默认确认按钮文案；当前重构场景底部只有一个继续按钮，语义等同确认。
 const DEFAULT_CONFIRM_LABEL: String = "确定"
 ## 默认正文行字号；动态复制 RichTextLabel 时沿用模板节点，也允许业务通过 config 覆盖。
-const DEFAULT_CONTENT_FONT_SIZE: int = 24
+const DEFAULT_CONTENT_FONT_SIZE: int = 30
 
 ## 玩家点击底部继续按钮后广播。
 signal confirmed
@@ -16,13 +16,13 @@ signal confirmed
 signal cancelled
 
 ## 标题标签，来自重构后的标题栏真实节点。
-@onready var _title_label: Label = get_node_or_null("VBoxContainer/ScrollContainer/Title/HeaderRow/Label") as Label
+@onready var _title_label: Label = get_node_or_null("%Label") as Label
 ## 弹窗主体容器；外部可用 set_popup_position 微调整个提示框在屏幕上的位置。
 @onready var _panel_root: Control = get_node_or_null("VBoxContainer") as Control
 ## 正文行容器；每一行都会复制模板 RichTextLabel，支持后端 BBCode 富文本。
-@onready var _content_list: VBoxContainer = get_node_or_null("VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList") as VBoxContainer
+@onready var _content_list: VBoxContainer = get_node_or_null("%ContentList") as VBoxContainer
 ## 正文富文本模板；运行时隐藏并复制，避免脚本生成完整 UI 结构。
-@onready var _rich_line_template: RichTextLabel = get_node_or_null("VBoxContainer/CenterContainer/PanelContainer/MarginContainer/RootVBox/ContentList/MarginContainer/RichLineTemplate") as RichTextLabel
+@onready var _rich_line_template: RichTextLabel = get_node_or_null("%RichLineTemplate") as RichTextLabel
 ## 模板所在的边距容器；复制它可以保留场景里调好的内边距。
 var _rich_line_template_container: Control = null
 ## 底部继续按钮；点击后按确认处理。
@@ -49,6 +49,9 @@ func show_prompt(title_text: String, content_bbcode: String, config: Dictionary 
         _title_label.text = resolved_title
     var content_font_size: int = int(config.get("content_font_size", DEFAULT_CONTENT_FONT_SIZE))
     _rebuild_content_lines(content_bbcode, content_font_size)
+    var content_scroll: ScrollContainer = get_node_or_null("%ContentScroll") as ScrollContainer
+    if content_scroll != null:
+        content_scroll.scroll_vertical = 0
     _set_continue_button_label(str(config.get("confirm_label", DEFAULT_CONFIRM_LABEL)))
     _apply_interactive_nodes()
     _open_modal()
@@ -67,7 +70,11 @@ func close_prompt() -> void:
 func set_popup_position(popup_position: Vector2) -> void:
     if _panel_root == null:
         return
-    _panel_root.position = popup_position
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    _panel_root.position = Vector2(
+        clampf(popup_position.x, 24.0, maxf(24.0, viewport_size.x - _panel_root.size.x - 24.0)),
+        clampf(popup_position.y, 64.0, maxf(64.0, viewport_size.y - _panel_root.size.y - 64.0))
+    )
 
 
 ## 点击遮罩或右上角关闭时按取消处理，避免误触被当成确认。
@@ -78,11 +85,15 @@ func _dismiss_modal() -> void:
 ## 启用确认弹窗专用输入监听，统一处理继续键和移动端按钮热区。
 func _enable_modal_input_listeners() -> void:
     set_process_input(true)
+    set_process_shortcut_input(false)
+    set_process_unhandled_input(false)
 
 
 ## 关闭弹窗后停止接收全局输入，避免影响世界场景和其他面板。
 func _disable_modal_input_listeners() -> void:
     set_process_input(false)
+    set_process_shortcut_input(false)
+    set_process_unhandled_input(false)
 
 
 ## 优先处理 5 键、回车和两个按钮的点击，其余输入只阻断穿透到底层场景。
@@ -90,23 +101,16 @@ func _disable_modal_input_listeners() -> void:
 func _input(event: InputEvent) -> void:
     if not visible or not _is_topmost_runtime_modal():
         return
+    if _handle_modal_button_input(event, [_top_close_button, _continue_button]):
+        return
     if _is_continue_key_event(event):
         get_viewport().set_input_as_handled()
         _close_with_result(true)
         return
-    var click_position: Vector2 = _extract_pressed_position(event)
-    if click_position == Vector2.INF:
+    ## 指针事件交给原生按钮和正文滚动区；世界输入继续由模态锁和遮罩阻断。
+    ## 在这里提前吞掉拖动，会导致长描述无法用手指滚动。
+    if event is InputEventKey:
         get_viewport().set_input_as_handled()
-        return
-    if _is_position_inside_button(_top_close_button, click_position, 24.0):
-        get_viewport().set_input_as_handled()
-        _close_with_result(false)
-        return
-    if _is_position_inside_button(_continue_button, click_position, 12.0):
-        get_viewport().set_input_as_handled()
-        _close_with_result(true)
-        return
-    get_viewport().set_input_as_handled()
 
 
 ## 判断输入是否为确认继续键，同时兼容主键盘、小键盘和物理键位。
@@ -127,30 +131,6 @@ func _is_continue_key_event(event: InputEvent) -> bool:
         or key_event.physical_keycode == KEY_ENTER
         or key_event.physical_keycode == KEY_KP_ENTER
     )
-
-
-## 提取鼠标或触摸按下时的屏幕坐标，其他事件返回无效坐标。
-## event 是待解析的输入事件。
-func _extract_pressed_position(event: InputEvent) -> Vector2:
-    if event is InputEventMouseButton:
-        var mouse_event: InputEventMouseButton = event as InputEventMouseButton
-        if mouse_event.pressed:
-            return mouse_event.position
-    if event is InputEventScreenTouch:
-        var touch_event: InputEventScreenTouch = event as InputEventScreenTouch
-        if touch_event.pressed:
-            return touch_event.position
-    return Vector2.INF
-
-
-## 判断点击位置是否落在按钮热区内，并为移动端提供额外可点击边距。
-## button 是需要检测的按钮节点。
-## click_position 是当前鼠标或触摸的屏幕坐标。
-## touch_margin 是按钮矩形向外扩展的像素数。
-func _is_position_inside_button(button: BaseButton, click_position: Vector2, touch_margin: float) -> bool:
-    if button == null:
-        return false
-    return button.get_global_rect().grow(touch_margin).has_point(click_position)
 
 
 ## 弹窗打开后短暂忽略关闭，避免移动端同一次触屏穿透导致刚打开就取消。
@@ -221,7 +201,7 @@ func _append_content_line(line_text: String, font_size: int) -> void:
     line_container.visible = true
     _apply_content_line_label(line_label, line_text, font_size)
     _content_list.add_child(line_container)
-    if _continue_button != null:
+    if _continue_button != null and _continue_button.get_parent() == _content_list:
         _content_list.move_child(_continue_button, _content_list.get_child_count() - 1)
 
 
@@ -245,10 +225,12 @@ func _set_continue_button_label(label_text: String) -> void:
     var resolved_label: String = label_text.strip_edges()
     if resolved_label.is_empty():
         resolved_label = DEFAULT_CONFIRM_LABEL
-    _continue_button.text = resolved_label
     var nested_label: Label = _continue_button.get_node_or_null("TextureRect/Control/Control") as Label
     if nested_label != null:
+        _continue_button.text = ""
         nested_label.text = resolved_label
+    else:
+        _continue_button.text = resolved_label
 
 
 ## 处理底部继续按钮点击。

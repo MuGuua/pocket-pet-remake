@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://uwvv5qh86u3g"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" uid="uid://fsyqvf70tmac" path="res://scripts/feature/battle/battle_scene.gd" id="0_scene"]
 [ext_resource type="Script" uid="uid://dsevvt38eprmg" path="res://scripts/feature/battle/battle_network_provider.gd" id="1"]
 [ext_resource type="Script" uid="uid://cvrgwv6hpiugx" path="res://scripts/feature/battle/battle_director.gd" id="2"]
@@ -538,6 +540,8 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="ChoiceModal" type="PanelContainer" parent="UILayer/SelectionOverlay/ChoiceModalCenter" unique_id=312578488]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("8_3511k")
@@ -559,6 +563,7 @@ layout_mode = 2
 theme_override_constants/separation = 2
 
 [node name="ChoiceButton1" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000002]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -567,6 +572,7 @@ text = "选项1"
 alignment = 0
 
 [node name="ChoiceButton2" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000003]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -575,6 +581,7 @@ text = "选项2"
 alignment = 0
 
 [node name="ChoiceButton3" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000004]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -583,6 +590,7 @@ text = "选项3"
 alignment = 0
 
 [node name="ChoiceButton4" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000005]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -591,6 +599,7 @@ text = "选项4"
 alignment = 0
 
 [node name="ChoiceButton5" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000006]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -599,6 +608,7 @@ text = "选项5"
 alignment = 0
 
 [node name="ChoiceButton6" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000007]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -607,6 +617,7 @@ text = "选项6"
 alignment = 0
 
 [node name="ChoiceButton7" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000008]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -615,6 +626,7 @@ text = "选项7"
 alignment = 0
 
 [node name="ChoiceButton8" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000009]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -623,6 +635,7 @@ text = "选项8"
 alignment = 0
 
 [node name="ChoiceButton9" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000010]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -631,6 +644,7 @@ text = "选项9"
 alignment = 0
 
 [node name="ChoiceButton10" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoiceListVBox" unique_id=210000011]
+custom_minimum_size = Vector2(0, 80)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -645,6 +659,7 @@ theme_override_constants/separation = 6
 alignment = 1
 
 [node name="ChoicePrevButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1692660577]
+custom_minimum_size = Vector2(88, 88)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
@@ -660,6 +675,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="ChoiceNextButton" type="Button" parent="UILayer/SelectionOverlay/ChoiceModalCenter/ChoiceModal/ChoiceModalMargin/ChoiceModalVBox/ChoicePageBar" unique_id=1162737527]
+custom_minimum_size = Vector2(88, 88)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
@@ -685,9 +701,9 @@ alignment = 1
 
 [node name="TargetConfirmButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=332848194]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 56)
+custom_minimum_size = Vector2(200, 88)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 30
 theme_override_styles/normal = SubResource("StyleBoxTexture_te27b")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_7i1my")
 theme_override_styles/hover = SubResource("StyleBoxTexture_2wmvw")
@@ -702,9 +718,9 @@ size_flags_horizontal = 4
 
 [node name="TargetCancelButton" type="Button" parent="UILayer/SelectionOverlay/TargetCancelBar" unique_id=442412752]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 56)
+custom_minimum_size = Vector2(200, 88)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 30
 theme_override_styles/normal = SubResource("StyleBoxTexture_tc5fe")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_tpsmh")
 theme_override_styles/hover = SubResource("StyleBoxTexture_3511k")

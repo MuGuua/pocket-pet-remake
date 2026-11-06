@@ -12,6 +12,7 @@ texture_margin_right = 8.0
 texture_margin_bottom = 8.0
 
 [node name="ItemSlotPicker" type="Control" unique_id=970526074]
+visible = false
 custom_minimum_size = Vector2(500, 300)
 layout_mode = 3
 anchors_preset = 0
@@ -39,10 +40,13 @@ layout_mode = 2
 size_flags_vertical = 4
 
 [node name="Control" type="Control" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=2114809287]
-custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=1954655953]
+text_overrun_behavior = 3
+custom_minimum_size = Vector2(0, 0)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -57,8 +61,8 @@ vertical_alignment = 1
 
 [node name="TopCloseButton" parent="ScrollContainer/VBoxContainer/Title/HeaderRow" unique_id=1560665525 instance=ExtResource("3_close_btn")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(40, 40)
-custom_maximum_size = Vector2(-1, -1)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 layout_mode = 2
 
 [node name="PanelRoot" type="PanelContainer" parent="ScrollContainer/VBoxContainer" unique_id=44349300]

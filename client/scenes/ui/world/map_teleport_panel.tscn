@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://1tfwmmj6fo00"]
 
+[ext_resource type="Material" path="res://resources/ui/pixel_panel_material.tres" id="ref_panel_material"]
+
 [ext_resource type="Script" uid="uid://c5qjullp1cqr6" path="res://scripts/ui/world/map_teleport_panel.gd" id="1_e04bd"]
 [ext_resource type="Texture2D" uid="uid://ve0gd827diox" path="res://asset/kdjl-map-points/精灵迷宫.png" id="2_maze"]
 [ext_resource type="StyleBox" uid="uid://cas61vsp4shl2" path="res://dialogue/原版样式.tres" id="2_ot0fe"]
@@ -149,6 +151,8 @@ grow_vertical = 1
 mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="Overlay/PanelStack" unique_id=2116402111]
+material = ExtResource("ref_panel_material")
+texture_filter = 1
 custom_minimum_size = Vector2(680, 1000)
 layout_mode = 1
 anchors_preset = 15
@@ -174,6 +178,8 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1572543154]
+text_overrun_behavior = 3
+custom_minimum_size = Vector2(0, 0)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -184,8 +190,8 @@ vertical_alignment = 1
 
 [node name="CloseButton" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Header" unique_id=1545545634 instance=ExtResource("6_close_button")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(60, 60)
-custom_maximum_size = Vector2(60, 60)
+custom_minimum_size = Vector2(88, 88)
+custom_maximum_size = Vector2(88, 88)
 layout_mode = 2
 focus_mode = 0
 
@@ -832,8 +838,8 @@ alignment = 1
 
 [node name="WorldMapButton" type="Button" parent="Overlay/PanelStack/Panel/PanelMargin/Content/Navigation" unique_id=2126170262]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(442, 68)
+custom_minimum_size = Vector2(442, 88)
 layout_mode = 2
 mouse_default_cursor_shape = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "世界地图"

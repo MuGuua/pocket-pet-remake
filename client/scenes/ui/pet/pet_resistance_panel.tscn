@@ -5,7 +5,7 @@
 [ext_resource type="Theme" uid="uid://dishtikvukgt4" path="res://scenes/ui/pet/pet_skill_button_theme.tres" id="3_dm5ub"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1v26t"]
-bg_color = Color(0.6, 0.6, 0.6, 0.05490196)
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_o0mde"]
 atlas = ExtResource("2_dm5ub")
@@ -28,7 +28,7 @@ atlas = ExtResource("2_dm5ub")
 region = Rect2(90, 0, 18, 18)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tx6cj"]
-bg_color = Color(0.06666667, 0.16470589, 0.33333334, 0.43529412)
+bg_color = Color(0.06666667, 0.16470589, 0.33333334, 0)
 corner_radius_top_left = 16
 corner_radius_top_right = 16
 corner_radius_bottom_right = 16

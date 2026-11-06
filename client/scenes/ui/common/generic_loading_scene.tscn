@@ -46,6 +46,7 @@ animations = [{
 load_path = "res://.godot/imported/loading1.png-23421f8dafd382c143fb10b06b070f16.ctex"
 
 [node name="GenericLoadingScene" type="CanvasLayer" unique_id=1305943536]
+visible = false
 layer = 50
 script = ExtResource("1_script")
 
